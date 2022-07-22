@@ -1,0 +1,21 @@
+Exception,Message,TestCase
+java.io.IOException, Invalid keystore format null, org.cryptoapi.bench.predictablekeystorepassword.PredictableKeyStorePasswordCorrected
+java.security.InvalidAlgorithmParameterException, Wrong IV length: must be 16 bytes long null, org.cryptoapi.bench.staticinitializationvector.StaticInitializationVectorABHCase2
+java.lang.NumberFormatException, For input string: "[C@dbe9223" null, org.cryptoapi.bench.predictableseeds.PredictableSeedsABICase4
+java.io.IOException, Invalid keystore format null, org.cryptoapi.bench.predictablekeystorepassword.PredictableKeyStorePasswordABICase1
+java.io.IOException, Invalid keystore format null, org.cryptoapi.bench.predictablekeystorepassword.PredictableKeyStorePasswordABHCase1
+java.io.IOException, Invalid keystore format null, org.cryptoapi.bench.predictablekeystorepassword.PredictableKeyStorePasswordABHCase2
+java.lang.NumberFormatException, For input string: "[C@608b09d9" null, org.cryptoapi.bench.staticsalts.StaticSaltsABICase2
+java.security.InvalidAlgorithmParameterException, Wrong IV length: must be 16 bytes long null, org.cryptoapi.bench.staticinitializationvector.StaticInitializationVectorABHCase1
+java.security.InvalidAlgorithmParameterException, Wrong IV length: must be 16 bytes long null, org.cryptoapi.bench.staticinitializationvector.StaticInitializationVectorABICase3
+java.io.IOException, Invalid keystore format null, org.cryptoapi.bench.predictablekeystorepassword.PredictableKeyStorePasswordABMCCase1
+java.io.IOException, Invalid keystore format null, org.cryptoapi.bench.predictablekeystorepassword.PredictableKeyStorePasswordABICase2
+java.io.IOException, Invalid keystore format null, org.cryptoapi.bench.predictablekeystorepassword.PredictableKeyStorePasswordABICase3
+java.net.UnknownHostException, my.host.name null, org.cryptoapi.bench.impropersslsocketfactory.ImproperSocketManualHostBBCase1
+java.security.InvalidAlgorithmParameterException, Wrong IV length: must be 16 bytes long null, org.cryptoapi.bench.staticinitializationvector.StaticInitializationVectorABMCCase1
+java.io.IOException, Invalid keystore format null, org.cryptoapi.bench.predictablekeystorepassword.PredictableKeyStorePasswordBBCase1
+java.security.InvalidAlgorithmParameterException, Wrong IV length: must be 16 bytes long null, org.cryptoapi.bench.staticinitializationvector.StaticInitializationVectorABICase1
+java.security.InvalidAlgorithmParameterException, Wrong IV length: must be 16 bytes long null, org.cryptoapi.bench.staticinitializationvector.StaticInitializationVectorBBCase1
+java.net.MalformedURLException, no protocol: [C@62b849a8 null, org.cryptoapi.bench.http.HttpProtocolABICase2
+java.io.IOException, Invalid keystore format null, org.cryptoapi.bench.predictablekeystorepassword.PredictableKeyStorePasswordABPSCase1
+java.lang.NumberFormatException, For input string: "abcde" null, org.cryptoapi.bench.staticinitializationvector.StaticInitializationVectorABICase2

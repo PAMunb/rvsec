@@ -1,0 +1,256 @@
+---
+title: "JavaMOP"
+author: "Rodrigo Bonifácio et al."
+date: "1/26/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+setwd(".")
+library(sqldf)
+library(xtable)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r load}
+bench02mop <- read.csv("mop-report.csv", head=T, sep=",")
+bench02cc  <- read.csv("cc-report-converted.csv", head=T, sep=",")
+bench02cg <- read.csv("cg-report-converted.csv", head=T, sep=",")
+
+gt <- read.csv("bench02-gt-converted.csv", head=T, sep=",")
+
+gt <- na.omit(gt)
+
+nrow(bench02mop)
+colnames(bench02mop)
+
+nrow(bench02cc)
+colnames(bench02cc)
+
+nrow(bench02cg)
+colnames(bench02cg)
+
+colnames(gt)
+nrow(gt)
+```
+
+```{r descriptive}
+sqldf("select distinct spec from bench02mop order by 1")
+sqldf("select distinct spec from bench02cc order by 1")
+sqldf("select distinct spec from bench02cg order by 1")
+
+
+sqldf("select spec, count(*) from bench02mop group by spec")
+sqldf("select spec, count(*) from bench02cc group by spec")
+sqldf("select spec, count(*) from bench02cg group by spec")
+
+
+sqldf("select error, count(*) from bench02mop group by error")
+sqldf("select error, count(*) from bench02cc group by error")
+sqldf("select error, count(*) from bench02cg group by error")
+```
+
+## Message Digest
+
+```{r}
+md = sqldf("select class, method 
+            from bench02cc 
+            where spec = 'MessageDigestSpec'")
+            
+sqldf("select b1.class, b1.method 
+       from bench02mop b1 
+       where b1.spec = 'MessageDigestSpec' and 
+             (b1.class, b1.method) not in (select b2.class, b2.method from md b2)")
+```
+
+## Cipher
+
+```{r}
+md = sqldf("select class, method 
+            from bench02mop
+            where spec = 'CipherSpec'")
+            
+sqldf("select b1.class, b1.method 
+       from bench02cc b1 
+       where b1.spec = 'CipherSpec' and 
+             (b1.class, b1.method) not in (select b2.class, b2.method from md b2)")
+```
+
+## IVParameterSpec
+
+```{r}
+md = sqldf("select class, method 
+            from bench02mop
+            where spec = 'IvParameterSpecSpec'")
+            
+sqldf("select b1.class, b1.method 
+       from bench02cc b1 
+       where b1.spec = 'IvParameterSpecSpec' and 
+             (b1.class, b1.method) not in (select b2.class, b2.method from md b2)
+       order by 1" )
+```
+
+
+## SecureRandomSpec
+
+```{r}
+md = sqldf("select class, method 
+            from bench02mop
+            where spec = 'SecureRandomSpec'")
+            
+sqldf("select b1.class, b1.method 
+       from bench02cc b1 
+       where b1.spec = 'SecureRandomSpec' and 
+             (b1.class, b1.method) not in (select b2.class, b2.method from md b2)
+       order by 1" )
+```
+
+
+## Ground Truth (MOP)
+
+```{r}
+gt <- sqldf("select propertyShortName, class, method, vulnerability 
+            from gt")
+
+nrow(gt)
+
+tp <- gt[gt$vulnerability == "TRUE",]
+tn <- gt[gt$vulnerability == "FALSE",]
+
+sqldf("select count(distinct class) from tp")
+sqldf("select count(distinct class) from tn")
+
+# compute true positive 
+mop_tp <- sqldf("select count(distinct className) as tp
+                 from bench02mop 
+                 where className in (select class from tp)")
+
+# fcompute alse positive 
+mop_fp <- sqldf("select count(distinct className) as fp
+                 from bench02mop 
+                 where className in (select class from tn)")
+
+
+
+# compute false-negative  
+mop_fn <- sqldf("select count(distinct class) as fn
+                 from tp 
+                 where class not in (select className from bench02mop)")
+
+# MOP true positives
+mop_tp
+
+# MOP false positives
+mop_fp
+
+# MOP false negatives
+mop_fn
+
+
+
+precision_mop <- mop_tp$tp / (mop_tp$tp + mop_fp$fp)
+precision_mop
+
+recall_mop <- mop_tp$tp / (mop_tp$tp + mop_fn$fn)
+recall_mop
+```
+
+
+## Ground Truth (CC)
+
+```{r}
+# compute true positive 
+cc_tp <- sqldf("select count(distinct className) as tp
+                from bench02cc
+                where className in (select class from tp)")
+
+# compute false positive 
+cc_fp <- sqldf("select count(distinct className) as fp
+                from bench02cc
+                where className in (select class from tn)")
+
+# compute false-negative  
+cc_fn <- sqldf("select count(distinct class) as fn
+                from tp 
+                where class not in (select className from bench02cc)")
+
+
+# CC true positives
+cc_tp
+
+# CC false positives
+cc_fp
+
+# CC false negatives
+cc_fn
+
+precision_cc <- cc_tp$tp / (cc_tp$tp + cc_fp$fp)
+precision_cc
+
+recall_cc <- cc_tp$tp / (cc_tp$tp + cc_fn$fn)
+recall_cc
+```
+
+## Ground Truth (CG)
+
+```{r}
+# compute true positive 
+cg_tp <- sqldf("select count(distinct className) as tp
+                from bench02cg
+                where className in (select class from tp)")
+
+# compute false positive 
+cg_fp <- sqldf("select count(distinct className) as fp
+                from bench02cg
+                where className in (select class from tn)")
+
+# compute false-negative  
+cg_fn <- sqldf("select count(distinct class) as fn
+                from tp 
+                where class not in (select className from bench02cg)")
+
+
+# CG true positives
+cg_tp
+
+# CC false positives
+cg_fp
+
+# CC false negatives
+cg_fn
+
+precision_cg <- cg_tp$tp / (cg_tp$tp + cg_fp$fp)
+precision_cg
+
+recall_cg <- cg_tp$tp / (cg_tp$tp + cg_fn$fn)
+recall_cg
+```
+
+## Examples of FP and FN 
+
+```{r}
+# false positive 
+sqldf("select distinct className
+       from bench02mop 
+       where className in (select class from tn)")
+
+
+
+# false-negative  
+sqldf("select distinct class
+       from tp 
+       where class not in (select className from bench02mop)")
+```
+
+## Errors
+
+```{r}
+errors <- read.csv("bench02-exceptions.csv", head=T, sep=",")
+xtable(sqldf("select Exception, count(*) from errors group by Exception order by 2 desc"))
+```

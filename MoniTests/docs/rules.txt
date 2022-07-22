@@ -1,0 +1,9 @@
+MessageDigest -> no dependencies
+Mac -> KeyGenerator, SecretKey
+Cipher -> KeyGenerator, SecureRandom,
+Signature -> KeyPair/KeyGenerator/Keystore) -> looks like doing all Key* might be worth it
+SSLContext -> SecureRandom, KeyManagerFactory, TrustManagerFactory, SecureRandom
+KeyStore -> no deps
+SecretKeySpec -> no deps
+SecureRandom -> no deps
+KeyPair -> PrivateKey/PublicKey interfaces only, not specified in CRySL

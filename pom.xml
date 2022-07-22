@@ -1,0 +1,280 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+
+	<groupId>br.unb.cic</groupId>
+	<artifactId>mop-parent</artifactId>
+	<version>0.0.1-SNAPSHOT</version>
+	<packaging>pom</packaging>
+
+	<organization>
+		<name>Universidade de Brasília</name>
+		<url>http://www.cic.unb.br/</url>
+	</organization>
+	<inceptionYear>2022</inceptionYear>
+
+	<name>RVSec :: Parent</name>
+
+	<properties>
+		<java.version>8</java.version>
+		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+		<project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
+		<maven.compiler.source>${java.version}</maven.compiler.source>
+		<maven.compiler.target>${java.version}</maven.compiler.target>
+
+		<rv-monitor.version>statistics-1.4</rv-monitor.version>
+		<javamop.version>statistics-4.0</javamop.version>
+		<mop-maven-plugin.version>1.0.2-SNAPSHOT</mop-maven-plugin.version>
+
+		<aspectj.version>1.8.1</aspectj.version>
+		<!-- <aspectj.version>1.9.6</aspectj.version> -->
+
+		<guava.version>19.0</guava.version>
+		<junit.version>4.13.2</junit.version>
+
+		<maven-clean-plugin.version>3.2.0</maven-clean-plugin.version>
+		<maven-resources-plugin.version>3.2.0</maven-resources-plugin.version>
+		<maven-compiler-plugin.version>3.10.1</maven-compiler-plugin.version>
+		<maven-jar-plugin.version>3.2.2</maven-jar-plugin.version>
+		<maven-assembly-plugin.version>3.3.0</maven-assembly-plugin.version>
+		<maven-surefire-plugin.version>3.0.0-M7</maven-surefire-plugin.version>
+		<maven-failsafe-plugin.version>2.17</maven-failsafe-plugin.version>
+
+		<spotbugs-maven-plugin.version>4.7.0.0</spotbugs-maven-plugin.version>
+		<fb-contrib.version>7.4.3.sb</fb-contrib.version>
+		<findsecbugs-plugin.version>1.12.0</findsecbugs-plugin.version>
+		<dependency-check-maven.version>7.1.1</dependency-check-maven.version>
+		<maven-checkstyle-plugin.version>3.1.2</maven-checkstyle-plugin.version>
+		<com.puppycrawl.tools.checkstyle.version>10.3</com.puppycrawl.tools.checkstyle.version>
+	</properties>
+
+	<modules>
+		<module>rv-monitor</module>
+		<module>javamop</module>
+		<module>mop-maven-plugin</module>
+		<module>MoniTests</module>
+	</modules>
+
+	<dependencyManagement>
+		<dependencies>
+			<dependency>
+				<groupId>com.runtimeverification.rvmonitor</groupId>
+				<artifactId>rv-monitor</artifactId>
+				<version>${rv-monitor.version}</version>
+			</dependency>
+
+			<dependency>
+				<groupId>org.aspectj</groupId>
+				<artifactId>aspectjrt</artifactId>
+				<version>${aspectj.version}</version>
+			</dependency>
+			<dependency>
+				<groupId>org.aspectj</groupId>
+				<artifactId>aspectjtools</artifactId>
+				<version>${aspectj.version}</version>
+			</dependency>
+			<dependency>
+				<groupId>org.aspectj</groupId>
+				<artifactId>aspectjweaver</artifactId>
+				<version>${aspectj.version}</version>
+			</dependency>
+
+			<dependency>
+				<groupId>com.google.guava</groupId>
+				<artifactId>guava</artifactId>
+				<version>${guava.version}</version>
+			</dependency>
+
+			<dependency>
+				<groupId>junit</groupId>
+				<artifactId>junit</artifactId>
+				<version>${junit.version}</version>
+				<scope>test</scope>
+			</dependency>
+			<dependency>
+				<groupId>org.apache.maven.surefire</groupId>
+				<artifactId>surefire-junit4</artifactId>
+				<version>${maven-surefire-plugin.version}</version>
+				<scope>test</scope>
+			</dependency>
+		</dependencies>
+	</dependencyManagement>
+
+
+
+	<build>
+		<pluginManagement>
+			<plugins>
+				<plugin>
+					<groupId>org.apache.maven.plugins</groupId>
+					<artifactId>maven-clean-plugin</artifactId>
+					<version>${maven-clean-plugin.version}</version>
+				</plugin>
+				<plugin>
+					<groupId>org.apache.maven.plugins</groupId>
+					<artifactId>maven-resources-plugin</artifactId>
+					<version>${maven-resources-plugin.version}</version>
+				</plugin>
+				<plugin>
+					<groupId>org.apache.maven.plugins</groupId>
+					<artifactId>maven-compiler-plugin</artifactId>
+					<version>${maven-compiler-plugin.version}</version>
+					<configuration>
+						<source>${java.version}</source>
+						<target>${java.version}</target>
+						<encoding>${project.build.sourceEncoding}</encoding>
+						<debug>true</debug>
+						<parameters>false</parameters>
+						<verbose>false</verbose>
+						<optimize>true</optimize>
+						<showWarnings>false</showWarnings>
+						<showDeprecation>false</showDeprecation>
+					</configuration>
+				</plugin>
+				<plugin>
+					<groupId>org.apache.maven.plugins</groupId>
+					<artifactId>maven-jar-plugin</artifactId>
+					<version>${maven-jar-plugin.version}</version>
+				</plugin>
+				<plugin>
+					<groupId>org.apache.maven.plugins</groupId>
+					<artifactId>maven-assembly-plugin</artifactId>
+					<version>${maven-assembly-plugin.version}</version>
+				</plugin>
+				<plugin>
+					<groupId>org.apache.maven.plugins</groupId>
+					<artifactId>maven-release-plugin</artifactId>
+					<version>2.5.3</version>
+				</plugin>
+				<plugin>
+					<groupId>org.apache.maven.plugins</groupId>
+					<artifactId>maven-surefire-plugin</artifactId>
+					<version>${maven-surefire-plugin.version}</version>
+					<configuration>
+						<runOrder>alphabetical</runOrder>
+						<testFailureIgnore>false</testFailureIgnore>
+						<trimStackTrace>true</trimStackTrace>
+					</configuration>
+				</plugin>
+				<plugin>
+					<groupId>org.apache.maven.plugins</groupId>
+					<artifactId>maven-failsafe-plugin</artifactId>
+					<version>${maven-failsafe-plugin.version}</version>
+				</plugin>
+				<plugin>
+					<groupId>com.github.spotbugs</groupId>
+					<artifactId>spotbugs-maven-plugin</artifactId>
+					<version>${spotbugs-maven-plugin.version}</version>
+					<configuration>
+						<effort>Max</effort>
+						<threshold>Low</threshold>
+						<xmlOutput>true</xmlOutput>
+						<failOnError>false</failOnError>
+						<debug>false</debug>
+						<includeTests>false</includeTests>
+						<spotbugsXmlOutput>true</spotbugsXmlOutput>
+						<onlyAnalyze>br.unb.cic.*</onlyAnalyze>
+						<plugins>
+							<plugin>
+								<groupId>com.mebigfatguy.fb-contrib</groupId>
+								<artifactId>fb-contrib</artifactId>
+								<version>${fb-contrib.version}</version>
+							</plugin>
+							<plugin>
+								<groupId>com.h3xstream.findsecbugs</groupId>
+								<artifactId>findsecbugs-plugin</artifactId>
+								<version>${findsecbugs-plugin.version}</version>
+							</plugin>
+						</plugins>
+					</configuration>
+					<executions>
+						<execution>
+							<goals>
+								<goal>check</goal>
+							</goals>
+						</execution>
+					</executions>
+				</plugin>
+				<plugin>
+					<groupId>org.owasp</groupId>
+					<artifactId>dependency-check-maven</artifactId>
+					<version>${dependency-check-maven.version}</version>
+					<executions>
+						<execution>
+							<goals>
+								<goal>check</goal>
+							</goals>
+						</execution>
+					</executions>
+				</plugin>
+				<plugin>
+					<groupId>br.unb.cic</groupId>
+					<artifactId>mop-maven-plugin</artifactId>
+					<version>${mop-maven-plugin.version}</version>
+					<executions>
+						<execution>
+							<goals>
+								<goal>mop-gen</goal>
+								<goal>agent-gen</goal>
+							</goals>
+						</execution>
+					</executions>
+					<configuration>
+						<pathToMopFiles>src/main/mop</pathToMopFiles>
+						<pathToJavaMop>${basedir}/../javamop/bin</pathToJavaMop>
+						<pathToMonitor>${basedir}/../rv-monitor/bin</pathToMonitor>
+
+						<generateMopStatistics>true</generateMopStatistics>
+					</configuration>
+				</plugin>
+				<plugin>
+					<groupId>org.codehaus.mojo</groupId>
+					<artifactId>javacc-maven-plugin</artifactId>
+					<version>2.6</version>
+				</plugin>
+			</plugins>
+		</pluginManagement>
+		<plugins>
+			<!-- <plugin> -->
+			<!-- <groupId>org.commonjava.maven.plugins</groupId> -->
+			<!-- <artifactId>directory-maven-plugin</artifactId> -->
+			<!-- <version>0.1</version> -->
+			<!-- <executions> -->
+			<!-- <execution> -->
+			<!-- <id>directories</id> -->
+			<!-- <goals> -->
+			<!-- <goal>highest-basedir</goal> -->
+			<!-- </goals> -->
+			<!-- <phase>initialize</phase> -->
+			<!-- <configuration> -->
+			<!-- <property>main.basedir</property> -->
+			<!-- </configuration> -->
+			<!-- </execution> -->
+			<!-- </executions> -->
+			<!-- </plugin> -->
+			<plugin>
+				<groupId>org.commonjava.maven.plugins</groupId>
+				<artifactId>directory-maven-plugin</artifactId>
+				<version>0.1</version>
+				<executions>
+					<execution>
+						<id>directories</id>
+						<goals>
+							<goal>directory-of</goal>
+						</goals>
+						<phase>initialize</phase>
+						<configuration>
+							<property>main.basedir</property>
+							<project>
+								<groupId>br.unb.cic</groupId>
+								<artifactId>mop-parent</artifactId>
+							</project>
+						</configuration>
+					</execution>
+				</executions>
+			</plugin>
+		</plugins>
+	</build>
+
+</project>

@@ -1,0 +1,39 @@
+package mop;
+
+import javax.crypto.spec.DHGenParameterSpec;
+
+import br.unb.cic.mop.eh.*;
+import br.unb.cic.mop.ExecutionContext;
+
+/**
+ * DHGenParameterSpec
+ *
+ * A JavaMOP specification of the correct usage of the
+ * javax.crypto.spec.DHGenParameterSpec;
+ *
+ * @see https://github.com/CROSSINGTUD/Crypto-API-Rules/blob/master/JavaCryptographicArchitecture/src/DHGenParameterSpec.crysl
+ */
+DHGenParameterSpecSpec(DHGenParameterSpec s) {
+
+   DHGenParameterSpec spec;
+
+   event c1 after(int primeSize, int exponentSize) returning(DHGenParameterSpec s):
+    call(public DHGenParameterSpec.new(int, int)) &&
+    args(primeSize, exponentSize) &&
+    condition(exponentSize < primeSize) {
+       spec = s;
+   }
+
+   ere : c1
+
+   @fail {
+      ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "DHGenParameterSpecSpec", "" + __LOC));
+      __RESET;
+   }
+
+   @match {
+      ExecutionContext.instance().setProperty(ExecutionContext.Property.PREPARED_DH, spec);
+      ExecutionContext.instance().setObjectAsInAcceptingState(spec);
+   }
+
+}

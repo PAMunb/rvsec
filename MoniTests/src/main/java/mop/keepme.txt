@@ -1,0 +1,1 @@
+Keeping this file is important for not removing the folder from git.

@@ -1,0 +1,211 @@
+Properties;Files;Code Number;Vulnerability Exists?;Type of Vulnerability;Method name;Line number;Note;;;;;;;;;;;;;;;
+Basis benchmark;PredictableCryptographicKeyBBCase1.java;1.1.1;VERDADEIRO;Static/Contant Key;main();9, 12;;;;;;;;;;;;;;;;
+;CredentialInStringBBCase1.java;18.1.1;VERDADEIRO;Credential in String;main();9;;;;;;;;;;;;;;;;
+;CredentialInStringBBCase2.java;18.1.2;VERDADEIRO;Credential in String;main();15;;;;;;;;;;;;;;;;
+;PredictablePBEPasswordBBCase1.java;2.1.1;VERDADEIRO;Static/Contant password;key();16, 22;;;;;;;;;;;;;;;;
+;PredictablePBEPasswordBBCase2.java;2.1.2;VERDADEIRO;Static/Constant Password;key();16,22;;;;;;;;;;;;;;;;
+;PredictableKeyStorePasswordBBCase1.java;3.1.1;VERDADEIRO;Static/Constant Password;go();23,24;;;;;;;;;;;;;;;;
+;DummyHostNameVerifierCase1.java;4.1.1;VERDADEIRO;Dummy Verifier;verify();8;;;;;;;;;;;;;;;;
+;DummyCertValidationCase1.java;5.1.1;VERDADEIRO;Dummy Certificate;checkServerTrusted();17;;;;;;;;;;;;;;;;
+;DummyCertValidationCase2.java;5.1.2;VERDADEIRO;Dummy Certificate;checkClientTrusted(), checkServerTrusted();11,16;;;;;;;;;;;;;;;;
+;DummyCertValidationCase3.java;5.1.3;VERDADEIRO;Dummy Certificate;checkClientTrusted(), checkServerTrusted(), getAcceptedIssuers();10, 15, 20;;;;;;;;;;;;;;;;
+;ImproperSocketManualHostBBCase1.java;6.1.1;VERDADEIRO;Socket Hostname w/o verification;main();10;;;;;;;;;;;;;;;;
+;HttpProtocolBBCase1.java;7.1.1;VERDADEIRO;HTTP ;main();7;;;;;;;;;;;;;;;;
+;PredictableSeedsBBCase1.java;9.1.1;VERDADEIRO;Constant Seed;main();9,10;;;;;;;;;;;;;;;;
+;PredictableSeedsBBCase2.java;9.1.2;VERDADEIRO;Constant Seed;main();7,8;;;;;;;;;;;;;;;;
+;UntrustedPRNGCase1.java;8.1.1;VERDADEIRO;Usage of Random Method from Library;main();8;;;;;;;;;;;;;;;;
+;StaticSaltsBBCase1.java;10.1.1;VERDADEIRO;Static/Constant Salt;key2();13,15;;;;;;;;;;;;;;;;
+;EcbInSymmCryptoBBCase1.java;11.1.1;VERDADEIRO;Usage of ECB ;go();14,15;;;;;;;;;;;;;;;;
+;StaticInitializationVectorBBCase1.java;12.1.1;VERDADEIRO;Static/Constant IV;go();17,18;;;;;;;;;;;;;;;;
+;LessThan1000IterationPBEBBCase1.java;13.1.1;VERDADEIRO;PBE iteration < 1000;key2();16,17;;;;;;;;;;;;;;;;
+;BrokenCryptoBBCase1.java;14.1.1;VERDADEIRO;DES used;go();13,15,16;;;;;;;;;;;;;;;;
+;BrokenCryptoBBCase2.java;14.1.2;VERDADEIRO;Blowfish used;go();12,14,15;;;;;;;;;;;;;;;;
+;BrokenCryptoBBCase3.java;14.1.3;VERDADEIRO;RC4 used;go();12,14,15;;;;;;;;;;;;;;;;
+;BrokenCryptoBBCase4.java;14.1.4;VERDADEIRO;RC2 used;go();12,14,15;;;;;;;;;;;;;;;;
+;BrokenCryptoBBCase5.java;14.1.5;VERDADEIRO;IDEA used;go();12,14,15;;;;;;;;;;;;;;;;
+;InsecureAsymmetricCipherBBCase1.java;15.1.1;VERDADEIRO;RSA keysize 1024 bits;go();10;;;;;;;;;;;;;;;;
+;BrokenHashBBCase1.java;16.1.1;VERDADEIRO;SHA1 used;main();9;;;;;;;;;;;;;;;;
+;BrokenHashBBCase2.java;16.1.2;VERDADEIRO;MD5 used;main();9;;;;;;;;;;;;;;;;
+;BrokenHashBBCase3.java;16.1.3;VERDADEIRO;MD4 used;main();9;;;;;;;;;;;;;;;;
+;BrokenHashBBCase4.java;16.1.4;VERDADEIRO;MD2 used;main();9;;;;;;;;;;;;;;;;
+;BrokenMacBBCase1.java;17.1.1;VERDADEIRO;HmacMD5;main();16;;;;;;;;;;;;;;;;
+;BrokenMacBBCase2.java;17.1.2;VERDADEIRO;HmacSHA1;main();16;;;;;;;;;;;;;;;;
+;BrokenCryptoCorrected.java;14.1.6;FALSO;---;---;---;;;;;;;;;;;;;;;;
+;BrokenHashCorrected;16.1.5;FALSO;---;---;---;;;;;;;;;;;;;;;;
+;EcbInSymmCryptoCorrected;11.1.2;FALSO;---;---;---;;;;;;;;;;;;;;;;
+;DummyHostNameVerifierCorrected;4.1.2;FALSO;---;---;---;;;;;;;;;;;;;;;;
+;HttpProtocolCase1Corrected;7.1.2;FALSO;---;---;---;;;;;;;;;;;;;;;;
+;LessThan1000IterationPBECorrected;13.1.2;FALSO;---;---;---;;;;;;;;;;;;;;;;
+;PredictableCryptographicKeyCorrected;1.1.2;FALSO;---;---;---;;;;;;;;;;;;;;;;
+;PredictableKeyStorePasswordCorrected;2.1.3;FALSO;---;---;---;;;;;;;;;;;;;;;;
+;PredictablePBEPasswordCorrected;3.1.2;FALSO;---;---;---;;;;;;;;;;;;;;;;
+;PredictableSeedsCorrected;9.1.3;FALSO;---;---;---;;;;;;;;;;;;;;;;
+;StaticInitializationVectorCorrected;12.1.2;FALSO;---;---;---;;;;;;;;;;;;;;;;
+;StaticSaltsCorrected;10.1.2;FALSO;---;---;---;;;;;;;;;;;;;;;;
+;UntrustedPRNGCorrected;8.1.2;FALSO;---;---;---;;;;;;;;;;;;;;;;
+;CredentialInStringCorrected.java;18.1.3;FALSO;---;---;---;;;;;;;;;;;;;;;;
+;BrokenMacCorrected.java;17.1.3;FALSO;HmacSHA256;---;---;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;
+Interprocedural (2 methods);PredictableCryptographicKeyABICase1.java;1.2.1;VERDADEIRO;Static/Contant Key;main(), go();9,16;;;;;;;;;;;;;;;;
+;CredentialInStringABICase1.java;18.2.1;VERDADEIRO;Credential in String;main();9;;;;;;;;;;;;;;;;
+;PredictablePBEPasswordABICase1.java;2.2.1;VERDADEIRO;Static/Contant password;main(), go();13,22;;;;;;;;;;;;;;;;
+;PredictableKeyStorePasswordABICase1.java;3.2.1;VERDADEIRO;Static/Constant Password;main(), go();14,22;;;;;;;;;;;;;;;;
+;HttpProtocolABICase1.java;7.2.1;VERDADEIRO;HTTP ;main(), go();9,15;;;;;;;;;;;;;;;;
+;PredictableSeedsABICase1.java;9.2.1;VERDADEIRO;Constant Seed;main(), go();8,13;;;;;;;;;;;;;;;;
+;PredictableSeedsABICase2.java;9.2.2;VERDADEIRO;Constant Seed;main(), go();7,12;;;;;;;;;;;;;;;;
+;StaticSaltsABICase1.java;10.2.1;VERDADEIRO;Static/Constant Salt;main(), key2();9,16;;;;;;;;;;;;;;;;
+;EcbInSymmCryptoABICase1.java;11.2.1;VERDADEIRO;Usage of ECB ;main(), go();21,12;;;;;;;;;;;;;;;;
+;StaticInitializationVectorABICase1.java;12.2.1;VERDADEIRO;Static/Constant IV;main(), go();21,16;;;;;;;;;;;;;;;;
+;LessThan1000IterationPBEABICase1.java;13.2.1;VERDADEIRO;PBE iteration < 1000;main(), go();10,19;;;;;;;;;;;;;;;;
+;BrokenCryptoABICase1.java;14.2.1;VERDADEIRO;DES used;main(), go();20, 21,12, 14;;;;;;;;;;;;;;;;
+;BrokenCryptoABICase2.java;14.2.2;VERDADEIRO;Blowfish used;main(), go();20,12, 14;;;;;;;;;;;;;;;;
+;BrokenCryptoABICase3.java;14.2.3;VERDADEIRO;RC4 used;main(), go();20,12, 14;;;;;;;;;;;;;;;;
+;BrokenCryptoABICase4.java;14.2.4;VERDADEIRO;RC2 used;main(), go();20,12, 14;;;;;;;;;;;;;;;;
+;BrokenCryptoABICase9.java;14.2.5;VERDADEIRO;IDEA used;main(), go();20,12, 14;;;;;;;;;;;;;;;;
+;InsecureAsymmetricCipherABICase1.java;15.2.1;VERDADEIRO;RSA keysize 1024 bits;main();31;;;;;;;;;;;;;;;;
+;BrokenHashABICase1.java;16.2.1;VERDADEIRO;SHA1 used;main();9;;;;;;;;;;;;;;;;
+;BrokenHashABICase2.java;16.2.2;VERDADEIRO;MD5 used;main();9;;;;;;;;;;;;;;;;
+;BrokenHashABICase3.java;16.2.3;VERDADEIRO;MD4 used;main();9;;;;;;;;;;;;;;;;
+;BrokenHashABICase4.java;16.2.4;VERDADEIRO;MD2 used;main();9;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;
+pure Interprocedural cases;PredictableCryptographicKeyABICase3.java;1.3.1;VERDADEIRO;Static/Contant Key;main(), method2();7,18;;;;;;;;;;;;;;;;
+;CredentialInStringABICase3.java;18.3.1;VERDADEIRO;Credential in String;main();7;;;;;;;;;;;;;;;;
+;PredictablePBEPasswordABICase3.java;2.3.1;VERDADEIRO;Static/Contant password;main(), method2();13,28;;;;;;;;;;;;;;;;
+;PredictableKeyStorePasswordABICase3.java;3.3.1;VERDADEIRO;Static/Constant Password;main(), method2();14,27;;;;;;;;;;;;;;;;
+;HttpProtocolABICase3.java;7.3.1;VERDADEIRO;HTTP ;main(), method2();8,18;;;;;;;;;;;;;;;;
+;PredictableSeedsABICase5.java;9.3.1;VERDADEIRO;Constant Seed;main(), method2();8,17;;;;;;;;;;;;;;;;
+;PredictableSeedsABICase6.java;9.3.2;VERDADEIRO;Constant Seed;main(), method2();7,16;;;;;;;;;;;;;;;;
+;StaticSaltsABICase3.java;10.3.1;VERDADEIRO;Static/Constant Salt;main(), method2();7,18;;;;;;;;;;;;;;;;
+;EcbInSymmCryptoABICase3.java;11.3.1;VERDADEIRO;Usage of ECB ;main(), method2();23,19;;;;;;;;;;;;;;;;
+;StaticInitializationVectorABICase3.java;12.3.1;VERDADEIRO;Static/Constant IV;main(), method2();25, 12;;;;;;;;;;;;;;;;
+;LessThan1000IterationPBEABICase3.java;13.3.1;VERDADEIRO;PBE iteration < 1000;main(), method1();11,23;;;;;;;;;;;;;;;;
+;BrokenCryptoABICase11.java;14.3.1;VERDADEIRO;DES used;main(), method1();23,24,16,18;;;;;;;;;;;;;;;;
+;BrokenCryptoABICase12.java;14.3.2;VERDADEIRO;Blowfish used;main(), method1();23, 15, 17;;;;;;;;;;;;;;;;
+;BrokenCryptoABICase13.java;14.3.3;VERDADEIRO;RC4 used;main(), method1();24,17,19;;;;;;;;;;;;;;;;
+;BrokenCryptoABICase14.java;14.3.4;VERDADEIRO;RC2 used;main(), method1();24,16,18;;;;;;;;;;;;;;;;
+;BrokenCryptoABICase15.java;14.3.5;VERDADEIRO;IDEA used;main(), method1();24, 16, 18;;;;;;;;;;;;;;;;
+;InsecureAsymmetricCipherABICase3.java;15.3.1;VERDADEIRO;RSA keysize 1024 bits;main();36;;;;;;;;;;;;;;;;
+;BrokenHashABICase9.java;16.3.1;VERDADEIRO;SHA1 used;main(), method1();9,18;;;;;;;;;;;;;;;;
+;BrokenHashABICase10.java;16.3.2;VERDADEIRO;MD5 used;main(), method1();9,18;;;;;;;;;;;;;;;;
+;BrokenHashABICase11.java;16.3.3;VERDADEIRO;MD4 used;main(), method1();9,18;;;;;;;;;;;;;;;;
+;BrokenHashABICase12.java;16.3.4;VERDADEIRO;MD2 used;main(), method1();9,18;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;
+Field sensitive;PredictableCryptographicKeyABSCase1.java;1.4.1;VERDADEIRO;Static/Contant Key;PredictableCryptographicKeyABSCase1(), method1();19, 52;;;;;;;;;;;;;;;;
+;CredentialInStringABSCase1.java;18.4.1;;Credential in String;Crypto(), method1();41, 46;;;;;;;;;;;;;;;;
+;PredictablePBEPasswordABSCase1.java;2.4.1;VERDADEIRO;Static/Contant password;PredictablePBEPasswordABSCase1(), method1();10, 37;;;;;;;;;;;;;;;;
+;PredictableKeyStorePasswordABSCase1.java;3.4.1;VERDADEIRO;Static/Constant Password;PredictableKeyStorePasswordABSCase1(), method1();13, 33;;;;;;;;;;;;;;;;
+;HttpProtocolABSCase1.java;7.4.1;VERDADEIRO;HTTP ;HttpProtocolABSCase1(),  method1();9,27;;;;;;;;;;;;;;;;
+;PredictableSeedsABSCase1.java;9.4.1;VERDADEIRO;Constant Seed;PredictableSeedsABSCase1(), method1();16,33;;;;;;;;;;;;;;;;
+;PredictableSeedsABSCase2.java;9.4.2;VERDADEIRO;Constant Seed;PredictableSeedsABSCase2(), method1();14,29;;;;;;;;;;;;;;;;
+;StaticSaltsABSCase1.java;10.4.1;VERDADEIRO;Static/Constant Salt;StaticSaltsABSCase1(), method1();8,26;;;;;;;;;;;;;;;;
+;EcbInSymmCryptoABSCase1.java;11.4.1;VERDADEIRO;Usage of ECB ;EcbInSymmCryptoABSCase1(), method1();13,34;;;;;;;;;;;;;;;;
+;StaticInitializationVectorABSCase1.java;12.4.1;VERDADEIRO;Static/Constant IV;StaticInitializationVectorABSCase1(), method1();15, 32;;;;;;;;;;;;;;;;
+;LessThan1000IterationPBEABSCase1.java;13.4.1;VERDADEIRO;PBE iteration < 1000;LessThan1000IterationPBEABSCase1(), method1();15,37;;;;;;;;;;;;;;;;
+;BrokenCryptoABSCase1.java;14.4.1;VERDADEIRO;DES used;BrokenCryptoABSCase1(), encrypt();11, 28, 30;;;;;;;;;;;;;;;;
+;BrokenCryptoABSCase2.java;14.4.2;VERDADEIRO;Blowfish used;BrokenCryptoABSCase2(), encrypt();11, 28, 30;;;;;;;;;;;;;;;;
+;BrokenCryptoABSCase3.java;14.4.3;VERDADEIRO;RC4 used;BrokenCryptoABSCase3(), encrypt();11, 28, 30;;;;;;;;;;;;;;;;
+;BrokenCryptoABSCase4.java;14.4.4;VERDADEIRO;RC2 used;BrokenCryptoABSCase4(), encrypt();11, 28, 30;;;;;;;;;;;;;;;;
+;BrokenCryptoABSCase5.java;14.4.5;VERDADEIRO;IDEA used;BrokenCryptoABSCase5(), encrypt();11, 28, 30;;;;;;;;;;;;;;;;
+;BrokenHashABSCase1.java;16.4.1;VERDADEIRO;SHA1 used;BrokenHashABSCase1(), encrypt();14,30;;;;;;;;;;;;;;;;
+;BrokenHashABSCase2.java;16.4.2;VERDADEIRO;MD5 used;BrokenHashABSCase2(), encrypt();14,30;;;;;;;;;;;;;;;;
+;BrokenHashABSCase3.java;16.4.3;VERDADEIRO;MD4 used;BrokenHashABSCase3(), encrypt();14,30;;;;;;;;;;;;;;;;
+;BrokenHashABSCase4.java;16.4.4;VERDADEIRO;MD2 used;BrokenHashABSCase4(), encrypt();14,30;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;
+Advanced False Positive Test Cases;CredentialInStringABHCase1.java;18.5.1;VERDADEIRO;Credential in String;main();11;;;;;;;;;;;;;;;;
+;PredictableCryptographicKeyABHCase2.java;1.5.2;VERDADEIRO;Static/Contant Key;main();13,18,22;;;;;;;;;;;;;;;;
+;PredictablePBEPasswordABHCase1.java;2.5.1;FALSO;---;---;---;;;;;;;;;;;;;;;;
+;PredictablePBEPasswordABHCase2.java;2.5.2;VERDADEIRO;Static/Contant password;main();16, 21, 30;;;;;;;;;;;;;;;;
+;PredictableKeyStorePasswordABHCase1.java;3.5.1;FALSO;---;---;---;;;;;;;;;;;;;;;;
+;PredictableKeyStorePasswordABHCase2.java;3.5.2;VERDADEIRO;Static/Constant Password;go();22,27,31;;;;;;;;;;;;;;;;
+;PredictableSeedsABHCase2.java;9.5.1;VERDADEIRO;Constant Seed;main();16,19;;;;;;;;;;;;;;;;
+;PredictableSeedsABHCase4.java;9.5.2;VERDADEIRO;Constant Seed;main();20,22;;;;;;;;;;;;;;;;
+;StaticSaltsABHCase1.java;10.5.2;VERDADEIRO;Static/Constant Salt;key2();15, 20, 25;;;;;;;;;;;;;;;;
+;StaticInitializationVectorABHCase1.java;12.5.1;VERDADEIRO;Static/Constant IV;go();19, 21;;;;;;;;;;;;;;;;
+;StaticInitializationVectorABHCase2.java;12.5.2;VERDADEIRO;Static/Constant IV;go();22, 31;;;;;;;;;;;;;;;;
+;LessThan1000IterationPBEABHCase1.java;13.5.1;VERDADEIRO;PBE iteration < 1000;key2();20,27;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;
+Interprocedural + Field Sensitive;PredictableCryptographicKeyABICase2.java;1.6.1;VERDADEIRO;Static/Contant Key;go();8,27;;;;;;;;;;;;;;;;
+;CredentialInStringABICase2.java;18.6.1;VERDADEIRO;Credential in String;---;8;;;;;;;;;;;;;;;;
+;PredictablePBEPasswordABICase2.java;2.6.1;VERDADEIRO;Static/Contant password;go();10,33;;;;;;;;;;;;;;;;
+;PredictableKeyStorePasswordABICase2.java;3.6.1;VERDADEIRO;Static/Constant Password;go();14, 33;;;;;;;;;;;;;;;;
+;HttpProtocolABICase2.java;7.6.1;VERDADEIRO;HTTP ;go();7,23;;;;;;;;;;;;;;;;
+;PredictableSeedsABICase3.java;9.6.1;VERDADEIRO;Constant Seed;go();7,25;;;;;;;;;;;;;;;;
+;PredictableSeedsABICase4.java;9.6.2;VERDADEIRO;Constant Seed;go();6,24;;;;;;;;;;;;;;;;
+;StaticSaltsABICase2.java;10.6.1;VERDADEIRO;Static/Constant Salt;key2();6,27;;;;;;;;;;;;;;;;
+;EcbInSymmCryptoABICase2.java;11.6.1;VERDADEIRO;Usage of ECB ;go();11,18;;;;;;;;;;;;;;;;
+;StaticInitializationVectorABICase2.java;12.6.1;VERDADEIRO;Static/Constant IV;go();13,17;;;;;;;;;;;;;;;;
+;LessThan1000IterationPBEABICase2.java;13.6.1;VERDADEIRO;PBE iteration < 1000;key2();7, 28;;;;;;;;;;;;;;;;
+;BrokenCryptoABICase5.java;14.6.1;VERDADEIRO;DES used;go();11,15,20,22;;;;;;;;;;;;;;;;
+;BrokenCryptoABICase6.java;14.6.2;VERDADEIRO;Blowfish used;go();11,15,17;;;;;;;;;;;;;;;;
+;BrokenCryptoABICase7.java;14.6.3;VERDADEIRO;RC4 used;go();11,15,17;;;;;;;;;;;;;;;;
+;BrokenCryptoABICase8.java;14.6.4;VERDADEIRO;RC2 used;go();11,15,17;;;;;;;;;;;;;;;;
+;BrokenCryptoABICase10.java;14.6.5;VERDADEIRO;IDEA used;go();11,15,17;;;;;;;;;;;;;;;;
+;InsecureAsymmetricCipherABICase2.java;15.6.1;VERDADEIRO;RSA keysize 1024 bits;main();11, 42;;;;;;;;;;;;;;;;
+;BrokenHashABICase5.java;16.6.1;VERDADEIRO;SHA1 used;go();7,25;;;;;;;;;;;;;;;;
+;BrokenHashABICase6.java;16.6.2;VERDADEIRO;MD5 used;go();7,25;;;;;;;;;;;;;;;;
+;BrokenHashABICase7.java;16.6.3;VERDADEIRO;MD4 used;go();7,25;;;;;;;;;;;;;;;;
+;BrokenHashABICase8.java;16.6.4;VERDADEIRO;MD2 used;go();7,25;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;
+Path sensitive cases;PredictableCryptographicKeyABPSCase1.java;1.7.1;FALSO;---;---;---;;;;;;;;;;;;;;;;
+;PredictablePBEPasswordABPSCase1.java;2.7.1;FALSO;---;---;---;;;;;;;;;;;;;;;;
+;PredictableKeyStorePasswordABPSCase1.java;3.7.1;FALSO;---;---;---;;;;;;;;;;;;;;;;
+;HttpProtocolABPSCase1.java;7.7.1;FALSO;---;---;---;;;;;;;;;;;;;;;;
+;PredictableSeedsABPSCase1.java;9.7.1;FALSO;---;---;---;;;;;;;;;;;;;;;;
+;PredictableSeedsABPSCase2.java;9.7.2;FALSO;---;---;---;;;;;;;;;;;;;;;;
+;StaticSaltsABPSCase1.java;10.7.1;FALSO;---;---;---;;;;;;;;;;;;;;;;
+;EcbInSymmCryptoABPSCase1.java;11.7.1;FALSO;---;---;---;;;;;;;;;;;;;;;;
+;StaticInitializationVectorABPSCase1.java;12.7.1;FALSO;---;---;---;;;;;;;;;;;;;;;;
+;LessThan1000IterationPBEABPSCase1.java;13.7.1;FALSO;---;---;---;;;;;;;;;;;;;;;;
+;BrokenCryptoABPSCase1.java;14.7.1;FALSO;---;---;---;;;;;;;;;;;;;;;;
+;BrokenCryptoABPSCase2.java;14.7.2;FALSO;---;---;---;;;;;;;;;;;;;;;;
+;BrokenCryptoABPSCase3.java;14.7.3;FALSO;---;---;---;;;;;;;;;;;;;;;;
+;BrokenCryptoABPSCase4.java;14.7.4;FALSO;---;---;---;;;;;;;;;;;;;;;;
+;BrokenCryptoABPSCase5.java;14.7.5;FALSO;---;---;---;;;;;;;;;;;;;;;;
+;InsecureAsymmetricCipherABPSCase1.java;15.7.1;FALSO;---;---;---;;;;;;;;;;;;;;;;
+;BrokenHashABPSCase1.java;16.7.1;FALSO;---;---;---;;;;;;;;;;;;;;;;
+;BrokenHashABPSCase2.java;16.7.2;FALSO;---;---;---;;;;;;;;;;;;;;;;
+;BrokenHashABPSCase3.java;16.7.3;FALSO;---;---;---;;;;;;;;;;;;;;;;
+;BrokenHashABPSCase4.java;16.7.4;FALSO;---;---;---;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;
+Multiple java classes;"PredictableCryptographicKeyABMCCase1.java
+PredictableCryptographicKeyABMC1.java";1.8.1;VERDADEIRO;Static/Contant Key;main(), go();6, 10;;;;;;;;;;;;;;;;
+;"CredentialInStringABMCCase1.java
+CredentialInStringABMC1.java";18.8.1;VERDADEIRO;Credential in String;main();6;;;;;;;;;;;;;;;;
+;"PredictablePBEPasswordABMCCase1.java
+PredictablePBEPasswordABMC1.java";2.8.1;VERDADEIRO;Static/Contant password;main(), go();6, 16;;;;;;;;;;;;;;;;
+;"PredictableKeyStorePasswordABMCCase1.java
+PredictableKeyStorePasswordABMC1.java";3.8.1;VERDADEIRO;Static/Constant Password;main(), go();11, 17;;;;;;;;;;;;;;;;
+;"HttpProtocolABMCCase1.java
+HttpProtocolABMC1.java";7.8.1;VERDADEIRO;HTTP ;main(), go();8, 8;;;;;;;;;;;;;;;;
+;"PredictableSeedsABMCCase1.java
+PredictableSeedsABMC1.java";9.8.1;VERDADEIRO;Constant Seed;main(), go();7,8;;;;;;;;;;;;;;;;
+;"PredictableSeedsABPMCase2.java
+PredictableSeedsABPM2.java";9.8.2;VERDADEIRO;Constant Seed;main(), go();6,7;;;;;;;;;;;;;;;;
+;"StaticSaltsABMCCase1.java
+StaticSaltsABMC1.java";10.8.1;VERDADEIRO;Static/Constant Salt;main(), go();6, 8;;;;;;;;;;;;;;;;
+;"EcbInSymmCryptoABMCCase1
+EcbInSymmCryptoABMC1";11.8.1;VERDADEIRO;Usage of ECB ;main(), go();10,16;;;;;;;;;;;;;;;;
+;"StaticInitializationVectorABMCCase1.java
+StaticInitializationVectorABMC1.java";12.8.1;VERDADEIRO;Static/Constant IV;main(), go();12,14;;;;;;;;;;;;;;;;
+;"LessThan1000IterationPBEABMCCase1.java
+LessThan1000IterationPBEABMC1.java";13.8.1;VERDADEIRO;PBE iteration < 1000;main(), go();6, 13;;;;;;;;;;;;;;;;
+;"BrokenCryptoABMCCase1.java
+BrokenCryptoABMC1.java";14.8.1;VERDADEIRO;DES used;main(), go();(10, 11), (12, 14);;;;;;;;;;;;;;;;
+;"BrokenCryptoABMCCase2.java
+BrokenCryptoABMC2.java";14.8.2;VERDADEIRO;Blowfish used;main(), go();10, (12, 14);;;;;;;;;;;;;;;;
+;"BrokenCryptoABMCCase3.java
+BrokenCryptoABMC3.java";14.8.3;VERDADEIRO;RC4 used;main(), go();11, (12, 14);;;;;;;;;;;;;;;;
+;"BrokenCryptoABMCCase4.java
+BrokenCryptoABMC4.java";14.8.4;VERDADEIRO;RC2 used;main(), go();13, (12, 14);;;;;;;;;;;;;;;;
+;"BrokenCryptoABMCCase5.java
+BrokenCryptoABMC5.java";14.8.5;VERDADEIRO;IDEA used;main(), go();13, (12, 14);;;;;;;;;;;;;;;;
+;"InsecureAsymmetricCipherABMCCase1.java
+InsecureAsymmetricCipherABMC1.java";15.8.1;VERDADEIRO;RSA keysize 1024 bits;main(), go();16, 14;;;;;;;;;;;;;;;;
+;"BrokenHashABMCCase1.java
+BrokenHashABMC1.java";16.8.1;VERDADEIRO;SHA1 used;main(), go();9, 9;;;;;;;;;;;;;;;;
+;"BrokenHashABMCCase2.java
+BrokenHashABMC2.java";16.8.2;VERDADEIRO;MD5 used;main(), go();9, 10;;;;;;;;;;;;;;;;
+;"BrokenHashABMCCase3.java
+BrokenHashABMC3.java";16.8.3;VERDADEIRO;MD4 used;main(), go();9, 11;;;;;;;;;;;;;;;;
+;"BrokenHashABMCCase4.java
+BrokenHashABMC4.java";16.8.4;VERDADEIRO;MD2 used;main(), go();9, 12;;;;;;;;;;;;;;;;

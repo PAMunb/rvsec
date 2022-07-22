@@ -1,0 +1,2 @@
+The agent generation feature has been removed from javamop, and delegated to the new tool
+"javamopagent". See docs/JavaMOPAgentUsage.md at javamop's top directory for details.

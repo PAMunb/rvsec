@@ -1,0 +1,185 @@
+spec,error,class,className,method
+5,Found: "1024",InsecureAsymmetricCipherABICase3,InsecureAsymmetricCipherABICase3,-
+5,Found: "1024",InsecureAsymmetricCipherABICase1,InsecureAsymmetricCipherABICase1,-
+5,Found: "1024",InsecureAsymmetricCipherBBCase1,InsecureAsymmetricCipherBBCase1,-
+5,Found: "1024",InsecureAsymmetricCipherABMCCase1,InsecureAsymmetricCipherABMCCase1,-
+5,Found: "1024",InsecureAsymmetricCipherABPSCase1,InsecureAsymmetricCipherABPSCase1,-
+1,Found: "DES/ECB/PKCS5Padding",BrokenCryptoABMCCase1,BrokenCryptoABMCCase1,-
+1,Found: "RC2",BrokenCryptoABMCCase4,BrokenCryptoABMCCase4,-
+1,Found: "RC2",BrokenCryptoABSCase4,BrokenCryptoABSCase4,-
+1,Found: "Blowfish",BrokenCryptoBBCase2,BrokenCryptoBBCase2,-
+1,Found: "RC2",BrokenCryptoABPSCase4,BrokenCryptoABPSCase4,-
+1,Found: "DES/ECB/PKCS5Padding",BrokenCryptoABICase11,BrokenCryptoABICase11,-
+1,Found: "AES/ECB/PKCS5Padding",EcbInSymmCryptoABPSCase1,EcbInSymmCryptoABPSCase1,-
+1,Found: "AES/ECB/PKCS5Padding",EcbInSymmCryptoABICase2,EcbInSymmCryptoABICase2,-
+1,Found: "RC4",BrokenCryptoABMCCase3,BrokenCryptoABMCCase3,-
+1,Found: "AES/ECB/PKCS5Padding",EcbInSymmCryptoABMCCase1,EcbInSymmCryptoABMCCase1,-
+1,Found: "DES/ECB/PKCS5Padding",BrokenCryptoABSCase1,BrokenCryptoABSCase1,-
+1,Found: "RC2",BrokenCryptoABICase14,BrokenCryptoABICase14,-
+1,Found: "RC4",BrokenCryptoABICase13,BrokenCryptoABICase13,-
+1,Found: "DES/ECB/PKCS5Padding",BrokenCryptoABPSCase1,BrokenCryptoABPSCase1,-
+1,Found: "AES/ECB/PKCS5Padding",EcbInSymmCryptoABICase1,EcbInSymmCryptoABICase1,-
+1,Found: "Blowfish",BrokenCryptoABICase6,BrokenCryptoABICase6,-
+1,Found: "Blowfish",BrokenCryptoABICase2,BrokenCryptoABICase2,-
+1,Found: "RC4",BrokenCryptoABPSCase3,BrokenCryptoABPSCase3,-
+1,Found: "AES/ECB/PKCS5Padding",EcbInSymmCryptoABICase3,EcbInSymmCryptoABICase3,-
+1,Found: "IDEA",BrokenCryptoABMCCase5,BrokenCryptoABMCCase5,-
+1,Found: "Blowfish",BrokenCryptoABICase12,BrokenCryptoABICase12,-
+1,Found: "IDEA",BrokenCryptoABICase15,BrokenCryptoABICase15,-
+1,Found: "IDEA",BrokenCryptoABICase10,BrokenCryptoABICase10,-
+1,Found: "Blowfish",BrokenCryptoABPSCase2,BrokenCryptoABPSCase2,-
+1,Found: "IDEA",BrokenCryptoABICase9,BrokenCryptoABICase9,-
+1,Found: "RC2",BrokenCryptoABICase4,BrokenCryptoABICase4,-
+1,Found: "RC4",BrokenCryptoABICase7,BrokenCryptoABICase7,-
+1,Found: "IDEA",BrokenCryptoBBCase5,BrokenCryptoBBCase5,-
+1,Found: "RC2",BrokenCryptoABICase8,BrokenCryptoABICase8,-
+1,Found: "AES/ECB/PKCS5Padding",EcbInSymmCryptoBBCase1,EcbInSymmCryptoBBCase1,-
+1,Found: "RC4",BrokenCryptoABICase3,BrokenCryptoABICase3,-
+1,Found: "IDEA",BrokenCryptoABPSCase5,BrokenCryptoABPSCase5,-
+1,Found: "Blowfish",BrokenCryptoABSCase2,BrokenCryptoABSCase2,-
+1,Found: "AES/ECB/PKCS5Padding",EcbInSymmCryptoABSCase1,EcbInSymmCryptoABSCase1,-
+1,Found: "IDEA",BrokenCryptoABSCase5,BrokenCryptoABSCase5,-
+1,Found: "DES/ECB/PKCS5Padding",BrokenCryptoBBCase1,BrokenCryptoBBCase1,-
+1,Found: "DES/ECB/PKCS5Padding",BrokenCryptoABICase5,BrokenCryptoABICase5,-
+1,Found: "Blowfish",BrokenCryptoABMCCase2,BrokenCryptoABMCCase2,-
+1,Found: "RC4",BrokenCryptoBBCase3,BrokenCryptoBBCase3,-
+1,Found: "DES/ECB/PKCS5Padding",BrokenCryptoABICase1,BrokenCryptoABICase1,-
+1,Found: "RC2",BrokenCryptoBBCase4,BrokenCryptoBBCase4,-
+1,Found: "RC4",BrokenCryptoABSCase3,BrokenCryptoABSCase3,-
+13,Found: Untrused PRNG (java.util.Random),UntrustedPRNGCase1,UntrustedPRNGCase1,-
+12,Didn't manually verify hostname in main,ImproperSocketManualHostBBCase1,ImproperSocketManualHostBBCase1,-
+2,Found: "MD4",BrokenHashABICase11,BrokenHashABICase11,-
+2,Found: "MD4",BrokenHashABICase7,BrokenHashABICase7,-
+2,Found: "SHA1",BrokenHashABMCCase1,BrokenHashABMCCase1,-
+2,Found: "MD4",BrokenHashABICase3,BrokenHashABICase3,-
+2,Found: "MD4",BrokenHashABMCCase3,BrokenHashABMCCase3,-
+2,Found: "MD5",BrokenHashABPSCase2,BrokenHashABPSCase2,-
+2,Found: "SHA1",BrokenHashABSCase1,BrokenHashABSCase1,-
+2,Found: "MD5",BrokenHashABICase2,BrokenHashABICase2,-
+2,Found: "MD5",BrokenHashBBCase2,BrokenHashBBCase2,-
+2,Found: "MD2",BrokenHashABMCCase4,BrokenHashABMCCase4,-
+2,Found: "SHA1",BrokenHashBBCase1,BrokenHashBBCase1,-
+2,Found: "MD2",BrokenHashABPSCase4,BrokenHashABPSCase4,-
+2,Found: "MD5",BrokenHashABICase10,BrokenHashABICase10,-
+2,Found: "MD4",BrokenHashBBCase3,BrokenHashBBCase3,-
+2,Found: "MD5",BrokenHashABICase6,BrokenHashABICase6,-
+2,Found: "MD2",BrokenHashABSCase4,BrokenHashABSCase4,-
+2,Found: "MD2",BrokenHashABICase8,BrokenHashABICase8,-
+2,Found: "MD2",BrokenHashABICase4,BrokenHashABICase4,-
+2,Found: "MD2",BrokenHashABICase12,BrokenHashABICase12,-
+2,Found: "MD5",BrokenHashABMCCase2,BrokenHashABMCCase2,-
+2,Found: "SHA1",BrokenHashABICase9,BrokenHashABICase9,-
+2,Found: "SHA1",BrokenHashABPSCase1,BrokenHashABPSCase1,-
+2,Found: "MD4",BrokenHashABSCase3,BrokenHashABSCase3,-
+2,Found: "MD4",BrokenHashABPSCase3,BrokenHashABPSCase3,-
+2,Found: "MD5",BrokenHashABSCase2,BrokenHashABSCase2,-
+2,Found: "MD2",BrokenHashBBCase4,BrokenHashBBCase4,-
+2,Found: "SHA1",BrokenHashABICase5,BrokenHashABICase5,-
+2,Found: "SHA1",BrokenHashABICase1,BrokenHashABICase1,-
+3,Found: Constant "10",PredictableCryptographicKeyBBCase1,PredictableCryptographicKeyBBCase1,-
+3,Found: Constant "8",PredictableCryptographicKeyABICase1,PredictableCryptographicKeyABICase1,-
+3,Found: Constant "30",PredictableCryptographicKeyABICase1,PredictableCryptographicKeyABICase1,-
+3,Found: Constant "5",PredictableCryptographicKeyBBCase1,PredictableCryptographicKeyBBCase1,-
+3,Found: Constant "8",PredictableCryptographicKeyABMCCase1,PredictableCryptographicKeyABMCCase1,-
+3,Found: Constant "25",PredictableCryptographicKeyABHCase2,PredictableCryptographicKeyABHCase2,-
+3,Found: Constant "10",PredictableCryptographicKeyABMCCase1,PredictableCryptographicKeyABMCCase1,-
+3,Found: Constant "7",PredictableCryptographicKeyABMCCase1,PredictableCryptographicKeyABMCCase1,-
+3,Found: Constant "6",PredictableCryptographicKeyABICase3,PredictableCryptographicKeyABICase3,-
+3,Found: Constant "5",PredictableCryptographicKeyABICase1,PredictableCryptographicKeyABICase1,-
+3,Found: Constant "10",PredictableCryptographicKeyABICase1,PredictableCryptographicKeyABICase1,-
+3,Found: Constant "5",PredictableCryptographicKeyABICase3,PredictableCryptographicKeyABICase3,-
+3,Found: Constant "7",PredictableCryptographicKeyABICase1,PredictableCryptographicKeyABICase1,-
+3,Found: Constant "6",PredictableCryptographicKeyABMCCase1,PredictableCryptographicKeyABMCCase1,-
+3,Found: Constant "10",PredictableCryptographicKeyABHCase2,PredictableCryptographicKeyABHCase2,-
+3,Found: Constant "sagar",PredictablePBEPasswordABMCCase1,PredictablePBEPasswordABMCCase1,-
+3,Found: Constant "7",PredictableCryptographicKeyABSCase1,PredictableCryptographicKeyABSCase1,-
+3,Found: Constant "8",PredictableCryptographicKeyABSCase1,PredictableCryptographicKeyABSCase1,-
+3,Found: Constant "20",PredictableCryptographicKeyABMCCase1,PredictableCryptographicKeyABMCCase1,-
+3,Found: Constant "sagar",PredictablePBEPasswordABICase1,PredictablePBEPasswordABICase1,-
+3,Found: Constant "5",PredictableCryptographicKeyABICase3,PredictableCryptographicKeyABICase3,-
+3,Found: Constant "50",PredictableCryptographicKeyABHCase2,PredictableCryptographicKeyABHCase2,-
+3,Found: Constant "sagar",PredictablePBEPasswordABICase3,PredictablePBEPasswordABICase3,-
+3,Found: Constant "20",PredictableCryptographicKeyBBCase1,PredictableCryptographicKeyBBCase1,-
+3,Found: Constant "sagar",PredictablePBEPasswordABSCase1,PredictablePBEPasswordABSCase1,-
+3,Found: Constant "20",PredictableCryptographicKeyABHCase2,PredictableCryptographicKeyABHCase2,-
+3,Found: Constant "30",PredictableCryptographicKeyABICase3,PredictableCryptographicKeyABICase3,-
+3,Found: Constant "30",PredictableCryptographicKeyBBCase1,PredictableCryptographicKeyBBCase1,-
+3,Found: Constant "6",PredictableCryptographicKeyABSCase1,PredictableCryptographicKeyABSCase1,-
+3,Found: Constant "35",PredictableCryptographicKeyABHCase2,PredictableCryptographicKeyABHCase2,-
+3,Found: Constant "saagar",PredictablePBEPasswordABPSCase1,PredictablePBEPasswordABPSCase1,-
+3,Found: Constant "6",PredictableCryptographicKeyABICase1,PredictableCryptographicKeyABICase1,-
+3,Found: Constant "6",PredictableCryptographicKeyBBCase1,PredictableCryptographicKeyBBCase1,-
+3,Found: Constant "10",PredictableCryptographicKeyABICase3,PredictableCryptographicKeyABICase3,-
+3,Found: Constant "10",PredictableCryptographicKeyABSCase1,PredictableCryptographicKeyABSCase1,-
+3,Found: Constant "20",PredictableCryptographicKeyABSCase1,PredictableCryptographicKeyABSCase1,-
+3,Found: Constant "30",PredictableCryptographicKeyABHCase2,PredictableCryptographicKeyABHCase2,-
+3,Found: Constant "8",PredictableCryptographicKeyBBCase1,PredictableCryptographicKeyBBCase1,-
+3,Found: Constant "5",PredictableCryptographicKeyABICase1,PredictableCryptographicKeyABICase1,-
+3,Found: Constant "5",PredictableCryptographicKeyABSCase1,PredictableCryptographicKeyABSCase1,-
+3,Found: Constant "5",PredictableCryptographicKeyABSCase1,PredictableCryptographicKeyABSCase1,-
+3,Found: Constant "15",PredictableCryptographicKeyABHCase2,PredictableCryptographicKeyABHCase2,-
+3,Found: Constant "115",PredictablePBEPasswordBBCase2,PredictablePBEPasswordBBCase2,-
+3,Found: Constant "20",PredictableCryptographicKeyABICase3,PredictableCryptographicKeyABICase3,-
+3,Found: Constant "8",PredictableCryptographicKeyABICase3,PredictableCryptographicKeyABICase3,-
+3,Found: Constant "40",PredictableCryptographicKeyABHCase2,PredictableCryptographicKeyABHCase2,-
+3,Found: Constant "55",PredictableCryptographicKeyABHCase2,PredictableCryptographicKeyABHCase2,-
+3,Found: Constant "7",PredictableCryptographicKeyBBCase1,PredictableCryptographicKeyBBCase1,-
+3,Found: Constant "5",PredictableCryptographicKeyBBCase1,PredictableCryptographicKeyBBCase1,-
+3,Found: Constant "30",PredictableCryptographicKeyABMCCase1,PredictableCryptographicKeyABMCCase1,-
+3,Found: Constant "7",PredictableCryptographicKeyABICase3,PredictableCryptographicKeyABICase3,-
+3,Found: Constant "20",PredictableCryptographicKeyABICase1,PredictableCryptographicKeyABICase1,-
+3,Found: Constant "afix",PredictablePBEPasswordABHCase2,PredictablePBEPasswordABHCase2,-
+3,Found: Constant "5",PredictableCryptographicKeyABMCCase1,PredictableCryptographicKeyABMCCase1,-
+3,Found: Constant "30",PredictableCryptographicKeyABSCase1,PredictableCryptographicKeyABSCase1,-
+3,Found: Constant "45",PredictableCryptographicKeyABHCase2,PredictableCryptographicKeyABHCase2,-
+3,Found: Constant "5",PredictableCryptographicKeyABMCCase1,PredictableCryptographicKeyABMCCase1,-
+10,Found: "abcde",StaticInitializationVectorABMCCase1,StaticInitializationVectorABMCCase1,-
+10,Found: "abcde",StaticInitializationVectorBBCase1,StaticInitializationVectorBBCase1,-
+10,Found: "abcde",StaticInitializationVectorABHCase1,StaticInitializationVectorABHCase1,-
+10,Found: "abcde",StaticInitializationVectorABICase1,StaticInitializationVectorABICase1,-
+10,Found: "abcde",StaticInitializationVectorABPSCase1,StaticInitializationVectorABPSCase1,-
+10,Found: "abcde",StaticInitializationVectorABSCase1,StaticInitializationVectorABSCase1,-
+10,Found: "abcde",StaticInitializationVectorABICase3,StaticInitializationVectorABICase3,-
+10,Found: "abcde",StaticInitializationVectorABHCase2,StaticInitializationVectorABHCase2,-
+9,Found: "-94",StaticSaltsABSCase1,StaticSaltsABSCase1,-
+9,Found: "-94",StaticSaltsABPSCase1,StaticSaltsABPSCase1,-
+9,Found: "aaa",StaticSaltsABHCase1,StaticSaltsABHCase1,-
+9,Found: "-94",StaticSaltsBBCase1,StaticSaltsBBCase1,-
+9,Found: "-94",StaticSaltsABMCCase1,StaticSaltsABMCCase1,-
+9,Found: "-94",StaticSaltsABICase3,StaticSaltsABICase3,-
+9,Found: "-94",StaticSaltsABICase1,StaticSaltsABICase1,-
+8,Found: "20",LessThan1000IterationPBEABICase1,LessThan1000IterationPBEABICase1,-
+8,Found: "20",LessThan1000IterationPBEBBCase1,LessThan1000IterationPBEBBCase1,-
+8,Found: "20",LessThan1000IterationPBEABMCCase1,LessThan1000IterationPBEABMCCase1,-
+8,Found: "20",LessThan1000IterationPBEABSCase1,LessThan1000IterationPBEABSCase1,-
+8,Found: "20",LessThan1000IterationPBEABICase3,LessThan1000IterationPBEABICase3,-
+8,Found: "5",LessThan1000IterationPBEABPSCase1,LessThan1000IterationPBEABPSCase1,-
+11,Found: "-56",PredictableSeedsABICase1,PredictableSeedsABICase1,-
+11,Found: "-56",PredictableSeedsABICase5,PredictableSeedsABICase5,-
+11,Found: "100",PredictableSeedsABICase6,PredictableSeedsABICase6,-
+11,Found: "100",PredictableSeedsABICase2,PredictableSeedsABICase2,-
+11,Found: "aaa",PredictableSeedsABHCase4,PredictableSeedsABHCase4,-
+11,Found: "100",PredictableSeedsABPSCase2,PredictableSeedsABPSCase2,-
+11,Found: "-56",PredictableSeedsABPSCase1,PredictableSeedsABPSCase1,-
+11,Found: "-56",PredictableSeedsBBCase1,PredictableSeedsBBCase1,-
+11,Found: "100",PredictableSeedsABMCCase2,PredictableSeedsABMCCase2,-
+11,Found: "-56",PredictableSeedsABSCase1,PredictableSeedsABSCase1,-
+11,Found: "100",PredictableSeedsBBCase2,PredictableSeedsBBCase2,-
+11,Found: "100",PredictableSeedsABPSCase1,PredictableSeedsABPSCase1,-
+11,Found: "100",PredictableSeedsABSCase1,PredictableSeedsABSCase1,-
+11,Found: "-56",PredictableSeedsABPSCase2,PredictableSeedsABPSCase2,-
+11,Found: "100",PredictableSeedsABICase1,PredictableSeedsABICase1,-
+11,Found: "100",PredictableSeedsABICase5,PredictableSeedsABICase5,-
+11,Found: "100",PredictableSeedsABSCase2,PredictableSeedsABSCase2,-
+11,Found: "100",PredictableSeedsBBCase1,PredictableSeedsBBCase1,-
+11,Found: "-56",PredictableSeedsABMCCase1,PredictableSeedsABMCCase1,-
+11,Found: "100",PredictableSeedsABMCCase1,PredictableSeedsABMCCase1,-
+11,Found: "aaa",PredictableSeedsABHCase2,PredictableSeedsABHCase2,-
+14,Found: "changeit",PredictableKeyStorePasswordABMCCase1,PredictableKeyStorePasswordABMCCase1,-
+14,Found: "changeit",PredictableKeyStorePasswordABICase1,PredictableKeyStorePasswordABICase1,-
+14,Found: "changeit",PredictableKeyStorePasswordABSCase1,PredictableKeyStorePasswordABSCase1,-
+14,Found: "changeit",PredictableKeyStorePasswordBBCase1,PredictableKeyStorePasswordBBCase1,-
+14,Found: "changeit",PredictableKeyStorePasswordABPSCase1,PredictableKeyStorePasswordABPSCase1,-
+14,Found: "changeit",PredictableKeyStorePasswordABICase3,PredictableKeyStorePasswordABICase3,-
+14,Found: "changeit",PredictableKeyStorePasswordABICase2,PredictableKeyStorePasswordABICase2,-
+14,Found: "afix",PredictableKeyStorePasswordABHCase2,PredictableKeyStorePasswordABHCase2,-

@@ -1,0 +1,14 @@
+lib/javamop.jar
+lib/javamoptestsuite.jar
+lib/log/
+test-reports/
+build/
+target/
+release/
+.idea
+*.iml
+*~
+*.bak
+*.rvm
+*.actual.err
+*.actual.out

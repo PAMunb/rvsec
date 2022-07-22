@@ -1,0 +1,112 @@
+<?xml version="1.0"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+
+	<parent>
+		<groupId>br.unb.cic</groupId>
+		<artifactId>mop-parent</artifactId>
+		<version>0.0.1-SNAPSHOT</version>
+	</parent>
+
+	<groupId>com.runtimeverification.rvmonitor</groupId>
+	<artifactId>root</artifactId>
+	<version>statistics-1.4</version>
+	<packaging>pom</packaging>
+
+	<!-- TODO: change scm -->
+	<scm>
+		<connection>scm:git:https://github.com/PAMunb/rv-monitor.git</connection>
+		<tag>HEAD</tag>
+	</scm>
+
+	<modules>
+		<module>rv-monitor-rt</module>
+		<module>logicrepository</module>
+		<module>plugins_logicrepository</module>
+		<module>rv-monitor</module>
+		<!-- <module>installer</module> -->
+	</modules>
+
+	<dependencies>
+		<dependency>
+			<groupId>org.aspectj</groupId>
+			<artifactId>aspectjweaver</artifactId>
+		</dependency>
+
+		<dependency>
+			<groupId>junit</groupId>
+			<artifactId>junit</artifactId>
+		</dependency>
+	</dependencies>
+
+	<build>
+		<pluginManagement>
+			<plugins>
+				<plugin>
+					<groupId>org.codehaus.mojo</groupId>
+					<artifactId>javacc-maven-plugin</artifactId>
+					<executions>
+						<execution>
+							<goals>
+								<goal>javacc</goal>
+							</goals>
+						</execution>
+					</executions>
+					<configuration>
+						<jdkVersion>1.6</jdkVersion>
+					</configuration>
+				</plugin>
+				<plugin>
+					<groupId>org.apache.maven.plugins</groupId>
+					<artifactId>maven-compiler-plugin</artifactId>
+					<configuration>
+						<useIncrementalCompilation>false</useIncrementalCompilation>
+					</configuration>
+				</plugin>
+				<plugin>
+					<groupId>org.apache.maven.plugins</groupId>
+					<artifactId>maven-release-plugin</artifactId>
+				</plugin>
+			</plugins>
+		</pluginManagement>
+	</build>
+
+</project>
+
+
+
+
+
+<!-- <url>http://www.runtimeverification.com</url> <scm> <connection>scm:git:https://github.com/PAMunb/rv-monitor.git</connection> 
+	<tag>HEAD</tag> </scm> <repositories> <repository> <id>runtime.verification</id> 
+	<name>Runtime Verification Repository</name> <url>https://s3.amazonaws.com/repo.runtime.verification/repository/internal</url> 
+	<snapshots> <enabled>false</enabled> </snapshots> <releases> <enabled>true</enabled> 
+	</releases> </repository> <repository> <id>runtime.verification.snapshots</id> 
+	<name>Runtime Verification Snapshot Repository</name> <url>https://s3.amazonaws.com/repo.runtime.verification/repository/snapshots</url> 
+	<snapshots> <enabled>true</enabled> </snapshots> <releases> <enabled>false</enabled> 
+	</releases> </repository> </repositories> <distributionManagement> <repository> 
+	<id>runtime-verification</id> <name>Runtime Verification Repository</name> 
+	<url>http://office.runtimeverification.com:8888/repository/internal</url> 
+	</repository> <snapshotRepository> <id>runtime-verification.snapshots</id> 
+	<name>Runtime Verification Snapshot Repository</name> <url>http://office.runtimeverification.com:8888/repository/snapshots</url> 
+	</snapshotRepository> </distributionManagement> -->
+
+
+
+<!-- <profiles> -->
+<!-- <profile> -->
+<!-- <id>generate-docs</id> -->
+<!-- <modules> -->
+<!-- <module>docs</module> -->
+<!-- </modules> -->
+<!-- <activation> -->
+<!-- <property> -->
+<!-- <name>!skipDocs</name> -->
+<!-- </property> -->
+<!-- </activation> -->
+<!-- </profile> -->
+<!-- </profiles> -->
+ 
+

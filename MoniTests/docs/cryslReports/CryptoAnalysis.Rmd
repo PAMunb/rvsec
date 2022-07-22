@@ -1,0 +1,64 @@
+---
+title: "CryptoAnalysisResults"
+author: "Rodrigo Bonifácio et al."
+date: "12/8/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(sqldf)
+setwd(".")
+```
+
+## Crypto Analysis
+
+To understand which JCA APIs report more warnings using the CognicCrypt approach, 
+we explored two datasets:
+
+   * AndroidCryptoMine from Luis Amaral et al. (unpublished)
+
+   * CryptoMine from Mohammadreza Hazhirpasand, Mohammad Ghafari, and Oscar Nierstrasz. 2020. *Java Cryptography Uses in the Wild*. In Proceedings of the 14th ACM / IEEE International Symposium on Empirical Software Engineering and Measurement (ESEM) (ESEM '20). 
+   
+
+
+```{r load}
+# CryptoMine
+cm <- read.csv("CryptoMine.csv", sep=",")
+cm <- sqldf("select Project_url as project, API_name as rule, Misuse_type as misuse 
+             from cm")
+
+# AndroidCryptoMine
+acm <- read.csv("AndroidCryptoMine.csv", sep=",")
+acm <- sqldf("select Project as project, ViolatedRule as rule, ErrorType as misuse 
+             from acm")
+```
+
+### Summary of Violations for CryptoMine
+
+```{r summary-cm}
+# total of violations: 
+
+sqldf("select count(*) from cm")
+
+# total of violations (over rule)
+
+sqldf("select rule, count(*) from cm 
+       group by rule 
+       order by 2 desc")
+```
+
+
+### Summary of Violations for AndroidCryptoMine
+
+```{r summary-acm}
+# total of violations: 
+
+sqldf("select count(*) from acm")
+
+# total of violations (over rule)
+
+sqldf("select rule, count(*) from acm 
+       group by rule 
+       order by 2 desc")
+```

@@ -1,0 +1,91 @@
+package mop;
+
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLEngine;
+import javax.net.ssl.KeyManager;
+import javax.net.ssl.TrustManager;
+
+import br.unb.cic.mop.eh.*;
+import br.unb.cic.mop.ExecutionContext;
+
+
+/**
+ * SSLContextSpec
+ *
+ * A JavaMOP specification of the correct usage of the
+ * javax.net.ssl.SSLContext class.
+ *
+ * @see https://github.com/CROSSINGTUD/Crypto-API-Rules/blob/master/JavaCryptographicArchitecture/src/SSLContext.crysl
+ */
+SSLContextSpec(SSLContext ctx) {
+
+   List<String> protocols = Arrays.asList("TLSV1.2", "TLSV1.3");
+   String currentProtocol = "";
+
+   SSLContext context;
+
+   SSLEngine engine;
+
+   event g1 after(String protocol) returning(SSLContext ctx):
+    call(public static SSLContext SSLContext.getInstance(String))
+    && args(protocol)
+    && condition(protocols.contains(protocol.toUpperCase())) {
+      context = ctx;
+      currentProtocol = protocol;
+    }
+
+    event g2 after(String protocol, String provider) returning(SSLContext ctx):
+      call(public static SSLContext SSLContext.getInstance(String, String)) &&
+      args(protocol, provider) &&
+      condition(protocols.contains(protocol.toUpperCase())) {
+        context = ctx;
+        currentProtocol = protocol;
+    }
+
+    event unsafe_protocol after(String protocol):
+      call(public static SSLContext SSLContext.getInstance(String)) &&
+      args(protocol) &&
+      condition(!protocols.contains(protocol.toUpperCase())) {
+        currentProtocol = protocol;
+    }
+
+   event init after(SSLContext ctx):
+     call(public void SSLContext.init(KeyManager[], TrustManager[], SecureRandom)) &&
+     target(ctx) {
+       if (!protocols.contains(currentProtocol.toUpperCase())) {
+        ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeProtocol, "SSLContextSpec", "" + __LOC,
+           "expecting one of {TLSv1.2, TLSv1.3} but found " + currentProtocol + "."));
+       }
+       ExecutionContext.instance().setProperty(Property.GENERATE_SSL_CONTEXT, context);
+   }
+
+   event engine after(SSLContext ctx) returning(SSLEngine eng) :
+     call(public void SSLContext.createSSLEngine(..)) &&
+     target(ctx) {
+       ExecutionContext.instance().setProperty(Property.GENERATE_SSL_ENGINE, eng);
+   }
+
+  fsm:
+    start [
+      g1 -> s1
+      g2 -> s1
+    ]
+    s1 [
+      init -> end
+    ]
+    end [
+      engine -> end
+    ]
+
+  alias match1 = end
+
+  @fail {
+    ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "SSLContextSpec", "" + __LOC));
+    ExecutionContext.instance().unsetObjectAsInAcceptingState(context);
+    __RESET;
+  }
+
+  @match1 {
+     ExecutionContext.instance().setObjectAsInAcceptingState(context);
+  }
+}
