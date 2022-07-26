@@ -15,6 +15,11 @@
 	<inceptionYear>2022</inceptionYear>
 
 	<name>RVSec :: Parent</name>
+	
+	<scm>
+		<connection>scm:git:https://github.com/PAMunb/rvsec.git</connection>
+		<tag>HEAD</tag>
+	</scm>
 
 	<properties>
 		<java.version>8</java.version>
@@ -53,7 +58,7 @@
 		<module>rv-monitor</module>
 		<module>javamop</module>
 		<module>mop-maven-plugin</module>
-		<module>MoniTests</module>
+		<module>rvsec</module>
 	</modules>
 
 	<dependencyManagement>

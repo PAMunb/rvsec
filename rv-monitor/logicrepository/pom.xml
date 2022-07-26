@@ -4,13 +4,14 @@
 	<modelVersion>4.0.0</modelVersion>
 
 	<parent>
-		<groupId>com.runtimeverification.rvmonitor</groupId>
-		<artifactId>root</artifactId>
-		<version>statistics-1.4</version>
+		<groupId>br.unb.cic.rvmonitor</groupId>
+		<artifactId>rv-monitor-parent</artifactId>
+		<version>0.0.1-SNAPSHOT</version>
 	</parent>
 
+	<groupId>br.unb.cic.rvmonitor</groupId>
 	<artifactId>logicrepository</artifactId>
-	<name>logicrepository</name>
+	<name>RVSec :: logicrepository</name>
 
 	<build>
 		<plugins>

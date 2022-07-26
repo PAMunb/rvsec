@@ -11,16 +11,17 @@
 		<version>0.0.1-SNAPSHOT</version>
 	</parent>
 
-	<groupId>javamop</groupId>
+	<groupId>br.unb.cic.javamop</groupId>
 	<artifactId>javamop</artifactId>
-	<version>statistics-4.0</version>
-	<name>javamop</name>
+	
+	<name>RVSec :: javamop</name>
 
 	<dependencies>
 		
 		<dependency>
-			<groupId>com.runtimeverification.rvmonitor</groupId>
+			<groupId>br.unb.cic.rvmonitor</groupId>
 			<artifactId>rv-monitor</artifactId>
+			<version>${project.version}</version>
 		</dependency>
 		
 		<!-- A runtime dependency, as JavaMOP uses AspectJ to compile agents. -->

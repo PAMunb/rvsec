@@ -4,74 +4,76 @@
 	<modelVersion>4.0.0</modelVersion>
 
 	<parent>
-		<groupId>com.runtimeverification.rvmonitor</groupId>
-		<artifactId>root</artifactId>
-		<version>statistics-1.4</version>
+		<groupId>br.unb.cic.rvmonitor</groupId>
+		<artifactId>rv-monitor-parent</artifactId>
+		<version>0.0.1-SNAPSHOT</version>
 	</parent>
 
+	<groupId>br.unb.cic.rvmonitor</groupId>
 	<artifactId>rv-monitor</artifactId>
-	<name>rv-monitor</name>
+	
+	<name>RVSec :: rv-monitor</name>
 
 	<dependencies>
 		<dependency>
-			<groupId>com.runtimeverification.rvmonitor</groupId>
+			<groupId>br.unb.cic.rvmonitor</groupId>
 			<artifactId>rv-monitor-rt</artifactId>
 			<version>${project.version}</version>
 		</dependency>
 		<dependency>
-			<groupId>com.runtimeverification.rvmonitor</groupId>
+			<groupId>br.unb.cic.rvmonitor</groupId>
 			<artifactId>logicrepository</artifactId>
 			<version>${project.version}</version>
 		</dependency>
 		<!-- Dependency on all the plugins and docs in the logic repository so 
 			the assembly plugin sees them. -->
 		<dependency>
-			<groupId>com.runtimeverification.rvmonitor.logicrepository.plugins</groupId>
+			<groupId>br.unb.cic.rvmonitor.logicrepository.plugins</groupId>
 			<artifactId>cfg</artifactId>
 			<version>${project.version}</version>
 		</dependency>
 		<dependency>
-			<groupId>com.runtimeverification.rvmonitor.logicrepository.plugins</groupId>
+			<groupId>br.unb.cic.rvmonitor.logicrepository.plugins</groupId>
 			<artifactId>ere</artifactId>
 			<version>${project.version}</version>
 		</dependency>
 		<dependency>
-			<groupId>com.runtimeverification.rvmonitor.logicrepository.plugins</groupId>
+			<groupId>br.unb.cic.rvmonitor.logicrepository.plugins</groupId>
 			<artifactId>fsm</artifactId>
 			<version>${project.version}</version>
 		</dependency>
 		<dependency>
-			<groupId>com.runtimeverification.rvmonitor.logicrepository.plugins</groupId>
+			<groupId>br.unb.cic.rvmonitor.logicrepository.plugins</groupId>
 			<artifactId>ltl</artifactId>
 			<version>${project.version}</version>
 		</dependency>
 		<dependency>
-			<groupId>com.runtimeverification.rvmonitor.logicrepository.plugins</groupId>
+			<groupId>br.unb.cic.rvmonitor.logicrepository.plugins</groupId>
 			<artifactId>pda</artifactId>
 			<version>${project.version}</version>
 		</dependency>
 		<dependency>
-			<groupId>com.runtimeverification.rvmonitor.logicrepository.plugins</groupId>
+			<groupId>br.unb.cic.rvmonitor.logicrepository.plugins</groupId>
 			<artifactId>po</artifactId>
 			<version>${project.version}</version>
 		</dependency>
 		<dependency>
-			<groupId>com.runtimeverification.rvmonitor.logicrepository.plugins</groupId>
+			<groupId>br.unb.cic.rvmonitor.logicrepository.plugins</groupId>
 			<artifactId>ptcaret</artifactId>
 			<version>${project.version}</version>
 		</dependency>
 		<dependency>
-			<groupId>com.runtimeverification.rvmonitor.logicrepository.plugins</groupId>
+			<groupId>br.unb.cic.rvmonitor.logicrepository.plugins</groupId>
 			<artifactId>ptltl</artifactId>
 			<version>${project.version}</version>
 		</dependency>
 		<dependency>
-			<groupId>com.runtimeverification.rvmonitor.logicrepository.plugins</groupId>
+			<groupId>br.unb.cic.rvmonitor.logicrepository.plugins</groupId>
 			<artifactId>srs</artifactId>
 			<version>${project.version}</version>
 		</dependency>
 		<dependency>
-			<groupId>com.runtimeverification.rvmonitor.logicrepository.plugins</groupId>
+			<groupId>br.unb.cic.rvmonitor.logicrepository.plugins</groupId>
 			<artifactId>tfsm</artifactId>
 			<version>${project.version}</version>
 		</dependency>
@@ -84,7 +86,7 @@
 		</dependency>
 		<!-- docs required for assembly -->
 		<!-- <dependency> -->
-		<!-- <groupId>com.runtimeverification.rvmonitor</groupId> -->
+		<!-- <groupId>br.unb.cic.rvmonitor</groupId> -->
 		<!-- <artifactId>docs</artifactId> -->
 		<!-- <version>${project.version}</version> -->
 		<!-- </dependency> -->

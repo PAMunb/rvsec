@@ -2,14 +2,16 @@
 	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
 	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
 	<modelVersion>4.0.0</modelVersion>
-	
+
 	<parent>
-		<groupId>com.runtimeverification.rvmonitor</groupId>
-		<artifactId>root</artifactId>
-		<version>statistics-1.4</version>
+		<groupId>br.unb.cic.rvmonitor</groupId>
+		<artifactId>rv-monitor-parent</artifactId>
+		<version>0.0.1-SNAPSHOT</version>
 	</parent>
-	
+
+	<groupId>br.unb.cic.rvmonitor</groupId>
 	<artifactId>rv-monitor-rt</artifactId>
-	<name>rv-monitor-rt</name>
-	
+
+	<name>RVSec :: rv-monitor-rt</name>
+
 </project>

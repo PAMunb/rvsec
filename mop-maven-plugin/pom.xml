@@ -12,10 +12,9 @@
 
 	<groupId>br.unb.cic</groupId>
 	<artifactId>mop-maven-plugin</artifactId>
-	<version>1.0.2-SNAPSHOT</version>
 	<packaging>maven-plugin</packaging>
 
-	<name>mop-maven-plugin Maven Mojo</name>
+	<name>RVSec :: mop-maven-plugin</name>
 	<description>Maven plugin to generate the JavaMopAgent</description>
 
 	<prerequisites>

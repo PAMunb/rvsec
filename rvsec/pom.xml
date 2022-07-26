@@ -11,8 +11,9 @@
 	</parent>
 
 	<groupId>br.unb.cic</groupId>
-	<artifactId>mop-test-suite</artifactId>
-	<version>1.2.9-SNAPSHOT</version>
+	<artifactId>rvsec</artifactId>
+	
+	<name>RVSec</name>
 
 	<properties>
 		<skipMopAgent>false</skipMopAgent>
@@ -85,8 +86,7 @@
 					</execution>
 				</executions>
 				<configuration>
-<!-- 					<pathToMopFiles>${main.basedir}/${project.name}/src/main/mop</pathToMopFiles> -->
-					<pathToMopFiles>${main.basedir}/MoniTests/src/main/mop</pathToMopFiles>
+					<pathToMopFiles>${main.basedir}/${project.artifactId}/src/main/mop</pathToMopFiles>
 					<pathToJavaMop>${main.basedir}/javamop/bin</pathToJavaMop>
 					<pathToMonitor>${main.basedir}/rv-monitor/bin</pathToMonitor>
 
