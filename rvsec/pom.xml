@@ -22,7 +22,7 @@
 
 	<dependencies>
 		<dependency>
-			<groupId>com.runtimeverification.rvmonitor</groupId>
+			<groupId>br.unb.cic.rvmonitor</groupId>
 			<artifactId>rv-monitor</artifactId>
 		</dependency>
 		<dependency>
