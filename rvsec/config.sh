@@ -5,7 +5,14 @@ if [[ -z "$ASPECTJ_HOME" ]]; then
     exit 1
 fi
 
-CLASSPATH=${HOME}/.m2/repository/com/runtimeverification/rvmonitor/rv-monitor/1.4-SNAPSHOT/rv-monitor-1.4-SNAPSHOT.jar:${HOME}/.m2/repository/com/runtimeverification/rvmonitor/rv-monitor-rt/1.4-SNAPSHOT/rv-monitor-rt-1.4-SNAPSHOT.jar:${ASPECTJ_HOME}/lib/aspectjrt.jar:${ASPECTJ_HOME}/lib/aspectjweaver.jar:${ASPECTJ_HOME}/lib/aspectjtools.jar    
+if [[ -z "$M2_REPO" ]]; then
+    M2_REPO=${HOME}/.m2/repository
+fi
+
+RV_MONITOR_REPO=${M2_REPO}/br/unb/cic/rvmonitor
+RV_MONITOR_VERSION=0.0.1-SNAPSHOT
+
+CLASSPATH=${RV_MONITOR_REPO}/rv-monitor/${RV_MONITOR_VERSION}/rv-monitor-${RV_MONITOR_VERSION}.jar:${RV_MONITOR_REPO}/rv-monitor-rt/${RV_MONITOR_VERSION}/rv-monitor-rt-${RV_MONITOR_VERSION}.jar:${ASPECTJ_HOME}/lib/aspectjrt.jar:${ASPECTJ_HOME}/lib/aspectjweaver.jar:${ASPECTJ_HOME}/lib/aspectjtools.jar    
 
 export CLASSPATH
 
