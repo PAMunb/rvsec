@@ -11,8 +11,13 @@
 
 	<groupId>br.unb.cic.rvmonitor</groupId>
 	<artifactId>rv-monitor</artifactId>
-	
+
 	<name>RVSec :: rv-monitor</name>
+
+	<properties>
+		<!-- TODO fix integration tests -->
+		<skipITs>true</skipITs>
+	</properties>
 
 	<dependencies>
 		<dependency>

@@ -6,7 +6,7 @@
 
 	<parent>
 		<groupId>br.unb.cic</groupId>
-		<artifactId>mop-parent</artifactId>
+		<artifactId>rvsec-parent</artifactId>
 		<version>0.0.1-SNAPSHOT</version>
 	</parent>
 

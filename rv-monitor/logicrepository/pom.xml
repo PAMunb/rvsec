@@ -11,6 +11,7 @@
 
 	<groupId>br.unb.cic.rvmonitor</groupId>
 	<artifactId>logicrepository</artifactId>
+
 	<name>RVSec :: logicrepository</name>
 
 	<build>
@@ -28,4 +29,5 @@
 			</plugin>
 		</plugins>
 	</build>
+
 </project>

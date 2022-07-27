@@ -4,7 +4,7 @@
 	<modelVersion>4.0.0</modelVersion>
 
 	<groupId>br.unb.cic</groupId>
-	<artifactId>mop-parent</artifactId>
+	<artifactId>rvsec-parent</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
 	<packaging>pom</packaging>
 
@@ -15,7 +15,7 @@
 	<inceptionYear>2022</inceptionYear>
 
 	<name>RVSec :: Parent</name>
-	
+
 	<scm>
 		<connection>scm:git:https://github.com/PAMunb/rvsec.git</connection>
 		<tag>HEAD</tag>
@@ -28,14 +28,21 @@
 		<maven.compiler.source>${java.version}</maven.compiler.source>
 		<maven.compiler.target>${java.version}</maven.compiler.target>
 
-		<rv-monitor.version>statistics-1.4</rv-monitor.version>
-		<javamop.version>statistics-4.0</javamop.version>
-		<mop-maven-plugin.version>1.0.2-SNAPSHOT</mop-maven-plugin.version>
+		<!-- <rv-monitor.version>statistics-1.4</rv-monitor.version> -->
+		<!-- <javamop.version>statistics-4.0</javamop.version> -->
+		<!-- <mop-maven-plugin.version>1.0.2-SNAPSHOT</mop-maven-plugin.version> -->
 
 		<aspectj.version>1.8.1</aspectj.version>
 		<!-- <aspectj.version>1.9.6</aspectj.version> -->
 
+		<scala.version>2.11.12</scala.version>
+		<scala.compat.version>2.11</scala.compat.version>
+		<scala-maven-plugin.version>4.6.3</scala-maven-plugin.version>
+
+		<commons-lang3.version>3.0</commons-lang3.version>
+		<commons-io.version>2.4</commons-io.version>
 		<guava.version>19.0</guava.version>
+
 		<junit.version>4.13.2</junit.version>
 
 		<maven-clean-plugin.version>3.2.0</maven-clean-plugin.version>
@@ -46,6 +53,7 @@
 		<maven-surefire-plugin.version>3.0.0-M7</maven-surefire-plugin.version>
 		<maven-failsafe-plugin.version>2.17</maven-failsafe-plugin.version>
 
+		<jacoco-maven-plugin.version>0.8.8</jacoco-maven-plugin.version>
 		<spotbugs-maven-plugin.version>4.7.0.0</spotbugs-maven-plugin.version>
 		<fb-contrib.version>7.4.3.sb</fb-contrib.version>
 		<findsecbugs-plugin.version>1.12.0</findsecbugs-plugin.version>
@@ -66,7 +74,12 @@
 			<dependency>
 				<groupId>br.unb.cic.rvmonitor</groupId>
 				<artifactId>rv-monitor</artifactId>
-				<version>${rv-monitor.version}</version>
+				<version>${project.version}</version>
+			</dependency>
+			<dependency>
+				<groupId>br.unb.cic.javamop</groupId>
+				<artifactId>javamop</artifactId>
+				<version>${project.version}</version>
 			</dependency>
 
 			<dependency>
@@ -86,9 +99,31 @@
 			</dependency>
 
 			<dependency>
+				<groupId>org.scala-lang</groupId>
+				<artifactId>scala-library</artifactId>
+				<version>${scala.version}</version>
+			</dependency>
+			<dependency>
+				<groupId>org.scala-lang.modules</groupId>
+				<artifactId>scala-parser-combinators_${scala.compat.version}</artifactId>
+				<version>1.1.1</version>
+			</dependency>
+
+			<dependency>
 				<groupId>com.google.guava</groupId>
 				<artifactId>guava</artifactId>
 				<version>${guava.version}</version>
+			</dependency>
+
+			<dependency>
+				<groupId>org.apache.commons</groupId>
+				<artifactId>commons-lang3</artifactId>
+				<version>${commons-lang3.version}</version>
+			</dependency>
+			<dependency>
+				<groupId>commons-io</groupId>
+				<artifactId>commons-io</artifactId>
+				<version>${commons-io.version}</version>
 			</dependency>
 
 			<dependency>
@@ -106,11 +141,15 @@
 		</dependencies>
 	</dependencyManagement>
 
-
-
 	<build>
 		<pluginManagement>
 			<plugins>
+				<plugin>
+					<groupId>br.unb.cic</groupId>
+					<artifactId>mop-maven-plugin</artifactId>
+					<version>${project.version}</version>
+				</plugin>
+
 				<plugin>
 					<groupId>org.apache.maven.plugins</groupId>
 					<artifactId>maven-clean-plugin</artifactId>
@@ -153,6 +192,11 @@
 					<version>2.5.3</version>
 				</plugin>
 				<plugin>
+					<groupId>org.jacoco</groupId>
+					<artifactId>jacoco-maven-plugin</artifactId>
+					<version>${jacoco-maven-plugin.version}</version>
+				</plugin>
+				<plugin>
 					<groupId>org.apache.maven.plugins</groupId>
 					<artifactId>maven-surefire-plugin</artifactId>
 					<version>${maven-surefire-plugin.version}</version>
@@ -166,6 +210,11 @@
 					<groupId>org.apache.maven.plugins</groupId>
 					<artifactId>maven-failsafe-plugin</artifactId>
 					<version>${maven-failsafe-plugin.version}</version>
+				</plugin>
+				<plugin>
+					<groupId>net.alchim31.maven</groupId>
+					<artifactId>scala-maven-plugin</artifactId>
+					<version>${scala-maven-plugin.version}</version>
 				</plugin>
 				<plugin>
 					<groupId>com.github.spotbugs</groupId>
@@ -214,26 +263,6 @@
 					</executions>
 				</plugin>
 				<plugin>
-					<groupId>br.unb.cic</groupId>
-					<artifactId>mop-maven-plugin</artifactId>
-					<version>${mop-maven-plugin.version}</version>
-					<executions>
-						<execution>
-							<goals>
-								<goal>mop-gen</goal>
-								<goal>agent-gen</goal>
-							</goals>
-						</execution>
-					</executions>
-					<configuration>
-						<pathToMopFiles>src/main/mop</pathToMopFiles>
-						<pathToJavaMop>${basedir}/../javamop/bin</pathToJavaMop>
-						<pathToMonitor>${basedir}/../rv-monitor/bin</pathToMonitor>
-
-						<generateMopStatistics>true</generateMopStatistics>
-					</configuration>
-				</plugin>
-				<plugin>
 					<groupId>org.codehaus.mojo</groupId>
 					<artifactId>javacc-maven-plugin</artifactId>
 					<version>2.6</version>
@@ -241,23 +270,6 @@
 			</plugins>
 		</pluginManagement>
 		<plugins>
-			<!-- <plugin> -->
-			<!-- <groupId>org.commonjava.maven.plugins</groupId> -->
-			<!-- <artifactId>directory-maven-plugin</artifactId> -->
-			<!-- <version>0.1</version> -->
-			<!-- <executions> -->
-			<!-- <execution> -->
-			<!-- <id>directories</id> -->
-			<!-- <goals> -->
-			<!-- <goal>highest-basedir</goal> -->
-			<!-- </goals> -->
-			<!-- <phase>initialize</phase> -->
-			<!-- <configuration> -->
-			<!-- <property>main.basedir</property> -->
-			<!-- </configuration> -->
-			<!-- </execution> -->
-			<!-- </executions> -->
-			<!-- </plugin> -->
 			<plugin>
 				<groupId>org.commonjava.maven.plugins</groupId>
 				<artifactId>directory-maven-plugin</artifactId>
@@ -273,7 +285,7 @@
 							<property>main.basedir</property>
 							<project>
 								<groupId>br.unb.cic</groupId>
-								<artifactId>mop-parent</artifactId>
+								<artifactId>rvsec-parent</artifactId>
 							</project>
 						</configuration>
 					</execution>
