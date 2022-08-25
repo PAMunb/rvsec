@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Copyright (c) 2002-2014 JavaMOP Team. All Rights Reserved. -->
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+
+	<parent>
+		<groupId>br.unb.cic</groupId>
+		<artifactId>rvsec-parent</artifactId>
+		<version>0.0.1-SNAPSHOT</version>
+	</parent>
+
+	<groupId>br.unb.cic.rvandroid</groupId>
+	<artifactId>rv-android</artifactId>
+
+	<name>RVSec :: rv-android</name>
+
+	<properties>
+		<aspectj.version>1.9.6</aspectj.version>
+	</properties>
+
+	<dependencies>
+
+		<dependency>
+			<groupId>br.unb.cic.rvmonitor</groupId>
+			<artifactId>rv-monitor-rt</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>br.unb.cic</groupId>
+			<artifactId>rvsec</artifactId>
+		</dependency>
+
+		<dependency>
+			<groupId>org.aspectj</groupId>
+			<artifactId>aspectjrt</artifactId>
+		</dependency>
+
+<dependency>
+    <groupId>org.apache.maven.surefire</groupId>
+    <artifactId>surefire-booter</artifactId>
+    <version>3.0.0-M7</version>
+</dependency>
+
+
+	</dependencies>
+
+	<build>
+		<defaultGoal>compile</defaultGoal>
+		<plugins>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-dependency-plugin</artifactId>
+				<version>3.3.0</version>
+				<executions>
+					<execution>
+						<id>copy-dependencies</id>
+						<phase>process-resources</phase>
+						<goals>
+							<goal>copy-dependencies</goal>
+						</goals>
+						<configuration>
+							<outputDirectory>lib_tmp</outputDirectory>
+							<overWriteReleases>false</overWriteReleases>
+							<overWriteSnapshots>false</overWriteSnapshots>
+							<overWriteIfNewer>true</overWriteIfNewer>
+							<stripVersion>true</stripVersion>
+						</configuration>
+					</execution>
+				</executions>
+			</plugin>
+			<!-- <plugin> -->
+			<!-- <groupId>org.apache.maven.plugins</groupId> -->
+			<!-- <artifactId>maven-assembly-plugin</artifactId> -->
+			<!-- <executions> -->
+			<!-- <execution> -->
+			<!-- <phase>package</phase> -->
+			<!-- <goals> -->
+			<!-- <goal>single</goal> -->
+			<!-- </goals> -->
+			<!-- <configuration> -->
+			<!-- <formats> -->
+			<!-- <format>dir</format> -->
+			<!-- </formats> -->
+			<!-- <finalName>rv-monitor</finalName> -->
+			<!-- <appendAssemblyId>false</appendAssemblyId> -->
+			<!-- <outputDirectory>../target/release</outputDirectory> -->
+			<!-- </configuration> -->
+			<!-- </execution> -->
+			<!-- </executions> -->
+			<!-- <configuration> -->
+			<!-- <descriptors> -->
+			<!-- <descriptor>src/main/assembly/assembly.xml</descriptor> -->
+			<!-- </descriptors> -->
+			<!-- </configuration> -->
+			<!-- </plugin> -->
+		</plugins>
+	</build>
+</project>

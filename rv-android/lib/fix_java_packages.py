@@ -16,7 +16,7 @@ for file in os.listdir('.'):
         results = re.search('package\\s+([a-zA_Z_][\\.\\w]*);', file_contents)
         if results is None:
             # Compile to default package (no package definition found)
-            status = os.system('javac -cp ' + base_dir + '/lib/rvmonitorrt.jar:' + base_dir + '/lib/android-17/android.jar:' + base_dir + '/tmp/no_monitor_$1.jar ' + file)
+            status = os.system('javac -cp ' + base_dir + '/lib/rv-monitor-rt.jar:' + base_dir + '/lib/android-17/android.jar:' + base_dir + '/tmp/no_monitor_$1.jar ' + file)
             if status != 0:
                 print 'Error in Java compilation.  Dying!'
                 exit(1)

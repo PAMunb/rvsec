@@ -67,10 +67,16 @@
 		<module>javamop</module>
 		<module>mop-maven-plugin</module>
 		<module>rvsec</module>
+		<module>rv-android</module>
 	</modules>
 
 	<dependencyManagement>
 		<dependencies>
+			<dependency>
+				<groupId>br.unb.cic.rvmonitor</groupId>
+				<artifactId>rv-monitor-rt</artifactId>
+				<version>${project.version}</version>
+			</dependency>
 			<dependency>
 				<groupId>br.unb.cic.rvmonitor</groupId>
 				<artifactId>rv-monitor</artifactId>
@@ -79,6 +85,11 @@
 			<dependency>
 				<groupId>br.unb.cic.javamop</groupId>
 				<artifactId>javamop</artifactId>
+				<version>${project.version}</version>
+			</dependency>
+			<dependency>
+				<groupId>br.unb.cic</groupId>
+				<artifactId>rvsec</artifactId>
 				<version>${project.version}</version>
 			</dependency>
 

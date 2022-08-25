@@ -34,7 +34,7 @@ jar xf no_monitor_$1.jar
 cd ..
 
 # Use RV-Monitor to compile all monitors to bytecode
-cd $5
+cd $2
 for i in *.rvm; do
     out=$(${RV_MONITOR_HOME}/bin/rv-monitor $i)
     if echo $out | grep -q "generated" ; then

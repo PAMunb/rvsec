@@ -6,7 +6,7 @@
 
 import sys, os, re
 
-classpath='/home/pedro/Android/Sdk/platforms/android-17/android.jar:/home/pedro/desenvolvimento/aplicativos/aspectj-1.9.6/lib/aspectjrt.jar:/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec/rv-monitor/target/release/rv-monitor/lib/rv-monitor-rt.jar'
+classpath='/home/pedro/Android/Sdk/platforms/android-17/android.jar:./aspectjrt.jar:/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec/rv-monitor/target/release/rv-monitor/lib/rv-monitor-rt.jar'
 
 base_dir = os.getcwd()
 
