@@ -1,0 +1,32 @@
+package mop;
+
+import java.security.Provider;
+import java.security.MessageDigest;
+import java.util.List;
+
+import br.unb.cic.mop.eh.*;
+import br.unb.cic.mop.ExecutionContext;
+import br.unb.cic.mop.ExecutionContext.Property;
+
+import android.util.Log;
+
+
+Logger() {
+
+	event g1 after (Object o): (call(* Object+.*(..)) && target(o)) {
+       Log.v("gRV-MONITOR:", "ALL EVENTS MONITOR ASPECT");
+    }
+
+	
+	ere : g1
+
+
+	@match {
+           Log.v("gRV-MONITOR:", "ALL EVENTS MONITOR ASPECT");
+	}
+}
+
+
+
+
+
