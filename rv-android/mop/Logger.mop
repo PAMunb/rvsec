@@ -10,19 +10,24 @@ import br.unb.cic.mop.ExecutionContext.Property;
 
 import android.util.Log;
 
+import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
+import java.security.NoSuchAlgorithmException;
+
 
 Logger() {
 
 	event g1 after (Object o): (call(* Object+.*(..)) && target(o)) {
-       Log.v("gRV-MONITOR:", "ALL EVENTS MONITOR ASPECT");
+       Log.v("RV-MONITOR:", "g1: ALL EVENTS MONITOR ASPECT");
+       //ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "Logger",  "" + __LOC));
     }
 
 	
-	ere : g1
+	ere : g1*
 
 
 	@match {
-           Log.v("gRV-MONITOR:", "ALL EVENTS MONITOR ASPECT");
+           Log.v("RV-MONITOR:", "match: ALL EVENTS MONITOR ASPECT");
 	}
 }
 
