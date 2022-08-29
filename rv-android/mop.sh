@@ -65,8 +65,8 @@ cp -rf rvm_tmp/ tmp/
 rm -rf rvm_tmp/*
 
 
-#unzip lib_tmp/rv-monitor-rt.jar rvm_tmp/.
-#unzip lib_tmp/rvsec.jar -d tmp
+#unzip lib_tmp/rv-monitor-rt.jar -d tmp
+unzip lib_tmp/rvsec.jar -d tmp
 
 
 # Instrument application with monitor classes
