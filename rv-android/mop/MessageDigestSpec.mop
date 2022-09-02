@@ -56,8 +56,8 @@ MessageDigestSpec(MessageDigest digest) {
 	  call(public static MessageDigest MessageDigest.getInstance(String))
     	  && args(alg) && condition(!algorithms.contains(currentAlgorithmInstance.toUpperCase()))
         {
-//          ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeAlgorithm, "MessageDigestSpec", "" + __LOC,
-//             "expecting one of {SHA-256, SHA-384, SHA-512} but found " + alg + "."));
+          //ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeAlgorithm, "MessageDigestSpec", "" + __LOC,
+          //   "expecting one of {SHA-256, SHA-384, SHA-512} but found " + alg + "."));
 		    currentAlgorithmInstance = alg;
         }
 
