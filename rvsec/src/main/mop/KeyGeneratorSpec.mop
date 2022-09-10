@@ -32,9 +32,9 @@ KeyGeneratorSpec(KeyGenerator k) {
         currentAlgorithmInstance = alg;
     }
 
-    event g2 after(String alg, Object provider) returning(KeyGenerator k):
-      call(public static KeyGenerator KeyGenerator.getInstance(String, Object+))
-      && args(alg, provider)
+    event g2 after(String alg) returning(KeyGenerator k):
+      call(public static KeyGenerator KeyGenerator.getInstance(String, ..))
+      && args(alg, *)
       && condition(safeAlgorithms.contains(alg)) {
         keyGenerator = k;
         currentAlgorithmInstance = alg;
