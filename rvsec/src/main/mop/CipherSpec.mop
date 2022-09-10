@@ -34,22 +34,16 @@ CipherSpec(Cipher c) {
        cipher = c;
    }
 
-   event g2 after(String transformation, String provider) returning(Cipher c):
-      call(public static Cipher Cipher.getInstance(String, String)) &&
+   event g2 after(String transformation, Object provider) returning(Cipher c):
+      call(public static Cipher Cipher.getInstance(String, Object+)) &&
       args(transformation, provider) &&
       condition(isValid(transformation)) {
         currentTransformation = transformation;
         cipher = c;
    }
-   event g3 after(String transformation, Provider provider) returning(Cipher c):
-       call(public static Cipher Cipher.getInstance(String, Provider)) &&
-       args(transformation, provider) &&
-       condition(isValid(transformation)) {
-         currentTransformation = transformation;
-         cipher = c;
-    }
 
-   event g4 after(String transformation) returning(Cipher c):
+
+   event g3 after(String transformation) returning(Cipher c):
      call(public static Cipher Cipher.getInstance(String)) &&
      args(transformation) &&
      condition(!isValid(transformation)) {
@@ -164,16 +158,14 @@ CipherSpec(Cipher c) {
 
    fsm :
      start [
-        g4 -> unsafeAlg
+        g3 -> unsafeAlg
         g1 -> s1
         g2 -> s1
-        g3 -> s1
      ]
      unsafeAlg [
-        g4 -> unsafeAlg
+        g3 -> unsafeAlg
         g1 -> s1
         g2 -> s1
-        g3 -> s1
      ]
      s1 [
        i1 -> s2

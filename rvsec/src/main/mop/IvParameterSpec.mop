@@ -47,6 +47,13 @@ IvParameterSpecSpec(IvParameterSpec s) {
            ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "IvParameterSpecSpec", "" + __LOC));
         }
 
+        event c4 after(byte[] iv, int offset, int len) returning(IvParameterSpec s):
+           call(public IvParameterSpec.new(byte[], int, int)) &&
+           args(iv, offset, len) &&
+           condition(!ExecutionContext.instance().validate(Property.RANDOMIZED, iv)) {
+               ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "IvParameterSpecSpec", "" + __LOC));
+           }
+
         ere : c1 | c2
 
         @fail {

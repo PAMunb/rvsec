@@ -78,7 +78,7 @@ SecureRandomSpec(SecureRandom r) {
       && condition(!algorithms.contains(alg))
     {
         ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeAlgorithm, "SecureRandomSpec", "" + __LOC,
-         "one of " + String.join(",", algorithms) + " but found " + alg + "."));
+         "expecting one of " + String.join(" or ", algorithms) + " but found " + alg + "."));
     }
 
     event setSeed1 after(SecureRandom r):
@@ -96,8 +96,8 @@ SecureRandomSpec(SecureRandom r) {
       args(seed) &&
       target(r) &&
       condition(!ExecutionContext.instance().validate(Property.RANDOMIZED, seed)) {
-        ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "SecureRandomSpec",
-        "setSeed() expects a randomized byte array." + __LOC));
+        ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "SecureRandomSpec",  "" + __LOC,
+        "setSeed() expects a randomized byte array."));
     }
 
     event genSeed after(SecureRandom r) returning(byte[] seed):
