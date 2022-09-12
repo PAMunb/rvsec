@@ -12,7 +12,7 @@ fi
 RV_MONITOR_REPO=${M2_REPO}/br/unb/cic/rvmonitor
 RV_MONITOR_VERSION=0.1.0-SNAPSHOT
 
-CLASSPATH=${RV_MONITOR_REPO}/rv-monitor/${RV_MONITOR_VERSION}/rv-monitor-${RV_MONITOR_VERSION}.jar:${RV_MONITOR_REPO}/rv-monitor-rt/${RV_MONITOR_VERSION}/rv-monitor-rt-${RV_MONITOR_VERSION}.jar:${ASPECTJ_HOME}/lib/aspectjrt.jar:${ASPECTJ_HOME}/lib/aspectjweaver.jar:${ASPECTJ_HOME}/lib/aspectjtools.jar:${M2_REPO}/org/apache/maven/surefire/surefire-junit4/3.0.0-M7/surefire-junit4-3.0.0-M7.jar    
+CLASSPATH=${RV_MONITOR_REPO}/rv-monitor/${RV_MONITOR_VERSION}/rv-monitor-${RV_MONITOR_VERSION}.jar:${RV_MONITOR_REPO}/rv-monitor-rt/${RV_MONITOR_VERSION}/rv-monitor-rt-${RV_MONITOR_VERSION}.jar:${ASPECTJ_HOME}/lib/aspectjrt.jar:${ASPECTJ_HOME}/lib/aspectjweaver.jar:${ASPECTJ_HOME}/lib/aspectjtools.jar    
 
 export CLASSPATH
 

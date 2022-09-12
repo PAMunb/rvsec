@@ -14,7 +14,6 @@ import org.apache.maven.plugins.annotations.Parameter;
 @Mojo(name = "mop-gen", defaultPhase = LifecyclePhase.GENERATE_SOURCES)
 public class MOPGen extends AbstractMojo {
 
-    @Deprecated
 	private static final String SRC_MAIN_JAVA_MOP = "." + File.separator + "src" + File.separator + "main" + File.separator + "java" + File.separator + "mop";
 
 	@Parameter(property = "path-to-java-mop")
@@ -83,7 +82,7 @@ public class MOPGen extends AbstractMojo {
         }
         args.add("-merge");
         args.add("-d");
-        args.add("./src/main/java/mop");
+        args.add(SRC_MAIN_JAVA_MOP);
         args.add(pathToMopFiles + File.separator + "*.rvm");
         
         ProcessUtil.executeExternalProgram(getLog(), args.toArray(new String[0]));
@@ -101,7 +100,7 @@ public class MOPGen extends AbstractMojo {
 
     private void removeGeneratedJavaFiles() {
         if(destinationPackage == null) {
-            destinationPackage = pathToMopFiles;
+            destinationPackage = SRC_MAIN_JAVA_MOP;
         }
         File dest = new File(destinationPackage);
         if(dest.exists() && dest.isDirectory()) {
