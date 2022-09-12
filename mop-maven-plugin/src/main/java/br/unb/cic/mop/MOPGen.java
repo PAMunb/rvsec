@@ -83,7 +83,7 @@ public class MOPGen extends AbstractMojo {
         }
         args.add("-merge");
         args.add("-d");
-        args.add(pathToMopFiles);
+        args.add("./src/main/java/mop");
         args.add(pathToMopFiles + File.separator + "*.rvm");
         
         ProcessUtil.executeExternalProgram(getLog(), args.toArray(new String[0]));
