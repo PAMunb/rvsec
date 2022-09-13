@@ -1,0 +1,79 @@
+package mop;
+
+import javax.net.ssl.TrustManagerFactory;
+import javax.net.ssl.TrustManager;
+import javax.net.ssl.ManagerFactoryParameters;
+import java.security.KeyStore;
+import br.unb.cic.mop.eh.*;
+import br.unb.cic.mop.ExecutionContext;
+TrustManagerFactorySpec(TrustManagerFactory mf) {
+
+	List<String> algorithms = Arrays.asList("PKIX", "SunX509");
+
+	String currentAlgorithmInstance = "";
+
+	TrustManagerFactory trustManagerFactory = null;
+	event g1(String alg, TrustManagerFactory mf){
+		if ( ! (algorithms.contains(alg)) ) {
+			return false;
+		}
+		{
+			trustManagerFactory = mf;
+			currentAlgorithmInstance = alg;
+		}
+	}
+	event g2(String alg, TrustManagerFactory mf){
+		if ( ! (algorithms.contains(alg)) ) {
+			return false;
+		}
+		{
+			trustManagerFactory = mf;
+			currentAlgorithmInstance = alg;
+		}
+	}
+	event g3(String alg, TrustManagerFactory k){
+		if ( ! (!algorithms.contains(alg)) ) {
+			return false;
+		}
+		{
+			currentAlgorithmInstance = alg;
+		}
+	}
+	event init(TrustManagerFactory mf){
+		if (!algorithms.contains(currentAlgorithmInstance)) {
+			ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeAlgorithm, "TrustManagerFactorySpec", "" + __LOC, "expecting one of " + String.join(",", algorithms) + " but found " + currentAlgorithmInstance + "."));
+		}
+		ExecutionContext.instance().setProperty(ExecutionContext.Property.GENERATED_TRUST_MANAGER, trustManagerFactory);
+	}
+	event gtm1(TrustManagerFactory k, TrustManager[][] trustManager){
+		ExecutionContext.instance().setProperty(Property.GENERATED_KEY_MANAGERS, trustManager);
+	}
+	fsm:
+	start [
+	g1 -> waitingInit
+	g2 -> waitingInit
+	]
+	waitingInit [
+	init -> final
+	]
+	final [
+	g1   -> waitingInit
+	g2   -> waitingInit
+	gtm1 -> start
+	]
+
+	alias match1 = final
+
+	@fail
+	{
+		ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "TrustManagerFactorySpec", "" + __LOC));
+		ExecutionContext.instance().unsetObjectAsInAcceptingState(trustManagerFactory);
+		ExecutionContext.instance().remove(Property.GENERATED_TRUST_MANAGER);
+		ExecutionContext.instance().remove(Property.GENERATED_TRUST_MANAGERS);
+		__RESET;
+	}
+	@match1
+	{
+		ExecutionContext.instance().setObjectAsInAcceptingState(trustManagerFactory);
+	}
+}

@@ -1,0 +1,80 @@
+package mop;
+
+import javax.crypto.Mac;
+import java.security.spec.AlgorithmParameterSpec;
+import br.unb.cic.mop.eh.*;
+import br.unb.cic.mop.ExecutionContext;
+MacSpec(Mac m) {
+
+	List<String> safeAlgorithms = Arrays.asList("HmacSHA256", "HmacSHA384", "HmacSHA512", "HmacPBESHA1", "PBEWithHmacSHA1", "PBEWithHmacSHA224", "PBEWithHmacSHA256", "PBEWithHmacSHA384", "PBEWithHmacSHA512");
+
+	String currentAlgorithmInstance = "";
+
+	Mac mac = null;
+	event g1(String alg, Mac m){
+		if ( ! (safeAlgorithms.contains(alg)) ) {
+			return false;
+		}
+		{
+			mac = m;
+			currentAlgorithmInstance = alg;
+		}
+	}
+	event g2(String alg, String provider, Mac m){
+		if ( ! (safeAlgorithms.contains(alg)) ) {
+			return false;
+		}
+		{
+			mac = m;
+			currentAlgorithmInstance = alg;
+		}
+	}
+	event g3(String alg, Mac m){
+		if ( ! (!safeAlgorithms.contains(alg)) ) {
+			return false;
+		}
+		{
+			currentAlgorithmInstance = alg;
+		}
+	}
+	event i1(java.security.Key key, Mac m){
+		if ( ! (ExecutionContext.instance().validate(ExecutionContext.Property.GENERATED_KEY, key)) ) {
+			return false;
+		}
+		{
+			if (!safeAlgorithms.contains(currentAlgorithmInstance)) {
+				ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeAlgorithm, "MacSpec", "" + __LOC, " expecting one of " + String.join(",", safeAlgorithms) + " but found " + currentAlgorithmInstance + "."));
+			}
+		}
+	}
+	event i2(java.security.Key key, java.security.spec.AlgorithmParameterSpec params, Mac m){
+		if ( ! (ExecutionContext.instance().validate(ExecutionContext.Property.GENERATED_KEY, key)) ) {
+			return false;
+		}
+		{
+			if (!safeAlgorithms.contains(currentAlgorithmInstance)) {
+				ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeAlgorithm, "MacSpec", "" + __LOC, "one of " + String.join(",", safeAlgorithms) + " but found " + currentAlgorithmInstance + "."));
+			}
+		}
+	}
+	event update(Mac m){
+	}
+	event f1(Mac m, byte[] output){
+		ExecutionContext.instance().setProperty(Property.GENERATED_MAC, output);
+	}
+	event f2(byte[] output, int outOffset){
+		ExecutionContext.instance().setProperty(Property.GENERATED_MAC, output);
+	}
+	ere:  (g3* g1 | g3* g2) (i1 | i2) ((f1 | f2) | (update* (f1 | f2)))
+
+	@fail
+	{
+		ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "MacSpec", "" + __LOC));
+		ExecutionContext.instance().remove(Property.GENERATED_MAC);
+		__RESET;
+	}
+	@match
+	{
+		ExecutionContext.instance().setObjectAsInAcceptingState(mac);
+	}
+}

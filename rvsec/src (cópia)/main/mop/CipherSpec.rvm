@@ -1,0 +1,153 @@
+package mop;
+
+import java.security.Provider;
+import java.security.Key;
+import javax.crypto.Cipher;
+import java.security.SecureRandom;
+import java.security.spec.AlgorithmParameterSpec;
+import java.nio.ByteBuffer;
+import br.unb.cic.mop.eh.*;
+import br.unb.cic.mop.ExecutionContext;
+import static br.unb.cic.mop.jca.util.CipherTransformationUtil.*;
+CipherSpec(Cipher c) {
+
+	Cipher cipher = null;
+
+	String currentTransformation = "";
+	event g1(String transformation, Cipher c){
+		if ( ! (isValid(transformation)) ) {
+			return false;
+		}
+		{
+			currentTransformation = transformation;
+			cipher = c;
+		}
+	}
+	event g2(String transformation, Object provider, Cipher c){
+		if ( ! (isValid(transformation)) ) {
+			return false;
+		}
+		{
+			currentTransformation = transformation;
+			cipher = c;
+		}
+	}
+	event g3(String transformation, Cipher c){
+		if ( ! (!isValid(transformation)) ) {
+			return false;
+		}
+		{
+			currentTransformation = transformation;
+		}
+	}
+	event i1(int mode, Certificate cert, Cipher c){
+		if (!isValid(currentTransformation)) {
+			ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeAlgorithm, "CipherSpec", "" + __LOC, "expecting one of {AES/CBC/PKCS5Padding, AES/PCBC/ISO10126Padding, ...} but found " + currentTransformation + "."));
+		}
+	}
+	event i2(int mode, Key key, Cipher c){
+		if ( ! (ExecutionContext.instance().validate(Property.GENERATED_KEY, key) || ExecutionContext.instance().validate(Property.GENERATED_PUBLIC_KEY, key) || ExecutionContext.instance().validate(Property.GENERATED_PRIVATE_KEY, key)) ) {
+			return false;
+		}
+		{
+			if (!isValid(currentTransformation)) {
+				ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeAlgorithm, "CipherSpec", "" + __LOC, "expecting one of {AES/CBC/PKCS5Padding, AES/PCBC/ISO10126Padding, ...} but found " + currentTransformation + "."));
+			}
+		}
+	}
+	event u1(byte[] plainText, Cipher c, byte[] cipherText){
+		ExecutionContext.instance().setProperty(Property.ENCRYPTED, cipherText);
+	}
+	event u2(byte[] plainText, int prePlainTextOffset, int prePlainTextLen, Cipher c, byte[] cipherText){
+		ExecutionContext.instance().setProperty(Property.ENCRYPTED, cipherText);
+	}
+	event u3(byte[] plainText, int prePlainTextOffset, int prePlainTextLen, byte[] cipherText, Cipher c){
+		ExecutionContext.instance().setProperty(Property.ENCRYPTED, cipherText);
+	}
+	event u4(byte[] plainText, int prePlainTextOffset, int prePlainTextLen, byte[] cipherText, int outputOffset, Cipher c){
+		ExecutionContext.instance().setProperty(Property.ENCRYPTED, cipherText);
+	}
+	event u5(ByteBuffer plainBuffer, ByteBuffer cipherBuffer, Cipher c){
+		ExecutionContext.instance().setProperty(Property.ENCRYPTED, cipherBuffer);
+	}
+	event wkb1(Cipher c, byte[] wrappedKeyBytes){
+		ExecutionContext.instance().setProperty(Property.WRAPPED_KEY, wrappedKeyBytes);
+	}
+	event f1(Cipher c, byte[] cipherText){
+		ExecutionContext.instance().setProperty(Property.ENCRYPTED, cipherText);
+	}
+	event f2(Cipher c, byte[] cipherText){
+		ExecutionContext.instance().setProperty(Property.ENCRYPTED, cipherText);
+	}
+	event f3(byte[] cipherText, int offset, Cipher c){
+		ExecutionContext.instance().setProperty(Property.ENCRYPTED, cipherText);
+	}
+	event f5(byte[] plainText, int offset, int len, byte[] cipherText, Cipher c){
+		ExecutionContext.instance().setProperty(Property.ENCRYPTED, cipherText);
+	}
+	event f6(byte[] plainText, int offset, int len, byte[] cipherText, int cipherOffset, Cipher c){
+		ExecutionContext.instance().setProperty(Property.ENCRYPTED, cipherText);
+	}
+	event f7(ByteBuffer plainTextBuffer, ByteBuffer cipherTextBuffer, Cipher c){
+		ExecutionContext.instance().setProperty(Property.ENCRYPTED, cipherTextBuffer);
+	}
+	fsm:
+	start [
+	g3 -> unsafeAlg
+	g1 -> s1
+	g2 -> s1
+	]
+	unsafeAlg [
+	g3 -> unsafeAlg
+	g1 -> s1
+	g2 -> s1
+	]
+	s1 [
+	i1 -> s2
+	i2 -> s2
+	]
+	s2 [
+	wkb1 -> end
+	f2   -> end
+	f5   -> end
+	f6   -> end
+	f7   -> end
+	u1   -> s3
+	u2   -> s3
+	u3   -> s3
+	u4   -> s3
+	u5   -> s3
+	]
+	s3 [
+	f1 -> end
+	f2 -> end
+	f3 -> end
+	f5 -> end
+	f6 -> end
+	f7 -> end
+	]
+	end [
+	wkb1 -> end
+	f2   -> end
+	f5   -> end
+	f6   -> end
+	f7   -> end
+	u1   -> s3
+	u2   -> s3
+	u3   -> s3
+	u4   -> s3
+	u5   -> s3
+	]
+
+	alias match1 = end
+
+	@fail
+	{
+		ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "CipherSpec", "" + __LOC));
+		__RESET;
+	}
+	@match1
+	{
+		ExecutionContext.instance().setObjectAsInAcceptingState(cipher);
+	}
+}

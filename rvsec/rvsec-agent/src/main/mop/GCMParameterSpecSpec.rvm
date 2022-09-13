@@ -1,0 +1,39 @@
+package mop;
+
+import javax.crypto.spec.GCMParameterSpec;
+import br.unb.cic.mop.eh.*;
+import br.unb.cic.mop.ExecutionContext;
+GCMParameterSpecSpec(GCMParameterSpec s) {
+
+	GCMParameterSpec spec;
+
+	List<Integer> validLengths = Arrays.asList(96, 104, 112, 120, 128);
+	event c1(int tagLen, byte[] src, GCMParameterSpec s){
+		if ( ! (validLengths.contains(tagLen) && ExecutionContext.instance().validate(Property.RANDOMIZED, src)) ) {
+			return false;
+		}
+		{
+			spec = s;
+		}
+	}
+	event c1(int tagLen, byte[] src, int offset, int len, GCMParameterSpec s){
+		if ( ! (validLengths.contains(tagLen) && ExecutionContext.instance().validate(Property.RANDOMIZED, src) && offset >= 0 && len >= 0 && src.length >= offset + len) ) {
+			return false;
+		}
+		{
+			spec = s;
+		}
+	}
+	ere:  c1 | c2
+
+	@fail
+	{
+		ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "GCMParameterSpecSpec", "" + __LOC));
+		__RESET;
+	}
+	@match
+	{
+		ExecutionContext.instance().setProperty(ExecutionContext.Property.PREPARED_GCM, spec);
+		ExecutionContext.instance().setObjectAsInAcceptingState(spec);
+	}
+}

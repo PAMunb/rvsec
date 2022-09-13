@@ -12,6 +12,7 @@
 
 	<groupId>br.unb.cic</groupId>
 	<artifactId>rvsec</artifactId>
+	<packaging>pom</packaging>
 
 	<name>RVSec</name>
 
@@ -20,98 +21,38 @@
 		<skipTests>false</skipTests>
 	</properties>
 
-	<dependencies>
-		<dependency>
-			<groupId>br.unb.cic.rvmonitor</groupId>
-			<artifactId>rv-monitor-rt</artifactId>
-		</dependency>
-<!-- 		<dependency> -->
-<!-- 			<groupId>org.aspectj</groupId> -->
-<!-- 			<artifactId>aspectjrt</artifactId> -->
-<!-- 		</dependency> -->
-<!-- 		<dependency> -->
-<!-- 			<groupId>org.aspectj</groupId> -->
-<!-- 			<artifactId>aspectjtools</artifactId> -->
-<!-- 		</dependency> -->
+	<modules>
+		<module>rvsec-api</module>
+		<module>rvsec-logger-csv</module>
+		<module>rvsec-core</module>
+		<module>rvsec-agent</module>
+	</modules>
 
-		<dependency>
-			<groupId>junit</groupId>
-			<artifactId>junit</artifactId>
-			<scope>test</scope>
-		</dependency>
-		<dependency>
-			<groupId>org.apache.maven.surefire</groupId>
-			<artifactId>surefire-junit4</artifactId>
-			<scope>test</scope>
-		</dependency>
-		<dependency>
-			<groupId>com.google.guava</groupId>
-			<artifactId>guava</artifactId>
-			<scope>test</scope>
-		</dependency>
-	</dependencies>
-
-	<build>
-		<plugins>
-			<!-- <plugin> -->
-			<!-- <groupId>org.apache.maven.plugins</groupId> -->
-			<!-- <artifactId>maven-antrun-plugin</artifactId> -->
-			<!-- <version>3.1.0</version> -->
-			<!-- <executions> -->
-			<!-- <execution> -->
-			<!-- <id>configure-classpath</id> -->
-			<!-- <phase>process-resources</phase> -->
-			<!-- <configuration> -->
-			<!-- <target> -->
-			<!-- <exec executable="bash"> -->
-			<!-- <arg value="classpath.sh" /> -->
-			<!-- </exec> -->
-			<!-- </target> -->
-			<!-- </configuration> -->
-			<!-- <goals> -->
-			<!-- <goal>run</goal> -->
-			<!-- </goals> -->
-			<!-- </execution> -->
-			<!-- </executions> -->
-			<!-- </plugin> -->
-			<plugin>
+	<dependencyManagement>
+		<dependencies>
+			<dependency>
+				<groupId>org.reflections</groupId>
+				<artifactId>reflections</artifactId>
+				<version>0.9.12</version>
+			</dependency>
+			<dependency>
 				<groupId>br.unb.cic</groupId>
-				<artifactId>mop-maven-plugin</artifactId>
-				<executions>
-					<execution>
-						<goals>
-							<goal>mop-gen</goal>
-							<goal>agent-gen</goal>
-						</goals>
-					</execution>
-				</executions>
-				<configuration>
-					<pathToMopFiles>${main.basedir}/${project.artifactId}/src/main/mop</pathToMopFiles>
-					<pathToJavaMop>${main.basedir}/javamop/bin</pathToJavaMop>
-					<pathToMonitor>${main.basedir}/rv-monitor/bin</pathToMonitor>
+				<artifactId>rvsec-api</artifactId>
+				<version>${project.version}</version>
+			</dependency>
+			<dependency>
+				<groupId>br.unb.cic</groupId>
+				<artifactId>rvsec-logger-csv</artifactId>
+				<version>${project.version}</version>
+			</dependency>
+			<dependency>
+				<groupId>br.unb.cic</groupId>
+				<artifactId>rvsec-core</artifactId>
+				<version>${project.version}</version>
+			</dependency>
+		</dependencies>
+	</dependencyManagement>
 
-					<generateMopStatistics>true</generateMopStatistics>
-				</configuration>
-			</plugin>
-			<plugin>
-				<groupId>org.apache.maven.plugins</groupId>
-				<artifactId>maven-surefire-plugin</artifactId>
-				<configuration>
-					<argLine>-Xmx4096m -XX:MaxPermSize=1024m</argLine>
-					<argLine>-javaagent:${basedir}/JavaMOPAgent.jar</argLine>
-					<runOrder>alphabetical</runOrder>
-					<testFailureIgnore>false</testFailureIgnore>
-					<trimStackTrace>true</trimStackTrace>
-					<!-- <includes> -->
-					<!-- <include>br.unb.cic.mop.bench01.MessageDigestTest</include> -->
-					<!-- <include>br/unb/cic/mop/drivers/Bench01.java</include> -->
-					<!-- <include>br/unb/cic/mop/drivers/Bench02.java</include> -->
-					<!-- <include>br/unb/cic/mop/drivers/Bench03.java</include> -->
-					<!-- </includes> -->
-				</configuration>
-			</plugin>
-		</plugins>
-	</build>
 
 	<profiles>
 		<profile>

@@ -1,0 +1,124 @@
+package mop;
+
+import java.security.Provider;
+import java.security.MessageDigest;
+import java.util.List;
+
+import br.unb.cic.mop.eh.*;
+import br.unb.cic.mop.ExecutionContext;
+import br.unb.cic.mop.ExecutionContext.Property;
+
+// The MessageDigestSpec specifies
+// the correct usage of the MessageDigest
+// class (from the JCA specification).
+MessageDigestSpec(MessageDigest digest) {
+
+    List<String> algorithms = Arrays.asList("SHA-256", "SHA-384", "SHA-512");
+    MessageDigest md = null;
+	String currentAlgorithmInstance = "";
+
+	/*
+	getInstance events should not, by themselves, trigger UnsalfeAlgorithm errors. The reason is because the algorithm
+	is only actually executed during the encryption phase (i.e., in calls to digest() and update(), in the case of MD.)
+	Therefore, during the getInstance sub-graph, we only need to keep track of what is the latest algorithm that has
+	been instantiated.
+	We can use ExecutionContext to keep track of a propety UNSAFE_ALGORITHM, but it is working as is.
+	 */
+	event g1 after(String alg) returning(MessageDigest digest):
+	  call(public static MessageDigest MessageDigest.getInstance(String))
+	  && args(alg) && condition(algorithms.contains(alg.toUpperCase())) {
+	  md = digest;
+	  currentAlgorithmInstance = alg;
+	}
+
+	event g2 after(String alg, String provider) returning(MessageDigest digest):
+      call(public static MessageDigest MessageDigest.getInstance(String, String))
+      && args(alg, provider) && condition(algorithms.contains(alg.toUpperCase())) {
+      md = digest;
+	  currentAlgorithmInstance = alg;
+    }
+
+    event g3 after(String alg, Provider provider) returning(MessageDigest digest):
+      call(public static MessageDigest MessageDigest.getInstance(String, Provider))
+      && args(alg, provider) && condition(algorithms.contains(alg.toUpperCase())) {
+        md = digest;
+    	currentAlgorithmInstance = alg;
+    }
+
+	/*
+	We no longer throw errors after unsafe instantiation events, otherwise we would throw InvalidSequenceOfMethodCalls
+	in cases like (g3* g1 | g3* g2).
+	Not throwing here eliminates the InvalidSequenceOfMethodCalls false positive in bench02.BrokenHashABPSCase1
+	 */
+	event g4 after(String alg) returning(MessageDigest digest):
+	  call(public static MessageDigest MessageDigest.getInstance(String))
+    	  && args(alg) && condition(!algorithms.contains(currentAlgorithmInstance.toUpperCase()))
+        {
+//          ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeAlgorithm, "MessageDigestSpec", "" + __LOC,
+//             "expecting one of {SHA-256, SHA-384, SHA-512} but found " + alg + "."));
+		    currentAlgorithmInstance = alg;
+        }
+
+	/*
+	It's inside the events that actually consume the algorithm that we catch UnsafeAlgorithm
+	 */
+	event update after(MessageDigest digest):
+	  call(void MessageDigest.update(..)) &&
+	  target(digest) {
+		if (!algorithms.contains(currentAlgorithmInstance.toUpperCase())) {
+			ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeAlgorithm, "MessageDigestSpec", "" +
+		__LOC,"expecting one of {SHA-256, SHA-384, SHA-512} but found " + currentAlgorithmInstance + "."));
+		}
+	  }
+
+	event reset before(MessageDigest digest):
+	  call(void MessageDigest.reset()) &&
+	  target(digest) { }
+
+	event d1 after(MessageDigest digest) returning(byte[] out):
+	 call(public byte[] MessageDigest.digest()) &&
+	 target(digest) {
+	    ExecutionContext.instance().setProperty(Property.DIGESTED, out);
+	}
+
+	/*
+	Same case as update
+	 */
+	event d2 after(MessageDigest digest) returning(byte[] out):
+     call(public byte[] MessageDigest.digest(byte[])) &&
+     target(digest) {
+		if (!algorithms.contains(currentAlgorithmInstance.toUpperCase())) {
+			ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeAlgorithm, "MessageDigestSpec", "" +
+		     __LOC, "expecting one of {SHA-256, SHA-384, SHA-512} but found " + currentAlgorithmInstance + "."));
+		}
+    	ExecutionContext.instance().setProperty(Property.DIGESTED, out);
+    }
+
+    event d3 after(byte[] out, int offset, int len, MessageDigest digest):
+     call(public int MessageDigest.digest(byte[], int, int)) &&
+     args(out, offset, len) &&
+     target(digest) {
+       ExecutionContext.instance().setProperty(Property.DIGESTED, out);
+    }
+
+	/*
+	Allowing g3 followed by g1 or g2 will eliminate the Invalid SequenceOfMethodCalls false positive in
+	bench02.BrokenHashABPSCase1
+	*/
+	ere : (g4* g1 | g4* g2 | g4* g3) (d2 | (update+ (d1 | d2 | d3)))+
+
+	@fail {
+           ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "MessageDigestSpec",  "" + __LOC));
+           ExecutionContext.instance().unsetObjectAsInAcceptingState(md);
+           __RESET;
+	}
+
+	@match {
+           ExecutionContext.instance().setObjectAsInAcceptingState(md);
+	}
+}
+
+
+
+
+

@@ -1,0 +1,102 @@
+package mop;
+
+import java.security.KeyPair;
+import java.security.KeyPairGenerator;
+import br.unb.cic.mop.eh.*;
+import br.unb.cic.mop.ExecutionContext;
+KeyPairGeneratorSpec(KeyPairGenerator k) {
+
+	List<String> safeAlgorithms = Arrays.asList("RSA", "EC", "DSA", "DiffieHellman", "DH");
+
+	KeyPairGenerator kpg = null;
+
+	KeyPair kp;
+
+	String algorithm;
+
+	private boolean validate(int keySize) {
+		switch(algorithm) {
+			case "RSA":
+			return Arrays.asList(4096, 3072, 2048).contains(keySize);
+			case "DSA":
+			return keySize == 2048;
+			case "DiffieHellman":
+			return keySize == 2048;
+			case "DH":
+			return keySize == 2048;
+			case "EC":
+			return keySize == 256;
+		}
+		return false;
+	}
+	event g1(String alg, KeyPairGenerator k){
+		if ( ! (safeAlgorithms.contains(alg)) ) {
+			return false;
+		}
+		{
+			kpg = k;
+			algorithm = alg;
+		}
+	}
+	event g2(String alg, String provider, KeyPairGenerator k){
+		if ( ! (safeAlgorithms.contains(alg)) ) {
+			return false;
+		}
+		{
+			kpg = k;
+			algorithm = alg;
+		}
+	}
+	event g3(String alg, KeyPairGenerator k){
+		if ( ! (!safeAlgorithms.contains(alg)) ) {
+			return false;
+		}
+		{
+			algorithm = alg;
+		}
+	}
+	event init1(int keySize, KeyPairGenerator k){
+		if ( ! (validate(keySize)) ) {
+			return false;
+		}
+		{
+			if (!safeAlgorithms.contains(algorithm)) {
+				ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeAlgorithm, "KeyPairGeneratorSpec", "" + __LOC, " expecting one of " + String.join(",", safeAlgorithms) + " but found " + algorithm + "."));
+			}
+		}
+	}
+	event init2(int keySize, SecureRandom random, KeyPairGenerator k){
+		if ( ! (validate(keySize)) ) {
+			return false;
+		}
+		{
+		}
+	}
+	event init3(AlgorithmParameterSpec params, KeyPairGenerator k){
+	}
+	event init4(AlgorithmParameterSpec params, SecureRandom random, KeyPairGenerator k){
+	}
+	event initError(int keySize, KeyPairGenerator k){
+		if ( ! (!validate(keySize)) ) {
+			return false;
+		}
+		{
+			ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidKeySize, "KeyPairGeneratorSpec", "" + __LOC, "invalid key size for algorithm " + algorithm + "."));
+		}
+	}
+	event gen(KeyPairGenerator k, KeyPair keyPair){
+		kp = keyPair;
+		ExecutionContext.instance().setProperty(Property.GENERATED_KEY_PAIR, kp);
+	}
+	ere:  (g3* g1 | g3* g2) (init1 | init2 | init3 | init4) gen
+
+	@fail
+	{
+		ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "KeyPairGeneratorSpec", "" + __LOC));
+		ExecutionContext.instance().remove(Property.GENERATED_KEY_PAIR, kp);
+	}
+	@match
+	{
+		ExecutionContext.instance().setObjectAsInAcceptingState(kpg);
+	}
+}

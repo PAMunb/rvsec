@@ -16,17 +16,17 @@ public class MOPGen extends AbstractMojo {
 
 	private static final String SRC_MAIN_JAVA_MOP = "." + File.separator + "src" + File.separator + "main" + File.separator + "java" + File.separator + "mop";
 
-	@Parameter(property = "path-to-java-mop")
+	@Parameter(property = "pathToJavaMop", required = true)
     private String pathToJavaMop;
 
-    @Parameter(property = "path-to-rv-monitor")
+    @Parameter(property = "pathToMonitor", required = true)
     private String pathToMonitor;
 
-    @Parameter(property = "path-to-mop-files")
+    @Parameter(property = "pathToMopFiles", required = true)
     private String pathToMopFiles;
 
-    @Parameter(property = "destination-package")
-    private String destinationPackage;
+    @Parameter(property = "destinationFolder")
+    private String destinationFolder = SRC_MAIN_JAVA_MOP;
 
     @Parameter(property = "skipMopAgent")
     private boolean skipMopAgent = false;
@@ -82,7 +82,7 @@ public class MOPGen extends AbstractMojo {
         }
         args.add("-merge");
         args.add("-d");
-        args.add(SRC_MAIN_JAVA_MOP);
+        args.add(destinationFolder);
         args.add(pathToMopFiles + File.separator + "*.rvm");
         
         ProcessUtil.executeExternalProgram(getLog(), args.toArray(new String[0]));
@@ -99,10 +99,7 @@ public class MOPGen extends AbstractMojo {
     }
 
     private void removeGeneratedJavaFiles() {
-        if(destinationPackage == null) {
-            destinationPackage = SRC_MAIN_JAVA_MOP;
-        }
-        File dest = new File(destinationPackage);
+        File dest = new File(destinationFolder);
         if(dest.exists() && dest.isDirectory()) {
         	File[] files = dest.listFiles((d,f)-> f.toLowerCase().endsWith(".java"));
             deleteFiles(files);

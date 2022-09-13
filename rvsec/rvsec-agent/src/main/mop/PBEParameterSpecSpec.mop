@@ -1,0 +1,63 @@
+package mop;
+
+import javax.crypto.spec.PBEParameterSpec;
+import java.security.spec.AlgorithmParameterSpec;
+
+import br.unb.cic.mop.eh.*;
+import br.unb.cic.mop.ExecutionContext;
+
+/**
+ * GCMParameterSpec
+ *
+ * A JavaMOP specification of the correct usage of the
+ * javax.crypto.spec.PBEParameterSpec.
+ *
+ * @see https://github.com/CROSSINGTUD/Crypto-API-Rules/blob/master/JavaCryptographicArchitecture/src/PBEParameterSpec.crysl
+ */
+PBEParameterSpecSpec(PBEParameterSpec s) {
+
+        PBEParameterSpec spec;
+
+        event c1 after(byte[] salt, int iterationCount) returning(PBEParameterSpec s):
+          call(public PBEParameterSpec.new(byte[], int)) &&
+          args(salt, iterationCount) &&
+          condition(
+            iterationCount >= 10000 &&
+            ExecutionContext.instance().validate(Property.RANDOMIZED, salt)
+          ) {
+              spec = s;
+        }
+
+        event c2 after(byte[] salt, int iterationCount, AlgorithmParameterSpec paramSpec) returning(PBEParameterSpec s):
+          call(public PBEParameterSpec.new(byte[], int, AlgorithmParameterSpec)) &&
+          args(salt, iterationCount, paramSpec) &&
+          condition(
+            iterationCount >= 10000 &&
+            ExecutionContext.instance().validate(Property.RANDOMIZED, salt)
+        ) {
+            spec = s;
+        }
+
+        event c3 after(byte[] salt, int iterationCount) returning(PBEParameterSpec s):
+          call(public PBEParameterSpec.new(byte[], int)) &&
+          args(salt, iterationCount) &&
+          condition(
+            iterationCount < 10000 ||
+            !(ExecutionContext.instance().validate(Property.RANDOMIZED, salt))
+          ) {
+             ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeAlgorithm, "PBEParameterSpec", "" + __LOC,
+                    "expecting at least 1000 iterations and a randomized salt."));
+        }
+
+        ere : c1 | c2
+
+        @fail {
+          ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "PBEParameterSpec", "" + __LOC));
+          __RESET;
+        }
+
+        @match {
+          ExecutionContext.instance().setProperty(ExecutionContext.Property.PREPARED_PBE, spec);
+          ExecutionContext.instance().setObjectAsInAcceptingState(spec);
+        }
+}
