@@ -36,6 +36,9 @@ public class LoggerLocator {
 
         try {
             for (Class<? extends ILogger> clazz : subTypesOfLogger) {
+                
+                System.err.println("************************* "+clazz.getCanonicalName());
+                
                 Constructor<? extends ILogger> constructor = clazz.getConstructor();
                 ILogger instance = constructor.newInstance();
                 loggers.add(instance);
@@ -46,13 +49,13 @@ public class LoggerLocator {
 
     }
 
-    public static void main(String[] args) {
-        System.out.println(System.getProperty("java.class.path"));
-        try {
-            new LoggerLocator().findLoggers();
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-    }
+//    public static void main(String[] args) {
+//        System.out.println(System.getProperty("java.class.path"));
+//        try {
+//            new LoggerLocator().findLoggers();
+//        } catch (Exception e) {
+//            e.printStackTrace();
+//        }
+//    }
 
 }

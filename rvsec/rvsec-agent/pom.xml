@@ -31,6 +31,13 @@
 		<dependency>
 			<groupId>br.unb.cic.rvmonitor</groupId>
 			<artifactId>rv-monitor-rt</artifactId>
+			<exclusions>
+				<exclusion>
+					<groupId>org.aspectj</groupId>
+					<artifactId>aspectjweaver</artifactId>
+
+				</exclusion>
+			</exclusions>
 		</dependency>
 
 		<dependency>
@@ -64,8 +71,13 @@
 						</goals>
 						<configuration>
 							<includeGroupIds>br.unb.cic</includeGroupIds>
-<!-- 							<includeArtifactIds>tomcat</includeArtifactIds> -->
-							<outputDirectory>${project.build.directory}</outputDirectory>
+							<!-- <includeArtifactIds>tomcat</includeArtifactIds> -->
+							<includeScope>runtime</includeScope>
+							<!-- <excludeScope>test</excludeScope> -->
+							<!-- <outputDirectory>${project.build.outputDirectory}</outputDirectory> -->
+							<outputDirectory>${project.build.directory}/classes</outputDirectory>
+							<excludeGroupIds>junit,org.apache.maven.surefire,com.google.guava</excludeGroupIds>
+							<silent>false</silent>
 						</configuration>
 					</execution>
 				</executions>
@@ -82,10 +94,10 @@
 					</execution>
 				</executions>
 				<configuration>
-					<pathToMopFiles>${main.basedir}/${parent.artifactId}/${project.artifactId}/src/main/mop</pathToMopFiles>
+					<pathToMopFiles>${main.basedir}/${project.parent.artifactId}/${project.artifactId}/src/main/mop</pathToMopFiles>
 					<pathToJavaMop>${main.basedir}/javamop/bin</pathToJavaMop>
 					<pathToMonitor>${main.basedir}/rv-monitor/bin</pathToMonitor>
-					<destinationFolder>${main.basedir}/${parent.artifactId}/${project.artifactId}/src/main/java/mop</destinationFolder>
+					<destinationFolder>${main.basedir}/${project.parent.artifactId}/${project.artifactId}/src/main/java/mop</destinationFolder>
 
 					<generateMopStatistics>true</generateMopStatistics>
 				</configuration>
