@@ -23,6 +23,7 @@
 
 	<modules>
 		<module>rvsec-api</module>
+		<module>rvsec-logger-stdout</module>
 		<module>rvsec-logger-csv</module>
 		<module>rvsec-core</module>
 		<module>rvsec-agent</module>
@@ -38,6 +39,11 @@
 			<dependency>
 				<groupId>br.unb.cic</groupId>
 				<artifactId>rvsec-api</artifactId>
+				<version>${project.version}</version>
+			</dependency>
+			<dependency>
+				<groupId>br.unb.cic</groupId>
+				<artifactId>rvsec-logger-stdout</artifactId>
 				<version>${project.version}</version>
 			</dependency>
 			<dependency>

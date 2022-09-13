@@ -26,6 +26,10 @@
 		</dependency>
 		<dependency>
 			<groupId>br.unb.cic</groupId>
+			<artifactId>rvsec-logger-stdout</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>br.unb.cic</groupId>
 			<artifactId>rvsec-logger-csv</artifactId>
 		</dependency>
 		<dependency>
@@ -35,7 +39,6 @@
 				<exclusion>
 					<groupId>org.aspectj</groupId>
 					<artifactId>aspectjweaver</artifactId>
-
 				</exclusion>
 			</exclusions>
 		</dependency>
@@ -70,6 +73,9 @@
 							<goal>unpack-dependencies</goal>
 						</goals>
 						<configuration>
+							<!-- TODO review configuration -->
+							
+							
 							<includeGroupIds>br.unb.cic</includeGroupIds>
 							<!-- <includeArtifactIds>tomcat</includeArtifactIds> -->
 							<includeScope>runtime</includeScope>
