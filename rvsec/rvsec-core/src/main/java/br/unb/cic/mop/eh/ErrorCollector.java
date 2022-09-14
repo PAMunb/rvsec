@@ -42,7 +42,9 @@ public class ErrorCollector {
 
     public void addError(ErrorDescription err) {
         if (errors.add(err)) {
-            loggers.forEach(l -> l.logError(err));
+            for(ILogger logger: loggers) {
+                logger.logError(err);
+            }
         }
     }
 

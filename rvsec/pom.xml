@@ -25,8 +25,10 @@
 		<module>rvsec-api</module>
 		<module>rvsec-logger-stdout</module>
 		<module>rvsec-logger-csv</module>
+		<module>rvsec-logger-logcat</module>
 		<module>rvsec-core</module>
 		<module>rvsec-agent</module>
+		<module>rvsec-android</module>
 	</modules>
 
 	<dependencyManagement>
@@ -49,6 +51,11 @@
 			<dependency>
 				<groupId>br.unb.cic</groupId>
 				<artifactId>rvsec-logger-csv</artifactId>
+				<version>${project.version}</version>
+			</dependency>
+			<dependency>
+				<groupId>br.unb.cic</groupId>
+				<artifactId>rvsec-logger-logcat</artifactId>
 				<version>${project.version}</version>
 			</dependency>
 			<dependency>

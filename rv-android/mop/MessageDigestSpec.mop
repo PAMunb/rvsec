@@ -56,8 +56,8 @@ MessageDigestSpec(MessageDigest digest) {
 	  call(public static MessageDigest MessageDigest.getInstance(String))
     	  && args(alg) && condition(!algorithms.contains(currentAlgorithmInstance.toUpperCase()))
         {
-          //ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeAlgorithm, "MessageDigestSpec", "" + __LOC,
-          //   "expecting one of {SHA-256, SHA-384, SHA-512} but found " + alg + "."));
+//          ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeAlgorithm, "MessageDigestSpec", "" + __LOC,
+//             "expecting one of {SHA-256, SHA-384, SHA-512} but found " + alg + "."));
 		    currentAlgorithmInstance = alg;
         }
 
@@ -68,9 +68,8 @@ MessageDigestSpec(MessageDigest digest) {
 	  call(void MessageDigest.update(..)) &&
 	  target(digest) {
 		if (!algorithms.contains(currentAlgorithmInstance.toUpperCase())) {
-		Log.v("RV-MONITOR", "MD5 ************************************************************************");
-			//ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeAlgorithm, "MessageDigestSpec", "" +
-		//__LOC,"expecting one of {SHA-256, SHA-384, SHA-512} but found " + currentAlgorithmInstance + "."));
+			ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeAlgorithm, "MessageDigestSpec", "" +
+		__LOC,"expecting one of {SHA-256, SHA-384, SHA-512} but found " + currentAlgorithmInstance + "."));
 		}
 	  }
 
@@ -81,7 +80,7 @@ MessageDigestSpec(MessageDigest digest) {
 	event d1 after(MessageDigest digest) returning(byte[] out):
 	 call(public byte[] MessageDigest.digest()) &&
 	 target(digest) {
-	    //ExecutionContext.instance().setProperty(Property.DIGESTED, out);
+	    ExecutionContext.instance().setProperty(Property.DIGESTED, out);
 	}
 
 	/*
@@ -91,18 +90,17 @@ MessageDigestSpec(MessageDigest digest) {
      call(public byte[] MessageDigest.digest(byte[])) &&
      target(digest) {
 		if (!algorithms.contains(currentAlgorithmInstance.toUpperCase())) {
-		Log.v("RV-MONITOR", "MD5 ************************************************************************");
-			//ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeAlgorithm, "MessageDigestSpec", "" +
-		    // __LOC, "expecting one of {SHA-256, SHA-384, SHA-512} but found " + currentAlgorithmInstance + "."));
+			ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeAlgorithm, "MessageDigestSpec", "" +
+		     __LOC, "expecting one of {SHA-256, SHA-384, SHA-512} but found " + currentAlgorithmInstance + "."));
 		}
-    	//ExecutionContext.instance().setProperty(Property.DIGESTED, out);
+    	ExecutionContext.instance().setProperty(Property.DIGESTED, out);
     }
 
     event d3 after(byte[] out, int offset, int len, MessageDigest digest):
      call(public int MessageDigest.digest(byte[], int, int)) &&
      args(out, offset, len) &&
      target(digest) {
-       //ExecutionContext.instance().setProperty(Property.DIGESTED, out);
+       ExecutionContext.instance().setProperty(Property.DIGESTED, out);
     }
 
 	/*
@@ -112,15 +110,14 @@ MessageDigestSpec(MessageDigest digest) {
 	ere : (g4* g1 | g4* g2 | g4* g3) (d2 | (update+ (d1 | d2 | d3)))+
 
 	@fail {
-		Log.v("RV-MONITOR", "MD5 ************************************************************************");
-           //ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "MessageDigestSpec",  "" + __LOC));
-           //ExecutionContext.instance().unsetObjectAsInAcceptingState(md);
+	Log.v("RVSEC", "************************************************************");
+           ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "MessageDigestSpec",  "" + __LOC));
+           ExecutionContext.instance().unsetObjectAsInAcceptingState(md);
            __RESET;
 	}
 
 	@match {
-	Log.v("RV-MONITOR", "match ************************************************************************");
-           //ExecutionContext.instance().setObjectAsInAcceptingState(md);
+           ExecutionContext.instance().setObjectAsInAcceptingState(md);
 	}
 }
 

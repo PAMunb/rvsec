@@ -30,7 +30,7 @@ public class LoggerLocator {
         Reflections reflections = new Reflections("", new SubTypesScanner(false));
         Set<Class<? extends ILogger>> subTypesOfLogger = reflections.getSubTypesOf(ILogger.class);
         
-        subTypesOfLogger.forEach(System.out::println);
+        //subTypesOfLogger.forEach(System.out::println);
 
         Set<ILogger> loggers = new HashSet<>();
 

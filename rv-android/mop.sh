@@ -71,22 +71,25 @@ rm -rf rvm_tmp/*
 
 # Instrument application with monitor classes
 echo "[+] Instrumenting"
-ajc -Xmx10240m -cp $CLASSPATH:mop:tmp:. -Xlint:ignore -showWeaveInfo -inpath tmp -d tmp -source 1.8 -sourceroots mop
+#ajc -Xmx10240m -cp $CLASSPATH:mop:tmp:. -Xlint:ignore -showWeaveInfo -inpath tmp -d tmp -source 1.8 -sourceroots mop
+ajc -Xmx10240m -cp $CLASSPATH:mop:tmp:. -Xlint:ignore -inpath tmp -d tmp -source 1.8 -sourceroots mop
 if [ "$?" = 1 ] ; then
     echo "AspectJ has encountered a fatal error and needs to close. Dying!"
     exit
 fi
 
-
+echo "[+] Creating APK"
 # Extract RV-Monitor support classes
 cp lib_tmp/rv-monitor-rt.jar rvm_tmp/.
-cp lib_tmp/rvsec.jar rvm_tmp/.
+cp lib_tmp/rvsec-api.jar rvm_tmp/.
+cp lib_tmp/rvsec-android.jar rvm_tmp/.
 cd rvm_tmp
 jar xf rv-monitor-rt.jar
-#jar xf rvsec.jar
+jar xf rvsec-api.jar
+jar xf rvsec-android.jar
 
 # Remove rvmonitorrt's manifest and the temporarily copied Jar + property files
-rm -rf META-INF rv-monitor-rt.jar rvsec.jar
+rm -rf META-INF *.jar
 cd ..
 
 # Merge RV-Monitor support classes

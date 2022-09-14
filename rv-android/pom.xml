@@ -17,6 +17,7 @@
 	<name>RVSec :: rv-android</name>
 
 	<properties>
+<!-- 		<aspectj.version>1.8.14</aspectj.version> -->
 		<aspectj.version>1.9.6</aspectj.version>
 	</properties>
 
@@ -26,10 +27,22 @@
 			<groupId>br.unb.cic.rvmonitor</groupId>
 			<artifactId>rv-monitor-rt</artifactId>
 		</dependency>
+<!-- 		<dependency> -->
+<!-- 			<groupId>br.unb.cic</groupId> -->
+<!-- 			<artifactId>rvsec-core</artifactId> -->
+<!-- 			<version>${project.version}</version> -->
+<!-- 		</dependency> -->
 		<dependency>
 			<groupId>br.unb.cic</groupId>
-			<artifactId>rvsec</artifactId>
+			<artifactId>rvsec-android</artifactId>
+			<version>${project.version}</version>
 		</dependency>
+		
+<!-- 		<dependency> -->
+<!-- 			<groupId>org.reflections</groupId> -->
+<!-- 			<artifactId>reflections</artifactId> -->
+<!-- 			<version>0.9.12</version> -->
+<!-- 		</dependency> -->
 
 		<dependency>
 			<groupId>org.aspectj</groupId>
