@@ -26,35 +26,7 @@
 		<module>rvsec-logger-csv</module>
 		<module>rvsec-logger-logcat</module>
 		<module>rvsec-agent</module>
-<!-- 		<module>rvsec-android</module> -->
 	</modules>
-
-	<dependencyManagement>
-		<dependencies>
-			<dependency>
-				<groupId>com.google.android</groupId>
-				<artifactId>android</artifactId>
-				<version>4.1.1.4</version>
-				<scope>provided</scope>
-			</dependency>
-
-			<dependency>
-				<groupId>br.unb.cic</groupId>
-				<artifactId>rvsec-core</artifactId>
-				<version>${project.version}</version>
-			</dependency>
-			<dependency>
-				<groupId>br.unb.cic</groupId>
-				<artifactId>rvsec-logger-csv</artifactId>
-				<version>${project.version}</version>
-			</dependency>
-			<dependency>
-				<groupId>br.unb.cic</groupId>
-				<artifactId>rvsec-logger-logcat</artifactId>
-				<version>${project.version}</version>
-			</dependency>
-		</dependencies>
-	</dependencyManagement>
 
 	<profiles>
 		<profile>

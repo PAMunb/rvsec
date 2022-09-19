@@ -65,10 +65,6 @@ cp -rf rvm_tmp/ tmp/
 rm -rf rvm_tmp/*
 
 
-#unzip lib_tmp/rv-monitor-rt.jar -d tmp
-#unzip lib_tmp/rvsec.jar -d tmp
-
-
 # Instrument application with monitor classes
 echo "[+] Instrumenting"
 #ajc -Xmx10240m -cp $CLASSPATH:mop:tmp:. -Xlint:ignore -showWeaveInfo -inpath tmp -d tmp -source 1.8 -sourceroots mop
@@ -81,12 +77,12 @@ fi
 echo "[+] Creating APK"
 # Extract RV-Monitor support classes
 cp lib_tmp/rv-monitor-rt.jar rvm_tmp/.
-cp lib_tmp/rvsec-api.jar rvm_tmp/.
-cp lib_tmp/rvsec-android.jar rvm_tmp/.
+cp lib_tmp/rvsec-core.jar rvm_tmp/.
+cp lib_tmp/rvsec-logger-logcat.jar rvm_tmp/.
 cd rvm_tmp
 jar xf rv-monitor-rt.jar
-jar xf rvsec-api.jar
-jar xf rvsec-android.jar
+jar xf rvsec-core.jar
+jar xf rvsec-logger-logcat.jar
 
 # Remove rvmonitorrt's manifest and the temporarily copied Jar + property files
 rm -rf META-INF *.jar
