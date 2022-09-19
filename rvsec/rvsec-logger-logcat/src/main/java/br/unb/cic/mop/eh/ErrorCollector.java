@@ -6,25 +6,19 @@ import java.util.Set;
 
 import android.util.Log;
 
-/**
- * A singleton class for collecting errors while running the monitoring process.
- */
 public class ErrorCollector {
     private static ErrorCollector instance;
-
     private Set<ErrorDescription> errors;
-//    private Set<ILogger> loggers;
+
+    private ErrorCollector() {
+        errors = new HashSet<>();
+    }
 
     public static ErrorCollector instance() {
         if (instance == null) {
             instance = new ErrorCollector();
         }
         return instance;
-    }
-
-    private ErrorCollector() {
-        errors = new HashSet<>();
-//        loggers = LoggerLocator.findLoggers();
     }
 
     public void reset() {
@@ -40,37 +34,12 @@ public class ErrorCollector {
     }
 
     public void addError(ErrorDescription err) {
-        System.err.println(">>>>>>>>>>>>>>>>>>>>> "+err);
         if (errors.add(err)) {
             Log.v("RVSEC", err.getErrorSummary() + "," + err.getExpecting().trim());
-//            for(ILogger logger: loggers) {
-//                logger.logError(err);
-//            }
         }
     }
 
     public Set<ErrorDescription> getErrors() {
         return Collections.unmodifiableSet(errors);
     }
-
-//    public void addLogger(ILogger logger) {
-//        loggers.put(logger.getClass(), logger);
-//    }
-//
-//    public void removeLogger(Class<? extends ILogger> clazz) {
-//        loggers.remove(clazz);
-//    }
-//
-//    public Set<Class<? extends ILogger>> listLoggers() {
-//        return Collections.unmodifiableSet(loggers.keySet());
-//    }
-
-//    @Deprecated
-//    public void printErrors() throws Exception {
-//        ILogger logger = new StdOutLogger();
-//
-//        for (ErrorDescription error : errors) {
-//            logger.logError(error);
-//        }
-//    }
 }

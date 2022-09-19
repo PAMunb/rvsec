@@ -1,8 +1,11 @@
 package br.unb.cic.mop.eh;
 
+import java.io.Serializable;
 import java.util.Objects;
 
-public class ErrorSummary {
+public class ErrorSummary implements Serializable {    
+    private static final long serialVersionUID = 1L;
+    
     private String spec;
     private String error;
     private String classQualifiedName;

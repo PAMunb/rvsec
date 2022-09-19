@@ -26,10 +26,6 @@
 		</dependency>
 		<dependency>
 			<groupId>br.unb.cic</groupId>
-			<artifactId>rvsec-logger-stdout</artifactId>
-		</dependency>
-		<dependency>
-			<groupId>br.unb.cic</groupId>
 			<artifactId>rvsec-logger-csv</artifactId>
 		</dependency>
 		<dependency>

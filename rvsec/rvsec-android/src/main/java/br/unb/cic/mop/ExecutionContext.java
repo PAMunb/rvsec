@@ -103,7 +103,10 @@ public class ExecutionContext {
      * @param value object that will have a property assigned to
      */
     public void setProperty(Property property, Object value) {
-        Set<Object> objects = context.getOrDefault(property, new HashSet<>());
+        Set<Object> objects = new HashSet<>();
+        if(context.containsKey(property)) {
+            objects = context.get(property);
+        } 
         objects.add(value);
         context.put(property, objects);
     }

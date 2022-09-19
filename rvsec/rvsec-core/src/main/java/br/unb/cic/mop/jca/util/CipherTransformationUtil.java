@@ -1,9 +1,9 @@
 package br.unb.cic.mop.jca.util;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
-import java.util.stream.Collectors;
 
 public class CipherTransformationUtil {
 
@@ -47,11 +47,19 @@ public class CipherTransformationUtil {
             }
         }
         else if(alg(transformation).equals("RSA")) {
-            List<String> rsaECBPaddings = Arrays.asList(new String[] {"NoPadding", "PKCS1Padding",
+//            List<String> rsaECBPaddings = Arrays.asList(new String[] {"NoPadding", "PKCS1Padding",
+//                    "OAEPWithMD5AndMGF1Padding", "OAEPWithSHA-224AndMGF1Padding",
+//                    "OAEPWithSHA-256AndMGF1Padding", "OAEPWithSHA-384AndMGF1Padding",
+//                    "OAEPWithSHA-512AndMGF1Padding"}).stream().map(s -> s.toUpperCase()).collect(Collectors.toList());
+
+            List<String> paddings = Arrays.asList(new String[] {"NoPadding", "PKCS1Padding",
                     "OAEPWithMD5AndMGF1Padding", "OAEPWithSHA-224AndMGF1Padding",
                     "OAEPWithSHA-256AndMGF1Padding", "OAEPWithSHA-384AndMGF1Padding",
-                    "OAEPWithSHA-512AndMGF1Padding"}).stream().map(s -> s.toUpperCase()).collect(Collectors.toList());
-
+                    "OAEPWithSHA-512AndMGF1Padding"});
+            List<String> rsaECBPaddings = new ArrayList<>(paddings.size());
+            for(String p: paddings) {
+                rsaECBPaddings.add(p.toUpperCase());
+            }
 
             return (mode(transformation).equals("") && pad(transformation).equalsIgnoreCase("")) ||
                     (mode(transformation).equals("ECB") && rsaECBPaddings.contains(pad(transformation).toUpperCase()));

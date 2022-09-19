@@ -1,10 +1,13 @@
 package br.unb.cic.mop.eh;
 
+import java.io.Serializable;
 import java.util.Objects;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-public class ErrorDescription {
+public class ErrorDescription implements Serializable {
+    private static final long serialVersionUID = 1L;
+
     static Pattern pattern = Pattern.compile("([\\w+\\.\\$]+)[.](\\<?\\w+\\>?)\\((.+)\\)");
 
     private ErrorType type;

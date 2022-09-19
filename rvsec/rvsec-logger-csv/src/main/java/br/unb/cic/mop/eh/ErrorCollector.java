@@ -1,28 +1,54 @@
-package br.unb.cic.mop.eh.logger;
+package br.unb.cic.mop.eh;
 
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.Set;
 
-import br.unb.cic.mop.eh.ErrorDescription;
-
-public class CsvLogger implements ILogger {
+public class ErrorCollector {
+    private static ErrorCollector instance;
 
     static final String HEADER = "spec,class,className,method,location,error,expecting";
     static final String OUT_DIR = "output";
 
     private PrintWriter pw;
+    private Set<ErrorDescription> errors;
 
-    public CsvLogger() {
+    private ErrorCollector() {
+        errors = new HashSet<>();
         init();
     }
 
-    @Override
-    public void logError(ErrorDescription err) {
-        if (pw != null) {
+    public static ErrorCollector instance() {
+        if (instance == null) {
+            instance = new ErrorCollector();
+        }
+        return instance;
+    }
+
+    public void addError(ErrorType type, String spec, String location) {
+        addError(new ErrorDescription(type, spec, location));
+    }
+
+    public void addError(ErrorType type, String spec, String location, String expecting) {
+        addError(new ErrorDescription(type, spec, location, expecting));
+    }
+
+    public void addError(ErrorDescription err) {
+        if (pw != null && errors.add(err)) {
             pw.println(err.getErrorSummary() + "," + escape(err.getExpecting()).trim());
         }
+    }
+
+    public Set<ErrorDescription> getErrors() {
+        return Collections.unmodifiableSet(errors);
+    }
+
+    public void reset() {
+        errors = new HashSet<>();
     }
 
     private void init() {
@@ -56,7 +82,8 @@ public class CsvLogger implements ILogger {
 
     private String escape(String data) {
         String escapedData = data.replaceAll("\\R", " ");
-        if (data.contains(",") || data.contains("\"") || data.contains("'")) {
+        if (data.contains(",") || data.contains("\"")
+                || data.contains("'")) {
             data = data.replace("\"", "\"\"");
             escapedData = "\"" + data + "\"";
         }

@@ -22,30 +22,25 @@
 	</properties>
 
 	<modules>
-		<module>rvsec-api</module>
-		<module>rvsec-logger-stdout</module>
+		<module>rvsec-core</module>
 		<module>rvsec-logger-csv</module>
 		<module>rvsec-logger-logcat</module>
-		<module>rvsec-core</module>
 		<module>rvsec-agent</module>
-		<module>rvsec-android</module>
+<!-- 		<module>rvsec-android</module> -->
 	</modules>
 
 	<dependencyManagement>
 		<dependencies>
 			<dependency>
-				<groupId>org.reflections</groupId>
-				<artifactId>reflections</artifactId>
-				<version>0.9.12</version>
+				<groupId>com.google.android</groupId>
+				<artifactId>android</artifactId>
+				<version>4.1.1.4</version>
+				<scope>provided</scope>
 			</dependency>
+
 			<dependency>
 				<groupId>br.unb.cic</groupId>
-				<artifactId>rvsec-api</artifactId>
-				<version>${project.version}</version>
-			</dependency>
-			<dependency>
-				<groupId>br.unb.cic</groupId>
-				<artifactId>rvsec-logger-stdout</artifactId>
+				<artifactId>rvsec-core</artifactId>
 				<version>${project.version}</version>
 			</dependency>
 			<dependency>
@@ -58,14 +53,8 @@
 				<artifactId>rvsec-logger-logcat</artifactId>
 				<version>${project.version}</version>
 			</dependency>
-			<dependency>
-				<groupId>br.unb.cic</groupId>
-				<artifactId>rvsec-core</artifactId>
-				<version>${project.version}</version>
-			</dependency>
 		</dependencies>
 	</dependencyManagement>
-
 
 	<profiles>
 		<profile>

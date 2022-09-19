@@ -15,16 +15,4 @@
 
 	<name>RVSec :: Core</name>
 
-	<dependencies>
-		<dependency>
-			<groupId>br.unb.cic</groupId>
-			<artifactId>rvsec-api</artifactId>
-		</dependency>
-
-		<dependency>
-			<groupId>org.reflections</groupId>
-			<artifactId>reflections</artifactId>
-		</dependency>
-	</dependencies>
-
 </project>

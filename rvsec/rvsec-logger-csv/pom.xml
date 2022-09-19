@@ -17,7 +17,7 @@
 	<dependencies>
 		<dependency>
 			<groupId>br.unb.cic</groupId>
-			<artifactId>rvsec-api</artifactId>
+			<artifactId>rvsec-core</artifactId>
 		</dependency>
 	</dependencies>
 </project>

@@ -17,14 +17,12 @@
 	<dependencies>
 		<dependency>
 			<groupId>br.unb.cic</groupId>
-			<artifactId>rvsec-api</artifactId>
+			<artifactId>rvsec-core</artifactId>
 		</dependency>
 		<dependency>
 			<groupId>com.google.android</groupId>
 			<artifactId>android</artifactId>
-			<version>4.1.1.4</version>
 			<scope>provided</scope>
 		</dependency>
-
 	</dependencies>
 </project>
