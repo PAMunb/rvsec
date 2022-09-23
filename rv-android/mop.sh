@@ -2,7 +2,7 @@
 
 if [ "$#" -ne 2 ]; then
     echo "Illegal number of parameters!"
-    echo "Usage: instrument_apk.sh [apk] [mop]"
+    echo "Usage: ./mop.sh [apk] [mop]"
     exit
 fi
 
@@ -33,7 +33,9 @@ mkdir lib_tmp
 
 # Copy dependency JARs to 'lib_tmp' folder 
 mvn clean compile
-CLASSPATH=$ANDROID_PLATFORM_LIB/android.jar:$(for i in lib_tmp/*.jar ; do echo -n $i: ; done):.
+
+CLASSPATH="$ANDROID_PLATFORM_LIB/android.jar:$(printf %s: lib_tmp/*.jar):."
+
 echo "CLASSPATH=$CLASSPATH"
 
 # Convert APK to Jar (with Java bytecode), verify output Jar
@@ -89,7 +91,7 @@ rm -rf META-INF *.jar
 cd ..
 
 # Merge RV-Monitor support classes
-cp -rT rvm_tmp/ tmp/
+cp -rf rvm_tmp/ tmp/
 rm -rf rvm_tmp/*
 
 # Compress resulting transformed classes to Jar
