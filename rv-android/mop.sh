@@ -2,7 +2,7 @@
 
 if [ "$#" -ne 2 ]; then
     echo "Illegal number of parameters!"
-    echo "Usage: ./mop.sh [apk] [mop]"
+    echo "Usage: ./mop.sh [apk] [mop_dir]"
     exit
 fi
 
@@ -91,7 +91,7 @@ rm -rf META-INF *.jar
 cd ..
 
 # Merge RV-Monitor support classes
-cp -rf rvm_tmp/ tmp/
+cp -rf rvm_tmp/* tmp/
 rm -rf rvm_tmp/*
 
 # Compress resulting transformed classes to Jar

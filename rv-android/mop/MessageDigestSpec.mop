@@ -8,8 +8,6 @@ import br.unb.cic.mop.eh.*;
 import br.unb.cic.mop.ExecutionContext;
 import br.unb.cic.mop.ExecutionContext.Property;
 
-import android.util.Log;
-
 // The MessageDigestSpec specifies
 // the correct usage of the MessageDigest
 // class (from the JCA specification).
@@ -110,7 +108,6 @@ MessageDigestSpec(MessageDigest digest) {
 	ere : (g4* g1 | g4* g2 | g4* g3) (d2 | (update+ (d1 | d2 | d3)))+
 
 	@fail {
-	Log.v("RVSEC", "************************************************************");
            ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "MessageDigestSpec",  "" + __LOC));
            ExecutionContext.instance().unsetObjectAsInAcceptingState(md);
            __RESET;

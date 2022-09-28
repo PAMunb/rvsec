@@ -4,7 +4,7 @@
 # PRE-REQUISITE
 # Manual step (/etc/profile or ~/.bashrc):
 # - define ANDROID_HOME and ANDROID_SDK_ROOT
-# - include cmdline-tools dir in PATH
+# - update PATH
 # Example:
 # export ANDROID_HOME=/home/pedro/desenvolvimento/android/sdk
 # export ANDROID_SDK_ROOT=/home/pedro/desenvolvimento/android/sdk
@@ -52,5 +52,6 @@ echo "no" | avdmanager --verbose create avd --force --name "${EMULATOR_NAME_x86}
 
 echo "[+] Accept the license agreements of the SDK components"
 chmod +x license_accepter.sh && ./license_accepter.sh $ANDROID_SDK_ROOT
+
 
 echo "[+] Android configured!"

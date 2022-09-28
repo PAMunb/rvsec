@@ -19,4 +19,4 @@ adb install out/$APK
 
 echo "[+] Running droidbot"
 #droidbot -d emulator-5554 -a /data/app/com.example.myapp-1.apk -policy monkey -is_emulator -timeout 60
-droidbot -d emulator-5554 -a /data/app/com.example.myapp-1.apk -policy monkey -is_emulator -timeout 60
+droidbot -d emulator-5554 -a out/$APK -policy monkey -is_emulator -timeout 60
