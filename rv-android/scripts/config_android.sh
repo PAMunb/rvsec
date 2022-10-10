@@ -8,7 +8,7 @@
 # Example:
 # export ANDROID_HOME=/home/pedro/desenvolvimento/android/sdk
 # export ANDROID_SDK_ROOT=/home/pedro/desenvolvimento/android/sdk
-# export PATH=$ANDROID_HOME/platform-tools:$ANDROID_HOME/cmdline-tools/tools/bin:$ANDROID_HOME/emulator:$PATH
+# export PATH=$ANDROID_HOME/platform-tools:$ANDROID_HOME/cmdline-tools/tools/bin:$ANDROID_HOME/emulator:$ANDROID_HOME/build-tools:$PATH
 
 
 
@@ -17,10 +17,10 @@ if [ -z "$ANDROID_HOME" ]; then
     exit 1
 fi
 
-
-ANDROID_EMULATOR_PACKAGE_x86="system-images;android-17;google_apis;x86"
-ANDROID_PLATFORM_VERSION="platforms;android-17"
-ANDROID_SDK_PACKAGES="${ANDROID_EMULATOR_PACKAGE_x86} ${ANDROID_PLATFORM_VERSION} platform-tools emulator"
+#sdkmanager --list
+ANDROID_EMULATOR_PACKAGE_x86="system-images;android-30;google_apis;x86"
+ANDROID_PLATFORM_VERSION="platforms;android-30"
+ANDROID_SDK_PACKAGES="${ANDROID_EMULATOR_PACKAGE_x86} ${ANDROID_PLATFORM_VERSION} platform-tools emulator build-tools;30.0.3"
 EMULATOR_NAME_x86="RVSec"
 #DEVICE_SERIAL_NUMBER="emulator-5554"
 
@@ -32,9 +32,11 @@ mkdir ${ANDROID_HOME}/cmdline-tools
 # command line tools
 # https://developer.android.com/studio#command-tools
 echo "[+] Downloading command line tools"
-ANDROID_SDK_VERSION=6514223
+#ANDROID_SDK_VERSION=6514223
+ANDROID_SDK_VERSION=8512546
 wget -v https://dl.google.com/android/repository/commandlinetools-linux-${ANDROID_SDK_VERSION}_latest.zip && \
 	unzip *tools*linux*.zip -d ${ANDROID_HOME}/cmdline-tools && \
+	mv ${ANDROID_HOME}/cmdline-tools/cmdline-tools ${ANDROID_HOME}/cmdline-tools/tools && \
 	rm *tools*linux*.zip
 
 

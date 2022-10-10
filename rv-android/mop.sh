@@ -16,20 +16,18 @@ fi
 JAVAMOP_HOME=../javamop
 RV_MONITOR_HOME=../rv-monitor
 
-ANDROID_PLATFORM=android-17
+ANDROID_PLATFORM=android-30
 ANDROID_SDK_HOME=$ANDROID_HOME
 ANDROID_PLATFORM_LIB=$ANDROID_SDK_HOME/platforms/$ANDROID_PLATFORM
 
 
 # Set up output directories, removing old files
-find $2 -name "*.java" -exec rm -Rf {} \;
+find $2 -name "*Monitor.java" -exec rm -Rfv {} \;
+#find $2 -name "*.java" -exec rm -Rf {} \;
 #find $2 -name "*.rvm" -exec rm -Rf {} \;
 #find $2 -name "*.aj" -exec rm -Rf {} \;
-rm -rf out tmp rvm_tmp lib_tmp
-mkdir out
-mkdir tmp
-mkdir rvm_tmp
-mkdir lib_tmp
+rm -rfv out tmp rvm_tmp lib_tmp
+mkdir -v out tmp rvm_tmp lib_tmp
 
 # Copy dependency JARs to 'lib_tmp' folder 
 mvn clean compile
@@ -49,11 +47,11 @@ rm tmp/no_monitor_$1.jar
 
 # Use JavaMOP
 echo "[+] Executing JavaMOP"
-$JAVAMOP_HOME/bin/javamop -s -merge $2/*.mop
+$JAVAMOP_HOME/bin/javamop -merge $2/*.mop
 
 # Use RV-Monitor
 echo "[+] Executing RV-Monitor"
-$RV_MONITOR_HOME/bin/rv-monitor -s -merge -d $2 $2/*.rvm
+$RV_MONITOR_HOME/bin/rv-monitor -merge -d $2 $2/*.rvm
 
 
 
