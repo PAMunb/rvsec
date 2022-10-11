@@ -2,6 +2,6 @@
 
 #APK=osmtracker.apk
 #APK=media.apk
-APK=com.gaurav.avnc_14.apk
+APK=com.hwloc.lstopo_266.apk
 
 ./mop.sh $APK mop
