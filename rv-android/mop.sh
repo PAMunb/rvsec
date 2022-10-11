@@ -22,7 +22,7 @@ ANDROID_PLATFORM_LIB=$ANDROID_SDK_HOME/platforms/$ANDROID_PLATFORM
 
 
 # Set up output directories, removing old files
-find $2 -name "*Monitor.java" -exec rm -Rfv {} \;
+find $2 -name "*Monitor.java" -exec rm -Rf {} \;
 #find $2 -name "*.java" -exec rm -Rf {} \;
 #find $2 -name "*.rvm" -exec rm -Rf {} \;
 #find $2 -name "*.aj" -exec rm -Rf {} \;
@@ -101,7 +101,7 @@ cd ..
 #sh lib/dex2jar/d2j-jar2dex.sh -f -o tmp/classes.dex tmp/monitored_$1.jar
 
 #$ANDROID_HOME/build-tools/30.0.3/d8 tmp/monitored_$1.jar
-d8 tmp/monitored_$1.jar --release --lib $ANDROID_PLATFORM_LIB/android.jar
+d8 tmp/monitored_$1.jar --release --lib $ANDROID_PLATFORM_LIB/android.jar --min-api 21
 
 # If using D8, change classes.dex folder
 echo "Coping classes.dex to /tmp and delete from this directory"
@@ -132,6 +132,6 @@ jarsigner -sigalg SHA1withRSA -digestalg SHA1 -keystore ../keystore.jks $1 serve
 
 # Clean up
 cd ..
-#rm -rf tmp rvm_tmp
+rm -rf tmp rvm_tmp
 
 echo "[+] Done! Final apk generated in out/$1"

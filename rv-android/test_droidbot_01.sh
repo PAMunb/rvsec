@@ -3,13 +3,15 @@
 # emulator must be running ... (sh run_emulator.sh)
 
 
-APK=media.apk
+#APK=media.apk
+APK=com.hwloc.lstopo_266.apk
 # sudo apt install aapt
 # aapt dump badging media.apk | grep package:\ name
 #OR
 # adb shell
 # pm list packages -f
-PACKAGE_NAME="com.example.myapp"
+#PACKAGE_NAME="com.example.myapp"
+PACKAGE_NAME="com.hwloc.lstopo"
 
 
 ./mop.sh $APK mop
