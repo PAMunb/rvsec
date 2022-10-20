@@ -1,7 +1,7 @@
 #!/bin/sh
 
 #APK=osmtracker.apk
-#APK=media.apk
+APK=media.apk
 
 
 
