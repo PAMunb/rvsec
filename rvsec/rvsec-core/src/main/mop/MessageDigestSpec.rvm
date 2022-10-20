@@ -1,0 +1,82 @@
+package mop;
+
+import java.security.Provider;
+import java.security.MessageDigest;
+import java.util.List;
+import br.unb.cic.mop.eh.*;
+import br.unb.cic.mop.ExecutionContext;
+import br.unb.cic.mop.ExecutionContext.Property;
+MessageDigestSpec(MessageDigest digest) {
+
+	List<String> algorithms = Arrays.asList("SHA-256", "SHA-384", "SHA-512");
+
+	MessageDigest md = null;
+
+	String currentAlgorithmInstance = "";
+	event g1(String alg, MessageDigest digest){
+		if ( ! (algorithms.contains(alg.toUpperCase())) ) {
+			return false;
+		}
+		{
+			md = digest;
+			currentAlgorithmInstance = alg;
+		}
+	}
+	event g2(String alg, String provider, MessageDigest digest){
+		if ( ! (algorithms.contains(alg.toUpperCase())) ) {
+			return false;
+		}
+		{
+			md = digest;
+			currentAlgorithmInstance = alg;
+		}
+	}
+	event g3(String alg, Provider provider, MessageDigest digest){
+		if ( ! (algorithms.contains(alg.toUpperCase())) ) {
+			return false;
+		}
+		{
+			md = digest;
+			currentAlgorithmInstance = alg;
+		}
+	}
+	event g4(String alg, MessageDigest digest){
+		if ( ! (!algorithms.contains(currentAlgorithmInstance.toUpperCase())) ) {
+			return false;
+		}
+		{
+			currentAlgorithmInstance = alg;
+		}
+	}
+	event update(MessageDigest digest){
+		if (!algorithms.contains(currentAlgorithmInstance.toUpperCase())) {
+			ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeAlgorithm, "MessageDigestSpec", "" + __LOC, "expecting one of {SHA-256, SHA-384, SHA-512} but found " + currentAlgorithmInstance + "."));
+		}
+	}
+	event reset(MessageDigest digest){
+	}
+	event d1(MessageDigest digest, byte[] out){
+		ExecutionContext.instance().setProperty(Property.DIGESTED, out);
+	}
+	event d2(MessageDigest digest, byte[] out){
+		if (!algorithms.contains(currentAlgorithmInstance.toUpperCase())) {
+			ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeAlgorithm, "MessageDigestSpec", "" + __LOC, "expecting one of {SHA-256, SHA-384, SHA-512} but found " + currentAlgorithmInstance + "."));
+		}
+		ExecutionContext.instance().setProperty(Property.DIGESTED, out);
+	}
+	event d3(byte[] out, int offset, int len, MessageDigest digest){
+		ExecutionContext.instance().setProperty(Property.DIGESTED, out);
+	}
+	ere:  (g4* g1 | g4* g2 | g4* g3) (d2 | (update+ (d1 | d2 | d3)))+
+
+	@fail
+	{
+		ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "MessageDigestSpec", "" + __LOC));
+		ExecutionContext.instance().unsetObjectAsInAcceptingState(md);
+		__RESET;
+	}
+	@match
+	{
+		ExecutionContext.instance().setObjectAsInAcceptingState(md);
+	}
+}

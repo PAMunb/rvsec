@@ -9,22 +9,22 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 
 public class MonitoredApp extends Activity {
-  private MediaPlayer mplay=null;
+//  private MediaPlayer mplay=null;
 
     /** Called when the activity is first created. */
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.main);
-        mplay = MediaPlayer.create(this, R.raw.music);
-        mplay.setOnErrorListener(
-            new MediaPlayer.OnErrorListener() {
-              @Override 
-              public boolean onError(MediaPlayer mp, int what, int extra){
-                Log.e("Monitor","MediaPlayer.OnErrorListener: error");
-                return false;
-              }
-            });
+//        mplay = MediaPlayer.create(this, R.raw.music);
+//        mplay.setOnErrorListener(
+//            new MediaPlayer.OnErrorListener() {
+//              @Override 
+//              public boolean onError(MediaPlayer mp, int what, int extra){
+//                Log.e("Monitor","MediaPlayer.OnErrorListener: error");
+//                return false;
+//              }
+//            });
 
           //This is the proper way to play music, by setting the 
           //player to run in the OnPreparedListender
@@ -36,13 +36,13 @@ public class MonitoredApp extends Activity {
           //}
           //);
 
-        Log.v("TESTE","***************************************************************************** INICIO");
-        digest("123".getBytes());
-        Log.v("TESTE","***************************************************************************** FIM");
+        Log.e("TESTE","***************************************************************************** INICIO");
+        Log.v("TESTE",bytesToHex(digest("123".getBytes())));
+        Log.e("TESTE","***************************************************************************** FIM");
         
         //here we call start directly, which is possibly dangerous because
         //the media may not be prepared
-        mplay.start();
+        //mplay.start();
     }
     
     private static byte[] digest(byte[] input) {

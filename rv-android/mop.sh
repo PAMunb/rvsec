@@ -2,7 +2,7 @@
 
 if [ "$#" -ne 2 ]; then
     echo "Illegal number of parameters!"
-    echo "Usage: instrument_apk.sh [apk] [mop]"
+    echo "Usage: ./mop.sh [apk] [mop_dir]"
     exit
 fi
 
@@ -16,24 +16,24 @@ fi
 JAVAMOP_HOME=../javamop
 RV_MONITOR_HOME=../rv-monitor
 
-ANDROID_PLATFORM=android-17
+ANDROID_PLATFORM=android-29
 ANDROID_SDK_HOME=$ANDROID_HOME
 ANDROID_PLATFORM_LIB=$ANDROID_SDK_HOME/platforms/$ANDROID_PLATFORM
 
 
 # Set up output directories, removing old files
-find $2 -name "*.java" -exec rm -Rf {} \;
+find $2 -name "*Monitor.java" -exec rm -Rf {} \;
+#find $2 -name "*.java" -exec rm -Rf {} \;
 #find $2 -name "*.rvm" -exec rm -Rf {} \;
 #find $2 -name "*.aj" -exec rm -Rf {} \;
 rm -rf out tmp rvm_tmp lib_tmp
-mkdir out
-mkdir tmp
-mkdir rvm_tmp
-mkdir lib_tmp
+mkdir out tmp rvm_tmp lib_tmp
 
 # Copy dependency JARs to 'lib_tmp' folder 
 mvn clean compile
-CLASSPATH=$ANDROID_PLATFORM_LIB/android.jar:$(for i in lib_tmp/*.jar ; do echo -n $i: ; done):.
+
+CLASSPATH="$ANDROID_PLATFORM_LIB/android.jar:$(printf %s: lib_tmp/*.jar):."
+
 echo "CLASSPATH=$CLASSPATH"
 
 # Convert APK to Jar (with Java bytecode), verify output Jar
@@ -47,11 +47,11 @@ rm tmp/no_monitor_$1.jar
 
 # Use JavaMOP
 echo "[+] Executing JavaMOP"
-$JAVAMOP_HOME/bin/javamop -s -merge $2/*.mop
+$JAVAMOP_HOME/bin/javamop -merge $2/*.mop
 
 # Use RV-Monitor
 echo "[+] Executing RV-Monitor"
-$RV_MONITOR_HOME/bin/rv-monitor -s -merge -d $2 $2/*.rvm
+$RV_MONITOR_HOME/bin/rv-monitor -merge -d $2 $2/*.rvm
 
 
 
@@ -65,32 +65,31 @@ cp -rf rvm_tmp/ tmp/
 rm -rf rvm_tmp/*
 
 
-#unzip lib_tmp/rv-monitor-rt.jar -d tmp
-#unzip lib_tmp/rvsec.jar -d tmp
-
-
 # Instrument application with monitor classes
 echo "[+] Instrumenting"
-ajc -Xmx10240m -cp $CLASSPATH:mop:tmp:. -Xlint:ignore -showWeaveInfo -inpath tmp -d tmp -source 1.8 -sourceroots mop
+#ajc -Xmx10240m -cp $CLASSPATH:mop:tmp:. -Xlint:ignore -showWeaveInfo -inpath tmp -d tmp -source 1.8 -sourceroots mop
+ajc -Xmx10240m -cp $CLASSPATH:mop:tmp:. -Xlint:ignore -inpath tmp -d tmp -source 1.8 -sourceroots mop
 if [ "$?" = 1 ] ; then
     echo "AspectJ has encountered a fatal error and needs to close. Dying!"
     exit
 fi
 
-
+echo "[+] Creating APK"
 # Extract RV-Monitor support classes
 cp lib_tmp/rv-monitor-rt.jar rvm_tmp/.
-cp lib_tmp/rvsec.jar rvm_tmp/.
+cp lib_tmp/rvsec-core.jar rvm_tmp/.
+cp lib_tmp/rvsec-logger-logcat.jar rvm_tmp/.
 cd rvm_tmp
 jar xf rv-monitor-rt.jar
-#jar xf rvsec.jar
+jar xf rvsec-core.jar
+jar xf rvsec-logger-logcat.jar
 
 # Remove rvmonitorrt's manifest and the temporarily copied Jar + property files
-rm -rf META-INF rv-monitor-rt.jar rvsec.jar
+rm -rf META-INF *.jar
 cd ..
 
 # Merge RV-Monitor support classes
-cp -rT rvm_tmp/ tmp/
+cp -rf rvm_tmp/* tmp/
 rm -rf rvm_tmp/*
 
 # Compress resulting transformed classes to Jar
@@ -99,7 +98,16 @@ jar cf monitored_$1.jar *
 cd ..
 
 # Compile classes in Jar to Dex format
-sh lib/dex2jar/d2j-jar2dex.sh -f -o tmp/classes.dex tmp/monitored_$1.jar
+#sh lib/dex2jar/d2j-jar2dex.sh -f -o tmp/classes.dex tmp/monitored_$1.jar
+
+#$ANDROID_HOME/build-tools/30.0.3/d8 tmp/monitored_$1.jar
+d8 tmp/monitored_$1.jar --release --lib $ANDROID_PLATFORM_LIB/android.jar --min-api 21
+
+# If using D8, change classes.dex folder
+echo "Coping classes.dex to /tmp and delete from this directory"
+cp classes.dex tmp/
+rm classes.dex
+
 cp $1 tmp/$1
 cd tmp
 

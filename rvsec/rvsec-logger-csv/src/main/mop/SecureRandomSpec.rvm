@@ -1,0 +1,129 @@
+package mop;
+
+import java.security.SecureRandom;
+import java.util.stream.IntStream;
+import br.unb.cic.mop.eh.*;
+import br.unb.cic.mop.ExecutionContext;
+SecureRandomSpec(SecureRandom r) {
+
+	SecureRandom sr;
+
+	List<String> algorithms = Arrays.asList("SHA1PRNG", "Windows-PRNG", "NativePRNG", "NativePRNGBlocking", "NativePRNGNonBlocking", "PKCS11");
+	event c1(SecureRandom r){
+		sr = r;
+	}
+	event c2(byte[] seed, SecureRandom r){
+		if ( ! (ExecutionContext.instance().validate(Property.RANDOMIZED, seed)) ) {
+			return false;
+		}
+		{
+			sr = r;
+		}
+	}
+	event c3(byte[] seed, SecureRandom r){
+		if ( ! (!ExecutionContext.instance().validate(Property.RANDOMIZED, seed)) ) {
+			return false;
+		}
+		{
+			sr = r;
+		}
+	}
+	event g1(String alg, SecureRandom r){
+		if ( ! (algorithms.contains(alg)) ) {
+			return false;
+		}
+		{
+			sr = r;
+		}
+	}
+	event g2(String alg, SecureRandom r){
+		if ( ! (algorithms.contains(alg)) ) {
+			return false;
+		}
+		{
+			sr = r;
+		}
+	}
+	event g3(SecureRandom r){
+		sr = r;
+	}
+	event g4(String alg, SecureRandom r){
+		if ( ! (!algorithms.contains(alg)) ) {
+			return false;
+		}
+		{
+			ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeAlgorithm, "SecureRandomSpec", "" + __LOC, "one of " + String.join(",", algorithms) + " but found " + alg + "."));
+		}
+	}
+	event setSeed1(SecureRandom r){
+	}
+	event setSeed2(byte[] seed, SecureRandom r){
+		if ( ! (ExecutionContext.instance().validate(Property.RANDOMIZED, seed)) ) {
+			return false;
+		}
+		{
+		}
+	}
+	event setSeed3(byte[] seed, SecureRandom r){
+		if ( ! (!ExecutionContext.instance().validate(Property.RANDOMIZED, seed)) ) {
+			return false;
+		}
+		{
+			ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "SecureRandomSpec", "setSeed() expects a randomized byte array." + __LOC));
+		}
+	}
+	event genSeed(SecureRandom r, byte[] seed){
+		ExecutionContext.instance().setProperty(Property.RANDOMIZED, seed);
+	}
+	event next1(SecureRandom r, int randIntInRange){
+		ExecutionContext.instance().setProperty(Property.RANDOMIZED, randIntInRange);
+	}
+	event next2(SecureRandom r, byte[] bytes){
+		ExecutionContext.instance().setProperty(Property.RANDOMIZED, bytes);
+	}
+	event next3(SecureRandom r, int randInt){
+		ExecutionContext.instance().setProperty(Property.RANDOMIZED, randInt);
+	}
+	event ints(SecureRandom r, IntStream stream){
+		ExecutionContext.instance().setProperty(Property.RANDOMIZED, stream);
+	}
+	fsm:
+	start [
+	c1 -> init
+	c2 -> init
+	g1 -> init
+	g2 -> init
+	g3 -> init
+	]
+	init [
+	c1       -> init
+	genSeed  -> end
+	setSeed1 -> end
+	setSeed2 -> end
+	next1    -> end
+	next2    -> end
+	next3    -> end
+	ints     -> end
+	]
+	end [
+	genSeed  -> end
+	setSeed1 -> end
+	setSeed2 -> end
+	next1    -> end
+	next3    -> end
+	ints     -> end
+	]
+
+	alias match1 = init
+
+	@fail
+	{
+		ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "SecureRandomSpec", "" + __LOC));
+		__RESET;
+	}
+	@match1
+	{
+		ExecutionContext.instance().setObjectAsInAcceptingState(sr);
+		ExecutionContext.instance().setProperty(Property.RANDOMIZED, sr);
+	}
+}

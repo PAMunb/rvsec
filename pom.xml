@@ -5,7 +5,7 @@
 
 	<groupId>br.unb.cic</groupId>
 	<artifactId>rvsec-parent</artifactId>
-	<version>0.0.1-SNAPSHOT</version>
+	<version>0.2.0-SNAPSHOT</version>
 	<packaging>pom</packaging>
 
 	<organization>
@@ -42,6 +42,7 @@
 		<commons-lang3.version>3.0</commons-lang3.version>
 		<commons-io.version>2.4</commons-io.version>
 		<guava.version>19.0</guava.version>
+		<android.version>4.1.1.4</android.version>
 
 		<junit.version>4.13.2</junit.version>
 
@@ -89,7 +90,17 @@
 			</dependency>
 			<dependency>
 				<groupId>br.unb.cic</groupId>
-				<artifactId>rvsec</artifactId>
+				<artifactId>rvsec-core</artifactId>
+				<version>${project.version}</version>
+			</dependency>
+			<dependency>
+				<groupId>br.unb.cic</groupId>
+				<artifactId>rvsec-logger-csv</artifactId>
+				<version>${project.version}</version>
+			</dependency>
+			<dependency>
+				<groupId>br.unb.cic</groupId>
+				<artifactId>rvsec-logger-logcat</artifactId>
 				<version>${project.version}</version>
 			</dependency>
 
@@ -135,6 +146,13 @@
 				<groupId>commons-io</groupId>
 				<artifactId>commons-io</artifactId>
 				<version>${commons-io.version}</version>
+			</dependency>
+
+			<dependency>
+				<groupId>com.google.android</groupId>
+				<artifactId>android</artifactId>
+				<version>${android.version}</version>
+				<scope>provided</scope>
 			</dependency>
 
 			<dependency>

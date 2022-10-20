@@ -1,0 +1,53 @@
+package mop;
+
+import javax.crypto.spec.IvParameterSpec;
+import br.unb.cic.mop.eh.*;
+import br.unb.cic.mop.ExecutionContext;
+IvParameterSpecSpec(IvParameterSpec s) {
+
+	IvParameterSpec spec;
+	event c1(byte[] iv, IvParameterSpec s){
+		if ( ! (ExecutionContext.instance().validate(Property.RANDOMIZED, iv)) ) {
+			return false;
+		}
+		{
+			spec = s;
+		}
+	}
+	event c2(byte[] iv, int offset, int len, IvParameterSpec s){
+		if ( ! (ExecutionContext.instance().validate(Property.RANDOMIZED, iv) && offset >= 0 && len >= 0 && iv.length >= offset + len) ) {
+			return false;
+		}
+		{
+			spec = s;
+		}
+	}
+	event c3(byte[] iv, IvParameterSpec s){
+		if ( ! (!ExecutionContext.instance().validate(Property.RANDOMIZED, iv)) ) {
+			return false;
+		}
+		{
+			ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "IvParameterSpecSpec", "" + __LOC));
+		}
+	}
+	event c4(byte[] iv, int offset, int len, IvParameterSpec s){
+		if ( ! (!ExecutionContext.instance().validate(Property.RANDOMIZED, iv)) ) {
+			return false;
+		}
+		{
+			ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "IvParameterSpecSpec", "" + __LOC));
+		}
+	}
+	ere:  c1 | c2
+
+	@fail
+	{
+		ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "IvParameterSpecSpec", "" + __LOC));
+		__RESET;
+	}
+	@match
+	{
+		ExecutionContext.instance().setProperty(ExecutionContext.Property.PREPARED_IV, spec);
+		ExecutionContext.instance().setObjectAsInAcceptingState(spec);
+	}
+}

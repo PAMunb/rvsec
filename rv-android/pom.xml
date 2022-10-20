@@ -8,7 +8,7 @@
 	<parent>
 		<groupId>br.unb.cic</groupId>
 		<artifactId>rvsec-parent</artifactId>
-		<version>0.0.1-SNAPSHOT</version>
+		<version>0.2.0-SNAPSHOT</version>
 	</parent>
 
 	<groupId>br.unb.cic.rvandroid</groupId>
@@ -17,18 +17,22 @@
 	<name>RVSec :: rv-android</name>
 
 	<properties>
+		<!-- <aspectj.version>1.8.14</aspectj.version> -->
 		<aspectj.version>1.9.6</aspectj.version>
 	</properties>
 
 	<dependencies>
-
 		<dependency>
 			<groupId>br.unb.cic.rvmonitor</groupId>
 			<artifactId>rv-monitor-rt</artifactId>
 		</dependency>
 		<dependency>
 			<groupId>br.unb.cic</groupId>
-			<artifactId>rvsec</artifactId>
+			<artifactId>rvsec-core</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>br.unb.cic</groupId>
+			<artifactId>rvsec-logger-logcat</artifactId>
 		</dependency>
 
 		<dependency>
@@ -41,8 +45,6 @@
 			<artifactId>surefire-booter</artifactId>
 			<version>3.0.0-M7</version>
 		</dependency>
-
-
 	</dependencies>
 
 	<build>
