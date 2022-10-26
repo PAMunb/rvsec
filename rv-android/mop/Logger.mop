@@ -18,7 +18,7 @@ import java.security.NoSuchAlgorithmException;
 Logger() {
 
 	event g1 after (Object o): (call(* Object+.*(..)) && target(o)) {
-       Log.v("RV-MONITOR:", "g1: ALL EVENTS MONITOR ASPECT");
+       Log.v("RV-MONITOR", "g1: ALL EVENTS MONITOR ASPECT");
        //ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "Logger",  "" + __LOC));
     }
 
@@ -27,7 +27,7 @@ Logger() {
 
 
 	@match {
-           Log.v("RV-MONITOR:", "match: ALL EVENTS MONITOR ASPECT");
+           Log.v("RV-MONITOR", "match: ALL EVENTS MONITOR ASPECT");
 	}
 }
 

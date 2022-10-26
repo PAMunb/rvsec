@@ -4,7 +4,7 @@
 
 
 #APK=media.apk
-APK=com.hwloc.lstopo_266.apk
+APK=21-30-com.hwloc.lstopo_266.apk
 # sudo apt install aapt
 # aapt dump badging media.apk | grep package:\ name
 #OR
@@ -14,7 +14,7 @@ APK=com.hwloc.lstopo_266.apk
 PACKAGE_NAME="com.hwloc.lstopo"
 
 
-./mop.sh $APK mop
+./mop.sh apks/$APK mop
 
 echo "[+] Installing APK"
 adb install out/$APK

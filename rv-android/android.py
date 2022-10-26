@@ -1,18 +1,31 @@
 import logging
 import re
 import os
+import io
 import time
 import sys
 
 from commands.command import Command
+from contextlib import contextmanager
 
 
 class Android:
 
     @classmethod
+    @contextmanager
+    def create_emulator(cls, avd_name):
+        # Code to acquire resource, e.g.:
+        emulator = cls.start_emulator(avd_name)
+        try:
+            yield emulator
+        finally:
+            # Code to release resource, e.g.:
+            cls.kill_emulator(avd_name)
+
+
+    @classmethod
     def start_emulator(cls, avd_name):
-        logging.info('Starting emulator')
-        print('Starting emulator')
+        logging.info('Starting emulator')        
         start = time.time()
                 
         #start_emulator_cmd = Command('emulator', ['-avd', avd_name, '-writable-system', '-wipe-data', '-no-boot-anim', '-no-window', '-netdelay', 'none'])
@@ -45,6 +58,7 @@ class Android:
 
     @classmethod
     def kill_emulator(cls, avd_name):
+        logging.info("Killing emulator ...")
         kill_emulator_cmd = Command('adb', ['-s', 'emulator-5554', 'emu', 'kill'])
         kill_emulator_cmd.invoke()
         kill_server_cmd = Command('adb', ['-s', 'emulator-5554', 'kill-server'])
@@ -84,10 +98,6 @@ class Android:
 
     @classmethod
     def get_package_name(cls, apk_path):
-        readlink_cmd = Command('readlink', ['-f', apk_path])
-        readlink_result = readlink_cmd.invoke()
-        readlink_result_str = readlink_result.stdout.strip().decode('ascii', 'ignore')
-        
         get_package_list_cmd = Command('aapt', ['list', '-a', apk_path])
         get_package_list_result = get_package_list_cmd.invoke()
         get_package_list_result_str = get_package_list_result.stdout.strip().decode('ascii', 'ignore')
@@ -97,5 +107,20 @@ class Android:
             match = re.search(r'package=(.*)', get_package_list_result_str, re.MULTILINE)
             if match is None:
                 return None
-        return match.group(1)   
-    
+        return match.group(1)  
+
+
+    def get_permissions(cls, apk_path): 
+        permissions = []
+        get_permissions_cmd = Command('aapt', ['d', 'permissions', apk_path])
+        get_permissions_result = get_permissions_cmd.invoke()
+        get_permissions_result_str = get_permissions_result.stdout.strip().decode('ascii', 'ignore') 
+
+        matches = re.findall(r"uses-permission: name='.*'", get_permissions_result_str, re.MULTILINE)        
+        for match in matches:
+            tmp = match.replace("uses-permission: name='","")
+            tmp = tmp.replace("'","")            
+            permissions.append(tmp)
+        return permissions
+
+        

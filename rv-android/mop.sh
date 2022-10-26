@@ -39,7 +39,7 @@ CLASSPATH="$ANDROID_PLATFORM_LIB/android.jar:$(printf %s: lib_tmp/*.jar):."
 echo "CLASSPATH=$CLASSPATH"
 
 APK_NAME="$(basename $1)"
-echo $APK_NAME
+echo "APK=$APK_NAME"
 
 # Convert APK to Jar (with Java bytecode), verify output Jar
 echo "[+] Extracting Java classes to JAR in tmp/"
@@ -89,7 +89,7 @@ jar xf rv-monitor-rt.jar
 jar xf rvsec-core.jar
 jar xf rvsec-logger-logcat.jar
 
-# Remove rvmonitorrt's manifest and the temporarily copied Jar + property files
+# Remove rv-monitor-rt's manifest and the temporarily copied Jar + property files
 rm -rf META-INF *.jar
 cd ..
 
@@ -104,12 +104,10 @@ cd ..
 
 # Compile classes in Jar to Dex format
 #sh lib/dex2jar/d2j-jar2dex.sh -f -o tmp/classes.dex tmp/monitored_$1.jar
-
-#$ANDROID_HOME/build-tools/30.0.3/d8 tmp/monitored_$1.jar
 d8 tmp/monitored_$APK_NAME.jar --release --lib $ANDROID_PLATFORM_LIB/android.jar --min-api 21
 
 # If using D8, change classes.dex folder
-echo "Coping classes.dex to /tmp and delete from this directory"
+echo "Coping classes.dex to ./tmp and delete from this directory"
 cp classes.dex tmp/
 rm classes.dex
 
