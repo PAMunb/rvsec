@@ -110,6 +110,7 @@ class Android:
         return match.group(1)  
 
 
+    @classmethod
     def get_permissions(cls, apk_path): 
         permissions = []
         get_permissions_cmd = Command('aapt', ['d', 'permissions', apk_path])
@@ -123,4 +124,12 @@ class Android:
             permissions.append(tmp)
         return permissions
 
-        
+    
+    @classmethod
+    def grant_permissions(cls, apk_path):
+        package = cls.get_package_name(apk_path)
+        permissions = cls.get_permissions(apk_path)
+        for permission in permissions:
+            grant_cmd = Command('adb', ['shell', 'pm', 'grant', package, permission])
+            grant_cmd.invoke()
+ 
