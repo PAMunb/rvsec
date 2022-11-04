@@ -35,8 +35,18 @@ public class ErrorCollector {
 
     public void addError(ErrorDescription err) {
         if (errors.add(err)) {
-            Log.v("RVSEC", err.getErrorSummary() + "," + err.getExpecting().trim());
+        	String message = err.getErrorSummary() + "," + err.getExpecting().trim();
+            Log.v("RVSEC", escapeSpecialCharacters(message));
         }
+    }
+    
+    private String escapeSpecialCharacters(String data) {
+        String escapedData = data.replaceAll("\\R", " ");
+        if (data.contains(",") || data.contains("\"") || data.contains("'")) {
+            data = data.replace("\"", "\"\"");
+            escapedData = "\"" + data + "\"";
+        }
+        return escapedData;
     }
 
     public Set<ErrorDescription> getErrors() {
