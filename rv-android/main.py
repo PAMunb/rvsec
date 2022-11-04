@@ -6,8 +6,8 @@ from settings import MOP_DIR, AVD_NAME, RESULTS_DIR, TIMESTAMP, INSTRUMENTED_DIR
 from commands.command import Command
 from android import Android
 
-
-TIMEOUTS = [60]
+REPETITION = 3
+TIMEOUTS = [300]
 POLICY = ["monkey"]
 
 android = Android()
@@ -30,22 +30,23 @@ def execute(instrument=True):
 
     # for each instrumented apk
     for apk in apks:
-        for timeout in TIMEOUTS:
-            logging.info("TIMEOUT: "+str(timeout))
-            for policy in POLICY:
-                logging.info("POLICY: "+policy)
-                run(apk, timeout, policy)
+        for rep in range(REPETITION):
+            for timeout in TIMEOUTS:
+                logging.info("TIMEOUT: "+str(timeout))
+                for policy in POLICY:
+                    logging.info("POLICY: "+policy)
+                    run(apk, rep, timeout, policy)
 
     logging.info('Finished !!!')
 
 
-def run(apk, timeout, policy):
-    logging.info("Running: APK={0}, timeout={1}, policy={2}".format(apk, timeout, policy))
+def run(apk, rep, timeout, policy):
+    logging.info("Running: APK={0}, rep={1}, timeout={2}, policy={3}".format(apk, rep, timeout, policy))
 
     apk_path = os.path.join(INSTRUMENTED_DIR, apk)
     #logcat_cmd = Command('adb', ['logcat', '-v', 'raw', '-s', LOGCAT_TAG])
-    logcat_cmd = Command('adb', ['logcat', '-v', 'raw', '-s', 'RV-MONITOR'])
-    logcat_file = os.path.join(RESULTS_DIR, TIMESTAMP, "{0}_{1}_{2}.txt".format(apk, timeout, policy))    
+    logcat_cmd = Command('adb', ['logcat', '-v', 'raw', '-s', 'RVSEC'])
+    logcat_file = os.path.join(RESULTS_DIR, TIMESTAMP, "{0}_{1}_{2}_{3}.txt".format(apk, rep, timeout, policy))    
 
     with android.create_emulator(AVD_NAME) as emulator:
         with open(logcat_file, 'wb') as log_cat:
