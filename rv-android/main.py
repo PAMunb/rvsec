@@ -18,7 +18,7 @@ def execute(instrument=True):
     logging.info("Executing")
 
     # create results dir
-    create_results_dir()
+    results_dir = create_results_dir()
 
     # instrument apks
     if instrument:
@@ -35,18 +35,18 @@ def execute(instrument=True):
                 logging.info("TIMEOUT: "+str(timeout))
                 for policy in POLICY:
                     logging.info("POLICY: "+policy)
-                    run(apk, rep, timeout, policy)
+                    run(apk, rep, timeout, policy, results_dir)
 
     logging.info('Finished !!!')
 
 
-def run(apk, rep, timeout, policy):
+def run(apk, rep, timeout, policy, results_dir):
     logging.info("Running: APK={0}, rep={1}, timeout={2}, policy={3}".format(apk, rep, timeout, policy))
 
     apk_path = os.path.join(INSTRUMENTED_DIR, apk)
     #logcat_cmd = Command('adb', ['logcat', '-v', 'raw', '-s', LOGCAT_TAG])
     logcat_cmd = Command('adb', ['logcat', '-v', 'raw', '-s', 'RVSEC'])
-    logcat_file = os.path.join(RESULTS_DIR, TIMESTAMP, "{0}_{1}_{2}_{3}.txt".format(apk, rep, timeout, policy))    
+    logcat_file = os.path.join(results_dir, "{0}_{1}_{2}_{3}.txt".format(apk, rep, timeout, policy))    
 
     with android.create_emulator(AVD_NAME) as emulator:
         with open(logcat_file, 'wb') as log_cat:
@@ -104,6 +104,7 @@ def create_results_dir():
     results_dir = os.path.join(RESULTS_DIR, TIMESTAMP)
     create_folder(RESULTS_DIR)
     create_folder(results_dir)
+    return results_dir
 
 
 def create_folder(folder_name):
