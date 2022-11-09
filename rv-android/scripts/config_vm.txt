@@ -1,0 +1,36 @@
+sudo apt install git unzip zip python3-pip python-is-python3 wget
+
+git clone https://github.com/PAMunb/rvsec.git
+cd rvsec/
+git checkout develop
+
+curl -s "https://get.sdkman.io" | bash
+source "$HOME/.sdkman/bin/sdkman-init.sh"
+sdk install java 8.0.302-open 
+sdk install maven 3.8.6
+
+cd /home/pedro/.sdkman/candidates/java/8.0.302-open/jre/bin/
+ln -s ../../bin/javac
+
+cd ~/rvsec
+
+
+mvn clean install -DskipTests -DskipMopAgent
+
+mkdir /home/pedro/tmp
+mkdir /home/pedro/android
+mkdir /home/pedro/rvsec/rv-android/out
+mkdir /home/pedro/rvsec/rv-android/apks
+
+# manual steps
+# /etc/profile
+# export ASPECTJ_HOME=/home/pedro/aspectj
+# export ANDROID_HOME=/home/pedro/android
+# export ANDROID_SDK_ROOT=/home/pedro/android
+# export PATH=$ANDROID_HOME/platform-tools:$ANDROID_HOME/cmdline-tools/tools/bin:$ANDROID_HOME/emulator:$ANDROID_HOME/build-tools/33.0.0:/home/pedro/.local/bin:$ASPECTJ_HOME/bin:$PATH
+# TODO: change memory in ajc script ....
+
+cd /home/pedro/rvsec/rv-android/scripts
+
+./config_android.sh
+./config_droidbot.sh
