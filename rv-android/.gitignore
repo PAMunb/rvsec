@@ -2,6 +2,11 @@
 /results/
 /out/
 /tmp/
+/android-apks/
+/apks_pilot/
+/apks_test/
+/apks_selecionados/
+/mop-out/
 /com.gaurav.avnc_14.apk
 /com.hwloc.lstopo_266.apk
 /com.vecturagames.android.app.passwordgenerator_35.apk

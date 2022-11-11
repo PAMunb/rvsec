@@ -36,7 +36,8 @@ public class ErrorCollector {
     public void addError(ErrorDescription err) {
         if (errors.add(err)) {
         	String message = err.getErrorSummary() + "," + err.getExpecting().trim();
-            Log.v("RVSEC", escapeSpecialCharacters(message));
+            //Log.v("RVSEC", escapeSpecialCharacters(message));
+        	Log.v("RVSEC", message);
         }
     }
     

@@ -2,13 +2,16 @@ import os
 import sys
 import logging
 
-from settings import MOP_DIR, AVD_NAME, RESULTS_DIR, TIMESTAMP, INSTRUMENTED_DIR, APKS_DIR
+import fnmatch, shutil
+
+from settings import MOP_DIR, MOP_OUT_DIR, AVD_NAME, RESULTS_DIR, TIMESTAMP, INSTRUMENTED_DIR, APKS_DIR, JAVAMOP_HOME, RV_MONITOR_HOME
 from commands.command import Command
 from android import Android
 
 REPETITION = 3
 TIMEOUTS = [300]
-POLICY = ["monkey"]
+POLICY = ["monkey","dfs_naive","dfs_greedy","bfs_naive","bfs_greedy"]
+#POLICY = ["dfs_greedy"]
 
 android = Android()
 
@@ -22,6 +25,7 @@ def execute(instrument=True):
 
     # instrument apks
     if instrument:
+        runtime_verification()
         instrument_apks()
 
     # retrieve the instumented apks
@@ -29,11 +33,12 @@ def execute(instrument=True):
     logging.info("Instrumented APKs: {0}".format(len(apks)))
 
     # for each instrumented apk
-    for apk in apks:
-        for rep in range(REPETITION):
-            for timeout in TIMEOUTS:
-                logging.info("TIMEOUT: "+str(timeout))
-                for policy in POLICY:
+
+    for rep in range(REPETITION):
+        for timeout in TIMEOUTS:
+            logging.info("TIMEOUT: "+str(timeout))
+            for policy in POLICY:
+                for apk in apks:
                     logging.info("POLICY: "+policy)
                     run(apk, rep, timeout, policy, results_dir)
 
@@ -44,15 +49,54 @@ def run(apk, rep, timeout, policy, results_dir):
     logging.info("Running: APK={0}, rep={1}, timeout={2}, policy={3}".format(apk, rep, timeout, policy))
 
     apk_path = os.path.join(INSTRUMENTED_DIR, apk)
-    #logcat_cmd = Command('adb', ['logcat', '-v', 'raw', '-s', LOGCAT_TAG])
     logcat_cmd = Command('adb', ['logcat', '-v', 'raw', '-s', 'RVSEC'])
-    logcat_file = os.path.join(results_dir, "{0}_{1}_{2}_{3}.txt".format(apk, rep, timeout, policy))    
+    logcat_file = os.path.join(results_dir, "{0}_{1}_{2}_{3}.txt".format(apk, rep, timeout, policy))
 
     with android.create_emulator(AVD_NAME) as emulator:
         with open(logcat_file, 'wb') as log_cat:
             proc = logcat_cmd.invoke_as_deamon(stdout=log_cat)
             run_droidbot(apk_path, timeout, policy)
             proc.kill()
+
+
+def runtime_verification():
+    java_mop()
+    rv_monitor()
+
+
+def java_mop():
+    logging.info("Executing JavaMOP ")
+    create_folder(MOP_OUT_DIR)
+
+    javamop_bin = os.path.join(JAVAMOP_HOME, 'bin', 'javamop')
+    print(javamop_bin)
+    #TODO definir o diretorio de destino (MOP_OUT_DIR) ... ai pode remover a copia manual (no fim do metodo)
+    javamop_cmd = Command(javamop_bin, [        
+        '-merge',        
+        MOP_DIR,
+    ])
+    javamop_result = javamop_cmd.invoke(stdout=sys.stdout)
+    if javamop_result.code != 0:
+        raise Exception("Error while executing JavaMOP: {0}. {1}".format(javamop_result.code, javamop_result.stderr))    
+    copy_files(MOP_DIR, MOP_OUT_DIR, "*.aj")
+    copy_files(MOP_DIR, MOP_OUT_DIR, "*.rvm")
+
+
+def rv_monitor():   
+    logging.info("Executing RV-Monitor ")
+    rvmonitor_bin = os.path.join(RV_MONITOR_HOME, 'bin', 'rv-monitor')
+    rvm_files = os.path.join(MOP_OUT_DIR, "*.rvm")
+    print(rvmonitor_bin)
+    rvmonitor_cmd = Command(rvmonitor_bin, [
+        '-merge',
+        '-d',
+        MOP_OUT_DIR,        
+        rvm_files,
+    ])
+    rvmonitor_result = rvmonitor_cmd.invoke(stdout=sys.stdout)
+    if rvmonitor_result.code != 0:
+        raise Exception("Error while executing rvmonitor: {0}. {1}".format(
+            rvmonitor_result.code, rvmonitor_result.stderr))
 
 
 def instrument_apks():
@@ -68,14 +112,16 @@ def instrument_apks():
 def instrument(apk):
     logging.info("Instrumenting: "+apk)
     instrument_cmd = Command('sh', [
-        'mop.sh',
+        'instrument.sh',
         apk,
-        MOP_DIR
+        MOP_DIR,
+        MOP_OUT_DIR
     ], 1200)
     #instrument_result = instrument_cmd.invoke(stdout=sys.stdout)
     instrument_result = instrument_cmd.invoke()
     if instrument_result.code != 0:
-        raise Exception("Error while instrumenting")
+        raise Exception("Error while instrumenting: {0}. {1}".format(
+            instrument_result.code, instrument_result.stderr))
 
 
 def run_droidbot(apk_path, timeout, policy):
@@ -87,7 +133,11 @@ def run_droidbot(apk_path, timeout, policy):
         apk_path,
         '-policy',
         policy,
-        '-is_emulator'
+        '-is_emulator',
+        '-count',
+        '10000000',
+        '-grant_perm',
+        '-ignore_ad'
     ], timeout)
     droidbot_cmd.invoke(stdout=sys.stdout)
 
@@ -116,6 +166,16 @@ def create_folder(folder_name):
             error_msg = 'Error while creating folder {0}'.format(folder_name)
             logging.error(error_msg)
             raise Exception(error_msg)
+
+
+def copy_files(srcdir, dstdir, filepattern):
+    def failed(exc):
+        raise exc
+
+    for dirpath, dirs, files in os.walk(srcdir, topdown=True, onerror=failed):
+        for file in fnmatch.filter(files, filepattern):
+            shutil.copy2(os.path.join(dirpath, file), dstdir)
+        break # no recursion
 
 
 if __name__ == '__main__':
