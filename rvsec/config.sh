@@ -10,7 +10,7 @@ if [ -z "$M2_REPO" ]; then
 fi
 
 RV_MONITOR_REPO=${M2_REPO}/br/unb/cic/rvmonitor
-RV_MONITOR_VERSION=0.2.0-SNAPSHOT
+RV_MONITOR_VERSION=0.2.0
 
 CLASSPATH=${RV_MONITOR_REPO}/rv-monitor/${RV_MONITOR_VERSION}/rv-monitor-${RV_MONITOR_VERSION}.jar:${RV_MONITOR_REPO}/rv-monitor-rt/${RV_MONITOR_VERSION}/rv-monitor-rt-${RV_MONITOR_VERSION}.jar:${ASPECTJ_HOME}/lib/aspectjrt.jar:${ASPECTJ_HOME}/lib/aspectjweaver.jar:${ASPECTJ_HOME}/lib/aspectjtools.jar    
 
