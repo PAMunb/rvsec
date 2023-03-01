@@ -260,7 +260,7 @@ public abstract class MessageDigest extends MessageDigestSpi {
         if (provider == null || provider.length() == 0)
             throw new IllegalArgumentException("missing provider");
         // Android-added: Check for Bouncy Castle deprecation
-        Providers.checkBouncyCastleDeprecation(provider, "MessageDigest", algorithm);
+//        Providers.checkBouncyCastleDeprecation(provider, "MessageDigest", algorithm);
         Object[] objs = Security.getImpl(algorithm, "MessageDigest", provider);
         if (objs[0] instanceof MessageDigest) {
             MessageDigest md = (MessageDigest)objs[0];
@@ -310,7 +310,7 @@ public abstract class MessageDigest extends MessageDigestSpi {
         if (provider == null)
             throw new IllegalArgumentException("missing provider");
         // Android-added: Check for Bouncy Castle deprecation
-        Providers.checkBouncyCastleDeprecation(provider, "MessageDigest", algorithm);
+//        Providers.checkBouncyCastleDeprecation(provider, "MessageDigest", algorithm);
         Object[] objs = Security.getImpl(algorithm, "MessageDigest", provider);
         if (objs[0] instanceof MessageDigest) {
             MessageDigest md = (MessageDigest)objs[0];

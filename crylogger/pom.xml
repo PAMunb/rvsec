@@ -1,0 +1,84 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+
+	<parent>
+		<groupId>br.unb.cic</groupId>
+		<artifactId>rvsec-parent</artifactId>
+		<version>0.3.0-SNAPSHOT</version>
+		<!--		<relativePath />-->
+	</parent>
+
+	<groupId>br.unb.cic.rvsec</groupId>
+	<artifactId>crylogger</artifactId>
+
+	<name>RVSec :: crylogger</name>
+
+	<properties>
+		<final.jar.name>rt-crylogger</final.jar.name>
+		<rt.jar.dir>/home/pedro/.sdkman/candidates/java/8.0.302-open/jre/lib/</rt.jar.dir>
+		<rt.jar.location>${rt.jar.dir}/rt.jar</rt.jar.location>
+	</properties>
+
+	<build>
+		<sourceDirectory>scripts/deltas/libcore/ojluni/src/main/java</sourceDirectory>
+		<plugins>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-jar-plugin</artifactId>
+				<configuration>
+					<finalName>${final.jar.name}</finalName>
+				</configuration>
+			</plugin>
+			<plugin>
+				<artifactId>maven-antrun-plugin</artifactId>
+				<executions>
+					<execution>
+						<phase>install</phase>
+						<configuration>
+							<tasks>
+								<copy file="${rt.jar.location}" tofile="${rt.jar.dir}/rt-original.jar" overwrite="false" />
+								<mkdir dir="${java.io.tmpdir}/rt" />
+								<unzip src="${rt.jar.location}" dest="${java.io.tmpdir}/rt" />
+								<unzip src="${project.build.directory}/${final.jar.name}.jar" dest="${java.io.tmpdir}/rt" overwrite="true" />
+								<zip destfile="${java.io.tmpdir}/new-rt.jar" basedir="${java.io.tmpdir}/rt" />
+								<copy file="${java.io.tmpdir}/new-rt.jar" tofile="${rt.jar.location}" />
+								<delete dir="${java.io.tmpdir}/rt" failonerror="false" />
+								<delete file="${java.io.tmpdir}/new-rt.jar" failonerror="false" />
+							</tasks>
+						</configuration>
+						<goals>
+							<goal>run</goal>
+						</goals>
+					</execution>
+				</executions>
+			</plugin>
+		</plugins>
+	</build>
+
+	<profiles>
+		<profile>
+			<id>revert</id>
+			<build>
+				<plugins>
+					<plugin>
+						<artifactId>maven-antrun-plugin</artifactId>
+						<executions>
+							<execution>
+								<phase>validate</phase>
+								<configuration>
+									<tasks>
+										<copy file="${rt.jar.dir}/rt-original.jar" tofile="${rt.jar.location}" overwrite="true" />
+									</tasks>
+								</configuration>
+								<goals>
+									<goal>run</goal>
+								</goals>
+							</execution>
+						</executions>
+					</plugin>
+				</plugins>
+			</build>
+		</profile>
+	</profiles>
+
+</project>

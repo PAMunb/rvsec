@@ -101,11 +101,11 @@ public abstract class SSLSocketFactory extends SocketFactory
         CRYLogger.write("[SSLSocketFactory] getDefault() called\n");
 
         // Android-changed: Check Security.getVersion() on each update.
-        if (defaultSocketFactory != null && lastVersion == Security.getVersion()) {
+        if (defaultSocketFactory != null) { // && lastVersion == Security.getVersion()) {
             return defaultSocketFactory;
         }
 
-        lastVersion = Security.getVersion();
+//        lastVersion = Security.getVersion();
         SSLSocketFactory previousDefaultSocketFactory = defaultSocketFactory;
         defaultSocketFactory = null;
 

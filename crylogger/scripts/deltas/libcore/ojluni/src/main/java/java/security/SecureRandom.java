@@ -33,7 +33,7 @@ import java.util.regex.*;
 import java.security.Provider.Service;
 import java.util.function.Function;
 
-import dalvik.system.VMRuntime;
+//import dalvik.system.VMRuntime;
 import sun.security.jca.*;
 import sun.security.jca.GetInstance.Instance;
 

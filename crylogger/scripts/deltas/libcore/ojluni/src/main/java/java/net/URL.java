@@ -1175,6 +1175,118 @@ public final class URL implements java.io.Serializable {
      * Returns the Stream Handler.
      * @param protocol the protocol to use
      */
+//    static URLStreamHandler getURLStreamHandler(String protocol) {
+//
+//        URLStreamHandler handler = handlers.get(protocol);
+//        if (handler == null) {
+//
+//            boolean checkedWithFactory = false;
+//
+//            // Use the factory (if any)
+//            if (factory != null) {
+//                handler = factory.createURLStreamHandler(protocol);
+//                checkedWithFactory = true;
+//            }
+//
+//            // Try java protocol handler
+//            if (handler == null) {
+//                // Android-changed: Android doesn't need AccessController.
+//                // Remove unnecessary use of reflection for sun classes
+//                /*
+//                packagePrefixList
+//                    = java.security.AccessController.doPrivileged(
+//                    new sun.security.action.GetPropertyAction(
+//                        protocolPathProp,""));
+//                if (packagePrefixList != "") {
+//                    packagePrefixList += "|";
+//                }
+//
+//                // REMIND: decide whether to allow the "null" class prefix
+//                // or not.
+//                packagePrefixList += "sun.net.www.protocol";
+//                 */
+//                final String packagePrefixList = System.getProperty(protocolPathProp,"");
+//
+//                StringTokenizer packagePrefixIter =
+//                    new StringTokenizer(packagePrefixList, "|");
+//
+//                while (handler == null &&
+//                       packagePrefixIter.hasMoreTokens()) {
+//
+//                    String packagePrefix =
+//                      packagePrefixIter.nextToken().trim();
+//                    try {
+//                        String clsName = packagePrefix + "." + protocol +
+//                          ".Handler";
+//                        Class<?> cls = null;
+//                        try {
+//                            ClassLoader cl = ClassLoader.getSystemClassLoader();
+//                            // BEGIN Android-changed: Fall back to thread's contextClassLoader.
+//                            // http://b/25897689
+//                            cls = Class.forName(clsName, true, cl);
+//                        } catch (ClassNotFoundException e) {
+//                            ClassLoader contextLoader = Thread.currentThread().getContextClassLoader();
+//                            if (contextLoader != null) {
+//                                cls = Class.forName(clsName, true, contextLoader);
+//                            }
+//                            // END Android-changed: Fall back to thread's contextClassLoader.
+//                        }
+//                        if (cls != null) {
+//                            handler  =
+//                              (URLStreamHandler)cls.newInstance();
+//                        }
+//                    } catch (ReflectiveOperationException ignored) {
+//                    }
+//                }
+//            }
+//
+//            // BEGIN Android-added: Custom built-in URLStreamHandlers for http, https.
+//            // Fallback to built-in stream handler.
+//            if (handler == null) {
+//                try {
+//                    handler = createBuiltinHandler(protocol);
+//                } catch (Exception e) {
+//                    throw new AssertionError(e);
+//                }
+//            }
+//            // END Android-added: Custom built-in URLStreamHandlers for http, https.
+//
+//            synchronized (streamHandlerLock) {
+//
+//                URLStreamHandler handler2 = null;
+//
+//                // Check again with hashtable just in case another
+//                // thread created a handler since we last checked
+//                handler2 = handlers.get(protocol);
+//
+//                if (handler2 != null) {
+//                    return handler2;
+//                }
+//
+//                // Check with factory if another thread set a
+//                // factory since our last check
+//                if (!checkedWithFactory && factory != null) {
+//                    handler2 = factory.createURLStreamHandler(protocol);
+//                }
+//
+//                if (handler2 != null) {
+//                    // The handler from the factory must be given more
+//                    // importance. Discard the default handler that
+//                    // this thread created.
+//                    handler = handler2;
+//                }
+//
+//                // Insert this handler into the hashtable
+//                if (handler != null) {
+//                    handlers.put(protocol, handler);
+//                }
+//
+//            }
+//        }
+//
+//        return handler;
+//
+//    }
     static URLStreamHandler getURLStreamHandler(String protocol) {
 
         URLStreamHandler handler = handlers.get(protocol);
@@ -1190,9 +1302,8 @@ public final class URL implements java.io.Serializable {
 
             // Try java protocol handler
             if (handler == null) {
-                // Android-changed: Android doesn't need AccessController.
-                // Remove unnecessary use of reflection for sun classes
-                /*
+                String packagePrefixList = null;
+
                 packagePrefixList
                     = java.security.AccessController.doPrivileged(
                     new sun.security.action.GetPropertyAction(
@@ -1204,8 +1315,6 @@ public final class URL implements java.io.Serializable {
                 // REMIND: decide whether to allow the "null" class prefix
                 // or not.
                 packagePrefixList += "sun.net.www.protocol";
-                 */
-                final String packagePrefixList = System.getProperty(protocolPathProp,"");
 
                 StringTokenizer packagePrefixIter =
                     new StringTokenizer(packagePrefixList, "|");
@@ -1220,36 +1329,22 @@ public final class URL implements java.io.Serializable {
                           ".Handler";
                         Class<?> cls = null;
                         try {
-                            ClassLoader cl = ClassLoader.getSystemClassLoader();
-                            // BEGIN Android-changed: Fall back to thread's contextClassLoader.
-                            // http://b/25897689
-                            cls = Class.forName(clsName, true, cl);
+                            cls = Class.forName(clsName);
                         } catch (ClassNotFoundException e) {
-                            ClassLoader contextLoader = Thread.currentThread().getContextClassLoader();
-                            if (contextLoader != null) {
-                                cls = Class.forName(clsName, true, contextLoader);
+                            ClassLoader cl = ClassLoader.getSystemClassLoader();
+                            if (cl != null) {
+                                cls = cl.loadClass(clsName);
                             }
-                            // END Android-changed: Fall back to thread's contextClassLoader.
                         }
                         if (cls != null) {
                             handler  =
                               (URLStreamHandler)cls.newInstance();
                         }
-                    } catch (ReflectiveOperationException ignored) {
+                    } catch (Exception e) {
+                        // any number of exceptions can get thrown here
                     }
                 }
             }
-
-            // BEGIN Android-added: Custom built-in URLStreamHandlers for http, https.
-            // Fallback to built-in stream handler.
-            if (handler == null) {
-                try {
-                    handler = createBuiltinHandler(protocol);
-                } catch (Exception e) {
-                    throw new AssertionError(e);
-                }
-            }
-            // END Android-added: Custom built-in URLStreamHandlers for http, https.
 
             synchronized (streamHandlerLock) {
 
@@ -1508,6 +1603,12 @@ public final class URL implements java.io.Serializable {
         return BUILTIN_HANDLER_CLASS_NAMES.contains(handlerClassName);
     }
 
+    boolean isBuiltinStreamHandler(URLStreamHandler handler) {
+        Class<?> handlerClass = handler.getClass();
+        return isBuiltinStreamHandler(handlerClass.getName());
+                //|| VM.isSystemDomainLoader(handlerClass.getClassLoader());
+    }
+    
     private void resetState() {
         this.protocol = null;
         this.host = null;
