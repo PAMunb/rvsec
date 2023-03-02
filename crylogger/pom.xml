@@ -15,7 +15,7 @@
 
 	<properties>
 		<final.jar.name>rt-crylogger</final.jar.name>
-		<rt.jar.dir>/home/pedro/.sdkman/candidates/java/8.0.302-open/jre/lib/</rt.jar.dir>
+		<rt.jar.dir>${user.home}/.sdkman/candidates/java/8.0.302-open/jre/lib/</rt.jar.dir>
 		<rt.jar.location>${rt.jar.dir}/rt.jar</rt.jar.location>
 	</properties>
 
