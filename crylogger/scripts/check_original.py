@@ -50,20 +50,24 @@ def is_hex(s):
 
 
 def function_name():
+
     # Return the name of the calling check function
     return traceback.extract_stack(None, 3)[0][2][6:]
 
 
 def print_verbose(args, message):
+
     if args.verbose:
         args.out_file.write(message)
 
 
 def print_start(args):
+
     print_verbose(args, function_name() + "\n")
 
 
 def print_result(args, fail):
+
     if fail == 0:
         args.out_file.write(function_name() + ": RESPECTED\n")
     elif fail == 1:
@@ -73,23 +77,23 @@ def print_result(args, fail):
 
     return fail
 
-
-def print_partial_result(error_text, args):
-    args.out_file.write(function_name() + " ### "+ error_text+"\n")
-
 ###############################################################################
 # Search Utilities
 ###############################################################################
 
 
 def search_string_in_file(string, content, start=0):
+
     pos = content.lower().find(string.lower(), start)
+
     if pos == -1:
         return 0
+
     return pos
 
 
 def search_regexp_in_file(reg, content, start=0):
+
     pattern = re.compile(reg.lower())
     return pattern.search(content.lower(), start)
 
@@ -299,12 +303,6 @@ def getSecureRandom(content):
     return random
 
 
-def get_content(text, pos):
-    #c = args.in1_content
-    newline_position = text.find("\n",pos)
-    return text[pos : newline_position]    
-
-
 ###############################################################################
 # Rule R-01
 ###############################################################################
@@ -316,31 +314,23 @@ insecure_hash_functions = ["MD2", "MD-2",
 
 
 def check_rule_R01(args):
-    
+
     # Don't use insecure hash (e.g., MD2, MD4, SHA-1)
 
     fail = 0
-    prefix = "[MessageDigest] algorithm: "
+    str1 = "[MessageDigest] algorithm: "
 
     print_start(args)
-    #print(args)
 
     for h in insecure_hash_functions:
-        text_to_search = prefix + h
-    
-        pos = search_string_in_file(text_to_search, args.in1_content)
-        #print("$$$$$ %s # POS=%d" % (h,pos))
-        while pos:# != 0:         
-            #print(get_content(pos,args))            
-            print_partial_result(get_content(args.in1_content,pos), args)                         
-            pos = search_string_in_file(text_to_search, args.in1_content, pos+len(text_to_search))
+
+        if search_string_in_file(str1 + h, args.in1_content):
+            print_verbose(args, "\t Hash " + h + "\n")
             fail = 1
 
         if args.in2_content is not None:
-            pos = search_string_in_file(text_to_search, args.in2_content)
-            while pos:
-                print_partial_result(get_content(args.in2_content,pos), args)  
-                pos = search_string_in_file(text_to_search, args.in2_content, pos+len(text_to_search))
+            if search_string_in_file(str1 + h, args.in2_content):
+                print_verbose(args, "\t Hash " + h + "\n")
                 fail = 1
 
     return print_result(args, fail)
