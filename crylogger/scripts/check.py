@@ -74,8 +74,8 @@ def print_result(args, fail):
     return fail
 
 
-def print_partial_result(error_text, args):
-    args.out_file.write(function_name() + " ### "+ error_text+"\n")
+def write_misuse(error_text, args):
+    args.rvsec_file.write(function_name() + " ### "+ error_text+"\n")
 
 ###############################################################################
 # Search Utilities
@@ -111,20 +111,46 @@ def collect_all_values(string, content, hexa=False):
 
         value = content[pos1 + len(string): pos2]
         if hexa:
-
             try:
-
+                #TODO: acho q deveria add o conv
                 conv = int(value.strip(), 16)
-                res.add(value.strip())
-
+                #res.add(value.strip())
+                res.add(conv)
             except ValueError as e:
-
                 # insert only hexadecimal string
                 pass
-
         else:
-
             res.add(value.strip())
+
+        start = pos2 + 1
+
+    return res
+
+def collect_all_values_with_position(string, content, hexa=False):
+    start = 0
+    res = set()
+
+    while True:
+        pos1 = search_string_in_file(string, content, start)
+        if pos1 == 0:
+            break
+
+        pos2 = search_string_in_file("\n", content, pos1)
+        if pos2 == 0:
+            break
+
+        value = content[pos1 + len(string): pos2]
+        if hexa:
+            try:
+                #TODO: acho q deveria add o conv
+                conv = int(value.strip(), 16)
+                #res.add(value.strip())
+                res.add((pos1,conv))
+            except ValueError as e:
+                # insert only hexadecimal string
+                pass
+        else:
+            res.add((pos1,value.strip()))
 
         start = pos2 + 1
 
@@ -300,9 +326,26 @@ def getSecureRandom(content):
 
 
 def get_content(text, pos):
-    #c = args.in1_content
     newline_position = text.find("\n",pos)
     return text[pos : newline_position]    
+
+def search_string(text_to_search, args):
+    fail = 0
+    
+    pos = search_string_in_file(text_to_search, args.in1_content)
+    while pos: # != 0:               
+        write_misuse(get_content(args.in1_content,pos), args)                         
+        pos = search_string_in_file(text_to_search, args.in1_content, pos+len(text_to_search))
+        fail = 1
+
+    if args.in2_content is not None:
+        pos = search_string_in_file(text_to_search, args.in2_content)
+        while pos:
+            write_misuse(get_content(args.in2_content,pos), args)  
+            pos = search_string_in_file(text_to_search, args.in2_content, pos+len(text_to_search))
+            fail = 1
+    
+    return fail
 
 
 ###############################################################################
@@ -323,27 +366,29 @@ def check_rule_R01(args):
     prefix = "[MessageDigest] algorithm: "
 
     print_start(args)
-    #print(args)
 
     for h in insecure_hash_functions:
         text_to_search = prefix + h
     
-        pos = search_string_in_file(text_to_search, args.in1_content)
-        #print("$$$$$ %s # POS=%d" % (h,pos))
-        while pos:# != 0:         
-            #print(get_content(pos,args))            
-            print_partial_result(get_content(args.in1_content,pos), args)                         
-            pos = search_string_in_file(text_to_search, args.in1_content, pos+len(text_to_search))
+        result = search_string(text_to_search, args)
+        if result == 1:
             fail = 1
+        
+        #pos = search_string_in_file(text_to_search, args.in1_content)
+        #while pos: # != 0:               
+        #    write_misuse(get_content(args.in1_content,pos), args)                         
+        #    pos = search_string_in_file(text_to_search, args.in1_content, pos+len(text_to_search))
+        #    fail = 1
 
-        if args.in2_content is not None:
-            pos = search_string_in_file(text_to_search, args.in2_content)
-            while pos:
-                print_partial_result(get_content(args.in2_content,pos), args)  
-                pos = search_string_in_file(text_to_search, args.in2_content, pos+len(text_to_search))
-                fail = 1
+        #if args.in2_content is not None:
+        #    pos = search_string_in_file(text_to_search, args.in2_content)
+        #    while pos:
+        #        write_misuse(get_content(args.in2_content,pos), args)  
+        #        pos = search_string_in_file(text_to_search, args.in2_content, pos+len(text_to_search))
+        #        fail = 1
 
     return print_result(args, fail)
+
 
 ###############################################################################
 # Rule R-02
@@ -363,46 +408,80 @@ def check_rule_R02(args):
     # Don't use insecure algorithms (e.g., RC2, RC4, IDEA, ..)
 
     fail = 0
-    str1 = "[Cipher] algorithm: "
+    prefix = "[Cipher] algorithm: "
     reg1 = "\[Cipher\] algorithm: PBEWith"
 
     print_start(args)
 
     for func in insecure_hash_functions:
-
-        if search_regexp_in_file(reg1 + func + ".*", args.in1_content):
+        re_to_search = reg1 + func
+        match = search_regexp_in_file(re_to_search + ".*", args.in1_content)
+        
+        while match:
             print_verbose(args, "\t Hash " + func + "\n")
+            write_misuse(get_content(args.in1_content,match.start()), args)
+            match = search_regexp_in_file(re_to_search + ".*", args.in1_content, match.start()+len(re_to_search))
             fail = 1
 
         if args.in2_content is not None:
-            if search_regexp_in_file(reg1 + func + ".*", args.in2_content):
+            match = search_regexp_in_file(re_to_search + ".*", args.in2_content)
+            while match:
                 print_verbose(args, "\t Hash " + func + "\n")
+                write_misuse(get_content(args.in2_content,match.start()), args)
+                match = search_regexp_in_file(re_to_search + ".*", args.in2_content, match.start()+len(re_to_search))
                 fail = 1
 
     # AES without operation mode (insecure)
-    algs = collect_all_values(str1 + "AES", args.in1_content)
-    for alg in algs:
-        if alg == "":
+    tuples = collect_all_values_with_position(prefix + "AES", args.in1_content)
+    for t in tuples:
+        position = t[0]
+        alg = t[1]
+        #print("ALG="+alg+"________")
+        stacktrace_separator_position = alg.find("::")
+        alg_value = alg[0 : stacktrace_separator_position].strip()
+        #print("VALUE="+alg_value) 
+        if alg_value == "":
             print_verbose(args, "\t Encr AES missing mode\n")
+            text = get_content(args.in1_content,position)
+            stacktrace_separator_position = text.find("::")
+            text = text[:stacktrace_separator_position] + "- Encr AES missing mode " + text[stacktrace_separator_position:]
+            write_misuse(text, args)
             fail = 1
 
     for func in insecure_symm_encryption_functions:
-
-        if search_string_in_file(str1 + func, args.in1_content):
+        text_to_search = prefix + func        
+        pos = search_string_in_file(text_to_search, args.in1_content)
+        while pos:
             print_verbose(args, "\t Encr " + func + "\n")
+            write_misuse(get_content(args.in1_content,pos), args)
+            pos = search_string_in_file(text_to_search, args.in1_content, pos+len(text_to_search))
             fail = 1
 
         if args.in2_content is not None:
-            if search_regexp_in_file(reg1 + ".*" + func, args.in2_content):
+            re_to_search = reg1 + ".*" + func
+            match = search_regexp_in_file(re_to_search, args.in2_content)
+            while match:
                 print_verbose(args, "\t Hash " + func + "\n")
+                write_misuse(get_content(args.in2_content,match.start()), args)
+                match = search_regexp_in_file(re_to_search, args.in2_content, match.start()+len(re_to_search))
                 fail = 1
 
-            # AES without operation mode (insecure)
-            algs = collect_all_values(str1 + "AES", args.in2_content)
-            for alg in algs:
-                if alg == "":
-                    print_verbose(args, "\t Encr AES missing mode \n")
-                    fail = 1
+    if args.in2_content is not None:
+        # AES without operation mode (insecure)
+        #algs = collect_all_values(str1 + "AES", args.in2_content)
+        tuples = collect_all_values_with_position(prefix + "AES", args.in2_content)
+        for t in tuples:
+            position = t[0]
+            alg = t[1]
+            stacktrace_separator_position = alg.find("::")
+            alg_value = alg[0 : stacktrace_separator_position].strip()
+            if alg_value == "":
+                print_verbose(args, "\t Encr AES missing mode\n")
+                text = get_content(args.in2_content,position)
+                stacktrace_separator_position = text.find("::")
+                text = text[:stacktrace_separator_position] + "- Encr AES missing mode " + text[stacktrace_separator_position:]
+                write_misuse(text, args)
+                fail = 1
 
     return print_result(args, fail)
 
@@ -495,19 +574,26 @@ def check_rule_R04(args):
 
     # Don't use the operation mode CBC if AES is used
 
-    fail = 0
-    str1 = "[Cipher] algorithm: AES/CBC/"
+    #fail = 0
+    text_to_search = "[Cipher] algorithm: AES/CBC/"
 
     print_start(args)
+    
+    fail = search_string(text_to_search, args)
 
-    if search_string_in_file(str1, args.in1_content):
-        print_verbose(args, "\t AES/CBC detected\n")
-        fail = 1
+    #pos = search_string_in_file(text_to_search, args.in1_content)
+    #while pos:
+    #    print_verbose(args, "\t AES/CBC detected\n")
+    #    text = get_content(args.in1_content,pos)
+    #    #print(text)
+    #    write_misuse(text, args)
+    #    pos = search_string_in_file(text_to_search, args.in1_content, pos+len(text_to_search))
+    #    fail = 1
 
-    if args.in2_content is not None:
-        if search_string_in_file(str1, args.in2_content):
-            print_verbose(args, "\t AES/CBC detected\n")
-            fail = 1
+    #if args.in2_content is not None:
+    #    if search_string_in_file(text_to_search, args.in2_content):
+    #        print_verbose(args, "\t AES/CBC detected\n")
+    #        fail = 1
 
     return print_result(args, fail)
 
@@ -1286,6 +1372,9 @@ def check_rule_R26(args):
     str3 = "[HttpsURLConnection] getDefaultHostnameVerifier() called"
 
     print_start(args)
+    
+    #fail = check_rule_R26_util(args.in1_content)    
+    #fail = check_rule_R26_util(args.in2_content)
 
     if search_string_in_file(str1, args.in1_content):
         fail = 1
@@ -1308,6 +1397,24 @@ def check_rule_R26(args):
             fail = 0
 
     return print_result(args, fail)
+
+def check_rule_R26_util(content):
+    fail = 0
+    str1 = "[SSLSocketFactory] getDefault() called"
+    str2 = "[HttpsURLConnection] getHostnameVerifier() called"
+    str3 = "[HttpsURLConnection] getDefaultHostnameVerifier() called"
+    
+    if search_string_in_file(str1, content):
+        fail = 1
+
+    if search_string_in_file(str2, content):
+        fail = 0
+
+    if search_string_in_file(str3, content):
+        fail = 0
+        
+    return fail
+    
 
 ###############################################################################
 # Argument parser
@@ -1346,6 +1453,7 @@ def main():
             args.in_file_name1 = os.path.join(args.work_dir, log_name + "")
             args.in_file_name2 = os.path.join(args.work_dir, log_name + "2")
             out_file_name = os.path.abspath(args.in_file_name1[:-9] + "rules")
+            rvsec_out_file_name = os.path.abspath(args.in_file_name1[:-9] + "rvsec")
 
             # Input file 1
             in1_file = open(args.in_file_name1, "r")
@@ -1361,15 +1469,16 @@ def main():
 
             # Output file
             args.out_file = open(out_file_name, "w")
+            args.rvsec_file = open(rvsec_out_file_name, "w")
 
             if args.rule_id:
                 name = "check_rule_R" + args.rule_id
                 globals()[name](args)  # calls check
             else:
-                check_rule_R01(args)
-                check_rule_R02(args)
+                check_rule_R01(args) # OK
+                check_rule_R02(args) # OK
                 check_rule_R03(args)
-                check_rule_R04(args)
+                check_rule_R04(args) # OK, but not covered by mascBench
                 check_rule_R05(args)
                 check_rule_R06(args)
                 check_rule_R07(args)
