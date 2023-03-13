@@ -13,6 +13,8 @@ import argparse
 import traceback
 import subprocess
 import shutil
+import logging
+
 
 ###############################################################################
 # Common functions
@@ -60,22 +62,22 @@ def print_verbose(args, message):
 
 
 def print_start(args):
-    print_verbose(args, function_name() + "\n")
+    print_verbose(args, args.current_rule + "\n")
 
 
 def print_result(args, fail):
     if fail == 0:
-        args.out_file.write(function_name() + ": RESPECTED\n")
+        args.out_file.write(args.current_rule + ": RESPECTED\n")
     elif fail == 1:
-        args.out_file.write(function_name() + ": VIOLATED\n")
+        args.out_file.write(args.current_rule + ": VIOLATED\n")
     else:  # fail == -1
-        args.out_file.write(function_name() + ": SKIPPED\n")
+        args.out_file.write(args.current_rule + ": SKIPPED\n")
 
     return fail
 
 
 def write_misuse(error_text, args):
-    args.rvsec_file.write(function_name() + " ### "+ error_text+"\n")
+    args.rvsec_file.write(args.current_rule + " ### "+ error_text+"\n")
 
 ###############################################################################
 # Search Utilities
@@ -110,6 +112,9 @@ def collect_all_values(string, content, hexa=False):
             break
 
         value = content[pos1 + len(string): pos2]
+        #remove the stacktrace, to get only the value
+        stacktrace_separator_position = value.find("::")
+        value = value[0 : stacktrace_separator_position].strip()
         if hexa:
             try:
                 #TODO: acho q deveria add o conv
@@ -140,12 +145,15 @@ def collect_all_values_with_position(string, content, hexa=False):
             break
 
         value = content[pos1 + len(string): pos2]
+        #remove the stacktrace, to get only the value
+        stacktrace_separator_position = value.find("::")
+        value = value[0 : stacktrace_separator_position].strip()
         if hexa:
             try:
                 #TODO: acho q deveria add o conv
                 conv = int(value.strip(), 16)
-                #res.add(value.strip())
-                res.add((pos1,conv))
+                res.add((pos1,value.strip()))
+                #res.add((pos1,conv))
             except ValueError as e:
                 # insert only hexadecimal string
                 pass
@@ -175,6 +183,9 @@ def collect_all_values_regexp(exp, content):
             break
 
         value = content[pos1.start(0) + len(string): pos2]
+        #remove the stacktrace, to get only the value
+        stacktrace_separator_position = value.find("::")
+        value = value[0 : stacktrace_separator_position].strip()
         res.add(value.strip())
         start = pos2 + 1
 
@@ -325,25 +336,62 @@ def getSecureRandom(content):
     return random
 
 
+###############################################################################
+# custom
+###############################################################################
+
 def get_content(text, pos):
     newline_position = text.find("\n",pos)
     return text[pos : newline_position]    
 
 def search_string(text_to_search, args):
-    fail = 0
+    fail = search_string_util(text_to_search, args.in1_content, args)    
     
-    pos = search_string_in_file(text_to_search, args.in1_content)
-    while pos: # != 0:               
-        write_misuse(get_content(args.in1_content,pos), args)                         
-        pos = search_string_in_file(text_to_search, args.in1_content, pos+len(text_to_search))
-        fail = 1
+    #pos = search_string_in_file(text_to_search, args.in1_content)
+    #while pos: # != 0:               
+    #    write_misuse(get_content(args.in1_content,pos), args)                         
+    #    pos = search_string_in_file(text_to_search, args.in1_content, pos+len(text_to_search))
+    #    fail = 1
 
     if args.in2_content is not None:
-        pos = search_string_in_file(text_to_search, args.in2_content)
-        while pos:
-            write_misuse(get_content(args.in2_content,pos), args)  
-            pos = search_string_in_file(text_to_search, args.in2_content, pos+len(text_to_search))
-            fail = 1
+        fail = search_string_util(text_to_search, args.in2_content, args)  
+        #pos = search_string_in_file(text_to_search, args.in2_content)
+        #while pos:
+        #    write_misuse(get_content(args.in2_content,pos), args)  
+        #    pos = search_string_in_file(text_to_search, args.in2_content, pos+len(text_to_search))
+        #    fail = 1
+    
+    return fail
+
+def search_string_util(text_to_search, content, args):
+    fail = 0
+    
+    pos = search_string_in_file(text_to_search, content)
+    while pos: # != 0:               
+        write_misuse(get_content(content,pos), args)                         
+        pos = search_string_in_file(text_to_search, content, pos+len(text_to_search))
+        fail = 1
+    
+    return fail
+
+def search_regex(text_to_search, args):
+    fail = search_regex_util(text_to_search,args.in1_content,args)
+
+    if args.in2_content is not None:
+        fail = search_regex_util(text_to_search,args.in2_content,args)
+    
+    return fail
+
+def search_regex_util(text_to_search, content, args):
+    fail = 0
+    
+    match = search_regexp_in_file(text_to_search, content)
+    pos = match.start()
+    while pos: # != 0:               
+        write_misuse(get_content(content,pos), args)                         
+        match = search_regexp_in_file(text_to_search, content, pos+len(text_to_search))
+        pos = match.start()
+        fail = 1
     
     return fail
 
@@ -351,7 +399,6 @@ def search_string(text_to_search, args):
 ###############################################################################
 # Rule R-01
 ###############################################################################
-
 insecure_hash_functions = ["MD2", "MD-2",
                            "MD4", "MD-4",
                            "MD5", "MD-5",
@@ -361,6 +408,7 @@ insecure_hash_functions = ["MD2", "MD-2",
 def check_rule_R01(args):
     
     # Don't use insecure hash (e.g., MD2, MD4, SHA-1)
+    args.current_rule = "rule_R01"
 
     fail = 0
     prefix = "[MessageDigest] algorithm: "
@@ -393,8 +441,6 @@ def check_rule_R01(args):
 ###############################################################################
 # Rule R-02
 ###############################################################################
-
-
 insecure_symm_encryption_functions = ["RC2", "RC-2",
                                       "RC4", "RC-4",
                                       "RC5", "RC-5",
@@ -485,11 +531,10 @@ def check_rule_R02(args):
 
     return print_result(args, fail)
 
+
 ###############################################################################
 # Rule R-03
 ###############################################################################
-
-
 def check_rule_R03(args):
 
     # Don't use the operation mode ECB with > 1 block
@@ -565,11 +610,10 @@ def check_rule_R03(args):
 
     return print_result(args, fail)
 
+
 ###############################################################################
 # Rule R-04
 ###############################################################################
-
-
 def check_rule_R04(args):
 
     # Don't use the operation mode CBC if AES is used
@@ -597,11 +641,10 @@ def check_rule_R04(args):
 
     return print_result(args, fail)
 
+
 ###############################################################################
 # Rule R-05
 ###############################################################################
-
-
 def check_rule_R05(args):
 
     # Don't use a static (constant) key for encryption
@@ -624,11 +667,10 @@ def check_rule_R05(args):
 
     return print_result(args, fail)
 
+
 ###############################################################################
 # Rule R-06
 ###############################################################################
-
-
 def check_rule_R06(args):
 
     # Don't use a 'badly-derived' key for encryption
@@ -692,11 +734,10 @@ def check_rule_R06(args):
 
     return print_result(args, fail)
 
+
 ###############################################################################
 # Rule R-07
 ###############################################################################
-
-
 def check_rule_R07(args):
 
     # Don't use a static (constant) initialization vector
@@ -719,11 +760,10 @@ def check_rule_R07(args):
 
     return print_result(args, fail)
 
+
 ###############################################################################
 # Rule R-08
 ###############################################################################
-
-
 def check_rule_R08(args):
 
     # Don't use a 'badly-derived' iv for encryption
@@ -787,11 +827,10 @@ def check_rule_R08(args):
 
     return print_result(args, fail)
 
+
 ###############################################################################
 # Rule R-09
 ###############################################################################
-
-
 def check_rule_R09(args):
 
     # Don't reuse the initialization vector and key pairs
@@ -819,11 +858,10 @@ def check_rule_R09(args):
 
     return print_result(args, fail)
 
+
 ###############################################################################
 # Rule R-10
 ###############################################################################
-
-
 def check_rule_R10(args):
 
     # Don't use a static (constant) salt for key derivation
@@ -855,7 +893,6 @@ def check_rule_R10(args):
 ###############################################################################
 # Rule R-11
 ###############################################################################
-
 def check_rule_R11(args):
 
     # Don't use a short salt (< 64 bits) for key derivation
@@ -897,11 +934,10 @@ def check_rule_R11(args):
 
     return print_result(args, fail)
 
+
 ###############################################################################
 # Rule R-12
 ###############################################################################
-
-
 def check_rule_R12(args):
 
     # Don't use the salt for different purposes
@@ -932,11 +968,10 @@ def check_rule_R12(args):
 
     return print_result(args, fail)
 
+
 ###############################################################################
 # Rule R-13
 ###############################################################################
-
-
 def check_rule_R13(args):
 
     # Don't use < 1000 iterations for key derivation
@@ -978,13 +1013,12 @@ def check_rule_R13(args):
 
     return print_result(args, fail)
 
+
 ###############################################################################
 # Rule R-14
 ###############################################################################
-
-
 def check_rule_R14(args):
-
+    
     # Don't use a weak password (score < 3) for PBE
 
     fail = 0
@@ -1029,11 +1063,10 @@ def check_rule_R14(args):
 
     return print_result(args, fail)
 
+
 ###############################################################################
 # Rule R-15
 ###############################################################################
-
-
 def check_rule_R15(args):
 
     # Don't use NIST-black-listed passwords for PBE
@@ -1068,11 +1101,10 @@ def check_rule_R15(args):
 
     return print_result(args, fail)
 
+
 ###############################################################################
 # Rule R-16
 ###############################################################################
-
-
 def check_rule_R16(args):
 
     # Don't use a static (constant) password for PBE
@@ -1095,11 +1127,10 @@ def check_rule_R16(args):
 
     return print_result(args, fail)
 
+
 ###############################################################################
 # Rule R-17
 ###############################################################################
-
-
 def check_rule_R17(args):
 
     # Don't use a static (constant) seed for PRNG
@@ -1122,34 +1153,34 @@ def check_rule_R17(args):
 
     return print_result(args, fail)
 
+
 ###############################################################################
 # Rule R-18
 ###############################################################################
-
-
 def check_rule_R18(args):
 
     # Don't use insecure PRNG (java.util.Random)
 
     fail = 0
-    str1 = "[Random] Random() called"
+    text_to_search = "[Random] Random() called"
 
     print_start(args)
+    
+    fail = search_string(text_to_search, args)
 
-    if search_string_in_file(str1, args.in1_content):
-        fail = 1
+    #if search_string_in_file(str1, args.in1_content):
+    #    fail = 1
 
-    if args.in2_content is not None:
-        if search_string_in_file(str1, args.in2_content):
-            fail = 1
+    #if args.in2_content is not None:
+    #    if search_string_in_file(str1, args.in2_content):
+    #        fail = 1
 
     return print_result(args, fail)
+
 
 ###############################################################################
 # Rule R-19
 ###############################################################################
-
-
 def check_rule_R19(args):
 
     # A1: Don't use a short key (< 2048 bits) for RSA
@@ -1183,11 +1214,10 @@ def check_rule_R19(args):
 
     return print_result(args, fail)
 
+
 ###############################################################################
 # Rule R-20
 ###############################################################################
-
-
 def check_rule_R20(args):
 
     # Don't use the textbook (raw) algorithm for RSA
@@ -1209,11 +1239,10 @@ def check_rule_R20(args):
 
     return print_result(args, fail)
 
+
 ###############################################################################
 # Rule R-21
 ###############################################################################
-
-
 def check_rule_R21(args):
 
     # Don't use the padding PKCS1Padding for RSA
@@ -1239,35 +1268,33 @@ def check_rule_R21(args):
 ###############################################################################
 # Rule R-22
 ###############################################################################
-
 def check_rule_R22(args):
-
     fail = 0
-    str1 = "[URL] protocol: http:"
+    text_to_search = "[URL] protocol: http:"
 
     print_start(args)
+    
+    fail = search_string(text_to_search, args)    
 
-    if search_string_in_file(str1, args.in1_content):
-        https = collect_all_values(str1, args.in1_content)
-        for http in https:
-            print_verbose(args, "\t link: " + http + "\n")
-        fail = 1
+    #if search_string_in_file(prefix, args.in1_content):
+    #    https = collect_all_values(prefix, args.in1_content)
+    #    for http in https:
+    #        print_verbose(args, "\t link: " + http + "\n")
+    #    fail = 1
 
-    if args.in2_content is not None:
-
-        if search_string_in_file(str1, args.in2_content):
-            https = collect_all_values(str1, args.in2_content)
-            for http in https:
-                print_verbose(args, "\t link: " + http + "\n")
-            fail = 1
+    #if args.in2_content is not None:
+    #    if search_string_in_file(prefix, args.in2_content):
+    #        https = collect_all_values(prefix, args.in2_content)
+    #        for http in https:
+    #            print_verbose(args, "\t link: " + http + "\n")
+    #        fail = 1
 
     return print_result(args, fail)
+
 
 ###############################################################################
 # Rule R-23
 ###############################################################################
-
-
 def check_rule_R23(args):
 
     # Don't use a static (constant) password for KeyStore
@@ -1290,34 +1317,34 @@ def check_rule_R23(args):
 
     return print_result(args, fail)
 
+
 ###############################################################################
 # Rule R-24
 ###############################################################################
-
-
 def check_rule_R24(args):
 
     # Don't verify the hostname for SSL connections
 
     fail = 0
-    str1 = "[HttpsURLConnection] dummyverifier: true"
+    text_to_search = "[HttpsURLConnection] dummyverifier: true"
 
     print_start(args)
+    
+    fail = search_string(text_to_search, args)
 
-    if search_string_in_file(str1, args.in1_content):
-        fail = 1
+    #if search_string_in_file(str1, args.in1_content):
+    #    fail = 1
 
-    if args.in2_content is not None:
-        if search_string_in_file(str1, args.in2_content):
-            fail = 1
+    #if args.in2_content is not None:
+    #    if search_string_in_file(str1, args.in2_content):
+    #        fail = 1
 
     return print_result(args, fail)
+
 
 ###############################################################################
 # Rule R-25
 ###############################################################################
-
-
 def check_rule_R25(args):
 
     # Don't verify certificates for SSL connections
@@ -1328,40 +1355,49 @@ def check_rule_R25(args):
     str3 = "[SSLContext] dummy acceptedIssuers: true"
 
     print_start(args)
-
-    if search_string_in_file(str1, args.in1_content):
-        print_verbose(args, "Dummy checkClient\n")
+    
+    fail = search_string(str1, args)
+        
+    result = search_string(str2, args)
+    if result == 1:
+        fail = 1
+        
+    result = search_string(str3, args)
+    if result == 1:
         fail = 1
 
-    if search_string_in_file(str2, args.in1_content):
-        print_verbose(args, "Dummy checkServer\n")
-        fail = 1
+    #if search_string_in_file(str1, args.in1_content):
+    #    print_verbose(args, "Dummy checkClient\n")
+    #    fail = 1
 
-    if search_string_in_file(str3, args.in1_content):
-        print_verbose(args, "Dummy accIssuers\n")
-        fail = 1
+    #if search_string_in_file(str2, args.in1_content):
+    #    print_verbose(args, "Dummy checkServer\n")
+    #    fail = 1
 
-    if args.in2_content is not None:
+    #if search_string_in_file(str3, args.in1_content):
+    #    print_verbose(args, "Dummy accIssuers\n")
+    #    fail = 1
 
-        if search_string_in_file(str1, args.in2_content):
-            print_verbose(args, "Dummy checkClient\n")
-            fail = 1
+    #if args.in2_content is not None:
 
-        if search_string_in_file(str2, args.in2_content):
-            print_verbose(args, "Dummy checkServer\n")
-            fail = 1
+    #    if search_string_in_file(str1, args.in2_content):
+    #        print_verbose(args, "Dummy checkClient\n")
+    #        fail = 1
 
-        if search_string_in_file(str3, args.in2_content):
-            print_verbose(args, "Dummy accIssuers\n")
-            fail = 1
+    #    if search_string_in_file(str2, args.in2_content):
+    #        print_verbose(args, "Dummy checkServer\n")
+    #        fail = 1
+
+    #    if search_string_in_file(str3, args.in2_content):
+    #        print_verbose(args, "Dummy accIssuers\n")
+    #        fail = 1
 
     return print_result(args, fail)
+
 
 ###############################################################################
 # Rule R-26
 ###############################################################################
-
-
 def check_rule_R26(args):
 
     # Don't verify hostnames for SSL connections
@@ -1373,8 +1409,7 @@ def check_rule_R26(args):
 
     print_start(args)
     
-    #fail = check_rule_R26_util(args.in1_content)    
-    #fail = check_rule_R26_util(args.in2_content)
+    #fail = check_rule_R26_util(args.in1_content)        
 
     if search_string_in_file(str1, args.in1_content):
         fail = 1
@@ -1386,6 +1421,7 @@ def check_rule_R26(args):
         fail = 0
 
     if args.in2_content is not None and not fail:
+        #fail = check_rule_R26_util(args.in2_content)
 
         if search_string_in_file(str1, args.in2_content):
             fail = 1
@@ -1440,6 +1476,8 @@ def get_parser():
 
 
 def main():
+    
+    logging.basicConfig(level=logging.INFO)
 
     parser = get_parser()
     args = parser.parse_args()
@@ -1448,8 +1486,8 @@ def main():
 
     for log_name in os.listdir(args.work_dir):
 
-        if log_name.endswith("cryptolog"):
-
+        if log_name.endswith("cryptolog"):        
+            logging.info('Checking file: '+log_name)
             args.in_file_name1 = os.path.join(args.work_dir, log_name + "")
             args.in_file_name2 = os.path.join(args.work_dir, log_name + "2")
             out_file_name = os.path.abspath(args.in_file_name1[:-9] + "rules")
@@ -1470,39 +1508,50 @@ def main():
             # Output file
             args.out_file = open(out_file_name, "w")
             args.rvsec_file = open(rvsec_out_file_name, "w")
+            
+            args.current_rule = ""
 
             if args.rule_id:
                 name = "check_rule_R" + args.rule_id
                 globals()[name](args)  # calls check
             else:
-                check_rule_R01(args) # OK
-                check_rule_R02(args) # OK
-                check_rule_R03(args)
-                check_rule_R04(args) # OK, but not covered by mascBench
-                check_rule_R05(args)
-                check_rule_R06(args)
-                check_rule_R07(args)
-                check_rule_R08(args)
-                check_rule_R09(args)
-                check_rule_R10(args)
-                check_rule_R11(args)
-                check_rule_R12(args)
-                check_rule_R13(args)
-                check_rule_R14(args)
-                check_rule_R15(args)
-                check_rule_R16(args)
-                check_rule_R17(args)
-                check_rule_R18(args)
-                check_rule_R19(args)
-                check_rule_R20(args)
-                check_rule_R21(args)
-                check_rule_R22(args)
-                check_rule_R23(args)
-                check_rule_R24(args)
-                check_rule_R25(args)
-                check_rule_R26(args)
+                for i in range(1,27):
+                    value = "{:02d}".format(i)
+                    rule = "rule_R" + value
+                    method_name = "check_" + rule
+                    args.current_rule = rule
+                    logging.info("Checking rule: "+value)
+                    globals()[method_name](args)
+                    
+                #check_rule_R01(args) # OK
+                #check_rule_R02(args) # OK
+                #check_rule_R03(args)
+                #check_rule_R04(args) # OK, but not covered by mascBench
+                #check_rule_R05(args)
+                #check_rule_R06(args)
+                #check_rule_R07(args)
+                #check_rule_R08(args)
+                #check_rule_R09(args)
+                #check_rule_R10(args)
+                #check_rule_R11(args)
+                #check_rule_R12(args)
+                #check_rule_R13(args)
+                #check_rule_R14(args)
+                #check_rule_R15(args)
+                #check_rule_R16(args)
+                #check_rule_R17(args)
+                #check_rule_R18(args) # OK
+                #check_rule_R19(args)
+                #check_rule_R20(args)
+                #check_rule_R21(args)
+                #check_rule_R22(args) # OK
+                #check_rule_R23(args)
+                #check_rule_R24(args) # OK
+                #check_rule_R25(args) # OK
+                #check_rule_R26(args)
 
             print("Violations reported in " + out_file_name)
+            print("Violations (with positions) reported in " + rvsec_out_file_name)
             args.out_file.close()
 
 
