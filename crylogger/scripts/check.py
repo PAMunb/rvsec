@@ -134,15 +134,12 @@ def collect_all_values(string, content, hexa=False):
 def collect_all_values_with_position(string, content, hexa=False):
     start = 0
     res = set()
+    #res = [] #TODO usar lista?
 
-    while True:
-        pos1 = search_string_in_file(string, content, start)
-        if pos1 == 0:
-            break
+    pos1 = search_string_in_file(string, content, start)
+    while pos1:
 
-        pos2 = search_string_in_file("\n", content, pos1)
-        if pos2 == 0:
-            break
+        pos2 = search_string_in_file("\n", content, pos1)        
 
         value = content[pos1 + len(string): pos2]
         #remove the stacktrace, to get only the value
@@ -161,6 +158,7 @@ def collect_all_values_with_position(string, content, hexa=False):
             res.add((pos1,value.strip()))
 
         start = pos2 + 1
+        pos1 = search_string_in_file(string, content, start)
 
     return res
 
@@ -208,11 +206,14 @@ def collect_all_duplicated_values(string, content):
         if pos2 == 0:
             break
 
-        val = content[pos1 + len(string): pos2].strip()
-        if val in seen:
-            dupl.add(val)
+        value = content[pos1 + len(string): pos2].strip()
+        #remove the stacktrace, to get only the value
+        stacktrace_separator_position = value.find("::")
+        value = value[0 : stacktrace_separator_position].strip()
+        if value in seen:
+            dupl.add(value)
 
-        seen.add(val)
+        seen.add(value)
         start = pos2 + 1
 
     return dupl
@@ -344,22 +345,17 @@ def get_content(text, pos):
     newline_position = text.find("\n",pos)
     return text[pos : newline_position]    
 
+def insert_text_before_stacktrace(text_to_insert, text):
+    stacktrace_separator_position = text.find("::")
+    return text[:stacktrace_separator_position] + text_to_insert + text[stacktrace_separator_position:]
+
 def search_string(text_to_search, args):
     fail = search_string_util(text_to_search, args.in1_content, args)    
-    
-    #pos = search_string_in_file(text_to_search, args.in1_content)
-    #while pos: # != 0:               
-    #    write_misuse(get_content(args.in1_content,pos), args)                         
-    #    pos = search_string_in_file(text_to_search, args.in1_content, pos+len(text_to_search))
-    #    fail = 1
 
     if args.in2_content is not None:
-        fail = search_string_util(text_to_search, args.in2_content, args)  
-        #pos = search_string_in_file(text_to_search, args.in2_content)
-        #while pos:
-        #    write_misuse(get_content(args.in2_content,pos), args)  
-        #    pos = search_string_in_file(text_to_search, args.in2_content, pos+len(text_to_search))
-        #    fail = 1
+        result = search_string_util(text_to_search, args.in2_content, args)  
+        if result == 1:
+            fail = 1
     
     return fail
 
@@ -408,7 +404,6 @@ insecure_hash_functions = ["MD2", "MD-2",
 def check_rule_R01(args):
     
     # Don't use insecure hash (e.g., MD2, MD4, SHA-1)
-    args.current_rule = "rule_R01"
 
     fail = 0
     prefix = "[MessageDigest] algorithm: "
@@ -547,21 +542,16 @@ def check_rule_R03(args):
     print_start(args)
 
     start = 0
-
-    while True:
-
-        pos1 = search_string_in_file(str1, args.in1_content, start)
-
-        if pos1 == 0:
-            break
+    
+    pos1 = search_string_in_file(str1, args.in1_content, start)
+    while pos1:
 
         pos2 = search_string_in_file(str2, args.in1_content, pos1)
-
         if pos2 == 0:
             break
 
-        pos3 = search_string_in_file("\n", args.in1_content, pos2)
-
+        #pos3 = search_string_in_file("\n", args.in1_content, pos2)
+        pos3 = search_string_in_file("::", args.in1_content, pos2)
         if pos3 == 0:
             break
 
@@ -571,10 +561,12 @@ def check_rule_R03(args):
 
             if int(fin_bytes) > 16:
                 print_verbose(args, "\t ECB bytes: " + fin_bytes + "\n")
+                write_misuse(get_content(args.in1_content,pos1), args)
                 fail = 1
-                break
+                #break
 
         start = pos3 + 1
+        pos1 = search_string_in_file(str1, args.in1_content, start)
 
     if args.in2_content is not None:
 
@@ -976,42 +968,51 @@ def check_rule_R13(args):
 
     # Don't use < 1000 iterations for key derivation
 
+    print_start(args)
+    
+    fail = check_rule_R13_wrapper(args.in1_content, args)
+    
+    if args.in2_content is not None:
+        result = check_rule_R13_wrapper(args.in1_content, args)
+        if result == 1:
+            fail = 1        
+
+    return print_result(args, fail)
+
+def check_rule_R13_wrapper(content, args):
     fail = 0
+    
     str1 = "[PBEKeySpec] iteration: "
     str2 = "[PBEParameterSpec] iteration: "
     str3 = "[PBEKeySpec] PBEKeySpec(char[])"
 
-    print_start(args)
-
-    iterations1 = collect_all_values(str1, args.in1_content)
-    iterations2 = collect_all_values(str2, args.in1_content)
-    iterations = iterations1.union(iterations2)
-
-    for iteration in iterations:
-        if int(iteration) < 1000:
-            print_verbose(args, "\t Iterations: " + iteration + "\n")
-            fail = 1
-
-    if search_string_in_file(str3, args.in1_content):
-        print_verbose(args, "\t Iterations: N.A.\n")
+    fail = check_rule_R13_util(str1, content, args)
+    
+    result = check_rule_R13_util(str2, content, args)
+    if result == 1:
         fail = 1
 
-    if args.in2_content is not None:
+    result = search_string_util(str3, content, args) 
+    if result == 1:
+        fail = 1
+        
+    return fail
 
-        iterations1 = collect_all_values(str1, args.in2_content)
-        iterations2 = collect_all_values(str2, args.in2_content)
-        iterations = iterations1.union(iterations2)
+def check_rule_R13_util(text_to_search, content, args):
+    fail = 0
 
-        for iteration in iterations:
-            if int(iteration) < 1000:
-                print_verbose(args, "\t Iterations: " + iteration + "\n")
-                fail = 1
+    tuples = collect_all_values_with_position(text_to_search, content)
 
-        if search_string_in_file(str3, args.in2_content):
-            print_verbose(args, "\t Iterations: N.A.\n")
+    for t in tuples:
+        position = t[0]
+        value = t[1]        
+        logging.debug("iteration="+value)
+        if int(value) < 1000:
+            print_verbose(args, "\t Iterations: " + value + "\n")
+            write_misuse(get_content(content,position), args)
             fail = 1
-
-    return print_result(args, fail)
+        
+    return fail
 
 
 ###############################################################################
@@ -1512,8 +1513,11 @@ def main():
             args.current_rule = ""
 
             if args.rule_id:
-                name = "check_rule_R" + args.rule_id
-                globals()[name](args)  # calls check
+                rule = "rule_R" + args.rule_id
+                method_name = "check_" + rule
+                args.current_rule = rule
+                logging.info("Checking rule: "+args.rule_id)
+                globals()[method_name](args)  # calls check
             else:
                 for i in range(1,27):
                     value = "{:02d}".format(i)
@@ -1526,7 +1530,7 @@ def main():
                 #check_rule_R01(args) # OK
                 #check_rule_R02(args) # OK
                 #check_rule_R03(args)
-                #check_rule_R04(args) # OK, but not covered by mascBench
+                #check_rule_R04(args) # OK
                 #check_rule_R05(args)
                 #check_rule_R06(args)
                 #check_rule_R07(args)
@@ -1535,7 +1539,7 @@ def main():
                 #check_rule_R10(args)
                 #check_rule_R11(args)
                 #check_rule_R12(args)
-                #check_rule_R13(args)
+                #check_rule_R13(args) # OK
                 #check_rule_R14(args)
                 #check_rule_R15(args)
                 #check_rule_R16(args)
