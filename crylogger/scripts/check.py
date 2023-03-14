@@ -382,11 +382,12 @@ def search_regex_util(text_to_search, content, args):
     fail = 0
     
     match = search_regexp_in_file(text_to_search, content)
-    pos = match.start()
-    while pos: # != 0:               
+    #pos = match.start()
+    while match: # != 0:       
+        pos = match.start()        
         write_misuse(get_content(content,pos), args)                         
         match = search_regexp_in_file(text_to_search, content, pos+len(text_to_search))
-        pos = match.start()
+        #pos = match.start()
         fail = 1
     
     return fail
@@ -443,7 +444,7 @@ insecure_symm_encryption_functions = ["RC2", "RC-2",
                                       "Blowfish", "IDEA",
                                       "3-KeyTripleDES"]
 
-
+#TODO refatorar
 def check_rule_R02(args):
 
     # Don't use insecure algorithms (e.g., RC2, RC4, IDEA, ..)
@@ -674,6 +675,7 @@ def check_rule_R06(args):
 
     print_start(args)
 
+#[ (x,y) for x, y in a if x  == 1 ]
     badvalues = collect_all_values(str1, args.in1_content, True)
     goodvalues = collect_all_values(str2, args.in1_content, True)
     keyvalues = collect_all_values(str3, args.in1_content, True)
@@ -889,42 +891,49 @@ def check_rule_R11(args):
 
     # Don't use a short salt (< 64 bits) for key derivation
 
+    fail = check_rule_R11_wrapper(args.in1_content, args)
+    
+    if args.in2_content is not None:
+        result = check_rule_R11_wrapper(args.in2_content, args)
+        if result == 1:
+            fail = 1        
+
+    return print_result(args, fail)
+
+def check_rule_R11_wrapper(content, args):
     fail = 0
+    
     str1 = "[PBEKeySpec] salt: "
     str2 = "[PBEParameterSpec] salt: "
     str3 = "[PBEKeySpec] PBEKeySpec(char[])"
 
-    print_start(args)
-
-    salts1 = collect_all_values(str1, args.in1_content, True)
-    salts2 = collect_all_values(str2, args.in1_content, True)
-    salts = salts1.union(salts2)
-
-    for salt in salts:
-        if len(salt.strip()) * 4 < 64:
-            print_verbose(args, "\t Short salt: " + salt + "\n")
-            fail = 1
-
-    if search_string_in_file(str3, args.in1_content):
-        print_verbose(args, "\t Short salt: N.A.\n")
+    fail = check_rule_R11_util(str1, content, args)
+    
+    result = check_rule_R11_util(str2, content, args)
+    if result == 1:
         fail = 1
 
-    if args.in2_content is not None:
+    result = search_string_util(str3, content, args) 
+    if result == 1:
+        fail = 1
+        
+    return fail
 
-        salts1 = collect_all_values(str1, args.in2_content, True)
-        salts2 = collect_all_values(str2, args.in2_content, True)
-        salts = salts1.union(salts2)
+def check_rule_R11_util(text_to_search, content, args):
+    fail = 0
 
-        for salt in salts:
-            if len(salt.strip()) * 4 < 64:
-                print_verbose(args, "\t Short salt: " + salt + "\n")
-                fail = 1
+    tuples = collect_all_values_with_position(text_to_search, content)
 
-        if search_string_in_file(str3, args.in2_content):
-            print_verbose(args, "\t Short salt: N.A.\n")
+    for t in tuples:
+        position = t[0]
+        salt = t[1]        
+        logging.debug("salt="+salt)
+        if len(salt.strip()) * 4 < 64:
+            print_verbose(args, "\t Short salt: " + salt + "\n")
+            write_misuse(get_content(content,position), args)
             fail = 1
-
-    return print_result(args, fail)
+        
+    return fail
 
 
 ###############################################################################
@@ -973,7 +982,7 @@ def check_rule_R13(args):
     fail = check_rule_R13_wrapper(args.in1_content, args)
     
     if args.in2_content is not None:
-        result = check_rule_R13_wrapper(args.in1_content, args)
+        result = check_rule_R13_wrapper(args.in2_content, args)
         if result == 1:
             fail = 1        
 
@@ -1022,48 +1031,88 @@ def check_rule_R14(args):
     
     # Don't use a weak password (score < 3) for PBE
 
-    fail = 0
-    str1 = "[PBEKeySpec] password: "
-    str2 = "[KeyStore] password: "
+    #fail = 0
+    #str1 = "[PBEKeySpec] password: "
+    #str2 = "[KeyStore] password: "
 
     print_start(args)
 
     subnames = args.in_file_name1.split(".")
+    
+    fail = check_rule_R14_wrapper(args.in1_content, subnames, args)
 
-    passwords1 = collect_all_values(str1, args.in1_content)
-    passwords2 = collect_all_values(str2, args.in1_content)
-    passwords = passwords1.union(passwords2)
+    #passwords1 = collect_all_values(str1, args.in1_content)
+    #passwords2 = collect_all_values(str2, args.in1_content)
+    #passwords = passwords1.union(passwords2)
 
-    for password in passwords:
+    #for password in passwords:
+    #    analysis_result = zxcvbn.zxcvbn(password)
+    #    if int(analysis_result["score"]) < 3:
+    #        print_verbose(args, "\t Weak: " + password + "\n")
+    #        fail = 1
+
+    #    for subname in subnames:
+    #        if subname in password:
+    #            print_verbose(args, "\t Weak: " + password + "\n")
+    #            fail = 1
+
+    if args.in2_content is not None:
+        result = check_rule_R14_wrapper(args.in2_content, subnames, args)
+        if result == 1:
+            fail = 1
+
+        #passwords1 = collect_all_values(str1, args.in2_content)
+        #passwords2 = collect_all_values(str1, args.in2_content)
+        #passwords = passwords1.union(passwords2)
+
+        #for password in passwords:
+        #    analysis_result = zxcvbn.zxcvbn(password)
+        #    if int(analysis_result["score"]) < 3:
+        #        print_verbose(args, "\t Weak: " + password + "\n")
+        #        fail = 1
+
+        #    for subname in subnames:
+        #        if subname in password:
+        #            print_verbose(args, "\t Weak: " + password + "\n")
+        #            fail = 1
+
+    return print_result(args, fail)
+
+def check_rule_R14_wrapper(content, subnames, args):
+    fail = 0
+    str1 = "[PBEKeySpec] password: "
+    str2 = "[KeyStore] password: "
+
+    fail = check_rule_R14_util(str1, content, subnames, args)
+    
+    result = check_rule_R14_util(str2, content, subnames, args)
+    if result == 1:
+        fail = 1
+        
+    return fail
+
+def check_rule_R14_util(text_to_search, content, subnames, args):
+    fail = 0
+
+    tuples = collect_all_values_with_position(text_to_search, content)
+
+    for t in tuples:
+        position = t[0]
+        password = t[1]        
+
         analysis_result = zxcvbn.zxcvbn(password)
         if int(analysis_result["score"]) < 3:
             print_verbose(args, "\t Weak: " + password + "\n")
+            write_misuse(get_content(content,position), args)
             fail = 1
 
         for subname in subnames:
             if subname in password:
                 print_verbose(args, "\t Weak: " + password + "\n")
+                write_misuse(get_content(content,position), args)
                 fail = 1
-
-    if args.in2_content is not None:
-
-        passwords1 = collect_all_values(str1, args.in2_content)
-        passwords2 = collect_all_values(str1, args.in2_content)
-        passwords = passwords1.union(passwords2)
-
-        for password in passwords:
-            analysis_result = zxcvbn.zxcvbn(password)
-            if int(analysis_result["score"]) < 3:
-                print_verbose(args, "\t Weak: " + password + "\n")
-                fail = 1
-
-            for subname in subnames:
-                if subname in password:
-                    print_verbose(args, "\t Weak: " + password + "\n")
-                    fail = 1
-
-    return print_result(args, fail)
-
+        
+    return fail
 
 ###############################################################################
 # Rule R-15
@@ -1072,36 +1121,46 @@ def check_rule_R15(args):
 
     # Don't use NIST-black-listed passwords for PBE
 
+    print_start(args)
+    
+    fail = check_rule_R15_util(args.in1_content, args)
+
+    if args.in2_content is not None:
+        result = check_rule_R15_util(args.in2_content, args)
+        if result == 1:
+            fail = 1        
+
+    return print_result(args, fail)
+
+
+def check_rule_R15_util(content, args):
     fail = 0
     str1 = "[PBEKeySpec] password: "
     str2 = "[KeyStore] password: "
     passwords = set()
 
     print_start(args)
-
-    passwords1a = collect_all_values(str1, args.in1_content)
-    passwords1b = collect_all_values(str2, args.in1_content)
+    
+    passwords1a = collect_all_values_with_position(str1, content)
+    passwords1b = collect_all_values_with_position(str2, content)
     passwords = passwords.union(passwords1a)
     passwords = passwords.union(passwords1b)
-
-    if args.in2_content is not None:
-
-        passwords2a = collect_all_values(str1, args.in2_content)
-        passwords2b = collect_all_values(str2, args.in2_content)
-        passwords = passwords.union(passwords2a)
-        passwords = passwords.union(passwords2b)
-
+    
     with open("./passwords/xato-net-10-million-passwords.txt") as passfile:
 
         pwned_passwords = passfile.read()
 
-        for password in passwords:
+        for t in passwords:
+            position = t[0]
+            password = t[1]
+
             if password in pwned_passwords:
                 print_verbose(args, "\t Broken: " + password + "\n")
+                write_misuse(get_content(content,position), args)
                 fail = 1
-
-    return print_result(args, fail)
-
+                
+    return fail
+    
 
 ###############################################################################
 # Rule R-16
@@ -1111,20 +1170,31 @@ def check_rule_R16(args):
     # Don't use a static (constant) password for PBE
 
     fail = 0
-    str1 = "[PBEKeySpec] password: "
+    text_to_search = "[PBEKeySpec] password: "
 
     print_start(args)
 
     if args.in2_content is None:
         return print_result(args, -1)
 
-    pass1 = collect_all_values(str1, args.in1_content)
-    pass2 = collect_all_values(str1, args.in2_content)
+    tuples1 = collect_all_values_with_position(text_to_search, args.in1_content)
+    tuples2 = collect_all_values_with_position(text_to_search, args.in2_content)
+    
+    #TODO revisar essa expressao
+    intersect = [ (x,y) for x, y in tuples1 if any([(x2,y2) for x2, y2 in tuples2 if y == y2])]
+    print("intersect=",intersect)
+    #print(intersect)
+    for passw in intersect:
+        write_misuse(get_content(args.in1_content,passw[0]), args)
+        fail = 1
+            
+    #pass1 = collect_all_values(str1, args.in1_content)
+    #pass2 = collect_all_values(str1, args.in2_content)
 
-    if not pass1.isdisjoint(pass2):
-        for passw in pass1.intersection(pass2):
-            print_verbose(args, "\t Static password: " + passw + "\n")
-            fail = 1
+    #if not pass1.isdisjoint(pass2):
+    #    for passw in pass1.intersection(pass2):
+    #        print_verbose(args, "\t Static password: " + passw + "\n")            
+    #        fail = 1
 
     return print_result(args, fail)
 
@@ -1162,7 +1232,6 @@ def check_rule_R18(args):
 
     # Don't use insecure PRNG (java.util.Random)
 
-    fail = 0
     text_to_search = "[Random] Random() called"
 
     print_start(args)
@@ -1223,20 +1292,20 @@ def check_rule_R20(args):
 
     # Don't use the textbook (raw) algorithm for RSA
 
-    fail = 0
-    exp1 = ".*RSA/.*/NoPadding"
+    re_to_search = ".*RSA/.*/NoPadding"
 
     print_start(args)
+    
+    fail = search_regex(re_to_search, args)
 
-    if search_regexp_in_file(exp1, args.in1_content):
-        print_verbose(args, "\t RSA No Padding\n")
-        fail = 1
+    #if search_regexp_in_file(exp1, args.in1_content):
+    #    print_verbose(args, "\t RSA No Padding\n")
+    #    fail = 1
 
-    if args.in2_content is not None:
-
-        if search_regexp_in_file(exp1, args.in2_content):
-            print_verbose(args, "\t RSA No Padding\n")
-            fail = 1
+    #if args.in2_content is not None:
+    #    if search_regexp_in_file(exp1, args.in2_content):
+    #        print_verbose(args, "\t RSA No Padding\n")
+    #        fail = 1
 
     return print_result(args, fail)
 
@@ -1248,20 +1317,20 @@ def check_rule_R21(args):
 
     # Don't use the padding PKCS1Padding for RSA
 
-    fail = 0
-    exp1 = ".*RSA/.*/PKCS1Padding"
+    re_to_search = ".*RSA/.*/PKCS1Padding"
 
     print_start(args)
+    
+    fail = search_regex(re_to_search, args)
 
-    if search_regexp_in_file(exp1, args.in1_content):
-        print_verbose(args, "\t RSA PKCS1Padding\n")
-        fail = 1
+    #if search_regexp_in_file(exp1, args.in1_content):
+    #    print_verbose(args, "\t RSA PKCS1Padding\n")
+    #    fail = 1
 
-    if args.in2_content is not None:
-
-        if search_regexp_in_file(exp1, args.in2_content):
-            print_verbose(args, "\t RSA PKCS1Padding\n")
-            fail = 1
+    #if args.in2_content is not None:
+    #    if search_regexp_in_file(exp1, args.in2_content):
+    #        print_verbose(args, "\t RSA PKCS1Padding\n")
+    #        fail = 1
 
     return print_result(args, fail)
 
@@ -1403,38 +1472,39 @@ def check_rule_R26(args):
 
     # Don't verify hostnames for SSL connections
 
-    fail = 0
-    str1 = "[SSLSocketFactory] getDefault() called"
-    str2 = "[HttpsURLConnection] getHostnameVerifier() called"
-    str3 = "[HttpsURLConnection] getDefaultHostnameVerifier() called"
+    #fail = 0
+    #str1 = "[SSLSocketFactory] getDefault() called"
+    #str2 = "[HttpsURLConnection] getHostnameVerifier() called"
+    #str3 = "[HttpsURLConnection] getDefaultHostnameVerifier() called"
 
     print_start(args)
     
-    #fail = check_rule_R26_util(args.in1_content)        
+    fail = check_rule_R26_util(args.in1_content)        
 
-    if search_string_in_file(str1, args.in1_content):
-        fail = 1
+    #if search_string_in_file(str1, args.in1_content):
+    #    fail = 1
 
-    if search_string_in_file(str2, args.in1_content):
-        fail = 0
+    #if search_string_in_file(str2, args.in1_content):
+    #    fail = 0
 
-    if search_string_in_file(str3, args.in1_content):
-        fail = 0
+    #if search_string_in_file(str3, args.in1_content):
+    #    fail = 0
 
     if args.in2_content is not None and not fail:
-        #fail = check_rule_R26_util(args.in2_content)
+        fail = check_rule_R26_util(args.in2_content)
 
-        if search_string_in_file(str1, args.in2_content):
-            fail = 1
+        #if search_string_in_file(str1, args.in2_content):
+        #    fail = 1
 
-        if search_string_in_file(str2, args.in2_content):
-            fail = 0
+        #if search_string_in_file(str2, args.in2_content):
+        #    fail = 0
 
-        if search_string_in_file(str3, args.in2_content):
-            fail = 0
+        #if search_string_in_file(str3, args.in2_content):
+        #    fail = 0
 
     return print_result(args, fail)
 
+#TODO impl
 def check_rule_R26_util(content):
     fail = 0
     str1 = "[SSLSocketFactory] getDefault() called"
@@ -1480,6 +1550,8 @@ def main():
     
     logging.basicConfig(level=logging.INFO)
 
+    start = time.time()
+    
     parser = get_parser()
     args = parser.parse_args()
 
@@ -1506,7 +1578,7 @@ def main():
                 args.in2_content = in2_file.read()
                 in2_file.close()
 
-            # Output file
+            # Output files
             args.out_file = open(out_file_name, "w")
             args.rvsec_file = open(rvsec_out_file_name, "w")
             
@@ -1519,13 +1591,16 @@ def main():
                 logging.info("Checking rule: "+args.rule_id)
                 globals()[method_name](args)  # calls check
             else:
-                for i in range(1,27):
+                for i in range(1,27):                    
                     value = "{:02d}".format(i)
                     rule = "rule_R" + value
                     method_name = "check_" + rule
                     args.current_rule = rule
-                    logging.info("Checking rule: "+value)
+                    #logging.info("Checking rule: "+value)
+                    method_start = time.time()
                     globals()[method_name](args)
+                    method_end = time.time()
+                    logging.info(f"Checked rule: {value}\t {(method_end-method_start):.03f}s")
                     
                 #check_rule_R01(args) # OK
                 #check_rule_R02(args) # OK
@@ -1540,8 +1615,8 @@ def main():
                 #check_rule_R11(args)
                 #check_rule_R12(args)
                 #check_rule_R13(args) # OK
-                #check_rule_R14(args)
-                #check_rule_R15(args)
+                #check_rule_R14(args) # OK
+                #check_rule_R15(args) # OK
                 #check_rule_R16(args)
                 #check_rule_R17(args)
                 #check_rule_R18(args) # OK
@@ -1557,6 +1632,10 @@ def main():
             print("Violations reported in " + out_file_name)
             print("Violations (with positions) reported in " + rvsec_out_file_name)
             args.out_file.close()
+            args.rvsec_file.close()
+    
+    end = time.time()
+    logging.info(f"Total time: {(end-start):.03f}s")
 
 
 if __name__ == "__main__":
