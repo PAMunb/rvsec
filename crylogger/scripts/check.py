@@ -243,6 +243,7 @@ def collect_all_duplicate_pairs(string1, string2, content):
         if pos4 == 0:
             break
 
+        #TODO remover stacktrace, para pegar apenas o valor
         val1 = content[pos1 + len(string1): pos2].strip()
         val2 = content[pos3 + len(string2): pos4].strip()
 
@@ -270,6 +271,7 @@ def random_tests(bitset):
             f.write(binascii.unhexlify(string))
     f.close()
 
+    #TODO baixar esses arquivos
     summary_found = False
     output = run_cmd("python random-tests/sp800_22_tests.py hexstream.bin")
     for line in output.split("\n"):
@@ -370,6 +372,7 @@ def search_string_util(text_to_search, content, args):
     
     return fail
 
+
 def search_regex(text_to_search, args):
     fail = search_regex_util(text_to_search,args.in1_content,args)
 
@@ -390,6 +393,24 @@ def search_regex_util(text_to_search, content, args):
         #pos = match.start()
         fail = 1
     
+    return fail
+
+def search_values_intersection(text_to_search, args):
+    fail = 0
+
+    if args.in2_content is None:
+        return print_result(args, -1)
+    
+    tuples1 = collect_all_values_with_position(text_to_search, args.in1_content)
+    tuples2 = collect_all_values_with_position(text_to_search, args.in2_content)
+    
+    #TODO revisar essa expressao
+    intersect = [ (x,y) for x, y in tuples1 if any([(x2,y2) for x2, y2 in tuples2 if y == y2])]
+    #print("intersect=",intersect)
+    for tuple in intersect:
+        write_misuse(get_content(args.in1_content,tuple[0]), args)
+        fail = 1
+        
     return fail
 
 
@@ -546,7 +567,7 @@ def check_rule_R03(args):
     
     pos1 = search_string_in_file(str1, args.in1_content, start)
     while pos1:
-
+        
         pos2 = search_string_in_file(str2, args.in1_content, pos1)
         if pos2 == 0:
             break
@@ -569,6 +590,7 @@ def check_rule_R03(args):
         start = pos3 + 1
         pos1 = search_string_in_file(str1, args.in1_content, start)
 
+    #TODO fazer o mesmo pro arquivo 2
     if args.in2_content is not None:
 
         start = 0
@@ -642,21 +664,23 @@ def check_rule_R05(args):
 
     # Don't use a static (constant) key for encryption
 
-    fail = 0
-    str1 = "[Cipher] key.encoded: "
+    #fail = 0
+    text_to_search = "[Cipher] key.encoded: "
 
     print_start(args)
+    
+    fail = search_values_intersection(text_to_search, args)
 
-    if args.in2_content is None:
-        return print_result(args, -1)
+    #if args.in2_content is None:
+    #    return print_result(args, -1)
 
-    keyset1 = collect_all_values(str1, args.in1_content, True)
-    keyset2 = collect_all_values(str1, args.in2_content, True)
+    #keyset1 = collect_all_values(text_to_search, args.in1_content, True)
+    #keyset2 = collect_all_values(text_to_search, args.in2_content, True)
 
-    if not keyset1.isdisjoint(keyset2):
-        for key in keyset1.intersection(keyset2):
-            print_verbose(args, "\t static key: " + key + "\n")
-            fail = 1
+    #if not keyset1.isdisjoint(keyset2):
+    #    for key in keyset1.intersection(keyset2):
+    #        print_verbose(args, "\t static key: " + key + "\n")
+    #        fail = 1
 
     return print_result(args, fail)
 
@@ -675,7 +699,6 @@ def check_rule_R06(args):
 
     print_start(args)
 
-#[ (x,y) for x, y in a if x  == 1 ]
     badvalues = collect_all_values(str1, args.in1_content, True)
     goodvalues = collect_all_values(str2, args.in1_content, True)
     keyvalues = collect_all_values(str3, args.in1_content, True)
@@ -736,21 +759,23 @@ def check_rule_R07(args):
 
     # Don't use a static (constant) initialization vector
 
-    fail = 0
-    str1 = "[Cipher] key.iv: "
+    #fail = 0
+    text_to_search = "[Cipher] key.iv: "
 
     print_start(args)
+    
+    fail = search_values_intersection(text_to_search, args)
 
-    if args.in2_content is None:
-        return print_result(args, -1)
+    #if args.in2_content is None:
+    #    return print_result(args, -1)
 
-    ivset1 = collect_all_values(str1, args.in1_content, True)
-    ivset2 = collect_all_values(str1, args.in2_content, True)
+    #ivset1 = collect_all_values(text_to_search, args.in1_content, True)
+    #ivset2 = collect_all_values(text_to_search, args.in2_content, True)
 
-    if not ivset1.isdisjoint(ivset2):
-        for iv in ivset1.intersection(ivset2):
-            print_verbose(args, "\t static iv: " + iv + "\n")
-            fail = 1
+    #if not ivset1.isdisjoint(ivset2):
+    #    for iv in ivset1.intersection(ivset2):
+    #        print_verbose(args, "\t static iv: " + iv + "\n")
+    #        fail = 1
 
     return print_result(args, fail)
 
@@ -1169,24 +1194,25 @@ def check_rule_R16(args):
 
     # Don't use a static (constant) password for PBE
 
-    fail = 0
+    #fail = 0
     text_to_search = "[PBEKeySpec] password: "
 
     print_start(args)
+    
+    fail = search_values_intersection(text_to_search, args)
 
-    if args.in2_content is None:
-        return print_result(args, -1)
+    #if args.in2_content is None:
+    #    return print_result(args, -1)
 
-    tuples1 = collect_all_values_with_position(text_to_search, args.in1_content)
-    tuples2 = collect_all_values_with_position(text_to_search, args.in2_content)
+    #tuples1 = collect_all_values_with_position(text_to_search, args.in1_content)
+    #tuples2 = collect_all_values_with_position(text_to_search, args.in2_content)
     
     #TODO revisar essa expressao
-    intersect = [ (x,y) for x, y in tuples1 if any([(x2,y2) for x2, y2 in tuples2 if y == y2])]
-    print("intersect=",intersect)
-    #print(intersect)
-    for passw in intersect:
-        write_misuse(get_content(args.in1_content,passw[0]), args)
-        fail = 1
+    #intersect = [ (x,y) for x, y in tuples1 if any([(x2,y2) for x2, y2 in tuples2 if y == y2])]
+    #print("intersect=",intersect)
+    #for tuple in intersect:
+    #    write_misuse(get_content(args.in1_content,tuple[0]), args)
+    #    fail = 1
             
     #pass1 = collect_all_values(str1, args.in1_content)
     #pass2 = collect_all_values(str1, args.in2_content)
@@ -1206,21 +1232,23 @@ def check_rule_R17(args):
 
     # Don't use a static (constant) seed for PRNG
 
-    fail = 0
-    str1 = "[SecureRandom] next: "
+    #fail = 0
+    text_to_search = "[SecureRandom] next: "
 
     print_start(args)
+    
+    fail = search_values_intersection(text_to_search, args)
 
-    if args.in2_content is None:
-        return print_result(args, -1)
+    #if args.in2_content is None:
+    #    return print_result(args, -1)
 
-    seed1 = collect_all_values(str1, args.in1_content, True)
-    seed2 = collect_all_values(str1, args.in2_content, True)
+    #seed1 = collect_all_values(text_to_search, args.in1_content, True)
+    #seed2 = collect_all_values(text_to_search, args.in2_content, True)
 
-    if not seed1.isdisjoint(seed2):
-        for seed in seed1.intersection(seed2):
-            print_verbose(args, "\t Static seed: " + seed + "\n")
-            fail = 1
+    #if not seed1.isdisjoint(seed2):
+    #    for seed in seed1.intersection(seed2):
+    #        print_verbose(args, "\t Static seed: " + seed + "\n")
+    #        fail = 1
 
     return print_result(args, fail)
 
@@ -1369,21 +1397,23 @@ def check_rule_R23(args):
 
     # Don't use a static (constant) password for KeyStore
 
-    fail = 0
-    str1 = "[KeyStore] password: "
+    #fail = 0
+    text_to_search = "[KeyStore] password: "
 
     print_start(args)
+    
+    fail = search_values_intersection(text_to_search, args)
 
-    if args.in2_content is None:
-        return print_result(args, -1)
+    #if args.in2_content is None:
+    #    return print_result(args, -1)
 
-    pass1 = collect_all_values(str1, args.in1_content)
-    pass2 = collect_all_values(str1, args.in2_content)
+    #pass1 = collect_all_values(text_to_search, args.in1_content)
+    #pass2 = collect_all_values(text_to_search, args.in2_content)
 
-    if not pass1.isdisjoint(pass2):
-        for passw in pass1.intersection(pass2):
-            print_verbose(args, "\t Static pass:" + passw + "\n")
-            fail = 1
+    #if not pass1.isdisjoint(pass2):
+    #    for passw in pass1.intersection(pass2):
+    #        print_verbose(args, "\t Static pass:" + passw + "\n")
+    #        fail = 1
 
     return print_result(args, fail)
 
@@ -1427,7 +1457,8 @@ def check_rule_R25(args):
     print_start(args)
     
     fail = search_string(str1, args)
-        
+     
+    #TODO rever a questao de nao sobrescrever um fail em todas as regras, como o exemplo abaixo    
     result = search_string(str2, args)
     if result == 1:
         fail = 1
@@ -1617,7 +1648,7 @@ def main():
                 #check_rule_R13(args) # OK
                 #check_rule_R14(args) # OK
                 #check_rule_R15(args) # OK
-                #check_rule_R16(args)
+                #check_rule_R16(args) # OK
                 #check_rule_R17(args)
                 #check_rule_R18(args) # OK
                 #check_rule_R19(args)
