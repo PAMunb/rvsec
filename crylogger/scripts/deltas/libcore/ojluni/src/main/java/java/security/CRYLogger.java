@@ -42,15 +42,16 @@ public class CRYLogger {
 
 			StringBuilder sb = new StringBuilder();
 
-			sb.append(string.getBytes());
+			sb.append(string);
 
 			if (array != null) {
 				for (byte b : array) {
-					sb.append((String.format("%02x", b)).getBytes());
+					//sb.append((String.format("%02x", b)).getBytes());
+					sb.append(String.format("%02x", b));
 				}
-				sb.append("\n".getBytes());
+				sb.append("\n");
 			} else {
-				sb.append("null\n".getBytes());
+				sb.append("null\n"); 
 			}
 
 			stream.write(insertStackTrace(sb.toString()).getBytes());

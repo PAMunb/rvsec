@@ -266,12 +266,15 @@ def random_tests(bitset):
     test_passed = 0
 
     f = open("hexstream.bin", "wb")
-    for string in bitset:
+    for b in bitset:
+        string = str(b)
+        print(string)
+        print(type(string))
         if is_hex(string):
-            f.write(binascii.unhexlify(string))
+            #f.write(binascii.unhexlify(string))
+            f.write(string)
     f.close()
 
-    #TODO baixar esses arquivos
     summary_found = False
     output = run_cmd("python random-tests/sp800_22_tests.py hexstream.bin")
     for line in output.split("\n"):
@@ -399,7 +402,7 @@ def search_values_intersection(text_to_search, args):
     fail = 0
 
     if args.in2_content is None:
-        return print_result(args, -1)
+        return -1
     
     tuples1 = collect_all_values_with_position(text_to_search, args.in1_content)
     tuples2 = collect_all_values_with_position(text_to_search, args.in2_content)
@@ -412,6 +415,14 @@ def search_values_intersection(text_to_search, args):
         fail = 1
         
     return fail
+
+def contains_value(value, tuples):
+    tmp = [ (x,y) for x, y in tuples if y == value ]
+    
+    if tmp:
+        return True
+    return False
+    
 
 
 ###############################################################################
@@ -556,75 +567,48 @@ def check_rule_R03(args):
 
     # Don't use the operation mode ECB with > 1 block
 
+    print_start(args)
+
+    fail = check_rule_R03_util(args.in1_content, args)
+
+    if args.in2_content is not None:
+        
+        result = check_rule_R03_util(args.in1_content, args)
+        if result == 1:
+            fail = 1
+
+    return print_result(args, fail)
+
+
+def check_rule_R03_util(content, args):
     fail = 0
     str1 = "[Cipher] out bytes: "
     str2 = " with "
     str3 = "ECB"
 
-    print_start(args)
-
     start = 0
     
-    pos1 = search_string_in_file(str1, args.in1_content, start)
+    pos1 = search_string_in_file(str1, content, start)
     while pos1:
         
-        pos2 = search_string_in_file(str2, args.in1_content, pos1)
-        if pos2 == 0:
-            break
+        pos2 = search_string_in_file(str2, content, pos1)
 
         #pos3 = search_string_in_file("\n", args.in1_content, pos2)
-        pos3 = search_string_in_file("::", args.in1_content, pos2)
-        if pos3 == 0:
-            break
+        pos3 = search_string_in_file("::", content, pos2)
 
-        if search_string_in_file(str3, args.in1_content[pos1: pos3]):
+        if search_string_in_file(str3, content[pos1: pos3]):
 
-            fin_bytes = args.in1_content[pos1 + len(str1): pos2].strip()
+            fin_bytes = content[pos1 + len(str1): pos2].strip()
 
             if int(fin_bytes) > 16:
                 print_verbose(args, "\t ECB bytes: " + fin_bytes + "\n")
-                write_misuse(get_content(args.in1_content,pos1), args)
+                write_misuse(get_content(content,pos1), args)
                 fail = 1
-                #break
 
         start = pos3 + 1
         pos1 = search_string_in_file(str1, args.in1_content, start)
-
-    #TODO fazer o mesmo pro arquivo 2
-    if args.in2_content is not None:
-
-        start = 0
-
-        while True:
-
-            pos1 = search_string_in_file(str1, args.in2_content, start)
-
-            if pos1 == 0:
-                break
-
-            pos2 = search_string_in_file(str2, args.in2_content, pos1)
-
-            if pos2 == 0:
-                break
-
-            pos3 = search_string_in_file("\n", args.in2_content, pos2)
-
-            if pos3 == 0:
-                break
-
-            if search_string_in_file(str3, args.in2_content[pos1: pos3]):
-
-                fin_bytes = args.in2_content[pos1 + len(str1): pos2].strip()
-
-                if int(fin_bytes) > 16:
-                    print_verbose(args, "\t ECB bytes: " + fin_bytes + "\n")
-                    fail = 1
-                    break
-
-            start = pos3 + 1
-
-    return print_result(args, fail)
-
+        
+    return fail
 
 ###############################################################################
 # Rule R-04
@@ -689,67 +673,56 @@ def check_rule_R05(args):
 # Rule R-06
 ###############################################################################
 def check_rule_R06(args):
+    
+    #TODO revisar o random test ... esta comentado por enquanto ... e a 08 eh a mesma coisa
 
     # Don't use a 'badly-derived' key for encryption
 
+    print_start(args)
+    
+    fail = check_rule_R06_util(args.in1_content, args)
+
+    if args.in2_content is not None:
+        result = check_rule_R06_util(args.in1_content, args)
+        if result == 1:
+            fail = 1
+
+    return print_result(args, fail)
+
+
+def check_rule_R06_util(content, args):
     fail = 0
+    
     str1 = "[Random] next: "
     str2 = "[SecureRandom] next: "
     str3 = "[Cipher] key.encoded: "
 
     print_start(args)
-
-    badvalues = collect_all_values(str1, args.in1_content, True)
-    goodvalues = collect_all_values(str2, args.in1_content, True)
-    keyvalues = collect_all_values(str3, args.in1_content, True)
+    
+    badvaluestuples = collect_all_values_with_position(str1, content, True)
+    goodvaluestuples = collect_all_values_with_position(str2, content, True)
+    keyvaluestuples = collect_all_values_with_position(str3, content, True)
 
     potbadkeys = set()
 
-    for key in keyvalues:
-
-        if key in badvalues:
-            print_verbose(args, "\t Key from util.Random\n")
+    for t in keyvaluestuples:
+        key = t[1]
+        
+        if contains_value(key,badvaluestuples):
+            write_misuse(get_content(content,t[0]), args)
             fail = 1
-            break
-
-        if key not in goodvalues:
+        
+        if not contains_value(key,goodvaluestuples):
             potbadkeys.add(key)
 
-    if not fail and potbadkeys:
-
-        passed, failed = random_tests(potbadkeys)
-        print_verbose(args, "\t Tests failed: " + str(failed) + "\n")
-        print_verbose(args, "\t Tests passed: " + str(passed) + "\n")
-        if failed > 0:
-            fail = 1
-
-    if args.in2_content is not None:
-
-        badvalues = collect_all_values(str1, args.in2_content, True)
-        goodvalues = collect_all_values(str2, args.in2_content, True)
-        keyvalues = collect_all_values(str3, args.in2_content, True)
-
-        potbadkeys = set()
-
-        for key in keyvalues:
-
-            if key in badvalues:
-                print_verbose(args, "\t Key from util.Random\n")
-                fail = 1
-                break
-
-            if key not in goodvalues:
-                potbadkeys.add(key)
-
-        if not fail and potbadkeys:
-
-            passed, failed = random_tests(potbadkeys)
-            print_verbose(args, "\t Tests failed: " + str(failed) + "\n")
-            print_verbose(args, "\t Tests passed: " + str(passed) + "\n")
-            if failed > 0:
-                fail = 1
-
-    return print_result(args, fail)
+    #if not fail and potbadkeys:
+    #    passed, failed = random_tests(potbadkeys)
+    #    print_verbose(args, "\t Tests failed: " + str(failed) + "\n")
+    #    print_verbose(args, "\t Tests passed: " + str(passed) + "\n")
+    #    if failed > 0:
+    #        fail = 1
+    
+    return fail
 
 
 ###############################################################################
