@@ -145,6 +145,12 @@ def collect_all_values_with_position(string, content, hexa=False):
         #remove the stacktrace, to get only the value
         stacktrace_separator_position = value.find("::")
         value = value[0 : stacktrace_separator_position].strip()
+                
+        if value == "null":
+            start = pos2 + 1
+            pos1 = search_string_in_file(string, content, start)
+            continue
+        
         if hexa:
             try:
                 #TODO: acho q deveria add o conv
@@ -244,6 +250,7 @@ def collect_all_duplicate_pairs(string1, string2, content):
             break
 
         #TODO remover stacktrace, para pegar apenas o valor
+        #TODO usar a pos1 no misuse
         val1 = content[pos1 + len(string1): pos2].strip()
         val2 = content[pos3 + len(string2): pos4].strip()
 
@@ -252,6 +259,38 @@ def collect_all_duplicate_pairs(string1, string2, content):
 
         seen.add((val1, val2))
         start = pos4 + 1
+
+    return dupl
+
+def collect_all_duplicate_pairs_with_position(string1, string2, content):
+
+    start = 0
+    seen = set()
+    dupl = set()
+
+    pos1 = search_string_in_file(string1, content, start)
+    while pos1:
+
+        pos2 = search_string_in_file("::", content, pos1)
+
+        pos3 = search_string_in_file(string2, content, pos2)
+        if pos3 == 0:
+            break
+
+        pos4 = search_string_in_file("::", content, pos3)
+        posEnd = search_string_in_file("\n", content, pos3)
+
+        #TODO remover stacktrace, para pegar apenas o valor
+        #TODO usar a pos1 no misuse
+        val1 = content[pos1 + len(string1): pos2].strip()
+        val2 = content[pos3 + len(string2): pos4].strip()
+
+        #TODO
+        if (val1, val2) in seen:
+            dupl.add((pos1, val1, val2))
+
+        seen.add((val1, val2))
+        start = posEnd + 1
 
     return dupl
 
@@ -683,7 +722,7 @@ def check_rule_R06(args):
     fail = check_rule_R06_util(args.in1_content, args)
 
     if args.in2_content is not None:
-        result = check_rule_R06_util(args.in1_content, args)
+        result = check_rule_R06_util(args.in2_content, args)
         if result == 1:
             fail = 1
 
@@ -691,7 +730,7 @@ def check_rule_R06(args):
 
 
 def check_rule_R06_util(content, args):
-    fail = 0
+    #fail = 0
     
     str1 = "[Random] next: "
     str2 = "[SecureRandom] next: "
@@ -699,11 +738,17 @@ def check_rule_R06_util(content, args):
 
     print_start(args)
     
+    return check_rule_R06_R08(str1, str2, str3, content, args)
+
+
+def check_rule_R06_R08(str1, str2, str3, content, args):
+    fail = 0
+    
     badvaluestuples = collect_all_values_with_position(str1, content, True)
-    goodvaluestuples = collect_all_values_with_position(str2, content, True)
+    #goodvaluestuples = collect_all_values_with_position(str2, content, True)
     keyvaluestuples = collect_all_values_with_position(str3, content, True)
 
-    potbadkeys = set()
+    #potbadkeys = set()
 
     for t in keyvaluestuples:
         key = t[1]
@@ -712,8 +757,8 @@ def check_rule_R06_util(content, args):
             write_misuse(get_content(content,t[0]), args)
             fail = 1
         
-        if not contains_value(key,goodvaluestuples):
-            potbadkeys.add(key)
+        #if not contains_value(key,goodvaluestuples):
+        #    potbadkeys.add(key)
 
     #if not fail and potbadkeys:
     #    passed, failed = random_tests(potbadkeys)
@@ -760,64 +805,24 @@ def check_rule_R08(args):
 
     # Don't use a 'badly-derived' iv for encryption
 
-    fail = 0
+    print_start(args)
+    
+    fail = check_rule_R08_util(args.in1_content, args)
+
+    if args.in2_content is not None:
+        result = check_rule_R08_util(args.in2_content, args)
+        if result == 1:
+            fail = 1
+
+    return print_result(args, fail)
+
+
+def check_rule_R08_util(content, args):
     str1 = "[Random] next: "
     str2 = "[SecureRandom] next: "
     str3 = "[Cipher] key.iv: "
 
-    print_start(args)
-
-    badvalues = collect_all_values(str1, args.in1_content, True)
-    goodvalues = collect_all_values(str2, args.in1_content, True)
-    ivvalues = collect_all_values(str3, args.in1_content, True)
-
-    potbadivs = set()
-
-    for iv in ivvalues:
-
-        if iv in badvalues:
-            print_verbose(args, "\t Key from util.Random\n")
-            fail = 1
-            break
-
-        if iv not in goodvalues:
-            potbadivs.add(iv)
-
-    if not fail and potbadivs:
-
-        passed, failed = random_tests(potbadivs)
-        print_verbose(args, "\t Tests failed: " + str(failed) + "\n")
-        print_verbose(args, "\t Tests passed: " + str(passed) + "\n")
-        if failed > 0:
-            fail = 1
-
-    if args.in2_content is not None:
-
-        badvalues = collect_all_values(str1, args.in2_content, True)
-        goodvalues = collect_all_values(str2, args.in2_content, True)
-        ivvalues = collect_all_values(str3, args.in2_content, True)
-
-        potbadivs = set()
-
-        for iv in ivvalues:
-
-            if iv in badvalues:
-                print_verbose(args, "\t Key from util.Random\n")
-                fail = 1
-                break
-
-            if iv not in goodvalues:
-                potbadivs.add(iv)
-
-        if not fail and potbadivs:
-
-            passed, failed = random_tests(potbadivs)
-            print_verbose(args, "\t Tests failed: " + str(failed) + "\n")
-            print_verbose(args, "\t Tests passed: " + str(passed) + "\n")
-            if failed > 0:
-                fail = 1
-
-    return print_result(args, fail)
+    return check_rule_R06_R08(str1, str2, str3, content, args)
 
 
 ###############################################################################
@@ -838,6 +843,7 @@ def check_rule_R09(args):
 
     if dupl:
         print_verbose(args, "\t Duplicated (key, iv)\n")
+        print(dupl)
         fail = 1
 
     if args.in2_content is not None:
@@ -866,6 +872,8 @@ def check_rule_R10(args):
 
     if args.in2_content is None:
         return print_result(args, -1)
+    
+    #collect_all_values
 
     salt1a = collect_all_values(str1, args.in1_content, True)
     salt1b = collect_all_values(str2, args.in1_content, True)
@@ -1430,8 +1438,7 @@ def check_rule_R25(args):
     print_start(args)
     
     fail = search_string(str1, args)
-     
-    #TODO rever a questao de nao sobrescrever um fail em todas as regras, como o exemplo abaixo    
+
     result = search_string(str2, args)
     if result == 1:
         fail = 1
@@ -1476,14 +1483,23 @@ def check_rule_R26(args):
 
     # Don't verify hostnames for SSL connections
 
-    #fail = 0
-    #str1 = "[SSLSocketFactory] getDefault() called"
-    #str2 = "[HttpsURLConnection] getHostnameVerifier() called"
-    #str3 = "[HttpsURLConnection] getDefaultHostnameVerifier() called"
+    fail = 0
+    str1 = "[SSLSocketFactory] getDefault() called"
+    str2 = "[HttpsURLConnection] getHostnameVerifier() called"
+    str3 = "[HttpsURLConnection] getDefaultHostnameVerifier() called"
 
     print_start(args)
     
-    fail = check_rule_R26_util(args.in1_content)        
+    fail = search_string(str1, args)
+        
+    #TODO rever ... pq seta fail pra 0 mas o misuse foi gravado no arquivo ... usar outra abordagem
+    result = search_string(str2, args)
+    if result == 1:
+        fail = 0
+        
+    result = search_string(str3, args)
+    if result == 1:
+        fail = 0           
 
     #if search_string_in_file(str1, args.in1_content):
     #    fail = 1
@@ -1494,8 +1510,10 @@ def check_rule_R26(args):
     #if search_string_in_file(str3, args.in1_content):
     #    fail = 0
 
-    if args.in2_content is not None and not fail:
-        fail = check_rule_R26_util(args.in2_content)
+    #if args.in2_content is not None and not fail:
+        #result = check_rule_R26_util(args.in2_content, args)
+        #if result == 1:
+        #    fail = 1
 
         #if search_string_in_file(str1, args.in2_content):
         #    fail = 1
@@ -1508,23 +1526,6 @@ def check_rule_R26(args):
 
     return print_result(args, fail)
 
-#TODO impl
-def check_rule_R26_util(content):
-    fail = 0
-    str1 = "[SSLSocketFactory] getDefault() called"
-    str2 = "[HttpsURLConnection] getHostnameVerifier() called"
-    str3 = "[HttpsURLConnection] getDefaultHostnameVerifier() called"
-    
-    if search_string_in_file(str1, content):
-        fail = 1
-
-    if search_string_in_file(str2, content):
-        fail = 0
-
-    if search_string_in_file(str3, content):
-        fail = 0
-        
-    return fail
     
 
 ###############################################################################
@@ -1608,27 +1609,29 @@ def main():
                     
                 #check_rule_R01(args) # OK
                 #check_rule_R02(args) # OK
-                #check_rule_R03(args)
+                #check_rule_R03(args) # OK
                 #check_rule_R04(args) # OK
-                #check_rule_R05(args)
-                #check_rule_R06(args)
-                #check_rule_R07(args)
-                #check_rule_R08(args)
+                #check_rule_R05(args) # OK
+                #check_rule_R06(args) # OK
+                #check_rule_R07(args) # OK
+                #check_rule_R08(args) # OK
                 #check_rule_R09(args)
                 #check_rule_R10(args)
-                #check_rule_R11(args)
+                #check_rule_R11(args) # OK
                 #check_rule_R12(args)
                 #check_rule_R13(args) # OK
                 #check_rule_R14(args) # OK
                 #check_rule_R15(args) # OK
                 #check_rule_R16(args) # OK
-                #check_rule_R17(args)
+                #check_rule_R17(args) # olhar o javadoc do setSeed ... The given seed supplements,
+     #rather than replaces, the existing seed. Thus, repeated calls
+     #are guaranteed never to reduce randomness.
                 #check_rule_R18(args) # OK
-                #check_rule_R19(args)
-                #check_rule_R20(args)
-                #check_rule_R21(args)
+                #check_rule_R19(args) # OK
+                #check_rule_R20(args) # OK
+                #check_rule_R21(args) # OK
                 #check_rule_R22(args) # OK
-                #check_rule_R23(args)
+                #check_rule_R23(args) # OK
                 #check_rule_R24(args) # OK
                 #check_rule_R25(args) # OK
                 #check_rule_R26(args)
