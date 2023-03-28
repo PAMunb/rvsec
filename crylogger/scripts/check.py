@@ -134,7 +134,6 @@ def collect_all_values(string, content, hexa=False):
 def collect_all_values_with_position(string, content, hexa=False):
     start = 0
     res = set()
-    #res = [] #TODO usar lista?
 
     pos1 = search_string_in_file(string, content, start)
     while pos1:
@@ -224,6 +223,33 @@ def collect_all_duplicated_values(string, content):
 
     return dupl
 
+def collect_all_duplicated_values_with_position(string, content):
+
+    start = 0
+    seen = set()
+    dupl = set()
+
+    pos1 = search_string_in_file(string, content, start)
+    while pos1:
+
+        pos2 = search_string_in_file("\n", content, pos1)
+        if pos2 == 0:
+            break
+
+        value = content[pos1 + len(string): pos2].strip()
+        #remove the stacktrace, to get only the value
+        stacktrace_separator_position = value.find("::")
+        value = value[0 : stacktrace_separator_position].strip()
+        if value in seen:
+            dupl.add((pos1,value))
+
+        seen.add(value)
+        
+        start = pos2 + 1
+        pos1 = search_string_in_file(string, content, start)
+
+    return dupl
+
 
 def collect_all_duplicate_pairs(string1, string2, content):
 
@@ -252,7 +278,14 @@ def collect_all_duplicate_pairs(string1, string2, content):
         #TODO remover stacktrace, para pegar apenas o valor
         #TODO usar a pos1 no misuse
         val1 = content[pos1 + len(string1): pos2].strip()
+        #remove the stacktrace, to get only the value
+        stacktrace_separator_position = val1.find("::")
+        val1 = val1[0 : stacktrace_separator_position].strip()
+        
         val2 = content[pos3 + len(string2): pos4].strip()
+        #remove the stacktrace, to get only the value
+        stacktrace_separator_position = val2.find("::")
+        val2 = val2[0 : stacktrace_separator_position].strip()
 
         if (val1, val2) in seen:
             dupl.add((val1, val2))
@@ -291,6 +324,7 @@ def collect_all_duplicate_pairs_with_position(string1, string2, content):
 
         seen.add((val1, val2))
         start = posEnd + 1
+        pos1 = search_string_in_file(string1, content, start)
 
     return dupl
 
@@ -832,29 +866,30 @@ def check_rule_R09(args):
 
     # Don't reuse the initialization vector and key pairs
 
-    fail = 0
-    start = 0
-    str1 = "[Cipher] key.iv: "
-    str2 = "[Cipher] key.encoded: "
-
     print_start(args)
-
-    dupl = collect_all_duplicate_pairs(str1, str2, args.in1_content)
-
-    if dupl:
-        print_verbose(args, "\t Duplicated (key, iv)\n")
-        print(dupl)
-        fail = 1
+    
+    fail = check_rule_R09_util(args.in1_content, args)
 
     if args.in2_content is not None:
-
-        dupl = collect_all_duplicate_pairs(str1, str2, args.in2_content)
-
-        if dupl:
-            print_verbose(args, "\t Duplicated (key, iv)\n")
+        result = check_rule_R09_util(args.in2_content, args)
+        if result == 1:
             fail = 1
 
     return print_result(args, fail)
+
+def check_rule_R09_util(content, args):
+    fail = 0
+    str1 = "[Cipher] key.iv: "
+    str2 = "[Cipher] key.encoded: "
+
+    dupl = collect_all_duplicate_pairs_with_position(str1, str2, content)
+
+    for d in dupl:
+        position = d[0]
+        write_misuse(get_content(content,position), args)
+        fail = 1
+        
+    return fail
 
 
 ###############################################################################
@@ -874,20 +909,34 @@ def check_rule_R10(args):
         return print_result(args, -1)
     
     #collect_all_values
-
-    salt1a = collect_all_values(str1, args.in1_content, True)
-    salt1b = collect_all_values(str2, args.in1_content, True)
+    salt1a = collect_all_values_with_position(str1, args.in1_content)
+    salt1b = collect_all_values_with_position(str2, args.in1_content)
     salt1a = salt1a.union(salt1b)
-
-    salt2a = collect_all_values(str1, args.in2_content, True)
-    salt2b = collect_all_values(str2, args.in2_content, True)
+    
+    salt2a = collect_all_values_with_position(str1, args.in2_content)
+    salt2b = collect_all_values_with_position(str2, args.in2_content)
     salt2a = salt2a.union(salt2b)
-
-    if not salt1a.isdisjoint(salt2a):
-        print_verbose(args, "\t Static salts\n")
+    
+    intersect = [ (x,y) for x, y in salt1a if any([(x2,y2) for x2, y2 in salt2a if y == y2])]
+    for tuple in intersect:
+        write_misuse(get_content(args.in1_content,tuple[0]), args)
         fail = 1
+    
+
+    #salt1a = collect_all_values(str1, args.in1_content, True)
+    #salt1b = collect_all_values(str2, args.in1_content, True)
+    #salt1a = salt1a.union(salt1b)
+
+    #salt2a = collect_all_values(str1, args.in2_content, True)
+    #salt2b = collect_all_values(str2, args.in2_content, True)
+    #salt2a = salt2a.union(salt2b)
+
+    #if not salt1a.isdisjoint(salt2a):
+    #    print_verbose(args, "\t Static salts\n")
+    #    fail = 1
 
     return print_result(args, fail)
+
 
 
 ###############################################################################
@@ -949,31 +998,32 @@ def check_rule_R12(args):
 
     # Don't use the salt for different purposes
 
+    print_start(args)
+    
+    fail = check_rule_R12_util(args.in1_content, args)
+
+    if args.in2_content is not None:
+        result = check_rule_R12_util(args.in1_content, args)
+        if result == 1:
+            fail = 1
+
+    return print_result(args, fail)
+
+def check_rule_R12_util(content, args):
     fail = 0
     str1 = "[PBEKeySpec] salt: "
     str2 = "[PBEParameterSpec] salt: "
 
-    print_start(args)
-
-    dupl1 = collect_all_duplicated_values(str1, args.in1_content)
-    dupl2 = collect_all_duplicated_values(str2, args.in1_content)
+    dupl1 = collect_all_duplicated_values_with_position(str1, content)
+    dupl2 = collect_all_duplicated_values_with_position(str2, content)
     dupl = dupl1.union(dupl2)
 
-    if dupl:
-        print_verbose(args, "\t Duplicated salt\n")
+    for d in dupl:
+        position = d[0]
+        write_misuse(get_content(content,position), args)
         fail = 1
-
-    if args.in2_content is not None:
-
-        dupl1 = collect_all_duplicated_values(str1, args.in2_content)
-        dupl2 = collect_all_duplicated_values(str2, args.in2_content)
-        dupl = dupl1.union(dupl2)
-
-        if dupl:
-            print_verbose(args, "\t Duplicated salt\n")
-            fail = 1
-
-    return print_result(args, fail)
+        
+    return fail
 
 
 ###############################################################################
@@ -1490,25 +1540,25 @@ def check_rule_R26(args):
 
     print_start(args)
     
-    fail = search_string(str1, args)
+    #fail = search_string(str1, args)
         
     #TODO rever ... pq seta fail pra 0 mas o misuse foi gravado no arquivo ... usar outra abordagem
-    result = search_string(str2, args)
-    if result == 1:
-        fail = 0
+    #result = search_string(str2, args)
+    #if result == 1:
+    #    fail = 0
         
-    result = search_string(str3, args)
-    if result == 1:
-        fail = 0           
+    #result = search_string(str3, args)
+    #if result == 1:
+    #    fail = 0           
 
-    #if search_string_in_file(str1, args.in1_content):
-    #    fail = 1
+    if search_string_in_file(str1, args.in1_content):
+        fail = 1
 
-    #if search_string_in_file(str2, args.in1_content):
-    #    fail = 0
+    if search_string_in_file(str2, args.in1_content):
+        fail = 0
 
-    #if search_string_in_file(str3, args.in1_content):
-    #    fail = 0
+    if search_string_in_file(str3, args.in1_content):
+        fail = 0
 
     #if args.in2_content is not None and not fail:
         #result = check_rule_R26_util(args.in2_content, args)
@@ -1615,10 +1665,10 @@ def main():
                 #check_rule_R06(args) # OK
                 #check_rule_R07(args) # OK
                 #check_rule_R08(args) # OK
-                #check_rule_R09(args)
-                #check_rule_R10(args)
+                #check_rule_R09(args) # OK
+                #check_rule_R10(args) # OK
                 #check_rule_R11(args) # OK
-                #check_rule_R12(args)
+                #check_rule_R12(args) # OK
                 #check_rule_R13(args) # OK
                 #check_rule_R14(args) # OK
                 #check_rule_R15(args) # OK
@@ -1627,7 +1677,7 @@ def main():
      #rather than replaces, the existing seed. Thus, repeated calls
      #are guaranteed never to reduce randomness.
                 #check_rule_R18(args) # OK
-                #check_rule_R19(args) # OK
+                #check_rule_R19(args) 
                 #check_rule_R20(args) # OK
                 #check_rule_R21(args) # OK
                 #check_rule_R22(args) # OK

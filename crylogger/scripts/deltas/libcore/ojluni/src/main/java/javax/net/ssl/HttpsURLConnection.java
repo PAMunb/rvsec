@@ -1,5 +1,4 @@
 /*
- * Copyright (C) 2014 The Android Open Source Project
  * Copyright (c) 1999, 2012, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
@@ -23,8 +22,6 @@
  * or visit www.oracle.com if you need additional information or have any
  * questions.
  */
-
-/* CRYLOGGER: Author: Luca Piccolboni (piccolboni@cs.columbia.edu) */
 
 package javax.net.ssl;
 
@@ -183,40 +180,34 @@ class HttpsURLConnection extends HttpURLConnection
         }
     }
 
-    // BEGIN Android-changed: Use lazily-created OkHttp hostname verifier
-    // The RI default hostname verifier is a static member of the class, which means
-    // it's created when the class is initialized.  As well, its default verifier
-    // just fails all verification attempts, whereas we use OkHttp's verifier.
-    /*
-     * Holds the default instance so class preloading doesn't create an instance of
-     * it.
+    /**
+     * <code>HostnameVerifier</code> provides a callback mechanism so that
+     * implementers of this interface can supply a policy for
+     * handling the case where the host to connect to and
+     * the server name from the certificate mismatch.
+     * <p>
+     * The default implementation will deny such connections.
      */
-    private static class NoPreloadHolder {
-        public static HostnameVerifier defaultHostnameVerifier;
-        public static final Class<? extends HostnameVerifier> originalDefaultHostnameVerifierClass;
-        static {
-            try {
-                /**
-                  * <code>HostnameVerifier</code> provides a callback mechanism so that
-                  * implementers of this interface can supply a policy for
-                  * handling the case where the host to connect to and
-                  * the server name from the certificate mismatch.
-                  */
-                defaultHostnameVerifier = (HostnameVerifier)
-                        Class.forName("com.android.okhttp.internal.tls.OkHostnameVerifier")
-                        .getField("INSTANCE").get(null);
-                originalDefaultHostnameVerifierClass = defaultHostnameVerifier.getClass();
-            } catch (Exception e) {
-                throw new AssertionError("Failed to obtain okhttp HostnameVerifier", e);
-            }
+    private static HostnameVerifier defaultHostnameVerifier =
+                                        new DefaultHostnameVerifier();
+
+    /*
+     * The initial default <code>HostnameVerifier</code>.  Should be
+     * updated for another other type of <code>HostnameVerifier</code>
+     * that are created.
+     */
+    private static class DefaultHostnameVerifier
+            implements HostnameVerifier {
+        @Override
+        public boolean verify(String hostname, SSLSession session) {
+            return false;
         }
     }
 
     /**
      * The <code>hostnameVerifier</code> for this object.
      */
-    protected HostnameVerifier hostnameVerifier;
-    // END Android-changed: Use lazily-created OkHttp hostname verifier
+    protected HostnameVerifier hostnameVerifier = defaultHostnameVerifier;
 
     /**
      * Sets the default <code>HostnameVerifier</code> inherited by a
@@ -239,7 +230,7 @@ class HttpsURLConnection extends HttpURLConnection
             throw new IllegalArgumentException(
                 "no default HostnameVerifier specified");
         }
-
+        
         /* CRYLOGGER */
         CRYLogger.write("[HttpsURLConnection] setDefaultHostnameVerifier() called\n");
         CRYLogger.write("[HttpsURLConnection] dummyverifier: " +
@@ -251,7 +242,7 @@ class HttpsURLConnection extends HttpURLConnection
         if (sm != null) {
             sm.checkPermission(new SSLPermission("setHostnameVerifier"));
         }
-        NoPreloadHolder.defaultHostnameVerifier = v;
+        defaultHostnameVerifier = v;
     }
 
     /**
@@ -262,10 +253,9 @@ class HttpsURLConnection extends HttpURLConnection
      * @see #setDefaultHostnameVerifier(HostnameVerifier)
      */
     public static HostnameVerifier getDefaultHostnameVerifier() {
-
-        /* CRYLOGGER */
+    	/* CRYLOGGER */
         CRYLogger.write("[HttpsURLConnection] getDefaultHostnameVerifier() called\n");
-        return NoPreloadHolder.defaultHostnameVerifier;
+        return defaultHostnameVerifier;
     }
 
     /**
@@ -287,12 +277,14 @@ class HttpsURLConnection extends HttpURLConnection
             throw new IllegalArgumentException(
                 "no HostnameVerifier specified");
         }
+        
         /* CRYLOGGER */
         CRYLogger.write("[HttpsURLConnection] setHostnameVerifier() called\n");
         CRYLogger.write("[HttpsURLConnection] dummyverifier: " +
                     String.valueOf(v.verify(null, null)) + "\n");
         CRYLogger.write("[HttpsURLConnection] dummyverifier: " +
                     String.valueOf(v.verify("", null)) + "\n");
+
         hostnameVerifier = v;
     }
 
@@ -304,11 +296,7 @@ class HttpsURLConnection extends HttpURLConnection
      * @see #setDefaultHostnameVerifier(HostnameVerifier)
      */
     public HostnameVerifier getHostnameVerifier() {
-        // Android-added: Use the default verifier if none is set
-        if (hostnameVerifier == null) {
-            hostnameVerifier = NoPreloadHolder.defaultHostnameVerifier;
-        }
-        /* CRYLOGGER */
+    	/* CRYLOGGER */
         CRYLogger.write("[HttpsURLConnection] getHostnameVerifier() called\n");
         return hostnameVerifier;
     }
@@ -380,6 +368,9 @@ class HttpsURLConnection extends HttpURLConnection
      * @param sf the SSL socket factory
      * @throws IllegalArgumentException if the <code>SSLSocketFactory</code>
      *          parameter is null.
+     * @throws SecurityException if a security manager exists and its
+     *         <code>checkSetFactory</code> method does not allow
+     *         a socket factory to be specified.
      * @see #getSSLSocketFactory()
      */
     public void setSSLSocketFactory(SSLSocketFactory sf) {
