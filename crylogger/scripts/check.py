@@ -194,6 +194,30 @@ def collect_all_values_regexp(exp, content):
 
     return res
 
+def collect_all_values_regexp_with_position(exp, content):
+
+    start = 0
+    res = set()
+
+    pos1 = search_regexp_in_file(exp, content, start)
+    while pos1:
+
+        string = pos1.group(0)
+
+        pos2 = search_string_in_file("\n", content, pos1.start(0))
+        #if pos2 == 0:
+        #    break
+
+        value = content[pos1.start(0) + len(string): pos2]
+        #remove the stacktrace, to get only the value
+        stacktrace_separator_position = value.find("::")
+        value = value[0 : stacktrace_separator_position].strip()
+        res.add((pos1.start(0),value))
+        start = pos2 + 1
+        pos1 = search_regexp_in_file(exp, content, start)
+
+    return res
+
 
 def collect_all_duplicated_values(string, content):
 
@@ -514,7 +538,7 @@ def check_rule_R01(args):
     fail = 0
     prefix = "[MessageDigest] algorithm: "
 
-    print_start(args)
+    #print_start(args)
 
     for h in insecure_hash_functions:
         text_to_search = prefix + h
@@ -558,7 +582,7 @@ def check_rule_R02(args):
     prefix = "[Cipher] algorithm: "
     reg1 = "\[Cipher\] algorithm: PBEWith"
 
-    print_start(args)
+    #print_start(args)
 
     for func in insecure_hash_functions:
         re_to_search = reg1 + func
@@ -640,7 +664,7 @@ def check_rule_R03(args):
 
     # Don't use the operation mode ECB with > 1 block
 
-    print_start(args)
+    #print_start(args)
 
     fail = check_rule_R03_util(args.in1_content, args)
 
@@ -693,7 +717,7 @@ def check_rule_R04(args):
     #fail = 0
     text_to_search = "[Cipher] algorithm: AES/CBC/"
 
-    print_start(args)
+    #print_start(args)
     
     fail = search_string(text_to_search, args)
 
@@ -724,7 +748,7 @@ def check_rule_R05(args):
     #fail = 0
     text_to_search = "[Cipher] key.encoded: "
 
-    print_start(args)
+    #print_start(args)
     
     fail = search_values_intersection(text_to_search, args)
 
@@ -750,8 +774,6 @@ def check_rule_R06(args):
     #TODO revisar o random test ... esta comentado por enquanto ... e a 08 eh a mesma coisa
 
     # Don't use a 'badly-derived' key for encryption
-
-    print_start(args)
     
     fail = check_rule_R06_util(args.in1_content, args)
 
@@ -770,7 +792,7 @@ def check_rule_R06_util(content, args):
     str2 = "[SecureRandom] next: "
     str3 = "[Cipher] key.encoded: "
 
-    print_start(args)
+    #print_start(args)
     
     return check_rule_R06_R08(str1, str2, str3, content, args)
 
@@ -814,7 +836,7 @@ def check_rule_R07(args):
     #fail = 0
     text_to_search = "[Cipher] key.iv: "
 
-    print_start(args)
+    #print_start(args)
     
     fail = search_values_intersection(text_to_search, args)
 
@@ -839,7 +861,7 @@ def check_rule_R08(args):
 
     # Don't use a 'badly-derived' iv for encryption
 
-    print_start(args)
+    #print_start(args)
     
     fail = check_rule_R08_util(args.in1_content, args)
 
@@ -866,7 +888,7 @@ def check_rule_R09(args):
 
     # Don't reuse the initialization vector and key pairs
 
-    print_start(args)
+    #print_start(args)
     
     fail = check_rule_R09_util(args.in1_content, args)
 
@@ -903,7 +925,7 @@ def check_rule_R10(args):
     str1 = "[PBEKeySpec] salt: "
     str2 = "[PBEParameterSpec] salt: "
 
-    print_start(args)
+    #print_start(args)
 
     if args.in2_content is None:
         return print_result(args, -1)
@@ -998,7 +1020,7 @@ def check_rule_R12(args):
 
     # Don't use the salt for different purposes
 
-    print_start(args)
+    #print_start(args)
     
     fail = check_rule_R12_util(args.in1_content, args)
 
@@ -1033,7 +1055,7 @@ def check_rule_R13(args):
 
     # Don't use < 1000 iterations for key derivation
 
-    print_start(args)
+    #print_start(args)
     
     fail = check_rule_R13_wrapper(args.in1_content, args)
     
@@ -1091,7 +1113,7 @@ def check_rule_R14(args):
     #str1 = "[PBEKeySpec] password: "
     #str2 = "[KeyStore] password: "
 
-    print_start(args)
+    #print_start(args)
 
     subnames = args.in_file_name1.split(".")
     
@@ -1195,7 +1217,7 @@ def check_rule_R15_util(content, args):
     str2 = "[KeyStore] password: "
     passwords = set()
 
-    print_start(args)
+    #print_start(args)
     
     passwords1a = collect_all_values_with_position(str1, content)
     passwords1b = collect_all_values_with_position(str2, content)
@@ -1228,7 +1250,7 @@ def check_rule_R16(args):
     #fail = 0
     text_to_search = "[PBEKeySpec] password: "
 
-    print_start(args)
+    #print_start(args)
     
     fail = search_values_intersection(text_to_search, args)
 
@@ -1266,7 +1288,7 @@ def check_rule_R17(args):
     #fail = 0
     text_to_search = "[SecureRandom] next: "
 
-    print_start(args)
+    #print_start(args)
     
     fail = search_values_intersection(text_to_search, args)
 
@@ -1293,7 +1315,7 @@ def check_rule_R18(args):
 
     text_to_search = "[Random] Random() called"
 
-    print_start(args)
+    #print_start(args)
     
     fail = search_string(text_to_search, args)
 
@@ -1314,34 +1336,39 @@ def check_rule_R19(args):
 
     # A1: Don't use a short key (< 2048 bits) for RSA
 
-    fail = 0
-    start = 0
-    exp1 = "\[Cipher\] key.bits \(RSA.*\): "
-    exp2 = "\[Signature\] key.bits \(.*withRSA.*\): "
-
-    print_start(args)
-
-    allbits1 = collect_all_values_regexp(exp1, args.in1_content)
-    allbits2 = collect_all_values_regexp(exp2, args.in1_content)
-    allbits = allbits1.union(allbits2)
-
-    for bits in allbits:
-        if int(bits) < 2048:
-            print_verbose(args, "\t Bits: " + bits + "\n")
-            fail = 1
+    #print_start(args)
+    
+    fail = check_rule_R19_util(args.in1_content, args)
 
     if args.in2_content is not None:
-
-        allbits1 = collect_all_values_regexp(exp1, args.in2_content)
-        allbits2 = collect_all_values_regexp(exp2, args.in2_content)
-        allbits = allbits1.union(allbits2)
-
-        for bits in allbits:
-            if int(bits) < 2048:
-                print_verbose(args, "\t Bits: " + bits + "\n")
-                fail = 1
+        result = check_rule_R19_util(args.in1_content, args)
+        if result == 1:
+            fail = 1
 
     return print_result(args, fail)
+
+def check_rule_R19_util(content, args):
+    fail = 0
+    exp1 = "\[Cipher\] key.bits \(RSA.*\): "
+    exp2 = "\[Signature\] key.bits \(.*withRSA.*\): "
+    
+    allbits1 = collect_all_values_regexp_with_position(exp1, content)
+    allbits2 = collect_all_values_regexp_with_position(exp2, content)
+    allbits = allbits1.union(allbits2)
+
+    #allbits1 = collect_all_values_regexp(exp1, args.in1_content)
+    #allbits2 = collect_all_values_regexp(exp2, args.in1_content)
+    #allbits = allbits1.union(allbits2)
+
+    for t in allbits:
+        bits = t[1]
+        if int(bits) < 2048:
+            #print_verbose(args, "\t Bits: " + bits + "\n")
+            write_misuse(get_content(content,t[0]), args)  
+            fail = 1
+            
+    return fail
+    
 
 
 ###############################################################################
@@ -1353,7 +1380,7 @@ def check_rule_R20(args):
 
     re_to_search = ".*RSA/.*/NoPadding"
 
-    print_start(args)
+    #print_start(args)
     
     fail = search_regex(re_to_search, args)
 
@@ -1378,7 +1405,7 @@ def check_rule_R21(args):
 
     re_to_search = ".*RSA/.*/PKCS1Padding"
 
-    print_start(args)
+    #print_start(args)
     
     fail = search_regex(re_to_search, args)
 
@@ -1401,7 +1428,7 @@ def check_rule_R22(args):
     fail = 0
     text_to_search = "[URL] protocol: http:"
 
-    print_start(args)
+    #print_start(args)
     
     fail = search_string(text_to_search, args)    
 
@@ -1431,7 +1458,7 @@ def check_rule_R23(args):
     #fail = 0
     text_to_search = "[KeyStore] password: "
 
-    print_start(args)
+    #print_start(args)
     
     fail = search_values_intersection(text_to_search, args)
 
@@ -1459,7 +1486,7 @@ def check_rule_R24(args):
     fail = 0
     text_to_search = "[HttpsURLConnection] dummyverifier: true"
 
-    print_start(args)
+    #print_start(args)
     
     fail = search_string(text_to_search, args)
 
@@ -1485,7 +1512,7 @@ def check_rule_R25(args):
     str2 = "[SSLContext] dummy checkServer: true"
     str3 = "[SSLContext] dummy acceptedIssuers: true"
 
-    print_start(args)
+    #print_start(args)
     
     fail = search_string(str1, args)
 
@@ -1538,7 +1565,7 @@ def check_rule_R26(args):
     str2 = "[HttpsURLConnection] getHostnameVerifier() called"
     str3 = "[HttpsURLConnection] getDefaultHostnameVerifier() called"
 
-    print_start(args)
+    #print_start(args)
     
     #fail = search_string(str1, args)
         
@@ -1644,6 +1671,7 @@ def main():
                 method_name = "check_" + rule
                 args.current_rule = rule
                 logging.info("Checking rule: "+args.rule_id)
+                print_start(args)
                 globals()[method_name](args)  # calls check
             else:
                 for i in range(1,27):                    
@@ -1652,6 +1680,7 @@ def main():
                     method_name = "check_" + rule
                     args.current_rule = rule
                     #logging.info("Checking rule: "+value)
+                    print_start(args)
                     method_start = time.time()
                     globals()[method_name](args)
                     method_end = time.time()
@@ -1659,8 +1688,8 @@ def main():
                     
                 #check_rule_R01(args) # OK
                 #check_rule_R02(args) # OK
-                #check_rule_R03(args) # OK
-                #check_rule_R04(args) # OK
+                #check_rule_R03(args) # OK ... qual teste?
+                #check_rule_R04(args) # OK ... nao usar CBC?
                 #check_rule_R05(args) # OK
                 #check_rule_R06(args) # OK
                 #check_rule_R07(args) # OK
@@ -1674,10 +1703,10 @@ def main():
                 #check_rule_R15(args) # OK
                 #check_rule_R16(args) # OK
                 #check_rule_R17(args) # olhar o javadoc do setSeed ... The given seed supplements,
-     #rather than replaces, the existing seed. Thus, repeated calls
-     #are guaranteed never to reduce randomness.
+     # rather than replaces, the existing seed. Thus, repeated calls
+     # are guaranteed never to reduce randomness.
                 #check_rule_R18(args) # OK
-                #check_rule_R19(args) 
+                #check_rule_R19(args) # OK
                 #check_rule_R20(args) # OK
                 #check_rule_R21(args) # OK
                 #check_rule_R22(args) # OK
