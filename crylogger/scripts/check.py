@@ -538,27 +538,12 @@ def check_rule_R01(args):
     fail = 0
     prefix = "[MessageDigest] algorithm: "
 
-    #print_start(args)
-
     for h in insecure_hash_functions:
         text_to_search = prefix + h
     
         result = search_string(text_to_search, args)
         if result == 1:
             fail = 1
-        
-        #pos = search_string_in_file(text_to_search, args.in1_content)
-        #while pos: # != 0:               
-        #    write_misuse(get_content(args.in1_content,pos), args)                         
-        #    pos = search_string_in_file(text_to_search, args.in1_content, pos+len(text_to_search))
-        #    fail = 1
-
-        #if args.in2_content is not None:
-        #    pos = search_string_in_file(text_to_search, args.in2_content)
-        #    while pos:
-        #        write_misuse(get_content(args.in2_content,pos), args)  
-        #        pos = search_string_in_file(text_to_search, args.in2_content, pos+len(text_to_search))
-        #        fail = 1
 
     return print_result(args, fail)
 
@@ -664,12 +649,9 @@ def check_rule_R03(args):
 
     # Don't use the operation mode ECB with > 1 block
 
-    #print_start(args)
-
     fail = check_rule_R03_util(args.in1_content, args)
 
-    if args.in2_content is not None:
-        
+    if args.in2_content is not None:        
         result = check_rule_R03_util(args.in1_content, args)
         if result == 1:
             fail = 1
@@ -714,26 +696,9 @@ def check_rule_R04(args):
 
     # Don't use the operation mode CBC if AES is used
 
-    #fail = 0
     text_to_search = "[Cipher] algorithm: AES/CBC/"
-
-    #print_start(args)
     
     fail = search_string(text_to_search, args)
-
-    #pos = search_string_in_file(text_to_search, args.in1_content)
-    #while pos:
-    #    print_verbose(args, "\t AES/CBC detected\n")
-    #    text = get_content(args.in1_content,pos)
-    #    #print(text)
-    #    write_misuse(text, args)
-    #    pos = search_string_in_file(text_to_search, args.in1_content, pos+len(text_to_search))
-    #    fail = 1
-
-    #if args.in2_content is not None:
-    #    if search_string_in_file(text_to_search, args.in2_content):
-    #        print_verbose(args, "\t AES/CBC detected\n")
-    #        fail = 1
 
     return print_result(args, fail)
 
@@ -745,23 +710,9 @@ def check_rule_R05(args):
 
     # Don't use a static (constant) key for encryption
 
-    #fail = 0
     text_to_search = "[Cipher] key.encoded: "
 
-    #print_start(args)
-    
     fail = search_values_intersection(text_to_search, args)
-
-    #if args.in2_content is None:
-    #    return print_result(args, -1)
-
-    #keyset1 = collect_all_values(text_to_search, args.in1_content, True)
-    #keyset2 = collect_all_values(text_to_search, args.in2_content, True)
-
-    #if not keyset1.isdisjoint(keyset2):
-    #    for key in keyset1.intersection(keyset2):
-    #        print_verbose(args, "\t static key: " + key + "\n")
-    #        fail = 1
 
     return print_result(args, fail)
 
@@ -786,14 +737,10 @@ def check_rule_R06(args):
 
 
 def check_rule_R06_util(content, args):
-    #fail = 0
-    
     str1 = "[Random] next: "
     str2 = "[SecureRandom] next: "
     str3 = "[Cipher] key.encoded: "
 
-    #print_start(args)
-    
     return check_rule_R06_R08(str1, str2, str3, content, args)
 
 
@@ -833,23 +780,9 @@ def check_rule_R07(args):
 
     # Don't use a static (constant) initialization vector
 
-    #fail = 0
     text_to_search = "[Cipher] key.iv: "
-
-    #print_start(args)
     
     fail = search_values_intersection(text_to_search, args)
-
-    #if args.in2_content is None:
-    #    return print_result(args, -1)
-
-    #ivset1 = collect_all_values(text_to_search, args.in1_content, True)
-    #ivset2 = collect_all_values(text_to_search, args.in2_content, True)
-
-    #if not ivset1.isdisjoint(ivset2):
-    #    for iv in ivset1.intersection(ivset2):
-    #        print_verbose(args, "\t static iv: " + iv + "\n")
-    #        fail = 1
 
     return print_result(args, fail)
 
@@ -860,8 +793,6 @@ def check_rule_R07(args):
 def check_rule_R08(args):
 
     # Don't use a 'badly-derived' iv for encryption
-
-    #print_start(args)
     
     fail = check_rule_R08_util(args.in1_content, args)
 
@@ -888,8 +819,6 @@ def check_rule_R09(args):
 
     # Don't reuse the initialization vector and key pairs
 
-    #print_start(args)
-    
     fail = check_rule_R09_util(args.in1_content, args)
 
     if args.in2_content is not None:
@@ -925,8 +854,6 @@ def check_rule_R10(args):
     str1 = "[PBEKeySpec] salt: "
     str2 = "[PBEParameterSpec] salt: "
 
-    #print_start(args)
-
     if args.in2_content is None:
         return print_result(args, -1)
     
@@ -943,19 +870,6 @@ def check_rule_R10(args):
     for tuple in intersect:
         write_misuse(get_content(args.in1_content,tuple[0]), args)
         fail = 1
-    
-
-    #salt1a = collect_all_values(str1, args.in1_content, True)
-    #salt1b = collect_all_values(str2, args.in1_content, True)
-    #salt1a = salt1a.union(salt1b)
-
-    #salt2a = collect_all_values(str1, args.in2_content, True)
-    #salt2b = collect_all_values(str2, args.in2_content, True)
-    #salt2a = salt2a.union(salt2b)
-
-    #if not salt1a.isdisjoint(salt2a):
-    #    print_verbose(args, "\t Static salts\n")
-    #    fail = 1
 
     return print_result(args, fail)
 
@@ -1020,12 +934,10 @@ def check_rule_R12(args):
 
     # Don't use the salt for different purposes
 
-    #print_start(args)
-    
     fail = check_rule_R12_util(args.in1_content, args)
 
     if args.in2_content is not None:
-        result = check_rule_R12_util(args.in1_content, args)
+        result = check_rule_R12_util(args.in2_content, args)
         if result == 1:
             fail = 1
 
@@ -1055,8 +967,6 @@ def check_rule_R13(args):
 
     # Don't use < 1000 iterations for key derivation
 
-    #print_start(args)
-    
     fail = check_rule_R13_wrapper(args.in1_content, args)
     
     if args.in2_content is not None:
@@ -1089,6 +999,7 @@ def check_rule_R13_util(text_to_search, content, args):
     fail = 0
 
     tuples = collect_all_values_with_position(text_to_search, content)
+    print(tuples)
 
     for t in tuples:
         position = t[0]
@@ -1109,50 +1020,14 @@ def check_rule_R14(args):
     
     # Don't use a weak password (score < 3) for PBE
 
-    #fail = 0
-    #str1 = "[PBEKeySpec] password: "
-    #str2 = "[KeyStore] password: "
-
-    #print_start(args)
-
     subnames = args.in_file_name1.split(".")
     
     fail = check_rule_R14_wrapper(args.in1_content, subnames, args)
-
-    #passwords1 = collect_all_values(str1, args.in1_content)
-    #passwords2 = collect_all_values(str2, args.in1_content)
-    #passwords = passwords1.union(passwords2)
-
-    #for password in passwords:
-    #    analysis_result = zxcvbn.zxcvbn(password)
-    #    if int(analysis_result["score"]) < 3:
-    #        print_verbose(args, "\t Weak: " + password + "\n")
-    #        fail = 1
-
-    #    for subname in subnames:
-    #        if subname in password:
-    #            print_verbose(args, "\t Weak: " + password + "\n")
-    #            fail = 1
 
     if args.in2_content is not None:
         result = check_rule_R14_wrapper(args.in2_content, subnames, args)
         if result == 1:
             fail = 1
-
-        #passwords1 = collect_all_values(str1, args.in2_content)
-        #passwords2 = collect_all_values(str1, args.in2_content)
-        #passwords = passwords1.union(passwords2)
-
-        #for password in passwords:
-        #    analysis_result = zxcvbn.zxcvbn(password)
-        #    if int(analysis_result["score"]) < 3:
-        #        print_verbose(args, "\t Weak: " + password + "\n")
-        #        fail = 1
-
-        #    for subname in subnames:
-        #        if subname in password:
-        #            print_verbose(args, "\t Weak: " + password + "\n")
-        #            fail = 1
 
     return print_result(args, fail)
 
@@ -1198,8 +1073,6 @@ def check_rule_R14_util(text_to_search, content, subnames, args):
 def check_rule_R15(args):
 
     # Don't use NIST-black-listed passwords for PBE
-
-    print_start(args)
     
     fail = check_rule_R15_util(args.in1_content, args)
 
@@ -1216,8 +1089,6 @@ def check_rule_R15_util(content, args):
     str1 = "[PBEKeySpec] password: "
     str2 = "[KeyStore] password: "
     passwords = set()
-
-    #print_start(args)
     
     passwords1a = collect_all_values_with_position(str1, content)
     passwords1b = collect_all_values_with_position(str2, content)
@@ -1247,33 +1118,9 @@ def check_rule_R16(args):
 
     # Don't use a static (constant) password for PBE
 
-    #fail = 0
     text_to_search = "[PBEKeySpec] password: "
-
-    #print_start(args)
     
     fail = search_values_intersection(text_to_search, args)
-
-    #if args.in2_content is None:
-    #    return print_result(args, -1)
-
-    #tuples1 = collect_all_values_with_position(text_to_search, args.in1_content)
-    #tuples2 = collect_all_values_with_position(text_to_search, args.in2_content)
-    
-    #TODO revisar essa expressao
-    #intersect = [ (x,y) for x, y in tuples1 if any([(x2,y2) for x2, y2 in tuples2 if y == y2])]
-    #print("intersect=",intersect)
-    #for tuple in intersect:
-    #    write_misuse(get_content(args.in1_content,tuple[0]), args)
-    #    fail = 1
-            
-    #pass1 = collect_all_values(str1, args.in1_content)
-    #pass2 = collect_all_values(str1, args.in2_content)
-
-    #if not pass1.isdisjoint(pass2):
-    #    for passw in pass1.intersection(pass2):
-    #        print_verbose(args, "\t Static password: " + passw + "\n")            
-    #        fail = 1
 
     return print_result(args, fail)
 
@@ -1285,23 +1132,9 @@ def check_rule_R17(args):
 
     # Don't use a static (constant) seed for PRNG
 
-    #fail = 0
     text_to_search = "[SecureRandom] next: "
-
-    #print_start(args)
     
     fail = search_values_intersection(text_to_search, args)
-
-    #if args.in2_content is None:
-    #    return print_result(args, -1)
-
-    #seed1 = collect_all_values(text_to_search, args.in1_content, True)
-    #seed2 = collect_all_values(text_to_search, args.in2_content, True)
-
-    #if not seed1.isdisjoint(seed2):
-    #    for seed in seed1.intersection(seed2):
-    #        print_verbose(args, "\t Static seed: " + seed + "\n")
-    #        fail = 1
 
     return print_result(args, fail)
 
@@ -1314,17 +1147,8 @@ def check_rule_R18(args):
     # Don't use insecure PRNG (java.util.Random)
 
     text_to_search = "[Random] Random() called"
-
-    #print_start(args)
     
     fail = search_string(text_to_search, args)
-
-    #if search_string_in_file(str1, args.in1_content):
-    #    fail = 1
-
-    #if args.in2_content is not None:
-    #    if search_string_in_file(str1, args.in2_content):
-    #        fail = 1
 
     return print_result(args, fail)
 
@@ -1335,8 +1159,6 @@ def check_rule_R18(args):
 def check_rule_R19(args):
 
     # A1: Don't use a short key (< 2048 bits) for RSA
-
-    #print_start(args)
     
     fail = check_rule_R19_util(args.in1_content, args)
 
@@ -1356,14 +1178,9 @@ def check_rule_R19_util(content, args):
     allbits2 = collect_all_values_regexp_with_position(exp2, content)
     allbits = allbits1.union(allbits2)
 
-    #allbits1 = collect_all_values_regexp(exp1, args.in1_content)
-    #allbits2 = collect_all_values_regexp(exp2, args.in1_content)
-    #allbits = allbits1.union(allbits2)
-
     for t in allbits:
         bits = t[1]
         if int(bits) < 2048:
-            #print_verbose(args, "\t Bits: " + bits + "\n")
             write_misuse(get_content(content,t[0]), args)  
             fail = 1
             
@@ -1379,19 +1196,8 @@ def check_rule_R20(args):
     # Don't use the textbook (raw) algorithm for RSA
 
     re_to_search = ".*RSA/.*/NoPadding"
-
-    #print_start(args)
     
     fail = search_regex(re_to_search, args)
-
-    #if search_regexp_in_file(exp1, args.in1_content):
-    #    print_verbose(args, "\t RSA No Padding\n")
-    #    fail = 1
-
-    #if args.in2_content is not None:
-    #    if search_regexp_in_file(exp1, args.in2_content):
-    #        print_verbose(args, "\t RSA No Padding\n")
-    #        fail = 1
 
     return print_result(args, fail)
 
@@ -1404,19 +1210,8 @@ def check_rule_R21(args):
     # Don't use the padding PKCS1Padding for RSA
 
     re_to_search = ".*RSA/.*/PKCS1Padding"
-
-    #print_start(args)
     
     fail = search_regex(re_to_search, args)
-
-    #if search_regexp_in_file(exp1, args.in1_content):
-    #    print_verbose(args, "\t RSA PKCS1Padding\n")
-    #    fail = 1
-
-    #if args.in2_content is not None:
-    #    if search_regexp_in_file(exp1, args.in2_content):
-    #        print_verbose(args, "\t RSA PKCS1Padding\n")
-    #        fail = 1
 
     return print_result(args, fail)
 
@@ -1425,25 +1220,10 @@ def check_rule_R21(args):
 # Rule R-22
 ###############################################################################
 def check_rule_R22(args):
-    fail = 0
-    text_to_search = "[URL] protocol: http:"
 
-    #print_start(args)
+    text_to_search = "[URL] protocol: http:"
     
     fail = search_string(text_to_search, args)    
-
-    #if search_string_in_file(prefix, args.in1_content):
-    #    https = collect_all_values(prefix, args.in1_content)
-    #    for http in https:
-    #        print_verbose(args, "\t link: " + http + "\n")
-    #    fail = 1
-
-    #if args.in2_content is not None:
-    #    if search_string_in_file(prefix, args.in2_content):
-    #        https = collect_all_values(prefix, args.in2_content)
-    #        for http in https:
-    #            print_verbose(args, "\t link: " + http + "\n")
-    #        fail = 1
 
     return print_result(args, fail)
 

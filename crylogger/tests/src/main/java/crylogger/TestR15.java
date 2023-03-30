@@ -1,20 +1,20 @@
 package crylogger;
 
 /**
- * Don't use a static (constant) salt for key derivation
+ * Don't use NIST-black-listed passwords for PBE
  *
  */
-public class TestR10 {
+public class TestR15 {
 
 	public void execute(boolean fail) throws Exception {
-		char[] password = Util.makePassword();
 		int iterationCount = Util.makeIterationCount();
+		byte[] salt = Util.makeSalt();
 
-		byte[] salt = null;
+		char[] password = null;
 		if (fail) {
-			salt = "123".getBytes();
+			password = "password".toCharArray();
 		} else {
-			salt = Util.makeSalt();
+			password = Util.makePassword();
 		}
 
 		Util.generatePBEKey(password, salt, iterationCount);
@@ -22,7 +22,7 @@ public class TestR10 {
 
 	public static void main(String[] args) throws Exception {
 		boolean fail = Util.parseArgs(args);
-		new TestR10().execute(fail);
+		new TestR15().execute(fail);
 	}
 
 }

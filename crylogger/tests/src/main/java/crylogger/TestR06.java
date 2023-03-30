@@ -4,41 +4,43 @@ import java.security.Key;
 import java.security.spec.AlgorithmParameterSpec;
 import java.util.Random;
 
-import javax.crypto.Cipher;
 import javax.crypto.spec.SecretKeySpec;
 
+/**
+ * Don't use a 'badly-derived' key for encryption
+ *
+ */
 public class TestR06 {
 
-	public void execute(boolean fail) throws Exception {		
-		if(fail) {
+	public void execute(boolean fail) throws Exception {
+		if (fail) {
 			executeFail();
 		} else {
 			executeSuccess();
-		}		
+		}
 	}
-	
+
 	private void executeSuccess() throws Exception {
-		Util.simpleGCM("text_to_encrypt");
-	}
-	
-	private void executeFail() throws Exception {		
-		String alg = "AES/CBC/PKCS5Padding";		
+		Key key = Util.makeKey();
 		AlgorithmParameterSpec iv = Util.makeIv();
-		
+
+		Util.encrypt("text_to_encrypt", key, iv);
+	}
+
+	private void executeFail() throws Exception {
+		AlgorithmParameterSpec iv = Util.makeIv();
+
 		Random random = new Random();
-		byte[] seed = new byte[32];			
+		byte[] seed = new byte[32];
 		random.nextBytes(seed);
 		Key key = new SecretKeySpec(seed, "AES");
 
-		Cipher cipher = Cipher.getInstance(alg);
-		cipher.init(Cipher.ENCRYPT_MODE, key, iv);
-		cipher.doFinal("text_to_encrypt".getBytes());
-		
+		Util.encrypt("text_to_encrypt", key, iv);
 	}
-	
+
 	public static void main(String[] args) throws Exception {
-		boolean fail = Util.parseArgs(args);		
-		new TestR06().execute(fail);		
+		boolean fail = Util.parseArgs(args);
+		new TestR06().execute(fail);
 	}
 
 }
