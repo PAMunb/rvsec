@@ -19,21 +19,14 @@ import logging
 ###############################################################################
 # Common functions
 ###############################################################################
-
-
 def run_cmd(cmd):
-
     split = cmd.split(" ")
 
     try:
-
         # Return the full standard output
         return subprocess.check_output(split, stderr=subprocess.STDOUT).decode("utf-8")
-
     except subprocess.CalledProcessError as e:
-
         print(e.output.decode("utf-8"))
-
         # Just return an error string
         return str("Error")
 
@@ -49,12 +42,6 @@ def is_hex(s):
 ###############################################################################
 # Print Utilities
 ###############################################################################
-
-
-def function_name():
-    # Return the name of the calling check function
-    return traceback.extract_stack(None, 3)[0][2][6:]
-
 
 def print_verbose(args, message):
     if args.verbose:
@@ -79,11 +66,10 @@ def print_result(args, fail):
 def write_misuse(error_text, args):
     args.rvsec_file.write(args.current_rule + " ### "+ error_text+"\n")
 
+
 ###############################################################################
 # Search Utilities
 ###############################################################################
-
-
 def search_string_in_file(string, content, start=0):
     pos = content.lower().find(string.lower(), start)
     if pos == -1:
@@ -96,48 +82,12 @@ def search_regexp_in_file(reg, content, start=0):
     return pattern.search(content.lower(), start)
 
 
-def collect_all_values(string, content, hexa=False):
-
-    start = 0
-    res = set()
-
-    while True:
-
-        pos1 = search_string_in_file(string, content, start)
-        if pos1 == 0:
-            break
-
-        pos2 = search_string_in_file("\n", content, pos1)
-        if pos2 == 0:
-            break
-
-        value = content[pos1 + len(string): pos2]
-        #remove the stacktrace, to get only the value
-        stacktrace_separator_position = value.find("::")
-        value = value[0 : stacktrace_separator_position].strip()
-        if hexa:
-            try:
-                #TODO: acho q deveria add o conv
-                conv = int(value.strip(), 16)
-                #res.add(value.strip())
-                res.add(conv)
-            except ValueError as e:
-                # insert only hexadecimal string
-                pass
-        else:
-            res.add(value.strip())
-
-        start = pos2 + 1
-
-    return res
-
 def collect_all_values_with_position(string, content, hexa=False):
     start = 0
     res = set()
 
     pos1 = search_string_in_file(string, content, start)
     while pos1:
-
         pos2 = search_string_in_file("\n", content, pos1)        
 
         value = content[pos1 + len(string): pos2]
@@ -152,7 +102,6 @@ def collect_all_values_with_position(string, content, hexa=False):
         
         if hexa:
             try:
-                #TODO: acho q deveria add o conv
                 conv = int(value.strip(), 16)
                 res.add((pos1,value.strip()))
                 #res.add((pos1,conv))
@@ -168,45 +117,15 @@ def collect_all_values_with_position(string, content, hexa=False):
     return res
 
 
-def collect_all_values_regexp(exp, content):
-
-    start = 0
-    res = set()
-
-    while True:
-
-        pos1 = search_regexp_in_file(exp, content, start)
-        if not pos1:
-            break
-
-        string = pos1.group(0)
-
-        pos2 = search_string_in_file("\n", content, pos1.start(0))
-        if pos2 == 0:
-            break
-
-        value = content[pos1.start(0) + len(string): pos2]
-        #remove the stacktrace, to get only the value
-        stacktrace_separator_position = value.find("::")
-        value = value[0 : stacktrace_separator_position].strip()
-        res.add(value.strip())
-        start = pos2 + 1
-
-    return res
-
 def collect_all_values_regexp_with_position(exp, content):
-
     start = 0
     res = set()
 
     pos1 = search_regexp_in_file(exp, content, start)
     while pos1:
-
         string = pos1.group(0)
 
         pos2 = search_string_in_file("\n", content, pos1.start(0))
-        #if pos2 == 0:
-        #    break
 
         value = content[pos1.start(0) + len(string): pos2]
         #remove the stacktrace, to get only the value
@@ -219,43 +138,13 @@ def collect_all_values_regexp_with_position(exp, content):
     return res
 
 
-def collect_all_duplicated_values(string, content):
-
-    start = 0
-    seen = set()
-    dupl = set()
-
-    while True:
-
-        pos1 = search_string_in_file(string, content, start)
-        if pos1 == 0:
-            break
-
-        pos2 = search_string_in_file("\n", content, pos1)
-        if pos2 == 0:
-            break
-
-        value = content[pos1 + len(string): pos2].strip()
-        #remove the stacktrace, to get only the value
-        stacktrace_separator_position = value.find("::")
-        value = value[0 : stacktrace_separator_position].strip()
-        if value in seen:
-            dupl.add(value)
-
-        seen.add(value)
-        start = pos2 + 1
-
-    return dupl
-
 def collect_all_duplicated_values_with_position(string, content):
-
     start = 0
     seen = set()
     dupl = set()
 
     pos1 = search_string_in_file(string, content, start)
     while pos1:
-
         pos2 = search_string_in_file("\n", content, pos1)
         if pos2 == 0:
             break
@@ -275,59 +164,13 @@ def collect_all_duplicated_values_with_position(string, content):
     return dupl
 
 
-def collect_all_duplicate_pairs(string1, string2, content):
-
-    start = 0
-    seen = set()
-    dupl = set()
-
-    while True:
-
-        pos1 = search_string_in_file(string1, content, start)
-        if pos1 == 0:
-            break
-
-        pos2 = search_string_in_file("\n", content, pos1)
-        if pos2 == 0:
-            break
-
-        pos3 = search_string_in_file(string2, content, pos2)
-        if pos3 == 0:
-            break
-
-        pos4 = search_string_in_file("\n", content, pos3)
-        if pos4 == 0:
-            break
-
-        #TODO remover stacktrace, para pegar apenas o valor
-        #TODO usar a pos1 no misuse
-        val1 = content[pos1 + len(string1): pos2].strip()
-        #remove the stacktrace, to get only the value
-        stacktrace_separator_position = val1.find("::")
-        val1 = val1[0 : stacktrace_separator_position].strip()
-        
-        val2 = content[pos3 + len(string2): pos4].strip()
-        #remove the stacktrace, to get only the value
-        stacktrace_separator_position = val2.find("::")
-        val2 = val2[0 : stacktrace_separator_position].strip()
-
-        if (val1, val2) in seen:
-            dupl.add((val1, val2))
-
-        seen.add((val1, val2))
-        start = pos4 + 1
-
-    return dupl
-
 def collect_all_duplicate_pairs_with_position(string1, string2, content):
-
     start = 0
     seen = set()
     dupl = set()
 
     pos1 = search_string_in_file(string1, content, start)
     while pos1:
-
         pos2 = search_string_in_file("::", content, pos1)
 
         pos3 = search_string_in_file(string2, content, pos2)
@@ -335,19 +178,16 @@ def collect_all_duplicate_pairs_with_position(string1, string2, content):
             break
 
         pos4 = search_string_in_file("::", content, pos3)
-        posEnd = search_string_in_file("\n", content, pos3)
+        pos_end = search_string_in_file("\n", content, pos3)
 
-        #TODO remover stacktrace, para pegar apenas o valor
-        #TODO usar a pos1 no misuse
         val1 = content[pos1 + len(string1): pos2].strip()
         val2 = content[pos3 + len(string2): pos4].strip()
 
-        #TODO
         if (val1, val2) in seen:
             dupl.add((pos1, val1, val2))
 
         seen.add((val1, val2))
-        start = posEnd + 1
+        start = pos_end + 1
         pos1 = search_string_in_file(string1, content, start)
 
     return dupl
@@ -356,7 +196,6 @@ def collect_all_duplicate_pairs_with_position(string1, string2, content):
 ###############################################################################
 # Random tests
 ###############################################################################
-
 def random_tests(bitset):
 
     test_failed = 0
@@ -442,14 +281,15 @@ def getSecureRandom(content):
 ###############################################################################
 # custom
 ###############################################################################
-
 def get_content(text, pos):
     newline_position = text.find("\n",pos)
     return text[pos : newline_position]    
 
+
 def insert_text_before_stacktrace(text_to_insert, text):
     stacktrace_separator_position = text.find("::")
     return text[:stacktrace_separator_position] + text_to_insert + text[stacktrace_separator_position:]
+
 
 def search_string(text_to_search, args):
     fail = search_string_util(text_to_search, args.in1_content, args)    
@@ -460,6 +300,7 @@ def search_string(text_to_search, args):
             fail = 1
     
     return fail
+
 
 def search_string_util(text_to_search, content, args):
     fail = 0
@@ -481,19 +322,19 @@ def search_regex(text_to_search, args):
     
     return fail
 
+
 def search_regex_util(text_to_search, content, args):
     fail = 0
     
     match = search_regexp_in_file(text_to_search, content)
-    #pos = match.start()
-    while match: # != 0:       
+    while match:   
         pos = match.start()        
         write_misuse(get_content(content,pos), args)                         
         match = search_regexp_in_file(text_to_search, content, pos+len(text_to_search))
-        #pos = match.start()
         fail = 1
     
     return fail
+
 
 def search_values_intersection(text_to_search, args):
     fail = 0
@@ -504,14 +345,13 @@ def search_values_intersection(text_to_search, args):
     tuples1 = collect_all_values_with_position(text_to_search, args.in1_content)
     tuples2 = collect_all_values_with_position(text_to_search, args.in2_content)
     
-    #TODO revisar essa expressao
     intersect = [ (x,y) for x, y in tuples1 if any([(x2,y2) for x2, y2 in tuples2 if y == y2])]
-    #print("intersect=",intersect)
     for tuple in intersect:
         write_misuse(get_content(args.in1_content,tuple[0]), args)
         fail = 1
         
     return fail
+
 
 def contains_value(value, tuples):
     tmp = [ (x,y) for x, y in tuples if y == value ]
@@ -520,7 +360,6 @@ def contains_value(value, tuples):
         return True
     return False
     
-
 
 ###############################################################################
 # Rule R-01
@@ -558,54 +397,23 @@ insecure_symm_encryption_functions = ["RC2", "RC-2",
                                       "Blowfish", "IDEA",
                                       "3-KeyTripleDES"]
 
-#TODO refatorar
 def check_rule_R02(args):
 
     # Don't use insecure algorithms (e.g., RC2, RC4, IDEA, ..)
 
-    fail = 0
     prefix = "[Cipher] algorithm: "
     reg1 = "\[Cipher\] algorithm: PBEWith"
 
-    #print_start(args)
-
-    for func in insecure_hash_functions:
-        re_to_search = reg1 + func
-        match = search_regexp_in_file(re_to_search + ".*", args.in1_content)
-        
-        while match:
-            print_verbose(args, "\t Hash " + func + "\n")
-            write_misuse(get_content(args.in1_content,match.start()), args)
-            match = search_regexp_in_file(re_to_search + ".*", args.in1_content, match.start()+len(re_to_search))
-            fail = 1
-
-        if args.in2_content is not None:
-            match = search_regexp_in_file(re_to_search + ".*", args.in2_content)
-            while match:
-                print_verbose(args, "\t Hash " + func + "\n")
-                write_misuse(get_content(args.in2_content,match.start()), args)
-                match = search_regexp_in_file(re_to_search + ".*", args.in2_content, match.start()+len(re_to_search))
-                fail = 1
+    fail = check_rule_R02_insecure_hash_functions(reg1, args)
 
     # AES without operation mode (insecure)
-    tuples = collect_all_values_with_position(prefix + "AES", args.in1_content)
-    for t in tuples:
-        position = t[0]
-        alg = t[1]
-        #print("ALG="+alg+"________")
-        stacktrace_separator_position = alg.find("::")
-        alg_value = alg[0 : stacktrace_separator_position].strip()
-        #print("VALUE="+alg_value) 
-        if alg_value == "":
-            print_verbose(args, "\t Encr AES missing mode\n")
-            text = get_content(args.in1_content,position)
-            stacktrace_separator_position = text.find("::")
-            text = text[:stacktrace_separator_position] + "- Encr AES missing mode " + text[stacktrace_separator_position:]
-            write_misuse(text, args)
-            fail = 1
+    result = check_rule_R02_operation_mode(args)
+    if result == 1:
+        fail = 1
 
     for func in insecure_symm_encryption_functions:
-        text_to_search = prefix + func        
+        text_to_search = prefix + func   
+             
         pos = search_string_in_file(text_to_search, args.in1_content)
         while pos:
             print_verbose(args, "\t Encr " + func + "\n")
@@ -622,24 +430,58 @@ def check_rule_R02(args):
                 match = search_regexp_in_file(re_to_search, args.in2_content, match.start()+len(re_to_search))
                 fail = 1
 
+    return print_result(args, fail)
+
+
+def check_rule_R02_insecure_hash_functions(reg1, args):
+    fail = 0
+    for func in insecure_hash_functions:
+        re_to_search = reg1 + func 
+        fail = check_rule_R02_search_regex(re_to_search, args.in1_content, args)
+
+        if args.in2_content is not None:
+            result = check_rule_R02_search_regex(re_to_search, args.in2_content, args)
+            if result == 1:
+                fail = 1
+    return fail
+    
+
+def check_rule_R02_search_regex(re_to_search, content, args):
+    fail = 0
+    match = search_regexp_in_file(re_to_search + ".*", content)        
+    while match:
+        write_misuse(get_content(content,match.start()), args)
+        match = search_regexp_in_file(re_to_search + ".*", content, match.start()+len(re_to_search))
+        fail = 1
+    return fail
+
+
+def check_rule_R02_operation_mode(args):
+    fail = check_rule_R02_operation_mode_util(args.in1_content, args)
     if args.in2_content is not None:
         # AES without operation mode (insecure)
-        #algs = collect_all_values(str1 + "AES", args.in2_content)
-        tuples = collect_all_values_with_position(prefix + "AES", args.in2_content)
-        for t in tuples:
-            position = t[0]
-            alg = t[1]
-            stacktrace_separator_position = alg.find("::")
-            alg_value = alg[0 : stacktrace_separator_position].strip()
-            if alg_value == "":
-                print_verbose(args, "\t Encr AES missing mode\n")
-                text = get_content(args.in2_content,position)
-                stacktrace_separator_position = text.find("::")
-                text = text[:stacktrace_separator_position] + "- Encr AES missing mode " + text[stacktrace_separator_position:]
-                write_misuse(text, args)
-                fail = 1
-
-    return print_result(args, fail)
+        result = check_rule_R02_operation_mode_util(args.in2_content, args)
+        if result == 1:
+            fail = 1
+    return fail
+        
+    
+def check_rule_R02_operation_mode_util(content, args):
+    fail = 0
+    prefix = "[Cipher] algorithm: "
+    tuples = collect_all_values_with_position(prefix + "AES", content)
+    for t in tuples:
+        position = t[0]
+        alg = t[1]
+        stacktrace_separator_position = alg.find("::")
+        alg_value = alg[0 : stacktrace_separator_position].strip()
+        if alg_value == "":
+            text = get_content(content,position)
+            stacktrace_separator_position = text.find("::")
+            text = text[:stacktrace_separator_position] + "- Encr AES missing mode " + text[stacktrace_separator_position:]
+            write_misuse(text, args)
+            fail = 1
+    return fail
 
 
 ###############################################################################
@@ -652,7 +494,7 @@ def check_rule_R03(args):
     fail = check_rule_R03_util(args.in1_content, args)
 
     if args.in2_content is not None:        
-        result = check_rule_R03_util(args.in1_content, args)
+        result = check_rule_R03_util(args.in2_content, args)
         if result == 1:
             fail = 1
 
@@ -664,28 +506,22 @@ def check_rule_R03_util(content, args):
     str1 = "[Cipher] out bytes: "
     str2 = " with "
     str3 = "ECB"
-
     start = 0
     
     pos1 = search_string_in_file(str1, content, start)
-    while pos1:
-        
+    while pos1:        
         pos2 = search_string_in_file(str2, content, pos1)
-
-        #pos3 = search_string_in_file("\n", args.in1_content, pos2)
         pos3 = search_string_in_file("::", content, pos2)
 
         if search_string_in_file(str3, content[pos1: pos3]):
-
             fin_bytes = content[pos1 + len(str1): pos2].strip()
-
             if int(fin_bytes) > 16:
                 print_verbose(args, "\t ECB bytes: " + fin_bytes + "\n")
                 write_misuse(get_content(content,pos1), args)
                 fail = 1
 
         start = pos3 + 1
-        pos1 = search_string_in_file(str1, args.in1_content, start)
+        pos1 = search_string_in_file(str1, content, start)
         
     return fail
 
@@ -722,7 +558,7 @@ def check_rule_R05(args):
 ###############################################################################
 def check_rule_R06(args):
     
-    #TODO revisar o random test ... esta comentado por enquanto ... e a 08 eh a mesma coisa
+    #TODO review random tests ... commented for now ... same to rule 08
 
     # Don't use a 'badly-derived' key for encryption
     
@@ -828,6 +664,7 @@ def check_rule_R09(args):
 
     return print_result(args, fail)
 
+
 def check_rule_R09_util(content, args):
     fail = 0
     str1 = "[Cipher] key.iv: "
@@ -857,7 +694,6 @@ def check_rule_R10(args):
     if args.in2_content is None:
         return print_result(args, -1)
     
-    #collect_all_values
     salt1a = collect_all_values_with_position(str1, args.in1_content)
     salt1b = collect_all_values_with_position(str2, args.in1_content)
     salt1a = salt1a.union(salt1b)
@@ -872,7 +708,6 @@ def check_rule_R10(args):
         fail = 1
 
     return print_result(args, fail)
-
 
 
 ###############################################################################
@@ -910,6 +745,7 @@ def check_rule_R11_wrapper(content, args):
         
     return fail
 
+
 def check_rule_R11_util(text_to_search, content, args):
     fail = 0
 
@@ -942,6 +778,7 @@ def check_rule_R12(args):
             fail = 1
 
     return print_result(args, fail)
+
 
 def check_rule_R12_util(content, args):
     fail = 0
@@ -976,6 +813,7 @@ def check_rule_R13(args):
 
     return print_result(args, fail)
 
+
 def check_rule_R13_wrapper(content, args):
     fail = 0
     
@@ -995,16 +833,15 @@ def check_rule_R13_wrapper(content, args):
         
     return fail
 
+
 def check_rule_R13_util(text_to_search, content, args):
     fail = 0
 
     tuples = collect_all_values_with_position(text_to_search, content)
-    print(tuples)
 
     for t in tuples:
         position = t[0]
         value = t[1]        
-        logging.debug("iteration="+value)
         if int(value) < 1000:
             print_verbose(args, "\t Iterations: " + value + "\n")
             write_misuse(get_content(content,position), args)
@@ -1031,6 +868,7 @@ def check_rule_R14(args):
 
     return print_result(args, fail)
 
+
 def check_rule_R14_wrapper(content, subnames, args):
     fail = 0
     str1 = "[PBEKeySpec] password: "
@@ -1043,6 +881,7 @@ def check_rule_R14_wrapper(content, subnames, args):
         fail = 1
         
     return fail
+
 
 def check_rule_R14_util(text_to_search, content, subnames, args):
     fail = 0
@@ -1163,11 +1002,12 @@ def check_rule_R19(args):
     fail = check_rule_R19_util(args.in1_content, args)
 
     if args.in2_content is not None:
-        result = check_rule_R19_util(args.in1_content, args)
+        result = check_rule_R19_util(args.in2_content, args)
         if result == 1:
             fail = 1
 
     return print_result(args, fail)
+
 
 def check_rule_R19_util(content, args):
     fail = 0
@@ -1186,7 +1026,6 @@ def check_rule_R19_util(content, args):
             
     return fail
     
-
 
 ###############################################################################
 # Rule R-20
@@ -1290,7 +1129,7 @@ def check_rule_R26(args):
     fail = check_rule_R26_util(args.in1_content, args)
    
     if args.in2_content is not None and not fail:
-        result = check_rule_R26_util(args.in1_content, args)
+        result = check_rule_R26_util(args.in2_content, args)
         if result == 1:
             fail = 1
 
@@ -1307,10 +1146,10 @@ def check_rule_R26_util(content, args):
     if positions:
         fail = 1
 
-    if check_rule_R26_search_string(str2, args.in1_content):
+    if check_rule_R26_search_string(str2, content):
         fail = 0
 
-    if check_rule_R26_search_string(str3, args.in1_content):
+    if check_rule_R26_search_string(str3, content):
         fail = 0
         
     if fail == 1:
@@ -1319,11 +1158,12 @@ def check_rule_R26_util(content, args):
             
     return fail   
                 
+                
 def check_rule_R26_search_string(text_to_search, content):
     positions = []
     
     pos = search_string_in_file(text_to_search, content)
-    while pos: # != 0:               
+    while pos:             
         positions.append(pos)                       
         pos = search_string_in_file(text_to_search, content, pos+len(text_to_search))
     
@@ -1406,34 +1246,7 @@ def main():
                     method_start = time.time()
                     globals()[method_name](args)
                     method_end = time.time()
-                    logging.info(f"Checked rule: {value}\t {(method_end-method_start):.03f}s")
-                    
-                #check_rule_R01(args) # OK
-                #check_rule_R02(args) # OK
-                #check_rule_R03(args) # OK 
-                #check_rule_R04(args) # OK 
-                #check_rule_R05(args) # OK
-                #check_rule_R06(args) # OK
-                #check_rule_R07(args) # OK
-                #check_rule_R08(args) # OK
-                #check_rule_R09(args) # OK
-                #check_rule_R10(args) # OK
-                #check_rule_R11(args) # OK
-                #check_rule_R12(args) # OK
-                #check_rule_R13(args) # OK
-                #check_rule_R14(args) # OK
-                #check_rule_R15(args) # OK
-                #check_rule_R16(args) # OK
-                #check_rule_R17(args) # --
-                #check_rule_R18(args) # OK
-                #check_rule_R19(args) # OK
-                #check_rule_R20(args) # OK
-                #check_rule_R21(args) # OK
-                #check_rule_R22(args) # OK
-                #check_rule_R23(args) # OK
-                #check_rule_R24(args) # OK
-                #check_rule_R25(args) # OK
-                #check_rule_R26(args) # OK
+                    logging.info(f"Checked rule: {value}\t {(method_end-method_start):.03f}s")                  
 
             print("Violations reported in " + out_file_name)
             print("Violations (with positions) reported in " + rvsec_out_file_name)
