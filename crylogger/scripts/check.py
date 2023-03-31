@@ -1235,23 +1235,9 @@ def check_rule_R23(args):
 
     # Don't use a static (constant) password for KeyStore
 
-    #fail = 0
     text_to_search = "[KeyStore] password: "
-
-    #print_start(args)
     
     fail = search_values_intersection(text_to_search, args)
-
-    #if args.in2_content is None:
-    #    return print_result(args, -1)
-
-    #pass1 = collect_all_values(text_to_search, args.in1_content)
-    #pass2 = collect_all_values(text_to_search, args.in2_content)
-
-    #if not pass1.isdisjoint(pass2):
-    #    for passw in pass1.intersection(pass2):
-    #        print_verbose(args, "\t Static pass:" + passw + "\n")
-    #        fail = 1
 
     return print_result(args, fail)
 
@@ -1263,19 +1249,9 @@ def check_rule_R24(args):
 
     # Don't verify the hostname for SSL connections
 
-    fail = 0
     text_to_search = "[HttpsURLConnection] dummyverifier: true"
-
-    #print_start(args)
     
     fail = search_string(text_to_search, args)
-
-    #if search_string_in_file(str1, args.in1_content):
-    #    fail = 1
-
-    #if args.in2_content is not None:
-    #    if search_string_in_file(str1, args.in2_content):
-    #        fail = 1
 
     return print_result(args, fail)
 
@@ -1287,12 +1263,9 @@ def check_rule_R25(args):
 
     # Don't verify certificates for SSL connections
 
-    fail = 0
     str1 = "[SSLContext] dummy checkClient: true"
     str2 = "[SSLContext] dummy checkServer: true"
     str3 = "[SSLContext] dummy acceptedIssuers: true"
-
-    #print_start(args)
     
     fail = search_string(str1, args)
 
@@ -1304,32 +1277,6 @@ def check_rule_R25(args):
     if result == 1:
         fail = 1
 
-    #if search_string_in_file(str1, args.in1_content):
-    #    print_verbose(args, "Dummy checkClient\n")
-    #    fail = 1
-
-    #if search_string_in_file(str2, args.in1_content):
-    #    print_verbose(args, "Dummy checkServer\n")
-    #    fail = 1
-
-    #if search_string_in_file(str3, args.in1_content):
-    #    print_verbose(args, "Dummy accIssuers\n")
-    #    fail = 1
-
-    #if args.in2_content is not None:
-
-    #    if search_string_in_file(str1, args.in2_content):
-    #        print_verbose(args, "Dummy checkClient\n")
-    #        fail = 1
-
-    #    if search_string_in_file(str2, args.in2_content):
-    #        print_verbose(args, "Dummy checkServer\n")
-    #        fail = 1
-
-    #    if search_string_in_file(str3, args.in2_content):
-    #        print_verbose(args, "Dummy accIssuers\n")
-    #        fail = 1
-
     return print_result(args, fail)
 
 
@@ -1340,56 +1287,52 @@ def check_rule_R26(args):
 
     # Don't verify hostnames for SSL connections
 
-    fail = 0
-    str1 = "[SSLSocketFactory] getDefault() called"
-    str2 = "[HttpsURLConnection] getHostnameVerifier() called"
-    str3 = "[HttpsURLConnection] getDefaultHostnameVerifier() called"
-
-    #print_start(args)
-    
-    #fail = search_string(str1, args)
-        
-    #TODO rever ... pq seta fail pra 0 mas o misuse foi gravado no arquivo ... usar outra abordagem
-    #result = search_string(str2, args)
-    #if result == 1:
-    #    fail = 0
-        
-    #result = search_string(str3, args)
-    #if result == 1:
-    #    fail = 0           
-
-    if search_string_in_file(str1, args.in1_content):
-        fail = 1
-
-    if search_string_in_file(str2, args.in1_content):
-        fail = 0
-
-    if search_string_in_file(str3, args.in1_content):
-        fail = 0
-
-    #if args.in2_content is not None and not fail:
-        #result = check_rule_R26_util(args.in2_content, args)
-        #if result == 1:
-        #    fail = 1
-
-        #if search_string_in_file(str1, args.in2_content):
-        #    fail = 1
-
-        #if search_string_in_file(str2, args.in2_content):
-        #    fail = 0
-
-        #if search_string_in_file(str3, args.in2_content):
-        #    fail = 0
+    fail = check_rule_R26_util(args.in1_content, args)
+   
+    if args.in2_content is not None and not fail:
+        result = check_rule_R26_util(args.in1_content, args)
+        if result == 1:
+            fail = 1
 
     return print_result(args, fail)
 
     
+def check_rule_R26_util(content, args):
+    fail = 0
+    str1 = "[SSLSocketFactory] getDefault() called"
+    str2 = "[HttpsURLConnection] getHostnameVerifier() called"
+    str3 = "[HttpsURLConnection] getDefaultHostnameVerifier() called"
+    
+    positions = check_rule_R26_search_string(str1, content)
+    if positions:
+        fail = 1
+
+    if check_rule_R26_search_string(str2, args.in1_content):
+        fail = 0
+
+    if check_rule_R26_search_string(str3, args.in1_content):
+        fail = 0
+        
+    if fail == 1:
+        for pos in positions:
+            write_misuse(get_content(content,pos), args)  
+            
+    return fail   
+                
+def check_rule_R26_search_string(text_to_search, content):
+    positions = []
+    
+    pos = search_string_in_file(text_to_search, content)
+    while pos: # != 0:               
+        positions.append(pos)                       
+        pos = search_string_in_file(text_to_search, content, pos+len(text_to_search))
+    
+    return positions
+
 
 ###############################################################################
 # Argument parser
 ###############################################################################
-
-
 def get_parser():
 
     parser = argparse.ArgumentParser(prog="check")
@@ -1403,11 +1346,10 @@ def get_parser():
 
     return parser
 
+
 ###############################################################################
 # Main
 ###############################################################################
-
-
 def main():
     
     logging.basicConfig(level=logging.INFO)
@@ -1468,8 +1410,8 @@ def main():
                     
                 #check_rule_R01(args) # OK
                 #check_rule_R02(args) # OK
-                #check_rule_R03(args) # OK ... qual teste?
-                #check_rule_R04(args) # OK ... nao usar CBC?
+                #check_rule_R03(args) # OK 
+                #check_rule_R04(args) # OK 
                 #check_rule_R05(args) # OK
                 #check_rule_R06(args) # OK
                 #check_rule_R07(args) # OK
@@ -1482,9 +1424,7 @@ def main():
                 #check_rule_R14(args) # OK
                 #check_rule_R15(args) # OK
                 #check_rule_R16(args) # OK
-                #check_rule_R17(args) # olhar o javadoc do setSeed ... The given seed supplements,
-     # rather than replaces, the existing seed. Thus, repeated calls
-     # are guaranteed never to reduce randomness.
+                #check_rule_R17(args) # --
                 #check_rule_R18(args) # OK
                 #check_rule_R19(args) # OK
                 #check_rule_R20(args) # OK
@@ -1493,7 +1433,7 @@ def main():
                 #check_rule_R23(args) # OK
                 #check_rule_R24(args) # OK
                 #check_rule_R25(args) # OK
-                #check_rule_R26(args)
+                #check_rule_R26(args) # OK
 
             print("Violations reported in " + out_file_name)
             print("Violations (with positions) reported in " + rvsec_out_file_name)

@@ -1,5 +1,9 @@
 package crylogger;
 
+import java.security.Key;
+
+import javax.crypto.Cipher;
+
 /**
  * Don't use the operation mode ECB with > 1 block
  *
@@ -7,17 +11,17 @@ package crylogger;
 public class TestR03 {
 
 	public void execute(boolean fail) throws Exception {
+		String text = "password";
+		Key key = Util.makeKey();
+
+		Cipher cipher = Cipher.getInstance("AES/ECB/PKCS5Padding");
+		cipher.init(Cipher.ENCRYPT_MODE, key);
+
 		if (fail) {
-			executeFail();
-		} else {
-			executeSuccess();
+			text = "passwordpasswordpasswordpassword";
 		}
-	}
 
-	private void executeSuccess() throws Exception {
-	}
-
-	private void executeFail() throws Exception {
+		cipher.doFinal(text.getBytes());
 	}
 
 	public static void main(String[] args) throws Exception {

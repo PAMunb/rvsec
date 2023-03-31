@@ -1,8 +1,5 @@
 package crylogger;
 
-import java.security.SecureRandom;
-import java.util.Random;
-
 /**
  * Don't use a static (constant) seed for PRNG
  *
@@ -10,19 +7,13 @@ import java.util.Random;
 public class TestR17 {
 
 	public void execute(boolean fail) throws Exception {
+		// JAVADOC SecureRandom.setSeed(): The given seed supplements,
+	    // rather than replaces, the existing seed. Thus, repeated calls
+	    // are guaranteed never to reduce randomness.
 
-//		byte[] tmp = new byte[32];
-		Random r = new SecureRandom();//"123".getBytes());
-		r.setSeed(123);
-//		r.nextBytes(tmp);
-//
-//		System.out.println(">>> "+Base64.getEncoder().encodeToString(tmp));
-//
-//		r.nextBytes(tmp);
-//		System.out.println(">>> "+Base64.getEncoder().encodeToString(tmp));
-
-		System.out.println("==" + r.nextInt());
-		System.out.println("==" + r.nextInt());
+//		Random r = new SecureRandom();//"123".getBytes());
+//		r.setSeed(123);
+//		System.out.println("==" + r.nextInt());
 
 		if (fail) {
 			executeFail();

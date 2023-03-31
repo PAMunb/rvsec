@@ -4,7 +4,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.KeyPair;
 
 /**
- * Don't use the textbook (raw) algorithm for RSA
+ * Don't use the padding PKCS1Padding for RSA
  *
  */
 public class TestR21 {

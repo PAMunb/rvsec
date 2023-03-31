@@ -76,17 +76,18 @@ public class Util {
 	}
 
 	public static int makeIterationCount() {
-		return rand(1000,10000);
+		return rand(1000, 10000);
 	}
 
 	public static char[] makePassword() {
-		return makePassword(rand(16,64));
+		return makePassword(rand(16, 64));
 	}
+
 	public static char[] makePassword(int length) {
 		Random r = new SecureRandom();
 		int size = ALPHABET.length();
 		StringBuilder sb = new StringBuilder();
-		for(int i=0; i < length; i++) {
+		for (int i = 0; i < length; i++) {
 			int idx = r.nextInt(size);
 			sb.append(ALPHABET.charAt(idx));
 		}
@@ -122,6 +123,7 @@ public class Util {
 	public static byte[] encrypt(String secretMessage, PublicKey publicKey) throws Exception {
 		return encrypt(secretMessage, publicKey, "RSA");
 	}
+
 	public static byte[] encrypt(String secretMessage, PublicKey publicKey, String alg) throws Exception {
 		Cipher encryptCipher = Cipher.getInstance(alg);
 		encryptCipher.init(Cipher.ENCRYPT_MODE, publicKey);
@@ -132,6 +134,7 @@ public class Util {
 	public static byte[] decrypt(byte[] encryptedMessageBytes, PrivateKey privateKey) throws Exception {
 		return decrypt(encryptedMessageBytes, privateKey, "RSA");
 	}
+
 	public static byte[] decrypt(byte[] encryptedMessageBytes, PrivateKey privateKey, String alg) throws Exception {
 		Cipher decryptCipher = Cipher.getInstance(alg);
 		decryptCipher.init(Cipher.DECRYPT_MODE, privateKey);
@@ -156,7 +159,7 @@ public class Util {
 	}
 
 	public static int rand(int min, int max) {
-	    Random random = new SecureRandom();
-	    return random.nextInt(max - min) + min;
+		Random random = new SecureRandom();
+		return random.nextInt(max - min) + min;
 	}
 }

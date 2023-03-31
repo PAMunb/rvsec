@@ -11,23 +11,14 @@ public class TestR05 {
 	private static final String ENCRYPTION_KEY = "RwcmlVpg";
 
 	public void execute(boolean fail) throws Exception {
+		AlgorithmParameterSpec iv = Util.makeIv();
+
+		Key key = null;
 		if (fail) {
-			executeFail();
+			key = Util.makeKey(ENCRYPTION_KEY);
 		} else {
-			executeSuccess();
+			key = Util.makeKey();
 		}
-	}
-
-	private void executeSuccess() throws Exception {
-		Key key = Util.makeKey();
-		AlgorithmParameterSpec iv = Util.makeIv();
-
-		Util.encrypt("text_to_encrypt", key, iv);
-	}
-
-	private void executeFail() throws Exception {
-		Key key = Util.makeKey(ENCRYPTION_KEY);
-		AlgorithmParameterSpec iv = Util.makeIv();
 
 		Util.encrypt("text_to_encrypt", key, iv);
 	}
