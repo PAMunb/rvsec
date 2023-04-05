@@ -25,7 +25,7 @@ public class TestR02 {
 
 	private void executeFail() throws Exception {
 		String alg = "DES";
-		Key key = KeyGenerator.getInstance("DES").generateKey();
+		Key key = KeyGenerator.getInstance(alg).generateKey();
 
 		Cipher cipher = Cipher.getInstance(alg);
 		cipher.init(Cipher.ENCRYPT_MODE, key);
