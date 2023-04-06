@@ -10,6 +10,7 @@
 
 	<groupId>br.unb.cic.rvsec</groupId>
 	<artifactId>crylogger</artifactId>
+	<packaging>pom</packaging>
 
 	<name>RVSec :: crylogger</name>
 
@@ -18,8 +19,12 @@
 		<jre.lib.dir>${user.home}/.sdkman/candidates/java/8.0.302-open/jre/lib/</jre.lib.dir>
 	</properties>
 
+	<modules>
+		<module>crylogger-rt</module>
+		<module>crylogger-jce</module>
+	</modules>
+
 	<build>
-		<sourceDirectory>${src.dir}</sourceDirectory>
 		<plugins>
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
@@ -57,66 +62,5 @@
 			</plugins>
 		</pluginManagement>
 	</build>
-
-	<profiles>
-		<profile>
-			<id>rt</id>
-			<!--			<activation>-->
-			<!--				<activeByDefault>true</activeByDefault>-->
-			<!--			</activation>-->
-			<properties>
-				<jar.base.name>rt</jar.base.name>
-				<jar.location>${jre.lib.dir}/rt.jar</jar.location>
-				<src.dir>src/main/rt</src.dir>
-			</properties>
-			<build>
-				<plugins>
-					<plugin>
-						<groupId>org.apache.maven.plugins</groupId>
-						<artifactId>maven-antrun-plugin</artifactId>
-					</plugin>
-				</plugins>
-			</build>
-		</profile>
-		<profile>
-			<id>jce</id>
-			<properties>
-				<jar.base.name>jce</jar.base.name>				
-				<jar.location>${jre.lib.dir}/jce.jar</jar.location>
-				<src.dir>src/main/jce</src.dir>
-			</properties>
-			<build>
-				<plugins>
-					<plugin>
-						<groupId>org.apache.maven.plugins</groupId>
-						<artifactId>maven-antrun-plugin</artifactId>
-					</plugin>
-				</plugins>
-			</build>
-		</profile>
-		<!--		<profile>-->
-		<!--			<id>revert</id>-->
-		<!--			<build>-->
-		<!--				<plugins>-->
-		<!--					<plugin>-->
-		<!--						<artifactId>maven-antrun-plugin</artifactId>-->
-		<!--						<executions>-->
-		<!--							<execution>-->
-		<!--								<phase>validate</phase>-->
-		<!--								<configuration>-->
-		<!--									<tasks>-->
-		<!--										<copy file="${jre.lib.dir}/rt-original.jar" tofile="${jar.location}" overwrite="true" />-->
-		<!--									</tasks>-->
-		<!--								</configuration>-->
-		<!--								<goals>-->
-		<!--									<goal>run</goal>-->
-		<!--								</goals>-->
-		<!--							</execution>-->
-		<!--						</executions>-->
-		<!--					</plugin>-->
-		<!--				</plugins>-->
-		<!--			</build>-->
-		<!--		</profile>-->
-	</profiles>
 
 </project>
