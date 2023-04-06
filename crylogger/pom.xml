@@ -14,71 +14,109 @@
 	<name>RVSec :: crylogger</name>
 
 	<properties>
-		<final.jar.name>rt-crylogger</final.jar.name>
-		<rt.jar.dir>${user.home}/.sdkman/candidates/java/8.0.302-open/jre/lib/</rt.jar.dir>
-		<rt.jar.location>${rt.jar.dir}/rt.jar</rt.jar.location>
+		<jar.final.name>${jar.base.name}-crylogger</jar.final.name>
+		<jre.lib.dir>${user.home}/.sdkman/candidates/java/8.0.302-open/jre/lib/</jre.lib.dir>
 	</properties>
 
 	<build>
-		<sourceDirectory>scripts/deltas/libcore/ojluni/src/main/java</sourceDirectory>
+		<sourceDirectory>${src.dir}</sourceDirectory>
 		<plugins>
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-jar-plugin</artifactId>
 				<configuration>
-					<finalName>${final.jar.name}</finalName>
+					<finalName>${jar.final.name}</finalName>
 				</configuration>
 			</plugin>
-			<plugin>
-				<artifactId>maven-antrun-plugin</artifactId>
-				<executions>
-					<execution>
-						<phase>install</phase>
-						<configuration>
-							<tasks>
-								<copy file="${rt.jar.location}" tofile="${rt.jar.dir}/rt-original.jar" overwrite="false" />
-								<mkdir dir="${java.io.tmpdir}/rt" />
-								<unzip src="${rt.jar.location}" dest="${java.io.tmpdir}/rt" />
-								<unzip src="${project.build.directory}/${final.jar.name}.jar" dest="${java.io.tmpdir}/rt" overwrite="true" />
-								<zip destfile="${java.io.tmpdir}/new-rt.jar" basedir="${java.io.tmpdir}/rt" />
-								<copy file="${java.io.tmpdir}/new-rt.jar" tofile="${rt.jar.location}" />
-								<delete dir="${java.io.tmpdir}/rt" failonerror="false" />
-								<delete file="${java.io.tmpdir}/new-rt.jar" failonerror="false" />
-							</tasks>
-						</configuration>
-						<goals>
-							<goal>run</goal>
-						</goals>
-					</execution>
-				</executions>
-			</plugin>
 		</plugins>
+		<pluginManagement>
+			<plugins>
+				<plugin>
+					<groupId>org.apache.maven.plugins</groupId>
+					<artifactId>maven-antrun-plugin</artifactId>
+					<executions>
+						<execution>
+							<phase>install</phase>
+							<configuration>
+								<tasks>
+									<mkdir dir="${java.io.tmpdir}/${jar.base.name}" />
+									<unzip src="${jar.location}" dest="${java.io.tmpdir}/${jar.base.name}" />
+									<unzip src="${project.build.directory}/${jar.final.name}.jar" dest="${java.io.tmpdir}/${jar.base.name}" overwrite="true" />
+									<zip destfile="${java.io.tmpdir}/new-${jar.base.name}.jar" basedir="${java.io.tmpdir}/${jar.base.name}" />
+									<copy file="${java.io.tmpdir}/new-${jar.base.name}.jar" tofile="${jar.location}" overwrite="true" />
+									<delete dir="${java.io.tmpdir}/${jar.base.name}" failonerror="false" />
+									<delete file="${java.io.tmpdir}/new-${jar.base.name}.jar" failonerror="false" />
+								</tasks>
+							</configuration>
+							<goals>
+								<goal>run</goal>
+							</goals>
+						</execution>
+					</executions>
+				</plugin>
+			</plugins>
+		</pluginManagement>
 	</build>
 
 	<profiles>
 		<profile>
-			<id>revert</id>
+			<id>rt</id>
+			<!--			<activation>-->
+			<!--				<activeByDefault>true</activeByDefault>-->
+			<!--			</activation>-->
+			<properties>
+				<jar.base.name>rt</jar.base.name>
+				<jar.location>${jre.lib.dir}/rt.jar</jar.location>
+				<src.dir>src/main/rt</src.dir>
+			</properties>
 			<build>
 				<plugins>
 					<plugin>
+						<groupId>org.apache.maven.plugins</groupId>
 						<artifactId>maven-antrun-plugin</artifactId>
-						<executions>
-							<execution>
-								<phase>validate</phase>
-								<configuration>
-									<tasks>
-										<copy file="${rt.jar.dir}/rt-original.jar" tofile="${rt.jar.location}" overwrite="true" />
-									</tasks>
-								</configuration>
-								<goals>
-									<goal>run</goal>
-								</goals>
-							</execution>
-						</executions>
 					</plugin>
 				</plugins>
 			</build>
 		</profile>
+		<profile>
+			<id>jce</id>
+			<properties>
+				<jar.base.name>jce</jar.base.name>				
+				<jar.location>${jre.lib.dir}/jce.jar</jar.location>
+				<src.dir>src/main/jce</src.dir>
+			</properties>
+			<build>
+				<plugins>
+					<plugin>
+						<groupId>org.apache.maven.plugins</groupId>
+						<artifactId>maven-antrun-plugin</artifactId>
+					</plugin>
+				</plugins>
+			</build>
+		</profile>
+		<!--		<profile>-->
+		<!--			<id>revert</id>-->
+		<!--			<build>-->
+		<!--				<plugins>-->
+		<!--					<plugin>-->
+		<!--						<artifactId>maven-antrun-plugin</artifactId>-->
+		<!--						<executions>-->
+		<!--							<execution>-->
+		<!--								<phase>validate</phase>-->
+		<!--								<configuration>-->
+		<!--									<tasks>-->
+		<!--										<copy file="${jre.lib.dir}/rt-original.jar" tofile="${jar.location}" overwrite="true" />-->
+		<!--									</tasks>-->
+		<!--								</configuration>-->
+		<!--								<goals>-->
+		<!--									<goal>run</goal>-->
+		<!--								</goals>-->
+		<!--							</execution>-->
+		<!--						</executions>-->
+		<!--					</plugin>-->
+		<!--				</plugins>-->
+		<!--			</build>-->
+		<!--		</profile>-->
 	</profiles>
 
 </project>
