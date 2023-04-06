@@ -30,6 +30,9 @@ import java.net.HttpURLConnection;
 import java.security.Principal;
 import java.security.cert.X509Certificate;
 
+/* CRYLOGGER */
+import java.security.CRYLogger;
+
 /**
  * <code>HttpsURLConnection</code> extends <code>HttpURLConnection</code>
  * with support for https-specific features.
@@ -227,6 +230,13 @@ class HttpsURLConnection extends HttpURLConnection
             throw new IllegalArgumentException(
                 "no default HostnameVerifier specified");
         }
+        
+        /* CRYLOGGER */
+        CRYLogger.write("[HttpsURLConnection] setDefaultHostnameVerifier() called\n");
+        CRYLogger.write("[HttpsURLConnection] dummyverifier: " +
+                    String.valueOf(v.verify(null, null)) + "\n");
+        CRYLogger.write("[HttpsURLConnection] dummyverifier: " +
+                    String.valueOf(v.verify("", null)) + "\n");
 
         SecurityManager sm = System.getSecurityManager();
         if (sm != null) {
@@ -243,6 +253,9 @@ class HttpsURLConnection extends HttpURLConnection
      * @see #setDefaultHostnameVerifier(HostnameVerifier)
      */
     public static HostnameVerifier getDefaultHostnameVerifier() {
+    	/* CRYLOGGER */
+        CRYLogger.write("[HttpsURLConnection] getDefaultHostnameVerifier() called\n");
+        
         return defaultHostnameVerifier;
     }
 
@@ -266,6 +279,13 @@ class HttpsURLConnection extends HttpURLConnection
                 "no HostnameVerifier specified");
         }
 
+        /* CRYLOGGER */
+        CRYLogger.write("[HttpsURLConnection] setHostnameVerifier() called\n");
+        CRYLogger.write("[HttpsURLConnection] dummyverifier: " +
+                    String.valueOf(v.verify(null, null)) + "\n");
+        CRYLogger.write("[HttpsURLConnection] dummyverifier: " +
+                    String.valueOf(v.verify("", null)) + "\n");
+        
         hostnameVerifier = v;
     }
 
@@ -277,6 +297,9 @@ class HttpsURLConnection extends HttpURLConnection
      * @see #setDefaultHostnameVerifier(HostnameVerifier)
      */
     public HostnameVerifier getHostnameVerifier() {
+    	/* CRYLOGGER */
+        CRYLogger.write("[HttpsURLConnection] getHostnameVerifier() called\n");
+        
         return hostnameVerifier;
     }
 

@@ -367,6 +367,11 @@ public abstract class MessageDigest extends MessageDigestSpi {
         /* Resetting is the responsibility of implementors. */
         byte[] result = engineDigest();
         state = INITIAL;
+        
+        /* CRYLOGGER */
+        CRYLogger.write("[MessageDigest] digest() called\n");
+        CRYLogger.write("[MessageDigest] algorithm: " + algorithm + "\n");
+        
         return result;
     }
 
@@ -394,6 +399,11 @@ public abstract class MessageDigest extends MessageDigestSpi {
         }
         int numBytes = engineDigest(buf, offset, len);
         state = INITIAL;
+        
+        /* CRYLOGGER */
+        CRYLogger.write("[MessageDigest] digest(byte[], int, int) called\n");
+        CRYLogger.write("[MessageDigest] algorithm: " + algorithm + "\n");
+        
         return numBytes;
     }
 

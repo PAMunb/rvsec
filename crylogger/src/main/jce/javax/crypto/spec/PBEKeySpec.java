@@ -28,6 +28,10 @@ package javax.crypto.spec;
 import java.security.spec.KeySpec;
 import java.util.Arrays;
 
+/* CRYLOGGER */
+import java.lang.*;
+import java.security.CRYLogger;
+
 /**
  * A user-chosen password that can be used with password-based encryption
  * (<i>PBE</i>).
@@ -83,6 +87,10 @@ public class PBEKeySpec implements KeySpec {
         } else {
             this.password = password.clone();
         }
+        
+        /* CRYLOGGER */
+        CRYLogger.write("[PBEKeySpec] PBEKeySpec(char[]) called\n");
+        CRYLogger.write("[PBEKeySpec] password: " + String.valueOf(this.password) + "\n");
     }
 
 
@@ -129,6 +137,13 @@ public class PBEKeySpec implements KeySpec {
         }
         this.iterationCount = iterationCount;
         this.keyLength = keyLength;
+        
+        /* CRYLOGGER */
+        CRYLogger.write("[PBEKeySpec] PBEKeySpec(char[], byte[], int, int) called\n");
+        CRYLogger.write("[PBEKeySpec] salt: ", this.salt);
+        CRYLogger.write("[PBEKeySpec] password: " + String.valueOf(this.password) + "\n");
+        CRYLogger.write("[PBEKeySpec] iteration: " + this.iterationCount + "\n");
+        CRYLogger.write("[PBEKeySpec] keylength: " + this.keyLength + "\n");
     }
 
 
@@ -167,6 +182,12 @@ public class PBEKeySpec implements KeySpec {
             throw new IllegalArgumentException("invalid iterationCount value");
         }
         this.iterationCount = iterationCount;
+        
+        /* CRYLOGGER */
+        CRYLogger.write("[PBEKeySpec] PBEKeySpec(char[], byte[], int) called\n");
+        CRYLogger.write("[PBEKeySpec] salt: ", this.salt);
+        CRYLogger.write("[PBEKeySpec] password: " + String.valueOf(this.password) + "\n");
+        CRYLogger.write("[PBEKeySpec] iteration: " + this.iterationCount + "\n");
     }
 
     /**

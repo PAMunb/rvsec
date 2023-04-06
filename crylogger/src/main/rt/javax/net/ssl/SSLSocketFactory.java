@@ -86,6 +86,9 @@ public abstract class SSLSocketFactory extends SocketFactory
      * @see SSLContext#getDefault
      */
     public static synchronized SocketFactory getDefault() {
+    	/* CRYLOGGER */
+        CRYLogger.write("[SSLSocketFactory] getDefault() called\n");
+        
         if (theFactory != null) {
             return theFactory;
         }

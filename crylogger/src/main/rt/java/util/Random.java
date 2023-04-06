@@ -36,6 +36,9 @@ import java.util.stream.StreamSupport;
 
 import sun.misc.Unsafe;
 
+/* CRYLOGGER */
+import java.security.CRYLogger;
+
 /**
  * An instance of this class is used to generate a stream of
  * pseudorandom numbers. The class uses a 48-bit seed, which is
@@ -103,6 +106,9 @@ class Random implements java.io.Serializable {
      */
     public Random() {
         this(seedUniquifier() ^ System.nanoTime());
+        
+        /* CRYLOGGER */
+        CRYLogger.write("[Random] Random() called\n");
     }
 
     private static long seedUniquifier() {
@@ -198,6 +204,11 @@ class Random implements java.io.Serializable {
     protected int next(int bits) {
         long oldseed, nextseed;
         AtomicLong seed = this.seed;
+        
+        /* CRYLOGGER */
+        CRYLogger.write("[Random] next(int) called\n");
+        CRYLogger.write("[Random] seed: " + Long.toHexString(this.seed.get()) + "\n");
+        
         do {
             oldseed = seed.get();
             nextseed = (oldseed * multiplier + addend) & mask;
@@ -230,6 +241,10 @@ class Random implements java.io.Serializable {
                      n = Math.min(len - i, Integer.SIZE/Byte.SIZE);
                  n-- > 0; rnd >>= Byte.SIZE)
                 bytes[i++] = (byte)rnd;
+       
+        /* CRYLOGGER */
+        CRYLogger.write("[Random] nextBytes(byte[]) called\n");
+        CRYLogger.write("[Random] next: ", bytes);
     }
 
     /**

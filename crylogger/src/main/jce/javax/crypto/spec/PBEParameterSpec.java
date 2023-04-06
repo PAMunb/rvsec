@@ -27,6 +27,9 @@ package javax.crypto.spec;
 
 import java.security.spec.AlgorithmParameterSpec;
 
+/* CRYLOGGER */
+import java.security.CRYLogger;
+
 /**
  * This class specifies the set of parameters used with password-based
  * encryption (PBE), as defined in the
@@ -55,6 +58,11 @@ public class PBEParameterSpec implements AlgorithmParameterSpec {
     public PBEParameterSpec(byte[] salt, int iterationCount) {
         this.salt = salt.clone();
         this.iterationCount = iterationCount;
+        
+        /* CRYLOGGER */
+        CRYLogger.write("[PBEParameterSpec] PBEParameterSpec(byte[], int) called\n");
+        CRYLogger.write("[PBEParameterSpec] salt: ", this.salt);
+        CRYLogger.write("[PBEParameterSpec] iteration: " + this.iterationCount + "\n");
     }
 
     /**
@@ -75,6 +83,11 @@ public class PBEParameterSpec implements AlgorithmParameterSpec {
         this.salt = salt.clone();
         this.iterationCount = iterationCount;
         this.paramSpec = paramSpec;
+        
+        /* CRYLOGGER */
+        CRYLogger.write("[PBEParameterSpec] PBEParameterSpec(byte[], int, AlgorithmParameterSpec) called\n");
+        CRYLogger.write("[PBEParameterSpec] salt: ", this.salt);
+        CRYLogger.write("[PBEParameterSpec] iteration: " + this.iterationCount + "\n");
     }
 
     /**

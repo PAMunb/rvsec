@@ -1017,6 +1017,11 @@ public class KeyStore {
         throws KeyStoreException, NoSuchAlgorithmException,
             UnrecoverableKeyException
     {
+    	/* CRYLOGGER */
+        CRYLogger.write("[KeyStore] getKey(String, char[]) called\n");
+        if (password != null)
+            CRYLogger.write("[KeyStore] password: " + String.valueOf(password) + "\n");
+        
         if (!initialized) {
             throw new KeyStoreException("Uninitialized keystore");
         }
@@ -1371,6 +1376,11 @@ public class KeyStore {
         throws KeyStoreException, IOException, NoSuchAlgorithmException,
             CertificateException
     {
+    	/* CRYLOGGER */
+        CRYLogger.write("[KeyStore] store(OutputStream, char[]) called\n");
+        if (password != null)
+            CRYLogger.write("[KeyStore] password: " + String.valueOf(password) + "\n");
+        
         if (!initialized) {
             throw new KeyStoreException("Uninitialized keystore");
         }
@@ -1400,6 +1410,14 @@ public class KeyStore {
     public final void store(LoadStoreParameter param)
                 throws KeyStoreException, IOException,
                 NoSuchAlgorithmException, CertificateException {
+    	/* CRYLOGGER */
+        CRYLogger.write("[KeyStore] store(LoadStoreParam) called\n");
+        if (param instanceof PasswordProtection) {
+            PasswordProtection tmp = (PasswordProtection) param;
+            if (tmp.getPassword() != null)
+                CRYLogger.write("[KeyStore] password: " + String.valueOf(tmp.getPassword()) + "\n");
+        }
+        
         if (!initialized) {
             throw new KeyStoreException("Uninitialized keystore");
         }
@@ -1442,6 +1460,11 @@ public class KeyStore {
     public final void load(InputStream stream, char[] password)
         throws IOException, NoSuchAlgorithmException, CertificateException
     {
+    	/* CRYLOGGER */
+        CRYLogger.write("[KeyStore] load(InputStream, char[]) called\n");
+        if (password != null)
+            CRYLogger.write("[KeyStore] password: " + String.valueOf(password) + "\n");
+        
         keyStoreSpi.engineLoad(stream, password);
         initialized = true;
     }
@@ -1475,7 +1498,14 @@ public class KeyStore {
     public final void load(LoadStoreParameter param)
                 throws IOException, NoSuchAlgorithmException,
                 CertificateException {
-
+    	/* CRYLOGGER */
+        CRYLogger.write("[KeyStore] load(LoadStoreParam) called\n");
+        if (param instanceof PasswordProtection) {
+            PasswordProtection tmp = (PasswordProtection) param;
+            if (tmp.getPassword() != null)
+                CRYLogger.write("[KeyStore] password: " + String.valueOf(tmp.getPassword()) + "\n");
+        }
+        
         keyStoreSpi.engineLoad(param);
         initialized = true;
     }

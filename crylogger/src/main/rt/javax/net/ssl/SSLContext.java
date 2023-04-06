@@ -29,6 +29,11 @@ import java.security.*;
 
 import sun.security.jca.GetInstance;
 
+/* CRYLOGGER */
+import java.io.*;
+import java.security.cert.CertificateException;
+import java.security.cert.X509Certificate;
+
 /**
  * Instances of this class represent a secure socket protocol
  * implementation which acts as a factory for secure socket
@@ -279,6 +284,37 @@ public class SSLContext {
     public final void init(KeyManager[] km, TrustManager[] tm,
                                 SecureRandom random)
         throws KeyManagementException {
+    	
+    	/* CRYLOGGER */
+        CRYLogger.write("[SSLContext] init(KeyManager[], ..) called\n");
+        if (tm != null && tm.length > 0) {
+            for (int p = 0; p < tm.length; ++p) {
+                if (tm[p] instanceof X509TrustManager) {
+                      X509TrustManager test = (X509TrustManager) tm[p];
+                      X509Certificate[] ret = test.getAcceptedIssuers();
+                      try {
+                          test.checkClientTrusted(null, null);
+                          CRYLogger.write("[SSLContext] dummy checkClient: true\n");
+                      } catch (NullPointerException e1) {
+                          CRYLogger.write("[SSLContext] dummy checkClient: false\n");
+                      } catch (CertificateException e2) {
+                          CRYLogger.write("[SSLContext] dummy checkClient: false\n");
+                      } catch (Exception e3) { }
+                      try {
+                          test.checkServerTrusted(null, null);
+                          CRYLogger.write("[SSLContext] dummy checkServer: true\n");
+                      } catch (NullPointerException e1) {
+                          CRYLogger.write("[SSLContext] dummy checkServer: false\n");
+                      } catch (CertificateException e2) {
+                          CRYLogger.write("[SSLContext] dummy checkServer: false\n");
+                      } catch (Exception e3) { }
+                      boolean condition = ret == null || ret.length == 0;
+                      CRYLogger.write("[SSLContext] dummy acceptedIssuers: " +
+                              String.valueOf(condition) + "\n");
+                }
+            }
+        }
+        
         contextSpi.engineInit(km, tm, random);
     }
 

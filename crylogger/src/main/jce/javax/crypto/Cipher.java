@@ -46,6 +46,8 @@ import java.nio.ReadOnlyBufferException;
 import sun.security.util.Debug;
 import sun.security.jca.*;
 
+import sun.security.util.*;
+
 /**
  * This class provides the functionality of a cryptographic cipher for
  * encryption and decryption. It forms the core of the Java Cryptographic
@@ -1258,6 +1260,14 @@ public class Cipher {
 
         initialized = true;
         this.opmode = opmode;
+        
+        /* CRYLOGGER */
+        CRYLogger.write("[Cipher] init(int, Key, SecureRandom) called\n");
+        CRYLogger.write("[Cipher] algorithm: " + this.transformation + "\n");
+        CRYLogger.write("[Cipher] key.iv: ", this.getIV());
+        CRYLogger.write("[Cipher] key.bits (" + this.transformation + "): " + KeyUtil.getKeySize(key)  + "\n");
+        CRYLogger.write("[Cipher] key.encoded: ", key.getEncoded());
+        CRYLogger.write("[Cipher] rnd.class: " + random.getClass().getName() + "\n");
 
         if (!skipDebug && pdebug != null) {
             pdebug.println("Cipher." + transformation + " " +
@@ -1401,6 +1411,14 @@ public class Cipher {
 
         initialized = true;
         this.opmode = opmode;
+        
+        /* CRYLOGGER */
+        CRYLogger.write("[Cipher] init(int, Key, AlgorithmParameterSpec, SecureRandom) called\n");
+        CRYLogger.write("[Cipher] algorithm: " + this.transformation + "\n");
+        CRYLogger.write("[Cipher] key.iv: ", this.getIV());
+        CRYLogger.write("[Cipher] key.bits (" + this.transformation + "): " + KeyUtil.getKeySize(key)  + "\n");
+        CRYLogger.write("[Cipher] key.encoded: ", key.getEncoded());
+        CRYLogger.write("[Cipher] rnd.class: " + random.getClass().getName() + "\n");
 
         if (!skipDebug && pdebug != null) {
             pdebug.println("Cipher." + transformation + " " +
@@ -1544,6 +1562,14 @@ public class Cipher {
 
         initialized = true;
         this.opmode = opmode;
+        
+        /* CRYLOGGER */
+        CRYLogger.write("[Cipher] init(int, Key, AlgorithmParameters, SecureRandom) called\n");
+        CRYLogger.write("[Cipher] algorithm: " + this.transformation + "\n");
+        CRYLogger.write("[Cipher] key.iv: ", this.getIV());
+        CRYLogger.write("[Cipher] key.bits (" + this.transformation + "): " + KeyUtil.getKeySize(key)  + "\n");
+        CRYLogger.write("[Cipher] key.encoded: ", key.getEncoded());
+        CRYLogger.write("[Cipher] rnd.class: " + random.getClass().getName() + "\n");
 
         if (!skipDebug && pdebug != null) {
             pdebug.println("Cipher." + transformation + " " +
@@ -1735,6 +1761,10 @@ public class Cipher {
         initialized = true;
         this.opmode = opmode;
 
+        /* CRYLOGGER */
+        CRYLogger.write("[Cipher] init(int, Certificate, SecureRandom) called\n");
+        CRYLogger.write("[Cipher] algorithm: " + this.transformation + "\n");
+        
         if (!skipDebug && pdebug != null) {
             pdebug.println("Cipher." + transformation + " " +
                 getOpmodeString(opmode) + " algorithm from: " +
@@ -2048,7 +2078,14 @@ public class Cipher {
         checkCipherState();
 
         chooseFirstProvider();
-        return spi.engineDoFinal(null, 0, 0);
+        //return spi.engineDoFinal(null, 0, 0);
+        
+        /* CRYLOGGER */
+        byte[] tmp = spi.engineDoFinal(null, 0, 0);
+        CRYLogger.write("[Cipher] doFinal(void) called\n");
+        CRYLogger.write("[Cipher] out bytes: " + tmp.length +
+                " with " + transformation + "\n");
+        return tmp;
     }
 
     /**
@@ -2112,7 +2149,14 @@ public class Cipher {
         }
 
         chooseFirstProvider();
-        return spi.engineDoFinal(null, 0, 0, output, outputOffset);
+        //return spi.engineDoFinal(null, 0, 0, output, outputOffset);
+        
+        /* CRYLOGGER */
+        int tmp = spi.engineDoFinal(null, 0, 0, output, outputOffset);
+        CRYLogger.write("[Cipher] doFinal(byte[], int) called\n");
+        CRYLogger.write("[Cipher] out bytes: " + tmp +
+                " with " + transformation + "\n");
+        return tmp;
     }
 
     /**
@@ -2165,7 +2209,14 @@ public class Cipher {
         }
 
         chooseFirstProvider();
-        return spi.engineDoFinal(input, 0, input.length);
+        //return spi.engineDoFinal(input, 0, input.length);
+        
+        /* CRYLOGGER */
+        byte[] tmp = spi.engineDoFinal(input, 0, input.length);
+        CRYLogger.write("[Cipher] doFinal(byte[] input) called\n");
+        CRYLogger.write("[Cipher] out bytes: " + tmp.length +
+                " with " + transformation + "\n");
+        return tmp;
     }
 
     /**
@@ -2223,7 +2274,14 @@ public class Cipher {
         }
 
         chooseFirstProvider();
-        return spi.engineDoFinal(input, inputOffset, inputLen);
+        //return spi.engineDoFinal(input, inputOffset, inputLen);
+        
+        /* CRYLOGGER */
+        byte[] tmp = spi.engineDoFinal(input, inputOffset, inputLen);
+        CRYLogger.write("[Cipher] doFinal(byte[], int, int) called\n");
+        CRYLogger.write("[Cipher] out bytes: " + tmp.length +
+                " with " + transformation + "\n");
+        return tmp;
     }
 
     /**
@@ -2297,8 +2355,16 @@ public class Cipher {
         }
 
         chooseFirstProvider();
-        return spi.engineDoFinal(input, inputOffset, inputLen,
-                                       output, 0);
+        //return spi.engineDoFinal(input, inputOffset, inputLen,
+        //                               output, 0);
+        
+        /* CRYLOGGER */
+        int tmp = spi.engineDoFinal(input, inputOffset, inputLen,
+                output, 0);
+        CRYLogger.write("[Cipher] doFinal(byte[], int, int, output) called\n");
+        CRYLogger.write("[Cipher] out bytes: " + tmp +
+                " with " + transformation + "\n");
+        return tmp;
     }
 
     /**
@@ -2377,8 +2443,16 @@ public class Cipher {
         }
 
         chooseFirstProvider();
-        return spi.engineDoFinal(input, inputOffset, inputLen,
-                                       output, outputOffset);
+        //return spi.engineDoFinal(input, inputOffset, inputLen,
+        //                               output, outputOffset);
+        
+        /* CRYLOGGER */
+        int tmp = spi.engineDoFinal(input, inputOffset, inputLen,
+                 output, outputOffset);
+        CRYLogger.write("[Cipher] doFinal(byte[], int, int, byte[], int) called\n");
+        CRYLogger.write("[Cipher] out bytes: " + tmp +
+                " with " + transformation + "\n");
+        return tmp;
     }
 
     /**
@@ -2460,7 +2534,14 @@ public class Cipher {
         }
 
         chooseFirstProvider();
-        return spi.engineDoFinal(input, output);
+        //return spi.engineDoFinal(input, output);
+        
+        /* CRYLOGGER */
+        int tmp = spi.engineDoFinal(input, output);
+        CRYLogger.write("[Cipher] doFinal(ByteBuffer, ByteBuffer) called\n");
+        CRYLogger.write("[Cipher] out bytes: " + tmp +
+                " with " + transformation + "\n");
+        return tmp;
     }
 
     /**

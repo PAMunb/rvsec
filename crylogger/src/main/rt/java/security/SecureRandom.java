@@ -160,6 +160,9 @@ public class SecureRandom extends java.util.Random {
          */
         super(0);
         getDefaultPRNG(false, null);
+        
+        /* CRYLOGGER */
+        CRYLogger.write("[SecureRandom] SecureRandom() called\n");
     }
 
     /**
@@ -188,6 +191,10 @@ public class SecureRandom extends java.util.Random {
     public SecureRandom(byte seed[]) {
         super(0);
         getDefaultPRNG(true, seed);
+        
+        /* CRYLOGGER */
+        CRYLogger.write("[SecureRandom] SecureRandom(byte[]) called\n");
+        CRYLogger.write("[SecureRandom] seed: ", seed);
     }
 
     private void getDefaultPRNG(boolean setSeed, byte[] seed) {
@@ -442,6 +449,11 @@ public class SecureRandom extends java.util.Random {
      */
     @Override
     public void setSeed(long seed) {
+    	
+    	/* CRYLOGGER */
+        CRYLogger.write("[SecureRandom] setSeed(byte[]) called\n");
+        CRYLogger.write("[SecureRandom] seed: " + Long.toString(seed) + "\n");
+        
         /*
          * Ignore call from super constructor (as well as any other calls
          * unfortunate enough to be passing 0).  It's critical that we
@@ -466,6 +478,10 @@ public class SecureRandom extends java.util.Random {
     @Override
     public void nextBytes(byte[] bytes) {
         secureRandomSpi.engineNextBytes(bytes);
+        
+        /* CRYLOGGER */
+        CRYLogger.write("[SecureRandom] nextBytes(byte[]) called\n");
+        CRYLogger.write("[SecureRandom] next: ", bytes);
     }
 
     /**

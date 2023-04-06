@@ -47,6 +47,7 @@ import sun.misc.SharedSecrets;
 import sun.security.util.Debug;
 import sun.security.jca.*;
 import sun.security.jca.GetInstance.Instance;
+import sun.security.util.*;
 
 /**
  * The Signature class is used to provide applications the functionality
@@ -490,6 +491,11 @@ public abstract class Signature extends SignatureSpi {
             throws InvalidKeyException {
         engineInitVerify(publicKey);
         state = VERIFY;
+        
+        /* CRYLOGGER */
+        CRYLogger.write("[Signature] initVerify(PublicKey) called\n");
+        CRYLogger.write("[Signature] key.bits (" + this.algorithm + "): " +
+                KeyUtil.getKeySize(publicKey)  + "\n");
 
         if (!skipDebug && pdebug != null) {
             pdebug.println("Signature." + algorithm +
@@ -564,9 +570,17 @@ public abstract class Signature extends SignatureSpi {
      */
     public final void initVerify(Certificate certificate)
             throws InvalidKeyException {
-        engineInitVerify(getPublicKeyFromCert(certificate));
+    	
+    	PublicKey publicKey = certificate.getPublicKey();
+    	
+        engineInitVerify(publicKey);
         state = VERIFY;
 
+        /* CRYLOGGER */
+        CRYLogger.write("[Signature] initVerify(Certificate) called\n");
+        CRYLogger.write("[Signature] key.bits (" + this.algorithm + "): " +
+            KeyUtil.getKeySize(publicKey)  + "\n");
+        
         if (!skipDebug && pdebug != null) {
             pdebug.println("Signature." + algorithm +
                 " verification algorithm from: " + getProviderName());
@@ -621,6 +635,11 @@ public abstract class Signature extends SignatureSpi {
         engineInitSign(privateKey);
         state = SIGN;
 
+        /* CRYLOGGER */
+        CRYLogger.write("[Signature] initSign(PrivateKey) called\n");
+        CRYLogger.write("[Signature] key.bits (" + this.algorithm + "): " +
+                KeyUtil.getKeySize(privateKey)  + "\n");
+        
         if (!skipDebug && pdebug != null) {
             pdebug.println("Signature." + algorithm +
                 " signing algorithm from: " + getProviderName());
@@ -643,6 +662,11 @@ public abstract class Signature extends SignatureSpi {
             throws InvalidKeyException {
         engineInitSign(privateKey, random);
         state = SIGN;
+        
+        /* CRYLOGGER */
+        CRYLogger.write("[Signature] initSign(PrivateKey, SecureRandom) called\n");
+        CRYLogger.write("[Signature] key.bits (" + this.algorithm + "): " +
+                KeyUtil.getKeySize(privateKey)  + "\n");
 
         if (!skipDebug && pdebug != null) {
             pdebug.println("Signature." + algorithm +

@@ -37,6 +37,9 @@ import sun.misc.VM;
 import sun.net.util.IPAddressUtil;
 import sun.security.util.SecurityConstants;
 
+/* CRYLOGGER */
+import java.security.CRYLogger;
+
 /**
  * Class {@code URL} represents a Uniform Resource
  * Locator, a pointer to a "resource" on the World
@@ -386,6 +389,13 @@ public final class URL implements java.io.Serializable {
 
         protocol = protocol.toLowerCase();
         this.protocol = protocol;
+        
+        /* CRYLOGGER */
+        if (protocol != null && protocol.contains("http")) {
+            CRYLogger.write("[URL] URL(String, String, int, String, URLStreamHandler) called\n");
+            CRYLogger.write("[URL] protocol: " + protocol + "\n");
+        }
+        
         if (host != null) {
 
             /**
@@ -537,6 +547,12 @@ public final class URL implements java.io.Serializable {
         String newProtocol = null;
         boolean aRef=false;
         boolean isRelative = false;
+        
+        /* CRYLOGGER */
+        if (spec != null && spec.contains("http")) {
+            CRYLogger.write("[URL] URL(URL, String, URLStreamHandler) called\n");
+            CRYLogger.write("[URL] protocol: " + spec + "\n");
+        }
 
         // Check for permission to specify a handler
         if (handler != null) {
