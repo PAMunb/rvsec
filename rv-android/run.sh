@@ -1,7 +1,7 @@
 #!/bin/sh
 
 #APK=osmtracker.apk
-#APK=media.apk
+APK=media.apk
 #APK=/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec/rv-android/media.apk
 
 
@@ -12,7 +12,7 @@
 
 
 #APK=14-30-com.vecturagames.android.app.passwordgenerator_35.apk -->  instrumenting: Type 'kotlin.jvm.functions.Function3' (no debug info available) [error] Mismatch when building parameterization map...
-APK=apks/21-30-com.hwloc.lstopo_266.apk
+#APK=apks/21-30-com.hwloc.lstopo_266.apk
 #APK=21-31-org.alberto97.ouilookup_14.apk --> d8: Merging dex file containing classes with prefix 'j$.' with classes with any other prefixes is not allowed.
 #APK=24-30-com.blogspot.e_kanivets.moneytracker_36.apk --> instrumenting: java.lang.IllegalStateException: Unexpected problem whilst preparing bytecode for com.dropbox.core.v2.teamlog.EventDetails$Serializer.deserialize(Lcom/fasterxml/jackson/core/JsonParser;)Lcom/dropbox/core/v2/teamlog/EventDetails;
 ##### APK=26-29-app.zeusln.zeus_25.apk
@@ -37,5 +37,9 @@ APK=apks/21-30-com.hwloc.lstopo_266.apk
 ##### APK=threads.server_272.apk
 #APK=xyz.hisname.fireflyiii_112.apk -->  instrumenting: Type 'kotlin.jvm.functions.Function3' (no debug info available) [error] Mismatch when building parameterization map...
 
+#########################################
 
-./mop.sh $APK mop 
+./generate_monitor.sh mop mop_out
+
+./instrument.sh $APK mop mop_out
+

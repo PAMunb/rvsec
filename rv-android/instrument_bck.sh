@@ -27,8 +27,8 @@ OUT_DIR="out"         # out dir (for instrumented apk)
 LIB_TMP="lib_tmp"     # libs dir (maven dependencies)
 
 # Set up output directories, removing old files
-rm -rf tmp rvm_tmp $LIB_TMP $OUT_DIR
-mkdir tmp rvm_tmp $LIB_TMP $OUT_DIR
+rm -rf tmp $LIB_TMP
+mkdir tmp rvm_tmp $LIB_TMP
 
 # Copy dependency JARs to 'lib_tmp' folder 
 mvn clean compile
@@ -95,18 +95,18 @@ d8 tmp/monitored_$APK_NAME.jar --lib $ANDROID_PLATFORM_LIB/android.jar --min-api
 
 # If using D8, change classes.dex folder
 echo "Coping classes.dex to ./tmp and delete from this directory"
-mv classes.dex tmp/
+cp classes.dex tmp/
+rm classes.dex
 
 ############# confuso
-cp -v $1 tmp/$APK_NAME
+cp $1 tmp/$APK_NAME
 cd tmp
-pwd
 
 # Replace old classes.dex in APK with new classes.dex
 zip -r $APK_NAME classes.dex
 
 # Copy final classes.dex
-cp -v $APK_NAME ../$OUT_DIR/unsigned_$APK_NAME
+cp $APK_NAME ../$OUT_DIR/unsigned_$APK_NAME
 cd ..
 
 # Verify and sign the Jar with debug key, repairing any inconsistent manifests

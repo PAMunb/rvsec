@@ -14,7 +14,12 @@ APK=21-30-com.hwloc.lstopo_266.apk
 PACKAGE_NAME="com.hwloc.lstopo"
 
 
-./mop.sh apks/$APK mop
+#./mop.sh apks/$APK mop
+
+#./generate_monitor.sh mop mop_out
+
+./instrument.sh apks/$APK mop mop_out
+
 
 echo "[+] Installing APK"
 adb install out/$APK
