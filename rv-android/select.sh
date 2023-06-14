@@ -78,5 +78,5 @@ APK=$BASE_DIR/com.marv42.ebt.newnote_5300.apk
 
 rm out/*
 
-./instrument.sh $APK mop mop-out
+./instrument.sh $APK mop_out
  

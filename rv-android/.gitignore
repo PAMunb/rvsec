@@ -166,3 +166,4 @@ dmypy.json
 .pyre/
 /apks/
 /tmp_apks/
+/mop_out/

@@ -1,6 +1,6 @@
 #!/bin/sh
 
-# Script to generate the monitor 
+# Script to generate the monitor files
 
 if [ "$#" -ne 2 ]; then
     echo "Illegal number of parameters!"
@@ -16,6 +16,7 @@ MOP_OUT_DIR=$2        # where to put the monitor and aspects
 
 
 # Set up output directories, removing old files
+rm $MOP_DIR/*.rvm
 find $MOP_DIR -name "*Monitor.java" -exec rm -Rvf {} \;
 rm -rvf $MOP_OUT_DIR
 mkdir -v $MOP_OUT_DIR
