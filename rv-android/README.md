@@ -1,12 +1,14 @@
 RV-Android 
 -------------------
 
-build rvsec project:
+### Pre-requisites
 
-mvn clean install -DskipMopAgent -DskipTests
+- Android environment (see an example in scripts/config_android.sh)
+- Java 8 (TODO: upgrade rvsec to java 17)
 
 
-enter rv-android directory:
+### Basic usage
 
-./run.sh
+Edit the APK in run.sh and execute the script
+
 

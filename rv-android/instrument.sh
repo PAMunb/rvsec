@@ -1,5 +1,7 @@
 #!/bin/sh
 
+# DEPRECATED
+
 if [ "$#" -ne 2 ]; then
     echo "Illegal number of parameters!"
     echo "Usage: ./mop.sh [apk] [mop_out_dir]"

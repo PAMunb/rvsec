@@ -28,8 +28,8 @@ class Android:
         logging.info('Starting emulator')        
         start = time.time()
                 
-        #start_emulator_cmd = Command('emulator', ['-avd', avd_name, '-writable-system', '-wipe-data', '-no-boot-anim', '-no-window', '-netdelay', 'none'])
-        start_emulator_cmd = Command('emulator', ['-avd', avd_name, '-writable-system', '-wipe-data', '-no-boot-anim', '-noaudio', '-no-snapshot-save', '-delay-adb', '-no-window'])
+        start_emulator_cmd = Command('emulator', ['-avd', avd_name, '-writable-system', '-wipe-data', '-no-boot-anim', '-netdelay', 'none'])
+        #start_emulator_cmd = Command('emulator', ['-avd', avd_name, '-writable-system', '-wipe-data', '-no-boot-anim', '-noaudio', '-no-snapshot-save', '-delay-adb', '-no-window'])
         emulator_proc = start_emulator_cmd.invoke_as_deamon()
 
         logging.info('Waiting for emulator to boot')        
