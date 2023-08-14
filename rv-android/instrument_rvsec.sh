@@ -35,8 +35,6 @@ echo "[+] Processing APK=$APK"
 # Set up output directories, removing old files
 rm -rf $TMP_DIR $RVM_TMP_DIR $LIB_TMP $OUT_DIR
 mkdir $TMP_DIR $RVM_TMP_DIR $LIB_TMP $OUT_DIR
-#rm -rf $RVM_TMP_DIR $LIB_TMP $OUT_DIR
-#mkdir $RVM_TMP_DIR $LIB_TMP $OUT_DIR
 
 # Copy dependency JARs to 'lib_tmp' folder 
 mvn clean compile
@@ -81,10 +79,12 @@ echo "[+] Creating APK"
 cp $LIB_TMP/rv-monitor-rt.jar $RVM_TMP_DIR/.
 cp $LIB_TMP/rvsec-core.jar $RVM_TMP_DIR/.
 cp $LIB_TMP/rvsec-logger-logcat.jar $RVM_TMP_DIR/.
+cp $LIB_TMP/aspectjrt.jar $RVM_TMP_DIR/.
 cd $RVM_TMP_DIR
 jar xf rv-monitor-rt.jar
 jar xf rvsec-core.jar
 jar xf rvsec-logger-logcat.jar
+jar xf aspectjrt.jar
 
 # Remove rv-monitor-rt's manifest and the temporarily copied Jars + property files
 rm -rf META-INF *.jar

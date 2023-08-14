@@ -17,9 +17,27 @@ import java.security.NoSuchAlgorithmException;
 
 Logger() {
 
-	event g1 after (Object o): (call(* Object+.*(..)) && target(o)) {
-       Log.v("RVSEC", "g1: ALL EVENTS MONITOR ASPECT");
-       //ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "Logger",  "" + __LOC));
+	event g1 after (Object o): 
+		call(* *(..)) && 
+		target(o) && 
+		!within(sun..*) &&
+		!within(java..*) &&
+		!within(javax..*) &&
+		!within(jakarta..*) &&
+		!within(com.sun..*) &&
+		!within(android..*) &&
+		!within(androidx..*) &&
+		!within(net.sf.cglib..*) &&
+		!within(mop..*) &&
+		!within(javamop..*) &&
+		!within(javamoprt..*) &&
+		!within(rvmonitorrt..*) &&
+		!within(com.runtimeverification..*) && 
+		!within(br.unb.cic.mop..*) &&
+		!within(*..Log) &&
+		!within(*..Logger) {
+       
+       //Log.v("RVSEC", "g1: ALL EVENTS MONITOR ASPECT >> "+thisJoinPointStaticPart.getSignature());
     }
 
 	
@@ -27,7 +45,7 @@ Logger() {
 
 
 	@match {
-       Log.v("RVSEC", "match: ALL EVENTS MONITOR ASPECT");
+       //Log.v("RVSEC", "match: ALL EVENTS MONITOR ASPECT");
 	}
 }
 

@@ -20,6 +20,7 @@ rm $MOP_DIR/*.rvm
 find $MOP_DIR -name "*Monitor.java" -exec rm -Rvf {} \;
 rm -rvf $MOP_OUT_DIR
 mkdir -v $MOP_OUT_DIR
+cp $MOP_DIR/*.aj $MOP_OUT_DIR
 
 # Use JavaMOP
 echo "[+] Executing JavaMOP"
