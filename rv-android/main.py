@@ -8,7 +8,6 @@ from settings import MOP_DIR, MOP_OUT_DIR, AVD_NAME, RESULTS_DIR, TIMESTAMP, INS
 from commands.command import Command
 from android import Android
 from app import App
-from instrument import DroidFaxInstrumenter
 
 REPETITION = 1
 TIMEOUTS = [180]
@@ -50,7 +49,7 @@ def run(apk, rep, timeout, policy, results_dir):
     logging.info("Running: APK={0}, rep={1}, timeout={2}, policy={3}".format(apk, rep, timeout, policy))
 
     apk_path = os.path.join(INSTRUMENTED_DIR, apk)
-    logcat_cmd = Command('adb', ['logcat', '-v', 'raw', '-s', 'RVSEC', 'hcai-intent-monitor', 'hcai-cg-monitor'])
+    logcat_cmd = Command('adb', ['logcat', '-v', 'raw', '-s', 'RVSEC', 'RVSEC-COV'])
     logcat_file = os.path.join(results_dir, "{0}_{1}_{2}_{3}.txt".format(apk, rep, timeout, policy))
 
     with android.create_emulator(AVD_NAME) as emulator:
@@ -106,21 +105,16 @@ def instrument_apks():
 
 def instrument(apk):
     logging.info("Instrumenting: "+apk)
-    # instrument_cmd = Command('sh', [
-    #     'instrument.sh',
-    #     apk,
-    #     MOP_OUT_DIR
-    # ], 1200)
-    # #instrument_result = instrument_cmd.invoke(stdout=sys.stdout)
-    # instrument_result = instrument_cmd.invoke()
-    # if instrument_result.code != 0:
-    #     raise Exception("Error while instrumenting: {0}. {1}".format(
-    #         instrument_result.code, instrument_result.stderr))
-
-    #testando droidfax
-    droidfax = DroidFaxInstrumenter()
-    tmp = "cryptoapp.apk"
-    droidfax.instrument(App(os.path.join(INSTRUMENTED_DIR,tmp)), INSTRUMENTED_DIR)
+    instrument_cmd = Command('sh', [
+        'instrument.sh',
+        apk,
+        MOP_OUT_DIR
+    ], 1200)
+    #instrument_result = instrument_cmd.invoke(stdout=sys.stdout)
+    instrument_result = instrument_cmd.invoke()
+    if instrument_result.code != 0:
+        raise Exception("Error while instrumenting: {0}. {1}".format(
+            instrument_result.code, instrument_result.stderr))
 
 
 def run_droidbot(apk_path, timeout, policy):

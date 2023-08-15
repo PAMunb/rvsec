@@ -21,9 +21,6 @@ JAVAMOP_BIN=os.path.join(JAVAMOP_HOME, 'bin', 'javamop')
 RV_MONITOR_HOME=os.path.join(RVSEC_DIR, 'rv-monitor')
 RV_MONITOR_BIN=os.path.join(RV_MONITOR_HOME, 'bin', 'rv-monitor')
 
-# TODO mudar o nome para DROIDFAX_LIBS
-DROIDFAX_LIBS = os.path.join(WORKING_DIR, 'lib','droidfax')
-
 AVD_NAME = "RVSec"
 
 ANDROID_PLATFORM='android-29'

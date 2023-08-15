@@ -1,10 +1,10 @@
 #!/bin/sh
 
-# DEPRECATED
+# Script used to instrument an APK with the rvsec (previously generated) monitors.
 
-if [ "$#" -ne 2 ]; then
+if [ "$#" -ne 3 ]; then
     echo "Illegal number of parameters!"
-    echo "Usage: ./mop.sh [apk] [mop_out_dir]"
+    echo "Usage: ./instrument.sh [apk] [mop_out_dir] [out_dir]"
     exit
 fi
 
@@ -24,9 +24,8 @@ ANDROID_PLATFORM_LIB=$ANDROID_SDK_HOME/platforms/$ANDROID_PLATFORM
 #SDK_BUILD_VERSION=$($ANDROID_BUILD_LIB/aapt dump badging ./apks/$APK_NAME | grep -oP "(targetSdkVersion|platformBuildVersionCode)[=:][\"']?\d+[\"']?" | sed -n "1s/[^0-9]//gp")
 
 APK=$1                # apk to be instrumented
-#MOP_DIR=$2            # specs dir (may contain aspects or java classes to be included in final apk)
 MOP_OUT_DIR=$2        # monitor related artifacts (previously generated)
-OUT_DIR="out"         # out dir (for instrumented apk)
+OUT_DIR=$3            # out dir (for instrumented apk)
 LIB_TMP="lib_tmp"     # libs dir (maven dependencies)
 TMP_DIR="tmp"
 RVM_TMP_DIR="rvm_tmp"
@@ -36,8 +35,6 @@ echo "[+] Processing APK=$APK"
 # Set up output directories, removing old files
 rm -rf $TMP_DIR $RVM_TMP_DIR $LIB_TMP $OUT_DIR
 mkdir $TMP_DIR $RVM_TMP_DIR $LIB_TMP $OUT_DIR
-#rm -rf $RVM_TMP_DIR $LIB_TMP $OUT_DIR
-#mkdir $RVM_TMP_DIR $LIB_TMP $OUT_DIR
 
 # Copy dependency JARs to 'lib_tmp' folder 
 mvn clean compile
@@ -63,16 +60,7 @@ rm $TMP_DIR/$NO_MONITOR_JAR
 
 
 # Merge monitor and application sources
-#cp -rf $MOP_DIR/* $TMP_DIR/
 cp $MOP_OUT_DIR/* $TMP_DIR
-#cp $MOP_OUT_DIR/*.aj $TMP_DIR/.
-#rm $TMP_DIR/*.mop
-#cp -rf $MOP_DIR/* $TMP_DIR/
-##mkdir $TMP_DIR/mop
-##cp $MOP_OUT_DIR/*.java $TMP_DIR/mop/. #"*Monitor.java"
-#cp $MOP_OUT_DIR/*.java $TMP_DIR/. 
-#cp $MOP_OUT_DIR/*.aj $TMP_DIR/.
-#rm $TMP_DIR/*.mop
 
 
 # Instrument application with monitor classes
@@ -85,27 +73,20 @@ if [ "$?" = 1 ] ; then
     exit
 fi
 
-#rm -Rf out_classes
-#mkdir out_classes
-#cd tmp
-#javac -cp $CLASSPATH:. .
-#find . -type f -name "*.java" -exec javac -verbose -cp $CLASSPATH:tmp:. -d ../out_classes '{}' ';'
-#cd ..
-#echo "compilou"
-
-#exit
 
 echo "[+] Creating APK"
 # Extract RV-Monitor support classes
 cp $LIB_TMP/rv-monitor-rt.jar $RVM_TMP_DIR/.
 cp $LIB_TMP/rvsec-core.jar $RVM_TMP_DIR/.
 cp $LIB_TMP/rvsec-logger-logcat.jar $RVM_TMP_DIR/.
+cp $LIB_TMP/aspectjrt.jar $RVM_TMP_DIR/.
 cd $RVM_TMP_DIR
 jar xf rv-monitor-rt.jar
 jar xf rvsec-core.jar
 jar xf rvsec-logger-logcat.jar
+jar xf aspectjrt.jar
 
-# Remove rv-monitor-rt's manifest and the temporarily copied Jar + property files
+# Remove rv-monitor-rt's manifest and the temporarily copied Jars + property files
 rm -rf META-INF *.jar
 cd ..
 
@@ -126,7 +107,7 @@ d8 $TMP_DIR/$MONITORED_JAR --lib $ANDROID_PLATFORM_LIB/android.jar --min-api 21
 # If using D8, change classes.dex folder
 echo "Coping classes.dex to ./$TMP_DIR and delete from this directory"
 #mv classes.dex $TMP_DIR/
-cp classes.dex tmp/
+cp classes.dex $TMP_DIR/
 rm classes.dex
 
 # Replace old classes.dex in APK with new classes.dex
@@ -138,10 +119,10 @@ zip -r $APK_NAME classes.dex
 cp -v $APK_NAME ../$OUT_DIR/$UNSIGNED_APK_NAME
 cd ..
 
-# Verify and sign the Jar with debug key, repairing any inconsistent manifests
-sh lib/dex2jar/d2j-asm-verify.sh $OUT_DIR/$UNSIGNED_APK_NAME
-
 cd $OUT_DIR
+
+# Verify and sign the Jar with debug key, repairing any inconsistent manifests
+sh ../lib/dex2jar/d2j-asm-verify.sh $UNSIGNED_APK_NAME
 
 echo "[+] Signing APK"
 # Sign debug Jar with final key
@@ -149,7 +130,8 @@ sh ../lib/dex2jar/d2j-apk-sign.sh -f -o $APK_NAME $UNSIGNED_APK_NAME
 zip -q -d $APK_NAME "META-INF*"
 
 jarsigner -sigalg SHA1withRSA -digestalg SHA1 -keystore ../keystore.jks $APK_NAME server -storepass password 
-#jarsigner -verify -verbose -certs $APK_NAME
+
+jarsigner -verify -verbose -certs $APK_NAME
 
 rm $UNSIGNED_APK_NAME
 
@@ -157,4 +139,4 @@ rm $UNSIGNED_APK_NAME
 cd ..
 rm -rf $TMP_DIR $RVM_TMP_DIR $LIB_TMP
 
-echo "[+] Done! Final apk generated in $OUT_DIR/$APK_NAME"
+echo "[+] Done! Instrumented (rvsec) apk generated in $OUT_DIR/$APK_NAME"
