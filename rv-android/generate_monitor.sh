@@ -31,7 +31,7 @@ echo "[+] Executing RV-Monitor"
 $RV_MONITOR_HOME/bin/rv-monitor -merge -v --debug -d $MOP_OUT_DIR $MOP_DIR/*.rvm
 
 #TODO Remove .rvm files 
-#rm $MOP_DIR/*.rvm
+rm $MOP_DIR/*.rvm
 
 MOP_OUT_DIR_PATH=$(readlink -f $MOP_OUT_DIR)
 echo "[+] Done! Monitor generated in $MOP_OUT_DIR_PATH"
