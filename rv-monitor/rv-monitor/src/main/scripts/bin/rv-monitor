@@ -8,7 +8,7 @@ printf '%s\n' "$(pwd -P)/$(basename -- "$0")"
 SRC_ROOT=`dirname "$SRC_ROOT"`
 
 # Move up into the actual source root directory
-SRC_ROOT="$SRC_ROOT/../"
+SRC_ROOT="$SRC_ROOT/.."
 
 MAINCLASS=com.runtimeverification.rvmonitor.java.rvj.Main
 
@@ -24,8 +24,13 @@ fi
 
 RELEASE="$SRC_ROOT/lib"
 
-PLUGINS_CLASSPATH="$RELEASE/plugins/*"
+PLUGINS_CLASSPATH=$(printf %s: $RELEASE/plugins/*.jar)
 
-LOGICPLUGINPATH="$RELEASE/plugins/" java -Xss4096m -cp "$RELEASE/*":$PLUGINS_CLASSPATH $MAINCLASS $@
+#LOGICPLUGINPATH="$RELEASE/plugins/" java -cp "$RELEASE/*":$PLUGINS_CLASSPATH $MAINCLASS $@ 
+
+RV_CLASSPATH="$(printf %s: $RELEASE/*.jar)$PLUGINS_CLASSPATH"
+echo "CLASSPATH=$RV_CLASSPATH"
+
+LOGICPLUGINPATH="$RELEASE/plugins/" java -Xss1g -cp $RV_CLASSPATH $MAINCLASS $@
 
 

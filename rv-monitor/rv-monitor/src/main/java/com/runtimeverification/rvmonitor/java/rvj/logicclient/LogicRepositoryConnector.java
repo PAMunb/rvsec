@@ -127,18 +127,32 @@ public class LogicRepositoryConnector {
                 + File.separator + "plugins" + File.separator + "*";
 
         if (isLogicRepositoryInJar) {
-            String mysqlConnectorPath = new File(Main.jarFilePath).getParent()
-                    + "/lib/mysql-connector-java-3.0.9-stable-bin.jar";
+//        	System.err.println("********************* isLogicRepositoryInJar");
+//            String mysqlConnectorPath = new File(Main.jarFilePath).getParent()
+//                    + "/lib/mysql-connector-java-3.0.9-stable-bin.jar";
+//            String jaxbApiPath = new File(Main.jarFilePath).getParent()
+//                    + "/jakarta.xml.bind-api.jar";
+        	String jaxbApiPath = new File(Main.jarFilePath).getParent()
+                    + "/*.jar";
+            String jaxbImplPath = new File(Main.jarFilePath).getParent()
+                    //+ "/jaxb-impl.jar";
+            		+ "/*";
             String executePath = new File(logicJarFilePath).getParent();
 
+            String clazzpath = Tool.polishPath(logicJarFilePath) + File.pathSeparator
+                    + logicPluginFarFilePath + File.pathSeparator
+//                    + mysqlConnectorPath + File.pathSeparator
+                    + jaxbApiPath + File.pathSeparator
+                    + jaxbImplPath + File.pathSeparator
+                    + new File(Main.jarFilePath).getParent()
+                    + "/scala-library.jar";
+//            System.err.println("CLAZZPATH="+clazzpath);
+            
             String[] cmdarray = {
                     "java",
+                    "-Xss1g",
                     "-cp",
-                    Tool.polishPath(logicJarFilePath) + File.pathSeparator
-                            + logicPluginFarFilePath + File.pathSeparator
-                            + mysqlConnectorPath + File.pathSeparator
-                            + new File(Main.jarFilePath).getParent()
-                            + "/scala-library.jar",
+                    clazzpath,
                     "com.runtimeverification.rvmonitor.logicrepository.Main" };
 
             logicOutput_OutputStream = executeProgram(cmdarray, executePath,

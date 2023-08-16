@@ -101,7 +101,7 @@ cd ..
 # Compile classes in Jar to Dex format
 #sh lib/dex2jar/d2j-jar2dex.sh -f -o tmp/classes.dex tmp/monitored_$1.jar
 #d8 tmp/monitored_$APK_NAME.jar --release --lib $ANDROID_PLATFORM_LIB/android.jar --min-api 21
-d8 $TMP_DIR/$MONITORED_JAR --lib $ANDROID_PLATFORM_LIB/android.jar --min-api 21
+d8 $TMP_DIR/$MONITORED_JAR --release --lib $ANDROID_PLATFORM_LIB/android.jar --min-api 26
 
 
 # If using D8, change classes.dex folder

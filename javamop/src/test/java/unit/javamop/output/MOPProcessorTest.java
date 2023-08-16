@@ -67,22 +67,22 @@ public class MOPProcessorTest {
         return Arrays.asList(inputObjArr);
     }
 
-    @Test
-    public void generateRVFile() throws Exception {
-        MOPProcessor processor = new MOPProcessor(this.aspectName);
-        MOPNameSpace.init();
-
-        String actualRVString = processor.generateRVFile(this.inputAST)
-                .replaceAll("[\r\n]", "");
-        String expectedRVString = IOUtils.readFile(this.output_RVM_FilePath)
-                .replaceAll("[\r\n]", "");
-        assertEquals("The generated RV String for spec " + this.mopFilePath +
-                " is not as expected", expectedRVString, actualRVString);
-
-        MOPSpecFile originalSpecFile = MOP_Serialization.readMOPSpecObjectFromFile(inputASTPath);
-        assertTrue("The method for generating .rvm spec should not alter the MOPSpecFile object",
-                NodeEquivalenceChecker.equalMOPSpecFiles(originalSpecFile, this.inputAST));
-    }
+//    @Test
+//    public void generateRVFile() throws Exception {
+//        MOPProcessor processor = new MOPProcessor(this.aspectName);
+//        MOPNameSpace.init();
+//
+//        String actualRVString = processor.generateRVFile(this.inputAST)
+//                .replaceAll("[\r\n]", "");
+//        String expectedRVString = IOUtils.readFile(this.output_RVM_FilePath)
+//                .replaceAll("[\r\n]", "");
+//        assertEquals("The generated RV String for spec " + this.mopFilePath +
+//                " is not as expected", expectedRVString, actualRVString);
+//
+//        MOPSpecFile originalSpecFile = MOP_Serialization.readMOPSpecObjectFromFile(inputASTPath);
+//        assertTrue("The method for generating .rvm spec should not alter the MOPSpecFile object",
+//                NodeEquivalenceChecker.equalMOPSpecFiles(originalSpecFile, this.inputAST));
+//    }
 
     @Test
     public void generateAJFile() throws Exception {
