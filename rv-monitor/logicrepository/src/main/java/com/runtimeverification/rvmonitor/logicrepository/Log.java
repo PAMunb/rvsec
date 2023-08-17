@@ -27,6 +27,12 @@ public class Log {
 	static String errorMsg = "";
 	static long time = 0;
 	
+	//flag to enable/disble the logger
+	static boolean enabled;
+	static public void setEnabled(boolean flag) {
+		Log.enabled = flag;
+	}
+	
 	static public void init(String logDir) {
 		Log.logDir = logDir;
 		
@@ -77,8 +83,10 @@ public class Log {
 		if(Log.errState)
 			return;
 		
-		logContents += "//// " + section + "\n";
-		logContents += contents + "\n";
+		if(Log.enabled) {
+			logContents += "//// " + section + "\n";
+			logContents += contents + "\n";
+		}
 	}
 	
 	static public void setStatus(int status){
@@ -94,6 +102,9 @@ public class Log {
 	}
 	
 	static public void flush(){
+		if(!Log.enabled) {
+			return;
+		}
 		if(Log.errState){
 			return;
 		}

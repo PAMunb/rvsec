@@ -85,6 +85,9 @@ public class Main {
 			// Initialize Logging
 			Log.init(polishPath(basePath + "/log"));
 			Log.setStatus(Log.SUCCESS);
+			
+			// NEW: disabling log 
+			Log.setEnabled(false);
 
 			// Initialize Statistics
 			if (!Statistics.init()) {
