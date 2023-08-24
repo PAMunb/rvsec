@@ -20,7 +20,7 @@ fi
 #sdkmanager --list
 ANDROID_EMULATOR_PACKAGE_x86="system-images;android-29;google_apis;x86"
 ANDROID_PLATFORM_VERSION="platforms;android-29"
-ANDROID_SDK_PACKAGES="${ANDROID_EMULATOR_PACKAGE_x86} ${ANDROID_PLATFORM_VERSION} platform-tools emulator build-tools;33.0.0"
+ANDROID_SDK_PACKAGES="${ANDROID_EMULATOR_PACKAGE_x86} ${ANDROID_PLATFORM_VERSION} platform-tools emulator build-tools;34.0.0"
 EMULATOR_NAME_x86="RVSec"
 #DEVICE_SERIAL_NUMBER="emulator-5554"
 
