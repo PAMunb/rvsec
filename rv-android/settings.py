@@ -11,6 +11,7 @@ APKS_DIR = os.path.join(WORKING_DIR, 'apks')
 RESULTS_DIR = os.path.join(WORKING_DIR, 'results')
 INSTRUMENTED_DIR = os.path.join(WORKING_DIR, 'out')
 INSTRUMENTED_DIR_DROIDFAX = os.path.join(WORKING_DIR, 'instrumented-droidfax')
+LIB_DIR = os.path.join(WORKING_DIR, 'lib')
 
 MOP_DIR = os.path.join(WORKING_DIR, 'mop_mini')
 MOP_OUT_DIR = os.path.join(WORKING_DIR, 'mop_out')
