@@ -1,20 +1,18 @@
 #!/usr/bin/env python
+import csv
 import os
+import sys
 
-from androguard.misc import AnalyzeAPK
-from androguard.core.bytecodes.apk import APK
-from androguard.core.bytecodes.dvm import DalvikVMFormat, DalvikCode
-from androguard.core.analysis.analysis import Analysis, MethodAnalysis, BasicBlocks
-from networkx import MultiDiGraph
 import networkx as nx
-from networkx.algorithms import tournament
+from androguard.core.analysis.analysis import Analysis, MethodAnalysis
+from androguard.core.bytecodes.apk import APK
+from androguard.misc import AnalyzeAPK
+
 from commands.command import Command
 from settings import LIB_DIR
-import sys
-import csv
+
 
 def exec(apk_path):
-
     mop_specs_dir = '/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec/rvsec/rvsec-agent/src/main/mop'
     methods_file = '/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/reachable-methods/reachable-javamop/methods.csv'
     jca_methods = get_javamop_methods(mop_specs_dir, methods_file)
@@ -45,13 +43,17 @@ def get_javamop_methods(mop_specs_dir: str, methods_file: str):
     javamop_methods_cmd = Command("java", [
         '-jar',
         reach_javamop_jar,
+        '-t',
+        'METHODS_PARAMS',
         '-d',
         mop_specs_dir,
         '-o',
         methods_file
     ])
     reach_javamop_result = javamop_methods_cmd.invoke(stdout=sys.stdout)
-    #TODO checar se resultado foi ok
+    if reach_javamop_result.code != 0:
+        raise Exception("Error while finding methods in MOP specs: {0}. {1}".format(reach_javamop_result.code,
+                                                                                    reach_javamop_result.stderr))
 
     methods = dict()
     with open(methods_file, 'r') as data:
@@ -62,6 +64,7 @@ def get_javamop_methods(mop_specs_dir: str, methods_file: str):
                 methods[class_name] = set()
             methods[class_name].add(method_name)
     return methods
+
 
 def get_entrypoints_classes(a: APK):
     print("get entry points ...")
@@ -78,6 +81,7 @@ def get_entrypoints_classes(a: APK):
 
     return entrypoints
 
+
 def get_nodes(a: Analysis, entrypoints_classes: set, jca_methods: dict):
     entrypoints = set()
     methods = set()
@@ -90,13 +94,12 @@ def get_nodes(a: Analysis, entrypoints_classes: set, jca_methods: dict):
                 entrypoints.add(node)
         for clazz in jca_methods:
             if clazz in str(node.get_class_name()):
-                print(node.get_class_name())
                 for method in jca_methods[clazz]:
-                    print("\t - {} ::: {}".format(method, node.get_method().get_name()))
                     if method in str(node.get_method().get_name()):
                         methods.add(node)
 
     return entrypoints, methods
+
 
 def get_entrypoints(a: Analysis, entrypoints_classes: set):
     entrypoints = set()
@@ -110,6 +113,7 @@ def get_entrypoints(a: Analysis, entrypoints_classes: set):
 
     return entrypoints
 
+
 def uses_jca(a: Analysis, entrypoints: set, methods: set):
     cg = a.get_call_graph()
     for e in entrypoints:
@@ -117,6 +121,7 @@ def uses_jca(a: Analysis, entrypoints: set, methods: set):
             if nx.has_path(cg, e, m):
                 return True
     return False
+
 
 if __name__ == "__main__":
     base_dir = "/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec/rv-android"

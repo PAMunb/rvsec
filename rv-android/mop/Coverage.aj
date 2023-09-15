@@ -10,10 +10,14 @@ public aspect Coverage {
 		!within(com.sun..*) &&
 		!within(android..*) &&
 		!within(androidx..*) &&
+		!within(kotlin..*) &&
 		!within(net.sf.cglib..*) &&
 		!within(org.aspectj..*) &&
 		!within(com.google.android..*) &&
 		!within(com.android..*) &&
+		!within(com.google..*) &&
+		!within(com.facebook..*) &&
+		!within(org.apache..*) &&
 		!within(libcore..*) &&
 		!within(mop..*) &&
 		!within(javamop..*) &&
