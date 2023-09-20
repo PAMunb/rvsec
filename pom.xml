@@ -28,8 +28,8 @@
 		<maven.compiler.source>${java.version}</maven.compiler.source>
 		<maven.compiler.target>${java.version}</maven.compiler.target>
 
-		<aspectj.version>1.8.1</aspectj.version>
-		<!-- TODO <aspectj.version>1.9.6</aspectj.version> -->
+<!--		<aspectj.version>1.8.1</aspectj.version>-->
+		<aspectj.version>1.9.6</aspectj.version> 
 
 		<scala.version>2.11.12</scala.version>
 		<scala.compat.version>2.11</scala.compat.version>
