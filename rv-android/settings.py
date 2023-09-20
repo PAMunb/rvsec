@@ -13,6 +13,9 @@ INSTRUMENTED_DIR = os.path.join(WORKING_DIR, 'out')
 INSTRUMENTED_DIR_DROIDFAX = os.path.join(WORKING_DIR, 'instrumented-droidfax')
 LIB_DIR = os.path.join(WORKING_DIR, 'lib')
 
+TMP_DIR = os.path.join(WORKING_DIR, 'tmp')
+LIB_TMP_DIR = os.path.join(WORKING_DIR, 'lib_tmp')
+
 MOP_DIR = os.path.join(WORKING_DIR, 'mop_mini')
 MOP_OUT_DIR = os.path.join(WORKING_DIR, 'mop_out')
 

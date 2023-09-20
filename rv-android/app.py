@@ -16,10 +16,7 @@ class App(object):
         self.path = os.path.join(app_path)
         self.name = os.path.basename(app_path)
 
-        # from androguard.core.bytecodes.apk import APK
-        # self.apk = APK(self.path)
-        # self.package_name = self.apk.get_package()
-        # self.main_activity = self.apk.get_main_activity()
-        # self.permissions = self.apk.get_permissions()
-        # self.activities = self.apk.get_activities()
-        # self.possible_broadcasts = self.get_possible_broadcasts()
+        from androguard.core.bytecodes.apk import APK
+        self.apk = APK(self.path)
+        self.package_name = self.apk.get_package()
+        self.sdk_target = self.apk.get_effective_target_sdk_version()
