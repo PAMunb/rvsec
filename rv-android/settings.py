@@ -15,6 +15,7 @@ LIB_DIR = os.path.join(WORKING_DIR, 'lib')
 
 TMP_DIR = os.path.join(WORKING_DIR, 'tmp')
 LIB_TMP_DIR = os.path.join(WORKING_DIR, 'lib_tmp')
+RVM_TMP_DIR = os.path.join(WORKING_DIR, 'rvm_tmp')
 
 MOP_DIR = os.path.join(WORKING_DIR, 'mop_mini')
 MOP_OUT_DIR = os.path.join(WORKING_DIR, 'mop_out')
@@ -24,6 +25,10 @@ JAVAMOP_HOME=os.path.join(RVSEC_DIR, 'javamop')
 JAVAMOP_BIN=os.path.join(JAVAMOP_HOME, 'bin', 'javamop')
 RV_MONITOR_HOME=os.path.join(RVSEC_DIR, 'rv-monitor')
 RV_MONITOR_BIN=os.path.join(RV_MONITOR_HOME, 'bin', 'rv-monitor')
+
+D2J_HOME=os.path.join(LIB_DIR, 'dex2jar')
+D2J_DEX2JAR=os.path.join(D2J_HOME, 'd2j-dex2jar.sh')
+D2J_ASM_VERIFY=os.path.join(D2J_HOME, 'd2j-asm-verify.sh')
 
 AVD_NAME = "RVSec"
 

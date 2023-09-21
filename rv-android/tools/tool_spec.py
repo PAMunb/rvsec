@@ -2,7 +2,7 @@ import os
 
 from abc import ABCMeta, abstractmethod
 
-from benchmark.commands.command import Command
+from commands.command import Command
 
 class AbstractTool():
     __metaclass__ = ABCMeta 
