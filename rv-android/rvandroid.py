@@ -2,18 +2,19 @@ import logging
 import os
 import shutil
 import sys
-
+import subprocess
+import hashlib
 import utils
 from app import App
 from commands.command import Command
 from commands.command_exception import CommandException
 from settings import JAVAMOP_BIN, RV_MONITOR_BIN, MOP_DIR, MOP_OUT_DIR, ANDROID_JAR_PATH, LIB_TMP_DIR, TMP_DIR, \
-    APKS_DIR, D2J_DEX2JAR, D2J_ASM_VERIFY, INSTRUMENTED_DIR, RVM_TMP_DIR
+    APKS_DIR, D2J_DEX2JAR, D2J_ASM_VERIFY, INSTRUMENTED_DIR, RVM_TMP_DIR, WORKING_DIR, D2J_APK_SIGN, KEYSTORE_FILE
 
 EXTENSION_AJ = "*.aj"
 EXTENSION_JAR = ".jar"
 EXTENSION_MOP = "*.mop"
-EXTENSION_RVM = "*.rvm"
+EXTENSION_RVM = ".rvm"
 
 
 class RvAndroid(object):
@@ -48,8 +49,10 @@ class RvAndroid(object):
         self.__include_generated_monitor()
         self.__compile(app)
         self.__create_apk(app)
+        #TODO self.clear() limpa completo?
 
     def clear(self):
+        # TODO rever quais folders podem ser deletados ... mop_out acho q nao
         folders = [MOP_OUT_DIR, LIB_TMP_DIR, TMP_DIR]
         for folder in folders:
             logging.info("Deleting folder: {}".format(folder))
@@ -85,6 +88,10 @@ class RvAndroid(object):
         # TODO testar um caso de erro para verificar se esta capturando
         self.__execute_command(asm_verify_cmd, "asm_verify")
 
+    def __d2j_apk_sign(self, signed_apk: str, unsigned_apk: str):
+        apk_sign_cmd = Command(D2J_APK_SIGN, ['-f', '-o', signed_apk, unsigned_apk])
+        self.__execute_command(apk_sign_cmd, "apk_sign", True)
+
     def __runtime_verification(self):
         utils.create_folder_if_not_exists(MOP_OUT_DIR)
         self.__java_mop()
@@ -102,7 +109,7 @@ class RvAndroid(object):
 
     def __rv_monitor(self):
         logging.info("Executing RV-Monitor")
-        rvm_files = os.path.join(MOP_OUT_DIR, EXTENSION_RVM)
+        rvm_files = os.path.join(MOP_OUT_DIR, '*'+EXTENSION_RVM)
         rvmonitor_cmd = Command(RV_MONITOR_BIN, ['-d', MOP_OUT_DIR, '-merge', rvm_files])
         self.__execute_command(rvmonitor_cmd, "rvmonitor")
         # delete the .rvm files generated and already used by rv-monitor
@@ -136,18 +143,20 @@ class RvAndroid(object):
         logging.info("Creating instrumented APK ...")
         # Extract RV-Monitor support classes
         self.__merge_support_classes(work_dir)
+
         # Compress resulting transformed classes to Jar
         utils.create_folder_if_not_exists(RVM_TMP_DIR)
         monitored_jar_name = "monitored_{}.jar".format(app.name)
         monitored_jar = os.path.join(RVM_TMP_DIR, monitored_jar_name)
-        #TODO rever esse balaio de gato
+        # TODO rever esse balaio de gato
         utils.zip_dir_content(monitored_jar, work_dir)
         shutil.move(monitored_jar, work_dir)
         shutil.rmtree(RVM_TMP_DIR)
         monitored_jar = os.path.join(work_dir, monitored_jar_name)
+
         # Compile classes in Jar to Dex format
-        self.__d8(monitored_jar)
-        self.__sign_apk()
+        unsigned_apk = self.__d8(app, monitored_jar)
+        self.__sign_apk(app, unsigned_apk)
 
     def __merge_support_classes(self, out_dir=TMP_DIR):
         utils.create_folder_if_not_exists(RVM_TMP_DIR)
@@ -163,25 +172,63 @@ class RvAndroid(object):
         shutil.copytree(RVM_TMP_DIR, out_dir, dirs_exist_ok=True)
         shutil.rmtree(RVM_TMP_DIR)
 
-    def __d8(self, monitored_jar: str):
+    def __d8(self, app: App, monitored_jar: str, out_dir=INSTRUMENTED_DIR):
+        utils.create_folder_if_not_exists(out_dir)
+
+        print("Executing d8 ... {} ::: {}".format(monitored_jar, self.__get_android_jar()))
         d8_cmd = Command('d8', [monitored_jar, '--release',
                                 '--lib', self.__get_android_jar(),
-                                '--min-api', 26])
+                                '--min-api', '26'])
         self.__execute_command(d8_cmd, "d8")
 
-        # If using D8, change classes.dex folder
-        # echo "Coping classes.dex to ./$TMP_DIR and delete from this directory"
-        # # mv classes.dex $TMP_DIR/
-        # cp classes.dex $TMP_DIR/
-        # rm classes.dex
-        # etc ...
+        dex_name = 'classes.dex'
+        generated_dex = os.path.join(WORKING_DIR, dex_name)
+        shutil.copy2(generated_dex, out_dir)
+        print("DEX: {} ::: exists? {} :: {}".format(generated_dex, os.path.exists(generated_dex), os.path.join(out_dir, dex_name)))
 
-    def __sign_apk(self):
-        logging.info("__sign_apk")
+        # copy the original apk (as unsigned_apk)
+        unsigned_apk_name = "unsigned_{}".format(app.name)
+        unsigned_apk = os.path.join(out_dir, unsigned_apk_name)
+        shutil.copy2(app.path, unsigned_apk)
+        print("unsigned_apk={} ::: exists? {}".format(unsigned_apk, os.path.exists(unsigned_apk)))
+
+        # Replace old/original classes.dex in APK with new/genereated classes.dex
+        # zip_cmd = Command('zip', ['-r', unsigned_apk, generated_dex])
+        # self.__execute_command(zip_cmd, "zip_d8")
+        subprocess.Popen(['zip', '-r', unsigned_apk_name, dex_name], cwd=out_dir)
+
+        # Verify and sign the Jar with debug key, repairing any inconsistent manifests
+        self.__d2j_asm_verify(unsigned_apk)
+        return unsigned_apk
+
+
+    def __sign_apk(self, app: App, unsigned_apk: str):
+        # Sign debug Jar with final key
+        signed_apk = os.path.join(INSTRUMENTED_DIR, app.name)
+        self.__d2j_apk_sign(signed_apk, unsigned_apk)
+        os.remove(unsigned_apk)
+        assert os.path.exists(signed_apk)
+        zip_cmd = Command('zip', ['-q', '-d', signed_apk, "META-INF*"])
+        self.__execute_command(zip_cmd, "zip_sign_apk")
+
+        self.__jarsigner(signed_apk)
+        self.__jarsigner_verify(signed_apk)
+
+
 
     def __get_android_jar(self):
         # TODO pegar o android.jar dinamicamente de acordo com o target_sdk do app
         return ANDROID_JAR_PATH
+
+    def __jarsigner(self, signed_apk):
+        jarsigner_cmd = Command('jarsigner',
+                                ['-sigalg', 'SHA256withRSA', '-digestalg', 'SHA-256', '-keystore', KEYSTORE_FILE,
+                                 signed_apk, 'server', '-storepass', 'password'])
+        self.__execute_command(jarsigner_cmd, "jarsigner")
+
+    def __jarsigner_verify(self, signed_apk):
+        jarsigner_cmd = Command('jarsigner', ['-verify', '-certs', signed_apk])
+        self.__execute_command(jarsigner_cmd, "jarsigner_verify")
 
 
 if __name__ == '__main__':
