@@ -75,6 +75,7 @@ class RvAndroid(object):
         utils.create_folder_if_not_exists(out_dir)
         no_monitor_jar_name = "no_monitor_{}.jar".format(app.name)
         no_monitor_jar = os.path.join(out_dir, no_monitor_jar_name)
+        #TODO como o d2j lida com multidex? e como vamos lidar aqui?
         self.__d2j_dex2jar(app, no_monitor_jar)
         assert os.path.exists(no_monitor_jar)
         self.__d2j_asm_verify(no_monitor_jar)
@@ -146,7 +147,7 @@ class RvAndroid(object):
 
     def __create_apk(self, app: App, work_dir=TMP_DIR, out_dir=INSTRUMENTED_DIR):
         logging.info("Creating instrumented APK ...")
-        # Extract RV-Monitor support classes
+        # Extract (RV-Monitor, RVSec, ...) support classes
         self.__merge_support_classes(work_dir)
 
         # Compress resulting transformed classes to Jar
