@@ -1,4 +1,5 @@
 import os
+from androguard.core.bytecodes.apk import APK
 
 class App(object):
     """
@@ -16,7 +17,6 @@ class App(object):
         self.path = os.path.join(app_path)
         self.name = os.path.basename(app_path)
 
-        from androguard.core.bytecodes.apk import APK
         self.apk = APK(self.path)
         self.package_name = self.apk.get_package()
         self.sdk_target = self.apk.get_effective_target_sdk_version()
