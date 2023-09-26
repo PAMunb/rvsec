@@ -222,5 +222,5 @@ def get_source_code_url(metadata):
 
 if __name__ == '__main__':
     out_file = 'apps_to_download.csv'
-    mop_specs_dir = '/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec/rvsec/rvsec-agent/src/main/mop'
+    mop_specs_dir = '../rvsec/rvsec-agent/src/main/mop'
     execute(mop_specs_dir, out_file)

@@ -252,6 +252,6 @@ if __name__ == '__main__':
     logging.basicConfig(stream=sys.stdout, level=logging.INFO)
     logging.info("Executing")
 
-    apk = "/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec/rv-android/cryptoapp.apk"
+    apk = "./cryptoapp.apk"
     rv_android = RvAndroid()
     rv_android.instrument(apk)
