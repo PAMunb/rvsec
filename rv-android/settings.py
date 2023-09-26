@@ -17,7 +17,7 @@ TMP_DIR = os.path.join(WORKING_DIR, 'tmp')
 LIB_TMP_DIR = os.path.join(WORKING_DIR, 'lib_tmp')
 RVM_TMP_DIR = os.path.join(WORKING_DIR, 'rvm_tmp')
 
-MOP_DIR = os.path.join(WORKING_DIR, 'mop_mini')
+MOP_DIR = os.path.join(WORKING_DIR, 'mop')
 MOP_OUT_DIR = os.path.join(WORKING_DIR, 'mop_out')
 
 RVSEC_DIR=os.path.join(WORKING_DIR, os.path.abspath('..'))

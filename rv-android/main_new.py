@@ -9,7 +9,7 @@ from commands.command import Command
 from android import Android
 from app import App
 from rvandroid import RvAndroid
-import utils
+from utils import get_apks
 
 REPETITION = 1
 TIMEOUTS = [180]

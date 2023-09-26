@@ -96,7 +96,7 @@ def get_apks(apks_dir: str) -> list[App]:
     if os.path.exists(apks_dir) and os.path.isdir(apks_dir):
         for file in os.listdir(apks_dir):
             if file.casefold().endswith(".apk"):
-                apks.append(App(file))
+                apks.append(App(os.path.join(apks_dir, file)))
     return apks
 
 
