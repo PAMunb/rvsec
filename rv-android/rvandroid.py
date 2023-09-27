@@ -8,8 +8,7 @@ import utils
 from app import App
 from commands.command import Command
 from commands.command_exception import CommandException
-from settings import JAVAMOP_BIN, RV_MONITOR_BIN, MOP_DIR, MOP_OUT_DIR, ANDROID_JAR_PATH, LIB_TMP_DIR, TMP_DIR, \
-    APKS_DIR, D2J_DEX2JAR, D2J_ASM_VERIFY, INSTRUMENTED_DIR, RVM_TMP_DIR, WORKING_DIR, D2J_APK_SIGN, KEYSTORE_FILE
+from settings import *
 
 EXTENSION_AJ = ".aj"
 EXTENSION_JAR = ".jar"
@@ -29,19 +28,20 @@ class RvAndroid(object):
         self.__prepare_instrumentation()
         apks = utils.get_apks(APKS_DIR)
         logging.info("Instrumenting {} apks ...".format(len(apks)))
+        self.__prepare_instrumentation()
         for app in apks:
             self.__instrument(app, out_dir)
 
-    def instrument(self, app_path: str, out_dir=INSTRUMENTED_DIR, generate_monitor=True):
-        self.__prepare_instrumentation(generate_monitor)
+    def instrument(self, app_path: str, out_dir=INSTRUMENTED_DIR, prepare=True):
+        if prepare:
+            self.__prepare_instrumentation()
         app = App(app_path)
         return self.__instrument(app, out_dir)
 
-    def __prepare_instrumentation(self, generate_monitor=True):
+    def __prepare_instrumentation(self):
         self.clear()
         self.__execute_maven()
-        if generate_monitor:
-            self.__runtime_verification()
+        self.__runtime_verification()
 
     def __instrument(self, app: App, out_dir=INSTRUMENTED_DIR):
         logging.info("Instrumenting: {}".format(app.name))
@@ -65,7 +65,7 @@ class RvAndroid(object):
         classpath = self.__get_classpath(app)
         classpath.append(work_dir)
         logging.info("CLASSPATH={}".format(':'.join(classpath)))
-        ajc_cmd = Command("ajc", ['-cp', ':'.join(classpath), '-Xlint:ignore',
+        ajc_cmd = Command("ajc", ['-cp', ':'.join(classpath)+':'+MOP_OUT_DIR, '-Xlint:ignore',
                                   '-inpath', work_dir, '-d', work_dir,
                                   '-source', '1.8', '-sourceroots', work_dir])
         self.__execute_command(ajc_cmd, "ajc")
@@ -98,7 +98,7 @@ class RvAndroid(object):
         self.__execute_command(apk_sign_cmd, "apk_sign", True)
 
     def __runtime_verification(self):
-        utils.create_folder_if_not_exists(MOP_OUT_DIR)
+        utils.reset_folder(MOP_OUT_DIR)
         self.__java_mop()
         self.__rv_monitor()
 
