@@ -131,7 +131,7 @@ zip -q -d $APK_NAME "META-INF*"
 
 jarsigner -sigalg SHA1withRSA -digestalg SHA1 -keystore ../keystore.jks $APK_NAME server -storepass password 
 
-jarsigner -verify -verbose -certs $APK_NAME
+jarsigner -verify -certs $APK_NAME
 
 rm $UNSIGNED_APK_NAME
 

@@ -35,10 +35,9 @@
 		<scala.compat.version>2.11</scala.compat.version>
 		<scala-maven-plugin.version>4.6.3</scala-maven-plugin.version>
 
-		<commons-lang3.version>3.0</commons-lang3.version>
-		<commons-io.version>2.4</commons-io.version>
+		<commons-lang3.version>3.13.0</commons-lang3.version>
+		<commons-io.version>2.13.0</commons-io.version>
 		<guava.version>19.0</guava.version>
-		<!-- TODO: where is it used? -->
 		<android.version>4.1.1.4</android.version>
 		<jaxb.version>2.3.3</jaxb.version>
 		<jcommander.version>1.82</jcommander.version>
