@@ -25,7 +25,8 @@
 		<module>rvsec-core</module>
 		<module>rvsec-logger-csv</module>
 		<module>rvsec-logger-logcat</module>
-		<module>rvsec-agent</module>
+		<module>rvsec-mop-extractor</module>
+		<module>rvsec-agent</module>		
 	</modules>
 
 	<profiles>

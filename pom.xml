@@ -28,8 +28,8 @@
 		<maven.compiler.source>${java.version}</maven.compiler.source>
 		<maven.compiler.target>${java.version}</maven.compiler.target>
 
-<!--		<aspectj.version>1.8.1</aspectj.version>-->
-		<aspectj.version>1.9.6</aspectj.version> 
+		<!--		<aspectj.version>1.8.1</aspectj.version>-->
+		<aspectj.version>1.9.6</aspectj.version>
 
 		<scala.version>2.11.12</scala.version>
 		<scala.compat.version>2.11</scala.compat.version>
@@ -38,8 +38,10 @@
 		<commons-lang3.version>3.0</commons-lang3.version>
 		<commons-io.version>2.4</commons-io.version>
 		<guava.version>19.0</guava.version>
+		<!-- TODO: where is it used? -->
 		<android.version>4.1.1.4</android.version>
 		<jaxb.version>2.3.3</jaxb.version>
+		<jcommander.version>1.82</jcommander.version>
 
 		<junit.version>4.13.2</junit.version>
 
@@ -99,6 +101,11 @@
 			<dependency>
 				<groupId>br.unb.cic</groupId>
 				<artifactId>rvsec-logger-logcat</artifactId>
+				<version>${project.version}</version>
+			</dependency>
+			<dependency>
+				<groupId>br.unb.cic</groupId>
+				<artifactId>rvsec-mop-extractor</artifactId>
 				<version>${project.version}</version>
 			</dependency>
 
@@ -163,6 +170,12 @@
 				<artifactId>jaxb-impl</artifactId>
 				<version>${jaxb.version}</version>
 				<scope>runtime</scope>
+			</dependency>
+
+			<dependency>
+				<groupId>com.beust</groupId>
+				<artifactId>jcommander</artifactId>
+				<version>${jcommander.version}</version>
 			</dependency>
 
 			<dependency>
