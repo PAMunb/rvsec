@@ -16,6 +16,9 @@ def create_folder_if_not_exists(path: str):
             logging.error(error_msg)
             raise Exception(error_msg)
 
+def reset_folder(path: str):
+    shutil.rmtree(path, ignore_errors=True)
+    os.makedirs(path)
 
 # TODO refatorar esses metodos praticamente iguais
 
