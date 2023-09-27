@@ -41,7 +41,7 @@ public class CsvWriter implements Writer {
 					.sorted(Comparator.comparing(JcaMethod::getClassName).thenComparing(Comparator.comparing(JcaMethod::getName)))
 					.collect(Collectors.toList());
 			if (withParameters) {
-				//TODO arrumar o csv
+				// TODO arrumar o csv
 				pw.println(HEADER_METHODS_WITH_PARAMS);
 				methodsList.forEach(m -> pw.println(String.format("%s,%s,\"%s\",\"%s\"", m.getClassName(), m.getName(), m.getParametersAsString(), m.getSignature())));
 			} else {

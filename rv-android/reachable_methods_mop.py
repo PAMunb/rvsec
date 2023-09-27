@@ -39,21 +39,21 @@ def exec(apk_path):
 
 
 def get_javamop_methods(mop_specs_dir: str, methods_file: str):
-    reach_javamop_jar = os.path.join(LIB_DIR, 'reachable', 'reach-mop.jar')
-    javamop_methods_cmd = Command("java", [
+    mop_extractor_jar = os.path.join(LIB_DIR, 'mop-extractor', 'mop-extractor.jar')
+    mop_extractor_cmd = Command("java", [
         '-jar',
-        reach_javamop_jar,
+        mop_extractor_jar,
         '-t',
-        'METHODS_PARAMS',
+        'METHODS',
         '-d',
         mop_specs_dir,
         '-o',
         methods_file
     ])
-    reach_javamop_result = javamop_methods_cmd.invoke(stdout=sys.stdout)
-    if reach_javamop_result.code != 0:
-        raise Exception("Error while finding methods in MOP specs: {0}. {1}".format(reach_javamop_result.code,
-                                                                                    reach_javamop_result.stderr))
+    mop_extractor_result = mop_extractor_cmd.invoke(stdout=sys.stdout)
+    if mop_extractor_result.code != 0:
+        raise Exception("Error while finding methods in MOP specs: {0}. {1}".format(mop_extractor_result.code,
+                                                                                    mop_extractor_result.stderr))
 
     methods = dict()
     with open(methods_file, 'r') as data:

@@ -30,14 +30,13 @@ public class UsedJcaClassesVisitor extends VoidVisitorAdapter<Object> {
 
 	@Override
 	public void visit(ImportDeclaration n, Object arg) {
-		if(n.isAsterisk()) {
+		if (n.isAsterisk()) {
 			return;
 		}
 		String clazz = n.getName().toString();
 		String key = clazz.substring(clazz.lastIndexOf('.') + 1);
 		imports.put(key, clazz);
 	}
-
 
 	@Override
 	public void visit(JavaMOPSpec s, Object arg) {
@@ -75,5 +74,3 @@ public class UsedJcaClassesVisitor extends VoidVisitorAdapter<Object> {
 	}
 
 }
-
-

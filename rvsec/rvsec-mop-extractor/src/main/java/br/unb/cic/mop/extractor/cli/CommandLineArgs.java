@@ -1,6 +1,5 @@
 package br.unb.cic.mop.extractor.cli;
 
-
 import com.beust.jcommander.Parameter;
 
 import br.unb.cic.mop.extractor.writer.CsvWriter;
@@ -9,9 +8,7 @@ import br.unb.cic.mop.extractor.writer.Writer;
 public class CommandLineArgs {
 
 	public enum TYPE {
-		CLASSES,
-		METHODS,
-		METHODS_PARAMS
+		CLASSES, METHODS, METHODS_PARAMS
 	}
 
 	public enum WRITER {
@@ -19,13 +16,13 @@ public class CommandLineArgs {
 
 		public final Writer writer;
 
-	    WRITER(Writer writer) {
-	        this.writer = writer;
-	    }
+		WRITER(Writer writer) {
+			this.writer = writer;
+		}
 
-	    public Writer getWriter() {
-	    	return writer;
-	    }
+		public Writer getWriter() {
+			return writer;
+		}
 	}
 
 	@Parameter(names = { "--specs-dir", "-d" }, description = "JavaMOP specifications directory (*.mop)", required = true)

@@ -19,13 +19,13 @@ public class Main {
 		JavamopFacade facade = new JavamopFacade();
 		Writer writer = jArgs.getWriter().getWriter();
 		try {
-			if(jArgs.getType() == TYPE.CLASSES) {
+			if (jArgs.getType() == TYPE.CLASSES) {
 				Set<String> classes = facade.listUsedClasses(jArgs.getMopSpecsDir());
 				writer.writeClasses(classes, new File(jArgs.getOutputFile()));
-			}else {
+			} else {
 				Set<JcaMethod> methods = facade.listUsedMethods(jArgs.getMopSpecsDir());
 				boolean withParams = false;
-				if(jArgs.getType() == TYPE.METHODS_PARAMS) {
+				if (jArgs.getType() == TYPE.METHODS_PARAMS) {
 					withParams = true;
 				}
 				writer.writeMethods(methods, new File(jArgs.getOutputFile()), withParams);

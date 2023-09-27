@@ -190,19 +190,19 @@ def get_javamop_methods(specs_dir: str, methods_file: str):
     # le as specs do mop_specs_dir e salva os metodos usados em methods_file
     # depois le esse arquivo e popula um dict [CLASSE --> lista de metodos]
     # retorna esse dict
-    reach_javamop_jar = os.path.join(LIB_DIR, 'reachable', 'reach-mop.jar')
-    javamop_methods_cmd = Command("java", [
+    mop_extractor_jar = os.path.join(LIB_DIR, 'mop-extractor', 'mop-extractor.jar')
+    mop_extractor_cmd = Command("java", [
         '-jar',
-        reach_javamop_jar,
+        mop_extractor_jar,
         '-d',
         specs_dir,
         '-o',
         methods_file
     ])
-    reach_javamop_result = javamop_methods_cmd.invoke(stdout=sys.stdout)
-    if reach_javamop_result.code != 0:
-        raise Exception("Error while finding methods in MOP specs: {0}. {1}".format(reach_javamop_result.code,
-                                                                                    reach_javamop_result.stderr))
+    mop_extractor_result = mop_extractor_cmd.invoke(stdout=sys.stdout)
+    if mop_extractor_result.code != 0:
+        raise Exception("Error while finding methods in MOP specs: {0}. {1}".format(mop_extractor_result.code,
+                                                                                    mop_extractor_result.stderr))
     methods = dict()
     first_line = True
     with open(methods_file, 'r') as data:

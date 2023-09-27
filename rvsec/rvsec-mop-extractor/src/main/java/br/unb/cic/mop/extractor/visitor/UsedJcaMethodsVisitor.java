@@ -72,10 +72,7 @@ public class UsedJcaMethodsVisitor extends VoidVisitorAdapter<Object> {
 		if (imports.containsKey(clazzName)) {
 			classes.add(imports.get(clazzName));
 
-			JcaMethod method = new JcaMethod(imports.get(clazzName),
-					p.getSignature().getMemberName(),
-					getParams(p.getSignature()),
-					p.getSignature().toString());
+			JcaMethod method = new JcaMethod(imports.get(clazzName), p.getSignature().getMemberName(), getParams(p.getSignature()), p.getSignature().toString());
 			methods.add(method);
 		}
 	}

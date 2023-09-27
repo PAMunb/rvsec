@@ -8,7 +8,9 @@ import br.unb.cic.mop.extractor.model.JcaMethod;
 public interface Writer {
 
 	void writeClasses(Set<String> classes, File out);
+
 	void writeMethods(Set<JcaMethod> methods, File out);
+
 	void writeMethods(Set<JcaMethod> methods, File out, boolean withParameters);
 
 }
