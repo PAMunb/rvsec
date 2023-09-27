@@ -19,7 +19,7 @@ class Command:
 
     @property
     def command(self):
-        return self.command
+        return self._command
 
     @command.setter
     def command(self, value):
@@ -27,7 +27,7 @@ class Command:
 
     @property
     def args(self):
-        return self.args
+        return self._args
 
     @args.setter
     def args(self, value):
