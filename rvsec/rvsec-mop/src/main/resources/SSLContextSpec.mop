@@ -4,10 +4,11 @@ import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLEngine;
 import javax.net.ssl.KeyManager;
 import javax.net.ssl.TrustManager;
+import java.security.SecureRandom;
 
 import br.unb.cic.mop.eh.*;
 import br.unb.cic.mop.ExecutionContext;
-
+import br.unb.cic.mop.Property;
 
 /**
  * SSLContextSpec
@@ -88,4 +89,5 @@ SSLContextSpec(SSLContext ctx) {
   @match1 {
      ExecutionContext.instance().setObjectAsInAcceptingState(context);
   }
+  
 }

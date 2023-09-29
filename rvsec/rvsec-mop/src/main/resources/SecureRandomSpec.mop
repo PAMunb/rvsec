@@ -5,6 +5,7 @@ import java.util.stream.IntStream;
 
 import br.unb.cic.mop.eh.*;
 import br.unb.cic.mop.ExecutionContext;
+import br.unb.cic.mop.Property;
 
 /**
  * SecureRandomSpec
@@ -106,6 +107,7 @@ SecureRandomSpec(SecureRandom r) {
         ExecutionContext.instance().setProperty(Property.RANDOMIZED, seed);
     }
 
+//TODO randIntInRange eh RANDOMIZED ou eh o retorno do nextInt ???
     event next1 before(SecureRandom r, int randIntInRange):
       call(public int SecureRandom.nextInt(int))
       && args(randIntInRange)

@@ -7,6 +7,7 @@ import java.security.KeyStore;
 
 import br.unb.cic.mop.eh.*;
 import br.unb.cic.mop.ExecutionContext;
+import br.unb.cic.mop.Property;
 
 /**
  * KeyManagerFactory
@@ -53,7 +54,7 @@ KeyManagerFactorySpec(KeyManagerFactory k) {
             ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeAlgorithm, "KeyManagerFactorySpec", "" + __LOC,
         " expecting one of " + String.join(",", safeAlgorithms) + " but found " + currentAlgorithmInstance + "."));
         }
-       ExecutionContext.instance().setProperty(ExecutionContext.Property.GENERATED_KEY_MANAGERS, keyManagerFactory);
+       ExecutionContext.instance().setProperty(Property.GENERATED_KEY_MANAGERS, keyManagerFactory);
     }
 
     event gkm1 after(KeyManagerFactory k) returning(KeyManager[] keyManager):

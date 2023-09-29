@@ -5,6 +5,7 @@ import java.security.spec.AlgorithmParameterSpec;
 
 import br.unb.cic.mop.eh.*;
 import br.unb.cic.mop.ExecutionContext;
+import br.unb.cic.mop.Property;
 
 MacSpec(Mac m) {
 
@@ -41,7 +42,7 @@ MacSpec(Mac m) {
           call(public void Mac.init(java.security.Key)) &&
           args(key) &&
           target(m) &&
-          condition(ExecutionContext.instance().validate(ExecutionContext.Property.GENERATED_KEY, key)) {
+          condition(ExecutionContext.instance().validate(Property.GENERATED_KEY, key)) {
             if (!safeAlgorithms.contains(currentAlgorithmInstance)) {
                 ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeAlgorithm, "MacSpec", "" + __LOC,
                  " expecting one of " + String.join(",", safeAlgorithms) + " but found " + currentAlgorithmInstance + "."));
@@ -53,7 +54,7 @@ MacSpec(Mac m) {
           call(public void Mac.init(java.security.Key, java.security.spec.AlgorithmParameterSpec)) &&
           args(key, params) &&
           target(m) &&
-          condition(ExecutionContext.instance().validate(ExecutionContext.Property.GENERATED_KEY, key))  {
+          condition(ExecutionContext.instance().validate(Property.GENERATED_KEY, key))  {
             if (!safeAlgorithms.contains(currentAlgorithmInstance)) {
                 ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeAlgorithm, "MacSpec", "" + __LOC,
         "one of " + String.join(",", safeAlgorithms) + " but found " + currentAlgorithmInstance + "."));

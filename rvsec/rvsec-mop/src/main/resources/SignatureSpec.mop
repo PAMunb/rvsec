@@ -1,10 +1,14 @@
 package mop;
 
 import java.security.Signature;
+import java.security.PrivateKey;
+import java.security.PublicKey;
+import java.security.SecureRandom;
 import java.security.cert.Certificate;
 
 import br.unb.cic.mop.eh.*;
 import br.unb.cic.mop.ExecutionContext;
+import br.unb.cic.mop.Property;
 
 /**
  * SignatureSpec
@@ -130,6 +134,5 @@ SignatureSpec(Signature s) {
        @match {
           ExecutionContext.instance().setObjectAsInAcceptingState(signature);
        }
-
 
 }

@@ -5,6 +5,7 @@ import java.security.spec.AlgorithmParameterSpec;
 
 import br.unb.cic.mop.eh.*;
 import br.unb.cic.mop.ExecutionContext;
+import br.unb.cic.mop.Property;
 
 /**
  * GCMParameterSpec
@@ -57,7 +58,7 @@ PBEParameterSpecSpec(PBEParameterSpec s) {
         }
 
         @match {
-          ExecutionContext.instance().setProperty(ExecutionContext.Property.PREPARED_PBE, spec);
+          ExecutionContext.instance().setProperty(Property.PREPARED_PBE, spec);
           ExecutionContext.instance().setObjectAsInAcceptingState(spec);
         }
 }

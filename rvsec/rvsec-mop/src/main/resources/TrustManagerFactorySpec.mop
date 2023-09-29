@@ -4,9 +4,11 @@ import javax.net.ssl.TrustManagerFactory;
 import javax.net.ssl.TrustManager;
 import javax.net.ssl.ManagerFactoryParameters;
 import java.security.KeyStore;
+import javax.net.ssl.KeyManager;
 
 import br.unb.cic.mop.eh.*;
 import br.unb.cic.mop.ExecutionContext;
+import br.unb.cic.mop.Property;
 
 /**
  * KeyManagerFactory
@@ -54,7 +56,7 @@ TrustManagerFactorySpec(TrustManagerFactory mf) {
             ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeAlgorithm, "TrustManagerFactorySpec", "" + __LOC,
               "expecting one of " + String.join(",", algorithms) + " but found " + currentAlgorithmInstance + "."));
         }
-       ExecutionContext.instance().setProperty(ExecutionContext.Property.GENERATED_TRUST_MANAGER, trustManagerFactory);
+       ExecutionContext.instance().setProperty(Property.GENERATED_TRUST_MANAGER, trustManagerFactory);
     }
 
     event gtm1 after(TrustManagerFactory k) returning(TrustManager[][] trustManager):
@@ -91,4 +93,5 @@ TrustManagerFactorySpec(TrustManagerFactory mf) {
     @match1 {
        ExecutionContext.instance().setObjectAsInAcceptingState(trustManagerFactory);
     }
+    
 }

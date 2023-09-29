@@ -7,6 +7,7 @@ import java.security.spec.AlgorithmParameterSpec;
 
 import br.unb.cic.mop.eh.*;
 import br.unb.cic.mop.ExecutionContext;
+import br.unb.cic.mop.Property;
 
 /**
  * KeyGeneratorSpec
@@ -63,7 +64,7 @@ KeyGeneratorSpec(KeyGenerator k) {
         "expecting one of" + String.join(",", safeAlgorithms) + " but found " + currentAlgorithmInstance + "."));
         }
         generatedKey = key;
-        ExecutionContext.instance().setProperty(ExecutionContext.Property.GENERATED_KEY, generatedKey);
+        ExecutionContext.instance().setProperty(Property.GENERATED_KEY, generatedKey);
     }
 
     ere : (g3* g1+ | g3* g2+) ((init gk1) | gk1)
@@ -71,7 +72,7 @@ KeyGeneratorSpec(KeyGenerator k) {
     @fail {
         ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "KeyGeneratorSpec", "" + __LOC));
         ExecutionContext.instance().unsetObjectAsInAcceptingState(keyGenerator);
-        ExecutionContext.instance().remove(ExecutionContext.Property.GENERATED_KEY, generatedKey);
+        ExecutionContext.instance().remove(Property.GENERATED_KEY, generatedKey);
 
         __RESET;
     }

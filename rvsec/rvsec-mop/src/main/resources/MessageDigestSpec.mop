@@ -6,7 +6,7 @@ import java.util.List;
 
 import br.unb.cic.mop.eh.*;
 import br.unb.cic.mop.ExecutionContext;
-import br.unb.cic.mop.ExecutionContext.Property;
+import br.unb.cic.mop.Property;
 
 // The MessageDigestSpec specifies
 // the correct usage of the MessageDigest
@@ -117,8 +117,3 @@ MessageDigestSpec(MessageDigest digest) {
            ExecutionContext.instance().setObjectAsInAcceptingState(md);
 	}
 }
-
-
-
-
-

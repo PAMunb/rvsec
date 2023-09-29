@@ -4,6 +4,7 @@ import javax.crypto.spec.GCMParameterSpec;
 
 import br.unb.cic.mop.eh.*;
 import br.unb.cic.mop.ExecutionContext;
+import br.unb.cic.mop.Property;
 
 /**
  * GCMParameterSpec
@@ -52,7 +53,7 @@ GCMParameterSpecSpec(GCMParameterSpec s) {
    }
 
    @match {
-      ExecutionContext.instance().setProperty(ExecutionContext.Property.PREPARED_GCM, spec);
+      ExecutionContext.instance().setProperty(Property.PREPARED_GCM, spec);
       ExecutionContext.instance().setObjectAsInAcceptingState(spec);
    }
 

@@ -4,6 +4,7 @@ import javax.xml.crypto.dsig.spec.HMACParameterSpec;
 
 import br.unb.cic.mop.eh.*;
 import br.unb.cic.mop.ExecutionContext;
+import br.unb.cic.mop.Property;
 
 /**
  * HMACParameterSpecSpec
@@ -31,7 +32,7 @@ HMACParameterSpecSpec(HMACParameterSpec hmacParameterSpec) {
 
    @match {
       ExecutionContext.instance().setObjectAsInAcceptingState(spec);
-      ExecutionContext.instance().setProperty(ExecutionContext.Property.PREPARED_HMAC, spec);
+      ExecutionContext.instance().setProperty(Property.PREPARED_HMAC, spec);
    }
 
 }

@@ -4,7 +4,7 @@ import javax.crypto.spec.PBEKeySpec;
 
 import br.unb.cic.mop.eh.*;
 import br.unb.cic.mop.ExecutionContext;
-import br.unb.cic.mop.ExecutionContext.Property;
+import br.unb.cic.mop.Property;
 
 /**
  * PBEKeySpecSpec

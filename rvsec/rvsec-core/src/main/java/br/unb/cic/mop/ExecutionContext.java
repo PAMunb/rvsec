@@ -1,6 +1,9 @@
 package br.unb.cic.mop;
 
-import java.util.*;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
 
 /**
  * This class allows us to setup an execution
@@ -12,34 +15,6 @@ import java.util.*;
  * test cases.
  */
 public class ExecutionContext {
-    /*
-     * The properties that we are interested in.
-     */
-    public enum Property {
-        GENERATED_KEY,
-        DIGESTED,
-        ENCRYPTED,
-        GENERATED_MAC,
-        GENERATED_PRIVATE_KEY,
-        GENERATED_PUBLIC_KEY,
-        GENERATE_SSL_CONTEXT,
-        GENERATE_SSL_ENGINE,
-        GENERATED_KEY_MANAGERS,
-        GENERATED_KEY_PAIR,
-        GENERATED_TRUST_MANAGER,
-        GENERATED_TRUST_MANAGERS,
-        GENERATED_KEY_STORE,
-        PREPARED_DH,
-        PREPARED_GCM,
-        PREPARED_HMAC,
-        PREPARED_PBE,
-        PREPARED_IV,
-        RANDOMIZED,
-        SIGNED,
-        SPECCED_KEY,
-        VERIFIED,
-        WRAPPED_KEY
-    }
 
     private Map<Property, Set<Object>> context;
 
@@ -106,7 +81,7 @@ public class ExecutionContext {
         Set<Object> objects = new HashSet<>();
         if(context.containsKey(property)) {
             objects = context.get(property);
-        }    
+        }
         objects.add(value);
         context.put(property, objects);
     }
