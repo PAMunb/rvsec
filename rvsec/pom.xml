@@ -22,6 +22,7 @@
 	</properties>
 
 	<modules>
+		<module>rvsec-mop</module>
 		<module>rvsec-core</module>
 		<module>rvsec-logger-csv</module>
 		<module>rvsec-logger-logcat</module>
