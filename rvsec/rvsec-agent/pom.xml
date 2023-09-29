@@ -96,7 +96,7 @@
 					</execution>
 				</executions>
 				<configuration>
-					<pathToMopFiles>${main.basedir}/${project.parent.artifactId}/${project.artifactId}/src/main/mop</pathToMopFiles>
+					<pathToMopFiles>${main.basedir}/${project.parent.artifactId}/rvsec-mop/src/main/resources</pathToMopFiles>
 					<pathToJavaMop>${main.basedir}/javamop/bin</pathToJavaMop>
 					<pathToMonitor>${main.basedir}/rv-monitor/bin</pathToMonitor>
 					<destinationFolder>${main.basedir}/${project.parent.artifactId}/${project.artifactId}/src/main/java/mop</destinationFolder>

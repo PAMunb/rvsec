@@ -3,6 +3,7 @@ package br.unb.cic.misc;
 import org.junit.Assert;
 
 import br.unb.cic.mop.ExecutionContext;
+import br.unb.cic.mop.Property;
 import br.unb.cic.mop.eh.ErrorCollector;
 
 public class Assertions extends Assert {
@@ -43,7 +44,7 @@ public class Assertions extends Assert {
         }
     }
 
-    public static void hasEnsuredPredicate(ExecutionContext.Property property, Object obj) {
+    public static void hasEnsuredPredicate(Property property, Object obj) {
         if(ExecutionContext.instance().validate(property, obj)) {
             assertTrue(true);
         }
