@@ -10,11 +10,11 @@ def create_folder_if_not_exists(path: str):
     if not os.path.exists(path):
         try:
             logging.debug("Creating folder: " + path)
-            os.mkdir(path)
+            os.makedirs(path)
         except OSError as e:
             error_msg = 'Error while creating folder {0}. Error: {1}'.format(path, e)
             logging.error(error_msg)
-            raise Exception(error_msg)
+            raise e
 
 def reset_folder(path: str):
     shutil.rmtree(path, ignore_errors=True)

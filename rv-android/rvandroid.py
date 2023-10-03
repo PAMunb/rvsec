@@ -1,5 +1,4 @@
 import logging
-import os
 import shutil
 import subprocess
 import sys
@@ -16,41 +15,72 @@ EXTENSION_MOP = ".mop"
 EXTENSION_RVM = ".rvm"
 
 
+# class RvAndroidException(Exception):
+#     pass
+
+
 class RvAndroid(object):
     """
-    this class encapsulates some actions using rvsec
+    this class encapsulates some actions using rvsec and other tools
     """
 
     def __init__(self):
         pass
 
     def instrument_apks(self, out_dir=INSTRUMENTED_DIR):
-        self.__prepare_instrumentation()
+        # temporario
+        erros = []
+
+        self.__prepare_instrumentation(True)
         apks = utils.get_apks(APKS_DIR)
         logging.info("Instrumenting {} apks ...".format(len(apks)))
-        self.__prepare_instrumentation()
         for app in apks:
-            self.__instrument(app, out_dir)
+            try:
+                self.__prepare_instrumentation(False)
+                self.__instrument(app, out_dir)
+                self.__check_if_istrumented(app, out_dir)
+            except CommandException as ex:
+                logging.error("Failed to instrument APK: {}. {}".format(app.name, ex))
+                #TODO manda limpar???
+                self.clear()
+                erros.append((app.name, ex))
+            except Exception as ex:
+                logging.error("Error while instrumenting APK: {}. {}".format(app.path, ex))
 
-    def instrument(self, app_path: str, out_dir=INSTRUMENTED_DIR, prepare=True):
-        if prepare:
-            self.__prepare_instrumentation()
+        print("ERROS: {}".format(len(erros)))
+        for erro in erros:
+            print(erro)
+
+    # TODO deprecated ??? ... nao usar o metodo para instrumentar 1 app ... e sim o q instrumenta todos???
+    def instrument(self, app_path: str, out_dir=INSTRUMENTED_DIR, generate_monitors=True, force_intrumentation=False):
+        self.__prepare_instrumentation(generate_monitors)
         app = App(app_path)
-        return self.__instrument(app, out_dir)
+        return self.__instrument(app, out_dir, force_intrumentation)
 
-    def __prepare_instrumentation(self):
+    def __prepare_instrumentation(self, generate_monitors: bool):
         self.clear()
         self.__execute_maven()
-        self.__runtime_verification()
+        if generate_monitors:
+            self.__generate_monitors()
 
-    def __instrument(self, app: App, out_dir=INSTRUMENTED_DIR):
+    def __instrument(self, app: App, out_dir=INSTRUMENTED_DIR, force_intrumentation=False):
+        instrumented_apk = os.path.join(out_dir, app.name)
+        if os.path.exists(instrumented_apk):
+            if force_intrumentation:
+                logging.info("Deleting APK: {}".format(instrumented_apk))
+                os.remove(instrumented_apk)
+            else:
+                logging.info("Skipping APK already instrumented: {}".format(app.name))
+                # TODO
+                return None
         logging.info("Instrumenting: {}".format(app.name))
         self.__decompile(app)
         self.__include_generated_monitor()
         self.__compile(app)
         signed_apk = self.__create_apk(app, out_dir=out_dir)
         # TODO esta limpando tudo?
-        # self.clear()
+        self.clear()
+        # TODO esta realmente instrumentado???
         logging.info("APK instrumented: {}".format(signed_apk))
         return signed_apk
 
@@ -63,9 +93,10 @@ class RvAndroid(object):
     def __compile(self, app: App, work_dir=TMP_DIR):
         logging.info("Instrumenting: {}".format(work_dir))
         classpath = self.__get_classpath(app)
-        classpath.append(work_dir)
+        classpath.append(work_dir)  # TODO precisa?
         logging.info("CLASSPATH={}".format(':'.join(classpath)))
-        ajc_cmd = Command("ajc", ['-cp', ':'.join(classpath)+':'+MOP_OUT_DIR, '-Xlint:ignore',
+        # TODO precisa do MOP_OUT_DIR?
+        ajc_cmd = Command("ajc", ['-cp', ':'.join(classpath) + ':' + MOP_OUT_DIR, '-Xlint:ignore',
                                   '-inpath', work_dir, '-d', work_dir,
                                   '-source', '1.8', '-sourceroots', work_dir])
         self.__execute_command(ajc_cmd, "ajc")
@@ -75,10 +106,10 @@ class RvAndroid(object):
         utils.create_folder_if_not_exists(out_dir)
         no_monitor_jar_name = "no_monitor_{}.jar".format(app.name)
         no_monitor_jar = os.path.join(out_dir, no_monitor_jar_name)
-        #TODO como o d2j lida com multidex? e como vamos lidar aqui?
+        # TODO como o d2j lida com multidex? e como vamos lidar aqui?
         self.__d2j_dex2jar(app, no_monitor_jar)
         assert os.path.exists(no_monitor_jar)
-        self.__d2j_asm_verify(no_monitor_jar)
+        self.__d2j_asm_verify(no_monitor_jar, skip_verify=True)
         utils.unzip(no_monitor_jar, out_dir)
         utils.delete_file(no_monitor_jar)
         logging.info("Decompiled classes in: {}".format(out_dir))
@@ -88,16 +119,19 @@ class RvAndroid(object):
         # skips the verification (last argument) of the stderr because dex2jar prints an valid output in stderr
         self.__execute_command(dex2jar_cmd, "dex2jar", True)
 
-    def __d2j_asm_verify(self, jar_file):
+    def __d2j_asm_verify(self, jar_file, skip_verify=False):
+        if skip_verify:
+            return
         asm_verify_cmd = Command(D2J_ASM_VERIFY, [jar_file])
-        # TODO testar um caso de erro para verificar se esta capturando
         self.__execute_command(asm_verify_cmd, "asm_verify")
 
     def __d2j_apk_sign(self, signed_apk: str, unsigned_apk: str):
         apk_sign_cmd = Command(D2J_APK_SIGN, ['-f', '-o', signed_apk, unsigned_apk])
         self.__execute_command(apk_sign_cmd, "apk_sign", True)
 
-    def __runtime_verification(self):
+    def __generate_monitors(self):
+        logging.info("Generating Monitors ...")
+        logging.debug("Recreating ")
         utils.reset_folder(MOP_OUT_DIR)
         self.__java_mop()
         self.__rv_monitor()
@@ -139,7 +173,8 @@ class RvAndroid(object):
         if not skip_stderr:
             cond = cond or cmd_result.stderr
         if cond:
-            raise CommandException("{0}: {1}. {2}".format(tag, cmd_result.code, cmd_result.stderr))
+            #raise CommandException("{0}: {1}. {2}".format(tag, cmd_result.code, cmd_result.stderr))
+            raise CommandException(tag, cmd_result.code, cmd_result.stderr)
 
     def __include_generated_monitor(self, out_dir=TMP_DIR):
         logging.info("Including generated RV artifacts ...")
@@ -175,7 +210,7 @@ class RvAndroid(object):
             jar = os.path.join(LIB_TMP_DIR, jar_name)
             utils.unzip(jar, RVM_TMP_DIR)
             utils.delete_file(jar)
-        ## Remove rv-monitor-rt's manifest
+        ## Remove manifests
         metainf_dir = os.path.join(RVM_TMP_DIR, "META-INF")
         utils.delete_dir(metainf_dir)
         # Merge RV-Monitor support classes
@@ -198,19 +233,31 @@ class RvAndroid(object):
         assert os.path.exists(generated_dex)
         # shutil.copy2(generated_dex, out_dir)
         shutil.move(generated_dex, out_dir)
+        generated_dex = os.path.join(out_dir, dex_name)
+        assert os.path.exists(generated_dex)
 
         # copy the original apk (as unsigned_apk)
         unsigned_apk_name = "unsigned_{}".format(app.name)
         unsigned_apk = os.path.join(out_dir, unsigned_apk_name)
         shutil.copy2(app.path, unsigned_apk)
+        assert os.path.exists(unsigned_apk)
         logging.info("Copying original APK ({}) to {}".format(app.name, unsigned_apk))
 
         # Replace old/original classes.dex in APK with new/genereated classes.dex
+        # TODO
         # zip_cmd = Command('zip', ['-r', unsigned_apk, generated_dex])
         # self.__execute_command(zip_cmd, "zip_d8")
         # TODO usar command ... customizar com o cwd
         logging.info("Replacing old 'classes.dex' in: {}".format(unsigned_apk_name))
-        subprocess.Popen(['zip', '-r', unsigned_apk_name, dex_name], cwd=out_dir)
+        print("out_dir={}".format(out_dir))
+        current_dir = os.getcwd()
+        os.chdir(out_dir)
+        print("dir={}".format(os.getcwd()))
+        subprocess.Popen(['zip', '-r', unsigned_apk_name, dex_name])  # , cwd=out_dir)#, shell=True)
+        os.chdir(current_dir)
+        print("dir={}".format(os.getcwd()))
+        # utils.delete_file(generated_dex)
+        os.remove(generated_dex)
 
         # Verify and sign the Jar with debug key, repairing any inconsistent manifests
         self.__d2j_asm_verify(unsigned_apk)
@@ -247,11 +294,24 @@ class RvAndroid(object):
         jarsigner_cmd = Command('jarsigner', ['-verify', '-certs', signed_apk])
         self.__execute_command(jarsigner_cmd, "jarsigner_verify")
 
+    def __check_if_istrumented(self, app: App, out_dir):
+        # TODO checar se o apk foi realmente instrumentado (talvez checando o hash com o original)
+        # isso pro caso do __execute_command() nao estar capturando os erros
+        pass
+
+    def __is_app_already_instrumented(self, app: App, out_dir):
+        instrumented_apk = os.path.join(out_dir, app.name)
+        return os.path.exists(instrumented_apk)
+
 
 if __name__ == '__main__':
     logging.basicConfig(stream=sys.stdout, level=logging.INFO)
     logging.info("Executing")
 
-    apk = "./cryptoapp.apk"
+    # apk = "./cryptoapp.apk"
+    # apk = "apks/ar.rulosoft.mimanganu_75.apk"
+    # apk = "apks/at.bitfire.davdroid_403060100.apk"
+    apk="apks/com.infomaniak.drive_40202501.apk"
     rv_android = RvAndroid()
-    rv_android.instrument(apk)
+    # rv_android.instrument(apk, generate_monitors=False)
+    rv_android.instrument_apks()
