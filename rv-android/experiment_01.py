@@ -10,6 +10,7 @@ from commands.command import Command
 from android import Android
 from app import App
 from rvandroid import RvAndroid
+from rvsec import  RVSec
 
 
 REPETITION = 1
@@ -19,42 +20,53 @@ TIMEOUTS = [180]
 
 android = Android()
 rvandroid = RvAndroid()
+rvsec = RVSec()
 
 tools = {}
 
 
-def execute(instrument=True):
+def execute(generate_monitors=True, instrument=True):
     logging.basicConfig(stream=sys.stdout, level=logging.INFO)
-    logging.info("Executing")
+    logging.info("Executing Experiment ...")
 
-    load_tools()
+    # load_tools()
 
     # create results dir
-    results_dir = create_results_dir()
+    # results_dir = create_results_dir()
+
+    # generate monitors
+    if generate_monitors:
+        rvsec.generate_monitors()
 
     # instrument apks
     if instrument:
         rvandroid.instrument_apks()
-        # runtime_verification()
-        # instrument_apks()
+
+
 
     # retrieve the instumented apks
-    # apks = utils.get_apks(INSTRUMENTED_DIR)
-    # logging.info("Instrumented APKs: {0}".format(len(apks)))
-    #
-    # # for each instrumented apk
-    # for rep in range(REPETITION):
-    #     logging.info("REPETITION: " + str(rep))
-    #     for timeout in TIMEOUTS:
-    #         logging.info("TIMEOUT: "+str(timeout))
-    #         for apk in apks:
-    #             logging.info("APK: " + apk.name)
-    #             for tool in tools:
-    #                 logging.info("TOOL: " + tool)
-    #                 #run(apk, rep, timeout, policy, results_dir)
+    apks = utils.get_apks(INSTRUMENTED_DIR)
+    logging.info("Instrumented APKs: {0}".format(len(apks)))
+
+    # for each instrumented apk
+    for rep in range(REPETITION):
+        logging.info("REPETITION: " + str(rep))
+        for timeout in TIMEOUTS:
+            logging.info("TIMEOUT: "+str(timeout))
+            for apk in apks:
+                logging.info("APK: " + apk.name)
+                for tool in tools:
+                    logging.info("TOOL: " + tool)
+                    try:
+                        run_fake()
+                    except Exception as ex:
+                        #TODO melhorar mensagem
+                        logging.error("Error while executing APK: {}. {}".format(apk.name, ex))
 
     logging.info('Finished !!!')
 
+def run_fake():
+    pass
 
 def run(apk, rep, timeout, tool, results_dir):
     logging.info("Running: APK={0}, rep={1}, timeout={2}, tool={3}".format(apk, rep, timeout, tool))
@@ -66,8 +78,10 @@ def run(apk, rep, timeout, tool, results_dir):
     with android.create_emulator(AVD_NAME) as emulator:
         with open(logcat_file, 'wb') as log_cat:
             proc = logcat_cmd.invoke_as_deamon(stdout=log_cat)
+            # TODO executar a tool
             run_droidbot(apk_path, timeout, tool)
             proc.kill()
+
 
 def run_droidbot(apk_path, timeout, policy):
     logging.info("Running droidbot: "+apk_path)
@@ -108,9 +122,8 @@ def load_tools():
 
 def create_results_dir():
     results_dir = os.path.join(RESULTS_DIR, TIMESTAMP)
-    utils.create_folder_if_not_exists(RESULTS_DIR)
     utils.create_folder_if_not_exists(results_dir)
     return results_dir
         
 if __name__ == '__main__':
-    execute()
+    execute(generate_monitors=False, instrument=True)

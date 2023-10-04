@@ -1,9 +1,31 @@
+import hashlib
 import logging
 import os
 import shutil
+import sys
 from zipfile import ZipFile, ZIP_DEFLATED
 
 from app import App
+from commands.command import Command
+from commands.command_exception import CommandException
+
+
+def execute_command(cmd: Command, tag: str, skip_stderr=False):
+    cmd_result = cmd.invoke(stdout=sys.stdout)  # , stderr=sys.stderr)
+    cond = cmd_result.code != 0
+    if not skip_stderr:
+        cond = cond or cmd_result.stderr
+    if cond:
+        raise CommandException(tag, cmd_result.code, cmd_result.stderr)
+
+
+def hash(file_path: str):
+    sha256_hash = hashlib.sha256()
+    with open(file_path, "rb") as f:
+        # Read and update hash value in blocks of 4K
+        for byte_block in iter(lambda: f.read(4096), b""):
+            sha256_hash.update(byte_block)
+    return sha256_hash.hexdigest()
 
 
 def create_folder_if_not_exists(path: str):
@@ -16,9 +38,11 @@ def create_folder_if_not_exists(path: str):
             logging.error(error_msg)
             raise e
 
+
 def reset_folder(path: str):
     shutil.rmtree(path, ignore_errors=True)
     os.makedirs(path)
+
 
 # TODO refatorar esses metodos praticamente iguais
 
@@ -55,7 +79,7 @@ def copy_files(in_folder: str, destination_folder: str):
         check_folder_exists([in_folder, destination_folder])
         logging.debug("Copying files with from {} to {}".format(in_folder, destination_folder))
         for file in os.listdir(in_folder):
-            #if os.path.isfile(file):
+            # if os.path.isfile(file):
             file_path = os.path.join(in_folder, file)
             shutil.copy2(file_path, destination_folder)
     except OSError as e:
