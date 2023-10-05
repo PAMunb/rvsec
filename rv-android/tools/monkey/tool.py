@@ -3,7 +3,7 @@ import re
 
 from commands.command import Command
 
-from settings import INSTRUMENTED_DIR
+from settings import OUT_DIR
 
 from ..tool_spec import AbstractTool
 
@@ -16,7 +16,7 @@ class ToolSpec(AbstractTool):
                                        'com.android.commands.monkey')
         
     def execute_tool_specific_logic(self, TRACE_DIR, file_name, timeout):
-        package_name = self._get_package_name(os.path.join(INSTRUMENTED_DIR, file_name))
+        package_name = self._get_package_name(os.path.join(OUT_DIR, file_name))
         trace_file = os.path.join(TRACE_DIR, self.name, file_name + "." + self.name)
         with open(trace_file, 'wb') as trace:
             exec_cmd = Command('adb', [

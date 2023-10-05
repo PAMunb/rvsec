@@ -45,7 +45,7 @@ def execute(generate_monitors=True, instrument=True):
 
 
     # retrieve the instumented apks
-    apks = utils.get_apks(INSTRUMENTED_DIR)
+    apks = utils.get_apks(OUT_DIR)
     logging.info("Instrumented APKs: {0}".format(len(apks)))
 
     # for each instrumented apk
@@ -71,7 +71,7 @@ def run_fake():
 def run(apk, rep, timeout, tool, results_dir):
     logging.info("Running: APK={0}, rep={1}, timeout={2}, tool={3}".format(apk, rep, timeout, tool))
 
-    apk_path = os.path.join(INSTRUMENTED_DIR, apk)
+    apk_path = os.path.join(OUT_DIR, apk)
     logcat_cmd = Command('adb', ['logcat', '-v', 'raw', '-s', 'RVSEC', 'RVSEC-COV'])
     logcat_file = os.path.join(results_dir, "{0}__{1}__{2}__{3}.txt".format(apk, rep, timeout, tool))
 

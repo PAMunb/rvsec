@@ -4,7 +4,7 @@ import logging
 
 import fnmatch, shutil
 
-from settings import MOP_DIR, MOP_OUT_DIR, AVD_NAME, RESULTS_DIR, TIMESTAMP, INSTRUMENTED_DIR, APKS_DIR, JAVAMOP_BIN, RV_MONITOR_BIN
+from settings import MOP_DIR, MOP_OUT_DIR, AVD_NAME, RESULTS_DIR, TIMESTAMP, OUT_DIR, APKS_DIR, JAVAMOP_BIN, RV_MONITOR_BIN
 from commands.command import Command
 from android import Android
 from app import App
@@ -30,7 +30,7 @@ def execute(instrument=True):
         instrument_apks()
 
     # retrieve the instumented apks
-    apks = get_apks(INSTRUMENTED_DIR)
+    apks = get_apks(OUT_DIR)
     logging.info("Instrumented APKs: {0}".format(len(apks)))
 
     # for each instrumented apk
@@ -48,7 +48,7 @@ def execute(instrument=True):
 def run(apk, rep, timeout, policy, results_dir):
     logging.info("Running: APK={0}, rep={1}, timeout={2}, policy={3}".format(apk, rep, timeout, policy))
 
-    apk_path = os.path.join(INSTRUMENTED_DIR, apk)
+    apk_path = os.path.join(OUT_DIR, apk)
     logcat_cmd = Command('adb', ['logcat', '-v', 'raw', '-s', 'RVSEC', 'RVSEC-COV'])
     logcat_file = os.path.join(results_dir, "{0}_{1}_{2}_{3}.txt".format(apk, rep, timeout, policy))
 
