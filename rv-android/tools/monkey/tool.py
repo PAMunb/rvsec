@@ -3,7 +3,8 @@ import re
 
 from commands.command import Command
 
-from settings import OUT_DIR
+from settings import INSTRUMENTED_DIR
+from app import App
 
 from ..tool_spec import AbstractTool
 
@@ -15,35 +16,16 @@ class ToolSpec(AbstractTool):
         as well as a number of system-level events. (https://developer.android.com/studio/test/monkey)""",
                                        'com.android.commands.monkey')
         
-    def execute_tool_specific_logic(self, TRACE_DIR, file_name, timeout):
-        package_name = self._get_package_name(os.path.join(OUT_DIR, file_name))
-        trace_file = os.path.join(TRACE_DIR, self.name, file_name + "." + self.name)
-        with open(trace_file, 'wb') as trace:
+    def execute_tool_specific_logic(self, app: App, timeout: int, log_file: str):
+        with open(log_file, 'wb') as trace:
             exec_cmd = Command('adb', [
                 'shell',
                 'monkey',
                 '-p',
-                package_name,
+                app.package_name,
                 # '--ignore-crashes',
                 # '--ignore-timeouts',
                 '--ignore-security-exceptions',
                 '100000'
             ], timeout)
             exec_cmd.invoke(stdout=trace)
-
-
-    def _get_package_name(self, fileName):
-        readlink_cmd = Command('readlink', ['-f', fileName])
-        readlink_result = readlink_cmd.invoke()
-        readlink_result_str = readlink_result.stdout.strip().decode('ascii', 'ignore')
-        
-        get_package_list_cmd = Command('aapt', ['list', '-a', fileName])
-        get_package_list_result = get_package_list_cmd.invoke()
-        get_package_list_result_str = get_package_list_result.stdout.strip().decode('ascii', 'ignore')
-
-        match = re.search(r'Package Group .* packageCount=1 name=(.*)', get_package_list_result_str, re.MULTILINE)
-        if match is None:
-            match = re.search(r'package=(.*)', get_package_list_result_str, re.MULTILINE)
-            if match is None:
-                return None
-        return match.group(1)

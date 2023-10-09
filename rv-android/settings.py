@@ -9,8 +9,7 @@ WORKING_DIR = os.getcwd()
 
 APKS_DIR = os.path.join(WORKING_DIR, 'apks_mini')
 RESULTS_DIR = os.path.join(WORKING_DIR, 'results')
-OUT_DIR = os.path.join(WORKING_DIR, 'out')
-#INSTRUMENTED_DIR_DROIDFAX = os.path.join(WORKING_DIR, 'instrumented-droidfax')
+INSTRUMENTED_DIR = os.path.join(WORKING_DIR, 'out')
 LIB_DIR = os.path.join(WORKING_DIR, 'lib')
 
 TMP_DIR = os.path.join(WORKING_DIR, 'tmp')

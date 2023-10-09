@@ -64,7 +64,7 @@ class RvAndroid(object):
     def __instrument(self, app: App, force_intrumentation=False):
         # check if the APK exists in 'instrumented' dir
         # and if is to instrument if it already exists (is instrumented)
-        instrumented_apk = os.path.join(OUT_DIR, app.name)
+        instrumented_apk = os.path.join(INSTRUMENTED_DIR, app.name)
         if os.path.exists(instrumented_apk):
             if force_intrumentation:
                 logging.info("Deleting APK: {}".format(instrumented_apk))
@@ -258,11 +258,11 @@ class RvAndroid(object):
         return unsigned_apk
 
     def __sign_apk(self, app: App, unsigned_apk: str):
-        utils.create_folder_if_not_exists(OUT_DIR)
+        utils.create_folder_if_not_exists(INSTRUMENTED_DIR)
 
         logging.info("Signing APK: {}".format(unsigned_apk))
         # Sign debug Jar with final key
-        signed_apk = os.path.join(OUT_DIR, app.name)
+        signed_apk = os.path.join(INSTRUMENTED_DIR, app.name)
         self.__d2j_apk_sign(signed_apk, unsigned_apk)
         os.remove(unsigned_apk)
         assert os.path.exists(signed_apk)
@@ -294,7 +294,7 @@ class RvAndroid(object):
         # isso pro caso do __execute_command() nao estar capturando os erros
 
         hash_original = utils.hash(os.path.join(app.path))
-        hash_instrumented = utils.hash(os.path.join(OUT_DIR, app.name))
+        hash_instrumented = utils.hash(os.path.join(INSTRUMENTED_DIR, app.name))
         if hash_original == hash_instrumented:
             # TODO nao instrumentou ... lancar excecao?
             logging.error("NAO INSTRUMENTOU ....................................")

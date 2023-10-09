@@ -1,10 +1,14 @@
 import os
+
 from androguard.core.bytecodes.apk import APK
+
 
 class App(object):
     """
     this class describes an app
     """
+
+#TODO criar e usar getters !!!
 
     def __init__(self, app_path):
         """
@@ -20,3 +24,4 @@ class App(object):
         self.apk = APK(self.path)
         self.package_name = self.apk.get_package()
         self.sdk_target = self.apk.get_effective_target_sdk_version()
+        self.permissions = self.apk.get_permissions()

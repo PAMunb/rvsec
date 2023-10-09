@@ -1,60 +1,38 @@
 import logging
-import re
-import os
-import io
 import time
-import sys
-
-from commands.command import Command
 from contextlib import contextmanager
+
+from app import App
+from commands.command import Command
 
 
 class Android:
 
     @classmethod
     @contextmanager
-    def create_emulator(cls, avd_name):
+    def create_emulator(cls, avd_name, no_window=False):
         # Code to acquire resource, e.g.:
-        emulator = cls.start_emulator(avd_name)
+        emulator = cls.start_emulator(avd_name, no_window)
         try:
             yield emulator
         finally:
             # Code to release resource, e.g.:
             cls.kill_emulator(avd_name)
 
-
     @classmethod
-    def start_emulator(cls, avd_name):
-        logging.info('Starting emulator')        
-        start = time.time()
-                
-        start_emulator_cmd = Command('emulator', ['-avd', avd_name, '-writable-system', '-wipe-data', '-no-boot-anim', '-netdelay', 'none'])
-        #start_emulator_cmd = Command('emulator', ['-avd', avd_name, '-writable-system', '-wipe-data', '-no-boot-anim', '-noaudio', '-no-snapshot-save', '-delay-adb', '-no-window'])
+    def start_emulator(cls, avd_name: str, no_window=False):
+        logging.info('Starting emulator')
+        # start = time.time()
+
+        args = ['-avd', avd_name, '-writable-system', '-wipe-data', '-no-boot-anim',
+                '-noaudio', '-no-snapshot-save', '-delay-adb']
+        if no_window:
+            args.append('-no-window')
+        start_emulator_cmd = Command('emulator', args)
         emulator_proc = start_emulator_cmd.invoke_as_deamon()
 
-        logging.info('Waiting for emulator to boot')        
-        wait_emulator_cmd = Command('adb', ['wait-for-device'])
-        wait_emulator_cmd.invoke()
+        cls._wait_for_boot()
 
-        root_cmd = Command('adb', [
-            'wait-for-device',
-            'root',
-        ])
-        while root_cmd.invoke().stderr.strip().decode('ascii'):
-           time.sleep(5)
-
-        adb_remount = Command('adb', ['wait-for-device', 'remount'])
-        while adb_remount.invoke().stderr.strip().decode('ascii'):
-           time.sleep(5)
-
-        logging.info('Emulator booted!')
-        end = time.time()
-        elapsed = end - start
-        if elapsed > 60:
-            logging.info('Emulator took {0} minutes and {1} seconds to boot'.format(int(elapsed / 60), elapsed % 60))
-        else:
-            logging.info('Emulator took {0} seconds to boot'.format(elapsed))
-    
 
     @classmethod
     def kill_emulator(cls, avd_name):
@@ -68,15 +46,60 @@ class Android:
         time.sleep(10)
         logging.info('Emulator has been killed')
 
+    @staticmethod
+    def _wait_for_boot():
+        start = time.time()
+        logging.info('Waiting for emulator to boot')
+        check_emulator_cmd = Command('adb', ['-s', 'emulator-5554', 'shell', 'getprop', 'init.svc.bootanim'])
+        check_result = check_emulator_cmd.invoke()
+        while check_result.stdout.strip().decode('ascii') != 'stopped':
+            time.sleep(5)
+            logging.info('Waiting for emulator to boot')
+            check_result = check_emulator_cmd.invoke()
+        wait_emulator_cmd = Command('adb', ['wait-for-device', 'shell',
+                                            "'while [[ -z $(getprop sys.boot_completed) ]]; do sleep 1; done;'"])
+        wait_emulator_cmd.invoke()
+
+        root_cmd = Command('adb', [
+            'wait-for-device',
+            'root',
+        ])
+        while root_cmd.invoke().stderr.strip().decode('ascii'):
+            time.sleep(5)
+
+        adb_remount = Command('adb', ['wait-for-device', 'remount'])
+        while adb_remount.invoke().stderr.strip().decode('ascii'):
+            time.sleep(5)
+
+        logging.info('Emulator booted!')
+        end = time.time()
+        elapsed = end - start
+        if elapsed > 60:
+            logging.info('Emulator took {0} minutes and {1} seconds to boot'.format(int(elapsed / 60), elapsed % 60))
+        else:
+            logging.info('Emulator took {0} seconds to boot'.format(elapsed))
 
     @classmethod
-    def install_apk(cls, file):
-        logging.info("Installing APK: {0}".format(file))
+    def simulate_reboot(cls):
+        logging.info('Starting reboot simulation')
+        sim_reboot_cmd = Command('adb', ['shell', 'am', 'broadcast', '-a', 'android.intent.action.BOOT_COMPLETED'], 15)
+        sim_reboot_cmd.invoke()
+        time.sleep(1)
+        cls._wait_for_boot()
+
+    @classmethod
+    def install_with_permissions(cls, app: App):
+        cls.install_apk(app)
+        cls.grant_permissions(app)
+
+    @classmethod
+    def install_apk(cls, app: App):
+        logging.info("Installing APK: {0}".format(app.name))
         root_cmd = Command('adb', [
             'root',
         ])
         result = root_cmd.invoke()
-        readlink_cmd = Command('readlink', ['-f', file])
+        readlink_cmd = Command('readlink', ['-f', app.path])
         readlink_result = readlink_cmd.invoke()
         install_cmd = Command('adb', [
             '-s',
@@ -87,49 +110,14 @@ class Android:
         ])
         install_cmd.invoke()
 
+    @classmethod
+    def uninstall_apk(cls, app: App):
+        uninstall_cmd = Command('adb', ['-s', 'emulator-5554', 'uninstall', app.package_name])
+        uninstall_cmd.invoke()
 
     @classmethod
-    def uninstall_apk(cls, file):
-        package_name = cls.get_package_name(file)
-        if package_name is not None:
-            uninstall_cmd = Command('adb', ['-s', 'emulator-5554', 'uninstall', package_name])
-            uninstall_cmd.invoke()
-
-
-    @classmethod
-    def get_package_name(cls, apk_path):
-        get_package_list_cmd = Command('aapt', ['list', '-a', apk_path])
-        get_package_list_result = get_package_list_cmd.invoke()
-        get_package_list_result_str = get_package_list_result.stdout.strip().decode('ascii', 'ignore')
-
-        match = re.search(r'Package Group .* packageCount=1 name=(.*)', get_package_list_result_str, re.MULTILINE)
-        if match is None:
-            match = re.search(r'package=(.*)', get_package_list_result_str, re.MULTILINE)
-            if match is None:
-                return None
-        return match.group(1)  
-
-
-    @classmethod
-    def get_permissions(cls, apk_path): 
-        permissions = []
-        get_permissions_cmd = Command('aapt', ['d', 'permissions', apk_path])
-        get_permissions_result = get_permissions_cmd.invoke()
-        get_permissions_result_str = get_permissions_result.stdout.strip().decode('ascii', 'ignore') 
-
-        matches = re.findall(r"uses-permission: name='.*'", get_permissions_result_str, re.MULTILINE)        
-        for match in matches:
-            tmp = match.replace("uses-permission: name='","")
-            tmp = tmp.replace("'","")            
-            permissions.append(tmp)
-        return permissions
-
-    
-    @classmethod
-    def grant_permissions(cls, apk_path):
-        package = cls.get_package_name(apk_path)
-        permissions = cls.get_permissions(apk_path)
-        for permission in permissions:
-            grant_cmd = Command('adb', ['shell', 'pm', 'grant', package, permission])
+    def grant_permissions(cls, app: App):
+        for permission in app.permissions:
+            logging.info("Granting permission {}".format(permission))
+            grant_cmd = Command('adb', ['shell', 'pm', 'grant', app.package_name, permission])
             grant_cmd.invoke()
- 

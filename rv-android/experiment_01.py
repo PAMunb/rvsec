@@ -1,38 +1,29 @@
-import os
-import sys
 import logging
-import importlib
-import fnmatch, shutil
-import utils
+import sys
 
-from settings import *
-from commands.command import Command
+import utils
 from android import Android
 from app import App
+from commands.command import Command
 from rvandroid import RvAndroid
-from rvsec import  RVSec
-
-
-REPETITION = 1
-TIMEOUTS = [180]
-#POLICY = ["monkey","dfs_naive","dfs_greedy","bfs_naive","bfs_greedy"]
-#POLICY = ["dfs_greedy"]
+from rvsec import RVSec
+from settings import *
+from tools.tool_spec import AbstractTool
 
 android = Android()
 rvandroid = RvAndroid()
 rvsec = RVSec()
 
-tools = {}
 
-
-def execute(generate_monitors=True, instrument=True):
+def execute(repetitions: int, timeouts: list[int], tools: list[AbstractTool], generate_monitors=True, instrument=True,
+            no_window=False):
     logging.basicConfig(stream=sys.stdout, level=logging.INFO)
     logging.info("Executing Experiment ...")
 
-    # load_tools()
+    print("tools={}".format(tools))
 
     # create results dir
-    # results_dir = create_results_dir()
+    base_results_dir = create_results_dir()
 
     # generate monitors
     if generate_monitors:
@@ -42,88 +33,45 @@ def execute(generate_monitors=True, instrument=True):
     if instrument:
         rvandroid.instrument_apks()
 
-
-
     # retrieve the instumented apks
-    apks = utils.get_apks(OUT_DIR)
+    apks = utils.get_apks(INSTRUMENTED_DIR)
     logging.info("Instrumented APKs: {0}".format(len(apks)))
 
     # for each instrumented apk
-    for rep in range(REPETITION):
-        logging.info("REPETITION: " + str(rep))
-        for timeout in TIMEOUTS:
-            logging.info("TIMEOUT: "+str(timeout))
+    for rep in range(repetitions):
+        repetition = rep + 1
+        for timeout in timeouts:
             for apk in apks:
-                logging.info("APK: " + apk.name)
                 for tool in tools:
-                    logging.info("TOOL: " + tool)
                     try:
-                        run_fake()
+                        run(apk, repetition, timeout, tool, base_results_dir)
                     except Exception as ex:
-                        #TODO melhorar mensagem
+                        # TODO melhorar mensagem
                         logging.error("Error while executing APK: {}. {}".format(apk.name, ex))
 
     logging.info('Finished !!!')
 
-def run_fake():
-    pass
 
-def run(apk, rep, timeout, tool, results_dir):
-    logging.info("Running: APK={0}, rep={1}, timeout={2}, tool={3}".format(apk, rep, timeout, tool))
-
-    apk_path = os.path.join(OUT_DIR, apk)
+def run(apk: App, rep: int, timeout: int, tool: AbstractTool, results_dir: str):
+    logging.info("Running: APK={0}, rep={1}, timeout={2}, tool={3}".format(apk.name, rep, timeout, tool.name))
     logcat_cmd = Command('adb', ['logcat', '-v', 'raw', '-s', 'RVSEC', 'RVSEC-COV'])
-    logcat_file = os.path.join(results_dir, "{0}__{1}__{2}__{3}.txt".format(apk, rep, timeout, tool))
+
+    logcat_file = os.path.join(results_dir, "{0}__{1}__{2}__{3}.logcat".format(apk.name, rep, timeout, tool.name))
+    log_file = os.path.join(results_dir, "{0}__{1}__{2}__{3}.trace".format(apk.name, rep, timeout, tool.name))
 
     with android.create_emulator(AVD_NAME) as emulator:
+        android.install_with_permissions(apk)
+        # android.simulate_reboot() # TODO pq? eh usado no droidxp ...
         with open(logcat_file, 'wb') as log_cat:
             proc = logcat_cmd.invoke_as_deamon(stdout=log_cat)
-            # TODO executar a tool
-            run_droidbot(apk_path, timeout, tool)
+            tool.execute(apk, timeout, log_file)
             proc.kill()
 
-
-def run_droidbot(apk_path, timeout, policy):
-    logging.info("Running droidbot: "+apk_path)
-    droidbot_cmd = Command('droidbot', [
-        '-d',
-        'emulator-5554',
-        '-a',
-        apk_path,
-        '-policy',
-        policy,
-        '-is_emulator',
-        '-count',
-        '10000000',
-        '-grant_perm',
-        '-ignore_ad'
-    ], timeout)
-    droidbot_cmd.invoke(stdout=sys.stdout)
-
-def qualified_name(p):
-    return p.replace(".py", "").replace("./", "").replace("/", ".")
-
-
-def load_tools():
-    '''Load all available tools.
-
-     A tool must be defined in a subdirectory within
-     the tools folder, in a python module named tool.py.
-     This module must also declare a class named ToolSpec,
-     which shoud inherit from AbstractToo.
-    '''
-    for subdir, dirs, files in os.walk('.' + os.sep + 'tools'):
-        for filename in files:
-            if filename == 'tool.py':
-                tool_module = importlib.import_module(qualified_name(subdir + os.sep + filename))
-                tool_class = getattr(tool_module, 'ToolSpec')
-                tool_instance = tool_class()
-                tools[tool_instance.name] = tool_instance
 
 def create_results_dir():
     results_dir = os.path.join(RESULTS_DIR, TIMESTAMP)
     utils.create_folder_if_not_exists(results_dir)
     return results_dir
-        
-if __name__ == '__main__':
-    execute(generate_monitors=False, instrument=True)
+
+# if __name__ == '__main__':
+#     execute(generate_monitors=False, instrument=False)
