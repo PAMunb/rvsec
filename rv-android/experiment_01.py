@@ -11,29 +11,21 @@ from settings import *
 from tools.tool_spec import AbstractTool
 
 android = Android()
-rvandroid = RvAndroid()
-rvsec = RVSec()
 
 
 def execute(repetitions: int, timeouts: list[int], tools: list[AbstractTool], generate_monitors=True, instrument=True,
             no_window=False):
+    #TODO configurar o log ... em arquivo tbm ... por modulos ... e esta sendo definido no main.py
     logging.basicConfig(stream=sys.stdout, level=logging.INFO)
     logging.info("Executing Experiment ...")
 
-    print("tools={}".format(tools))
-
-    # create results dir
+    # create base results dir (timestamp)
     base_results_dir = create_results_dir()
 
-    # generate monitors
-    if generate_monitors:
-        rvsec.generate_monitors()
+    # generate monitors and instrument APKs
+    runtime_verification(generate_monitors, instrument)
 
-    # instrument apks
-    if instrument:
-        rvandroid.instrument_apks()
-
-    # retrieve the instumented apks
+    # retrieve the instrumented apks
     apks = utils.get_apks(INSTRUMENTED_DIR)
     logging.info("Instrumented APKs: {0}".format(len(apks)))
 
@@ -44,7 +36,7 @@ def execute(repetitions: int, timeouts: list[int], tools: list[AbstractTool], ge
             for apk in apks:
                 for tool in tools:
                     try:
-                        run(apk, repetition, timeout, tool, base_results_dir)
+                        run(apk, repetition, timeout, tool, base_results_dir, no_window)
                     except Exception as ex:
                         # TODO melhorar mensagem
                         logging.error("Error while executing APK: {}. {}".format(apk.name, ex))
@@ -52,14 +44,23 @@ def execute(repetitions: int, timeouts: list[int], tools: list[AbstractTool], ge
     logging.info('Finished !!!')
 
 
-def run(apk: App, rep: int, timeout: int, tool: AbstractTool, results_dir: str):
+def runtime_verification(generate_monitors: bool, instrument: bool):
+    if generate_monitors:
+        rvsec = RVSec()
+        rvsec.generate_monitors()
+    if instrument:
+        rvandroid = RvAndroid()
+        rvandroid.instrument_apks()
+
+
+def run(apk: App, rep: int, timeout: int, tool: AbstractTool, results_dir: str, no_window: bool):
     logging.info("Running: APK={0}, rep={1}, timeout={2}, tool={3}".format(apk.name, rep, timeout, tool.name))
     logcat_cmd = Command('adb', ['logcat', '-v', 'raw', '-s', 'RVSEC', 'RVSEC-COV'])
 
     logcat_file = os.path.join(results_dir, "{0}__{1}__{2}__{3}.logcat".format(apk.name, rep, timeout, tool.name))
     log_file = os.path.join(results_dir, "{0}__{1}__{2}__{3}.trace".format(apk.name, rep, timeout, tool.name))
 
-    with android.create_emulator(AVD_NAME) as emulator:
+    with android.create_emulator(AVD_NAME, no_window) as emulator:
         android.install_with_permissions(apk)
         # android.simulate_reboot() # TODO pq? eh usado no droidxp ...
         with open(logcat_file, 'wb') as log_cat:
@@ -72,6 +73,3 @@ def create_results_dir():
     results_dir = os.path.join(RESULTS_DIR, TIMESTAMP)
     utils.create_folder_if_not_exists(results_dir)
     return results_dir
-
-# if __name__ == '__main__':
-#     execute(generate_monitors=False, instrument=False)

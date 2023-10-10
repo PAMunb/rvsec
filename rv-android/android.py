@@ -20,14 +20,14 @@ class Android:
             cls.kill_emulator(avd_name)
 
     @classmethod
-    def start_emulator(cls, avd_name: str, no_window=False):
+    def start_emulator(cls, avd_name: str, no_window: bool):
         logging.info('Starting emulator')
-        # start = time.time()
 
         args = ['-avd', avd_name, '-writable-system', '-wipe-data', '-no-boot-anim',
                 '-noaudio', '-no-snapshot-save', '-delay-adb']
         if no_window:
             args.append('-no-window')
+
         start_emulator_cmd = Command('emulator', args)
         emulator_proc = start_emulator_cmd.invoke_as_deamon()
 
@@ -60,10 +60,7 @@ class Android:
                                             "'while [[ -z $(getprop sys.boot_completed) ]]; do sleep 1; done;'"])
         wait_emulator_cmd.invoke()
 
-        root_cmd = Command('adb', [
-            'wait-for-device',
-            'root',
-        ])
+        root_cmd = Command('adb', ['wait-for-device', 'root'])
         while root_cmd.invoke().stderr.strip().decode('ascii'):
             time.sleep(5)
 
@@ -95,9 +92,7 @@ class Android:
     @classmethod
     def install_apk(cls, app: App):
         logging.info("Installing APK: {0}".format(app.name))
-        root_cmd = Command('adb', [
-            'root',
-        ])
+        root_cmd = Command('adb', ['root'])
         result = root_cmd.invoke()
         readlink_cmd = Command('readlink', ['-f', app.path])
         readlink_result = readlink_cmd.invoke()
@@ -112,6 +107,7 @@ class Android:
 
     @classmethod
     def uninstall_apk(cls, app: App):
+        logging.info("Uninstalling APK: {}".format(app.name))
         uninstall_cmd = Command('adb', ['-s', 'emulator-5554', 'uninstall', app.package_name])
         uninstall_cmd.invoke()
 

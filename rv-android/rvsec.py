@@ -24,7 +24,8 @@ class RVSec(object):
         self.__java_mop()
         self.__rv_monitor()
 
-    def __java_mop(self):
+    @staticmethod
+    def __java_mop():
         logging.info("Executing JavaMOP")
         mop_files = os.path.join(MOP_DIR, '*' + EXTENSION_MOP)
         javamop_cmd = Command(JAVAMOP_BIN, ['-d', MOP_OUT_DIR, '-merge', mop_files])
@@ -34,7 +35,8 @@ class RVSec(object):
         # copy any custom aspectj file (from MOP_DIR) to MOP_OUT_DIR
         utils.copy_files_by_extension(EXTENSION_AJ, MOP_DIR, MOP_OUT_DIR)
 
-    def __rv_monitor(self):
+    @staticmethod
+    def __rv_monitor():
         logging.info("Executing RV-Monitor")
         rvm_files = os.path.join(MOP_OUT_DIR, '*' + EXTENSION_RVM)
         rvmonitor_cmd = Command(RV_MONITOR_BIN, ['-d', MOP_OUT_DIR, '-merge', rvm_files])

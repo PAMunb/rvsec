@@ -66,9 +66,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
     # End catching arguments
 
-    print("skip_monitors={}".format(args.skip_monitors))
-    print("skip_instrument={}".format(args.skip_instrument))
-
+    # TODO configurar log
     logging.basicConfig(stream=sys.stdout, level=logging.DEBUG if args.debug else logging.INFO)
 
     if args.list_tools:
@@ -101,8 +99,8 @@ if __name__ == '__main__':
     if elapsed > 60:
         if elapsed > 3600:
             logging.info('It took {0} hours, {1} minutes and {2} seconds to complete'.format(int(elapsed / 3600),
-                                                                                    int((elapsed % 3600) / 60),
-                                                                                    (elapsed % 3600) % 60))
+                                                                                             int((elapsed % 3600) / 60),
+                                                                                             (elapsed % 3600) % 60))
         else:
             logging.info('It took {0} minutes and {1} seconds to complete'.format(int(elapsed / 60), elapsed % 60))
     else:

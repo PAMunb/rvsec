@@ -8,7 +8,7 @@ class App(object):
     this class describes an app
     """
 
-#TODO criar e usar getters !!!
+#TODO criar e usar getters
 
     def __init__(self, app_path):
         """

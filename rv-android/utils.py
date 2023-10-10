@@ -19,7 +19,7 @@ def execute_command(cmd: Command, tag: str, skip_stderr=False):
         raise CommandException(tag, cmd_result.code, cmd_result.stderr)
 
 
-def hash(file_path: str):
+def file_hash(file_path: str):
     sha256_hash = hashlib.sha256()
     with open(file_path, "rb") as f:
         # Read and update hash value in blocks of 4K

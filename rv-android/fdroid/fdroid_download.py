@@ -41,6 +41,6 @@ def download_apk(apk_filename, out_dir):
 
 
 if __name__ == '__main__':
-    csv_path = "./final_apps_to_download_mini.csv"
-    out_dir = "./apks"
+    csv_path = "final_apps_to_download_mini.csv"
+    out_dir = "../apks"
     execute(csv_path, out_dir)

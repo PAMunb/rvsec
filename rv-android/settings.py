@@ -7,6 +7,7 @@ START = time.time()
 
 WORKING_DIR = os.getcwd()
 
+# APKS_DIR = os.path.join(WORKING_DIR, 'apks')
 APKS_DIR = os.path.join(WORKING_DIR, 'apks_mini')
 RESULTS_DIR = os.path.join(WORKING_DIR, 'results')
 INSTRUMENTED_DIR = os.path.join(WORKING_DIR, 'out')
@@ -40,3 +41,4 @@ ANDROID_PLATFORM_LIB = os.path.join(ANDROID_SDK_HOME, 'platforms', ANDROID_PLATF
 ANDROID_JAR_PATH = os.path.join(ANDROID_PLATFORM_LIB, 'android.jar')
 
 KEYSTORE_FILE = os.path.join(WORKING_DIR, 'keystore.jks')
+KEYSTORE_PASSWORD = 'password'
