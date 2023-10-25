@@ -26,6 +26,6 @@ class ToolSpec(AbstractTool):
                 # '--ignore-crashes',
                 # '--ignore-timeouts',
                 '--ignore-security-exceptions',
-                '100000'
+                '10000000'
             ], timeout)
             exec_cmd.invoke(stdout=trace)

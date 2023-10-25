@@ -6,6 +6,7 @@ import sys
 import time
 
 import experiment_01
+import utils
 
 available_tools = {}
 output_formats = {}
@@ -21,7 +22,7 @@ def load_tools():
      A tool must be defined in a subdirectory within
      the tools folder, in a python module named tool.py.
      This module must also declare a class named ToolSpec,
-     which shoud inherit from AbstractToo.
+     which shoud inherit from AbstractTool.
     '''
     for subdir, dirs, files in os.walk('.' + os.sep + 'tools'):
         for filename in files:
@@ -53,6 +54,7 @@ if __name__ == '__main__':
     parser.add_argument('-r', default=1, help='(-r, -repetitions) Number of repetitions used in the experiment',
                         type=int)
 
+    #TODO opcao skip_experiment ... para so gerar os monitores e instrumentar
     parser.add_argument("--skip_monitors", help="Skip monitors generation", action="store_true")
     parser.add_argument("--skip_instrument", help="Skip instrumentation", action="store_true")
     parser.add_argument("--no_window", help="Starts emulator with '-no-window'", action="store_true")
@@ -86,7 +88,6 @@ if __name__ == '__main__':
                 tools.append(available_tools[t])
 
     generate_monitors = not args.skip_monitors
-    print("generate_monitors={}".format(generate_monitors))
     instrument = not args.skip_instrument
 
     start = time.time()
@@ -96,13 +97,14 @@ if __name__ == '__main__':
 
     end = time.time()
     elapsed = end - start
-    if elapsed > 60:
-        if elapsed > 3600:
-            logging.info('It took {0} hours, {1} minutes and {2} seconds to complete'.format(int(elapsed / 3600),
-                                                                                             int((elapsed % 3600) / 60),
-                                                                                             (elapsed % 3600) % 60))
-        else:
-            logging.info('It took {0} minutes and {1} seconds to complete'.format(int(elapsed / 60), elapsed % 60))
-    else:
-        logging.info('It took {0} seconds to complete this benchmark'.format(elapsed))
+    logging.info('It took {0} to complete'.format(utils.to_readable_time(elapsed)))
+    # if elapsed > 60:
+    #     if elapsed > 3600:
+    #         logging.info('It took {0} hours, {1} minutes and {2} seconds to complete'.format(int(elapsed / 3600),
+    #                                                                                          int((elapsed % 3600) / 60),
+    #                                                                                          (elapsed % 3600) % 60))
+    #     else:
+    #         logging.info('It took {0} minutes and {1} seconds to complete'.format(int(elapsed / 60), elapsed % 60))
+    # else:
+    #     logging.info('It took {0} seconds to complete this benchmark'.format(elapsed))
     logging.info('############# ENDING EXPERIMENT #############')

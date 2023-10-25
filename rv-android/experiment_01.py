@@ -55,7 +55,9 @@ def runtime_verification(generate_monitors: bool, instrument: bool):
 
 def run(apk: App, rep: int, timeout: int, tool: AbstractTool, results_dir: str, no_window: bool):
     logging.info("Running: APK={0}, rep={1}, timeout={2}, tool={3}".format(apk.name, rep, timeout, tool.name))
-    logcat_cmd = Command('adb', ['logcat', '-v', 'raw', '-s', 'RVSEC', 'RVSEC-COV'])
+    #TODO definir um formato para facilitar o parsing posterior
+    #logcat_cmd = Command('adb', ['logcat', '-v', 'raw', '-s', 'RVSEC', 'RVSEC-COV'])
+    logcat_cmd = Command('adb', ['logcat', '-s', 'RVSEC', 'RVSEC-COV'])
 
     logcat_file = os.path.join(results_dir, "{0}__{1}__{2}__{3}.logcat".format(apk.name, rep, timeout, tool.name))
     log_file = os.path.join(results_dir, "{0}__{1}__{2}__{3}.trace".format(apk.name, rep, timeout, tool.name))

@@ -16,8 +16,8 @@
 	<name>RVSec :: rv-android</name>
 
 	<properties>
-		<!-- <aspectj.version>1.8.14</aspectj.version> -->
-		<aspectj.version>1.9.6</aspectj.version>
+		<!-- must be in sync with settings.py (pointing to the same dir) -->
+		<lib.tmp.dir>lib_tmp</lib.tmp.dir>
 	</properties>
 
 	<dependencies>
@@ -69,7 +69,7 @@
 							<goal>copy-dependencies</goal>
 						</goals>
 						<configuration>
-							<outputDirectory>lib_tmp</outputDirectory>
+							<outputDirectory>${lib.tmp.dir}</outputDirectory>
 							<overWriteReleases>false</overWriteReleases>
 							<overWriteSnapshots>false</overWriteSnapshots>
 							<overWriteIfNewer>true</overWriteIfNewer>

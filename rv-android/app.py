@@ -19,6 +19,7 @@ class App(object):
         assert app_path is not None
 
         self.path = os.path.join(app_path)
+        #TODO mudar para filename ... e pegar o app_name via androguard
         self.name = os.path.basename(app_path)
 
         self.apk = APK(self.path)

@@ -18,7 +18,7 @@ class ToolSpec(AbstractTool):
                 '-d',
                 'emulator-5554',
                 '-a',
-                app.package_name,
+                app.path,
                 '-policy',
                 'dfs_greedy',
                 '-is_emulator',

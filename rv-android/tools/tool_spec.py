@@ -1,3 +1,4 @@
+import logging
 import os
 
 from abc import ABCMeta, abstractmethod
@@ -12,7 +13,7 @@ class AbstractTool():
 
     Args:
       name(str): The name of the tool 
-      description(str): The tool's description (such as test case genration, and so on) 
+      description(str): The tool's description (such as test case generation, and so on) 
       process_pattern(str): A string with the pattern of the processes to be killed after execution
     '''
     def __init__(self, name: str, description: str, process_pattern: str):
@@ -39,6 +40,7 @@ class AbstractTool():
            timeout(int): execution timeout
            log_file(str): the trace file
         '''
+        logging.info("Executing tool: {}".format(self.name))
         self.execute_tool_specific_logic(app, timeout, log_file)
         self.kill_related_processes(self.process_pattern)
 

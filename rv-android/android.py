@@ -2,6 +2,7 @@ import logging
 import time
 from contextlib import contextmanager
 
+import utils
 from app import App
 from commands.command import Command
 
@@ -71,10 +72,7 @@ class Android:
         logging.info('Emulator booted!')
         end = time.time()
         elapsed = end - start
-        if elapsed > 60:
-            logging.info('Emulator took {0} minutes and {1} seconds to boot'.format(int(elapsed / 60), elapsed % 60))
-        else:
-            logging.info('Emulator took {0} seconds to boot'.format(elapsed))
+        logging.info('Emulator took {0} to boot'.format(utils.to_readable_time(elapsed)))
 
     @classmethod
     def simulate_reboot(cls):

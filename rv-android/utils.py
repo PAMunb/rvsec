@@ -148,3 +148,21 @@ def zip_dir_content(zip_file: str, in_dir: str):
                 file_path = os.path.join(root, file)
                 archive_path = os.path.relpath(file_path, in_dir)
                 zipf.write(file_path, archive_path)
+
+
+def to_readable_time(duration: float):
+    time = ""
+    if duration > 60:
+        if duration > 3600:
+            time = '{0} hours, {1} minutes and {2} seconds'.format(int(duration / 3600),
+                                                                   int((duration % 3600) / 60),
+                                                                   (duration % 3600) % 60)
+        else:
+            time = '{0} minutes and {1} seconds'.format(int(duration / 60), duration % 60)
+    else:
+        time = '{0} seconds'.format(duration)
+    return time
+
+
+if __name__ == '__main__':
+    print(">>> {}".format(to_readable_time(678986)))

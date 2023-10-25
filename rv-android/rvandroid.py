@@ -15,10 +15,6 @@ EXTENSION_MOP = ".mop"
 EXTENSION_RVM = ".rvm"
 
 
-# class RvAndroidException(Exception):
-#     pass
-
-
 class RvAndroid(object):
     """
     this class encapsulates some actions using rvsec and other tools
@@ -29,6 +25,7 @@ class RvAndroid(object):
 
     def instrument_apks(self, force_instrumentation=False):
         # temporario
+        #TODO salvar os erros (completo) em arquivo separado, via logging
         erros = []
 
         # clean directories and copy libraries
@@ -71,30 +68,35 @@ class RvAndroid(object):
                 logging.info("Skipping APK already instrumented: {}".format(app.name))
                 return
 
+        start = time.time()
         logging.info("Instrumenting: {}".format(app.name))
         self.__decompile_apk(app)
         self.__include_generated_monitors()
         self.__weave_monitors(app)
         signed_apk = self.__create_apk(app)
         assert os.path.exists(signed_apk)
-        logging.info("APK instrumented: {}".format(signed_apk))
+        end = time.time()
+        elapsed = end - start
+        logging.info('APK instrumented in {0}'.format(utils.to_readable_time(elapsed)))
+        logging.debug("APK instrumented: {}".format(signed_apk))
 
     @staticmethod
     def __clear(folders: list):
         for folder in folders:
-            logging.info("Deleting folder: {}".format(folder))
+            logging.debug("Deleting folder: {}".format(folder))
             shutil.rmtree(folder, ignore_errors=True)
         # TODO atributo da classe ... ou arrumar outra forma de pegar o classes.dex aqui e no d8()
         dex_name = 'classes.dex'
         generated_dex = os.path.join(WORKING_DIR, dex_name)
         if os.path.exists(generated_dex):
-            logging.info("Deleting: {}".format(generated_dex))
+            logging.debug("Deleting: {}".format(generated_dex))
             os.remove(generated_dex)
 
     def __weave_monitors(self, app: App):
-        logging.info("Instrumenting: {}".format(TMP_DIR))
+        logging.info("Weaving monitors")
+        logging.debug("AJC inpath: {}".format(TMP_DIR))
         classpath = self.__get_classpath(app)
-        logging.info("CLASSPATH={}".format(':'.join(classpath)))
+        logging.debug("CLASSPATH={}".format(':'.join(classpath)))
         ajc_cmd = Command("ajc", ['-cp', ':'.join(classpath), '-Xlint:ignore',
                                   '-inpath', TMP_DIR, '-d', TMP_DIR,
                                   '-source', '1.8', '-sourceroots', TMP_DIR])
@@ -113,7 +115,7 @@ class RvAndroid(object):
         self.__d2j_asm_verify(no_monitor_jar, skip_verify=True)
         utils.unzip(no_monitor_jar, TMP_DIR)
         utils.delete_file(no_monitor_jar)
-        logging.info("Decompiled classes in: {}".format(TMP_DIR))
+        logging.debug("Decompiled classes in: {}".format(TMP_DIR))
 
     @staticmethod
     def __d2j_dex2jar(app: App, output_jar_file: str):
@@ -142,16 +144,16 @@ class RvAndroid(object):
         utils.execute_command(maven_cmd, "maven")
 
     def __get_classpath(self, app: App):
-        # TODO pegar o android.jar dinamicamente de acordo com o target_sdk do app
+        # TODO pegar o android.jar dinamicamente de acordo com o target_sdk do app?
         classpath = [self.__get_android_jar()]
-        for x in os.listdir(LIB_TMP_DIR):
-            if x.lower().endswith(EXTENSION_JAR):
-                classpath.append(os.path.join(LIB_TMP_DIR, x))
+        for lib in os.listdir(LIB_TMP_DIR):
+            if lib.lower().endswith(EXTENSION_JAR):
+                classpath.append(os.path.join(LIB_TMP_DIR, lib))
         return classpath
 
     @staticmethod
     def __include_generated_monitors():
-        logging.info("Including generated RV artifacts ...")
+        logging.info("Including generated RV artifacts")
         utils.copy_files(MOP_OUT_DIR, TMP_DIR)
 
     def __create_apk(self, app: App):
@@ -168,11 +170,13 @@ class RvAndroid(object):
         shutil.move(monitored_jar, TMP_DIR)
         shutil.rmtree(RVM_TMP_DIR)
         monitored_jar = os.path.join(TMP_DIR, monitored_jar_name)
-        logging.info("Classes compressed: {}".format(monitored_jar))
+        logging.debug("Classes compressed: {}".format(monitored_jar))
 
         # Compile classes in Jar to Dex format
         unsigned_apk = self.__d8(app, monitored_jar)
         assert os.path.exists(unsigned_apk)
+
+        # TODO: zipalign?
 
         # Sign the apk
         return self.__sign_apk(app, unsigned_apk)
@@ -182,8 +186,9 @@ class RvAndroid(object):
         # (temp) directory where the libraries will be unzipped
         utils.reset_folder(RVM_TMP_DIR)
         jars = ["rv-monitor-rt.jar", "rvsec-core.jar", "rvsec-logger-logcat.jar", "aspectjrt.jar"]
-        logging.info("Including runtime dependencies: {}".format(jars))
+        logging.info("Including runtime dependencies")
         for jar_name in jars:
+            logging.debug("Including: {}".format(jar_name))
             jar = os.path.join(LIB_TMP_DIR, jar_name)
             utils.unzip(jar, RVM_TMP_DIR)
         # Remove manifests
@@ -191,11 +196,11 @@ class RvAndroid(object):
         utils.delete_dir(metainf_dir)
         # Merge support classes
         shutil.copytree(RVM_TMP_DIR, TMP_DIR, dirs_exist_ok=True)
-        logging.info("Dependencies included in: {}".format(TMP_DIR))
+        logging.debug("Dependencies included in: {}".format(TMP_DIR))
         shutil.rmtree(RVM_TMP_DIR)
 
     def __d8(self, app: App, monitored_jar: str):
-        logging.info("Compiling to DEX: {}".format(monitored_jar))
+        logging.info("Compiling to DEX")
         # d8_cmd = Command('d8', [monitored_jar, '--release',
         #                         '--lib', self.__get_android_jar(),
         #                         '--min-api', '26',
@@ -213,7 +218,7 @@ class RvAndroid(object):
         # copy the original apk (as unsigned_apk)
         unsigned_apk_name = "unsigned_{}".format(app.name)
         unsigned_apk = os.path.join(TMP_DIR, unsigned_apk_name)
-        logging.info("Copying original APK ({}) to {}".format(app.path, unsigned_apk))
+        logging.debug("Copying original APK ({}) to {}".format(app.path, unsigned_apk))
         shutil.copy2(app.path, unsigned_apk)
         # subprocess.Popen(['ls', '-lh', TMP_DIR])
         # shutil.copyfile(app.path, unsigned_apk)
@@ -226,8 +231,8 @@ class RvAndroid(object):
         # TODO usar command ... customizar com o cwd
         logging.info("Replacing old 'classes.dex' in: {}".format(unsigned_apk_name))
         # print("out_dir={}".format(out_dir))
-        current_dir = os.getcwd()
-        print("current_dir={}".format(current_dir))
+        # current_dir = os.getcwd()
+        # print("current_dir={}".format(current_dir))
         # os.chdir(TMP_DIR)
         # print("dir_before={}".format(os.getcwd()))
         # subprocess.Popen(['zip', '-u', unsigned_apk, dex_name])  # , cwd=out_dir)#, shell=True)
@@ -247,7 +252,8 @@ class RvAndroid(object):
     def __sign_apk(self, app: App, unsigned_apk: str):
         utils.create_folder_if_not_exists(INSTRUMENTED_DIR)
 
-        logging.info("Signing APK: {}".format(unsigned_apk))
+        logging.info("Signing APK")
+        logging.debug("APK: {}".format(unsigned_apk))
         # Sign debug Jar with final key
         signed_apk = os.path.join(INSTRUMENTED_DIR, app.name)
         self.__d2j_apk_sign(signed_apk, unsigned_apk)

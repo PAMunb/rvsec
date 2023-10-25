@@ -4,11 +4,11 @@ import re
 from app import App
 from commands.command import Command
 
-from ..tool_spec import AbstractTool
+from tools.tool_spec import AbstractTool
 
 class ToolSpec(AbstractTool):
     def __init__(self):
-        super(ToolSpec, self).__init__("droidbot", """DroidBot is a lightweight test input generator for Android. 
+        super(ToolSpec, self).__init__("droidbot_bfs_greedy", """DroidBot is a lightweight test input generator for Android. 
         It can send random or scripted input events to an Android app, achieve higher test coverage more quickly, 
         and generate a UI transition graph (UTG) after testing (https://github.com/honeynet/droidbot).""", 'com.android.commands.droidbot')
         
@@ -18,10 +18,9 @@ class ToolSpec(AbstractTool):
                 '-d',
                 'emulator-5554',
                 '-a',
-                #TODO era pra ser o package ja q o apk ja esta instalado
                 app.path,
                 '-policy',
-                'dfs_naive',
+                'bfs_greedy',
                 '-is_emulator',
             ], timeout)
             exec_cmd.invoke(stdout=trace)
