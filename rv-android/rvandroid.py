@@ -1,3 +1,4 @@
+import json
 import logging
 import shutil
 import sys
@@ -16,17 +17,12 @@ EXTENSION_RVM = ".rvm"
 
 
 class RvAndroid(object):
-    """
-    this class encapsulates some actions using rvsec and other tools
-    """
 
     def __init__(self):
         pass
 
     def instrument_apks(self, force_instrumentation=False):
-        # temporario
-        #TODO salvar os erros (completo) em arquivo separado, via logging
-        erros = []
+        errors = {}
 
         # clean directories and copy libraries
         self.__prepare_instrumentation()
@@ -43,15 +39,18 @@ class RvAndroid(object):
                 self.__check_if_instrumented(app)
             except CommandException as ex:
                 logging.error("Failed to instrument APK: {}. {}".format(app.name, ex))
-                erros.append((app.name, ex))
+                errors[app.name] = {"code": ex.code, "tool": ex.tool, "message": ex.message}
             except Exception as ex:
                 logging.error("Error while instrumenting APK: {}. {}".format(app.path, ex))
             finally:
                 self.__clear([TMP_DIR, RVM_TMP_DIR])
 
-        print("ERROS: {}".format(len(erros)))
-        for erro in erros:
-            print("ERRO: {} :: {}".format(erro[0], erro[1].tool))
+        logging.warning("ERRORS: {}".format(len(errors)))
+        with open('instrument_errors.json', 'w') as outfile:
+            outfile.write(json.dumps(errors))
+            logging.info("Errors saved in 'instrument_errors.json'")
+        for error in errors:
+            logging.warning("ERROR: {}, tool={}".format(error, errors[error]["tool"]))
 
     def __prepare_instrumentation(self):
         self.__clear([LIB_TMP_DIR, TMP_DIR, RVM_TMP_DIR])
@@ -79,30 +78,6 @@ class RvAndroid(object):
         elapsed = end - start
         logging.info('APK instrumented in {0}'.format(utils.to_readable_time(elapsed)))
         logging.debug("APK instrumented: {}".format(signed_apk))
-
-    @staticmethod
-    def __clear(folders: list):
-        for folder in folders:
-            logging.debug("Deleting folder: {}".format(folder))
-            shutil.rmtree(folder, ignore_errors=True)
-        # TODO atributo da classe ... ou arrumar outra forma de pegar o classes.dex aqui e no d8()
-        dex_name = 'classes.dex'
-        generated_dex = os.path.join(WORKING_DIR, dex_name)
-        if os.path.exists(generated_dex):
-            logging.debug("Deleting: {}".format(generated_dex))
-            os.remove(generated_dex)
-
-    def __weave_monitors(self, app: App):
-        logging.info("Weaving monitors")
-        logging.debug("AJC inpath: {}".format(TMP_DIR))
-        classpath = self.__get_classpath(app)
-        logging.debug("CLASSPATH={}".format(':'.join(classpath)))
-        ajc_cmd = Command("ajc", ['-cp', ':'.join(classpath), '-Xlint:ignore',
-                                  '-inpath', TMP_DIR, '-d', TMP_DIR,
-                                  '-source', '1.8', '-sourceroots', TMP_DIR])
-        utils.execute_command(ajc_cmd, "ajc")
-        utils.delete_files_by_extension(EXTENSION_JAVA, TMP_DIR)
-        utils.delete_files_by_extension(EXTENSION_AJ, TMP_DIR)
 
     def __decompile_apk(self, app: App):
         logging.info("Decompiling {}".format(app.name))
@@ -155,6 +130,17 @@ class RvAndroid(object):
     def __include_generated_monitors():
         logging.info("Including generated RV artifacts")
         utils.copy_files(MOP_OUT_DIR, TMP_DIR)
+
+    def __weave_monitors(self, app: App):
+        logging.info("Weaving monitors")
+        classpath = self.__get_classpath(app)
+        logging.debug("CLASSPATH={}".format(':'.join(classpath)))
+        ajc_cmd = Command("ajc", ['-cp', ':'.join(classpath), '-Xlint:ignore',
+                                  '-inpath', TMP_DIR, '-d', TMP_DIR,
+                                  '-source', '1.8', '-sourceroots', TMP_DIR])
+        utils.execute_command(ajc_cmd, "ajc")
+        utils.delete_files_by_extension(EXTENSION_JAVA, TMP_DIR)
+        utils.delete_files_by_extension(EXTENSION_AJ, TMP_DIR)
 
     def __create_apk(self, app: App):
         logging.info("Creating instrumented APK ...")
@@ -267,6 +253,18 @@ class RvAndroid(object):
         self.__jarsigner_verify(signed_apk)
 
         return signed_apk
+
+    @staticmethod
+    def __clear(folders: list):
+        for folder in folders:
+            logging.debug("Deleting folder: {}".format(folder))
+            shutil.rmtree(folder, ignore_errors=True)
+        # TODO atributo da classe ... ou arrumar outra forma de pegar o classes.dex aqui e no d8()
+        dex_name = 'classes.dex'
+        generated_dex = os.path.join(WORKING_DIR, dex_name)
+        if os.path.exists(generated_dex):
+            logging.debug("Deleting: {}".format(generated_dex))
+            os.remove(generated_dex)
 
     @staticmethod
     def __get_android_jar() -> str:

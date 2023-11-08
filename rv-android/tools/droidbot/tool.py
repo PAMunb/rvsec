@@ -18,7 +18,6 @@ class ToolSpec(AbstractTool):
                 '-d',
                 'emulator-5554',
                 '-a',
-                #TODO era pra ser o package ja q o apk ja esta instalado
                 app.path,
                 '-policy',
                 'dfs_naive',

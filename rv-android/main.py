@@ -90,21 +90,13 @@ if __name__ == '__main__':
     generate_monitors = not args.skip_monitors
     instrument = not args.skip_instrument
 
-    start = time.time()
     logging.info('############# STARTING EXPERIMENT #############')
+    start = time.time()
 
     experiment_01.execute(args.r, args.t, tools, generate_monitors, instrument, args.no_window)
 
     end = time.time()
     elapsed = end - start
     logging.info('It took {0} to complete'.format(utils.to_readable_time(elapsed)))
-    # if elapsed > 60:
-    #     if elapsed > 3600:
-    #         logging.info('It took {0} hours, {1} minutes and {2} seconds to complete'.format(int(elapsed / 3600),
-    #                                                                                          int((elapsed % 3600) / 60),
-    #                                                                                          (elapsed % 3600) % 60))
-    #     else:
-    #         logging.info('It took {0} minutes and {1} seconds to complete'.format(int(elapsed / 60), elapsed % 60))
-    # else:
-    #     logging.info('It took {0} seconds to complete this benchmark'.format(elapsed))
+
     logging.info('############# ENDING EXPERIMENT #############')

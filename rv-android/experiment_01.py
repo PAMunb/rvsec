@@ -15,7 +15,7 @@ android = Android()
 
 def execute(repetitions: int, timeouts: list[int], tools: list[AbstractTool], generate_monitors=True, instrument=True,
             no_window=False):
-    #TODO configurar o log ... em arquivo tbm ... por modulos ... e esta sendo definido no main.py
+    # TODO configurar o log ... em arquivo tbm ... por modulos ... e esta sendo definido no main.py
     logging.basicConfig(stream=sys.stdout, level=logging.INFO)
     logging.info("Executing Experiment ...")
 
@@ -36,10 +36,11 @@ def execute(repetitions: int, timeouts: list[int], tools: list[AbstractTool], ge
             for apk in apks:
                 for tool in tools:
                     try:
-                        run(apk, repetition, timeout, tool, base_results_dir, no_window)
+                        # run(apk, repetition, timeout, tool, base_results_dir, no_window)
+                        pass
                     except Exception as ex:
-                        # TODO melhorar mensagem
-                        logging.error("Error while executing APK: {}. {}".format(apk.name, ex))
+                        msg = "Error while running: APK={0}, rep={1}, timeout={2}, tool={3}. {4}"
+                        logging.error(msg.format(apk.name, repetition, timeout, tool.name, ex))
 
     logging.info('Finished !!!')
 
@@ -55,9 +56,8 @@ def runtime_verification(generate_monitors: bool, instrument: bool):
 
 def run(apk: App, rep: int, timeout: int, tool: AbstractTool, results_dir: str, no_window: bool):
     logging.info("Running: APK={0}, rep={1}, timeout={2}, tool={3}".format(apk.name, rep, timeout, tool.name))
-    #TODO definir um formato para facilitar o parsing posterior
-    #logcat_cmd = Command('adb', ['logcat', '-v', 'raw', '-s', 'RVSEC', 'RVSEC-COV'])
-    logcat_cmd = Command('adb', ['logcat', '-s', 'RVSEC', 'RVSEC-COV'])
+
+    logcat_cmd = Command('adb', ['logcat', '-v', 'tag', '-s', 'RVSEC', 'RVSEC-COV'])
 
     logcat_file = os.path.join(results_dir, "{0}__{1}__{2}__{3}.logcat".format(apk.name, rep, timeout, tool.name))
     log_file = os.path.join(results_dir, "{0}__{1}__{2}__{3}.trace".format(apk.name, rep, timeout, tool.name))
