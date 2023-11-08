@@ -1,4 +1,4 @@
-import logging
+import logging as logging_api
 import sys
 
 import utils
@@ -12,11 +12,12 @@ from tools.tool_spec import AbstractTool
 
 android = Android()
 
+logging = logging_api.getLogger(__name__)
 
 def execute(repetitions: int, timeouts: list[int], tools: list[AbstractTool], generate_monitors=True, instrument=True,
             no_window=False):
     # TODO configurar o log ... em arquivo tbm ... por modulos ... e esta sendo definido no main.py
-    logging.basicConfig(stream=sys.stdout, level=logging.INFO)
+    # logging.basicConfig(stream=sys.stdout, level=logging.INFO)
     logging.info("Executing Experiment ...")
 
     # create base results dir (timestamp)

@@ -1,10 +1,12 @@
-import logging
+import logging as logging_api
 import time
 from contextlib import contextmanager
 
 import utils
 from app import App
 from commands.command import Command
+
+logging = logging_api.getLogger(__name__)
 
 
 class Android:
@@ -33,7 +35,6 @@ class Android:
         emulator_proc = start_emulator_cmd.invoke_as_deamon()
 
         cls._wait_for_boot()
-
 
     @classmethod
     def kill_emulator(cls, avd_name):

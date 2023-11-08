@@ -1,4 +1,4 @@
-import logging
+import logging as logging_api
 
 import utils
 from commands.command import Command
@@ -7,6 +7,8 @@ from settings import *
 EXTENSION_AJ = ".aj"
 EXTENSION_MOP = ".mop"
 EXTENSION_RVM = ".rvm"
+
+logging = logging_api.getLogger(__name__)
 
 
 class RVSec(object):

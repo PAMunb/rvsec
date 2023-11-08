@@ -1,5 +1,5 @@
 import json
-import logging
+import logging as logging_api
 import shutil
 import sys
 
@@ -15,6 +15,7 @@ EXTENSION_JAR = ".jar"
 EXTENSION_MOP = ".mop"
 EXTENSION_RVM = ".rvm"
 
+logging = logging_api.getLogger(__name__)
 
 class RvAndroid(object):
 
@@ -28,6 +29,7 @@ class RvAndroid(object):
         self.__prepare_instrumentation()
         # retrieves the APKs to be instrumented
         apks = utils.get_apks(APKS_DIR)
+
         logging.info("Instrumenting {} apks ...".format(len(apks)))
         for app in apks:
             try:
@@ -45,12 +47,13 @@ class RvAndroid(object):
             finally:
                 self.__clear([TMP_DIR, RVM_TMP_DIR])
 
-        logging.warning("ERRORS: {}".format(len(errors)))
-        with open('instrument_errors.json', 'w') as outfile:
-            outfile.write(json.dumps(errors))
-            logging.info("Errors saved in 'instrument_errors.json'")
-        for error in errors:
-            logging.warning("ERROR: {}, tool={}".format(error, errors[error]["tool"]))
+        if errors:
+            logging.warning("ERRORS: {}".format(len(errors)))
+            with open('instrument_errors.json', 'w') as outfile:
+                outfile.write(json.dumps(errors))
+                logging.info("Errors saved in 'instrument_errors.json'")
+            for error in errors:
+                logging.warning("ERROR: {}, tool={}".format(error, errors[error]["tool"]))
 
     def __prepare_instrumentation(self):
         self.__clear([LIB_TMP_DIR, TMP_DIR, RVM_TMP_DIR])
@@ -94,9 +97,15 @@ class RvAndroid(object):
 
     @staticmethod
     def __d2j_dex2jar(app: App, output_jar_file: str):
-        dex2jar_cmd = Command(D2J_DEX2JAR, ['-f', '-o', output_jar_file, app.path])
-        # skips the verification (last argument) of the stderr because dex2jar prints an 'valid' output in stderr
-        utils.execute_command(dex2jar_cmd, "dex2jar", True)
+        tag = "dex2jar"
+        exception_file_name = "exception_{}.zip".format(app.name)
+        exception_file = os.path.join(TMP_DIR, exception_file_name)
+        dex2jar_cmd = Command(D2J_DEX2JAR, ['-f', '-o', output_jar_file, '-e', exception_file, app.path])
+        # skips the verification (last argument) of the stderr because dex2jar prints a 'valid' output in stderr
+        utils.execute_command(dex2jar_cmd, tag, True)
+        if os.path.exists(exception_file):
+            raise CommandException(tag, "-1", "See error in {}".format(exception_file))
+
 
     @staticmethod
     def __d2j_asm_verify(jar_file: str, skip_verify=False):
@@ -260,6 +269,7 @@ class RvAndroid(object):
             logging.debug("Deleting folder: {}".format(folder))
             shutil.rmtree(folder, ignore_errors=True)
         # TODO atributo da classe ... ou arrumar outra forma de pegar o classes.dex aqui e no d8()
+        #TODO deletar multidex ... e "exception_{}.zip".format(app.name)
         dex_name = 'classes.dex'
         generated_dex = os.path.join(WORKING_DIR, dex_name)
         if os.path.exists(generated_dex):
@@ -295,9 +305,10 @@ class RvAndroid(object):
             logging.error("NAO INSTRUMENTOU ....................................")
 
 
+#TODO remover
 if __name__ == '__main__':
-    logging.basicConfig(stream=sys.stdout, level=logging.INFO)
-    logging.info("Executing")
+    logging_api.basicConfig(stream=sys.stdout, level=logging_api.DEBUG)
+    logging_api.info("Executing")
 
     rv_android = RvAndroid()
     rv_android.instrument_apks(force_instrumentation=True)
