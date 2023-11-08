@@ -1,0 +1,83 @@
+package mop;
+
+import javax.crypto.KeyGenerator;
+import javax.crypto.SecretKey;
+import java.security.SecureRandom;
+import java.security.spec.AlgorithmParameterSpec;
+
+import br.unb.cic.mop.eh.*;
+import br.unb.cic.mop.ExecutionContext;
+import br.unb.cic.mop.Property;
+
+/**
+ * KeyGeneratorSpec
+ *
+ * A JavaMOP specification of the correct usage of the
+ * javax.crypto.KeyGenerator class.
+ *
+ * https://github.com/CROSSINGTUD/Crypto-API-Rules/blob/master/JavaCryptographicArchitecture/src/KeyGenerator.crysl
+ */
+KeyGeneratorSpec(KeyGenerator k) {
+
+    List<String> safeAlgorithms = Arrays.asList("AES", "HmacSHA256", "HmacSHA384", "HmacSHA512");
+    String currentAlgorithmInstance = "";
+    KeyGenerator keyGenerator = null;
+
+    Key generatedKey;
+
+    event g1 after(String alg) returning(KeyGenerator k):
+      call(public static KeyGenerator KeyGenerator.getInstance(String))
+      && args(alg)
+      && condition(safeAlgorithms.contains(alg)) {
+        keyGenerator = k;
+        currentAlgorithmInstance = alg;
+    }
+
+    event g2 after(String alg, Object provider) returning(KeyGenerator k):
+      call(public static KeyGenerator KeyGenerator.getInstance(String, Object+))
+      && args(alg, provider)
+      && condition(safeAlgorithms.contains(alg)) {
+        keyGenerator = k;
+        currentAlgorithmInstance = alg;
+    }
+
+    event g3 after(String alg) returning(KeyGenerator k):
+      call(public static KeyGenerator KeyGenerator.getInstance(String))
+      && args(alg)
+      && condition(!safeAlgorithms.contains(currentAlgorithmInstance))  {
+        currentAlgorithmInstance = alg;
+    }
+
+    event init before(KeyGenerator k):
+       ( call(public void KeyGenerator.init(int)) ||
+         call(public void KeyGenerator.init(int, SecureRandom)) ||
+         call(public void KeyGenerator.init(AlgorithmParameterSpec)) ||
+         call(public void KeyGenerator.init(AlgorithmParameterSpec, SecureRandom)) ||
+         call(public void KeyGenerator.init(SecureRandom))
+       ) && target(k) {  }
+
+    event gk1 after(KeyGenerator k) returning(SecretKey key):
+      call(public SecretKey KeyGenerator.generateKey())
+      && target(k) {
+        if (!safeAlgorithms.contains(currentAlgorithmInstance)) {
+            ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeAlgorithm, "KeyGeneratorSpec", "" + __LOC,
+        "expecting one of" + String.join(",", safeAlgorithms) + " but found " + currentAlgorithmInstance + "."));
+        }
+        generatedKey = key;
+        ExecutionContext.instance().setProperty(Property.GENERATED_KEY, generatedKey);
+    }
+
+    ere : (g3* g1+ | g3* g2+) ((init gk1) | gk1)
+
+    @fail {
+        ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "KeyGeneratorSpec", "" + __LOC));
+        ExecutionContext.instance().unsetObjectAsInAcceptingState(keyGenerator);
+        ExecutionContext.instance().remove(Property.GENERATED_KEY, generatedKey);
+
+        __RESET;
+    }
+
+    @match {
+       ExecutionContext.instance().setObjectAsInAcceptingState(keyGenerator);
+    }
+}
