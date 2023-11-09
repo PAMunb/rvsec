@@ -28,7 +28,7 @@ mkdir /home/pedro/rvsec/rv-android/apks
 # export ANDROID_HOME=/home/pedro/android
 # export ANDROID_SDK_ROOT=/home/pedro/android
 # export PATH=$ANDROID_HOME/platform-tools:$ANDROID_HOME/cmdline-tools/tools/bin:$ANDROID_HOME/emulator:$ANDROID_HOME/build-tools/33.0.0:/home/pedro/.local/bin:$ASPECTJ_HOME/bin:$PATH
-# TODO: change memory in ajc script ....
+# WARNING: change memory in ajc script ....
 
 cd /home/pedro/rvsec/rv-android/scripts
 

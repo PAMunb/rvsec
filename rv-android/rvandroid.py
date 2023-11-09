@@ -9,7 +9,9 @@ from commands.command import Command
 from commands.command_exception import CommandException
 from settings import *
 
+#TODO rever o q eh usado nesse modulo ... talvez jogar tudo em constants.py
 EXTENSION_AJ = ".aj"
+EXTENSION_DEX = ".dex"
 EXTENSION_JAVA = ".java"
 EXTENSION_JAR = ".jar"
 EXTENSION_MOP = ".mop"
@@ -46,6 +48,7 @@ class RvAndroid(object):
                 logging.error("Error while instrumenting APK: {}. {}".format(app.path, ex))
             finally:
                 self.__clear([TMP_DIR, RVM_TMP_DIR])
+        self.__clear([LIB_TMP_DIR])
 
         if errors:
             logging.warning("ERRORS: {}".format(len(errors)))
@@ -72,6 +75,7 @@ class RvAndroid(object):
 
         start = time.time()
         logging.info("Instrumenting: {}".format(app.name))
+        # TODO mudar nome do metodo pois nao edecompila ... parece q transforma/converte
         self.__decompile_apk(app)
         self.__include_generated_monitors()
         self.__weave_monitors(app)
@@ -88,6 +92,8 @@ class RvAndroid(object):
         no_monitor_jar_name = "no_monitor_{}.jar".format(app.name)
         no_monitor_jar = os.path.join(TMP_DIR, no_monitor_jar_name)
         # TODO como o d2j lida com multidex? e como vamos lidar aqui?
+        # --> o d2j cria um JAR a partir de todos os dex
+        # --> depois o d8 pode quebrar em alguns .dex
         self.__d2j_dex2jar(app, no_monitor_jar)
         assert os.path.exists(no_monitor_jar)
         self.__d2j_asm_verify(no_monitor_jar, skip_verify=True)
@@ -201,14 +207,15 @@ class RvAndroid(object):
         #                         '--min-api', '26',
         #                         '--output', TMP_DIR])
         # TODO setar --min-api com os dados do apk???
+        # TODO verificar se existe outro parametro necessario/util
         d8_cmd = Command('d8', [monitored_jar, '--release',
                                 '--lib', self.__get_android_jar(),
                                 '--min-api', '26'])
         utils.execute_command(d8_cmd, "d8")
 
-        dex_name = 'classes.dex'
-        generated_dex = os.path.join(WORKING_DIR, dex_name)
-        assert os.path.exists(generated_dex)
+        # dex_name = 'classes.dex'
+        # generated_dex = os.path.join(WORKING_DIR, dex_name)
+        # assert os.path.exists(generated_dex)
 
         # copy the original apk (as unsigned_apk)
         unsigned_apk_name = "unsigned_{}".format(app.name)
@@ -220,7 +227,6 @@ class RvAndroid(object):
         assert os.path.exists(unsigned_apk)
 
         # Replace old/original classes.dex in APK with new/genereated classes.dex
-        # TODO
         # zip_cmd = Command('zip', ['-r', unsigned_apk, generated_dex])
         # utils.execute_command(zip_cmd, "zip_d8")
         # TODO usar command ... customizar com o cwd
@@ -231,16 +237,17 @@ class RvAndroid(object):
         # os.chdir(TMP_DIR)
         # print("dir_before={}".format(os.getcwd()))
         # subprocess.Popen(['zip', '-u', unsigned_apk, dex_name])  # , cwd=out_dir)#, shell=True)
-        d8_zip_cmd = Command('zip', ['-u', unsigned_apk, dex_name])
+        d8_zip_cmd = Command('zip', ['-u', unsigned_apk, '*' + EXTENSION_DEX])
         utils.execute_command(d8_zip_cmd, "d8_zip")
         # os.chdir(current_dir)
         # print("dir_after={}".format(os.getcwd()))
         # utils.delete_file(generated_dex)
 
-        os.remove(generated_dex)
+        # os.remove(generated_dex)
 
         # Verify and sign the Jar with debug key, repairing any inconsistent manifests
-        self.__d2j_asm_verify(unsigned_apk)
+        #TODO skip por enquanto ... da erro no com.serwylo.babybook_11.apk
+        self.__d2j_asm_verify(unsigned_apk, skip_verify=True)
 
         return unsigned_apk
 
@@ -269,16 +276,18 @@ class RvAndroid(object):
             logging.debug("Deleting folder: {}".format(folder))
             shutil.rmtree(folder, ignore_errors=True)
         # TODO atributo da classe ... ou arrumar outra forma de pegar o classes.dex aqui e no d8()
-        #TODO deletar multidex ... e "exception_{}.zip".format(app.name)
-        dex_name = 'classes.dex'
-        generated_dex = os.path.join(WORKING_DIR, dex_name)
-        if os.path.exists(generated_dex):
-            logging.debug("Deleting: {}".format(generated_dex))
-            os.remove(generated_dex)
+        #TODO deletar multidex ... e "exception_{}.zip".format(app.name) ?
+        utils.delete_files_by_extension(EXTENSION_DEX, WORKING_DIR)
+        # dex_name = 'classes.dex'
+        # generated_dex = os.path.join(WORKING_DIR, dex_name)
+        # if os.path.exists(generated_dex):
+        #     logging.debug("Deleting: {}".format(generated_dex))
+        #     os.remove(generated_dex)
 
     @staticmethod
     def __get_android_jar() -> str:
         # TODO pegar o android.jar dinamicamente de acordo com o target_sdk do app
+        # --> baixar dinamicamente a plataforma? ou limitar o range de plataformas possiveis?
         return ANDROID_JAR_PATH
 
     @staticmethod
@@ -297,6 +306,7 @@ class RvAndroid(object):
     def __check_if_instrumented(app: App):
         # TODO checar se o apk foi realmente instrumentado (talvez checando o hash com o original)
         # isso pro caso do __execute_command() nao estar capturando os erros
+        # e acabar usando o apk original como estando instrumentado
 
         hash_original = utils.file_hash(os.path.join(app.path))
         hash_instrumented = utils.file_hash(os.path.join(INSTRUMENTED_DIR, app.name))

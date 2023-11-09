@@ -1,11 +1,5 @@
-import os
-import re
-
-from commands.command import Command
-
-from settings import INSTRUMENTED_DIR
 from app import App
-
+from commands.command import Command
 from ..tool_spec import AbstractTool
 
 

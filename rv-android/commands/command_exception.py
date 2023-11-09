@@ -1,5 +1,5 @@
 class CommandException(Exception):
-    "Raised when the command execution fails"
+    """Raised when the command execution fails"""
 
     def __init__(self, tool: str, code, message: str):
         self.tool = tool

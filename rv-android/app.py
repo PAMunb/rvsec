@@ -20,6 +20,7 @@ class App(object):
 
         self.path = os.path.join(app_path)
         #TODO mudar para filename ... e pegar o app_name via androguard
+        # esse nome esta guardando o filename e nao o nome do app
         self.name = os.path.basename(app_path)
 
         self.apk = APK(self.path)

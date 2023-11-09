@@ -2,13 +2,17 @@ import sys
 from threading import Timer
 
 from subprocess import PIPE, Popen
+
 # Only use this when the program is running on Python 3.3+
 if sys.version_info.major == 3 and sys.version_info.minor >= 3:
     from subprocess import TimeoutExpired
 
 from .command_not_found_error import CommandNotFoundError
 from .command_result import CommandResult
-import logging
+import logging as logging_api
+
+logging = logging_api.getLogger(__name__)
+
 
 class Command:
 
@@ -40,10 +44,10 @@ class Command:
     @timeout.setter
     def timeout(self, value):
         self._timeout = value
-    
+
     def invoke(self, stdout=PIPE, stderr=PIPE, stdin=None):
         cmd_args = []
-        
+
         # Add command
         cmd_args.append(self._command)
 
@@ -92,7 +96,7 @@ class Command:
 
     def invoke_as_deamon(self, stdout=PIPE, stderr=PIPE):
         cmd_args = []
-        
+
         # Add command
         cmd_args.append(self._command)
 

@@ -14,10 +14,9 @@ android = Android()
 
 logging = logging_api.getLogger(__name__)
 
+
 def execute(repetitions: int, timeouts: list[int], tools: list[AbstractTool], generate_monitors=True, instrument=True,
             no_window=False):
-    # TODO configurar o log ... em arquivo tbm ... por modulos ... e esta sendo definido no main.py
-    # logging.basicConfig(stream=sys.stdout, level=logging.INFO)
     logging.info("Executing Experiment ...")
 
     # create base results dir (timestamp)
@@ -37,8 +36,7 @@ def execute(repetitions: int, timeouts: list[int], tools: list[AbstractTool], ge
             for apk in apks:
                 for tool in tools:
                     try:
-                        # run(apk, repetition, timeout, tool, base_results_dir, no_window)
-                        pass
+                        run(apk, repetition, timeout, tool, base_results_dir, no_window)
                     except Exception as ex:
                         msg = "Error while running: APK={0}, rep={1}, timeout={2}, tool={3}. {4}"
                         logging.error(msg.format(apk.name, repetition, timeout, tool.name, ex))

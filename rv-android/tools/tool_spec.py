@@ -1,4 +1,4 @@
-import logging
+import logging as logging_api
 import os
 
 from abc import ABCMeta, abstractmethod
@@ -6,7 +6,10 @@ from abc import ABCMeta, abstractmethod
 from commands.command import Command
 from app import App
 
-class AbstractTool():
+logging = logging_api.getLogger(__name__)
+
+
+class AbstractTool:
     __metaclass__ = ABCMeta 
     '''
     This class defines a contract that all tools should follow. 
@@ -24,28 +27,28 @@ class AbstractTool():
     
     @abstractmethod
     def execute_tool_specific_logic(self, app: App, timeout: int, log_file: str):
-        '''This is our hook method, an extention point that every tool developer 
-        must provide an implementation. It should only be called by the execute 
-        instance method. 
-        '''
+        """This is our hook method, an extention point that every tool developer
+        must provide an implementation. It should only be called by the execute
+        instance method.
+        """
         pass
     
     def execute(self, app: App, timeout: int, log_file: str):
-        '''This is the operation that allows the execution of a tool. It works 
-        as a template method, implementing a loging that delegates to 
-        the abstract method of this class the actual logic. 
-        
-        Args: 
+        """This is the operation that allows the execution of a tool. It works
+        as a template method, implementing a loging that delegates to
+        the abstract method of this class the actual logic.
+
+        Args:
            app (App): apk under test execution
            timeout(int): execution timeout
            log_file(str): the trace file
-        '''
+        """
         logging.info("Executing tool: {}".format(self.name))
         self.execute_tool_specific_logic(app, timeout, log_file)
         self.kill_related_processes(self.process_pattern)
 
     def kill_related_processes(self, process_pattern: str):
-        '''Kills all related processes'''
+        """Kills all related processes"""
         if process_pattern is None:
             return
         
