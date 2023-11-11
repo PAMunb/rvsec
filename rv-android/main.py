@@ -82,7 +82,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
     # End catching arguments
 
-    # TODO configurar log "direito"
+    # Logging configuration
     logging.basicConfig(stream=sys.stdout, level=logging.DEBUG if args.debug else logging.INFO)
 
     # Validate arguments
@@ -115,5 +115,4 @@ if __name__ == '__main__':
     end = time.time()
     elapsed = end - start
     logging.info('It took {0} to complete'.format(utils.to_readable_time(elapsed)))
-
     logging.info('############# ENDING EXPERIMENT #############')

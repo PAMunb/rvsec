@@ -116,3 +116,9 @@ class Android:
             logging.info("Granting permission {}".format(permission))
             grant_cmd = Command('adb', ['shell', 'pm', 'grant', app.package_name, permission])
             grant_cmd.invoke()
+
+    @staticmethod
+    def install_platform(number: str):
+        platform = "platforms;android-" + number
+        install_cmd = Command('sdkmanager', ['--install', platform])
+        install_cmd.invoke()

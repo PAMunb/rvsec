@@ -91,9 +91,6 @@ class RvAndroid(object):
         utils.reset_folder(TMP_DIR)
         no_monitor_jar_name = "no_monitor_{}.jar".format(app.name)
         no_monitor_jar = os.path.join(TMP_DIR, no_monitor_jar_name)
-        # TODO como o d2j lida com multidex? e como vamos lidar aqui?
-        # --> o d2j cria um JAR a partir de todos os dex
-        # --> depois o d8 pode quebrar em alguns .dex
         self.__d2j_dex2jar(app, no_monitor_jar)
         assert os.path.exists(no_monitor_jar)
         self.__d2j_asm_verify(no_monitor_jar, skip_verify=True)
@@ -166,7 +163,7 @@ class RvAndroid(object):
         utils.reset_folder(RVM_TMP_DIR)
         monitored_jar_name = "monitored_{}.jar".format(app.name)
         monitored_jar = os.path.join(RVM_TMP_DIR, monitored_jar_name)
-        # TODO rever esse balaio de gato
+
         utils.zip_dir_content(monitored_jar, TMP_DIR)
         shutil.move(monitored_jar, TMP_DIR)
         shutil.rmtree(RVM_TMP_DIR)
@@ -202,51 +199,26 @@ class RvAndroid(object):
 
     def __d8(self, app: App, monitored_jar: str):
         logging.info("Compiling to DEX")
-        # d8_cmd = Command('d8', [monitored_jar, '--release',
-        #                         '--lib', self.__get_android_jar(),
-        #                         '--min-api', '26',
-        #                         '--output', TMP_DIR])
-        # TODO setar --min-api com os dados do apk???
-        # TODO verificar se existe outro parametro necessario/util
+
+        # TODO setar --min-api com os dados do app???
         d8_cmd = Command('d8', [monitored_jar, '--release',
                                 '--lib', self.__get_android_jar(),
                                 '--min-api', '26'])
         utils.execute_command(d8_cmd, "d8")
-
-        # dex_name = 'classes.dex'
-        # generated_dex = os.path.join(WORKING_DIR, dex_name)
-        # assert os.path.exists(generated_dex)
 
         # copy the original apk (as unsigned_apk)
         unsigned_apk_name = "unsigned_{}".format(app.name)
         unsigned_apk = os.path.join(TMP_DIR, unsigned_apk_name)
         logging.debug("Copying original APK ({}) to {}".format(app.path, unsigned_apk))
         shutil.copy2(app.path, unsigned_apk)
-        # subprocess.Popen(['ls', '-lh', TMP_DIR])
-        # shutil.copyfile(app.path, unsigned_apk)
         assert os.path.exists(unsigned_apk)
 
-        # Replace old/original classes.dex in APK with new/genereated classes.dex
-        # zip_cmd = Command('zip', ['-r', unsigned_apk, generated_dex])
-        # utils.execute_command(zip_cmd, "zip_d8")
-        # TODO usar command ... customizar com o cwd
+        # Replace old/original classes.dex in APK with new/instrumented classes.dex
         logging.info("Replacing old 'classes.dex' in: {}".format(unsigned_apk_name))
-        # print("out_dir={}".format(out_dir))
-        # current_dir = os.getcwd()
-        # print("current_dir={}".format(current_dir))
-        # os.chdir(TMP_DIR)
-        # print("dir_before={}".format(os.getcwd()))
-        # subprocess.Popen(['zip', '-u', unsigned_apk, dex_name])  # , cwd=out_dir)#, shell=True)
         d8_zip_cmd = Command('zip', ['-u', unsigned_apk, '*' + EXTENSION_DEX])
         utils.execute_command(d8_zip_cmd, "d8_zip")
-        # os.chdir(current_dir)
-        # print("dir_after={}".format(os.getcwd()))
-        # utils.delete_file(generated_dex)
-
-        # os.remove(generated_dex)
 
         # Verify and sign the Jar with debug key, repairing any inconsistent manifests
-        #TODO skip por enquanto ... da erro no com.serwylo.babybook_11.apk
         self.__d2j_asm_verify(unsigned_apk, skip_verify=True)
 
         return unsigned_apk
@@ -275,14 +247,7 @@ class RvAndroid(object):
         for folder in folders:
             logging.debug("Deleting folder: {}".format(folder))
             shutil.rmtree(folder, ignore_errors=True)
-        # TODO atributo da classe ... ou arrumar outra forma de pegar o classes.dex aqui e no d8()
-        #TODO deletar multidex ... e "exception_{}.zip".format(app.name) ?
         utils.delete_files_by_extension(EXTENSION_DEX, WORKING_DIR)
-        # dex_name = 'classes.dex'
-        # generated_dex = os.path.join(WORKING_DIR, dex_name)
-        # if os.path.exists(generated_dex):
-        #     logging.debug("Deleting: {}".format(generated_dex))
-        #     os.remove(generated_dex)
 
     @staticmethod
     def __get_android_jar() -> str:
