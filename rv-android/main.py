@@ -77,7 +77,7 @@ if __name__ == '__main__':
 
     parser.add_argument("--skip_monitors", help="Skip monitors generation", action="store_true")
     parser.add_argument("--skip_instrument", help="Skip instrumentation", action="store_true")
-    # parser.add_argument("--skip_experiment", help="Skip experiment execution", action="store_true")
+    parser.add_argument("--skip_experiment", help="Skip experiment execution", action="store_true")
 
     args = parser.parse_args()
     # End catching arguments
@@ -94,7 +94,7 @@ if __name__ == '__main__':
         for tool in args.tools:
             if t == tool:
                 tools.append(available_tools[t])
-    if len(tools) == 0:
+    if len(tools) == 0 and not args.skip_experiment:
         print("No valid tools selected.")
         exit(1)
 
@@ -110,7 +110,7 @@ if __name__ == '__main__':
     logging.info('############# STARTING EXPERIMENT #############')
     start = time.time()
 
-    experiment_01.execute(args.r, args.t, tools, generate_monitors, instrument, args.no_window)
+    experiment_01.execute(args.r, args.t, tools, generate_monitors, instrument, args.no_window, args.skip_experiment)
 
     end = time.time()
     elapsed = end - start
