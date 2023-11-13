@@ -38,8 +38,7 @@ class RvAndroid(object):
                 # instruments the APK. 'force_instrumentation' indicates whether the APK
                 # should be re-instrumented if it is already instrumented
                 self.__instrument(app, force_instrumentation)
-                # TODO ver se eh realmente necessario
-                # compara os hashs do apk original e do instrumentado
+                # checks if the apk was instrumented
                 self.__check_if_instrumented(app)
             except CommandException as ex:
                 logging.error("Failed to instrument APK: {}. {}".format(app.name, ex))
@@ -75,7 +74,7 @@ class RvAndroid(object):
 
         start = time.time()
         logging.info("Instrumenting: {}".format(app.name))
-        # TODO mudar nome do metodo pois nao edecompila ... parece q transforma/converte
+        # TODO mudar nome do metodo pois nao decompila ... parece q transforma/converte
         self.__decompile_apk(app)
         self.__include_generated_monitors()
         self.__weave_monitors(app)
@@ -269,18 +268,14 @@ class RvAndroid(object):
 
     @staticmethod
     def __check_if_instrumented(app: App):
-        # TODO checar se o apk foi realmente instrumentado (talvez checando o hash com o original)
-        # isso pro caso do __execute_command() nao estar capturando os erros
-        # e acabar usando o apk original como estando instrumentado
-
+        # checks if the apk was actually instrumented, in case __execute_command() is not capturing all errors
+        # and ends up returning the original apk as being instrumented
         hash_original = utils.file_hash(os.path.join(app.path))
         hash_instrumented = utils.file_hash(os.path.join(INSTRUMENTED_DIR, app.name))
         if hash_original == hash_instrumented:
-            # TODO nao instrumentou ... lancar excecao?
-            logging.error("NAO INSTRUMENTOU ....................................")
+            raise CommandException("check", "-1", "App {} was not instrumented.".format(app.name))
 
 
-#TODO remover
 if __name__ == '__main__':
     logging_api.basicConfig(stream=sys.stdout, level=logging_api.DEBUG)
     logging_api.info("Executing")
