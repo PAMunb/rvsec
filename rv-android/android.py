@@ -1,10 +1,12 @@
 import logging as logging_api
+import os
 import time
 from contextlib import contextmanager
 
 import utils
 from app import App
 from commands.command import Command
+from settings import ANDROID_PLATFORMS_DIR
 
 logging = logging_api.getLogger(__name__)
 
@@ -119,6 +121,41 @@ class Android:
 
     @staticmethod
     def install_platform(number: str):
+        logging.info("Installing android platform: {}".format(number))
+
+        platform_dir = os.path.join(ANDROID_PLATFORMS_DIR, "android-{}".format(number))
+        if os.path.exists(platform_dir):
+            logging.info("Platform already exists.")
+            return
+
         platform = "platforms;android-" + number
         install_cmd = Command('sdkmanager', ['--install', platform])
         install_cmd.invoke()
+        logging.info("Android platform installed!")
+
+    @staticmethod
+    def list_installed_platforms():
+        platforms_list = []
+        for f in os.listdir(ANDROID_PLATFORMS_DIR):
+            file = os.path.join(ANDROID_PLATFORMS_DIR, f)
+            if os.path.isdir(file):
+                platform = f.split('-')
+                if len(platform) == 2:
+                    platforms_list.append(platform[1].strip())
+        return platforms_list
+
+
+if __name__ == '__main__':
+    import sys
+    logging_api.basicConfig(stream=sys.stdout, level=logging_api.DEBUG)
+    logging_api.info("Executing")
+
+    android = Android()
+
+    platforms = android.list_installed_platforms()
+    for p in platforms:
+        print(p)
+
+    android.install_platform("26")
+    print("INSTALOU !!!!!!!!!!!!!!")
+

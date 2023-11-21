@@ -23,7 +23,7 @@ def execute(repetitions: int, timeouts: list[int], tools: list[AbstractTool], ge
     base_results_dir = create_results_dir()
 
     # generate monitors and instrument APKs
-    runtime_verification(generate_monitors, instrument)
+    runtime_verification(generate_monitors, instrument, base_results_dir)
 
     if not skip_experiment:
         # retrieve the instrumented apks
@@ -45,13 +45,13 @@ def execute(repetitions: int, timeouts: list[int], tools: list[AbstractTool], ge
     logging.info('Finished !!!')
 
 
-def runtime_verification(generate_monitors: bool, instrument: bool):
+def runtime_verification(generate_monitors: bool, instrument: bool, base_results_dir: str):
     if generate_monitors:
         rvsec = RVSec()
         rvsec.generate_monitors()
     if instrument:
         rvandroid = RvAndroid()
-        rvandroid.instrument_apks()
+        rvandroid.instrument_apks(results_dir=base_results_dir)
 
 
 def run(apk: App, rep: int, timeout: int, tool: AbstractTool, results_dir: str, no_window: bool):

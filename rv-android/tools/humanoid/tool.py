@@ -7,7 +7,7 @@ from commands.command import Command
 from ..tool_spec import AbstractTool
 
 #TODO run humanoid container before using this tool
-# python main.py -tools monkey droidbot droidbot_dfs_greedy -r 1 -t 90 120 150
+#docker run -i -t --rm  -p 50405:50405 phtcosta/humanoid:1.0
 
 class ToolSpec(AbstractTool):
     def __init__(self):

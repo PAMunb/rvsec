@@ -24,7 +24,7 @@ class RvAndroid(object):
     def __init__(self):
         pass
 
-    def instrument_apks(self, force_instrumentation=False):
+    def instrument_apks(self, results_dir: str, force_instrumentation=False):
         errors = {}
 
         # clean directories and copy libraries
@@ -32,9 +32,13 @@ class RvAndroid(object):
         # retrieves the APKs to be instrumented
         apks = utils.get_apks(APKS_DIR)
 
-        logging.info("Instrumenting {} apks ...".format(len(apks)))
+        total_apks = len(apks)
+        cont = 0
+        logging.info("Instrumenting {} apks ...".format(total_apks))
         for app in apks:
+            cont = cont + 1
             try:
+                logging.info("Starting instrumentation {}/{}".format(cont, total_apks))
                 # instruments the APK. 'force_instrumentation' indicates whether the APK
                 # should be re-instrumented if it is already instrumented
                 self.__instrument(app, force_instrumentation)
@@ -51,7 +55,8 @@ class RvAndroid(object):
 
         if errors:
             logging.warning("ERRORS: {}".format(len(errors)))
-            with open('instrument_errors.json', 'w') as outfile:
+            errors_file = os.path.join(results_dir, "instrument_errors.json")
+            with open(errors_file, 'w') as outfile:
                 outfile.write(json.dumps(errors))
                 logging.info("Errors saved in 'instrument_errors.json'")
             for error in errors:
@@ -131,7 +136,7 @@ class RvAndroid(object):
 
     def __get_classpath(self, app: App):
         # TODO pegar o android.jar dinamicamente de acordo com o target_sdk do app?
-        classpath = [self.__get_android_jar()]
+        classpath = [self.__get_android_jar(app)]
         for lib in os.listdir(LIB_TMP_DIR):
             if lib.lower().endswith(EXTENSION_JAR):
                 classpath.append(os.path.join(LIB_TMP_DIR, lib))
@@ -201,8 +206,11 @@ class RvAndroid(object):
 
         # TODO setar --min-api com os dados do app???
         d8_cmd = Command('d8', [monitored_jar, '--release',
-                                '--lib', self.__get_android_jar(),
+                                '--lib', self.__get_android_jar(app),
                                 '--min-api', '26'])
+        # d8_cmd = Command('d8', [monitored_jar, '--release',
+        #                         '--lib', self.__get_android_jar(app),
+        #                         '--min-api', app.min_api])
         utils.execute_command(d8_cmd, "d8")
 
         # copy the original apk (as unsigned_apk)
@@ -249,10 +257,24 @@ class RvAndroid(object):
         utils.delete_files_by_extension(EXTENSION_DEX, WORKING_DIR)
 
     @staticmethod
-    def __get_android_jar() -> str:
+    def __get_android_jar(app: App) -> str:
         # TODO pegar o android.jar dinamicamente de acordo com o target_sdk do app
         # --> baixar dinamicamente a plataforma? ou limitar o range de plataformas possiveis?
+
         return ANDROID_JAR_PATH
+
+        # platform = "android-{}".format(app.sdk_target)
+        # android_jar = os.path.join(ANDROID_PLATFORMS_DIR, platform, 'android.jar')
+        #
+        # target = str(app.sdk_target)
+        # from android import Android
+        # if target not in Android.list_installed_platforms():
+        #     Android.install_platform(target)
+        #
+        # if os.path.exists(android_jar):
+        #     return android_jar
+        # else:
+        #     return ANDROID_JAR_PATH
 
     @staticmethod
     def __jarsigner(signed_apk):
@@ -281,4 +303,4 @@ if __name__ == '__main__':
     logging_api.info("Executing")
 
     rv_android = RvAndroid()
-    rv_android.instrument_apks(force_instrumentation=True)
+    rv_android.instrument_apks(".", force_instrumentation=True)
