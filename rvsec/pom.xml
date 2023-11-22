@@ -25,6 +25,7 @@
 		<module>rvsec-mop</module>
 		<module>rvsec-mop-extractor</module>
 		<module>rvsec-mop-defsuses</module>
+		<module>rvsec-methods-extractor</module>
 		<module>rvsec-core</module>
 		<module>rvsec-logger-csv</module>
 		<module>rvsec-logger-logcat</module>		
