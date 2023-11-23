@@ -1,3 +1,4 @@
+import logging as logging_api
 import hashlib
 import logging
 import os
@@ -9,6 +10,7 @@ from app import App
 from commands.command import Command
 from commands.command_exception import CommandException
 
+logging = logging_api.getLogger(__name__)
 
 def execute_command(cmd: Command, tag: str, skip_stderr=False):
     cmd_result = cmd.invoke(stdout=sys.stdout)  # , stderr=sys.stderr)
@@ -60,12 +62,14 @@ def move_files_by_extension(extension: str, in_folder: str, destination_folder: 
         raise Exception(error_msg)
 
 
-def copy_files_by_extension(extension: str, in_folder: str, destination_folder: str):
+def copy_files_by_extension(extension: str, in_folder: str, destination_folder: str, log_info=False):
     try:
         check_folder_exists([in_folder, destination_folder])
         logging.debug("Copying files with extension {} from {} to {}".format(extension, in_folder, destination_folder))
         for file in os.listdir(in_folder):
             if file.casefold().endswith(extension):
+                if log_info:
+                    logging.info("Copying '{}' to {}".format(file, destination_folder))
                 file_path = os.path.join(in_folder, file)
                 shutil.copy2(file_path, destination_folder)
     except OSError as e:

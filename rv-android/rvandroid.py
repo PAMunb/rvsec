@@ -58,7 +58,7 @@ class RvAndroid(object):
             errors_file = os.path.join(results_dir, "instrument_errors.json")
             with open(errors_file, 'w') as outfile:
                 outfile.write(json.dumps(errors))
-                logging.info("Errors saved in 'instrument_errors.json'")
+                logging.info("Errors saved in: {}".format(errors_file))
             for error in errors:
                 logging.warning("ERROR: {}, tool={}".format(error, errors[error]["tool"]))
 

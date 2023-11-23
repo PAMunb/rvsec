@@ -59,8 +59,11 @@ def run(apk: App, rep: int, timeout: int, tool: AbstractTool, results_dir: str, 
 
     logcat_cmd = Command('adb', ['logcat', '-v', 'tag', '-s', 'RVSEC', 'RVSEC-COV'])
 
-    logcat_file = os.path.join(results_dir, "{0}__{1}__{2}__{3}.logcat".format(apk.name, rep, timeout, tool.name))
-    log_file = os.path.join(results_dir, "{0}__{1}__{2}__{3}.trace".format(apk.name, rep, timeout, tool.name))
+    apk_results_dir = os.path.join(results_dir, apk.name)
+    utils.create_folder_if_not_exists(apk_results_dir)
+
+    logcat_file = os.path.join(apk_results_dir, "{0}__{1}__{2}__{3}.logcat".format(apk.name, rep, timeout, tool.name))
+    log_file = os.path.join(apk_results_dir, "{0}__{1}__{2}__{3}.trace".format(apk.name, rep, timeout, tool.name))
 
     with android.create_emulator(AVD_NAME, no_window) as emulator:
         android.install_with_permissions(apk)

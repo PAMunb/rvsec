@@ -35,6 +35,7 @@
 		<scala.compat.version>2.11</scala.compat.version>
 		<scala-maven-plugin.version>4.6.3</scala-maven-plugin.version>
 
+		<soot.version>4.4.1</soot.version>
 		<commons-lang3.version>3.13.0</commons-lang3.version>
 		<commons-io.version>2.13.0</commons-io.version>
 		<guava.version>19.0</guava.version>
@@ -114,6 +115,11 @@
 				<artifactId>rvsec-mop-extractor</artifactId>
 				<version>${project.version}</version>
 			</dependency>
+			<dependency>
+				<groupId>br.unb.cic</groupId>
+				<artifactId>rvsec-methods-extractor</artifactId>
+				<version>${project.version}</version>
+			</dependency>
 
 			<dependency>
 				<groupId>org.aspectj</groupId>
@@ -140,6 +146,12 @@
 				<groupId>org.scala-lang.modules</groupId>
 				<artifactId>scala-parser-combinators_${scala.compat.version}</artifactId>
 				<version>1.1.1</version>
+			</dependency>
+
+			<dependency>
+				<groupId>org.soot-oss</groupId>
+				<artifactId>soot</artifactId>
+				<version>${soot.version}</version>
 			</dependency>
 
 			<dependency>
@@ -240,7 +252,7 @@
 						<debug>true</debug>
 						<parameters>false</parameters>
 						<verbose>false</verbose>
-						<optimize>true</optimize>
+						<!-- DEPRECATED: <optimize>true</optimize>-->
 						<showWarnings>false</showWarnings>
 						<showDeprecation>false</showDeprecation>
 					</configuration>

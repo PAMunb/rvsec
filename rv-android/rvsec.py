@@ -3,10 +3,8 @@ import logging as logging_api
 import utils
 from commands.command import Command
 from settings import *
+from constants import *
 
-EXTENSION_AJ = ".aj"
-EXTENSION_MOP = ".mop"
-EXTENSION_RVM = ".rvm"
 
 logging = logging_api.getLogger(__name__)
 
@@ -35,7 +33,7 @@ class RVSec(object):
         # the option '-d' is not working 100% (moves generated *.aj to MOP_OUT_DIR, but not the rvm files)
         utils.move_files_by_extension(EXTENSION_RVM, MOP_DIR, MOP_OUT_DIR)
         # copy any custom aspectj file (from MOP_DIR) to MOP_OUT_DIR
-        utils.copy_files_by_extension(EXTENSION_AJ, MOP_DIR, MOP_OUT_DIR)
+        utils.copy_files_by_extension(EXTENSION_AJ, MOP_DIR, MOP_OUT_DIR, log_info=True)
 
     @staticmethod
     def __rv_monitor():
