@@ -1,15 +1,18 @@
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
-  <modelVersion>4.0.0</modelVersion>
-  <parent>
-    <groupId>br.unb.cic</groupId>
-    <artifactId>rvsec</artifactId>
-    <version>0.5.0-SNAPSHOT</version>
-  </parent>
-  
-  <groupId>br.unb.cic</groupId>
-  <artifactId>rvsec-methods-extractor</artifactId>
-  
-  <name>RVSec :: Methods Extractor</name>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+	
+	<parent>
+		<groupId>br.unb.cic</groupId>
+		<artifactId>rvsec</artifactId>
+		<version>0.5.0-SNAPSHOT</version>
+	</parent>
+
+	<groupId>br.unb.cic</groupId>
+	<artifactId>rvsec-methods-extractor</artifactId>
+
+	<name>RVSec :: Methods Extractor</name>
 
 	<properties>
 		<main.class>br.unb.cic.methods.extractor.Main</main.class>
@@ -17,12 +20,10 @@
 	</properties>
 
 	<dependencies>
-		<!-- Parameter 'optimize' (user property 'maven.compiler.optimize') is deprecated: This property is a no-op in javac. -->
 		<dependency>
-    <groupId>org.soot-oss</groupId>
-    <artifactId>soot</artifactId>
-    <version>4.4.1</version>
-  </dependency>
+			<groupId>org.soot-oss</groupId>
+			<artifactId>soot</artifactId>
+		</dependency>
 		<dependency>
 			<groupId>com.beust</groupId>
 			<artifactId>jcommander</artifactId>
@@ -55,31 +56,31 @@
 					</execution>
 				</executions>
 			</plugin>
-<!--			<plugin>-->
-<!--				<groupId>org.apache.maven.plugins</groupId>-->
-<!--				<artifactId>maven-resources-plugin</artifactId>-->
-<!--				<executions>-->
-<!--					<execution>-->
-<!--						<id>copy-resource-one</id>-->
-<!--						<phase>install</phase>-->
-<!--						<goals>-->
-<!--							<goal>copy-resources</goal>-->
-<!--						</goals>-->
-<!--						<configuration>							-->
-<!--							<outputDirectory>${main.basedir}/rv-android/lib/mop-extractor</outputDirectory>-->
-<!--							<overwrite>true</overwrite>-->
-<!--							<resources>-->
-<!--								<resource>-->
-<!--									<directory>${project.build.directory}</directory>-->
-<!--									<includes>-->
-<!--										<include>${final.jar.name}.jar</include>-->
-<!--									</includes>-->
-<!--								</resource>-->
-<!--							</resources>-->
-<!--						</configuration>-->
-<!--					</execution>-->
-<!--				</executions>-->
-<!--			</plugin>-->
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-resources-plugin</artifactId>
+				<executions>
+					<execution>
+						<id>copy-resource-one</id>
+						<phase>install</phase>
+						<goals>
+							<goal>copy-resources</goal>
+						</goals>
+						<configuration>
+							<outputDirectory>${main.basedir}/rv-android/lib/methods-extractor</outputDirectory>
+							<overwrite>true</overwrite>
+							<resources>
+								<resource>
+									<directory>${project.build.directory}</directory>
+									<includes>
+										<include>${final.jar.name}.jar</include>
+									</includes>
+								</resource>
+							</resources>
+						</configuration>
+					</execution>
+				</executions>
+			</plugin>
 		</plugins>
 	</build>
 </project>

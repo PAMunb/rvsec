@@ -22,8 +22,16 @@ public class MethodsExtractor {
 	public void execute(String app, String appPackage, String androidPlatformsDir, String outputFile, boolean excludeConstructors, boolean excludeStaticInitializers) {
 		initializeSoot(app, androidPlatformsDir);
 				
-		Map<String, Set<String>> mapa = new HashMap<>();		
+		Map<String, Set<String>> methodsMap = getMethods(appPackage, excludeConstructors, excludeStaticInitializers);
 		
+		writeMethods(outputFile, methodsMap);
+		
+		System.out.println("File generated: "+outputFile);		
+	}	
+
+	private Map<String, Set<String>> getMethods(String appPackage, boolean excludeConstructors, boolean excludeStaticInitializers) {
+		System.out.println("Extracting methods");
+		Map<String, Set<String>> methodsMap = new HashMap<>();	
 		Scene.v().getApplicationClasses().stream()
 				.filter(c -> c.getName().startsWith(appPackage))
 				.filter(c -> !("R".equals(c.getShortName())))
@@ -31,7 +39,7 @@ public class MethodsExtractor {
 				.forEach(c -> {
 					String clazz = c.getName();
 					
-					mapa.putIfAbsent(clazz, new HashSet<>());	
+					methodsMap.putIfAbsent(clazz, new HashSet<>());	
 					
 					Stream<SootMethod> stream = c.getMethods().stream();
 					if(excludeConstructors) {
@@ -42,19 +50,22 @@ public class MethodsExtractor {
 					}
 					
 					stream.forEach(m -> {
-						System.out.println(m.getSignature());
 						List<String> types = m.getParameterTypes().stream()
 								.map(Type::toString)
 								.collect(Collectors.toList());
 						String sig = String.format("%s(%s)", m.getName(), String.join(",", types));
-						mapa.get(clazz).add(sig);
+						methodsMap.get(clazz).add(sig);
 					});
 				});
-		
+		return methodsMap;
+	}	
+	
+	private void writeMethods(String outputFile, Map<String, Set<String>> methodsMap) {
+		System.out.println("Writing to file");
 		try (BufferedWriter writer = new BufferedWriter(new FileWriter(outputFile))) {
 			writer.write("class;method\n");
-			for (String clazz : mapa.keySet()) {
-				for(String method : mapa.get(clazz)) {
+			for (String clazz : methodsMap.keySet()) {
+				for(String method : methodsMap.get(clazz)) {
 					writer.write(String.format("%s;%s%n", clazz, method));
 				}
 			}
@@ -62,13 +73,11 @@ public class MethodsExtractor {
 			e.printStackTrace();
 			System.exit(1);
 		}
-		
-		System.out.println("File generated: "+outputFile);		
-	}	
+	}
 	
 	private void initializeSoot(String apk, String androidJAR) {
+		System.out.println("Initializing Soot");
 		Options.v().set_full_resolver(true);
-
 		Options.v().set_allow_phantom_refs(true);
 		Options.v().set_prepend_classpath(true);
 		Options.v().set_validate(true);

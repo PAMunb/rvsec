@@ -17,10 +17,10 @@ public class CommandLineArgs {
 	private String outputFile;
 	
 	@Parameter(names = { "--include-contructors" }, description = "Include contructors")
-	boolean includeConstructors;
+	private boolean includeConstructors;
 	
 	@Parameter(names = { "--include-static-initializers" }, description = "Include static initializers")
-	boolean includeStaticInitializers;
+	private boolean includeStaticInitializers;
 	
 	@Parameter(names = "--help", description = "Show usage information", help = true)
 	private boolean help;
