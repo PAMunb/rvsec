@@ -9,6 +9,7 @@ from zipfile import ZipFile, ZIP_DEFLATED
 from app import App
 from commands.command import Command
 from commands.command_exception import CommandException
+from constants import EXTENSION_APK
 
 logging = logging_api.getLogger(__name__)
 
@@ -126,7 +127,7 @@ def get_apks(apks_dir: str) -> list[App]:
     apks: list[App] = []
     if os.path.exists(apks_dir) and os.path.isdir(apks_dir):
         for file in os.listdir(apks_dir):
-            if file.casefold().endswith(".apk"):
+            if file.casefold().endswith(EXTENSION_APK):
                 apks.append(App(os.path.join(apks_dir, file)))
     return apks
 

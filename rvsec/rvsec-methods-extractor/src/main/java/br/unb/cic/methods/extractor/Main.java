@@ -5,23 +5,27 @@ import com.beust.jcommander.JCommander;
 import br.unb.cic.methods.extractor.cli.CommandLineArgs;
 
 public class Main {
-	
+
 	public static void main(String[] args) {
 		CommandLineArgs jArgs = new CommandLineArgs();
-		
+
 		JCommander jc = JCommander.newBuilder().addObject(jArgs).build();
 		jc.parse(args);
-				
-		if(jArgs.isHelp()) {
+
+		if (jArgs.isHelp()) {
 			jc.usage();
 			System.exit(0);
-		}		
+		}
+
+		boolean debug = jArgs.isDebug();
 
 		MethodsExtractor extractor = new MethodsExtractor();
-		extractor.execute(jArgs.getApk(), jArgs.getAppPackage(), jArgs.getAndroidPlatformsDir(), 
-				jArgs.getOutputFile(), !jArgs.isIncludeConstructors(), !jArgs.isIncludeStaticInitializers());
-	
-		System.out.println("Done!");
+		extractor.execute(jArgs.getApk(), jArgs.getAppPackage(), jArgs.getAndroidPlatformsDir(), jArgs.getOutputFile(),
+				!jArgs.isIncludeConstructors(), !jArgs.isIncludeStaticInitializers(), debug);
+
+		if (debug) {
+			System.out.println("Done!");
+		}
 	}
 
 }

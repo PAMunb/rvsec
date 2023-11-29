@@ -6,12 +6,28 @@ import os.path
 def execute(errors_file: str, out_file: str):
     apks = complete(errors_file)
 
-    with open(out_file, 'w') as f:
-        f.write("file,min_sdk,target_sdk,lastUpdated,tag,error \n")
-        for file in apks:
-            apk = apks[file]
-            f.write("{},{},{},{},{},{}\n".format(file, apk["min_sdk"], apk["target_sdk"], apk["lastUpdated"],
-                                                 apk["tag"], apk["error"]))
+
+    cont_ajc = 0
+    cont_d8 = 0
+    for a in apks:
+        apk = apks[a]
+        if apk["tag"] == "ajc":
+            cont_ajc = cont_ajc + 1
+            # print(a)
+        if apk["tag"] == "d8":
+            cont_d8 = cont_d8 + 1
+            # print(a)
+
+    print("AJC={}".format(cont_ajc))
+    print("D8={}".format(cont_d8))
+
+    # with open(out_file, 'w') as f:
+    #     f.write("file,min_sdk,target_sdk,lastUpdated,tag,error \n")
+    #     for file in apks:
+    #         apk = apks[file]
+    #         f.write("{},{},{},{},{},{}\n".format(file, apk["min_sdk"], apk["target_sdk"], apk["lastUpdated"],
+    #                                              apk["tag"], apk["error"]))
+    print("aaaaa")
 
 
 def complete(file: str):

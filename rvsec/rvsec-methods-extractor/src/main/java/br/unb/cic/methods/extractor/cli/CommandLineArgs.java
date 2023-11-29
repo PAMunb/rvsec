@@ -9,22 +9,24 @@ public class CommandLineArgs {
 
 	@Parameter(names = { "--apk-package", "-p" }, description = "APK package", required = true)
 	private String appPackage;
-	
+
 	@Parameter(names = { "--android-dir", "-d" }, description = "Android platforms dir", required = true)
 	private String androidPlatformsDir;
-	
+
 	@Parameter(names = { "--output", "-o" }, description = "Output CSV file", required = true)
 	private String outputFile;
-	
+
 	@Parameter(names = { "--include-contructors" }, description = "Include contructors")
 	private boolean includeConstructors;
-	
+
 	@Parameter(names = { "--include-static-initializers" }, description = "Include static initializers")
 	private boolean includeStaticInitializers;
-	
+
+	@Parameter(names = "-debug", description = "Debug mode")
+	private boolean debug = false;
+
 	@Parameter(names = "--help", description = "Show usage information", help = true)
 	private boolean help;
-
 
 	public String getApk() {
 		return apk;
@@ -50,8 +52,12 @@ public class CommandLineArgs {
 		return includeStaticInitializers;
 	}
 
+	public boolean isDebug() {
+		return debug;
+	}
+
 	public boolean isHelp() {
 		return help;
-	}	
+	}
 
 }

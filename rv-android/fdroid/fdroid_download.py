@@ -2,6 +2,7 @@ import os
 import tempfile
 
 import requests
+import random
 
 from csv import DictReader
 
@@ -11,10 +12,15 @@ def execute(csv_path, out_dir):
     apps = read_csv(csv_path)
     cont = 0
     for app in apps:
-        cont += 1
-        if cont == 22:
-            break
-        download_apk(app['file'], out_dir)
+        # cont += 1
+        # if cont == 22:
+        #     break
+        num = random.random()
+        if app['mop'] == 'Yes' and num > 0.70:
+            # cont += 1
+            # print(app['file'])
+            download_apk(app['file'], out_dir)
+    # print("TOTAL: {}".format(cont))
 
 
 def read_csv(csv_path):
@@ -24,6 +30,10 @@ def read_csv(csv_path):
         return list_of_dict
 
 def download_apk(apk_filename, out_dir):
+    if os.path.exists(os.path.join(out_dir, apk_filename)):
+        print("arquivo ja existe: {}".format(apk_filename))
+        return
+
     base_url = "https://f-droid.org/repo/"
     apk_url = base_url + apk_filename
     print("Downloading apk: {}".format(apk_url))
@@ -41,6 +51,7 @@ def download_apk(apk_filename, out_dir):
 
 
 if __name__ == '__main__':
-    csv_path = "final_apps_to_download_mini.csv"
+    # csv_path = "final_apps_to_download_mini.csv"
+    csv_path = "final_apps_to_download.csv"
     out_dir = "../apks"
     execute(csv_path, out_dir)

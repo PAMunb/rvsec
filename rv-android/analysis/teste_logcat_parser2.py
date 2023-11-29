@@ -8,7 +8,7 @@ def contar_qtde_apks_com_erros(results_dir: str):
         for file in os.listdir(results_dir):
             if file.casefold().endswith(".logcat"):
                 total = total + 1
-                rvsec_errors, called_methods = __parse_logcat_file(os.path.join(results_dir, file))
+                rvsec_errors, called_methods = parse_logcat_file(os.path.join(results_dir, file))
                 if rvsec_errors:
                     cont = cont + 1
     print("*********************************************")
@@ -16,7 +16,7 @@ def contar_qtde_apks_com_erros(results_dir: str):
     print("QTDE de apks com erros encontrados: {}".format(cont))
     print("% de apks com erros encontrados: {}%".format(int(cont*100/total)))
 
-def __parse_logcat_file(log_file: str):
+def parse_logcat_file(log_file: str):
     called_methods = {}
     rvsec_errors = set()
     with open(log_file) as f:

@@ -24,8 +24,8 @@ RV_MONITOR_HOME = os.path.join(RVSEC_ROOT_DIR, 'rv-monitor')
 RV_MONITOR_BIN = os.path.join(RV_MONITOR_HOME, 'bin', 'rv-monitor')
 RVSEC_DIR = os.path.join(RVSEC_ROOT_DIR, 'rvsec')
 
-# MOP_DIR = os.path.join(RVSEC_DIR, 'rvsec-mop', 'src', 'main', 'resources')
-MOP_DIR = os.path.join(WORKING_DIR, 'mop_mini')
+MOP_DIR = os.path.join(RVSEC_DIR, 'rvsec-mop', 'src', 'main', 'resources')
+# MOP_DIR = os.path.join(WORKING_DIR, 'mop_mini')
 MOP_OUT_DIR = os.path.join(WORKING_DIR, 'mop_out')
 
 D2J_HOME = os.path.join(LIB_DIR, 'dex2jar')
@@ -36,6 +36,7 @@ D2J_APK_SIGN = os.path.join(D2J_HOME, 'd2j-apk-sign.sh')
 AVD_NAME = "RVSec"
 
 ANDROID_PLATFORM = 'android-29'
+# ANDROID_PLATFORM = 'android-25'
 ANDROID_SDK_HOME = os.getenv('ANDROID_HOME')
 ANDROID_PLATFORMS_DIR = os.path.join(ANDROID_SDK_HOME, 'platforms')
 ANDROID_PLATFORM_LIB = os.path.join(ANDROID_PLATFORMS_DIR, ANDROID_PLATFORM)

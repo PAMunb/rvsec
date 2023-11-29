@@ -18,65 +18,77 @@ import soot.Type;
 import soot.options.Options;
 
 public class MethodsExtractor {
-	
-	public void execute(String app, String appPackage, String androidPlatformsDir, String outputFile, boolean excludeConstructors, boolean excludeStaticInitializers) {
-		initializeSoot(app, androidPlatformsDir);
-				
-		Map<String, Set<String>> methodsMap = getMethods(appPackage, excludeConstructors, excludeStaticInitializers);
-		
-		writeMethods(outputFile, methodsMap);
-		
-		System.out.println("File generated: "+outputFile);		
-	}	
 
-	private Map<String, Set<String>> getMethods(String appPackage, boolean excludeConstructors, boolean excludeStaticInitializers) {
-		System.out.println("Extracting methods");
-		Map<String, Set<String>> methodsMap = new HashMap<>();	
-		Scene.v().getApplicationClasses().stream()
-				.filter(c -> c.getName().startsWith(appPackage))
-				.filter(c -> !("R".equals(c.getShortName())))
-				.filter(c -> !(c.getShortName().startsWith("R$")))
+	private boolean debug;
+
+	public void execute(String app, String appPackage, String androidPlatformsDir, String outputFile,
+			boolean excludeConstructors, boolean excludeStaticInitializers, boolean debug) {
+
+		this.debug = debug;
+
+		initializeSoot(app, androidPlatformsDir);
+
+		Map<String, Set<String>> methodsMap = getMethods(appPackage, excludeConstructors, excludeStaticInitializers);
+
+		writeMethods(outputFile, methodsMap);
+
+		if (debug) {
+			System.out.println("File generated: " + outputFile);
+		}
+	}
+
+	private Map<String, Set<String>> getMethods(String appPackage, boolean excludeConstructors,
+			boolean excludeStaticInitializers) {
+		if (debug) {
+			System.out.println("Extracting methods");
+		}
+		Map<String, Set<String>> methodsMap = new HashMap<>();
+		Scene.v().getApplicationClasses().stream().filter(c -> c.getName().startsWith(appPackage))
+				.filter(c -> !("R".equals(c.getShortName()))).filter(c -> !(c.getShortName().startsWith("R$")))
 				.forEach(c -> {
 					String clazz = c.getName();
-					
-					methodsMap.putIfAbsent(clazz, new HashSet<>());	
-					
+
+					methodsMap.putIfAbsent(clazz, new HashSet<>());
+
 					Stream<SootMethod> stream = c.getMethods().stream();
-					if(excludeConstructors) {
+					if (excludeConstructors) {
 						stream = stream.filter(m -> !m.isConstructor());
 					}
-					if(excludeStaticInitializers) {
+					if (excludeStaticInitializers) {
 						stream = stream.filter(m -> !m.isStaticInitializer());
 					}
-					
+
 					stream.forEach(m -> {
-						List<String> types = m.getParameterTypes().stream()
-								.map(Type::toString)
+						List<String> types = m.getParameterTypes().stream().map(Type::toString)
 								.collect(Collectors.toList());
 						String sig = String.format("%s(%s)", m.getName(), String.join(",", types));
 						methodsMap.get(clazz).add(sig);
 					});
 				});
 		return methodsMap;
-	}	
-	
+	}
+
 	private void writeMethods(String outputFile, Map<String, Set<String>> methodsMap) {
-		System.out.println("Writing to file");
+		if (debug) {
+			System.out.println("Writing to file");
+		}
 		try (BufferedWriter writer = new BufferedWriter(new FileWriter(outputFile))) {
 			writer.write("class;method\n");
 			for (String clazz : methodsMap.keySet()) {
-				for(String method : methodsMap.get(clazz)) {
+				for (String method : methodsMap.get(clazz)) {
 					writer.write(String.format("%s;%s%n", clazz, method));
 				}
 			}
-		} catch (IOException e) {			
+		} catch (IOException e) {
 			e.printStackTrace();
 			System.exit(1);
 		}
 	}
-	
+
 	private void initializeSoot(String apk, String androidJAR) {
-		System.out.println("Initializing Soot");
+		if (debug) {
+			System.out.println("Initializing Soot");
+		}
 		Options.v().set_full_resolver(true);
 		Options.v().set_allow_phantom_refs(true);
 		Options.v().set_prepend_classpath(true);
@@ -89,5 +101,5 @@ public class MethodsExtractor {
 		Options.v().set_soot_classpath(androidJAR);
 		Scene.v().loadNecessaryClasses();
 	}
-	
+
 }
