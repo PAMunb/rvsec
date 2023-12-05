@@ -52,23 +52,24 @@ class Android:
 
     @staticmethod
     def _wait_for_boot():
+        timeout = 90 #seconds
         start = time.time()
         logging.info('Waiting for emulator to boot')
-        check_emulator_cmd = Command('adb', ['-s', 'emulator-5554', 'shell', 'getprop', 'init.svc.bootanim'])
+        check_emulator_cmd = Command('adb', ['-s', 'emulator-5554', 'shell', 'getprop', 'init.svc.bootanim'], timeout)
         check_result = check_emulator_cmd.invoke()
         while check_result.stdout.strip().decode('ascii') != 'stopped':
             time.sleep(5)
             logging.info('Waiting for emulator to boot')
             check_result = check_emulator_cmd.invoke()
         wait_emulator_cmd = Command('adb', ['wait-for-device', 'shell',
-                                            "'while [[ -z $(getprop sys.boot_completed) ]]; do sleep 1; done;'"])
+                                            "'while [[ -z $(getprop sys.boot_completed) ]]; do sleep 1; done;'"], timeout)
         wait_emulator_cmd.invoke()
 
-        root_cmd = Command('adb', ['wait-for-device', 'root'])
+        root_cmd = Command('adb', ['wait-for-device', 'root'], timeout)
         while root_cmd.invoke().stderr.strip().decode('ascii'):
             time.sleep(5)
 
-        adb_remount = Command('adb', ['wait-for-device', 'remount'])
+        adb_remount = Command('adb', ['wait-for-device', 'remount'], timeout)
         while adb_remount.invoke().stderr.strip().decode('ascii'):
             time.sleep(5)
 

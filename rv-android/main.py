@@ -84,6 +84,7 @@ if __name__ == '__main__':
 
     # Logging configuration
     logging.basicConfig(stream=sys.stdout, level=logging.DEBUG if args.debug else logging.INFO)
+    logging.getLogger("androguard").setLevel(logging.WARNING)
 
     # Validate arguments
     check_positive(args.r)

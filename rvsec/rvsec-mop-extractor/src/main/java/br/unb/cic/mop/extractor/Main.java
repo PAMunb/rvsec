@@ -20,10 +20,10 @@ public class Main {
 		Writer writer = jArgs.getWriter().getWriter();
 		try {
 			if (jArgs.getType() == TYPE.CLASSES) {
-				Set<String> classes = facade.listUsedClasses(jArgs.getMopSpecsDir());
+				Set<String> classes = facade.listUsedClasses(jArgs.getMopSpecsDir(), jArgs.isDebug());
 				writer.writeClasses(classes, new File(jArgs.getOutputFile()));
 			} else {
-				Set<JcaMethod> methods = facade.listUsedMethods(jArgs.getMopSpecsDir());
+				Set<JcaMethod> methods = facade.listUsedMethods(jArgs.getMopSpecsDir(), jArgs.isDebug());
 				boolean withParams = false;
 				if (jArgs.getType() == TYPE.METHODS_PARAMS) {
 					withParams = true;

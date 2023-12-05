@@ -36,6 +36,9 @@ public class CommandLineArgs {
 
 	@Parameter(names = { "--writer", "-w" }, description = "Type of output writer")
 	private WRITER writer = WRITER.CSV;
+	
+	@Parameter(names = "-debug", description = "Debug mode")
+	private boolean debug = false;
 
 //	@Parameter(names = "--help", help = true)
 //	boolean help;
@@ -55,5 +58,9 @@ public class CommandLineArgs {
 	public WRITER getWriter() {
 		return writer;
 	}
+
+	public boolean isDebug() {
+		return debug;
+	}	
 
 }

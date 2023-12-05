@@ -15,118 +15,57 @@ from settings import LIB_DIR, WORKING_DIR
 
 from settings import MOP_DIR
 
-COLUMN_METHODS = "methods"
 
+COLUMN_REACHABLE = "reachable"
+COLUMN_USE_JCA = "use_jca"
 
-def reachable_methods_that_uses_jca(apk_path: str):
-    reachable = {}
-
-    print("Analisando apk: {}".format(apk_path))
-    a: Analysis
-    apk, _, a = AnalyzeAPK(apk_path)
-    cg = a.get_call_graph()
-
-    methods_used_in_specs_str = get_javamop_methods(MOP_DIR)
-    entrypoints_classes = get_entrypoints_classes(apk)
-
-    entrypoints, methods_used_in_specs = get_callgraph_nodes(cg, entrypoints_classes, methods_used_in_specs_str)
-
-    reachable_methods = get_reachable_methods(cg, apk, entrypoints)
-
-    print("***** REACHABLE *****")
-    for m in reachable_methods:
-        print("{} :: {}".format(m.get_class_name(), m.name))
-    print("$$$$$$$$$$$$$$$$$$$$$")
-
-    for m in cg:
-        clazz = get_class_name(m)
-        if apk.get_package() in clazz:
-            method = str(m.name)
-
-            if "<init>" in method or "<clinit>" in method:
-                continue
-
-            if clazz not in reachable:
-                reachable[clazz] = {}
-            if method not in reachable[clazz]:
-                reachable[clazz][method] = {"reachable": False, "use_jca": False}
-
-            for jca_method in methods_used_in_specs:
-                if cg.has_successor(m, jca_method):
-                    reachable[clazz][method]["use_jca"] = True
-
-    for m in reachable_methods:
-        clazz = get_class_name(m)
-        method = str(m.name)
-        if "<init>" in method or "<clinit>" in method:
-            continue
-        reachable[clazz][method]["reachable"] = True
-
-    # json_formatted_str = json.dumps(reachable, indent=2)
-    # print(json_formatted_str)
-    # print("***********************")
-    #
-    zzz = "/tmp/teste.csv"
-    write_reachable_methods(reachable, zzz)
-    rrr = read_reachable_methods(zzz)
-    json_formatted_str = json.dumps(rrr, indent=2)
-    print(json_formatted_str)
-
-    print("FIM DE FESTA")
-
-    return reachable
 
 def extract_reachable_methods(apk_path: str, out_file: str):
     reachable = reachable_methods_that_uses_jca(apk_path)
     write_reachable_methods(reachable, out_file)
 
 
-# def reachable_methods_that_uses_jca(apk_path: str):
-#     reachable = {}
-#
-#     print("Analisando apk ...")
-#     a: Analysis
-#     apk, _, a = AnalyzeAPK(apk_path)
-#
-#     methods_used_in_specs_str = get_javamop_methods(MOP_DIR)
-#     entrypoints_classes = get_entrypoints_classes(apk)
-#
-#     entrypoints, methods_used_in_specs = get_callgraph_nodes(a, entrypoints_classes, methods_used_in_specs_str)
-#
-#     reachable_methods = get_all_reachable_methods(a, apk, entrypoints)
-#
-#     for m in reachable_methods:
-#         clazz = get_class_name(m)
-#         method = str(m.name)
-#
-#         if "<init>" in method or "<clinit>" in method:
-#             continue
-#
-#         if clazz not in reachable:
-#             reachable[clazz] = {}
-#         if method not in reachable[clazz]:
-#             reachable[clazz][method] = False
-#
-#     cg = a.get_call_graph()
-#     for method in reachable_methods:
-#         for jca_method in methods_used_in_specs:
-#             if cg.has_successor(method, jca_method):
-#                 clazz = get_class_name(method)
-#                 name = str(method.name)
-#                 reachable[clazz][name] = True
-#
-#     # json_formatted_str = json.dumps(reachable, indent=2)
-#     # print(json_formatted_str)
-#     # print("***********************")
-#     #
-#     # xxx = "/tmp/teste.txt"
-#     # write_reachable_methods(reachable, xxx)
-#     # rrr = read_reachable_methods(xxx)
-#     # json_formatted_str = json.dumps(rrr, indent=2)
-#     # print(json_formatted_str)
-#     #
-#     # print("FIM DE FESTA")
-#     return reachable
+def reachable_methods_that_uses_jca(apk_path: str):
+    # reachable methods (ONLY inside apk package) that use jca
+    reachable = {}
+
+    a: Analysis
+    apk, _, a = AnalyzeAPK(apk_path)
+    cg = a.get_call_graph()
+
+    methods_used_in_specs_str = get_javamop_methods(MOP_DIR)
+    methods_used_in_specs = get_methods_used_in_specs(cg, methods_used_in_specs_str)
+
+    entrypoints_classes = get_entrypoints_classes(apk)
+    entrypoints = get_entrypoints(cg, entrypoints_classes)
+
+    reachable_methods = get_reachable_methods(cg, apk, entrypoints)
+
+    for m in cg:
+        clazz = get_class_name(m)
+        if apk.get_package() in clazz:
+            method = str(m.name)
+
+            if is_constructor_or_static_initializer(method):
+                continue
+
+            if clazz not in reachable:
+                reachable[clazz] = {}
+            if method not in reachable[clazz]:
+                reachable[clazz][method] = {COLUMN_REACHABLE: False, COLUMN_USE_JCA: False}
+
+            for jca_method in methods_used_in_specs:
+                if cg.has_successor(m, jca_method):
+                    reachable[clazz][method][COLUMN_USE_JCA] = True
+
+    for m in reachable_methods:
+        clazz = get_class_name(m)
+        method = str(m.name)
+        if is_constructor_or_static_initializer(method):
+            continue
+        reachable[clazz][method][COLUMN_REACHABLE] = True
+
+    return reachable
 
 
 def write_reachable_methods(reachable: dict, out_file: str):
@@ -134,8 +73,8 @@ def write_reachable_methods(reachable: dict, out_file: str):
         f.write("class,method,reachable,use_jca\n")
         for clazz in reachable:
             for method in reachable[clazz]:
-                f.write("{},{},{},{}\n".format(clazz, method, reachable[clazz][method]["reachable"],
-                                               reachable[clazz][method]["use_jca"]))
+                f.write("{},{},{},{}\n".format(clazz, method, reachable[clazz][method][COLUMN_REACHABLE],
+                                               reachable[clazz][method][COLUMN_USE_JCA]))
 
 
 def read_reachable_methods(in_file: str):
@@ -160,7 +99,6 @@ def get_class_name(m: MethodAnalysis):
     return text
 
 
-#TODO criar o methods_file .... nao receber como parametro
 def get_javamop_methods(mop_specs_dir: str):
     methods_file = os.path.join(WORKING_DIR, 'methods_used_in_specs.txt')
     mop_extractor_jar = os.path.join(LIB_DIR, 'mop-extractor', 'mop-extractor.jar')
@@ -179,7 +117,7 @@ def get_javamop_methods(mop_specs_dir: str):
         raise Exception("Error while finding methods in MOP specs: {0}. {1}".format(mop_extractor_result.code,
                                                                                     mop_extractor_result.stderr))
 
-    methods = dict()
+    methods: dict[str, set[str]] = {}
     with open(methods_file, 'r') as data:
         for line in csv.reader(data):
             class_name = line[0].replace('.', '/')
@@ -188,11 +126,11 @@ def get_javamop_methods(mop_specs_dir: str):
                 methods[class_name] = set()
             methods[class_name].add(method_name)
     os.remove(methods_file)
+
     return methods
 
 
 def get_entrypoints_classes(a: APK):
-    print("get entry points classes ...")
     entrypoints = set[str]()
 
     for c in a.get_activities():
@@ -202,15 +140,11 @@ def get_entrypoints_classes(a: APK):
     for c in a.get_services():
         entrypoints.add(c.replace('.', '/'))
 
-    print('entrypoints = {}'.format(len(entrypoints)))
-
     return entrypoints
 
 
-def get_entrypoints(a: Analysis, entrypoints_classes: set):
-    print("get entry points ...")
+def get_entrypoints(cg: MultiDiGraph, entrypoints_classes: set[str]):
     entrypoints = set()
-    cg = a.get_call_graph()
 
     node: MethodAnalysis
     for node in cg.nodes:
@@ -221,27 +155,39 @@ def get_entrypoints(a: Analysis, entrypoints_classes: set):
     return entrypoints
 
 
+def get_methods_used_in_specs(cg: MultiDiGraph, jca_methods: dict):
+    methods = set()
+
+    node: MethodAnalysis
+    for node in cg.nodes:
+        for clazz in jca_methods:
+            if clazz in str(node.get_class_name()):
+                for method in jca_methods[clazz]:
+                    if method in str(node.get_method().get_name()):
+                        methods.add(node)
+
+    return methods
+
+
 def get_reachable_methods(cg: MultiDiGraph, apk: APK, entrypoints: set[MethodAnalysis]):
     reachable_methods = set[MethodAnalysis]()
     # reachable_methods.update(entrypoints)
     package = apk.get_package()#.replace(".", "/")
-    print("%%%%%%% PACKAGE: {}".format(package))
 
     node: MethodAnalysis
     for node in cg.nodes:
         clazz = get_class_name(node)
 
-        if "AuthActivity" in clazz:
-            print(">>>>>>>>>> {} :: {} :: {}".format(clazz, node.name, (package in clazz)))
-
         if (package in clazz) and (node not in entrypoints):  # and not node.is_external() and not node.is_android_api():
             for e in entrypoints:
                 if nx.has_path(cg, e, node):
-                    if "AuthActivity" in clazz:
-                        print("*** adding: {} :: {}".format(clazz, node.name))
                     reachable_methods.add(node)
 
     return reachable_methods
+
+
+def is_constructor_or_static_initializer(method: str):
+    return ("<init>" in method) or ("<clinit>" in method)
 
 
 def get_callgraph_nodes(cg: MultiDiGraph, entrypoints_classes: set, jca_methods: dict):
@@ -260,6 +206,7 @@ def get_callgraph_nodes(cg: MultiDiGraph, entrypoints_classes: set, jca_methods:
                         methods.add(node)
 
     return entrypoints, methods
+
 
 def uses_jca(a: Analysis, entrypoints: set, methods: set):
     cg = a.get_call_graph()

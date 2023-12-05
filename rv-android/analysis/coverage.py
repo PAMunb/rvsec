@@ -5,7 +5,7 @@ import sys
 from commands.command import Command
 from settings import LIB_DIR, ANDROID_PLATFORMS_DIR, INSTRUMENTED_DIR, APKS_DIR
 from app import App
-from constants import EXTENSION_SOOT
+from constants import EXTENSION_METHODS
 # import methods_extractor as me
 
 # def process_coverage(results_dir: str):

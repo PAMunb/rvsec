@@ -14,8 +14,10 @@ import javamop.util.MOPException;
 public class JavamopFacade {
 
 	private static final String MOP_SUFFIX = ".mop";
+	private boolean debug;
 
-	public Set<String> listUsedClasses(String mopSpecsDirPath) throws MOPException {
+	public Set<String> listUsedClasses(String mopSpecsDirPath, boolean debug) throws MOPException {
+		this.debug = debug;
 		Set<String> classes = new HashSet<>();
 
 		getMopFiles(mopSpecsDirPath).forEach(f -> classes.addAll(listUsedClasses(f)));
@@ -23,7 +25,8 @@ public class JavamopFacade {
 		return classes;
 	}
 
-	public Set<JcaMethod> listUsedMethods(String mopSpecsDirPath) throws MOPException {
+	public Set<JcaMethod> listUsedMethods(String mopSpecsDirPath, boolean debug) throws MOPException {
+		this.debug = debug;
 		Set<JcaMethod> methods = new HashSet<>();
 
 		getMopFiles(mopSpecsDirPath).forEach(f -> methods.addAll(listUsedMethods(f)));
@@ -32,7 +35,9 @@ public class JavamopFacade {
 	}
 
 	private Set<String> listUsedClasses(File mopFile) {
-		System.out.println("Parsing file: " + mopFile.getName());
+		if(debug) {
+			System.out.println("Parsing file: " + mopFile.getName());
+		}
 		MOPSpecFile specFile = getMopFile(mopFile);
 
 		UsedJcaClassesVisitor usedClassesVisitor = new UsedJcaClassesVisitor();
@@ -42,7 +47,9 @@ public class JavamopFacade {
 	}
 
 	private Set<JcaMethod> listUsedMethods(File mopFile) {
-		System.out.println("Parsing file: " + mopFile.getName());
+		if(debug) {
+			System.out.println("Parsing file: " + mopFile.getName());
+		}
 		MOPSpecFile specFile = getMopFile(mopFile);
 
 		UsedJcaMethodsVisitor visitor = new UsedJcaMethodsVisitor();

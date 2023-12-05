@@ -2,11 +2,12 @@ import logging as logging_api
 import shutil
 
 import analysis.methods_extractor as me
+import analysis.reachable_methods_mop as reach
 import utils
 from android import Android
 from app import App
 from commands.command import Command
-from constants import EXTENSION_APK, EXTENSION_SOOT, EXTENSION_LOGCAT, EXTENSION_TRACE
+from constants import EXTENSION_APK, EXTENSION_METHODS, EXTENSION_LOGCAT, EXTENSION_TRACE
 from rvandroid import RvAndroid
 from rvsec import RVSec
 from settings import *
@@ -56,14 +57,14 @@ def pre_process_apks(generate_monitors: bool, instrument: bool, base_results_dir
 
 
 def extract_all_methods():
-    logging.info("Extracting all methods")
+    logging.info("Extracting methods")
     for file in os.listdir(INSTRUMENTED_DIR):
         if file.casefold().endswith(EXTENSION_APK):
             app = App(os.path.join(APKS_DIR, file))
-            all_methods_file_name = app.name + EXTENSION_SOOT
-            all_methods_file = os.path.join(INSTRUMENTED_DIR, all_methods_file_name)
-            if not os.path.exists(all_methods_file):
-                me.extract_methods(app.path, app.package_name, all_methods_file)
+            methods_file_name = app.name + EXTENSION_METHODS
+            methods_file = os.path.join(INSTRUMENTED_DIR, methods_file_name)
+            if not os.path.exists(methods_file):
+                reach.extract_reachable_methods(app.path, methods_file)
 
 
 def run(app: App, rep: int, timeout: int, tool: AbstractTool, results_dir: str, no_window: bool):
@@ -80,6 +81,7 @@ def run(app: App, rep: int, timeout: int, tool: AbstractTool, results_dir: str, 
     logcat_file = os.path.join(app_results_dir, "{}{}".format(base_name, EXTENSION_LOGCAT))
     log_file = os.path.join(app_results_dir, "{}{}".format(base_name, EXTENSION_TRACE))
 
+    time.sleep(5)
     android = Android()
     with android.create_emulator(AVD_NAME, no_window) as emulator:
         android.install_with_permissions(app)
@@ -91,7 +93,7 @@ def run(app: App, rep: int, timeout: int, tool: AbstractTool, results_dir: str, 
 
 
 def copy_all_methods_file(app, app_results_dir):
-    all_methods_file_name = app.name + EXTENSION_SOOT
+    all_methods_file_name = app.name + EXTENSION_METHODS
     all_methods_file = os.path.join(INSTRUMENTED_DIR, all_methods_file_name)
     if os.path.exists(all_methods_file):
         shutil.copy(all_methods_file, app_results_dir)
