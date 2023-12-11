@@ -14,10 +14,7 @@ from commands.command import Command
 from settings import LIB_DIR, WORKING_DIR
 
 from settings import MOP_DIR
-
-
-COLUMN_REACHABLE = "reachable"
-COLUMN_USE_JCA = "use_jca"
+from constants import *
 
 
 def extract_reachable_methods(apk_path: str, out_file: str):
@@ -50,31 +47,31 @@ def reachable_methods_that_uses_jca(apk_path: str):
                 continue
 
             if clazz not in reachable:
-                reachable[clazz] = {}
-            if method not in reachable[clazz]:
-                reachable[clazz][method] = {COLUMN_REACHABLE: False, COLUMN_USE_JCA: False}
+                reachable[clazz] = {IS_ACTIVITY: clazz in apk.get_activities(), METHODS: {}}
+            if method not in reachable[clazz][METHODS]:
+                reachable[clazz][METHODS][method] = {REACHABLE: False, USE_JCA: False}
 
             for jca_method in methods_used_in_specs:
                 if cg.has_successor(m, jca_method):
-                    reachable[clazz][method][COLUMN_USE_JCA] = True
+                    reachable[clazz][METHODS][method][USE_JCA] = True
 
     for m in reachable_methods:
         clazz = get_class_name(m)
         method = str(m.name)
         if is_constructor_or_static_initializer(method):
             continue
-        reachable[clazz][method][COLUMN_REACHABLE] = True
+        reachable[clazz][METHODS][method][REACHABLE] = True
 
     return reachable
 
 
 def write_reachable_methods(reachable: dict, out_file: str):
     with open(out_file, 'w') as f:
-        f.write("class,method,reachable,use_jca\n")
+        f.write("class,is_activity,method,reachable,use_jca\n")
         for clazz in reachable:
-            for method in reachable[clazz]:
-                f.write("{},{},{},{}\n".format(clazz, method, reachable[clazz][method][COLUMN_REACHABLE],
-                                               reachable[clazz][method][COLUMN_USE_JCA]))
+            for method in reachable[clazz][METHODS]:
+                f.write("{},{},{},{},{}\n".format(clazz, reachable[clazz][IS_ACTIVITY], method, reachable[clazz][METHODS][method][REACHABLE],
+                                                  reachable[clazz][METHODS][method][USE_JCA]))
 
 
 def read_reachable_methods(in_file: str):
@@ -84,10 +81,10 @@ def read_reachable_methods(in_file: str):
         next(csv_reader)
         for line in csv_reader:
             clazz = line[0]
-            method = line[1]
+            method = line[2]
             if clazz not in reachable:
-                reachable[clazz] = {}
-            reachable[clazz][method] = {"reachable": line[2], "use_jca": line[3]}
+                reachable[clazz] = {IS_ACTIVITY: eval(line[1]), METHODS: {}}
+            reachable[clazz][METHODS][method] = {REACHABLE: eval(line[3]), USE_JCA: eval(line[4])}
     return reachable
 
 

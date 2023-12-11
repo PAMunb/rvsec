@@ -31,7 +31,7 @@ def execute(repetitions: int, timeouts: list[int], tools: list[AbstractTool], ge
         apks = utils.get_apks(INSTRUMENTED_DIR)
         logging.info("Instrumented APKs: {0}".format(len(apks)))
 
-        # for each instrumented apk
+        # for each instrumented apk ...
         for rep in range(repetitions):
             repetition = rep + 1
             for timeout in timeouts:
@@ -75,7 +75,7 @@ def run(app: App, rep: int, timeout: int, tool: AbstractTool, results_dir: str, 
     app_results_dir = os.path.join(results_dir, app.name)
     utils.create_folder_if_not_exists(app_results_dir)
 
-    copy_all_methods_file(app, app_results_dir)
+    copy_methods_file(app, app_results_dir)
 
     base_name = "{0}__{1}__{2}__{3}".format(app.name, rep, timeout, tool.name)
     logcat_file = os.path.join(app_results_dir, "{}{}".format(base_name, EXTENSION_LOGCAT))
@@ -92,11 +92,11 @@ def run(app: App, rep: int, timeout: int, tool: AbstractTool, results_dir: str, 
             proc.kill()
 
 
-def copy_all_methods_file(app, app_results_dir):
-    all_methods_file_name = app.name + EXTENSION_METHODS
-    all_methods_file = os.path.join(INSTRUMENTED_DIR, all_methods_file_name)
-    if os.path.exists(all_methods_file):
-        shutil.copy(all_methods_file, app_results_dir)
+def copy_methods_file(app, app_results_dir):
+    methods_file_name = app.name + EXTENSION_METHODS
+    methods_file = os.path.join(INSTRUMENTED_DIR, methods_file_name)
+    if os.path.exists(methods_file):
+        shutil.copy(methods_file, app_results_dir)
     else:
         # TODO excecao? ... nao tem como tratar a cobertura depois
         pass

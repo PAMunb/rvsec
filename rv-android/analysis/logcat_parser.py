@@ -18,7 +18,8 @@ def parse_logcat_file(log_file: str):
 
                     if clazz not in called_methods:
                         called_methods[clazz] = set()
-                    called_methods[clazz].add(sig)
+                    # called_methods[clazz].add(sig)
+                    called_methods[clazz].add(method)
 
     return rvsec_errors, called_methods
 
