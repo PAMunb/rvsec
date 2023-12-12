@@ -30,8 +30,9 @@ public aspect Coverage {
 	
 	pointcut traced() : execution(* *.*(..)) && notwithin();
 	
-	before() : traced() { 
-		String methodSignature = thisJoinPointStaticPart.getSignature().toLongString();
+	before() : traced() {
+		String sig = thisJoinPointStaticPart.getSignature().toLongString().strip();
+		String methodSignature = String.format("%s:::%s:::%s", thisJoinPointStaticPart.getSignature().getDeclaringTypeName(), thisJoinPointStaticPart.getSignature().getName(), sig.substring(sig.indexOf('(')));
 		Log.v("RVSEC-COV", methodSignature);
 	}
 	
