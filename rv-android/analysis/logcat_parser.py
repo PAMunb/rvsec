@@ -10,7 +10,6 @@ def parse_logcat_file(log_file: str):
             tag, right_term = __get_tag(line)
             match tag:
                 case "RVSEC":
-                    print("RVSEC={}".format(right_term))
                     rvsec_errors.add(right_term)
                 case "RVSEC-COV":
                     clazz, method, params = __cov_method_sig(right_term)
@@ -37,11 +36,10 @@ def __get_tag(line: str):
 
 
 def __cov_method_sig(text: str):
-    tmp01 = text.split("(")
-    tmp = tmp01[0].split(" ")[-1]
+    sp = text.split(":::")
 
-    clazz = tmp[:tmp.rindex(".")].strip()
-    method = tmp[tmp.rindex(".") + 1:].strip()
-    params = "(" + tmp01[1]
+    clazz = sp[0].strip()
+    method = sp[1].strip()
+    params = sp[2].strip()
 
-    return clazz, method, params.replace(", ", ",")
+    return clazz, method, params
