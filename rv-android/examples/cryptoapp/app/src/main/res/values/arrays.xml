@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- https://docs.oracle.com/en/java/javase/11/docs/specs/security/standard-names.html#messagedigest-algorithms -->
+    <array name="messageDigestAlgorithms">
+        <item>Select</item>
+        <item>MD2</item>
+        <item>MD5</item>
+        <item>SHA-1</item>
+        <item>SHA-224</item>
+        <item>SHA-256</item>
+        <item>SHA-384</item>
+        <item>SHA-512/224</item>
+        <item>SHA-512/256</item>
+        <item>SHA3-224</item>
+        <item>SHA3-256</item>
+        <item>SHA3-384</item>
+        <item>SHA3-512</item>
+    </array>
+</resources>
