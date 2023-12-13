@@ -13,7 +13,7 @@ import br.unb.cic.mop.Property;
 // class (from the JCA specification).
 MessageDigestSpec(MessageDigest digest) {
 
-    List<String> algorithms = Arrays.asList("SHA-256", "SHA-384", "SHA-512");
+    List<String> algorithms = Arrays.asList("SHA-256", "SHA-384", "SHA-512", "SHA256", "SHA384", "SHA512");
     MessageDigest md = null;
 	String currentAlgorithmInstance = "";
 

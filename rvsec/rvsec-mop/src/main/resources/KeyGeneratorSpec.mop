@@ -19,7 +19,7 @@ import br.unb.cic.mop.Property;
  */
 KeyGeneratorSpec(KeyGenerator k) {
 
-    List<String> safeAlgorithms = Arrays.asList("AES", "HmacSHA256", "HmacSHA384", "HmacSHA512");
+    List<String> safeAlgorithms = Arrays.asList("AES", "HmacSHA256", "HmacSHA384", "HmacSHA512", "HMAC-SHA256", "HMAC/SHA256", "HMAC-SHA384", "HMAC/SHA384", "HMAC/SHA512", "HMAC-SHA512");
     String currentAlgorithmInstance = "";
     KeyGenerator keyGenerator = null;
 
