@@ -20,7 +20,7 @@ TOTAL_ACTIVITIES = 'total_activities'
 TOTAL_CLASSES = 'total_classes'
 # Quantidade total de métodos (apenas os métodos das classes contidas no pacote definido no manifest)
 TOTAL_METHODS = 'total_methods'
-# Quantidade total de métodos alcançáveis que usam jca (utilizados nas especificações)
+# Quantidade total de métodos alcançáveis que usam jca (utilizados nas especificações ... apenas os métodos das classes contidas no pacote definido no manifest)
 TOTAL_METHODS_JCA_REACHABLE = 'total_methods_jca_reachable'
 
 # Quantidade de atividades chamadas
