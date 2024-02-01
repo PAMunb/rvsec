@@ -1,8 +1,10 @@
 import logging as logging_api
+import os.path
 import shutil
 
-import analysis.methods_extractor as me
+#import analysis.methods_extractor as me
 import analysis.reachable_methods_mop as reach
+import analysis.results_analysis as res
 import utils
 from android import Android
 from app import App
@@ -43,6 +45,8 @@ def execute(repetitions: int, timeouts: list[int], tools: list[AbstractTool], ge
                             msg = "Error while running: APK={0}, rep={1}, timeout={2}, tool={3}. {4}"
                             logging.error(msg.format(apk.name, repetition, timeout, tool.name, ex))
 
+        post_process(base_results_dir)
+
     logging.info('Finished !!!')
 
 
@@ -56,6 +60,11 @@ def pre_process_apks(generate_monitors: bool, instrument: bool, base_results_dir
         extract_all_methods()
 
 
+def post_process(base_results_dir: str):
+    logging.info("Processing results")
+    res.process_results(base_results_dir)
+
+
 def extract_all_methods():
     logging.info("Extracting methods")
     for file in os.listdir(INSTRUMENTED_DIR):
@@ -64,6 +73,7 @@ def extract_all_methods():
             methods_file_name = app.name + EXTENSION_METHODS
             methods_file = os.path.join(INSTRUMENTED_DIR, methods_file_name)
             if not os.path.exists(methods_file):
+                # class,is_activity,method,reachable,use_jca
                 reach.extract_reachable_methods(app.path, methods_file)
 
 

@@ -1,4 +1,4 @@
-androguard>=3.4.0a1
+androguard==3.4.0a1
 networkx
 requests
 call-function-with-timeout

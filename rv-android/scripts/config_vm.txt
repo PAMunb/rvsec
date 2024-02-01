@@ -1,29 +1,29 @@
-sudo apt install git unzip zip python3-pip python3-venv python-is-python3 wget
+sudo apt install git unzip zip python3-pip python3-venv python-is-python3 wget curl
 
-git clone https://github.com/PAMunb/rvsec.git
-cd rvsec/
-git checkout develop
 
 curl -s "https://get.sdkman.io" | bash
 source "$HOME/.sdkman/bin/sdkman-init.sh"
 sdk install java 11.0.21-tem
 sdk install maven 3.9.5
 
-#cd /home/pedro/.sdkman/candidates/java/8.0.302-open/jre/bin/
-#ln -s ../../bin/javac
 
+cd
+mkdir aspectj
 wget 'https://www.eclipse.org/downloads/download.php?file=/tools/aspectj/aspectj-1.9.6.jar&r=1' -O aspectj-1.9.6.jar
 java -jar aspectj-1.9.6.jar -to aspectj
 
-cd ~/rvsec
 
-
+git clone https://github.com/PAMunb/rvsec.git
+cd rvsec/
+git checkout develop
 mvn clean install -DskipTests -DskipMopAgent
+
 
 mkdir /home/pedro/tmp
 mkdir /home/pedro/android
 mkdir /home/pedro/rvsec/rv-android/out
 mkdir /home/pedro/rvsec/rv-android/apks
+
 
 # manual steps
 # /etc/profile
@@ -33,18 +33,20 @@ mkdir /home/pedro/rvsec/rv-android/apks
 # export PATH=$ANDROID_HOME/platform-tools:$ANDROID_HOME/cmdline-tools/tools/bin:$ANDROID_HOME/emulator:$ANDROID_HOME/build-tools/34.0.0:/home/pedro/.local/bin:$ASPECTJ_HOME/bin:$PATH
 # WARNING: change memory in ajc script ....
 
-cd /home/pedro/rvsec/rv-android/scripts
 
+cd /home/pedro/rvsec/rv-android/scripts
 ./config_android.sh
+# TODO Edit setup.py: 'androguard>=3.4.0a1' to 'androguard==3.4.0a1'
 ./config_droidbot.sh
 
-cd ..
+
+cd /home/pedro/rvsec/rv-android
 pip install virtualenv
 python -m venv env
 source env/bin/activate
 #pip list
+# TODO: editar requirements ... versao exata do androguard
 pip install -r requirements.txt
 
+
 #./run_experiment.sh
-
-

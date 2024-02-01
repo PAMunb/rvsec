@@ -13,6 +13,7 @@ from constants import EXTENSION_APK
 
 logging = logging_api.getLogger(__name__)
 
+
 def execute_command(cmd: Command, tag: str, skip_stderr=False):
     cmd_result = cmd.invoke(stdout=sys.stdout)  # , stderr=sys.stderr)
     cond = cmd_result.code != 0
@@ -128,7 +129,10 @@ def get_apks(apks_dir: str) -> list[App]:
     if os.path.exists(apks_dir) and os.path.isdir(apks_dir):
         for file in os.listdir(apks_dir):
             if file.casefold().endswith(EXTENSION_APK):
-                apks.append(App(os.path.join(apks_dir, file)))
+                try:
+                    apks.append(App(os.path.join(apks_dir, file)))
+                except:
+                    logging.error("Error processing apk: {}".format(file))
     return apks
 
 

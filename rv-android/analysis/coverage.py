@@ -32,6 +32,9 @@ def process_coverage(called_methods: dict[str, set[str]], all_methods: dict):
                 coverage[SUMMARY][TOTAL_METHODS_JCA_REACHABLE] += 1
 
     for clazz in called_methods:
+        if clazz not in coverage:
+            # TODO raise Exception("Class does not exist: {}".format(clazz))
+            continue
         if coverage[clazz][IS_ACTIVITY]:
             coverage[SUMMARY][CALLED_ACTIVITIES] += 1
         for m in called_methods[clazz]:

@@ -1,3 +1,5 @@
+import logging as logging_api
+
 import json
 import os
 
@@ -6,9 +8,10 @@ import analysis.logcat_parser as parser
 import analysis.reachable_methods_mop as reach
 import analysis.coverage as cov
 
+logging = logging_api.getLogger(__name__)
 
 def process_results(results_dir: str, save_file=True):
-    print("Processing results in: {}".format(results_dir))
+    logging.info("Processing results in: {}".format(results_dir))
     results = initialize_results(results_dir)
     for apk in results:
         process_apk(results[apk])
@@ -16,11 +19,9 @@ def process_results(results_dir: str, save_file=True):
     if save_file:
         results_file = os.path.join(results_dir, "results_analysis.json")
         json_formatted_str = json.dumps(results, indent=2)
-        # print(json_formatted_str)
-        # print(results)
         with open(results_file, "w") as outfile:
             outfile.write(json_formatted_str)
-        print("Results saved in: {}".format(results_file))
+        logging.info("Results saved in: {}".format(results_file))
 
     return results
 
@@ -84,9 +85,11 @@ def initialize_results(results_dir):
         for apk_folder in os.listdir(results_dir):
             apk_folder_path = os.path.join(results_dir, apk_folder)
             if os.path.isdir(apk_folder_path):
+                # read list_of.methods (CSV: class,is_activity,method,reachable,use_jca)
                 all_methods = parse_all_methods_file(results_dir, apk_folder)
                 for file in os.listdir(apk_folder_path):
                     if file.casefold().endswith(EXTENSION_LOGCAT):
+                        # recupera informacoes contidas no nome do arquivo
                         apk, rep, timeout, tool = parse_filename(file)
 
                         if apk not in results:
@@ -100,14 +103,19 @@ def initialize_results(results_dir):
                             results[apk][REPETITIONS][rep][TIMEOUTS][timeout] = {TOOLS: {}, SUMMARY: {}}
 
                         if tool not in results[apk][REPETITIONS][rep][TIMEOUTS][timeout][TOOLS]:
+                            # le o arquivo de log e retorna:
+                            # - o conjunto de erros (crypto misuse) encontrados
+                            # - um mapa contendo os métodos chamados durante a execução (não conta a quantidade de vezes que foi chamado, apenas se foi chamado)
+                            #   as chaves são os nomes das classes e o valor é o conjunto dos métodos chamados
                             rvsec_errors, called_methods = parser.parse_logcat_file(os.path.join(apk_folder_path, file))
+
+                            # calcula a cobertura de codigo
                             coverage = cov.process_coverage(called_methods, all_methods)
 
                             results[apk][SUMMARY][TOTAL_CLASSES] = coverage[SUMMARY][TOTAL_CLASSES]
                             results[apk][SUMMARY][TOTAL_ACTIVITIES] = coverage[SUMMARY][TOTAL_ACTIVITIES]
                             results[apk][SUMMARY][TOTAL_METHODS] = coverage[SUMMARY][TOTAL_METHODS]
-                            results[apk][SUMMARY][TOTAL_METHODS_JCA_REACHABLE] = coverage[SUMMARY][
-                                TOTAL_METHODS_JCA_REACHABLE]
+                            results[apk][SUMMARY][TOTAL_METHODS_JCA_REACHABLE] = coverage[SUMMARY][TOTAL_METHODS_JCA_REACHABLE]
 
                             summary = {CALLED_ACTIVITIES: coverage[SUMMARY][CALLED_ACTIVITIES],
                                        CALLED_METHODS: coverage[SUMMARY][CALLED_METHODS],
@@ -119,17 +127,17 @@ def initialize_results(results_dir):
 
                             jca_methods_called = set()
                             for clazz in called_methods:
-                                for method in called_methods[clazz]:
-                                    sig = "{}.{}".format(clazz, method)
-                                    if sig not in jca_methods_called and coverage[clazz][METHODS][method][CALLED] and \
-                                            coverage[clazz][METHODS][method][USE_JCA]:
-                                        jca_methods_called.add(sig)
+                                #TODO se a classe nao estiver em coverage provavelmente declarou um pacote no manifest e implementou as coisas em outro pacote
+                                if clazz in coverage:
+                                    for method in called_methods[clazz]:
+                                        sig = "{}.{}".format(clazz, method)
+                                        if sig not in jca_methods_called and coverage[clazz][METHODS][method][CALLED] and \
+                                                coverage[clazz][METHODS][method][USE_JCA]:
+                                            jca_methods_called.add(sig)
 
                             results[apk][REPETITIONS][rep][TIMEOUTS][timeout][TOOLS][tool] = {SUMMARY: summary,
-                                                                                              RVSEC_ERRORS: list(
-                                                                                                  rvsec_errors),
-                                                                                              RVSEC_METHODS_CALLED: list(
-                                                                                                  jca_methods_called)}
+                                                                                              RVSEC_ERRORS: list(rvsec_errors),
+                                                                                              RVSEC_METHODS_CALLED: list(jca_methods_called)}
     return results
 
 

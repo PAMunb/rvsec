@@ -23,7 +23,7 @@ def extract_reachable_methods(apk_path: str, out_file: str):
 
 
 def reachable_methods_that_uses_jca(apk_path: str):
-    # reachable methods (ONLY inside apk package) that use jca
+    # USE_JCA = reachable method (ONLY inside apk package) that directly use jca
     reachable = {}
 
     a: Analysis
@@ -185,24 +185,6 @@ def get_reachable_methods(cg: MultiDiGraph, apk: APK, entrypoints: set[MethodAna
 
 def is_constructor_or_static_initializer(method: str):
     return ("<init>" in method) or ("<clinit>" in method)
-
-
-def get_callgraph_nodes(cg: MultiDiGraph, entrypoints_classes: set, jca_methods: dict):
-    entrypoints = set()
-    methods = set()
-
-    node: MethodAnalysis
-    for node in cg.nodes:
-        for e in entrypoints_classes:
-            if e in str(node.get_class_name()) and str(node.get_access_flags_string()) in ["public", "protected"]:
-                entrypoints.add(node)
-        for clazz in jca_methods:
-            if clazz in str(node.get_class_name()):
-                for method in jca_methods[clazz]:
-                    if method in str(node.get_method().get_name()):
-                        methods.add(node)
-
-    return entrypoints, methods
 
 
 def uses_jca(a: Analysis, entrypoints: set, methods: set):

@@ -7,8 +7,8 @@ START = time.time()
 
 WORKING_DIR = os.getcwd()
 
-# APKS_DIR = os.path.join(WORKING_DIR, 'apks')
-APKS_DIR = os.path.join(WORKING_DIR, 'apks_mini')
+APKS_DIR = os.path.join(WORKING_DIR, 'apks')
+# APKS_DIR = os.path.join(WORKING_DIR, 'apks_mini')
 RESULTS_DIR = os.path.join(WORKING_DIR, 'results')
 INSTRUMENTED_DIR = os.path.join(WORKING_DIR, 'out')
 LIB_DIR = os.path.join(WORKING_DIR, 'lib')
@@ -27,6 +27,8 @@ RVSEC_DIR = os.path.join(RVSEC_ROOT_DIR, 'rvsec')
 MOP_DIR = os.path.join(RVSEC_DIR, 'rvsec-mop', 'src', 'main', 'resources')
 # MOP_DIR = os.path.join(WORKING_DIR, 'mop_mini')
 MOP_OUT_DIR = os.path.join(WORKING_DIR, 'mop_out')
+#TODO (coverage.aj)
+MOP_INCLUDE_DIR = os.path.join(WORKING_DIR, 'mop-include')
 
 D2J_HOME = os.path.join(LIB_DIR, 'dex2jar')
 D2J_DEX2JAR = os.path.join(D2J_HOME, 'd2j-dex2jar.sh')
@@ -36,7 +38,6 @@ D2J_APK_SIGN = os.path.join(D2J_HOME, 'd2j-apk-sign.sh')
 AVD_NAME = "RVSec"
 
 ANDROID_PLATFORM = 'android-29'
-# ANDROID_PLATFORM = 'android-25'
 ANDROID_SDK_HOME = os.getenv('ANDROID_HOME')
 ANDROID_PLATFORMS_DIR = os.path.join(ANDROID_SDK_HOME, 'platforms')
 ANDROID_PLATFORM_LIB = os.path.join(ANDROID_PLATFORMS_DIR, ANDROID_PLATFORM)
