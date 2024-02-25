@@ -131,7 +131,9 @@ def initialize_results(results_dir):
                                 if clazz in coverage:
                                     for method in called_methods[clazz]:
                                         sig = "{}.{}".format(clazz, method)
-                                        if sig not in jca_methods_called and coverage[clazz][METHODS][method][CALLED] and \
+                                        if sig not in jca_methods_called and \
+                                                method in coverage[clazz][METHODS].keys() and \
+                                                coverage[clazz][METHODS][method][CALLED] and \
                                                 coverage[clazz][METHODS][method][USE_JCA]:
                                             jca_methods_called.add(sig)
 
