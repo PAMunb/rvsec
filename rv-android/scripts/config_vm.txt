@@ -37,7 +37,7 @@ mkdir /home/pedro/rvsec/rv-android/apks
 cd /home/pedro/rvsec/rv-android/scripts
 ./config_android.sh
 # TODO Edit setup.py: 'androguard>=3.4.0a1' to 'androguard==3.4.0a1'
-./config_droidbot.sh
+#./config_droidbot.sh
 
 
 cd /home/pedro/rvsec/rv-android

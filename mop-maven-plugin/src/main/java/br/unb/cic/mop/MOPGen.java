@@ -92,7 +92,7 @@ public class MOPGen extends AbstractMojo {
         File dest = new File(pathToMopFiles);
         if(dest.exists() && dest.isDirectory()) {
         	File[] files = dest.listFiles((d,f) ->
-        			f.toLowerCase().endsWith(".aj")
+        			f.toLowerCase().startsWith("MultiSpec")
         			|| f.toLowerCase().endsWith(".rvm"));
             deleteFiles(files);
         }
