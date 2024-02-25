@@ -1,0 +1,37 @@
+
+https://github.com/bytedance/Fastbot_Android
+
+############### CONFIG
+sudo apt install cmake cmake-extras build-essential libssl-dev make ninja-build python3-distutils
+
+sdkmanager "cmake;3.18.1"
+sdkmanager "ndk;25.2.9519653"
+
+# /etc/profile
+export NDK_ROOT=/home/pedro/desenvolvimento/aplicativos/android/sdk/ndk/25.2.9519653
+
+sdk install gradle 7.6.2
+
+git clone https://github.com/bytedance/Fastbot_Android.git
+cd Fastbot_Android/
+./gradlew clean makeJar
+
+d8 --output monkeyq.jar monkey/build/libs/monkey.jar
+
+sh ./build_native.sh
+
+
+############### RUN
+adb push monkeyq.jar /sdcard/monkeyq.jar
+adb push fastbot-thirdpart.jar /sdcard/fastbot-thirdpart.jar
+adb push libs/* /data/local/tmp/
+adb push framework.jar /sdcard/framework.jar
+
+
+APK=
+
+aapt2 dump strings /pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec/rv-android/out/app-debug.apk > max.valid.strings
+adb push max.valid.strings /sdcard
+
+#adb -s device_vendor_id shell CLASSPATH=/sdcard/monkeyq.jar:/sdcard/framework.jar:/sdcard/fastbot-thirdpart.jar exec app_process /system/bin com.android.commands.monkey.Monkey -p package_name --agent reuseq --running-minutes duration(min) --throttle delay(ms) -v -v
+adb -s emulator-5554 shell CLASSPATH=/sdcard/monkeyq.jar:/sdcard/framework.jar:/sdcard/fastbot-thirdpart.jar exec app_process /system/bin com.android.commands.monkey.Monkey -p br.unb.cic.cryptoapp --agent reuseq --running-minutes 2 --throttle 200 -v -v

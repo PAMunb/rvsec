@@ -1,0 +1,10 @@
+
+sudo apt install -y --no-install-recommends libfreetype6-dev libxml2-dev libxslt1-dev python2-dev
+
+cd /opt
+git clone https://github.com/droidxp/sapienz.git
+
+cd sapienz
+pip2 install -r requirements.txt
+
+#TODO ENV SAPIENZ_HOME /opt/sapienz/
