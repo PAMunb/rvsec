@@ -1,0 +1,34 @@
+package mop;
+
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging;
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging.Level;
+
+import java.util.concurrent.Semaphore;
+import java.util.concurrent.TimeUnit;
+
+FSM184(Semaphore s, TimeUnit t) {
+
+  event event_1 after() returning (Semaphore s):
+    call(Semaphore.new(int, boolean)) {}
+
+  event event_2 after(Semaphore s, TimeUnit t):
+    call(* Semaphore.tryAcquire(long, TimeUnit)) && target(s) && args(t) {}
+
+  fsm :
+        state1 [
+          event_1 -> state2
+        ]
+
+        state0 [
+        ]
+
+        state2 [
+          event_2 -> state0
+        ]
+
+  @fail {
+         android.util.Log.v("RVSEC-LOG",__DEFAULT_MESSAGE);
+         android.util.Log.v("RVSEC-LOG","FSM184 went into an error state.");
+         __RESET;
+  }
+}

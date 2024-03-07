@@ -1,0 +1,49 @@
+package mop;
+
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging;
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging.Level;
+
+import java.util.Deque;
+import java.net.URL;
+
+FSM157(Deque d, URL u) {
+
+  event event_1 after(Deque d):
+    call(* Deque.removeFirst()) && target(d) {}
+
+  event event_2 after(URL u):
+    call(* URL.openStream()) && target(u) {}
+
+  event event_3 after(Deque d):
+    call(* Deque.isEmpty()) && target(d) {}
+
+  fsm :
+        state0 [
+          event_3 -> state1
+        ]
+
+        state1 [
+          event_3 -> state1
+          event_1 -> state3
+        ]
+
+        state2 [
+          event_3 -> state4
+        ]
+
+        state3 [
+          event_3 -> state4
+          event_2 -> state2
+        ]
+
+        state4 [
+          event_1 -> state3
+          event_3 -> state4
+        ]
+
+  @fail {
+         android.util.Log.v("RVSEC-LOG",__DEFAULT_MESSAGE);
+         android.util.Log.v("RVSEC-LOG","FSM157 went into an error state.");
+         __RESET;
+  }
+}

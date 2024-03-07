@@ -1,0 +1,60 @@
+package mop;
+
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging;
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging.Level;
+
+import java.util.concurrent.ConcurrentMap;
+import java.lang.Iterable;
+
+FSM226(ConcurrentMap c, Iterable i, Object o, Object o1) {
+
+  event event_1 after(ConcurrentMap c):
+    call(* ConcurrentMap.values()) && target(c) {}
+
+  event event_2 after(ConcurrentMap c, Object o, Object o1):
+    call(* ConcurrentMap.putIfAbsent(Object, Object)) && target(c) && args(o, o1) {}
+
+  event event_3 after(ConcurrentMap c):
+    call(* ConcurrentMap.clear()) && target(c) {}
+
+  event event_4 after(ConcurrentMap c, Object o):
+    call(* ConcurrentMap.remove(Object)) && target(c) && args(o) {}
+
+  event event_5 after(Iterable i):
+    call(* Iterable.iterator()) && target(i) {}
+
+  fsm :
+        state3 [
+          event_4 -> state0
+          event_2 -> state2
+        ]
+
+        state0 [
+          event_2 -> state2
+          event_1 -> state4
+          event_4 -> state0
+        ]
+
+        state1 [
+          event_3 -> state5
+        ]
+
+        state2 [
+          event_2 -> state2
+          event_1 -> state4
+          event_4 -> state0
+        ]
+
+        state4 [
+          event_5 -> state1
+        ]
+
+        state5 [
+        ]
+
+  @fail {
+         android.util.Log.v("RVSEC-LOG",__DEFAULT_MESSAGE);
+         android.util.Log.v("RVSEC-LOG","FSM226 went into an error state.");
+         __RESET;
+  }
+}

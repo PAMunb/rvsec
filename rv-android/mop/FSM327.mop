@@ -1,0 +1,36 @@
+package mop;
+
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging;
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging.Level;
+
+import java.util.concurrent.locks.Lock;
+
+FSM327(Lock l) {
+
+  event event_1 after(Lock l):
+    call(* Lock.unlock()) && target(l) {}
+
+  event event_2 after(Lock l):
+    call(* Lock.lock()) && target(l) {}
+
+  fsm :
+        state2 [
+          event_2 -> state0
+        ]
+
+        state0 [
+          event_1 -> state1
+          event_2 -> state0
+        ]
+
+        state1 [
+          event_1 -> state1
+          event_2 -> state0
+        ]
+
+  @fail {
+         android.util.Log.v("RVSEC-LOG",__DEFAULT_MESSAGE);
+         android.util.Log.v("RVSEC-LOG","FSM327 went into an error state.");
+         __RESET;
+  }
+}

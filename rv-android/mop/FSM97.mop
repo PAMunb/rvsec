@@ -1,0 +1,83 @@
+package mop;
+
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging;
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging.Level;
+
+import javax.swing.Icon;
+import javax.swing.border.Border;
+import javax.swing.AbstractButton;
+
+FSM97(AbstractButton a, Border b, Icon i, String s) {
+
+  event event_1 after(AbstractButton a, Border b):
+    call(* AbstractButton.setBorder(Border)) && target(a) && args(b) {}
+
+  event event_2 after(AbstractButton a, Icon i):
+    call(* AbstractButton.setIcon(Icon)) && target(a) && args(i) {}
+
+  event event_3 after(AbstractButton a):
+    call(* AbstractButton.isEnabled()) && target(a) {}
+
+  event event_4 after(AbstractButton a):
+    call(* AbstractButton.isSelected()) && target(a) {}
+
+  event event_5 after(AbstractButton a):
+    call(* AbstractButton.setSelected(boolean)) && target(a) {}
+
+  event event_6 after(AbstractButton a, String s):
+    call(* AbstractButton.setToolTipText(String)) && target(a) && args(s) {}
+
+  event event_7 after(AbstractButton a):
+    call(* AbstractButton.setEnabled(boolean)) && target(a) {}
+
+  fsm :
+        state3 [
+          event_6 -> state5
+          event_3 -> state7
+        ]
+
+        state0 [
+          event_7 -> state6
+          event_4 -> state2
+          event_5 -> state4
+        ]
+
+        state1 [
+          event_1 -> state1
+          event_2 -> state0
+          event_3 -> state7
+          event_4 -> state2
+          event_5 -> state4
+        ]
+
+        state2 [
+          event_4 -> state2
+          event_1 -> state1
+        ]
+
+        state4 [
+          event_4 -> state2
+          event_1 -> state1
+        ]
+
+        state5 [
+          event_7 -> state6
+          event_6 -> state5
+          event_4 -> state2
+        ]
+
+        state6 [
+          event_6 -> state5
+          event_4 -> state2
+        ]
+
+        state7 [
+          event_4 -> state2
+        ]
+
+  @fail {
+         android.util.Log.v("RVSEC-LOG",__DEFAULT_MESSAGE);
+         android.util.Log.v("RVSEC-LOG","FSM97 went into an error state.");
+         __RESET;
+  }
+}

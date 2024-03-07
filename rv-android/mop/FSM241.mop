@@ -1,0 +1,82 @@
+package mop;
+
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging;
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging.Level;
+
+import java.io.DataInput;
+import java.util.concurrent.atomic.AtomicLong;
+
+FSM241(AtomicLong a, DataInput d) {
+
+  event event_1 after(DataInput d):
+    call(* DataInput.readByte()) && target(d) {}
+
+  event event_2 after(DataInput d):
+    call(* DataInput.readInt()) && target(d) {}
+
+  event event_3 after(AtomicLong a):
+    call(* AtomicLong.incrementAndGet()) && target(a) {}
+
+  fsm :
+        state2 [
+          event_3 -> state1
+        ]
+
+        state0 [
+          event_3 -> state4
+          event_1 -> state3
+          event_3 -> state1
+          event_3 -> state0
+          event_3 -> state0
+        ]
+
+        state1 [
+          event_3 -> state1
+          event_1 -> state6
+          event_3 -> state0
+          event_3 -> state0
+          event_3 -> state4
+        ]
+
+        state3 [
+          event_2 -> state5
+          event_3 -> state0
+          event_3 -> state0
+          event_3 -> state1
+          event_3 -> state4
+        ]
+
+        state4 [
+          event_3 -> state0
+          event_3 -> state0
+          event_1 -> state6
+          event_3 -> state1
+          event_3 -> state4
+        ]
+
+        state5 [
+          event_2 -> state5
+          event_3 -> state0
+          event_3 -> state0
+        ]
+
+        state6 [
+          event_2 -> state7
+          event_3 -> state1
+          event_3 -> state4
+          event_3 -> state0
+          event_3 -> state0
+        ]
+
+        state7 [
+          event_3 -> state4
+          event_2 -> state7
+          event_3 -> state0
+        ]
+
+  @fail {
+         android.util.Log.v("RVSEC-LOG",__DEFAULT_MESSAGE);
+         android.util.Log.v("RVSEC-LOG","FSM241 went into an error state.");
+         __RESET;
+  }
+}

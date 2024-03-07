@@ -1,0 +1,62 @@
+package mop;
+
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging;
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging.Level;
+
+import java.net.ServerSocket;
+import java.net.Socket;
+
+FSM224(ServerSocket s, Socket s) {
+
+  event event_1 after(Socket s):
+    call(* Socket.getOutputStream()) && target(s) {}
+
+  event event_2 after(ServerSocket s):
+    call(* ServerSocket.accept()) && target(s) {}
+
+  event event_3 after(Socket s):
+    call(* Socket.close()) && target(s) {}
+
+  event event_4 after(ServerSocket s):
+    call(* ServerSocket.getLocalPort()) && target(s) {}
+
+  event event_5 after() returning (ServerSocket s):
+    call(ServerSocket.new(int)) {}
+
+  event event_6 after(Socket s):
+    call(* Socket.getInputStream()) && target(s) {}
+
+  fsm :
+        state4 [
+          event_5 -> state0
+        ]
+
+        state0 [
+          event_4 -> state2
+        ]
+
+        state1 [
+        ]
+
+        state2 [
+          event_2 -> state5
+        ]
+
+        state3 [
+          event_3 -> state1
+        ]
+
+        state5 [
+          event_6 -> state6
+        ]
+
+        state6 [
+          event_1 -> state3
+        ]
+
+  @fail {
+         android.util.Log.v("RVSEC-LOG",__DEFAULT_MESSAGE);
+         android.util.Log.v("RVSEC-LOG","FSM224 went into an error state.");
+         __RESET;
+  }
+}

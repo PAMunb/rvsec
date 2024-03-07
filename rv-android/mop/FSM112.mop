@@ -1,0 +1,60 @@
+package mop;
+
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging;
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging.Level;
+
+import java.util.Vector;
+import java.util.Collection;
+import java.util.LinkedList;
+
+FSM112(Collection c, LinkedList l, Object o, Vector v) {
+
+  event event_1 after() returning (Vector v):
+    call(Vector.new(Collection)) {}
+
+  event event_2 after(Vector v):
+    call(* Vector.size()) && target(v) {}
+
+  event event_3 after(LinkedList l, Object o):
+    call(* LinkedList.contains(Object)) && target(l) && args(o) {}
+
+  event event_4 after(LinkedList l):
+    call(* LinkedList.iterator()) && target(l) {}
+
+  event event_5 after() returning (LinkedList l):
+    call(LinkedList.new(Collection)) {}
+
+  fsm :
+        state4 [
+          event_5 -> state3
+        ]
+
+        state0 [
+          event_4 -> state5
+          event_2 -> state0
+        ]
+
+        state1 [
+          event_2 -> state0
+          event_1 -> state2
+        ]
+
+        state2 [
+          event_2 -> state0
+        ]
+
+        state3 [
+          event_2 -> state0
+          event_3 -> state1
+        ]
+
+        state5 [
+          event_2 -> state0
+        ]
+
+  @fail {
+         android.util.Log.v("RVSEC-LOG",__DEFAULT_MESSAGE);
+         android.util.Log.v("RVSEC-LOG","FSM112 went into an error state.");
+         __RESET;
+  }
+}

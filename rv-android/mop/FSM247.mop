@@ -1,0 +1,47 @@
+package mop;
+
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging;
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging.Level;
+
+import java.beans.PropertyChangeEvent;
+
+FSM247(PropertyChangeEvent p) {
+
+  event event_1 after(PropertyChangeEvent p):
+    call(* PropertyChangeEvent.getSource()) && target(p) {}
+
+  event event_2 after(PropertyChangeEvent p):
+    call(* PropertyChangeEvent.getNewValue()) && target(p) {}
+
+  event event_3 after(PropertyChangeEvent p):
+    call(* PropertyChangeEvent.getPropertyName()) && target(p) {}
+
+  fsm :
+        state2 [
+          event_1 -> state0
+          event_3 -> state3
+          event_2 -> state1
+        ]
+
+        state0 [
+          event_3 -> state3
+          event_2 -> state1
+        ]
+
+        state1 [
+          event_2 -> state1
+          event_3 -> state3
+        ]
+
+        state3 [
+          event_1 -> state0
+          event_2 -> state1
+          event_3 -> state3
+        ]
+
+  @fail {
+         android.util.Log.v("RVSEC-LOG",__DEFAULT_MESSAGE);
+         android.util.Log.v("RVSEC-LOG","FSM247 went into an error state.");
+         __RESET;
+  }
+}

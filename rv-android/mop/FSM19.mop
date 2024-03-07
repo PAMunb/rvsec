@@ -1,0 +1,81 @@
+package mop;
+
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging;
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging.Level;
+
+import java.util.concurrent.ConcurrentMap;
+
+FSM19(ConcurrentMap c, Object o, Object o1) {
+
+  event event_1 after(ConcurrentMap c, Object o):
+    call(* ConcurrentMap.remove(Object)) && target(c) && args(o) {}
+
+  event event_2 after(ConcurrentMap c):
+    call(* ConcurrentMap.keySet()) && target(c) {}
+
+  event event_3 after(ConcurrentMap c, Object o, Object o1):
+    call(* ConcurrentMap.put(Object, Object)) && target(c) && args(o, o1) {}
+
+  event event_4 after(ConcurrentMap c, Object o, Object o1):
+    call(* ConcurrentMap.putIfAbsent(Object, Object)) && target(c) && args(o, o1) {}
+
+  event event_5 after(ConcurrentMap c, Object o):
+    call(* ConcurrentMap.get(Object)) && target(c) && args(o) {}
+
+  event event_6 after(ConcurrentMap c):
+    call(* ConcurrentMap.clear()) && target(c) {}
+
+  fsm :
+        state4 [
+          event_5 -> state3
+          event_2 -> state5
+          event_4 -> state0
+          event_3 -> state6
+          event_1 -> state2
+        ]
+
+        state0 [
+          event_1 -> state2
+          event_5 -> state3
+          event_3 -> state6
+          event_6 -> state1
+          event_2 -> state5
+          event_4 -> state0
+        ]
+
+        state1 [
+        ]
+
+        state2 [
+          event_5 -> state3
+          event_1 -> state2
+          event_2 -> state5
+          event_4 -> state0
+        ]
+
+        state3 [
+          event_2 -> state5
+          event_4 -> state0
+          event_6 -> state1
+          event_1 -> state2
+          event_5 -> state3
+          event_3 -> state6
+        ]
+
+        state5 [
+          event_5 -> state3
+          event_1 -> state2
+        ]
+
+        state6 [
+          event_5 -> state3
+          event_4 -> state0
+          event_3 -> state6
+        ]
+
+  @fail {
+         android.util.Log.v("RVSEC-LOG",__DEFAULT_MESSAGE);
+         android.util.Log.v("RVSEC-LOG","FSM19 went into an error state.");
+         __RESET;
+  }
+}

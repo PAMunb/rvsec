@@ -1,0 +1,40 @@
+package mop;
+
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging;
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging.Level;
+
+import java.awt.TextComponent;
+
+FSM128(TextComponent t) {
+
+  event event_1 after(TextComponent t):
+    call(* TextComponent.setEditable(boolean)) && target(t) {}
+
+  event event_2 after(TextComponent t):
+    call(* TextComponent.setBounds(int, int, int, int)) && target(t) {}
+
+  event event_3 after() returning (TextComponent t):
+    call(TextComponent.new()) {}
+
+  fsm :
+        state1 [
+          event_3 -> state2
+        ]
+
+        state0 [
+          event_1 -> state3
+        ]
+
+        state2 [
+          event_2 -> state0
+        ]
+
+        state3 [
+        ]
+
+  @fail {
+         android.util.Log.v("RVSEC-LOG",__DEFAULT_MESSAGE);
+         android.util.Log.v("RVSEC-LOG","FSM128 went into an error state.");
+         __RESET;
+  }
+}

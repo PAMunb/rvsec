@@ -1,0 +1,43 @@
+package mop;
+
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging;
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging.Level;
+
+import java.io.InputStream;
+import java.io.LineNumberReader;
+import java.io.InputStreamReader;
+import java.io.Reader;
+
+FSM137(InputStream i, InputStreamReader i, LineNumberReader l, Reader r, String s) {
+
+  event event_1 after() returning (LineNumberReader l):
+    call(LineNumberReader.new(Reader)) {}
+
+  event event_2 after() returning (InputStreamReader i):
+    call(InputStreamReader.new(InputStream, String)) {}
+
+  event event_3 after(LineNumberReader l):
+    call(* LineNumberReader.setLineNumber(int)) && target(l) {}
+
+  fsm :
+        state3 [
+          event_2 -> state0
+        ]
+
+        state0 [
+          event_1 -> state1
+        ]
+
+        state1 [
+          event_3 -> state2
+        ]
+
+        state2 [
+        ]
+
+  @fail {
+         android.util.Log.v("RVSEC-LOG",__DEFAULT_MESSAGE);
+         android.util.Log.v("RVSEC-LOG","FSM137 went into an error state.");
+         __RESET;
+  }
+}

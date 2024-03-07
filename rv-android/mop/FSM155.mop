@@ -1,0 +1,56 @@
+package mop;
+
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging;
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging.Level;
+
+import java.beans.PropertyChangeEvent;
+import java.lang.Boolean;
+
+FSM155(Boolean b, PropertyChangeEvent p) {
+
+  event event_1 after(PropertyChangeEvent p):
+    call(* PropertyChangeEvent.getNewValue()) && target(p) {}
+
+  event event_2 after(Boolean b):
+    call(* Boolean.booleanValue()) && target(b) {}
+
+  event event_3 after(PropertyChangeEvent p):
+    call(* PropertyChangeEvent.getPropertyName()) && target(p) {}
+
+  fsm :
+        state2 [
+          event_1 -> state1
+          event_2 -> state4
+        ]
+
+        state0 [
+          event_1 -> state1
+          event_3 -> state3
+          event_2 -> state0
+        ]
+
+        state1 [
+          event_1 -> state1
+          event_2 -> state0
+          event_2 -> state4
+          event_3 -> state3
+        ]
+
+        state3 [
+          event_3 -> state3
+          event_2 -> state0
+          event_1 -> state1
+        ]
+
+        state4 [
+          event_3 -> state3
+          event_2 -> state4
+          event_1 -> state1
+        ]
+
+  @fail {
+         android.util.Log.v("RVSEC-LOG",__DEFAULT_MESSAGE);
+         android.util.Log.v("RVSEC-LOG","FSM155 went into an error state.");
+         __RESET;
+  }
+}

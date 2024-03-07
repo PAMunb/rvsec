@@ -1,0 +1,57 @@
+package mop;
+
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging;
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging.Level;
+
+import java.util.concurrent.atomic.AtomicLong;
+
+FSM271(AtomicLong a) {
+
+  event event_1 after(AtomicLong a):
+    call(* AtomicLong.doubleValue()) && target(a) {}
+
+  event event_2 after() returning (AtomicLong a):
+    call(AtomicLong.new(long)) {}
+
+  event event_3 after(AtomicLong a):
+    call(* AtomicLong.incrementAndGet()) && target(a) {}
+
+  event event_4 after(AtomicLong a):
+    call(* AtomicLong.addAndGet(long)) && target(a) {}
+
+  fsm :
+        state0 [
+          event_4 -> state2
+          event_2 -> state4
+        ]
+
+        state1 [
+          event_4 -> state2
+          event_3 -> state3
+          event_1 -> state1
+        ]
+
+        state2 [
+          event_3 -> state3
+          event_4 -> state2
+          event_1 -> state1
+        ]
+
+        state3 [
+          event_3 -> state3
+          event_1 -> state1
+          event_4 -> state2
+        ]
+
+        state4 [
+          event_3 -> state3
+          event_4 -> state2
+          event_1 -> state1
+        ]
+
+  @fail {
+         android.util.Log.v("RVSEC-LOG",__DEFAULT_MESSAGE);
+         android.util.Log.v("RVSEC-LOG","FSM271 went into an error state.");
+         __RESET;
+  }
+}

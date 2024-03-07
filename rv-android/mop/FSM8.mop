@@ -1,0 +1,38 @@
+package mop;
+
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging;
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging.Level;
+
+import java.util.Random;
+
+FSM8(Random r) {
+
+  event event_1 after() returning (Random r):
+    call(Random.new(long)) {}
+
+  event event_2 after() returning (Random r):
+    call(Random.new()) {}
+
+  event event_3 after(Random r):
+    call(* Random.nextInt()) && target(r) {}
+
+  fsm :
+        state0 [
+          event_2 -> state2
+          event_1 -> state2
+        ]
+
+        state1 [
+          event_3 -> state1
+        ]
+
+        state2 [
+          event_3 -> state1
+        ]
+
+  @fail {
+         android.util.Log.v("RVSEC-LOG",__DEFAULT_MESSAGE);
+         android.util.Log.v("RVSEC-LOG","FSM8 went into an error state.");
+         __RESET;
+  }
+}

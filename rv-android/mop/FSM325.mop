@@ -1,0 +1,43 @@
+package mop;
+
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging;
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging.Level;
+
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+
+FSM325(ConcurrentHashMap c, Map m, Object o, Object o1) {
+
+  event event_1 after() returning (ConcurrentHashMap c):
+    call(ConcurrentHashMap.new(Map)) {}
+
+  event event_2 after(Map m, Object o, Object o1):
+    call(* Map.put(Object, Object)) && target(m) && args(o, o1) {}
+
+  event event_3 after(Map m):
+    call(* Map.size()) && target(m) {}
+
+  fsm :
+        state3 [
+          event_2 -> state1
+        ]
+
+        state0 [
+          event_3 -> state2
+        ]
+
+        state1 [
+          event_3 -> state2
+        ]
+
+        state2 [
+          event_3 -> state2
+          event_1 -> state0
+        ]
+
+  @fail {
+         android.util.Log.v("RVSEC-LOG",__DEFAULT_MESSAGE);
+         android.util.Log.v("RVSEC-LOG","FSM325 went into an error state.");
+         __RESET;
+  }
+}

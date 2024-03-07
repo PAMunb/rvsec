@@ -1,0 +1,55 @@
+package mop;
+
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging;
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging.Level;
+
+import java.util.concurrent.locks.ReentrantLock;
+
+FSM190(ReentrantLock r) {
+
+  event event_1 after(ReentrantLock r):
+    call(* ReentrantLock.unlock()) && target(r) {}
+
+  event event_2 after() returning (ReentrantLock r):
+    call(ReentrantLock.new(boolean)) {}
+
+  event event_3 after() returning (ReentrantLock r):
+    call(ReentrantLock.new()) {}
+
+  event event_4 after(ReentrantLock r):
+    call(* ReentrantLock.newCondition()) && target(r) {}
+
+  event event_5 after(ReentrantLock r):
+    call(* ReentrantLock.lock()) && target(r) {}
+
+  fsm :
+        state4 [
+          event_2 -> state1
+          event_3 -> state1
+        ]
+
+        state0 [
+          event_1 -> state2
+          event_5 -> state0
+        ]
+
+        state1 [
+          event_5 -> state0
+          event_4 -> state3
+        ]
+
+        state2 [
+          event_5 -> state0
+        ]
+
+        state3 [
+          event_5 -> state0
+          event_4 -> state3
+        ]
+
+  @fail {
+         android.util.Log.v("RVSEC-LOG",__DEFAULT_MESSAGE);
+         android.util.Log.v("RVSEC-LOG","FSM190 went into an error state.");
+         __RESET;
+  }
+}

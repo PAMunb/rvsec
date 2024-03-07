@@ -1,0 +1,83 @@
+package mop;
+
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging;
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging.Level;
+
+import java.util.EventObject;
+import javax.swing.border.Border;
+import javax.swing.AbstractButton;
+
+FSM111(AbstractButton a, Border b, EventObject e) {
+
+  event event_1 after(AbstractButton a, Border b):
+    call(* AbstractButton.setBorder(Border)) && target(a) && args(b) {}
+
+  event event_2 after(AbstractButton a):
+    call(* AbstractButton.isSelected()) && target(a) {}
+
+  event event_3 after(EventObject e):
+    call(* EventObject.getSource()) && target(e) {}
+
+  event event_4 after(AbstractButton a):
+    call(* AbstractButton.isEnabled()) && target(a) {}
+
+  fsm :
+        state6 [
+          event_3 -> state5
+          event_4 -> state1
+        ]
+
+        state0 [
+          event_2 -> state2
+          event_3 -> state5
+        ]
+
+        state1 [
+          event_2 -> state7
+          event_3 -> state5
+        ]
+
+        state2 [
+          event_2 -> state7
+          event_2 -> state2
+          event_3 -> state5
+          event_1 -> state4
+        ]
+
+        state3 [
+          event_3 -> state5
+          event_4 -> state1
+          event_2 -> state7
+          event_1 -> state3
+          event_2 -> state2
+        ]
+
+        state4 [
+          event_4 -> state0
+          event_3 -> state5
+          event_2 -> state7
+          event_2 -> state2
+          event_1 -> state4
+        ]
+
+        state5 [
+          event_3 -> state5
+          event_1 -> state4
+          event_4 -> state0
+          event_2 -> state7
+          event_2 -> state2
+        ]
+
+        state7 [
+          event_2 -> state7
+          event_2 -> state2
+          event_1 -> state3
+          event_3 -> state5
+        ]
+
+  @fail {
+         android.util.Log.v("RVSEC-LOG",__DEFAULT_MESSAGE);
+         android.util.Log.v("RVSEC-LOG","FSM111 went into an error state.");
+         __RESET;
+  }
+}

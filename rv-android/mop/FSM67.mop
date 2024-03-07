@@ -1,0 +1,51 @@
+package mop;
+
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging;
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging.Level;
+
+import java.util.SortedMap;
+import java.lang.Number;
+
+FSM67(Number n, Object o, SortedMap s) {
+
+  event event_1 after(SortedMap s):
+    call(* SortedMap.lastKey()) && target(s) {}
+
+  event event_2 after(Number n):
+    call(* Number.byteValue()) && target(n) {}
+
+  event event_3 after(SortedMap s, Object o):
+    call(* SortedMap.get(Object)) && target(s) && args(o) {}
+
+  fsm :
+        state2 [
+          event_2 -> state3
+          event_1 -> state1
+        ]
+
+        state0 [
+          event_1 -> state1
+          event_2 -> state0
+          event_3 -> state4
+        ]
+
+        state1 [
+          event_3 -> state4
+        ]
+
+        state3 [
+          event_3 -> state4
+          event_2 -> state3
+          event_1 -> state1
+        ]
+
+        state4 [
+          event_2 -> state0
+        ]
+
+  @fail {
+         android.util.Log.v("RVSEC-LOG",__DEFAULT_MESSAGE);
+         android.util.Log.v("RVSEC-LOG","FSM67 went into an error state.");
+         __RESET;
+  }
+}

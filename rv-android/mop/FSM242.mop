@@ -1,0 +1,64 @@
+package mop;
+
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging;
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging.Level;
+
+import java.util.Iterator;
+import java.lang.ref.Reference;
+
+FSM242(Iterator i, Object o, Reference r) {
+
+  event event_1 after(Reference r):
+    call(* Reference.get()) && target(r) {}
+
+  event event_2 after() returning (Reference r):
+    call(Reference.new(Object)) {}
+
+  event event_3 after(Iterator i):
+    call(* Iterator.next()) && target(i) {}
+
+  event event_4 after(Iterator i):
+    call(* Iterator.hasNext()) && target(i) {}
+
+  fsm :
+        state7 [
+          event_2 -> state3
+        ]
+
+        state0 [
+          event_4 -> state1
+        ]
+
+        state1 [
+          event_1 -> state0
+          event_3 -> state6
+        ]
+
+        state2 [
+          event_4 -> state4
+        ]
+
+        state3 [
+          event_4 -> state4
+          event_1 -> state5
+        ]
+
+        state4 [
+          event_3 -> state6
+          event_1 -> state2
+        ]
+
+        state5 [
+          event_4 -> state4
+        ]
+
+        state6 [
+          event_1 -> state0
+        ]
+
+  @fail {
+         android.util.Log.v("RVSEC-LOG",__DEFAULT_MESSAGE);
+         android.util.Log.v("RVSEC-LOG","FSM242 went into an error state.");
+         __RESET;
+  }
+}

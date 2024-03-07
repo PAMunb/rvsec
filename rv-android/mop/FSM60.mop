@@ -1,0 +1,42 @@
+package mop;
+
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging;
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging.Level;
+
+import java.net.URLStreamHandler;
+import java.net.URL;
+import java.io.Closeable;
+
+FSM60(Closeable c, String s, String s1, String s2, URL u, URLStreamHandler u) {
+
+  event event_1 after() returning (URL u):
+    call(URL.new(String, String, int, String, URLStreamHandler)) {}
+
+  event event_2 after(Closeable c):
+    call(* Closeable.close()) && target(c) {}
+
+  event event_3 after(URL u):
+    call(* URL.openStream()) && target(u) {}
+
+  fsm :
+        state3 [
+          event_1 -> state2
+        ]
+
+        state0 [
+        ]
+
+        state1 [
+          event_2 -> state0
+        ]
+
+        state2 [
+          event_3 -> state1
+        ]
+
+  @fail {
+         android.util.Log.v("RVSEC-LOG",__DEFAULT_MESSAGE);
+         android.util.Log.v("RVSEC-LOG","FSM60 went into an error state.");
+         __RESET;
+  }
+}

@@ -1,0 +1,50 @@
+package mop;
+
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging;
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging.Level;
+
+import javax.swing.JComponent;
+import javax.swing.border.Border;
+
+FSM284(Border b, JComponent j, String s) {
+
+  event event_1 after(JComponent j, Border b):
+    call(* JComponent.setBorder(Border)) && target(j) && args(b) {}
+
+  event event_2 after(JComponent j):
+    call(* JComponent.setEnabled(boolean)) && target(j) {}
+
+  event event_3 after(JComponent j, String s):
+    call(* JComponent.setToolTipText(String)) && target(j) && args(s) {}
+
+  event event_4 after() returning (JComponent j):
+    call(JComponent.new()) {}
+
+  fsm :
+        state1 [
+          event_2 -> state0
+          event_4 -> state4
+        ]
+
+        state0 [
+          event_3 -> state3
+        ]
+
+        state2 [
+        ]
+
+        state3 [
+          event_2 -> state0
+          event_3 -> state3
+        ]
+
+        state4 [
+          event_1 -> state2
+        ]
+
+  @fail {
+         android.util.Log.v("RVSEC-LOG",__DEFAULT_MESSAGE);
+         android.util.Log.v("RVSEC-LOG","FSM284 went into an error state.");
+         __RESET;
+  }
+}

@@ -1,0 +1,56 @@
+package mop;
+
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging;
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging.Level;
+
+import java.net.URI;
+
+FSM288(String s, URI u) {
+
+  event event_1 after(URI u):
+    call(* URI.getHost()) && target(u) {}
+
+  event event_2 after(URI u):
+    call(* URI.getScheme()) && target(u) {}
+
+  event event_3 after(URI u):
+    call(* URI.getPort()) && target(u) {}
+
+  event event_4 after() returning (URI u):
+    call(URI.new(String)) {}
+
+  fsm :
+        state3 [
+          event_4 -> state1
+        ]
+
+        state0 [
+          event_3 -> state2
+          event_2 -> state4
+          event_1 -> state0
+        ]
+
+        state1 [
+          event_1 -> state0
+          event_3 -> state2
+          event_2 -> state4
+        ]
+
+        state2 [
+          event_1 -> state0
+          event_3 -> state2
+          event_2 -> state4
+        ]
+
+        state4 [
+          event_2 -> state4
+          event_1 -> state0
+          event_3 -> state2
+        ]
+
+  @fail {
+         android.util.Log.v("RVSEC-LOG",__DEFAULT_MESSAGE);
+         android.util.Log.v("RVSEC-LOG","FSM288 went into an error state.");
+         __RESET;
+  }
+}

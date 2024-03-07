@@ -1,0 +1,50 @@
+package mop;
+
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging;
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging.Level;
+
+import java.io.BufferedReader;
+import java.io.Reader;
+import java.io.FileReader;
+
+FSM120(BufferedReader b, FileReader f, Reader r, String s) {
+
+  event event_1 after(BufferedReader b):
+    call(* BufferedReader.readLine()) && target(b) {}
+
+  event event_2 after(BufferedReader b):
+    call(* BufferedReader.close()) && target(b) {}
+
+  event event_3 after() returning (BufferedReader b):
+    call(BufferedReader.new(Reader)) {}
+
+  event event_4 after() returning (FileReader f):
+    call(FileReader.new(String)) {}
+
+  fsm :
+        state2 [
+          event_4 -> state1
+        ]
+
+        state0 [
+          event_2 -> state3
+          event_1 -> state0
+        ]
+
+        state1 [
+          event_3 -> state4
+        ]
+
+        state3 [
+        ]
+
+        state4 [
+          event_1 -> state0
+        ]
+
+  @fail {
+         android.util.Log.v("RVSEC-LOG",__DEFAULT_MESSAGE);
+         android.util.Log.v("RVSEC-LOG","FSM120 went into an error state.");
+         __RESET;
+  }
+}

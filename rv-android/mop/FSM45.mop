@@ -1,0 +1,39 @@
+package mop;
+
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging;
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging.Level;
+
+import javax.swing.table.TableColumnModel;
+import javax.swing.table.TableColumn;
+
+FSM45(TableColumn t, TableColumnModel t) {
+
+  event event_1 after(TableColumn t):
+    call(* TableColumn.getModelIndex()) && target(t) {}
+
+  event event_2 after(TableColumnModel t):
+    call(* TableColumnModel.getColumn(int)) && target(t) {}
+
+  fsm :
+        state1 [
+          event_2 -> state0
+        ]
+
+        state0 [
+          event_1 -> state2
+          event_2 -> state0
+          event_2 -> state0
+        ]
+
+        state2 [
+          event_1 -> state2
+          event_2 -> state0
+          event_2 -> state0
+        ]
+
+  @fail {
+         android.util.Log.v("RVSEC-LOG",__DEFAULT_MESSAGE);
+         android.util.Log.v("RVSEC-LOG","FSM45 went into an error state.");
+         __RESET;
+  }
+}

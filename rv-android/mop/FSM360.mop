@@ -1,0 +1,35 @@
+package mop;
+
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging;
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging.Level;
+
+import java.util.concurrent.Future;
+import java.util.Map;
+
+FSM360(Future f, Map m, Object o) {
+
+  event event_1 after(Map m, Object o):
+    call(* Map.remove(Object)) && target(m) && args(o) {}
+
+  event event_2 after(Future f):
+    call(* Future.cancel(boolean)) && target(f) {}
+
+  fsm :
+        state2 [
+          event_1 -> state1
+        ]
+
+        state0 [
+          event_2 -> state0
+        ]
+
+        state1 [
+          event_2 -> state0
+        ]
+
+  @fail {
+         android.util.Log.v("RVSEC-LOG",__DEFAULT_MESSAGE);
+         android.util.Log.v("RVSEC-LOG","FSM360 went into an error state.");
+         __RESET;
+  }
+}

@@ -1,0 +1,35 @@
+package mop;
+
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging;
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging.Level;
+
+import java.lang.reflect.AccessibleObject;
+
+FSM347(AccessibleObject a) {
+
+  event event_1 after(AccessibleObject a):
+    call(* AccessibleObject.setAccessible(boolean)) && target(a) {}
+
+  event event_2 after(AccessibleObject a):
+    call(* AccessibleObject.isAccessible()) && target(a) {}
+
+  fsm :
+        state2 [
+          event_2 -> state1
+        ]
+
+        state0 [
+          event_2 -> state1
+        ]
+
+        state1 [
+          event_2 -> state1
+          event_1 -> state0
+        ]
+
+  @fail {
+         android.util.Log.v("RVSEC-LOG",__DEFAULT_MESSAGE);
+         android.util.Log.v("RVSEC-LOG","FSM347 went into an error state.");
+         __RESET;
+  }
+}

@@ -1,0 +1,35 @@
+package mop;
+
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging;
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging.Level;
+
+import java.util.Map.Entry;
+
+FSM147(Entry e) {
+
+  event event_1 after(Entry e):
+    call(* Entry.getValue()) && target(e) {}
+
+  event event_2 after(Entry e):
+    call(* Entry.getKey()) && target(e) {}
+
+  fsm :
+        state0 [
+          event_1 -> state2
+          event_2 -> state1
+        ]
+
+        state1 [
+          event_1 -> state2
+        ]
+
+        state2 [
+          event_2 -> state1
+        ]
+
+  @fail {
+         android.util.Log.v("RVSEC-LOG",__DEFAULT_MESSAGE);
+         android.util.Log.v("RVSEC-LOG","FSM147 went into an error state.");
+         __RESET;
+  }
+}

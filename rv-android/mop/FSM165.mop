@@ -1,0 +1,46 @@
+package mop;
+
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging;
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging.Level;
+
+import java.io.FileOutputStream;
+import java.io.File;
+
+FSM165(File f1, FileOutputStream f, String s) {
+
+  event event_1 after() returning (FileOutputStream f):
+    call(FileOutputStream.new(File, boolean)) {}
+
+  event event_2 after(FileOutputStream f):
+    call(* FileOutputStream.getChannel()) && target(f) {}
+
+  event event_3 after(FileOutputStream f):
+    call(* FileOutputStream.close()) && target(f) {}
+
+  event event_4 after() returning (FileOutputStream f):
+    call(FileOutputStream.new(String)) {}
+
+  fsm :
+        state1 [
+          event_1 -> state0
+          event_4 -> state0
+        ]
+
+        state0 [
+          event_2 -> state3
+          event_3 -> state2
+        ]
+
+        state2 [
+        ]
+
+        state3 [
+          event_3 -> state2
+        ]
+
+  @fail {
+         android.util.Log.v("RVSEC-LOG",__DEFAULT_MESSAGE);
+         android.util.Log.v("RVSEC-LOG","FSM165 went into an error state.");
+         __RESET;
+  }
+}

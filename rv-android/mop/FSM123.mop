@@ -1,0 +1,43 @@
+package mop;
+
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging;
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging.Level;
+
+import java.net.InetSocketAddress;
+import java.net.InetAddress;
+
+FSM123(InetAddress i, InetSocketAddress i) {
+
+  event event_1 after(InetSocketAddress i):
+    call(* InetSocketAddress.getPort()) && target(i) {}
+
+  event event_2 after() returning (InetSocketAddress i):
+    call(InetSocketAddress.new(InetAddress, int)) {}
+
+  event event_3 after(InetSocketAddress i):
+    call(* InetSocketAddress.getHostName()) && target(i) {}
+
+  fsm :
+        state2 [
+          event_2 -> state0
+        ]
+
+        state0 [
+          event_1 -> state3
+          event_3 -> state1
+        ]
+
+        state1 [
+          event_1 -> state3
+        ]
+
+        state3 [
+          event_1 -> state3
+        ]
+
+  @fail {
+         android.util.Log.v("RVSEC-LOG",__DEFAULT_MESSAGE);
+         android.util.Log.v("RVSEC-LOG","FSM123 went into an error state.");
+         __RESET;
+  }
+}

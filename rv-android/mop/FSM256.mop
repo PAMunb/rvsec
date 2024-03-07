@@ -1,0 +1,33 @@
+package mop;
+
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging;
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging.Level;
+
+import java.awt.Label;
+
+FSM256(Label l, String s) {
+
+  event event_1 after(Label l):
+    call(* Label.setBounds(int, int, int, int)) && target(l) {}
+
+  event event_2 after() returning (Label l):
+    call(Label.new(String)) {}
+
+  fsm :
+        state2 [
+          event_2 -> state0
+        ]
+
+        state0 [
+          event_1 -> state1
+        ]
+
+        state1 [
+        ]
+
+  @fail {
+         android.util.Log.v("RVSEC-LOG",__DEFAULT_MESSAGE);
+         android.util.Log.v("RVSEC-LOG","FSM256 went into an error state.");
+         __RESET;
+  }
+}

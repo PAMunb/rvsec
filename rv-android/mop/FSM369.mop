@@ -1,0 +1,46 @@
+package mop;
+
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging;
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging.Level;
+
+import java.lang.Package;
+import java.lang.Class;
+
+FSM369(Class c, Package p) {
+
+  event event_1 after(Class c):
+    call(* Class.getName()) && target(c) {}
+
+  event event_2 after(Package p):
+    call(* Package.getName()) && target(p) {}
+
+  event event_3 after(Class c):
+    call(* Class.getPackage()) && target(c) {}
+
+  fsm :
+        state3 [
+          event_3 -> state1
+        ]
+
+        state0 [
+          event_2 -> state2
+          event_3 -> state1
+          event_1 -> state0
+        ]
+
+        state1 [
+          event_1 -> state0
+          event_2 -> state2
+        ]
+
+        state2 [
+          event_2 -> state2
+          event_1 -> state0
+        ]
+
+  @fail {
+         android.util.Log.v("RVSEC-LOG",__DEFAULT_MESSAGE);
+         android.util.Log.v("RVSEC-LOG","FSM369 went into an error state.");
+         __RESET;
+  }
+}

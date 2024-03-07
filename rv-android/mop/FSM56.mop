@@ -1,0 +1,37 @@
+package mop;
+
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging;
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging.Level;
+
+import java.util.concurrent.locks.Condition;
+import java.util.concurrent.TimeUnit;
+
+FSM56(Condition c, TimeUnit t) {
+
+  event event_1 after(Condition c):
+    call(* Condition.signalAll()) && target(c) {}
+
+  event event_2 after(Condition c, TimeUnit t):
+    call(* Condition.await(long, TimeUnit)) && target(c) && args(t) {}
+
+  fsm :
+        state0 [
+          event_1 -> state1
+        ]
+
+        state1 [
+          event_2 -> state2
+          event_1 -> state1
+        ]
+
+        state2 [
+          event_2 -> state2
+          event_1 -> state1
+        ]
+
+  @fail {
+         android.util.Log.v("RVSEC-LOG",__DEFAULT_MESSAGE);
+         android.util.Log.v("RVSEC-LOG","FSM56 went into an error state.");
+         __RESET;
+  }
+}

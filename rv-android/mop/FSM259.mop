@@ -1,0 +1,55 @@
+package mop;
+
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging;
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging.Level;
+
+import java.util.Iterator;
+import java.lang.Iterable;
+
+FSM259(Iterable i1, Iterator i2) {
+
+  event event_1 after(Iterator i2):
+    call(* Iterator.hasNext()) && target(i) {}
+
+  event event_2 after(Iterator i2):
+    call(* Iterator.remove()) && target(i2) {}
+
+  event event_3 after(Iterator i2):
+    call(* Iterator.next()) && target(i2) {}
+
+  event event_4 after(Iterable i1):
+    call(* Iterable.iterator()) && target(i1) {}
+
+  fsm :
+        state1 [
+          event_4 -> state4
+        ]
+
+        state0 [
+          event_1 -> state0
+          event_3 -> state3
+          event_4 -> state4
+        ]
+
+        state2 [
+          event_1 -> state0
+        ]
+
+        state3 [
+          event_4 -> state4
+          event_1 -> state0
+          event_2 -> state2
+        ]
+
+        state4 [
+          event_3 -> state3
+          event_1 -> state0
+          event_4 -> state4
+        ]
+
+  @fail {
+         android.util.Log.v("RVSEC-LOG",__DEFAULT_MESSAGE);
+         android.util.Log.v("RVSEC-LOG","FSM259 went into an error state.");
+         __RESET;
+  }
+}

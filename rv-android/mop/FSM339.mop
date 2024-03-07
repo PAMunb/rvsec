@@ -1,0 +1,79 @@
+package mop;
+
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging;
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging.Level;
+
+import java.lang.ClassLoader;
+import java.net.URL;
+
+FSM339(ClassLoader c, String s, URL u) {
+
+  event event_1 after(ClassLoader c, String s):
+    call(* ClassLoader.findResource(String)) && target(c) && args(s) {}
+
+  event event_2 after(URL u):
+    call(* URL.getFile()) && target(u) {}
+
+  event event_3 after(URL u):
+    call(* URL.getProtocol()) && target(u) {}
+
+  fsm :
+        state0 [
+          event_1 -> state7
+        ]
+
+        state1 [
+          event_3 -> state1
+          event_3 -> state2
+          event_2 -> state3
+        ]
+
+        state2 [
+          event_3 -> state2
+          event_3 -> state1
+          event_2 -> state4
+        ]
+
+        state3 [
+          event_1 -> state6
+          event_3 -> state1
+          event_3 -> state2
+          event_2 -> state4
+          event_2 -> state3
+        ]
+
+        state4 [
+          event_2 -> state3
+          event_1 -> state5
+          event_3 -> state2
+          event_3 -> state1
+          event_2 -> state4
+        ]
+
+        state5 [
+          event_2 -> state4
+          event_2 -> state3
+          event_1 -> state6
+          event_3 -> state2
+        ]
+
+        state6 [
+          event_2 -> state3
+          event_2 -> state4
+          event_3 -> state1
+          event_1 -> state6
+        ]
+
+        state7 [
+          event_2 -> state4
+          event_2 -> state3
+          event_1 -> state6
+          event_3 -> state2
+        ]
+
+  @fail {
+         android.util.Log.v("RVSEC-LOG",__DEFAULT_MESSAGE);
+         android.util.Log.v("RVSEC-LOG","FSM339 went into an error state.");
+         __RESET;
+  }
+}

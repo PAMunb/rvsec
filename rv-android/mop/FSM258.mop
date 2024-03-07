@@ -1,0 +1,64 @@
+package mop;
+
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging;
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging.Level;
+
+import java.util.Deque;
+
+FSM258(Deque d, Object o) {
+
+  event event_1 after(Deque d):
+    call(* Deque.removeFirst()) && target(d) {}
+
+  event event_2 after(Deque d):
+    call(* Deque.getLast()) && target(d) {}
+
+  event event_3 after(Deque d):
+    call(* Deque.size()) && target(d) {}
+
+  event event_4 after(Deque d, Object o):
+    call(* Deque.add(Object)) && target(d) && args(o) {}
+
+  event event_5 after(Deque d):
+    call(* Deque.isEmpty()) && target(d) {}
+
+  fsm :
+        state5 [
+          event_5 -> state3
+        ]
+
+        state0 [
+          event_3 -> state2
+          event_4 -> state4
+        ]
+
+        state1 [
+          event_3 -> state2
+          event_4 -> state4
+          event_5 -> state3
+        ]
+
+        state2 [
+          event_3 -> state2
+          event_4 -> state4
+        ]
+
+        state3 [
+          event_4 -> state4
+          event_5 -> state3
+          event_2 -> state0
+          event_1 -> state1
+          event_3 -> state2
+        ]
+
+        state4 [
+          event_3 -> state2
+          event_4 -> state4
+        ]
+
+  @fail {
+         android.util.Log.v("RVSEC-LOG",__DEFAULT_MESSAGE);
+         android.util.Log.v("RVSEC-LOG","FSM258 went into an error state.");
+         __RESET;
+  }
+}

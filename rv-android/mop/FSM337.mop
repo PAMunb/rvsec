@@ -1,0 +1,50 @@
+package mop;
+
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging;
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging.Level;
+
+import java.lang.Runtime;
+
+FSM337(Runtime r) {
+
+  event event_1 after(Runtime r):
+    call(* Runtime.freeMemory()) && target(r) {}
+
+  event event_2 after(Runtime r):
+    call(* Runtime.availableProcessors()) && target(r) {}
+
+  event event_3 after(Runtime r):
+    call(* Runtime.totalMemory()) && target(r) {}
+
+  event event_4 after(Runtime r):
+    call(* Runtime.maxMemory()) && target(r) {}
+
+  fsm :
+        state0 [
+          event_1 -> state3
+          event_4 -> state1
+        ]
+
+        state1 [
+          event_3 -> state4
+        ]
+
+        state2 [
+          event_4 -> state1
+        ]
+
+        state3 [
+          event_3 -> state4
+          event_2 -> state2
+        ]
+
+        state4 [
+          event_1 -> state3
+        ]
+
+  @fail {
+         android.util.Log.v("RVSEC-LOG",__DEFAULT_MESSAGE);
+         android.util.Log.v("RVSEC-LOG","FSM337 went into an error state.");
+         __RESET;
+  }
+}

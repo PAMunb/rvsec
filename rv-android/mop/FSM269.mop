@@ -1,0 +1,61 @@
+package mop;
+
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging;
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging.Level;
+
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.lang.Iterable;
+
+FSM269(AtomicBoolean a, Iterable i) {
+
+  event event_1 after(AtomicBoolean a):
+    call(* AtomicBoolean.get()) && target(a) {}
+
+  event event_2 after(Iterable i):
+    call(* Iterable.iterator()) && target(i) {}
+
+  fsm :
+        state1 [
+          event_1 -> state4
+        ]
+
+        state0 [
+          event_2 -> state2
+          event_1 -> state4
+          event_1 -> state3
+          event_1 -> state3
+          event_1 -> state0
+        ]
+
+        state2 [
+          event_1 -> state3
+          event_1 -> state0
+        ]
+
+        state3 [
+          event_1 -> state4
+          event_2 -> state5
+          event_1 -> state3
+          event_1 -> state3
+          event_1 -> state0
+        ]
+
+        state4 [
+          event_1 -> state0
+          event_1 -> state3
+          event_1 -> state3
+          event_1 -> state4
+          event_2 -> state2
+        ]
+
+        state5 [
+          event_1 -> state3
+          event_1 -> state3
+        ]
+
+  @fail {
+         android.util.Log.v("RVSEC-LOG",__DEFAULT_MESSAGE);
+         android.util.Log.v("RVSEC-LOG","FSM269 went into an error state.");
+         __RESET;
+  }
+}

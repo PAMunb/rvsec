@@ -1,0 +1,66 @@
+package mop;
+
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging;
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging.Level;
+
+import java.util.Collection;
+import java.util.HashSet;
+import java.util.Set;
+
+FSM21(Collection c, HashSet h, Object o, Set s) {
+
+  event event_1 after(Set s, Collection c):
+    call(* Set.retainAll(Collection)) && target(s) && args(c) {}
+
+  event event_2 after() returning (HashSet h):
+    call(HashSet.new(Collection)) {}
+
+  event event_3 after(HashSet h, Object o):
+    call(* HashSet.add(Object)) && target(h) && args(o) {}
+
+  fsm :
+        state4 [
+          event_1 -> state5
+          event_2 -> state3
+        ]
+
+        state0 [
+          event_1 -> state8
+        ]
+
+        state1 [
+          event_3 -> state0
+        ]
+
+        state2 [
+          event_1 -> state8
+        ]
+
+        state3 [
+          event_3 -> state2
+        ]
+
+        state5 [
+          event_1 -> state5
+          event_2 -> state7
+        ]
+
+        state6 [
+          event_1 -> state8
+        ]
+
+        state7 [
+          event_3 -> state6
+        ]
+
+        state8 [
+          event_1 -> state8
+          event_2 -> state1
+        ]
+
+  @fail {
+         android.util.Log.v("RVSEC-LOG",__DEFAULT_MESSAGE);
+         android.util.Log.v("RVSEC-LOG","FSM21 went into an error state.");
+         __RESET;
+  }
+}

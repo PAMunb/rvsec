@@ -1,0 +1,34 @@
+package mop;
+
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging;
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging.Level;
+
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+
+FSM254(CountDownLatch c, TimeUnit t) {
+
+  event event_1 after(CountDownLatch c, TimeUnit t):
+    call(* CountDownLatch.await(long, TimeUnit)) && target(c) && args(t) {}
+
+  event event_2 after() returning (CountDownLatch c):
+    call(CountDownLatch.new(int)) {}
+
+  fsm :
+        state2 [
+          event_2 -> state1
+        ]
+
+        state0 [
+        ]
+
+        state1 [
+          event_1 -> state0
+        ]
+
+  @fail {
+         android.util.Log.v("RVSEC-LOG",__DEFAULT_MESSAGE);
+         android.util.Log.v("RVSEC-LOG","FSM254 went into an error state.");
+         __RESET;
+  }
+}

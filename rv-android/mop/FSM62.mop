@@ -1,0 +1,54 @@
+package mop;
+
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging;
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging.Level;
+
+import java.util.zip.ZipEntry;
+import java.util.Enumeration;
+
+FSM62(Enumeration e, ZipEntry z) {
+
+  event event_1 after(Enumeration e):
+    call(* Enumeration.nextElement()) && target(e) {}
+
+  event event_2 after(Enumeration e):
+    call(* Enumeration.hasMoreElements()) && target(e) {}
+
+  event event_3 after(ZipEntry z):
+    call(* ZipEntry.getName()) && target(z) {}
+
+  fsm :
+        state1 [
+          event_2 -> state4
+        ]
+
+        state0 [
+          event_3 -> state2
+          event_2 -> state3
+        ]
+
+        state2 [
+          event_2 -> state3
+          event_3 -> state2
+        ]
+
+        state3 [
+          event_2 -> state4
+          event_2 -> state3
+          event_1 -> state0
+          event_3 -> state2
+        ]
+
+        state4 [
+          event_2 -> state3
+          event_1 -> state0
+          event_3 -> state2
+          event_2 -> state4
+        ]
+
+  @fail {
+         android.util.Log.v("RVSEC-LOG",__DEFAULT_MESSAGE);
+         android.util.Log.v("RVSEC-LOG","FSM62 went into an error state.");
+         __RESET;
+  }
+}

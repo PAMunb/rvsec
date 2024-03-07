@@ -28,7 +28,7 @@ class RvAndroid(object):
         errors = {}
 
         # clean directories and copy libraries
-        self.__prepare_instrumentation()
+        self.prepare_instrumentation()
         # retrieves the APKs to be instrumented
         apks = utils.get_apks(APKS_DIR)
 
@@ -41,17 +41,17 @@ class RvAndroid(object):
                 logging.info("Starting instrumentation {}/{}".format(cont, total_apks))
                 # instruments the APK. 'force_instrumentation' indicates whether the APK
                 # should be re-instrumented if it is already instrumented
-                self.__instrument(app, force_instrumentation)
+                self.instrument(app, force_instrumentation)
                 # checks if the apk was instrumented
-                self.__check_if_instrumented(app)
+                self.check_if_instrumented(app)
             except CommandException as ex:
                 logging.error("Failed to instrument APK: {}. {}".format(app.name, ex))
                 errors[app.name] = {"code": ex.code, "tool": ex.tool, "message": ex.message}
             except Exception as ex:
                 logging.error("Error while instrumenting APK: {}. {}".format(app.path, ex))
             finally:
-                self.__clear([TMP_DIR, RVM_TMP_DIR])
-        self.__clear([LIB_TMP_DIR])
+                self.clear([TMP_DIR, RVM_TMP_DIR])
+        self.clear([LIB_TMP_DIR])
 
         if errors:
             logging.warning("ERRORS: {}".format(len(errors)))
@@ -62,11 +62,11 @@ class RvAndroid(object):
             for error in errors:
                 logging.warning("ERROR: {}, tool={}".format(error, errors[error]["tool"]))
 
-    def __prepare_instrumentation(self):
-        self.__clear([LIB_TMP_DIR, TMP_DIR, RVM_TMP_DIR])
+    def prepare_instrumentation(self):
+        self.clear([LIB_TMP_DIR, TMP_DIR, RVM_TMP_DIR])
         self.__execute_maven()
 
-    def __instrument(self, app: App, force_instrumentation=False):
+    def instrument(self, app: App, force_instrumentation=False):
         # check if the APK exists in 'out' dir and whether it is to be instrumented
         instrumented_apk = os.path.join(INSTRUMENTED_DIR, app.name)
         if os.path.exists(instrumented_apk):
@@ -250,7 +250,7 @@ class RvAndroid(object):
         return signed_apk
 
     @staticmethod
-    def __clear(folders: list):
+    def clear(folders: list):
         for folder in folders:
             logging.debug("Deleting folder: {}".format(folder))
             shutil.rmtree(folder, ignore_errors=True)
@@ -289,7 +289,7 @@ class RvAndroid(object):
         utils.execute_command(jarsigner_cmd, "jarsigner_verify")
 
     @staticmethod
-    def __check_if_instrumented(app: App):
+    def check_if_instrumented(app: App):
         # checks if the apk was actually instrumented, in case __execute_command() is not capturing all errors
         # and ends up returning the original apk as being instrumented
         hash_original = utils.file_hash(os.path.join(app.path))

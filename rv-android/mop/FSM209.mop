@@ -1,0 +1,60 @@
+package mop;
+
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging;
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging.Level;
+
+import java.awt.LayoutManager;
+import java.awt.Container;
+import javax.swing.border.Border;
+import javax.swing.JComponent;
+import javax.swing.BoxLayout;
+import java.awt.Component;
+
+FSM209(Border b, BoxLayout b, Component c, Container c, JComponent j, LayoutManager l) {
+
+  event event_1 after(JComponent j, LayoutManager l):
+    call(* JComponent.setLayout(LayoutManager)) && target(j) && args(l) {}
+
+  event event_2 after(JComponent j, Component c):
+    call(* JComponent.add(Component)) && target(j) && args(c) {}
+
+  event event_3 after(JComponent j, Border b):
+    call(* JComponent.setBorder(Border)) && target(j) && args(b) {}
+
+  event event_4 after() returning (JComponent j):
+    call(JComponent.new()) {}
+
+  event event_5 after() returning (BoxLayout b):
+    call(BoxLayout.new(Container, int)) {}
+
+  fsm :
+        state3 [
+          event_4 -> state4
+        ]
+
+        state0 [
+          event_1 -> state1
+        ]
+
+        state1 [
+          event_3 -> state2
+        ]
+
+        state2 [
+          event_2 -> state5
+        ]
+
+        state4 [
+          event_5 -> state0
+        ]
+
+        state5 [
+          event_2 -> state5
+        ]
+
+  @fail {
+         android.util.Log.v("RVSEC-LOG",__DEFAULT_MESSAGE);
+         android.util.Log.v("RVSEC-LOG","FSM209 went into an error state.");
+         __RESET;
+  }
+}

@@ -1,0 +1,36 @@
+package mop;
+
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging;
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging.Level;
+
+import javax.swing.ButtonGroup;
+import javax.swing.AbstractButton;
+
+FSM26(AbstractButton a, ButtonGroup b) {
+
+  event event_1 after(ButtonGroup b, AbstractButton a):
+    call(* ButtonGroup.add(AbstractButton)) && target(b) && args(a) {}
+
+  event event_2 after(ButtonGroup b, AbstractButton a):
+    call(* ButtonGroup.remove(AbstractButton)) && target(b) && args(a) {}
+
+  fsm :
+        state0 [
+          event_1 -> state1
+        ]
+
+        state1 [
+          event_1 -> state1
+          event_2 -> state2
+        ]
+
+        state2 [
+          event_1 -> state1
+        ]
+
+  @fail {
+         android.util.Log.v("RVSEC-LOG",__DEFAULT_MESSAGE);
+         android.util.Log.v("RVSEC-LOG","FSM26 went into an error state.");
+         __RESET;
+  }
+}

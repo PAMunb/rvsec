@@ -1,0 +1,71 @@
+package mop;
+
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging;
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging.Level;
+
+import javax.swing.text.AbstractDocument.AbstractElement;
+
+FSM332(AbstractElement a, Object o) {
+
+  event event_1 after(AbstractElement a):
+    call(* AbstractElement.getAttributes()) && target(a) {}
+
+  event event_2 after(AbstractElement a, Object o):
+    call(* AbstractElement.getAttribute(Object)) && target(a) && args(o) {}
+
+  event event_3 after(AbstractElement a):
+    call(* AbstractElement.getDocument()) && target(a) {}
+
+  event event_4 after(AbstractElement a):
+    call(* AbstractElement.getName()) && target(a) {}
+
+  event event_5 after(AbstractElement a):
+    call(* AbstractElement.getStartOffset()) && target(a) {}
+
+  fsm :
+        state5 [
+          event_1 -> state1
+        ]
+
+        state0 [
+          event_2 -> state2
+          event_3 -> state3
+          event_1 -> state1
+          event_5 -> state0
+        ]
+
+        state1 [
+          event_1 -> state1
+          event_2 -> state2
+          event_5 -> state0
+          event_3 -> state3
+        ]
+
+        state2 [
+          event_3 -> state3
+          event_2 -> state2
+          event_5 -> state0
+          event_1 -> state1
+          event_4 -> state4
+        ]
+
+        state3 [
+          event_5 -> state0
+          event_1 -> state1
+          event_2 -> state2
+          event_3 -> state3
+        ]
+
+        state4 [
+          event_3 -> state3
+          event_5 -> state0
+          event_2 -> state2
+          event_1 -> state1
+        ]
+
+  @fail {
+         android.util.Log.v("RVSEC-LOG",__DEFAULT_MESSAGE);
+         android.util.Log.v("RVSEC-LOG","FSM332 went into an error state.");
+         __RESET;
+  }
+}

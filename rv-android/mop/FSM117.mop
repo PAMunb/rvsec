@@ -1,0 +1,42 @@
+package mop;
+
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging;
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging.Level;
+
+import javax.swing.JLabel;
+import javax.swing.border.Border;
+
+FSM117(Border b, JLabel j, String s) {
+
+  event event_1 after() returning (JLabel j):
+    call(JLabel.new()) {}
+
+  event event_2 after(JLabel j, Border b):
+    call(* JLabel.setBorder(Border)) && target(j) && args(b) {}
+
+  event event_3 after(JLabel j, String s):
+    call(* JLabel.setText(String)) && target(j) && args(s) {}
+
+  fsm :
+        state2 [
+          event_1 -> state1
+        ]
+
+        state0 [
+          event_3 -> state3
+        ]
+
+        state1 [
+          event_2 -> state0
+        ]
+
+        state3 [
+          event_3 -> state3
+        ]
+
+  @fail {
+         android.util.Log.v("RVSEC-LOG",__DEFAULT_MESSAGE);
+         android.util.Log.v("RVSEC-LOG","FSM117 went into an error state.");
+         __RESET;
+  }
+}

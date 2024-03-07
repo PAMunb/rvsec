@@ -1,0 +1,99 @@
+package mop;
+
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging;
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging.Level;
+
+import java.lang.Iterable;
+import java.util.AbstractList;
+
+FSM300(AbstractList a, Iterable i) {
+
+  event event_1 after(AbstractList a):
+    call(* AbstractList.subList(int, int)) && target(a) {}
+
+  event event_2 after(AbstractList a):
+    call(* AbstractList.get(int)) && target(a) {}
+
+  event event_3 after() returning (AbstractList a):
+    call(AbstractList.new()) {}
+
+  event event_4 after(AbstractList a):
+    call(* AbstractList.size()) && target(a) {}
+
+  event event_5 after(Iterable i):
+    call(* Iterable.iterator()) && target(i) {}
+
+  fsm :
+        state4 [
+          event_3 -> state2
+        ]
+
+        state0 [
+          event_1 -> state8
+          event_2 -> state11
+          event_4 -> state0
+        ]
+
+        state1 [
+          event_2 -> state1
+          event_1 -> state12
+          event_4 -> state3
+        ]
+
+        state10 [
+          event_1 -> state5
+          event_4 -> state9
+          event_2 -> state10
+        ]
+
+        state11 [
+          event_4 -> state0
+          event_1 -> state8
+          event_2 -> state11
+        ]
+
+        state12 [
+          event_4 -> state3
+          event_5 -> state7
+        ]
+
+        state2 [
+          event_4 -> state3
+        ]
+
+        state3 [
+          event_2 -> state1
+          event_4 -> state3
+          event_1 -> state8
+        ]
+
+        state5 [
+          event_4 -> state9
+          event_5 -> state7
+        ]
+
+        state6 [
+          event_4 -> state0
+        ]
+
+        state7 [
+          event_4 -> state9
+        ]
+
+        state8 [
+          event_4 -> state0
+          event_5 -> state6
+        ]
+
+        state9 [
+          event_4 -> state9
+          event_2 -> state10
+          event_1 -> state8
+        ]
+
+  @fail {
+         android.util.Log.v("RVSEC-LOG",__DEFAULT_MESSAGE);
+         android.util.Log.v("RVSEC-LOG","FSM300 went into an error state.");
+         __RESET;
+  }
+}

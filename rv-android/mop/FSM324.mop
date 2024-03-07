@@ -1,0 +1,33 @@
+package mop;
+
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging;
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging.Level;
+
+import java.awt.Window;
+
+FSM324(Window w) {
+
+  event event_1 after(Window w):
+    call(* Window.setVisible(boolean)) && target(w) {}
+
+  event event_2 after(Window w):
+    call(* Window.dispose()) && target(w) {}
+
+  fsm :
+        state2 [
+          event_1 -> state1
+        ]
+
+        state0 [
+        ]
+
+        state1 [
+          event_2 -> state0
+        ]
+
+  @fail {
+         android.util.Log.v("RVSEC-LOG",__DEFAULT_MESSAGE);
+         android.util.Log.v("RVSEC-LOG","FSM324 went into an error state.");
+         __RESET;
+  }
+}

@@ -1,0 +1,57 @@
+package mop;
+
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging;
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging.Level;
+
+import java.util.concurrent.Future;
+import java.util.concurrent.ConcurrentMap;
+
+FSM103(ConcurrentMap c, Future f, Object o, Object o1) {
+
+  event event_1 after(ConcurrentMap c, Object o, Object o1):
+    call(* ConcurrentMap.putIfAbsent(Object, Object)) && target(c) && args(o, o1) {}
+
+  event event_2 after(ConcurrentMap c, Object o):
+    call(* ConcurrentMap.remove(Object)) && target(c) && args(o) {}
+
+  event event_3 after(Future f):
+    call(* Future.cancel(boolean)) && target(f) {}
+
+  fsm :
+        state1 [
+          event_2 -> state5
+        ]
+
+        state0 [
+          event_3 -> state3
+          event_3 -> state0
+        ]
+
+        state2 [
+          event_3 -> state0
+          event_1 -> state2
+        ]
+
+        state3 [
+          event_3 -> state3
+          event_3 -> state0
+        ]
+
+        state4 [
+          event_3 -> state3
+          event_1 -> state2
+        ]
+
+        state5 [
+          event_1 -> state4
+          event_2 -> state5
+          event_3 -> state0
+          event_3 -> state3
+        ]
+
+  @fail {
+         android.util.Log.v("RVSEC-LOG",__DEFAULT_MESSAGE);
+         android.util.Log.v("RVSEC-LOG","FSM103 went into an error state.");
+         __RESET;
+  }
+}

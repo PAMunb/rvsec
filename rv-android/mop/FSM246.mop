@@ -1,0 +1,104 @@
+package mop;
+
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging;
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging.Level;
+
+import java.lang.Thread;
+import java.util.concurrent.Future;
+
+FSM246(Future f, Runnable r, String s, Thread t, ThreadGroup tg) {
+
+  event event_1 after(Thread t):
+    call(* Thread.start()) && target(t) {}
+
+  event event_2 after(Thread t):
+    call(* Thread.setDaemon(boolean)) && target(t) {}
+
+  event event_3 after(Thread t, boolean b):
+    call(* Thread.setDaemon(boolean)) && target(t) && args(b) {}
+
+  event event_4 after(Thread t):
+    call(* Thread.getName()) && target(t) {}
+
+  event event_5 after(Thread t, String s):
+    call(* Thread.setName(String)) && target(t) && args(s) {}
+
+  event event_6 after() returning (Thread t):
+    call(Thread.new(ThreadGroup, Runnable, String)) {}
+
+  event event_7 after(Future f):
+    call(* Future.cancel(boolean)) && target(f) {}
+
+  fsm :
+        state9 [
+          event_6 -> state8
+        ]
+
+        state0 [
+          event_7 -> state3
+          event_7 -> state0
+        ]
+
+        state1 [
+          event_5 -> state10
+          event_7 -> state0
+          event_7 -> state3
+        ]
+
+        state10 [
+          event_7 -> state0
+          event_3 -> state2
+          event_7 -> state3
+        ]
+
+        state11 [
+          event_1 -> state7
+          event_4 -> state4
+          event_7 -> state3
+          event_7 -> state0
+        ]
+
+        state2 [
+          event_7 -> state3
+          event_1 -> state5
+          event_7 -> state0
+          event_4 -> state1
+        ]
+
+        state3 [
+          event_7 -> state0
+          event_7 -> state3
+        ]
+
+        state4 [
+          event_7 -> state3
+          event_7 -> state0
+          event_5 -> state6
+        ]
+
+        state5 [
+          event_7 -> state0
+        ]
+
+        state6 [
+          event_7 -> state3
+          event_7 -> state0
+          event_3 -> state2
+        ]
+
+        state7 [
+          event_7 -> state3
+        ]
+
+        state8 [
+          event_7 -> state0
+          event_7 -> state3
+          event_3 -> state11
+        ]
+
+  @fail {
+         android.util.Log.v("RVSEC-LOG",__DEFAULT_MESSAGE);
+         android.util.Log.v("RVSEC-LOG","FSM246 went into an error state.");
+         __RESET;
+  }
+}

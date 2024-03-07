@@ -1,0 +1,48 @@
+package mop;
+
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging;
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging.Level;
+
+import java.lang.Iterable;
+import java.util.Properties;
+
+FSM314(Iterable i, Properties p, String s) {
+
+  event event_1 after(Iterable i):
+    call(* Iterable.iterator()) && target(i) {}
+
+  event event_2 after(Properties p, String s):
+    call(* Properties.getProperty(String)) && target(p) && args(s) {}
+
+  event event_3 after() returning (Properties p):
+    call(Properties.new()) {}
+
+  event event_4 after(Properties p):
+    call(* Properties.keySet()) && target(p) {}
+
+  fsm :
+        state3 [
+          event_3 -> state1
+        ]
+
+        state0 [
+          event_2 -> state4
+        ]
+
+        state1 [
+          event_4 -> state2
+        ]
+
+        state2 [
+          event_1 -> state0
+        ]
+
+        state4 [
+        ]
+
+  @fail {
+         android.util.Log.v("RVSEC-LOG",__DEFAULT_MESSAGE);
+         android.util.Log.v("RVSEC-LOG","FSM314 went into an error state.");
+         __RESET;
+  }
+}

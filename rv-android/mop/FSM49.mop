@@ -1,0 +1,50 @@
+package mop;
+
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging;
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging.Level;
+
+import java.io.File;
+import java.net.URLStreamHandler;
+import java.net.URL;
+import java.io.FileInputStream;
+
+FSM49(File f, FileInputStream f, String s, String s1, String s2, URL u, URLStreamHandler u) {
+
+  event event_1 after() returning (URL u):
+    call(URL.new(String, String, int, String, URLStreamHandler)) {}
+
+  event event_2 after(FileInputStream f):
+    call(* FileInputStream.close()) && target(f) {}
+
+  event event_3 after() returning (FileInputStream f):
+    call(FileInputStream.new(File)) {}
+
+  event event_4 after(URL u):
+    call(* URL.openStream()) && target(u) {}
+
+  fsm :
+        state1 [
+          event_1 -> state2
+        ]
+
+        state0 [
+          event_2 -> state3
+        ]
+
+        state2 [
+          event_3 -> state4
+        ]
+
+        state3 [
+        ]
+
+        state4 [
+          event_4 -> state0
+        ]
+
+  @fail {
+         android.util.Log.v("RVSEC-LOG",__DEFAULT_MESSAGE);
+         android.util.Log.v("RVSEC-LOG","FSM49 went into an error state.");
+         __RESET;
+  }
+}

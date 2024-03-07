@@ -1,0 +1,49 @@
+package mop;
+
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging;
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging.Level;
+
+import java.io.ObjectInput;
+
+FSM348(ObjectInput o) {
+
+  event event_1 after(ObjectInput o):
+    call(* ObjectInput.readShort()) && target(o) {}
+
+  event event_2 after(ObjectInput o):
+    call(* ObjectInput.readUTF()) && target(o) {}
+
+  event event_3 after(ObjectInput o):
+    call(* ObjectInput.readBoolean()) && target(o) {}
+
+  event event_4 after(ObjectInput o):
+    call(* ObjectInput.readObject()) && target(o) {}
+
+  fsm :
+        state4 [
+          event_3 -> state1
+        ]
+
+        state0 [
+          event_4 -> state3
+        ]
+
+        state1 [
+          event_2 -> state2
+        ]
+
+        state2 [
+          event_4 -> state3
+        ]
+
+        state3 [
+          event_1 -> state0
+          event_3 -> state1
+        ]
+
+  @fail {
+         android.util.Log.v("RVSEC-LOG",__DEFAULT_MESSAGE);
+         android.util.Log.v("RVSEC-LOG","FSM348 went into an error state.");
+         __RESET;
+  }
+}

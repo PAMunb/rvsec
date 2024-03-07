@@ -28,10 +28,15 @@ class Android:
     def start_emulator(cls, avd_name: str, no_window: bool):
         logging.info('Starting emulator')
 
-        args = ['-avd', avd_name, '-writable-system', '-wipe-data', '-no-boot-anim',
-                '-noaudio', '-no-snapshot-save', '-delay-adb']
+        args = ['-avd', avd_name,
+                '-writable-system', # make system & vendor image writable after 'adb remount'
+                '-wipe-data', # reset the user data image (copy it from initdata)
+                '-no-boot-anim', # disable animation for faster boot
+                '-noaudio', # disable audio support
+                '-no-snapshot-save', # do not auto-save to snapshot on exit: abandon changed state
+                '-delay-adb'] # delay adb communication till boot completes
         if no_window:
-            args.append('-no-window')
+            args.append('-no-window') # disable graphical window display
 
         start_emulator_cmd = Command('emulator', args)
         emulator_proc = start_emulator_cmd.invoke_as_deamon()

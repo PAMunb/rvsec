@@ -1,0 +1,70 @@
+package mop;
+
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging;
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging.Level;
+
+import java.util.AbstractMap;
+import java.util.Map;
+import java.lang.Boolean;
+
+FSM214(AbstractMap a, Boolean b, Map m, Object o, Object o1) {
+
+  event event_1 after(AbstractMap a, Object o, Object o1):
+    call(* AbstractMap.put(Object, Object)) && target(a) && args(o, o1) {}
+
+  event event_2 after(AbstractMap a, Map m):
+    call(* AbstractMap.putAll(Map)) && target(a) && args(m) {}
+
+  event event_3 after(AbstractMap a, Object o):
+    call(* AbstractMap.get(Object)) && target(a) && args(o) {}
+
+  event event_4 after(AbstractMap a, Object o):
+    call(* AbstractMap.containsKey(Object)) && target(a) && args(o) {}
+
+  event event_5 after() returning (AbstractMap a):
+    call(AbstractMap.new()) {}
+
+  event event_6 after(Boolean b):
+    call(* Boolean.booleanValue()) && target(b) {}
+
+  fsm :
+        state1 [
+          event_5 -> state0
+        ]
+
+        state0 [
+          event_6 -> state4
+          event_1 -> state3
+        ]
+
+        state2 [
+          event_6 -> state4
+        ]
+
+        state3 [
+          event_6 -> state4
+          event_1 -> state3
+          event_4 -> state6
+        ]
+
+        state4 [
+          event_4 -> state6
+          event_6 -> state4
+        ]
+
+        state5 [
+          event_6 -> state4
+        ]
+
+        state6 [
+          event_3 -> state5
+          event_6 -> state4
+          event_2 -> state2
+        ]
+
+  @fail {
+         android.util.Log.v("RVSEC-LOG",__DEFAULT_MESSAGE);
+         android.util.Log.v("RVSEC-LOG","FSM214 went into an error state.");
+         __RESET;
+  }
+}

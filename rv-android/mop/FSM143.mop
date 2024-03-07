@@ -1,0 +1,44 @@
+package mop;
+
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging;
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging.Level;
+
+import java.util.Iterator;
+import java.util.Set;
+
+FSM143(Iterator i, Set s) {
+
+  event event_1 after(Set s):
+    call(* Set.iterator()) && target(s) {}
+
+  event event_2 after(Set s):
+    call(* Set.isEmpty()) && target(s) {}
+
+  event event_3 after(Iterator i):
+    call(* Iterator.hasNext()) && target(i) {}
+
+  fsm :
+        state2 [
+          event_1 -> state3
+        ]
+
+        state0 [
+          event_1 -> state3
+          event_2 -> state0
+        ]
+
+        state1 [
+          event_2 -> state0
+        ]
+
+        state3 [
+          event_2 -> state0
+          event_3 -> state1
+        ]
+
+  @fail {
+         android.util.Log.v("RVSEC-LOG",__DEFAULT_MESSAGE);
+         android.util.Log.v("RVSEC-LOG","FSM143 went into an error state.");
+         __RESET;
+  }
+}

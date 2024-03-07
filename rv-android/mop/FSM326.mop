@@ -1,0 +1,35 @@
+package mop;
+
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging;
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging.Level;
+
+import java.net.NetworkInterface;
+import java.util.Enumeration;
+
+FSM326(Enumeration e, NetworkInterface n) {
+
+  event event_1 after(Enumeration e):
+    call(* Enumeration.hasMoreElements()) && target(e) {}
+
+  event event_2 after(NetworkInterface n):
+    call(* NetworkInterface.getInetAddresses()) && target(n) {}
+
+  fsm :
+        state2 [
+          event_2 -> state1
+        ]
+
+        state0 [
+          event_1 -> state0
+        ]
+
+        state1 [
+          event_1 -> state0
+        ]
+
+  @fail {
+         android.util.Log.v("RVSEC-LOG",__DEFAULT_MESSAGE);
+         android.util.Log.v("RVSEC-LOG","FSM326 went into an error state.");
+         __RESET;
+  }
+}

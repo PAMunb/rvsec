@@ -1,0 +1,42 @@
+package mop;
+
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging;
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging.Level;
+
+import javax.swing.JScrollPane;
+import javax.swing.text.JTextComponent;
+import java.awt.Component;
+
+FSM133(Component c, JScrollPane j, JTextComponent j) {
+
+  event event_1 after(JTextComponent j):
+    call(* JTextComponent.setEditable(boolean)) && target(j) {}
+
+  event event_2 after() returning (JTextComponent j):
+    call(JTextComponent.new()) {}
+
+  event event_3 after() returning (JScrollPane j):
+    call(JScrollPane.new(Component)) {}
+
+  fsm :
+        state3 [
+          event_2 -> state0
+        ]
+
+        state0 [
+          event_1 -> state2
+        ]
+
+        state1 [
+        ]
+
+        state2 [
+          event_3 -> state1
+        ]
+
+  @fail {
+         android.util.Log.v("RVSEC-LOG",__DEFAULT_MESSAGE);
+         android.util.Log.v("RVSEC-LOG","FSM133 went into an error state.");
+         __RESET;
+  }
+}

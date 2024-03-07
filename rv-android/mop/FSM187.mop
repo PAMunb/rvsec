@@ -1,0 +1,72 @@
+package mop;
+
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging;
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging.Level;
+
+import java.awt.GradientPaint;
+import java.awt.Color;
+
+FSM187(Color c, Color c1, GradientPaint g, Object o) {
+
+  event event_1 after(Color c):
+    call(* Color.getRed()) && target(c) {}
+
+  event event_2 after() returning (GradientPaint g):
+    call(GradientPaint.new(float, float, Color, float, float, Color)) {}
+
+  event event_3 after(Color c):
+    call(* Color.getBlue()) && target(c) {}
+
+  event event_4 after(Color c, Object o):
+    call(* Color.equals(Object)) && target(c) && args(o) {}
+
+  event event_5 after(Color c):
+    call(* Color.getGreen()) && target(c) {}
+
+  fsm :
+        state1 [
+          event_2 -> state2
+          event_2 -> state2
+        ]
+
+        state0 [
+          event_1 -> state4
+          event_3 -> state3
+          event_4 -> state0
+          event_5 -> state5
+        ]
+
+        state2 [
+          event_3 -> state3
+          event_5 -> state5
+          event_4 -> state0
+          event_1 -> state4
+        ]
+
+        state3 [
+          event_5 -> state5
+          event_4 -> state0
+          event_1 -> state4
+          event_3 -> state3
+        ]
+
+        state4 [
+          event_3 -> state3
+          event_4 -> state0
+          event_5 -> state5
+          event_1 -> state4
+        ]
+
+        state5 [
+          event_1 -> state4
+          event_3 -> state3
+          event_5 -> state5
+          event_4 -> state0
+        ]
+
+  @fail {
+         android.util.Log.v("RVSEC-LOG",__DEFAULT_MESSAGE);
+         android.util.Log.v("RVSEC-LOG","FSM187 went into an error state.");
+         __RESET;
+  }
+}

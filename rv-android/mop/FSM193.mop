@@ -1,0 +1,78 @@
+package mop;
+
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging;
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging.Level;
+
+import java.util.Map;
+import java.lang.Long;
+
+FSM193(Long l, Map m, Object o, Object o1) {
+
+  event event_1 after(Map m, Object o):
+    call(* Map.containsKey(Object)) && target(m) && args(o) {}
+
+  event event_2 after(Map m, Object o):
+    call(* Map.remove(Object)) && target(m) && args(o) {}
+
+  event event_3 after(Map m, Object o, Object o1):
+    call(* Map.put(Object, Object)) && target(m) && args(o, o1) {}
+
+  event event_4 after() returning (Long l):
+    call(Long.new(long)) {}
+
+  fsm :
+        state2 [
+          event_2 -> state3
+          event_1 -> state0
+        ]
+
+        state0 [
+          event_2 -> state3
+          event_3 -> state1
+          event_1 -> state0
+          event_4 -> state5
+        ]
+
+        state1 [
+          event_1 -> state0
+        ]
+
+        state3 [
+          event_4 -> state5
+          event_1 -> state0
+          event_2 -> state3
+        ]
+
+        state4 [
+          event_4 -> state6
+          event_1 -> state7
+          event_2 -> state4
+        ]
+
+        state5 [
+          event_2 -> state4
+          event_3 -> state8
+        ]
+
+        state6 [
+          event_3 -> state8
+          event_2 -> state4
+        ]
+
+        state7 [
+          event_2 -> state4
+          event_1 -> state7
+          event_4 -> state6
+          event_3 -> state8
+        ]
+
+        state8 [
+          event_1 -> state7
+        ]
+
+  @fail {
+         android.util.Log.v("RVSEC-LOG",__DEFAULT_MESSAGE);
+         android.util.Log.v("RVSEC-LOG","FSM193 went into an error state.");
+         __RESET;
+  }
+}

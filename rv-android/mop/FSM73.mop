@@ -1,0 +1,97 @@
+package mop;
+
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging;
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging.Level;
+
+import javax.swing.text.Document;
+import java.net.URL;
+
+FSM73(Document d, Object o, Object o1, URL u) {
+
+  event event_1 after(URL u):
+    call(* URL.getHost()) && target(u) {}
+
+  event event_2 after(URL u):
+    call(* URL.getFile()) && target(u) {}
+
+  event event_3 after(Document d, Object o, Object o1):
+    call(* Document.putProperty(Object, Object)) && target(d) && args(o, o1) {}
+
+  event event_4 after(URL u):
+    call(* URL.openConnection()) && target(u) {}
+
+  event event_5 after(URL u):
+    call(* URL.toString()) && target(u) {}
+
+  event event_6 after(URL u):
+    call(* URL.getProtocol()) && target(u) {}
+
+  event event_7 after(Document d, Object o):
+    call(* Document.getProperty(Object)) && target(d) && args(o) {}
+
+  fsm :
+        state5 [
+          event_7 -> state4
+        ]
+
+        state0 [
+          event_1 -> state2
+          event_7 -> state4
+          event_2 -> state3
+          event_6 -> state1
+          event_5 -> state0
+        ]
+
+        state1 [
+          event_6 -> state1
+          event_1 -> state2
+          event_5 -> state0
+          event_7 -> state4
+          event_2 -> state3
+        ]
+
+        state2 [
+          event_2 -> state3
+          event_1 -> state2
+          event_5 -> state0
+          event_6 -> state1
+          event_7 -> state4
+        ]
+
+        state3 [
+          event_5 -> state0
+          event_6 -> state1
+          event_1 -> state2
+          event_7 -> state4
+          event_2 -> state3
+        ]
+
+        state4 [
+          event_2 -> state3
+          event_7 -> state4
+          event_3 -> state6
+          event_1 -> state2
+          event_6 -> state1
+        ]
+
+        state6 [
+          event_4 -> state7
+          event_1 -> state2
+          event_2 -> state3
+          event_6 -> state1
+          event_7 -> state4
+        ]
+
+        state7 [
+          event_7 -> state4
+          event_2 -> state3
+          event_1 -> state2
+          event_6 -> state1
+        ]
+
+  @fail {
+         android.util.Log.v("RVSEC-LOG",__DEFAULT_MESSAGE);
+         android.util.Log.v("RVSEC-LOG","FSM73 went into an error state.");
+         __RESET;
+  }
+}

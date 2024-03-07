@@ -1,0 +1,50 @@
+package mop;
+
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging;
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging.Level;
+
+import java.util.Collection;
+import java.util.AbstractMap;
+import java.util.Set;
+
+FSM146(AbstractMap a, Collection c, Object o, Object o1, Set s) {
+
+  event event_1 after(Set s, Collection c):
+    call(* Set.retainAll(Collection)) && target(s) && args(c) {}
+
+  event event_2 after(AbstractMap a, Object o, Object o1):
+    call(* AbstractMap.put(Object, Object)) && target(a) && args(o, o1) {}
+
+  event event_3 after() returning (AbstractMap a):
+    call(AbstractMap.new()) {}
+
+  event event_4 after(AbstractMap a):
+    call(* AbstractMap.keySet()) && target(a) {}
+
+  fsm :
+        state1 [
+          event_3 -> state4
+        ]
+
+        state0 [
+          event_1 -> state3
+        ]
+
+        state2 [
+          event_2 -> state2
+        ]
+
+        state3 [
+          event_2 -> state2
+        ]
+
+        state4 [
+          event_4 -> state0
+        ]
+
+  @fail {
+         android.util.Log.v("RVSEC-LOG",__DEFAULT_MESSAGE);
+         android.util.Log.v("RVSEC-LOG","FSM146 went into an error state.");
+         __RESET;
+  }
+}

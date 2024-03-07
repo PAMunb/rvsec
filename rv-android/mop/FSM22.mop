@@ -1,0 +1,34 @@
+package mop;
+
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging;
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging.Level;
+
+import javax.swing.DefaultListModel;
+
+FSM22(DefaultListModel d, Object o) {
+
+  event event_1 after(DefaultListModel d, Object o):
+    call(* DefaultListModel.addElement(Object)) && target(d) && args(o) {}
+
+  event event_2 after() returning (DefaultListModel d):
+    call(DefaultListModel.new()) {}
+
+  fsm :
+        state2 [
+          event_2 -> state1
+        ]
+
+        state0 [
+          event_1 -> state0
+        ]
+
+        state1 [
+          event_1 -> state0
+        ]
+
+  @fail {
+         android.util.Log.v("RVSEC-LOG",__DEFAULT_MESSAGE);
+         android.util.Log.v("RVSEC-LOG","FSM22 went into an error state.");
+         __RESET;
+  }
+}

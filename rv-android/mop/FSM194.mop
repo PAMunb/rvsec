@@ -1,0 +1,81 @@
+package mop;
+
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging;
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging.Level;
+
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
+
+FSM194(Lock l, ReentrantReadWriteLock r) {
+
+  event event_1 after(ReentrantReadWriteLock r):
+    call(* ReentrantReadWriteLock.writeLock()) && target(r) {}
+
+  event event_2 after(Lock l):
+    call(* Lock.lock()) && target(l) {}
+
+  event event_3 after(ReentrantReadWriteLock r):
+    call(* ReentrantReadWriteLock.readLock()) && target(r) {}
+
+  event event_4 after(Lock l):
+    call(* Lock.unlock()) && target(l) {}
+
+  event event_5 after() returning (ReentrantReadWriteLock r):
+    call(ReentrantReadWriteLock.new()) {}
+
+  fsm :
+        state0 [
+          event_5 -> state3
+        ]
+
+        state1 [
+          event_3 -> state2
+          event_3 -> state2
+          event_4 -> state1
+          event_1 -> state5
+          event_1 -> state5
+          event_2 -> state4
+        ]
+
+        state2 [
+          event_3 -> state2
+          event_3 -> state2
+          event_1 -> state5
+          event_1 -> state5
+          event_4 -> state1
+          event_2 -> state4
+        ]
+
+        state3 [
+          event_1 -> state5
+          event_1 -> state5
+          event_4 -> state1
+          event_3 -> state2
+          event_3 -> state2
+          event_2 -> state4
+        ]
+
+        state4 [
+          event_1 -> state5
+          event_1 -> state5
+          event_3 -> state2
+          event_3 -> state2
+          event_4 -> state1
+          event_2 -> state4
+        ]
+
+        state5 [
+          event_2 -> state4
+          event_1 -> state5
+          event_1 -> state5
+          event_4 -> state1
+          event_3 -> state2
+          event_3 -> state2
+        ]
+
+  @fail {
+         android.util.Log.v("RVSEC-LOG",__DEFAULT_MESSAGE);
+         android.util.Log.v("RVSEC-LOG","FSM194 went into an error state.");
+         __RESET;
+  }
+}

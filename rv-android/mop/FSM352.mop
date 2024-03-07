@@ -1,0 +1,34 @@
+package mop;
+
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging;
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging.Level;
+
+import java.lang.Double;
+
+FSM352(Double d, String s) {
+
+  event event_1 after() returning (Double d):
+    call(Double.new(String)) {}
+
+  event event_2 after(Double d):
+    call(* Double.doubleValue()) && target(d) {}
+
+  fsm :
+        state1 [
+          event_1 -> state0
+        ]
+
+        state0 [
+          event_2 -> state2
+        ]
+
+        state2 [
+          event_2 -> state2
+        ]
+
+  @fail {
+         android.util.Log.v("RVSEC-LOG",__DEFAULT_MESSAGE);
+         android.util.Log.v("RVSEC-LOG","FSM352 went into an error state.");
+         __RESET;
+  }
+}

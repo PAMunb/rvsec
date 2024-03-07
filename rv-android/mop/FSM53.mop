@@ -1,0 +1,54 @@
+package mop;
+
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging;
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging.Level;
+
+import java.util.StringTokenizer;
+
+FSM53(String s, String s1, StringTokenizer st) {
+
+  event event_1 after() returning (StringTokenizer st):
+    call(StringTokenizer.new(String, String)) {}
+
+  event event_2 after(StringTokenizer st):
+    call(* StringTokenizer.nextToken()) && target(st) {}
+
+  event event_3 after() returning (StringTokenizer st):
+    call(StringTokenizer.new(String, String, boolean)) {}
+
+  event event_4 after(StringTokenizer st):
+    call(* StringTokenizer.countTokens()) && target(st) {}
+
+  event event_5 after(StringTokenizer st):
+    call(* StringTokenizer.hasMoreTokens()) && target(st) {}
+
+  fsm :
+        state4 [
+          event_1 -> state1
+          event_3 -> state1
+        ]
+
+        state0 [
+          event_5 -> state2
+          event_2 -> state0
+        ]
+
+        state1 [
+          event_2 -> state0
+          event_5 -> state2
+          event_4 -> state3
+        ]
+
+        state2 [
+          event_2 -> state0
+        ]
+
+        state3 [
+        ]
+
+  @fail {
+         android.util.Log.v("RVSEC-LOG",__DEFAULT_MESSAGE);
+         android.util.Log.v("RVSEC-LOG","FSM53 went into an error state.");
+         __RESET;
+  }
+}

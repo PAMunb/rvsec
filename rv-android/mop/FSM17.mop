@@ -1,0 +1,42 @@
+package mop;
+
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging;
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging.Level;
+
+import java.util.AbstractMap;
+import java.util.Map;
+import java.util.TreeMap;
+
+FSM17(AbstractMap a, Map m, Object o, Object o1, TreeMap t) {
+
+  event event_1 after(AbstractMap a, Object o, Object o1):
+    call(* AbstractMap.put(Object, Object)) && target(a) && args(o, o1) {}
+
+  event event_2 after() returning (AbstractMap a):
+    call(AbstractMap.new()) {}
+
+  event event_3 after() returning (TreeMap t):
+    call(TreeMap.new(Map)) {}
+
+  fsm :
+        state3 [
+          event_2 -> state1
+        ]
+
+        state0 [
+        ]
+
+        state1 [
+          event_1 -> state2
+        ]
+
+        state2 [
+          event_3 -> state0
+        ]
+
+  @fail {
+         android.util.Log.v("RVSEC-LOG",__DEFAULT_MESSAGE);
+         android.util.Log.v("RVSEC-LOG","FSM17 went into an error state.");
+         __RESET;
+  }
+}

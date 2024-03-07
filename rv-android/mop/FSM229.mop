@@ -1,0 +1,57 @@
+package mop;
+
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging;
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging.Level;
+
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+FSM229(CharSequence c, Matcher m, Pattern p, String s1, StringBuffer s2) {
+
+  event event_1 after(Matcher m, StringBuffer s2):
+    call(* Matcher.appendTail(StringBuffer)) && target(m) && args(s2) {}
+
+  event event_2 after(Matcher m):
+    call(* Matcher.end()) && target(m) {}
+
+  event event_3 after(Pattern p, CharSequence c):
+    call(* Pattern.matcher(CharSequence)) && target(p) && args(c) {}
+
+  event event_4 after(Matcher m):
+    call(* Matcher.find()) && target(m) {}
+
+  event event_5 after(Matcher m, StringBuffer s2, String s1):
+    call(* Matcher.appendReplacement(StringBuffer, String)) && target(m) && args(s2, s1) {}
+
+  fsm :
+        state2 [
+          event_3 -> state0
+        ]
+
+        state0 [
+          event_4 -> state4
+        ]
+
+        state1 [
+          event_4 -> state4
+        ]
+
+        state3 [
+          event_2 -> state3
+          event_5 -> state1
+        ]
+
+        state4 [
+          event_2 -> state3
+          event_1 -> state5
+        ]
+
+        state5 [
+        ]
+
+  @fail {
+         android.util.Log.v("RVSEC-LOG",__DEFAULT_MESSAGE);
+         android.util.Log.v("RVSEC-LOG","FSM229 went into an error state.");
+         __RESET;
+  }
+}

@@ -1,0 +1,50 @@
+package mop;
+
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging;
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging.Level;
+
+import java.util.Date;
+import java.text.DateFormat;
+
+FSM202(Date d, DateFormat d, Object o) {
+
+  event event_1 after() returning (Date d):
+    call(Date.new(long)) {}
+
+  event event_2 after(DateFormat d, Object o):
+    call(* DateFormat.format(Object)) && target(d) && args(o) {}
+
+  fsm :
+        state0 [
+          event_1 -> state5
+          event_2 -> state4
+        ]
+
+        state1 [
+          event_2 -> state1
+          event_1 -> state2
+        ]
+
+        state2 [
+          event_2 -> state1
+        ]
+
+        state3 [
+          event_2 -> state1
+        ]
+
+        state4 [
+          event_1 -> state3
+          event_2 -> state4
+        ]
+
+        state5 [
+          event_2 -> state1
+        ]
+
+  @fail {
+         android.util.Log.v("RVSEC-LOG",__DEFAULT_MESSAGE);
+         android.util.Log.v("RVSEC-LOG","FSM202 went into an error state.");
+         __RESET;
+  }
+}

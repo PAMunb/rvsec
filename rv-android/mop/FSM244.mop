@@ -1,0 +1,48 @@
+package mop;
+
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging;
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging.Level;
+
+import java.beans.PropertyChangeEvent;
+import javax.swing.ComboBoxEditor;
+
+FSM244(ComboBoxEditor c, PropertyChangeEvent p) {
+
+  event event_1 after(PropertyChangeEvent p):
+    call(* PropertyChangeEvent.getNewValue()) && target(p) {}
+
+  event event_2 after(ComboBoxEditor c):
+    call(* ComboBoxEditor.getEditorComponent()) && target(c) {}
+
+  event event_3 after(PropertyChangeEvent p):
+    call(* PropertyChangeEvent.getPropertyName()) && target(p) {}
+
+  fsm :
+        state0 [
+          event_3 -> state2
+        ]
+
+        state1 [
+          event_2 -> state1
+          event_1 -> state3
+          event_3 -> state2
+        ]
+
+        state2 [
+          event_3 -> state2
+          event_2 -> state1
+          event_1 -> state3
+        ]
+
+        state3 [
+          event_2 -> state1
+          event_1 -> state3
+          event_3 -> state2
+        ]
+
+  @fail {
+         android.util.Log.v("RVSEC-LOG",__DEFAULT_MESSAGE);
+         android.util.Log.v("RVSEC-LOG","FSM244 went into an error state.");
+         __RESET;
+  }
+}

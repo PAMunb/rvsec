@@ -1,0 +1,61 @@
+package mop;
+
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging;
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging.Level;
+
+import java.awt.Color;
+
+FSM376(Color c, Object o) {
+
+  event event_1 after(Color c):
+    call(* Color.getRed()) && target(c) {}
+
+  event event_2 after(Color c):
+    call(* Color.getBlue()) && target(c) {}
+
+  event event_3 after(Color c, Object o):
+    call(* Color.equals(Object)) && target(c) && args(o) {}
+
+  event event_4 after(Color c):
+    call(* Color.getGreen()) && target(c) {}
+
+  fsm :
+        state2 [
+          event_1 -> state3
+          event_3 -> state0
+        ]
+
+        state0 [
+          event_2 -> state1
+          event_4 -> state4
+          event_1 -> state3
+          event_3 -> state0
+        ]
+
+        state1 [
+          event_2 -> state1
+          event_3 -> state0
+          event_4 -> state4
+          event_1 -> state3
+        ]
+
+        state3 [
+          event_4 -> state4
+          event_1 -> state3
+          event_3 -> state0
+          event_2 -> state1
+        ]
+
+        state4 [
+          event_1 -> state3
+          event_4 -> state4
+          event_3 -> state0
+          event_2 -> state1
+        ]
+
+  @fail {
+         android.util.Log.v("RVSEC-LOG",__DEFAULT_MESSAGE);
+         android.util.Log.v("RVSEC-LOG","FSM376 went into an error state.");
+         __RESET;
+  }
+}

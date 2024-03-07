@@ -1,0 +1,35 @@
+package mop;
+
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging;
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging.Level;
+
+import java.io.InputStream;
+import java.io.ObjectInputStream;
+
+FSM272(InputStream i, ObjectInputStream o) {
+
+  event event_1 after() returning (ObjectInputStream o):
+    call(ObjectInputStream.new(InputStream)) {}
+
+  event event_2 after(ObjectInputStream o):
+    call(* ObjectInputStream.readObject()) && target(o) {}
+
+  fsm :
+        state0 [
+          event_1 -> state2
+        ]
+
+        state1 [
+          event_2 -> state1
+        ]
+
+        state2 [
+          event_2 -> state1
+        ]
+
+  @fail {
+         android.util.Log.v("RVSEC-LOG",__DEFAULT_MESSAGE);
+         android.util.Log.v("RVSEC-LOG","FSM272 went into an error state.");
+         __RESET;
+  }
+}

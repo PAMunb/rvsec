@@ -1,0 +1,35 @@
+package mop;
+
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging;
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging.Level;
+
+import java.lang.reflect.Field;
+
+FSM312(Field f, Object o, Object o1) {
+
+  event event_1 after(Field f, Object o, Object o1):
+    call(* Field.set(Object, Object)) && target(f) && args(o, o1) {}
+
+  event event_2 after(Field f):
+    call(* Field.getModifiers()) && target(f) {}
+
+  fsm :
+        state2 [
+          event_2 -> state0
+        ]
+
+        state0 [
+          event_1 -> state1
+          event_2 -> state0
+        ]
+
+        state1 [
+          event_2 -> state0
+        ]
+
+  @fail {
+         android.util.Log.v("RVSEC-LOG",__DEFAULT_MESSAGE);
+         android.util.Log.v("RVSEC-LOG","FSM312 went into an error state.");
+         __RESET;
+  }
+}

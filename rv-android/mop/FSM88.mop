@@ -1,0 +1,35 @@
+package mop;
+
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging;
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging.Level;
+
+import java.util.Map;
+import javax.swing.JInternalFrame;
+
+FSM88(JInternalFrame j, Map m, Object o, String s) {
+
+  event event_1 after(JInternalFrame j, String s):
+    call(* JInternalFrame.setTitle(String)) && target(j) && args(s) {}
+
+  event event_2 after(Map m, Object o):
+    call(* Map.get(Object)) && target(m) && args(o) {}
+
+  fsm :
+        state1 [
+          event_2 -> state0
+        ]
+
+        state0 [
+          event_1 -> state2
+        ]
+
+        state2 [
+          event_2 -> state0
+        ]
+
+  @fail {
+         android.util.Log.v("RVSEC-LOG",__DEFAULT_MESSAGE);
+         android.util.Log.v("RVSEC-LOG","FSM88 went into an error state.");
+         __RESET;
+  }
+}

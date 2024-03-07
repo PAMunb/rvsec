@@ -1,0 +1,46 @@
+package mop;
+
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging;
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging.Level;
+
+import java.lang.Throwable;
+
+FSM371(String s, Throwable t) {
+
+  event event_1 after(Throwable t):
+    call(* Throwable.getLocalizedMessage()) && target(t) {}
+
+  event event_2 after() returning (Throwable t):
+    call(Throwable.new()) {}
+
+  event event_3 after() returning (Throwable t):
+    call(Throwable.new(String)) {}
+
+  event event_4 after(Throwable t):
+    call(* Throwable.getStackTrace()) && target(t) {}
+
+  fsm :
+        state2 [
+          event_2 -> state0
+          event_3 -> state0
+        ]
+
+        state0 [
+          event_4 -> state3
+          event_1 -> state1
+        ]
+
+        state1 [
+          event_4 -> state3
+        ]
+
+        state3 [
+          event_4 -> state3
+        ]
+
+  @fail {
+         android.util.Log.v("RVSEC-LOG",__DEFAULT_MESSAGE);
+         android.util.Log.v("RVSEC-LOG","FSM371 went into an error state.");
+         __RESET;
+  }
+}

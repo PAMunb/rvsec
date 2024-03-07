@@ -1,0 +1,43 @@
+package mop;
+
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging;
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging.Level;
+
+import java.util.Map.Entry;
+import java.util.Collection;
+
+FSM63(Collection c, Entry e) {
+
+  event event_1 after(Entry e):
+    call(* Entry.getValue()) && target(e) {}
+
+  event event_2 after(Entry e):
+    call(* Entry.getKey()) && target(e) {}
+
+  event event_3 after(Collection c):
+    call(* Collection.isEmpty()) && target(c) {}
+
+  fsm :
+        state1 [
+          event_1 -> state2
+        ]
+
+        state0 [
+          event_2 -> state3
+          event_3 -> state0
+        ]
+
+        state2 [
+          event_3 -> state0
+        ]
+
+        state3 [
+          event_3 -> state0
+        ]
+
+  @fail {
+         android.util.Log.v("RVSEC-LOG",__DEFAULT_MESSAGE);
+         android.util.Log.v("RVSEC-LOG","FSM63 went into an error state.");
+         __RESET;
+  }
+}

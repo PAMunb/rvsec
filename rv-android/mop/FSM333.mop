@@ -1,0 +1,53 @@
+package mop;
+
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging;
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging.Level;
+
+import java.util.concurrent.Future;
+import java.util.concurrent.ConcurrentHashMap;
+
+FSM333(ConcurrentHashMap c, Future f, Object o, Object o1) {
+
+  event event_1 after(ConcurrentHashMap c, Object o):
+    call(* ConcurrentHashMap.remove(Object)) && target(c) && args(o) {}
+
+  event event_2 after() returning (ConcurrentHashMap c):
+    call(ConcurrentHashMap.new()) {}
+
+  event event_3 after(ConcurrentHashMap c, Object o, Object o1):
+    call(* ConcurrentHashMap.putIfAbsent(Object, Object)) && target(c) && args(o, o1) {}
+
+  event event_4 after(Future f):
+    call(* Future.cancel(boolean)) && target(f) {}
+
+  fsm :
+        state2 [
+          event_2 -> state4
+        ]
+
+        state0 [
+          event_4 -> state3
+          event_1 -> state1
+        ]
+
+        state1 [
+          event_1 -> state1
+          event_4 -> state3
+        ]
+
+        state3 [
+          event_1 -> state1
+          event_4 -> state3
+        ]
+
+        state4 [
+          event_4 -> state3
+          event_3 -> state0
+        ]
+
+  @fail {
+         android.util.Log.v("RVSEC-LOG",__DEFAULT_MESSAGE);
+         android.util.Log.v("RVSEC-LOG","FSM333 went into an error state.");
+         __RESET;
+  }
+}

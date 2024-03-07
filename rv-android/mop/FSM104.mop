@@ -1,0 +1,59 @@
+package mop;
+
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging;
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging.Level;
+
+import java.util.Map;
+import java.util.HashMap;
+
+FSM104(HashMap h, Map m, Object o, Object o1) {
+
+  event event_1 after() returning (HashMap h):
+    call(HashMap.new(int)) {}
+
+  event event_2 after(HashMap h, Object o):
+    call(* HashMap.get(Object)) && target(h) && args(o) {}
+
+  event event_3 after(HashMap h, Object o):
+    call(* HashMap.containsKey(Object)) && target(h) && args(o) {}
+
+  event event_4 after(HashMap h, Object o, Object o1):
+    call(* HashMap.put(Object, Object)) && target(h) && args(o, o1) {}
+
+  event event_5 after(HashMap h, Map m):
+    call(* HashMap.putAll(Map)) && target(h) && args(m) {}
+
+  fsm :
+        state4 [
+          event_1 -> state5
+        ]
+
+        state0 [
+          event_5 -> state2
+          event_3 -> state0
+        ]
+
+        state1 [
+          event_4 -> state1
+          event_2 -> state3
+        ]
+
+        state2 [
+          event_3 -> state0
+        ]
+
+        state3 [
+          event_3 -> state0
+          event_2 -> state3
+        ]
+
+        state5 [
+          event_4 -> state1
+        ]
+
+  @fail {
+         android.util.Log.v("RVSEC-LOG",__DEFAULT_MESSAGE);
+         android.util.Log.v("RVSEC-LOG","FSM104 went into an error state.");
+         __RESET;
+  }
+}

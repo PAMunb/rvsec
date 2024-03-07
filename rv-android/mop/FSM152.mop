@@ -1,0 +1,236 @@
+package mop;
+
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging;
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging.Level;
+
+import java.util.Enumeration;
+import javax.swing.text.AbstractDocument.AbstractElement;
+
+FSM152(AbstractElement a, Enumeration e, Object o) {
+
+  event event_1 after(AbstractElement a):
+    call(* AbstractElement.getAttributeNames()) && target(a) {}
+
+  event event_2 after(AbstractElement a, Object o):
+    call(* AbstractElement.getAttribute(Object)) && target(a) && args(o) {}
+
+  event event_3 after(Enumeration e):
+    call(* Enumeration.nextElement()) && target(e) {}
+
+  event event_4 after(AbstractElement a):
+    call(* AbstractElement.getDocument()) && target(a) {}
+
+  event event_5 after(AbstractElement a):
+    call(* AbstractElement.getName()) && target(a) {}
+
+  event event_6 after(AbstractElement a):
+    call(* AbstractElement.getAttributes()) && target(a) {}
+
+  event event_7 after(Enumeration e):
+    call(* Enumeration.hasMoreElements()) && target(e) {}
+
+  fsm :
+        state9 [
+          event_6 -> state6
+        ]
+
+        state0 [
+          event_4 -> state1
+          event_6 -> state4
+          event_4 -> state10
+          event_2 -> state12
+          event_2 -> state2
+          event_2 -> state0
+          event_6 -> state6
+          event_7 -> state8
+          event_6 -> state3
+          event_5 -> state13
+        ]
+
+        state1 [
+          event_6 -> state6
+          event_7 -> state15
+          event_2 -> state0
+          event_6 -> state4
+          event_4 -> state1
+          event_4 -> state10
+          event_7 -> state8
+          event_2 -> state12
+          event_2 -> state2
+          event_6 -> state3
+        ]
+
+        state10 [
+          event_7 -> state15
+          event_6 -> state4
+          event_2 -> state0
+          event_2 -> state12
+          event_7 -> state8
+          event_4 -> state10
+          event_6 -> state6
+          event_4 -> state1
+          event_6 -> state3
+          event_2 -> state2
+        ]
+
+        state11 [
+          event_7 -> state15
+          event_6 -> state3
+          event_6 -> state6
+          event_6 -> state4
+          event_2 -> state0
+          event_4 -> state1
+          event_4 -> state10
+          event_7 -> state8
+        ]
+
+        state12 [
+          event_6 -> state3
+          event_2 -> state2
+          event_6 -> state4
+          event_2 -> state12
+          event_7 -> state15
+          event_6 -> state6
+          event_4 -> state10
+          event_4 -> state1
+          event_2 -> state0
+          event_5 -> state5
+        ]
+
+        state13 [
+          event_4 -> state10
+          event_6 -> state4
+          event_7 -> state15
+          event_2 -> state0
+          event_2 -> state12
+          event_4 -> state1
+          event_7 -> state8
+          event_2 -> state2
+        ]
+
+        state14 [
+          event_2 -> state2
+          event_2 -> state0
+          event_7 -> state15
+          event_2 -> state12
+          event_4 -> state10
+          event_6 -> state4
+          event_4 -> state1
+          event_6 -> state3
+          event_6 -> state6
+        ]
+
+        state15 [
+          event_7 -> state8
+          event_3 -> state16
+          event_2 -> state2
+          event_2 -> state0
+          event_6 -> state3
+          event_6 -> state4
+          event_2 -> state12
+          event_6 -> state6
+          event_7 -> state15
+          event_4 -> state1
+        ]
+
+        state16 [
+          event_7 -> state15
+          event_2 -> state12
+          event_6 -> state3
+          event_7 -> state8
+          event_6 -> state4
+          event_6 -> state6
+          event_4 -> state1
+          event_4 -> state10
+        ]
+
+        state2 [
+          event_2 -> state12
+          event_2 -> state2
+          event_2 -> state0
+          event_6 -> state3
+          event_6 -> state6
+          event_6 -> state4
+          event_5 -> state7
+          event_4 -> state10
+          event_4 -> state1
+          event_7 -> state8
+        ]
+
+        state3 [
+          event_6 -> state6
+          event_7 -> state8
+          event_2 -> state12
+          event_4 -> state10
+          event_1 -> state14
+          event_4 -> state1
+          event_6 -> state4
+          event_6 -> state3
+          event_7 -> state15
+        ]
+
+        state4 [
+          event_6 -> state3
+          event_6 -> state6
+          event_7 -> state15
+          event_6 -> state4
+          event_1 -> state14
+          event_2 -> state0
+          event_4 -> state10
+          event_7 -> state8
+          event_4 -> state1
+        ]
+
+        state5 [
+          event_2 -> state12
+          event_7 -> state8
+          event_6 -> state3
+          event_2 -> state0
+          event_4 -> state1
+          event_4 -> state10
+          event_7 -> state15
+          event_2 -> state2
+        ]
+
+        state6 [
+          event_6 -> state6
+          event_6 -> state3
+          event_7 -> state15
+          event_4 -> state10
+          event_6 -> state4
+          event_1 -> state14
+          event_7 -> state8
+          event_4 -> state1
+          event_2 -> state2
+        ]
+
+        state7 [
+          event_4 -> state10
+          event_2 -> state2
+          event_7 -> state15
+          event_2 -> state0
+          event_7 -> state8
+          event_4 -> state1
+          event_6 -> state6
+          event_2 -> state12
+        ]
+
+        state8 [
+          event_7 -> state15
+          event_2 -> state12
+          event_6 -> state6
+          event_3 -> state11
+          event_6 -> state3
+          event_7 -> state8
+          event_2 -> state2
+          event_4 -> state10
+          event_2 -> state0
+          event_6 -> state4
+        ]
+
+  @fail {
+         android.util.Log.v("RVSEC-LOG",__DEFAULT_MESSAGE);
+         android.util.Log.v("RVSEC-LOG","FSM152 went into an error state.");
+         __RESET;
+  }
+}

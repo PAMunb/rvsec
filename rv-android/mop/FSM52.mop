@@ -1,0 +1,54 @@
+package mop;
+
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging;
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging.Level;
+
+import java.util.Iterator;
+import java.lang.Number;
+
+FSM52(Iterator i, Number n) {
+
+  event event_1 after(Number n):
+    call(* Number.longValue()) && target(n) {}
+
+  event event_2 after(Iterator i):
+    call(* Iterator.next()) && target(i) {}
+
+  event event_3 after(Iterator i):
+    call(* Iterator.hasNext()) && target(i) {}
+
+  fsm :
+        state5 [
+          event_3 -> state0
+        ]
+
+        state0 [
+          event_2 -> state2
+          event_1 -> state1
+        ]
+
+        state1 [
+        ]
+
+        state2 [
+          event_3 -> state3
+        ]
+
+        state3 [
+          event_1 -> state4
+          event_2 -> state6
+        ]
+
+        state4 [
+        ]
+
+        state6 [
+          event_3 -> state3
+        ]
+
+  @fail {
+         android.util.Log.v("RVSEC-LOG",__DEFAULT_MESSAGE);
+         android.util.Log.v("RVSEC-LOG","FSM52 went into an error state.");
+         __RESET;
+  }
+}

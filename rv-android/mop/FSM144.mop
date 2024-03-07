@@ -1,0 +1,42 @@
+package mop;
+
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging;
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging.Level;
+
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.FilterInputStream;
+
+FSM144(FilterInputStream f, InputStream i, InputStreamReader i, String s) {
+
+  event event_1 after() returning (FilterInputStream f):
+    call(FilterInputStream.new(InputStream)) {}
+
+  event event_2 after() returning (InputStreamReader i):
+    call(InputStreamReader.new(InputStream, String)) {}
+
+  event event_3 after(InputStreamReader i):
+    call(* InputStreamReader.close()) && target(i) {}
+
+  fsm :
+        state3 [
+          event_1 -> state2
+        ]
+
+        state0 [
+          event_3 -> state1
+        ]
+
+        state1 [
+        ]
+
+        state2 [
+          event_2 -> state0
+        ]
+
+  @fail {
+         android.util.Log.v("RVSEC-LOG",__DEFAULT_MESSAGE);
+         android.util.Log.v("RVSEC-LOG","FSM144 went into an error state.");
+         __RESET;
+  }
+}

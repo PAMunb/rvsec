@@ -1,0 +1,93 @@
+package mop;
+
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging;
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging.Level;
+
+import java.lang.reflect.Field;
+import java.lang.Class;
+
+FSM164(Class c, Field f) {
+
+  event event_1 after(Field f, Class c):
+    call(* Field.getAnnotation(Class)) && target(f) && args(c) {}
+
+  event event_2 after(Field f):
+    call(* Field.getType()) && target(f) {}
+
+  event event_3 after(Field f):
+    call(* Field.setAccessible(boolean)) && target(f) {}
+
+  event event_4 after(Class c):
+    call(* Class.getCanonicalName()) && target(c) {}
+
+  event event_5 after(Field f):
+    call(* Field.isAccessible()) && target(f) {}
+
+  event event_6 after(Field f):
+    call(* Field.getName()) && target(f) {}
+
+  event event_7 after(Field f):
+    call(* Field.getModifiers()) && target(f) {}
+
+  fsm :
+        state0 [
+          event_1 -> state4
+        ]
+
+        state1 [
+          event_7 -> state1
+          event_2 -> state7
+          event_6 -> state6
+          event_5 -> state5
+        ]
+
+        state2 [
+          event_2 -> state7
+          event_6 -> state6
+          event_5 -> state5
+          event_7 -> state1
+        ]
+
+        state3 [
+          event_5 -> state5
+          event_7 -> state1
+          event_2 -> state7
+          event_6 -> state6
+        ]
+
+        state4 [
+          event_5 -> state5
+          event_2 -> state7
+          event_6 -> state6
+          event_7 -> state1
+        ]
+
+        state5 [
+          event_3 -> state3
+          event_6 -> state6
+          event_5 -> state5
+          event_7 -> state1
+          event_2 -> state7
+        ]
+
+        state6 [
+          event_5 -> state5
+          event_2 -> state7
+          event_6 -> state6
+          event_7 -> state1
+        ]
+
+        state7 [
+          event_2 -> state7
+          event_4 -> state2
+          event_6 -> state6
+          event_5 -> state5
+          event_7 -> state1
+        ]
+
+  @fail {
+         android.util.Log.v("RVSEC-LOG",__DEFAULT_MESSAGE);
+         android.util.Log.v("RVSEC-LOG","FSM164 went into an error state.");
+         __RESET;
+  }
+}

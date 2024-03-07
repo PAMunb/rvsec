@@ -1,0 +1,59 @@
+package mop;
+
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging;
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging.Level;
+
+import java.util.Map;
+import java.lang.Class;
+
+FSM279(Class c, Map m, Object o) {
+
+  event event_1 after(Class c):
+    call(* Class.getName()) && target(c) {}
+
+  event event_2 after(Class c):
+    call(* Class.newInstance()) && target(c) {}
+
+  event event_3 after(Map m, Object o):
+    call(* Map.get(Object)) && target(m) && args(o) {}
+
+  fsm :
+        state2 [
+          event_2 -> state3
+          event_3 -> state0
+        ]
+
+        state0 [
+          event_1 -> state1
+          event_2 -> state4
+          event_1 -> state5
+        ]
+
+        state1 [
+          event_1 -> state1
+          event_3 -> state0
+          event_2 -> state4
+          event_1 -> state5
+        ]
+
+        state3 [
+          event_1 -> state5
+        ]
+
+        state4 [
+          event_1 -> state1
+        ]
+
+        state5 [
+          event_3 -> state0
+          event_1 -> state1
+          event_2 -> state3
+          event_1 -> state5
+        ]
+
+  @fail {
+         android.util.Log.v("RVSEC-LOG",__DEFAULT_MESSAGE);
+         android.util.Log.v("RVSEC-LOG","FSM279 went into an error state.");
+         __RESET;
+  }
+}

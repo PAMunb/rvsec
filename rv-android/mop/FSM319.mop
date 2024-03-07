@@ -1,0 +1,56 @@
+package mop;
+
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging;
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging.Level;
+
+import java.util.jar.JarFile;
+import java.util.jar.Manifest;
+import java.io.File;
+
+FSM319(File f, JarFile j, Manifest m, String s) {
+
+  event event_1 after() returning (JarFile j):
+    call(JarFile.new(String)) {}
+
+  event event_2 after(JarFile j):
+    call(* JarFile.getManifest()) && target(j) {}
+
+  event event_3 after() returning (JarFile j):
+    call(JarFile.new(File)) {}
+
+  event event_4 after(JarFile j):
+    call(* JarFile.close()) && target(j) {}
+
+  event event_5 after(Manifest m):
+    call(* Manifest.getMainAttributes()) && target(m) {}
+
+  fsm :
+        state2 [
+          event_1 -> state1
+          event_3 -> state1
+        ]
+
+        state0 [
+          event_5 -> state4
+        ]
+
+        state1 [
+          event_2 -> state0
+          event_5 -> state4
+        ]
+
+        state3 [
+          event_5 -> state4
+        ]
+
+        state4 [
+          event_4 -> state3
+          event_5 -> state4
+        ]
+
+  @fail {
+         android.util.Log.v("RVSEC-LOG",__DEFAULT_MESSAGE);
+         android.util.Log.v("RVSEC-LOG","FSM319 went into an error state.");
+         __RESET;
+  }
+}

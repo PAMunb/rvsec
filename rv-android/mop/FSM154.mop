@@ -1,0 +1,81 @@
+package mop;
+
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging;
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging.Level;
+
+import javax.management.MBeanAttributeInfo;
+
+FSM154(MBeanAttributeInfo m, String s, String s1, String s2) {
+
+  event event_1 after(MBeanAttributeInfo m):
+    call(* MBeanAttributeInfo.isWritable()) && target(m) {}
+
+  event event_2 after(MBeanAttributeInfo m):
+    call(* MBeanAttributeInfo.isReadable()) && target(m) {}
+
+  event event_3 after(MBeanAttributeInfo m):
+    call(* MBeanAttributeInfo.getType()) && target(m) {}
+
+  event event_4 after(MBeanAttributeInfo m):
+    call(* MBeanAttributeInfo.getName()) && target(m) {}
+
+  event event_5 after() returning (MBeanAttributeInfo m):
+    call(MBeanAttributeInfo.new(String, String, String, boolean, boolean, boolean)) {}
+
+  event event_6 after(MBeanAttributeInfo m):
+    call(* MBeanAttributeInfo.isIs()) && target(m) {}
+
+  fsm :
+        state4 [
+          event_5 -> state2
+        ]
+
+        state0 [
+          event_2 -> state3
+          event_3 -> state6
+          event_6 -> state5
+          event_1 -> state0
+        ]
+
+        state1 [
+          event_3 -> state6
+          event_6 -> state5
+          event_1 -> state0
+          event_2 -> state3
+        ]
+
+        state2 [
+          event_2 -> state3
+          event_3 -> state6
+          event_4 -> state1
+          event_6 -> state5
+          event_1 -> state0
+        ]
+
+        state3 [
+          event_6 -> state5
+          event_1 -> state0
+          event_2 -> state3
+          event_3 -> state6
+        ]
+
+        state5 [
+          event_2 -> state3
+          event_3 -> state6
+          event_1 -> state0
+          event_6 -> state5
+        ]
+
+        state6 [
+          event_6 -> state5
+          event_1 -> state0
+          event_3 -> state6
+          event_2 -> state3
+        ]
+
+  @fail {
+         android.util.Log.v("RVSEC-LOG",__DEFAULT_MESSAGE);
+         android.util.Log.v("RVSEC-LOG","FSM154 went into an error state.");
+         __RESET;
+  }
+}

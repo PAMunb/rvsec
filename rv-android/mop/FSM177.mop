@@ -1,0 +1,62 @@
+package mop;
+
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging;
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging.Level;
+
+import java.io.BufferedReader;
+import java.io.InputStream;
+import java.io.Reader;
+import java.io.InputStreamReader;
+
+FSM177(BufferedReader b, InputStream i, InputStreamReader i, Reader r, String s) {
+
+  event event_1 after() returning (BufferedReader b):
+    call(BufferedReader.new(Reader)) {}
+
+  event event_2 after(InputStreamReader i):
+    call(* InputStreamReader.close()) && target(i) {}
+
+  event event_3 after(BufferedReader b):
+    call(* BufferedReader.readLine()) && target(b) {}
+
+  event event_4 after() returning (InputStreamReader i):
+    call(InputStreamReader.new(InputStream, String)) {}
+
+  event event_5 after() returning (InputStreamReader i):
+    call(InputStreamReader.new(InputStream)) {}
+
+  event event_6 after(BufferedReader b):
+    call(* BufferedReader.close()) && target(b) {}
+
+  fsm :
+        state4 [
+          event_5 -> state3
+          event_4 -> state3
+        ]
+
+        state0 [
+        ]
+
+        state1 [
+          event_3 -> state5
+        ]
+
+        state2 [
+        ]
+
+        state3 [
+          event_1 -> state1
+        ]
+
+        state5 [
+          event_2 -> state0
+          event_3 -> state5
+          event_6 -> state2
+        ]
+
+  @fail {
+         android.util.Log.v("RVSEC-LOG",__DEFAULT_MESSAGE);
+         android.util.Log.v("RVSEC-LOG","FSM177 went into an error state.");
+         __RESET;
+  }
+}

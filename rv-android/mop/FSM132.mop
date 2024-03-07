@@ -1,0 +1,56 @@
+package mop;
+
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging;
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging.Level;
+
+import javax.swing.text.JTextComponent;
+import javax.swing.text.Document;
+import javax.swing.text.AttributeSet;
+
+FSM132(AttributeSet a, Document d, JTextComponent j, String s) {
+
+  event event_1 after(Document d):
+    call(* Document.getLength()) && target(d) {}
+
+  event event_2 after(Document d, String s, AttributeSet a):
+    call(* Document.insertString(int, String, AttributeSet)) && target(d) && args(s, a) {}
+
+  event event_3 after(JTextComponent j):
+    call(* JTextComponent.setCaretPosition(int)) && target(j) {}
+
+  event event_4 after(JTextComponent j):
+    call(* JTextComponent.getDocument()) && target(j) {}
+
+  fsm :
+        state1 [
+          event_4 -> state4
+        ]
+
+        state0 [
+          event_3 -> state2
+          event_4 -> state4
+          event_1 -> state0
+          event_2 -> state3
+        ]
+
+        state2 [
+          event_1 -> state0
+          event_4 -> state4
+        ]
+
+        state3 [
+          event_4 -> state4
+          event_1 -> state0
+        ]
+
+        state4 [
+          event_1 -> state0
+          event_4 -> state4
+        ]
+
+  @fail {
+         android.util.Log.v("RVSEC-LOG",__DEFAULT_MESSAGE);
+         android.util.Log.v("RVSEC-LOG","FSM132 went into an error state.");
+         __RESET;
+  }
+}

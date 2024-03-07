@@ -1,0 +1,41 @@
+package mop;
+
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging;
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging.Level;
+
+import java.net.ServerSocket;
+
+FSM304(ServerSocket s) {
+
+  event event_1 after() returning (ServerSocket s):
+    call(ServerSocket.new(int)) {}
+
+  event event_2 after(ServerSocket s):
+    call(* ServerSocket.close()) && target(s) {}
+
+  event event_3 after(ServerSocket s):
+    call(* ServerSocket.getLocalPort()) && target(s) {}
+
+  fsm :
+        state2 [
+          event_1 -> state1
+          event_3 -> state3
+        ]
+
+        state0 [
+        ]
+
+        state1 [
+          event_3 -> state3
+        ]
+
+        state3 [
+          event_2 -> state0
+        ]
+
+  @fail {
+         android.util.Log.v("RVSEC-LOG",__DEFAULT_MESSAGE);
+         android.util.Log.v("RVSEC-LOG","FSM304 went into an error state.");
+         __RESET;
+  }
+}

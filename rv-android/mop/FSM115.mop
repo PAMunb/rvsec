@@ -1,0 +1,59 @@
+package mop;
+
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging;
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging.Level;
+
+import java.util.Hashtable;
+import java.util.Enumeration;
+
+FSM115(Enumeration e, Hashtable h, Object o) {
+
+  event event_1 after(Hashtable h):
+    call(* Hashtable.elements()) && target(h) {}
+
+  event event_2 after(Enumeration e):
+    call(* Enumeration.nextElement()) && target(e) {}
+
+  event event_3 after(Enumeration e):
+    call(* Enumeration.hasMoreElements()) && target(e) {}
+
+  event event_4 after(Hashtable h, Object o):
+    call(* Hashtable.get(Object)) && target(h) && args(o) {}
+
+  event event_5 after(Hashtable h, Object o):
+    call(* Hashtable.containsKey(Object)) && target(h) && args(o) {}
+
+  fsm :
+        state3 [
+          event_1 -> state1
+        ]
+
+        state0 [
+          event_2 -> state2
+          event_3 -> state0
+          event_5 -> state4
+        ]
+
+        state1 [
+          event_3 -> state0
+        ]
+
+        state2 [
+          event_3 -> state0
+        ]
+
+        state4 [
+          event_4 -> state5
+          event_3 -> state0
+        ]
+
+        state5 [
+          event_3 -> state0
+        ]
+
+  @fail {
+         android.util.Log.v("RVSEC-LOG",__DEFAULT_MESSAGE);
+         android.util.Log.v("RVSEC-LOG","FSM115 went into an error state.");
+         __RESET;
+  }
+}

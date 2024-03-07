@@ -1,0 +1,41 @@
+package mop;
+
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging;
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging.Level;
+
+import javax.swing.DefaultComboBoxModel;
+
+FSM372(DefaultComboBoxModel d, Object o) {
+
+  event event_1 after(DefaultComboBoxModel d):
+    call(* DefaultComboBoxModel.removeAllElements()) && target(d) {}
+
+  event event_2 after() returning (DefaultComboBoxModel d):
+    call(DefaultComboBoxModel.new()) {}
+
+  event event_3 after(DefaultComboBoxModel d, Object o):
+    call(* DefaultComboBoxModel.addElement(Object)) && target(d) && args(o) {}
+
+  fsm :
+        state1 [
+          event_2 -> state0
+        ]
+
+        state0 [
+          event_1 -> state3
+        ]
+
+        state2 [
+          event_3 -> state2
+        ]
+
+        state3 [
+          event_3 -> state2
+        ]
+
+  @fail {
+         android.util.Log.v("RVSEC-LOG",__DEFAULT_MESSAGE);
+         android.util.Log.v("RVSEC-LOG","FSM372 went into an error state.");
+         __RESET;
+  }
+}

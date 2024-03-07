@@ -1,0 +1,33 @@
+package mop;
+
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging;
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging.Level;
+
+import javax.swing.text.SimpleAttributeSet;
+
+FSM161(Object o, Object o1, SimpleAttributeSet s) {
+
+  event event_1 after() returning (SimpleAttributeSet s):
+    call(SimpleAttributeSet.new()) {}
+
+  event event_2 after(SimpleAttributeSet s, Object o, Object o1):
+    call(* SimpleAttributeSet.addAttribute(Object, Object)) && target(s) && args(o, o1) {}
+
+  fsm :
+        state0 [
+          event_1 -> state2
+        ]
+
+        state1 [
+        ]
+
+        state2 [
+          event_2 -> state1
+        ]
+
+  @fail {
+         android.util.Log.v("RVSEC-LOG",__DEFAULT_MESSAGE);
+         android.util.Log.v("RVSEC-LOG","FSM161 went into an error state.");
+         __RESET;
+  }
+}

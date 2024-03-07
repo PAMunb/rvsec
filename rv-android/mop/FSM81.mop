@@ -1,0 +1,41 @@
+package mop;
+
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging;
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging.Level;
+
+import java.awt.Component;
+import javax.swing.JSplitPane;
+
+FSM81(Component c, JSplitPane j) {
+
+  event event_1 after(JSplitPane j, Component c):
+    call(* JSplitPane.setLeftComponent(Component)) && target(j) && args(c) {}
+
+  event event_2 after() returning (JSplitPane j):
+    call(JSplitPane.new()) {}
+
+  event event_3 after(JSplitPane j, Component c):
+    call(* JSplitPane.setRightComponent(Component)) && target(j) && args(c) {}
+
+  fsm :
+        state2 [
+          event_2 -> state1
+        ]
+
+        state0 [
+          event_3 -> state3
+        ]
+
+        state1 [
+          event_1 -> state0
+        ]
+
+        state3 [
+        ]
+
+  @fail {
+         android.util.Log.v("RVSEC-LOG",__DEFAULT_MESSAGE);
+         android.util.Log.v("RVSEC-LOG","FSM81 went into an error state.");
+         __RESET;
+  }
+}

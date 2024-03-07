@@ -1,0 +1,64 @@
+package mop;
+
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging;
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging.Level;
+
+import java.lang.Iterable;
+import java.util.AbstractCollection;
+
+FSM221(AbstractCollection a, Iterable i, Object o) {
+
+  event event_1 after(AbstractCollection a):
+    call(* AbstractCollection.clone()) && target(a) {}
+
+  event event_2 after(AbstractCollection a, Object o):
+    call(* AbstractCollection.add(Object)) && target(a) && args(o) {}
+
+  event event_3 after() returning (AbstractCollection a):
+    call(AbstractCollection.new()) {}
+
+  event event_4 after(Iterable i):
+    call(* Iterable.iterator()) && target(i) {}
+
+  fsm :
+        state1 [
+          event_3 -> state5
+        ]
+
+        state0 [
+          event_1 -> state2
+        ]
+
+        state2 [
+          event_1 -> state7
+          event_4 -> state6
+        ]
+
+        state3 [
+          event_1 -> state7
+        ]
+
+        state4 [
+          event_1 -> state7
+          event_4 -> state6
+        ]
+
+        state5 [
+          event_2 -> state0
+        ]
+
+        state6 [
+          event_1 -> state4
+        ]
+
+        state7 [
+          event_1 -> state7
+          event_4 -> state3
+        ]
+
+  @fail {
+         android.util.Log.v("RVSEC-LOG",__DEFAULT_MESSAGE);
+         android.util.Log.v("RVSEC-LOG","FSM221 went into an error state.");
+         __RESET;
+  }
+}

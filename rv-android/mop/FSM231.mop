@@ -1,0 +1,33 @@
+package mop;
+
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging;
+import com.runtimeverification.rvmonitor.java.rt.RVMLogging.Level;
+
+import java.util.Stack;
+
+FSM231(Object o, Stack s) {
+
+  event event_1 after() returning (Stack s):
+    call(Stack.new()) {}
+
+  event event_2 after(Stack s, Object o):
+    call(* Stack.push(Object)) && target(s) && args(o) {}
+
+  fsm :
+        state1 [
+          event_1 -> state0
+        ]
+
+        state0 [
+          event_2 -> state2
+        ]
+
+        state2 [
+        ]
+
+  @fail {
+         android.util.Log.v("RVSEC-LOG",__DEFAULT_MESSAGE);
+         android.util.Log.v("RVSEC-LOG","FSM231 went into an error state.");
+         __RESET;
+  }
+}
