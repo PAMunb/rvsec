@@ -39,8 +39,8 @@ FSM371(String s, Throwable t) {
         ]
 
   @fail {
-         android.util.Log.v("RVSEC-LOG",__DEFAULT_MESSAGE);
-         android.util.Log.v("RVSEC-LOG","FSM371 went into an error state.");
+         //android.util.Log.v("RVSEC",__DEFAULT_MESSAGE);
+         android.util.Log.v("RVSEC","FSM371 went into an error state.");
          __RESET;
   }
 }

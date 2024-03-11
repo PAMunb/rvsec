@@ -49,8 +49,8 @@ FSM155(Boolean b, PropertyChangeEvent p) {
         ]
 
   @fail {
-         android.util.Log.v("RVSEC-LOG",__DEFAULT_MESSAGE);
-         android.util.Log.v("RVSEC-LOG","FSM155 went into an error state.");
+         //android.util.Log.v("RVSEC",__DEFAULT_MESSAGE);
+         android.util.Log.v("RVSEC","FSM155 went into an error state.");
          __RESET;
   }
 }

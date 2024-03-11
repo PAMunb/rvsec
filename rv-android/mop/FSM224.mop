@@ -55,8 +55,8 @@ FSM224(ServerSocket s, Socket s) {
         ]
 
   @fail {
-         android.util.Log.v("RVSEC-LOG",__DEFAULT_MESSAGE);
-         android.util.Log.v("RVSEC-LOG","FSM224 went into an error state.");
+         //android.util.Log.v("RVSEC",__DEFAULT_MESSAGE);
+         android.util.Log.v("RVSEC","FSM224 went into an error state.");
          __RESET;
   }
 }

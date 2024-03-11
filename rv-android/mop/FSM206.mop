@@ -29,8 +29,8 @@ FSM206(Component c, JList j, JScrollPane j, ListModel l) {
         ]
 
   @fail {
-         android.util.Log.v("RVSEC-LOG",__DEFAULT_MESSAGE);
-         android.util.Log.v("RVSEC-LOG","FSM206 went into an error state.");
+         //android.util.Log.v("RVSEC",__DEFAULT_MESSAGE);
+         android.util.Log.v("RVSEC","FSM206 went into an error state.");
          __RESET;
   }
 }

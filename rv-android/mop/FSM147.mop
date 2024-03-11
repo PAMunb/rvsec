@@ -28,8 +28,8 @@ FSM147(Entry e) {
         ]
 
   @fail {
-         android.util.Log.v("RVSEC-LOG",__DEFAULT_MESSAGE);
-         android.util.Log.v("RVSEC-LOG","FSM147 went into an error state.");
+         //android.util.Log.v("RVSEC",__DEFAULT_MESSAGE);
+         android.util.Log.v("RVSEC","FSM147 went into an error state.");
          __RESET;
   }
 }

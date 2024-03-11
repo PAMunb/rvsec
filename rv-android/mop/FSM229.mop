@@ -50,8 +50,8 @@ FSM229(CharSequence c, Matcher m, Pattern p, String s1, StringBuffer s2) {
         ]
 
   @fail {
-         android.util.Log.v("RVSEC-LOG",__DEFAULT_MESSAGE);
-         android.util.Log.v("RVSEC-LOG","FSM229 went into an error state.");
+         //android.util.Log.v("RVSEC",__DEFAULT_MESSAGE);
+         android.util.Log.v("RVSEC","FSM229 went into an error state.");
          __RESET;
   }
 }

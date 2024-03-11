@@ -35,8 +35,8 @@ FSM17(AbstractMap a, Map m, Object o, Object o1, TreeMap t) {
         ]
 
   @fail {
-         android.util.Log.v("RVSEC-LOG",__DEFAULT_MESSAGE);
-         android.util.Log.v("RVSEC-LOG","FSM17 went into an error state.");
+         //android.util.Log.v("RVSEC",__DEFAULT_MESSAGE);
+         android.util.Log.v("RVSEC","FSM17 went into an error state.");
          __RESET;
   }
 }

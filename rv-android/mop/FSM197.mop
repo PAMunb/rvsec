@@ -92,8 +92,8 @@ FSM197(Component c, JScrollPane j, JSplitPane j) {
         ]
 
   @fail {
-         android.util.Log.v("RVSEC-LOG",__DEFAULT_MESSAGE);
-         android.util.Log.v("RVSEC-LOG","FSM197 went into an error state.");
+         //android.util.Log.v("RVSEC",__DEFAULT_MESSAGE);
+         android.util.Log.v("RVSEC","FSM197 went into an error state.");
          __RESET;
   }
 }

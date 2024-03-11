@@ -74,8 +74,8 @@ FSM194(Lock l, ReentrantReadWriteLock r) {
         ]
 
   @fail {
-         android.util.Log.v("RVSEC-LOG",__DEFAULT_MESSAGE);
-         android.util.Log.v("RVSEC-LOG","FSM194 went into an error state.");
+         //android.util.Log.v("RVSEC",__DEFAULT_MESSAGE);
+         android.util.Log.v("RVSEC","FSM194 went into an error state.");
          __RESET;
   }
 }

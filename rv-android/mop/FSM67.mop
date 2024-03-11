@@ -44,8 +44,8 @@ FSM67(Number n, Object o, SortedMap s) {
         ]
 
   @fail {
-         android.util.Log.v("RVSEC-LOG",__DEFAULT_MESSAGE);
-         android.util.Log.v("RVSEC-LOG","FSM67 went into an error state.");
+         //android.util.Log.v("RVSEC",__DEFAULT_MESSAGE);
+         android.util.Log.v("RVSEC","FSM67 went into an error state.");
          __RESET;
   }
 }

@@ -41,8 +41,8 @@ FSM244(ComboBoxEditor c, PropertyChangeEvent p) {
         ]
 
   @fail {
-         android.util.Log.v("RVSEC-LOG",__DEFAULT_MESSAGE);
-         android.util.Log.v("RVSEC-LOG","FSM244 went into an error state.");
+         //android.util.Log.v("RVSEC",__DEFAULT_MESSAGE);
+         android.util.Log.v("RVSEC","FSM244 went into an error state.");
          __RESET;
   }
 }
