@@ -1,5 +1,7 @@
-sudo apt install git unzip zip python3-pip python3-venv python-is-python3 wget curl
+sudo apt install git unzip zip python3-pip python3-venv python-is-python3 wget curl cpu-checker lshw
 
+egrep -c '(vmx|svm)' /proc/cpuinfo
+sudo kvm-ok
 
 curl -s "https://get.sdkman.io" | bash
 source "$HOME/.sdkman/bin/sdkman-init.sh"
@@ -33,11 +35,12 @@ mkdir /home/pedro/rvsec/rv-android/apks
 # export ANDROID_HOME=/home/pedro/android
 # export ANDROID_SDK_ROOT=/home/pedro/android
 # export PATH=$ANDROID_HOME/platform-tools:$ANDROID_HOME/cmdline-tools/tools/bin:$ANDROID_HOME/emulator:$ANDROID_HOME/build-tools/34.0.0:/home/pedro/.local/bin:$ASPECTJ_HOME/bin:$PATH
-# WARNING: change memory in ajc script ....
+# WARNING: change memory in ajc script .... -Xmx4096M
 
 
 cd /home/pedro/rvsec/rv-android/scripts
 ./config_android.sh
+
 # TODO Edit setup.py: 'androguard>=3.4.0a1' to 'androguard==3.4.0a1'
 #./config_droidbot.sh
 
@@ -49,5 +52,8 @@ source env/bin/activate
 #pip list
 pip install -r requirements.txt
 
+# run humanoid
 
 #./run_experiment.sh
+
+https://developer.android.com/studio/run/emulator-acceleration#vm-linux
