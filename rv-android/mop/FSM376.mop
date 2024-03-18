@@ -55,7 +55,7 @@ FSM376(Color c, Object o) {
 
   @fail {
          //android.util.Log.v("RVSEC",__DEFAULT_MESSAGE);
-         android.util.Log.v("RVSEC","FSM376 went into an error state.");
+         android.util.Log.v("RVSEC",__LOC + " ::: FSM376 went into an error state.");
          __RESET;
   }
 }

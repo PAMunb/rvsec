@@ -35,7 +35,7 @@ FSM81(Component c, JSplitPane j) {
 
   @fail {
          //android.util.Log.v("RVSEC",__DEFAULT_MESSAGE);
-         android.util.Log.v("RVSEC","FSM81 went into an error state.");
+         android.util.Log.v("RVSEC",__LOC + " ::: FSM81 went into an error state.");
          __RESET;
   }
 }

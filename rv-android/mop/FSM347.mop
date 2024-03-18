@@ -29,7 +29,7 @@ FSM347(AccessibleObject a) {
 
   @fail {
          //android.util.Log.v("RVSEC",__DEFAULT_MESSAGE);
-         android.util.Log.v("RVSEC","FSM347 went into an error state.");
+         android.util.Log.v("RVSEC",__LOC + " ::: FSM347 went into an error state.");
          __RESET;
   }
 }

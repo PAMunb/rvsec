@@ -6,6 +6,7 @@ source "$HOME/.sdkman/bin/sdkman-init.sh"
 sdk install java 11.0.21-tem
 sdk install maven 3.9.5
 
+#TODO configure docker: https://docs.docker.com/engine/install/debian/
 
 cd
 mkdir aspectj
@@ -13,6 +14,7 @@ wget 'https://www.eclipse.org/downloads/download.php?file=/tools/aspectj/aspectj
 java -jar aspectj-1.9.6.jar -to aspectj
 
 
+cd
 git clone https://github.com/PAMunb/rvsec.git
 cd rvsec/
 git checkout develop
@@ -45,7 +47,6 @@ pip install virtualenv
 python -m venv env
 source env/bin/activate
 #pip list
-# TODO: editar requirements ... versao exata do androguard
 pip install -r requirements.txt
 
 

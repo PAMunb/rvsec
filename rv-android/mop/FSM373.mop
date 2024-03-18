@@ -41,7 +41,7 @@ FSM373(Iterator i, NetworkInterface n) {
 
   @fail {
          //android.util.Log.v("RVSEC",__DEFAULT_MESSAGE);
-         android.util.Log.v("RVSEC","FSM373 went into an error state.");
+         android.util.Log.v("RVSEC",__LOC + " ::: FSM373 went into an error state.");
          __RESET;
   }
 }

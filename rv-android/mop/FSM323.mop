@@ -70,7 +70,7 @@ FSM323(Integer i, Object o, Vector v) {
 
   @fail {
          //android.util.Log.v("RVSEC",__DEFAULT_MESSAGE);
-         android.util.Log.v("RVSEC","FSM323 went into an error state.");
+         android.util.Log.v("RVSEC",__LOC + " ::: FSM323 went into an error state.");
          __RESET;
   }
 }

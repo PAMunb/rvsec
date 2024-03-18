@@ -28,7 +28,7 @@ FSM58(Collection c, Object o, Reference r) {
 
   @fail {
          //android.util.Log.v("RVSEC",__DEFAULT_MESSAGE);
-         android.util.Log.v("RVSEC","FSM58 went into an error state.");
+         android.util.Log.v("RVSEC",__LOC + " ::: FSM58 went into an error state.");
          __RESET;
   }
 }

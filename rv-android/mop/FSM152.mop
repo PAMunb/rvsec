@@ -230,7 +230,7 @@ FSM152(AbstractElement a, Enumeration e, Object o) {
 
   @fail {
          //android.util.Log.v("RVSEC",__DEFAULT_MESSAGE);
-         android.util.Log.v("RVSEC","FSM152 went into an error state.");
+         android.util.Log.v("RVSEC",__LOC + " ::: FSM152 went into an error state.");
          __RESET;
   }
 }

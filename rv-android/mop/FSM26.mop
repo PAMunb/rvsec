@@ -30,7 +30,7 @@ FSM26(AbstractButton a, ButtonGroup b) {
 
   @fail {
          //android.util.Log.v("RVSEC",__DEFAULT_MESSAGE);
-         android.util.Log.v("RVSEC","FSM26 went into an error state.");
+         android.util.Log.v("RVSEC",__LOC + " ::: FSM26 went into an error state.");
          __RESET;
   }
 }

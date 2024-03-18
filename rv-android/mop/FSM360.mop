@@ -29,7 +29,7 @@ FSM360(Future f, Map m, Object o) {
 
   @fail {
          //android.util.Log.v("RVSEC",__DEFAULT_MESSAGE);
-         android.util.Log.v("RVSEC","FSM360 went into an error state.");
+         android.util.Log.v("RVSEC",__LOC + " ::: FSM360 went into an error state.");
          __RESET;
   }
 }

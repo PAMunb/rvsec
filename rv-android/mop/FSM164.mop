@@ -87,7 +87,7 @@ FSM164(Class c, Field f) {
 
   @fail {
          //android.util.Log.v("RVSEC",__DEFAULT_MESSAGE);
-         android.util.Log.v("RVSEC","FSM164 went into an error state.");
+         android.util.Log.v("RVSEC",__LOC + " ::: FSM164 went into an error state.");
          __RESET;
   }
 }

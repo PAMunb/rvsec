@@ -107,7 +107,7 @@ FSM199(Entry e, Iterator i, Object o) {
 
   @fail {
          //android.util.Log.v("RVSEC",__DEFAULT_MESSAGE);
-         android.util.Log.v("RVSEC","FSM199 went into an error state.");
+         android.util.Log.v("RVSEC",__LOC + " ::: FSM199 went into an error state.");
          __RESET;
   }
 }

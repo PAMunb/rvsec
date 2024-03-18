@@ -91,7 +91,7 @@ FSM73(Document d, Object o, Object o1, URL u) {
 
   @fail {
          //android.util.Log.v("RVSEC",__DEFAULT_MESSAGE);
-         android.util.Log.v("RVSEC","FSM73 went into an error state.");
+         android.util.Log.v("RVSEC",__LOC + " ::: FSM73 went into an error state.");
          __RESET;
   }
 }

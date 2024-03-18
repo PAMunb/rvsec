@@ -38,7 +38,7 @@ FSM143(Iterator i, Set s) {
 
   @fail {
          //android.util.Log.v("RVSEC",__DEFAULT_MESSAGE);
-         android.util.Log.v("RVSEC","FSM143 went into an error state.");
+         android.util.Log.v("RVSEC",__LOC + " ::: FSM143 went into an error state.");
          __RESET;
   }
 }

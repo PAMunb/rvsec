@@ -50,7 +50,7 @@ FSM319(File f, JarFile j, Manifest m, String s) {
 
   @fail {
          //android.util.Log.v("RVSEC",__DEFAULT_MESSAGE);
-         android.util.Log.v("RVSEC","FSM319 went into an error state.");
+         android.util.Log.v("RVSEC",__LOC + " ::: FSM319 went into an error state.");
          __RESET;
   }
 }

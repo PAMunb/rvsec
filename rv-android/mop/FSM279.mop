@@ -53,7 +53,7 @@ FSM279(Class c, Map m, Object o) {
 
   @fail {
          //android.util.Log.v("RVSEC",__DEFAULT_MESSAGE);
-         android.util.Log.v("RVSEC","FSM279 went into an error state.");
+         android.util.Log.v("RVSEC",__LOC + " ::: FSM279 went into an error state.");
          __RESET;
   }
 }

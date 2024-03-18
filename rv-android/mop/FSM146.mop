@@ -44,7 +44,7 @@ FSM146(AbstractMap a, Collection c, Object o, Object o1, Set s) {
 
   @fail {
          //android.util.Log.v("RVSEC",__DEFAULT_MESSAGE);
-         android.util.Log.v("RVSEC","FSM146 went into an error state.");
+         android.util.Log.v("RVSEC",__LOC + " ::: FSM146 went into an error state.");
          __RESET;
   }
 }

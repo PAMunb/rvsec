@@ -40,7 +40,7 @@ FSM369(Class c, Package p) {
 
   @fail {
          //android.util.Log.v("RVSEC",__DEFAULT_MESSAGE);
-         android.util.Log.v("RVSEC","FSM369 went into an error state.");
+         android.util.Log.v("RVSEC",__LOC + " ::: FSM369 went into an error state.");
          __RESET;
   }
 }

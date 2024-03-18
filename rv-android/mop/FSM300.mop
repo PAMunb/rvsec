@@ -93,7 +93,7 @@ FSM300(AbstractList a, Iterable i) {
 
   @fail {
          //android.util.Log.v("RVSEC",__DEFAULT_MESSAGE);
-         android.util.Log.v("RVSEC","FSM300 went into an error state.");
+         android.util.Log.v("RVSEC",__LOC + " ::: FSM300 went into an error state.");
          __RESET;
   }
 }

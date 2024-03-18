@@ -54,7 +54,7 @@ FSM209(Border b, BoxLayout b, Component c, Container c, JComponent j, LayoutMana
 
   @fail {
          //android.util.Log.v("RVSEC",__DEFAULT_MESSAGE);
-         android.util.Log.v("RVSEC","FSM209 went into an error state.");
+         android.util.Log.v("RVSEC",__LOC + " ::: FSM209 went into an error state.");
          __RESET;
   }
 }

@@ -58,7 +58,7 @@ FSM242(Iterator i, Object o, Reference r) {
 
   @fail {
          //android.util.Log.v("RVSEC",__DEFAULT_MESSAGE);
-         android.util.Log.v("RVSEC","FSM242 went into an error state.");
+         android.util.Log.v("RVSEC",__LOC + " ::: FSM242 went into an error state.");
          __RESET;
   }
 }

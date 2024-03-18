@@ -44,7 +44,7 @@ FSM337(Runtime r) {
 
   @fail {
          //android.util.Log.v("RVSEC",__DEFAULT_MESSAGE);
-         android.util.Log.v("RVSEC","FSM337 went into an error state.");
+         android.util.Log.v("RVSEC",__LOC + " ::: FSM337 went into an error state.");
          __RESET;
   }
 }

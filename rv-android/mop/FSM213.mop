@@ -37,7 +37,7 @@ FSM213(DefaultListModel d, JList j, ListModel l, Object o) {
 
   @fail {
          //android.util.Log.v("RVSEC",__DEFAULT_MESSAGE);
-         android.util.Log.v("RVSEC","FSM213 went into an error state.");
+         android.util.Log.v("RVSEC",__LOC + " ::: FSM213 went into an error state.");
          __RESET;
   }
 }

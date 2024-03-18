@@ -44,7 +44,7 @@ FSM284(Border b, JComponent j, String s) {
 
   @fail {
          //android.util.Log.v("RVSEC",__DEFAULT_MESSAGE);
-         android.util.Log.v("RVSEC","FSM284 went into an error state.");
+         android.util.Log.v("RVSEC",__LOC + " ::: FSM284 went into an error state.");
          __RESET;
   }
 }

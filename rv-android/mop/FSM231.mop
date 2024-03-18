@@ -27,7 +27,7 @@ FSM231(Object o, Stack s) {
 
   @fail {
          //android.util.Log.v("RVSEC",__DEFAULT_MESSAGE);
-         android.util.Log.v("RVSEC","FSM231 went into an error state.");
+         android.util.Log.v("RVSEC",__LOC + " ::: FSM231 went into an error state.");
          __RESET;
   }
 }

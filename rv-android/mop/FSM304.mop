@@ -35,7 +35,7 @@ FSM304(ServerSocket s) {
 
   @fail {
          //android.util.Log.v("RVSEC",__DEFAULT_MESSAGE);
-         android.util.Log.v("RVSEC","FSM304 went into an error state.");
+         android.util.Log.v("RVSEC",__LOC + " ::: FSM304 went into an error state.");
          __RESET;
   }
 }

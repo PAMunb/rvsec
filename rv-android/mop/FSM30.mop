@@ -56,7 +56,7 @@ FSM30(Lock l, ReadWriteLock r) {
 
   @fail {
          //android.util.Log.v("RVSEC",__DEFAULT_MESSAGE);
-         android.util.Log.v("RVSEC","FSM30 went into an error state.");
+         android.util.Log.v("RVSEC",__LOC + " ::: FSM30 went into an error state.");
          __RESET;
   }
 }

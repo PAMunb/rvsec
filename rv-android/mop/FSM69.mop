@@ -36,7 +36,7 @@ FSM69(Collection c, ConcurrentHashMap c, Set s) {
 
   @fail {
          //android.util.Log.v("RVSEC",__DEFAULT_MESSAGE);
-         android.util.Log.v("RVSEC","FSM69 went into an error state.");
+         android.util.Log.v("RVSEC",__LOC + " ::: FSM69 went into an error state.");
          __RESET;
   }
 }

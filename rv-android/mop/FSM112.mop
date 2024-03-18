@@ -54,7 +54,7 @@ FSM112(Collection c, LinkedList l, Object o, Vector v) {
 
   @fail {
          //android.util.Log.v("RVSEC",__DEFAULT_MESSAGE);
-         android.util.Log.v("RVSEC","FSM112 went into an error state.");
+         android.util.Log.v("RVSEC",__LOC + " ::: FSM112 went into an error state.");
          __RESET;
   }
 }

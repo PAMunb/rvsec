@@ -27,7 +27,7 @@ FSM320(JTextComponent j) {
 
   @fail {
          //android.util.Log.v("RVSEC",__DEFAULT_MESSAGE);
-         android.util.Log.v("RVSEC","FSM320 went into an error state.");
+         android.util.Log.v("RVSEC",__LOC + " ::: FSM320 went into an error state.");
          __RESET;
   }
 }

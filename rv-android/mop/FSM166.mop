@@ -48,7 +48,7 @@ FSM166(File f, URL u) {
 
   @fail {
          //android.util.Log.v("RVSEC",__DEFAULT_MESSAGE);
-         android.util.Log.v("RVSEC","FSM166 went into an error state.");
+         android.util.Log.v("RVSEC",__LOC + " ::: FSM166 went into an error state.");
          __RESET;
   }
 }

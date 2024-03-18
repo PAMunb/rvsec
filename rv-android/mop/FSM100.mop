@@ -42,7 +42,7 @@ FSM100(String s, TextArea t) {
 
   @fail {
          //android.util.Log.v("RVSEC",__DEFAULT_MESSAGE);
-         android.util.Log.v("RVSEC","FSM100 went into an error state.");
+         android.util.Log.v("RVSEC",__LOC + " ::: FSM100 went into an error state.");
          __RESET;
   }
 }

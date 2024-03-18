@@ -49,7 +49,7 @@ FSM190(ReentrantLock r) {
 
   @fail {
          //android.util.Log.v("RVSEC",__DEFAULT_MESSAGE);
-         android.util.Log.v("RVSEC","FSM190 went into an error state.");
+         android.util.Log.v("RVSEC",__LOC + " ::: FSM190 went into an error state.");
          __RESET;
   }
 }

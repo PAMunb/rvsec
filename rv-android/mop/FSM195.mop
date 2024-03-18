@@ -60,7 +60,7 @@ FSM195(Future f, Iterator i) {
 
   @fail {
          //android.util.Log.v("RVSEC",__DEFAULT_MESSAGE);
-         android.util.Log.v("RVSEC","FSM195 went into an error state.");
+         android.util.Log.v("RVSEC",__LOC + " ::: FSM195 went into an error state.");
          __RESET;
   }
 }

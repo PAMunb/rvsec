@@ -64,7 +64,7 @@ FSM214(AbstractMap a, Boolean b, Map m, Object o, Object o1) {
 
   @fail {
          //android.util.Log.v("RVSEC",__DEFAULT_MESSAGE);
-         android.util.Log.v("RVSEC","FSM214 went into an error state.");
+         android.util.Log.v("RVSEC",__LOC + " ::: FSM214 went into an error state.");
          __RESET;
   }
 }

@@ -66,7 +66,7 @@ FSM187(Color c, Color c1, GradientPaint g, Object o) {
 
   @fail {
          //android.util.Log.v("RVSEC",__DEFAULT_MESSAGE);
-         android.util.Log.v("RVSEC","FSM187 went into an error state.");
+         android.util.Log.v("RVSEC",__LOC + " ::: FSM187 went into an error state.");
          __RESET;
   }
 }

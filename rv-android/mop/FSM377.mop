@@ -32,7 +32,7 @@ FSM377(ImageIcon i, String s, URL u) {
 
   @fail {
          //android.util.Log.v("RVSEC",__DEFAULT_MESSAGE);
-         android.util.Log.v("RVSEC","FSM377 went into an error state.");
+         android.util.Log.v("RVSEC",__LOC + " ::: FSM377 went into an error state.");
          __RESET;
   }
 }

@@ -27,7 +27,7 @@ FSM324(Window w) {
 
   @fail {
          //android.util.Log.v("RVSEC",__DEFAULT_MESSAGE);
-         android.util.Log.v("RVSEC","FSM324 went into an error state.");
+         android.util.Log.v("RVSEC",__LOC + " ::: FSM324 went into an error state.");
          __RESET;
   }
 }

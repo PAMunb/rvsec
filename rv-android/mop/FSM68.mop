@@ -54,7 +54,7 @@ FSM68(Enumeration e, File f, ZipFile z) {
 
   @fail {
          //android.util.Log.v("RVSEC",__DEFAULT_MESSAGE);
-         android.util.Log.v("RVSEC","FSM68 went into an error state.");
+         android.util.Log.v("RVSEC",__LOC + " ::: FSM68 went into an error state.");
          __RESET;
   }
 }

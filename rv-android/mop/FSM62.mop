@@ -48,7 +48,7 @@ FSM62(Enumeration e, ZipEntry z) {
 
   @fail {
          //android.util.Log.v("RVSEC",__DEFAULT_MESSAGE);
-         android.util.Log.v("RVSEC","FSM62 went into an error state.");
+         android.util.Log.v("RVSEC",__LOC + " ::: FSM62 went into an error state.");
          __RESET;
   }
 }

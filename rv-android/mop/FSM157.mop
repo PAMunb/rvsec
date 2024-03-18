@@ -43,7 +43,7 @@ FSM157(Deque d, URL u) {
 
   @fail {
          //android.util.Log.v("RVSEC",__DEFAULT_MESSAGE);
-         android.util.Log.v("RVSEC","FSM157 went into an error state.");
+         android.util.Log.v("RVSEC",__LOC + " ::: FSM157 went into an error state.");
          __RESET;
   }
 }

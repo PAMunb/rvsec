@@ -87,7 +87,7 @@ FSM2(AnnotatedElement a, Class c, MBeanAttributeInfo m, String s, String s1, Str
 
   @fail {
          //android.util.Log.v("RVSEC",__DEFAULT_MESSAGE);
-         android.util.Log.v("RVSEC","FSM2 went into an error state.");
+         android.util.Log.v("RVSEC",__LOC + " ::: FSM2 went into an error state.");
          __RESET;
   }
 }

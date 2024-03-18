@@ -67,7 +67,7 @@ FSM119(Object o, Reference r, Runnable r, String s, Thread t, ThreadGroup t) {
 
   @fail {
          //android.util.Log.v("RVSEC",__DEFAULT_MESSAGE);
-         android.util.Log.v("RVSEC","FSM119 went into an error state.");
+         android.util.Log.v("RVSEC",__LOC + " ::: FSM119 went into an error state.");
          __RESET;
   }
 }
