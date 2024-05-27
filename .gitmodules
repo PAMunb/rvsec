@@ -1,0 +1,3 @@
+[submodule "rv-android/tools/qtesting/src"]
+	path = rv-android/tools/qtesting/src
+	url = https://github.com/jtpastro/qtesting.git
