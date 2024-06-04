@@ -23,9 +23,8 @@ class ToolSpec(AbstractTool):
             TEST_INDEX=1""".format(app.path,timeout))
 
         with open(log_file, 'wb') as qtesting_trace:
-            exec_cmd = Command('{}'.format(qtesting_entrypoint), [
-                '-r',
-                '{0}'.format(config_file)
-            ], timeout=timeout)
-            print(exec_cmd.args)
+            exec_cmd = Command(
+                '{}'.format(qtesting_entrypoint), 
+                ['-r', '{0}'.format(config_file)]
+            )
             exec_cmd.invoke(stdout=qtesting_trace)
