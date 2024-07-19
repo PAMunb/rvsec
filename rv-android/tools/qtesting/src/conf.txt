@@ -1,0 +1,8 @@
+
+            [Path]
+            Benchmark = 
+            APK_NAME = /pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec/rv-android/out/cryptoapp.apk
+            [Setting]
+            DEVICE_ID = emulator-5554
+            TIME_LIMIT = 60
+            TEST_INDEX=1

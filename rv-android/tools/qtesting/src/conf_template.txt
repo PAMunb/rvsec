@@ -1,0 +1,11 @@
+[Path]
+Benchmark = apks
+APK_NAME = app.apk
+
+[Setting]
+# You can use command `adb devices` to get the Android device's ID replace the DEVICE_ID.
+DEVICE_ID = emulator-5554
+# You may change TIME_LIMIT for debug.
+TIME_LIMIT = 3600
+# Test identifier
+TEST_INDEX=1

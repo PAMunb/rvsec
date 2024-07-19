@@ -46,11 +46,11 @@ cd /home/pedro/rvsec/rv-android/scripts
 
 
 cd /home/pedro/rvsec/rv-android
-pip install virtualenv
-python -m venv env
-source env/bin/activate
+#pip install virtualenv
+#python -m venv env
+#source env/bin/activate
 #pip list
-pip install -r requirements.txt
+pip3 install -r requirements.txt
 
 # run humanoid
 
