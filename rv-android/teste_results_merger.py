@@ -74,9 +74,15 @@ if __name__ == '__main__':
     results = "/home/pedro/desenvolvimento/RV_ANDROID/RESULTS_experimento01"
     # merger.merge(folder, results)
 
+
+    original_results_file = "/home/pedro/tmp/rvandroid/original/results_analysis.json"
+    new_tools_results_file = "/home/pedro/tmp/rvandroid/ape/results_analysis.json"
+    final_results_file = "/home/pedro/tmp/rvandroid/final_results_analysis.json"
+    merger.merge_files(original_results_file, new_tools_results_file, final_results_file)
+
     file = "/home/pedro/desenvolvimento/RV_ANDROID/RESULTS_experimento01/merged_results_analysis.json"
     # test_blank_results(folder)
     # cont_apks_with_rvsec_errors(file)
 
-    planilha = os.path.join(folder, "planilha.csv")
-    gerar_planilha(file, planilha)
+    # planilha = os.path.join(folder, "planilha.csv")
+    # gerar_planilha(file, planilha)

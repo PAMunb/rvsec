@@ -22,7 +22,7 @@ The main components in this repository are:
    
 ```
 $ ./configure.sh
-$ mvn clean install -DskipTests
+$ mvn clean install -DskipTests -DskipMopAgent
 $ cd rvsec/rvsec-agent
 $ mvn test
 ```
