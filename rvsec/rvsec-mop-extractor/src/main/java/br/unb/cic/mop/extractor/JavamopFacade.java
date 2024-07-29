@@ -4,7 +4,7 @@ import java.io.File;
 import java.util.HashSet;
 import java.util.Set;
 
-import br.unb.cic.mop.extractor.model.JcaMethod;
+import br.unb.cic.mop.extractor.model.MopMethod;
 import br.unb.cic.mop.extractor.visitor.UsedJcaClassesVisitor;
 import br.unb.cic.mop.extractor.visitor.UsedJcaMethodsVisitor;
 import javamop.parser.SpecExtractor;
@@ -25,9 +25,9 @@ public class JavamopFacade {
 		return classes;
 	}
 
-	public Set<JcaMethod> listUsedMethods(String mopSpecsDirPath, boolean debug) throws MOPException {
+	public Set<MopMethod> listUsedMethods(String mopSpecsDirPath, boolean debug) throws MOPException {
 		this.debug = debug;
-		Set<JcaMethod> methods = new HashSet<>();
+		Set<MopMethod> methods = new HashSet<>();
 
 		getMopFiles(mopSpecsDirPath).forEach(f -> methods.addAll(listUsedMethods(f)));
 
@@ -46,7 +46,7 @@ public class JavamopFacade {
 		return usedClassesVisitor.getClasses();
 	}
 
-	private Set<JcaMethod> listUsedMethods(File mopFile) {
+	private Set<MopMethod> listUsedMethods(File mopFile) {
 		if(debug) {
 			System.out.println("Parsing file: " + mopFile.getName());
 		}

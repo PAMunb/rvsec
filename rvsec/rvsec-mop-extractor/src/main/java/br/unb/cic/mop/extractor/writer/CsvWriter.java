@@ -10,7 +10,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import br.unb.cic.mop.extractor.model.JcaMethod;
+import br.unb.cic.mop.extractor.model.MopMethod;
 
 public class CsvWriter implements Writer {
 
@@ -29,16 +29,16 @@ public class CsvWriter implements Writer {
 	}
 
 	@Override
-	public void writeMethods(Set<JcaMethod> methods, File out) {
+	public void writeMethods(Set<MopMethod> methods, File out) {
 		writeMethods(methods, out, false);
 	}
 
 	@Override
-	public void writeMethods(Set<JcaMethod> methods, File out, boolean withParameters) {
+	public void writeMethods(Set<MopMethod> methods, File out, boolean withParameters) {
 		try (PrintWriter pw = new PrintWriter(new FileWriter(out, true), true)) {
-			List<JcaMethod> methodsList = List.copyOf(methods)
+			List<MopMethod> methodsList = List.copyOf(methods)
 					.stream()
-					.sorted(Comparator.comparing(JcaMethod::getClassName).thenComparing(Comparator.comparing(JcaMethod::getName)))
+					.sorted(Comparator.comparing(MopMethod::getClassName).thenComparing(Comparator.comparing(MopMethod::getName)))
 					.collect(Collectors.toList());
 			if (withParameters) {
 				// TODO arrumar o csv

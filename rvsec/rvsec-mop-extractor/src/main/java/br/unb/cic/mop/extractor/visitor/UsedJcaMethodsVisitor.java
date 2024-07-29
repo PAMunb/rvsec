@@ -8,7 +8,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 
-import br.unb.cic.mop.extractor.model.JcaMethod;
+import br.unb.cic.mop.extractor.model.MopMethod;
 import javamop.parser.ast.ImportDeclaration;
 import javamop.parser.ast.MOPSpecFile;
 import javamop.parser.ast.aspectj.CombinedPointCut;
@@ -21,7 +21,7 @@ import javamop.parser.ast.mopspec.JavaMOPSpec;
 
 public class UsedJcaMethodsVisitor extends VoidVisitorAdapter<Object> {
 	private Set<String> classes = new HashSet<>();
-	private Set<JcaMethod> methods = new HashSet<>();
+	private Set<MopMethod> methods = new HashSet<>();
 
 	private Map<String, String> imports = new HashMap<>();
 
@@ -72,7 +72,7 @@ public class UsedJcaMethodsVisitor extends VoidVisitorAdapter<Object> {
 		if (imports.containsKey(clazzName)) {
 			classes.add(imports.get(clazzName));
 
-			JcaMethod method = new JcaMethod(imports.get(clazzName), p.getSignature().getMemberName(), getParams(p.getSignature()), p.getSignature().toString());
+			MopMethod method = new MopMethod(imports.get(clazzName), p.getSignature().getMemberName(), getParams(p.getSignature()), p.getSignature().toString());
 			methods.add(method);
 		}
 	}
@@ -93,7 +93,7 @@ public class UsedJcaMethodsVisitor extends VoidVisitorAdapter<Object> {
 		return classes;
 	}
 
-	public Set<JcaMethod> getMethods() {
+	public Set<MopMethod> getMethods() {
 		return methods;
 	}
 

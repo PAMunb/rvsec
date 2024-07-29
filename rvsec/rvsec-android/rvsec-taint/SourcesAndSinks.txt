@@ -1,0 +1,99 @@
+<android.app.Activity: android.view.View findViewById(int)> -> _SOURCE_
+<android.widget.EditText: java.lang.String getText()> -> _SOURCE_
+<android.widget.Spinner: java.lang.String getSelectedItem()> -> _SOURCE_
+
+<android.widget.Button: void setOnClickListener(android.view.View$OnClickListener)> -> _SINK_
+
+%<android.app.Activity: void startActivity(android.content.Intent)> -> _SINK_
+%<android.app.Activity: void startActivity(android.content.Intent,android.os.Bundle)> -> _SINK_
+%<android.app.Activity: void startActivities(android.content.Intent[])> -> _SINK_
+%<android.app.Activity: void startActivities(android.content.Intent[],android.os.Bundle)> -> _SINK_
+%<android.app.Activity: void startActivityForResult(android.content.Intent,int)> -> _SINK_
+%<android.app.Activity: void startActivityForResult(android.content.Intent,int,android.os.Bundle)> -> _SINK_
+%<android.app.Activity: void startActivityFromChild(android.app.Activity,android.content.Intent,int,android.os.Bundle)> -> _SINK_
+%<android.app.Activity: void startActivityFromChild(android.app.Activity,android.content.Intent,int)> -> _SINK_
+%<android.app.Activity: void startActivityFromFragment(android.app.Fragment,android.content.Intent,int,android.os.Bundle)> -> _SINK_
+%<android.app.Activity: void startActivityFromFragment(android.app.Fragment,android.content.Intent,int)> -> _SINK_
+%<android.app.Activity: void startActivityIfNeeded(android.content.Intent,int,android.os.Bundle)> -> _SINK_
+%<android.app.Activity: void startActivityIfNeeded(android.content.Intent,int)> -> _SINK_
+%<android.app.Activity: android.content.ComponentName startService(android.content.Intent)> -> _SINK_
+%<android.app.Activity: boolean bindService(android.content.Intent,android.content.ServiceConnection,int)> -> _SINK_
+%<android.app.Activity: void sendBroadcast(android.content.Intent)> -> _SINK_
+%<android.app.Activity: void sendBroadcast(android.content.Intent,java.lang.String)> -> _SINK_
+%<android.app.Activity: void sendBroadcastAsUser(android.content.Intent,android.os.UserHandle)> -> _SINK_
+%<android.app.Activity: void sendBroadcastAsUser(android.content.Intent,android.os.UserHandle,java.lang.String)> -> _SINK_
+%<android.app.Activity: void sendOrderedBroadcast(android.content.Intent,java.lang.String,android.content.BroadcastReceiver,android.os.Handler,int,java.lang.String,android.os.Bundle)> -> _SINK_
+%<android.app.Activity: void sendOrderedBroadcast(android.content.Intent,java.lang.String)> -> _SINK_
+%<android.app.Activity: void sendOrderedBroadcastAsUser(android.content.Intent,android.os.UserHandle,java.lang.String,android.content.BroadcastReceiver,android.os.Handler,int,java.lang.String,android.os.Bundle)> -> _SINK_
+%<android.app.Activity: void sendStickyBroadcast(android.content.Intent)> -> _SINK_
+%<android.app.Activity: void sendStickyBroadcastAsUser(android.content.Intent,android.os.UserHandle)> -> _SINK_
+%<android.app.Activity: void sendStickyOrderedBroadcast(android.content.Intent,android.content.BroadcastReceiver,android.os.Handler,int,java.lang.String,android.os.Bundle)> -> _SINK_
+%<android.app.Activity: void sendStickyOrderedBroadcastAsUser(android.content.Intent,android.os.UserHandle,android.content.BroadcastReceiver,android.os.Handler,int,java.lang.String,android.os.Bundle)> -> _SINK_
+
+
+
+%<org.apache.http.HttpResponse: org.apache.http.HttpEntity getEntity()> -> _SOURCE_
+%<org.apache.http.util.EntityUtils: java.lang.String toString(org.apache.http.HttpEntity)> -> _SOURCE_
+%<org.apache.http.HttpResponse: org.apache.http.StatusLine getStatusLine()> -> _SOURCE_
+
+%<android.location.Location: double getLatitude()> -> _SOURCE_
+%<android.location.Location: double getLongitude()> -> _SOURCE_
+%<android.location.LocationManager: android.location.Location getLastKnownLocation(java.lang.String)> -> _SOURCE_
+%<java.net.URLConnection: void connect()> -> _SINK_
+%<java.net.URLConnection: java.io.InputStream getInputStream()> -> _BOTH_
+%<java.net.URLConnection: java.io.OutputStream getOutputStream()> -> _SINK_
+
+%<java.net.URL: java.io.InputStream openStream()> -> _BOTH_
+%<java.net.URL: java.lang.Object getContent()> -> _BOTH_
+%<java.net.URL: java.lang.Object getContent(java.lang.Class[])> -> _BOTH_
+%%<android.content.Intent: java.lang.String getAction()> -> _SOURCE_
+%%<android.content.Intent: boolean[] getBooleanArrayExtra(java.lang.String)> -> _SOURCE_
+%%<android.content.Intent: boolean getBooleanExtra(java.lang.String, boolean)> -> _SOURCE_
+%%<android.content.Intent: android.os.Bundle getBundleExtra(java.lang.String)> -> _SOURCE_
+%%<android.content.Intent: byte[] getByteArrayExtra(java.lang.String)> -> _SOURCE_
+%%<android.content.Intent: byte getByteExtra(java.lang.String, byte)> -> _SOURCE_
+%%<android.content.Intent: java.util.Set getCategories()> -> _SOURCE_
+%%<android.content.Intent: char[] getCharArrayExtra(java.lang.String)> -> _SOURCE_
+%%<android.content.Intent: char getCharExtra(java.lang.String, char)> -> _SOURCE_
+%%<android.content.Intent: java.lang.CharSequence[] getCharSequenceArrayExtra(java.lang.String)> -> _SOURCE_
+%%<android.content.Intent: java.util.ArrayList getCharSequenceArrayListExtra(java.lang.String)> -> _SOURCE_
+%%<android.content.Intent: java.lang.CharSequence getCharSequenceExtra(java.lang.String)> -> _SOURCE_
+%%<android.content.Intent: android.content.ClipData getClipData()> -> _SOURCE_
+%%<android.content.Intent: android.content.ComponentName getComponent()> -> _SOURCE_
+%<android.content.Intent: android.net.Uri getData()> -> _SOURCE_
+%<android.content.Intent: java.lang.String getDataString()> -> _SOURCE_
+%%<android.content.Intent: double[] getDoubleArrayExtra(java.lang.String)> -> _SOURCE_
+%%<android.content.Intent: double getDoubleExtra(java.lang.String, double)> -> _SOURCE_
+%%<android.content.Intent: android.os.Bundle getExtras()> -> _SOURCE_
+%%<android.content.Intent: int getFlags()> -> _SOURCE_
+%%<android.content.Intent: float[] getFloatArrayExtra(java.lang.String)> -> _SOURCE_
+%%<android.content.Intent: float getFloatExtra(java.lang.String, float)> -> _SOURCE_
+%%<android.content.Intent: int[] getIntArrayExtra(java.lang.String)> -> _SOURCE_
+%%<android.content.Intent: java.util.ArrayList getIntegerArrayListExtra(java.lang.String)> -> _SOURCE_
+%<android.content.Intent: android.content.Intent getIntent(java.lang.String)> -> _SOURCE_
+%%<android.content.Intent: android.content.Intent getIntentOld(java.lang.String)> -> _SOURCE_
+%%<android.content.Intent: int getIntExtra(java.lang.String, int)> -> _SOURCE_
+%%<android.content.Intent: long[] getLongArrayExtra(java.lang.String)> -> _SOURCE_
+%%<android.content.Intent: long getLongExtra(java.lang.String, long)> -> _SOURCE_
+%%<android.content.Intent: java.lang.String getPackage()> -> _SOURCE_
+%%<android.content.Intent: android.os.Parcelable[] getParcelableArrayExtra(java.lang.String)> -> _SOURCE_
+%%<android.content.Intent: java.util.ArrayList getParcelableArrayListExtra(java.lang.String)> -> _SOURCE_
+%%<android.content.Intent: android.os.Parcelable getParcelableExtra(java.lang.String)> -> _SOURCE_
+%%<android.content.Intent: java.lang.String getScheme()> -> _SOURCE_
+%%<android.content.Intent: android.content.Intent getSelector()> -> _SOURCE_
+%%<android.content.Intent: java.io.Serializable getSerializableExtra(java.lang.String)> -> _SOURCE_
+%%<android.content.Intent: short[] getShortArrayExtra(java.lang.String)> -> _SOURCE_
+%%<android.content.Intent: short getShortExtra(java.lang.String, short)> -> _SOURCE_
+%%<android.content.Intent: android.graphics.Rect getSourceBounds()> -> _SOURCE_
+%%<android.content.Intent: java.lang.String[] getStringArrayExtra(java.lang.String)> -> _SOURCE_
+%%<android.content.Intent: java.util.ArrayList getStringArrayListExtra(java.lang.String)> -> _SOURCE_
+%%<android.content.Intent: java.lang.String getStringExtra(java.lang.String)> -> _SOURCE_
+%%<android.content.Intent: java.lang.String getType()> -> _SOURCE_
+
+%<android.content.Intent: void %<init>()> -> _SOURCE_
+%<android.content.Intent: void %<init>(android.content.Intent)> -> _SOURCE_
+%<android.content.Intent: void %<init>(java.lang.String)> -> _SOURCE_
+%<android.content.Intent: void %<init>(java.lang.String,android.net.Uri)> -> _SOURCE_
+%<android.content.Intent: void %<init>(android.content.Context,java.lang.Class)> -> _SOURCE_
+%<android.content.Intent: void %<init>(java.lang.String,android.net.Uri,android.content.Context,java.lang.Class)> -> _SOURCE_
+

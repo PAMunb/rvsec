@@ -5,14 +5,14 @@ import java.util.List;
 import java.util.Objects;
 import java.util.StringJoiner;
 
-public class JcaMethod {
+public class MopMethod {
 
 	private String className;
 	private String name;
 	private List<String> parameters;
 	private String signature;
 
-	public JcaMethod(String className, String name, List<String> parameters, String signature) {
+	public MopMethod(String className, String name, List<String> parameters, String signature) {
 		this.className = className;
 		this.name = name;
 		this.parameters = parameters;
@@ -52,19 +52,19 @@ public class JcaMethod {
 			return true;
 		if ((obj == null) || (getClass() != obj.getClass()))
 			return false;
-		JcaMethod other = (JcaMethod) obj;
+		MopMethod other = (MopMethod) obj;
 		return Objects.equals(className, other.className) && Objects.equals(name, other.name) && Objects.equals(parameters, other.parameters)
 				&& Objects.equals(signature, other.signature);
 	}
 
 	@Override
 	public String toString() {
-		return String.format("JcaMethod [className=%s, name=%s, parameters=%s, signature=%s]", className, name, parameters, signature);
+		return String.format("MopMethod [className=%s, name=%s, parameters=%s, signature=%s]", className, name, parameters, signature);
 	}
 
 //	@Override
 //	public String toString() {
-//		return String.format("JcaMethod [%s %s]", className, name);
+//		return String.format("MopMethod [%s %s]", className, name);
 //	}
 
 }

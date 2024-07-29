@@ -7,7 +7,7 @@ import com.beust.jcommander.JCommander;
 
 import br.unb.cic.mop.extractor.cli.CommandLineArgs;
 import br.unb.cic.mop.extractor.cli.CommandLineArgs.TYPE;
-import br.unb.cic.mop.extractor.model.JcaMethod;
+import br.unb.cic.mop.extractor.model.MopMethod;
 import br.unb.cic.mop.extractor.writer.Writer;
 
 public class Main {
@@ -23,7 +23,7 @@ public class Main {
 				Set<String> classes = facade.listUsedClasses(jArgs.getMopSpecsDir(), jArgs.isDebug());
 				writer.writeClasses(classes, new File(jArgs.getOutputFile()));
 			} else {
-				Set<JcaMethod> methods = facade.listUsedMethods(jArgs.getMopSpecsDir(), jArgs.isDebug());
+				Set<MopMethod> methods = facade.listUsedMethods(jArgs.getMopSpecsDir(), jArgs.isDebug());
 				boolean withParams = false;
 				if (jArgs.getType() == TYPE.METHODS_PARAMS) {
 					withParams = true;
