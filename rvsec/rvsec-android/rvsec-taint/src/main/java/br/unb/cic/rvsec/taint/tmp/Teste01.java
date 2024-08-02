@@ -4,7 +4,7 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 
-import br.unb.cic.rvsec.taint.model.Apk;
+import br.unb.cic.rvsec.taint.model.ApkInfo;
 import soot.jimple.infoflow.android.axml.AXmlNode;
 import soot.jimple.infoflow.android.manifest.ProcessManifest;
 import soot.jimple.infoflow.android.manifest.binary.BinaryManifestActivity;
@@ -12,21 +12,21 @@ import soot.jimple.infoflow.android.manifest.binary.BinaryManifestActivity;
 public class Teste01 {
 
 
-	public Apk getAppInfo(File apkPath) {
-		Apk apk = new Apk(apkPath.getAbsolutePath());
+	public ApkInfo getAppInfo(File apkPath) {
+		ApkInfo apkInfo = new ApkInfo(apkPath.getAbsolutePath());
 		try (ProcessManifest processManifest = new ProcessManifest(apkPath)) {
 			AXmlNode manifest = processManifest.getManifest();
 			String pack = manifest.getAttribute("package").getValue().toString();
 			System.out.println("package name: " + pack);
 //			packageName = pack;
-			apk.setAppPackage(pack);
+			apkInfo.setAppPackage(pack);
 			boolean samePackage = true;
 			List<String> actNames = new ArrayList<>();
 			for (BinaryManifestActivity binaryManifestActivity : processManifest.getActivities()) {
 				AXmlNode act = binaryManifestActivity.getAXmlNode();
 				String actName = act.getAttribute("name").getValue().toString();
 				System.out.println(actName);
-				if(!actName.startsWith(apk.getAppPackage())) {
+				if(!actName.startsWith(apkInfo.getAppPackage())) {
 					samePackage = false;
 				}
 				System.out.println("activity: "+actName);
@@ -44,7 +44,7 @@ public class Teste01 {
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
-		return apk;
+		return apkInfo;
 	}
 
 
@@ -54,7 +54,7 @@ public class Teste01 {
 
 		Teste01 t = new Teste01();
 
-		Apk appInfo = t.getAppInfo(new File(apk));
+		ApkInfo appInfo = t.getAppInfo(new File(apk));
 		System.out.println(appInfo);
 	}
 }

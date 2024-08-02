@@ -14,7 +14,7 @@ import org.xmlpull.v1.XmlPullParserException;
 
 import br.unb.cic.mop.extractor.JavamopFacade;
 import br.unb.cic.mop.extractor.model.MopMethod;
-import br.unb.cic.rvsec.taint.model.Apk;
+import br.unb.cic.rvsec.taint.model.ApkInfo;
 import javamop.util.MOPException;
 import soot.Scene;
 import soot.SootClass;
@@ -32,13 +32,13 @@ public class TesteTaint {
 	public void execute(String apkPath, String mopSpecsDir, String androidPlatformsDir, String rtJarPath, String sourcesAndSinksFile)
 			throws MOPException, IOException, XmlPullParserException {
 		ApkReader apkReader = new ApkReader();
-		Apk apk = apkReader.readApk(apkPath);
+		ApkInfo apkInfo = apkReader.readApk(apkPath);
 
 		SootConfig sootConfig = new SootConfig();
 		SetupApplication app = sootConfig.initialize(apkPath, androidPlatformsDir, rtJarPath);
 //		app.constructCallgraph();
 
-		List<String> sinks = getSinks(mopSpecsDir, apk, sourcesAndSinksFile);
+		List<String> sinks = getSinks(mopSpecsDir, apkInfo, sourcesAndSinksFile);
 //		for (String sourceSinkItem : sinks) {
 //			System.out.println(sourceSinkItem);
 //		}
@@ -68,14 +68,14 @@ public class TesteTaint {
 		return data;
 	}
 
-	private List<String> getSinks(String mopSpecsDir, Apk apk, String sourcesAndSinksFile) throws MOPException, IOException {
+	private List<String> getSinks(String mopSpecsDir, ApkInfo apkInfo, String sourcesAndSinksFile) throws MOPException, IOException {
 		List<String> sinksAsString = readSourcesAndSinksFile(sourcesAndSinksFile);
 		Set<SootMethod> sinks = new HashSet<>();
 		JavamopFacade javamopFacade = new JavamopFacade();
 		Set<MopMethod> mopMethods = javamopFacade.listUsedMethods(mopSpecsDir, false);
 
 		for (SootClass c : Scene.v().getApplicationClasses()) {
-			if (isAppClass(c, apk)) {
+			if (isAppClass(c, apkInfo)) {
 				System.out.println("CLASSE: " + c.getName());
 				for (SootMethod m : c.getMethods()) {
 					UnitPatchingChain units = m.retrieveActiveBody().getUnits();
@@ -120,8 +120,8 @@ public class TesteTaint {
 		return false;
 	}
 
-	private boolean isAppClass(SootClass c, Apk apk) {
-		return checkPackage(c, apk.getManifestPackage()) || checkPackage(c, apk.getAppPackage());
+	private boolean isAppClass(SootClass c, ApkInfo apkInfo) {
+		return checkPackage(c, apkInfo.getManifestPackage()) || checkPackage(c, apkInfo.getAppPackage());
 	}
 
 	private boolean checkPackage(SootClass c, String appPackage) {
@@ -131,7 +131,7 @@ public class TesteTaint {
 	public static void main(String[] args) {
 		String mopSpecsDir = "/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec/rvsec/rvsec-mop/src/main/resources";
 
-		String androidPlatformsDir = "/home/pedro/desenvolvimento/aplicativos/android/platforms";
+		String androidPlatformsDir = "/home/pedro/desenvolvimento/aplicativos/android/sdk/platforms";
 		String rtJarPath = "/home/pedro/.sdkman/candidates/java/8.0.302-open/jre/lib/rt.jar";
 
 		String baseDir = "/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec/rv-android/apks_mini/";

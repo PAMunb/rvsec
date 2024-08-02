@@ -4,7 +4,7 @@ import java.io.IOException;
 
 import org.xmlpull.v1.XmlPullParserException;
 
-import br.unb.cic.rvsec.taint.model.Apk;
+import br.unb.cic.rvsec.taint.model.ApkInfo;
 import soot.MethodOrMethodContext;
 import soot.Scene;
 import soot.jimple.infoflow.android.SetupApplication;
@@ -16,8 +16,8 @@ public class Main {
 
 	public void execute(String apkPath, String androidPlatformsDir, String rtJarPath) throws IOException, XmlPullParserException {
 		ApkReader apkReader = new ApkReader();
-		Apk apk = apkReader.readApk(apkPath);
-		System.out.println(apk);
+		ApkInfo apkInfo = apkReader.readApk(apkPath);
+		System.out.println(apkInfo);
 
 		SootConfig sootConfig = new SootConfig();
 		SetupApplication app = sootConfig.initialize(apkPath, androidPlatformsDir, rtJarPath);

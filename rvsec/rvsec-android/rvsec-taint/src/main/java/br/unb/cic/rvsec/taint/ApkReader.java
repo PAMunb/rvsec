@@ -8,8 +8,8 @@ import java.util.Set;
 
 import org.xmlpull.v1.XmlPullParserException;
 
-import br.unb.cic.rvsec.taint.model.Activity;
-import br.unb.cic.rvsec.taint.model.Apk;
+import br.unb.cic.rvsec.taint.model.ActivityInfo;
+import br.unb.cic.rvsec.taint.model.ApkInfo;
 import soot.jimple.infoflow.android.axml.AXmlNode;
 import soot.jimple.infoflow.android.manifest.ProcessManifest;
 import soot.jimple.infoflow.android.manifest.binary.BinaryManifestActivity;
@@ -20,10 +20,10 @@ public class ApkReader {
 	static final String ACTION = "action";
 	static final String MAIN = "android.intent.action.MAIN";
 
-	public Apk readApk(String apkPath) throws IOException, XmlPullParserException {
+	public ApkInfo readApk(String apkPath) throws IOException, XmlPullParserException {
 		final File targetAPK = new File(apkPath);
 
-		Apk apk = new Apk(apkPath);
+		ApkInfo apkInfo = new ApkInfo(apkPath);
 		boolean samePackage = false;
 
 		// Parse the resource file
@@ -37,29 +37,30 @@ public class ApkReader {
 			AXmlNode manifest = processManifest.getManifest();
 
 			String manifestPackage = manifest.getAttribute("package").getValue().toString();
-			apk.setManifestPackage(manifestPackage);
+			apkInfo.setManifestPackage(manifestPackage);
+			apkInfo.setAppName(processManifest.getApplication().getName());
 
 			for (BinaryManifestActivity binaryManifestActivity : processManifest.getActivities()) {
-				Activity activity = readActivity(binaryManifestActivity);
-				if (!activity.getPackageName().startsWith(apk.getManifestPackage())) {
+				ActivityInfo activityInfo = readActivity(binaryManifestActivity);
+				if (!activityInfo.getPackageName().startsWith(apkInfo.getManifestPackage())) {
 					samePackage = false;
-					appPackage.add(activity.getPackageName());
+					appPackage.add(activityInfo.getPackageName());
 				}
-				apk.addActivity(activity);
+				apkInfo.addActivity(activityInfo);
 			}
 
-			apk.setActivitiesAreInSamePackage(samePackage);
+			apkInfo.setActivitiesAreInSamePackage(samePackage);
 			String longestCommonPrefix = StringUtils.longestCommonPrefix(new ArrayList<>(appPackage));
 			if(longestCommonPrefix != null && !"".equals(longestCommonPrefix)) {
-				apk.setAppPackage(longestCommonPrefix);
+				apkInfo.setAppPackage(longestCommonPrefix);
 			}else {
-				apk.setAppPackage(apk.getManifestPackage());
+				apkInfo.setAppPackage(apkInfo.getManifestPackage());
 			}
 		}
-		return apk;
+		return apkInfo;
 	}
 
-	private Activity readActivity(BinaryManifestActivity binaryManifestActivity) {
+	private ActivityInfo readActivity(BinaryManifestActivity binaryManifestActivity) {
 		AXmlNode act = binaryManifestActivity.getAXmlNode();
 		String actName = act.getAttribute("name").getValue().toString();
 		boolean isMain = false;
@@ -75,6 +76,6 @@ public class ApkReader {
 				}
 			}
 		}
-		return new Activity(actName, isMain);
+		return new ActivityInfo(actName, isMain);
 	}
 }

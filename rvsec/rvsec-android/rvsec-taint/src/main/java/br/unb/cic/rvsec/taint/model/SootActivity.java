@@ -4,11 +4,25 @@ import soot.SootClass;
 
 public class SootActivity {
 
-	private Activity activity;
+	private ActivityInfo activityInfo;
 	private SootClass clazz;
 
 	private boolean reachesMop;
 	private boolean directlyReachesMop;
-	private boolean isMain;
+
+	public boolean isMain() {
+		return activityInfo.isMain();
+	}
+
+
+	public SootActivity(ActivityInfo activityInfo, SootClass clazz) {
+		this.activityInfo = activityInfo;
+		this.clazz = clazz;
+	}
+
+	@Override
+	public String toString() {
+		return activityInfo.toString();
+	}
 
 }

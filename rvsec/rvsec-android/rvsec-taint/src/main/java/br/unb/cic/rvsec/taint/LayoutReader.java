@@ -4,7 +4,7 @@ import soot.Scene;
 import soot.SootClass;
 
 public class LayoutReader {
-private SootClass rLayout;
+	private SootClass rLayout;
 
 	public SootClass getRLayout() {
 		if(rLayout == null) {

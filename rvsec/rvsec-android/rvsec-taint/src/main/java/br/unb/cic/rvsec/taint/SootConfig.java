@@ -16,11 +16,14 @@ public class SootConfig {
 
 		final InfoflowAndroidConfiguration config = new InfoflowAndroidConfiguration();
 		config.getAnalysisFileConfig().setTargetAPKFile(apk);
+//		config.getAnalysisFileConfig().setAdditionalClasspath(rtJarPath);
 		config.getAnalysisFileConfig().setAndroidPlatformDir(androiPlatformsDir);
+//		config.getCallbackConfig().setEnableCallbacks(false);
 		config.setCodeEliminationMode(InfoflowConfiguration.CodeEliminationMode.NoCodeElimination);
-		config.setCallgraphAlgorithm(InfoflowConfiguration.CallgraphAlgorithm.SPARK); // CHA or SPARK
+		config.setCallgraphAlgorithm(InfoflowConfiguration.CallgraphAlgorithm.SPARK);
 		config.setMergeDexFiles(true);
 		config.setEnableReflection(true);
+		config.setEnableOriginalNames(true);
 		config.setSootIntegrationMode(InfoflowAndroidConfiguration.SootIntegrationMode.UseExistingInstance);
 
 		return new SetupApplication(config);
@@ -39,6 +42,8 @@ public class SootConfig {
 		Options.v().set_src_prec(Options.src_prec_apk);
 		Options.v().set_process_multiple_dex(true);
 		Options.v().set_soot_classpath(androidJAR + File.pathSeparatorChar + rtJarPath);
+
+		Options.v().parse(new String[]{"-keep-line-number", "-p", "jb", "use-original-names:true"});
 
 //		soot.options.Options.v().set_whole_program(true);
 //		soot.options.Options.v().set_force_android_jar(androidJAR);
