@@ -3,13 +3,15 @@
 APPNAME=$1
 EMUNAME=$2
 TIMEOUT=$3
+ARES_DIR=$4
 
 echo $APPNAME
 echo $EMUNAME
 echo $TIMEOUT
+echo $ARES_DIR
 
-cp -f $APPNAME apks/app.apk
-docker  run -v ./apks:/ares/apks --net=host -it --rm ares \
+cp -f $APPNAME $ARES_DIR/apks/app.apk
+docker  run -v $ARES_DIR/apks:/ares/apks --net=host -it --rm ares \
         venv/bin/python3 rl_interaction/parallel_exec.py \
             --list_devices . \
             --appium_ports 4270 \

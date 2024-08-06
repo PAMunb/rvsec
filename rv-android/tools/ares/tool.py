@@ -19,6 +19,7 @@ class ToolSpec(AbstractTool):
             exec_cmd = Command('{}'.format(ares_entrypoint),  [
                 app.path,
                 'emulator-5554',
-                str(timeout_in_minutes)
+                str(timeout_in_minutes),
+                "{}".format(os.path.join(WORKING_DIR, 'tools', 'ares'))
             ], timeout)
             exec_cmd.invoke(stdout=ares_trace)
