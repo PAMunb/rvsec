@@ -19,7 +19,7 @@ class ToolSpec(AbstractTool):
                                        'com.android.commands.fastbot')
 
     def execute_tool_specific_logic(self, app: App, timeout: int, log_file: str):
-        print(">>>>>>>>>>> {}".format(os.getcwd()))
+        # print(">>>>>>>>>>> {}".format(os.getcwd()))
         fastbot_base_dir = os.path.join(WORKING_DIR, 'tools', 'fastbot')
 
         jar_monkeyq = os.path.join(fastbot_base_dir, 'monkeyq.jar')

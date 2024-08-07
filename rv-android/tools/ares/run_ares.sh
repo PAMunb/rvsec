@@ -11,7 +11,7 @@ echo $TIMEOUT
 echo $ARES_DIR
 
 cp -f $APPNAME $ARES_DIR/apks/app.apk
-docker  run -v $ARES_DIR/apks:/ares/apks --net=host -it --rm ares \
+docker  run -v $ARES_DIR/apks:/ares/apks --net=host -i --rm phtcosta/ares \
         venv/bin/python3 rl_interaction/parallel_exec.py \
             --list_devices . \
             --appium_ports 4270 \
