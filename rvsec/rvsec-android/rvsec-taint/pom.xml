@@ -19,7 +19,7 @@
 			<groupId>br.unb.cic</groupId>
 			<artifactId>rvsec-mop-extractor</artifactId>
 		</dependency>
-			
+
 		<dependency>
 			<groupId>de.fraunhofer.sit.sse.flowdroid</groupId>
 			<artifactId>soot-infoflow</artifactId>
@@ -36,15 +36,32 @@
 			<version>${flowdroid.version}</version>
 		</dependency>
 
+<!--		<dependency>-->
+<!--			<groupId>ch.qos.logback</groupId>-->
+<!--			<artifactId>logback-classic</artifactId>-->
+<!--			<version>1.2.6</version>-->
+<!--			<exclusions>-->
+<!--				<exclusion>-->
+<!--					<groupId>org.slf4j</groupId>-->
+<!--					<artifactId>slf4j-simple</artifactId>-->
+<!--				</exclusion>-->
+<!--			</exclusions>-->
+<!--		</dependency>-->
 
-
-				<!-- https://mvnrepository.com/artifact/org.dom4j/dom4j -->
 <dependency>
-    <groupId>org.dom4j</groupId>
-    <artifactId>dom4j</artifactId>
-    <version>2.1.4</version>
+    <groupId>org.jgrapht</groupId>
+    <artifactId>jgrapht-core</artifactId>
+    <version>1.5.2</version>
 </dependency>
 
+		<!--
+		............................................................................... -->
+		<!-- https://mvnrepository.com/artifact/org.dom4j/dom4j -->
+		<dependency>
+			<groupId>org.dom4j</groupId>
+			<artifactId>dom4j</artifactId>
+			<version>2.1.4</version>
+		</dependency>
 
 		<dependency>
 			<groupId>de.femtopedia.dex2jar</groupId>

@@ -19,6 +19,38 @@ public class SootActivity {
 		this.activityInfo = activityInfo;
 		this.clazz = clazz;
 	}
+	
+	
+
+	public boolean isReachesMop() {
+		return reachesMop;
+	}
+
+
+	public void setReachesMop(boolean reachesMop) {
+		this.reachesMop = reachesMop;
+	}
+
+
+	public boolean isDirectlyReachesMop() {
+		return directlyReachesMop;
+	}
+
+
+	public void setDirectlyReachesMop(boolean directlyReachesMop) {
+		this.directlyReachesMop = directlyReachesMop;
+	}
+
+
+	public ActivityInfo getActivityInfo() {
+		return activityInfo;
+	}
+
+
+	public SootClass getClazz() {
+		return clazz;
+	}
+
 
 	@Override
 	public String toString() {

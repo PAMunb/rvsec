@@ -19,6 +19,7 @@
 		<module>rvsec-logger-logcat</module>
 		<module>rvsec-methods-extractor</module>
 		<module>rvsec-taint</module>
+		<module>teste-sootup</module>
 	</modules>
 
 </project>
