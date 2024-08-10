@@ -20,6 +20,7 @@
 		<module>rvsec-methods-extractor</module>
 		<module>rvsec-taint</module>
 		<module>teste-sootup</module>
+		<module>rvsec-gesda</module>
 	</modules>
 
 </project>
