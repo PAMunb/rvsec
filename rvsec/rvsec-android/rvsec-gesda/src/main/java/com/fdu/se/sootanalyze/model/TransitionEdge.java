@@ -49,4 +49,11 @@ public class TransitionEdge {
     public void setTarget(WindowNode target) {
         this.target = target;
     }
+
+	@Override
+	public String toString() {
+		return String.format("TransitionEdge [label=%s, id=%s, widget=%s, source=%s, target=%s]", label, id, widget.getWidgetId(), source.getName(), target.getName());
+	}
+    
+    
 }

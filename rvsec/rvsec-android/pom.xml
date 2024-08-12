@@ -13,14 +13,44 @@
 	<artifactId>rvsec-android</artifactId>
 	<packaging>pom</packaging>
 
-	<name>RVSec :: Android</name>	
-	
+	<name>RVSec :: Android</name>
+
 	<modules>
 		<module>rvsec-logger-logcat</module>
 		<module>rvsec-methods-extractor</module>
 		<module>rvsec-taint</module>
-		<module>teste-sootup</module>
 		<module>rvsec-gesda</module>
+		<module>teste-sootup</module>
 	</modules>
+
+	<properties>
+		<flowdroid.version>2.10.0</flowdroid.version>
+		<jgrapht.version>1.5.2</jgrapht.version>
+	</properties>
+
+	<dependencyManagement>
+		<dependencies>
+			<dependency>
+				<groupId>de.fraunhofer.sit.sse.flowdroid</groupId>
+				<artifactId>soot-infoflow</artifactId>
+				<version>${flowdroid.version}</version>
+			</dependency>
+			<dependency>
+				<groupId>de.fraunhofer.sit.sse.flowdroid</groupId>
+				<artifactId>soot-infoflow-summaries</artifactId>
+				<version>${flowdroid.version}</version>
+			</dependency>
+			<dependency>
+				<groupId>de.fraunhofer.sit.sse.flowdroid</groupId>
+				<artifactId>soot-infoflow-android</artifactId>
+				<version>${flowdroid.version}</version>
+			</dependency>
+			<dependency>
+				<groupId>org.jgrapht</groupId>
+				<artifactId>jgrapht-core</artifactId>
+				<version>${jgrapht.version}</version>
+			</dependency>
+		</dependencies>
+	</dependencyManagement>
 
 </project>

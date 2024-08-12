@@ -25,4 +25,10 @@ public class TransitionGraph {
     public void setEdges(List<TransitionEdge> edges) {
         this.edges = edges;
     }
+
+	@Override
+	public String toString() {
+		return String.format("TransitionGraph [NODES=%s, EDGES=%s]", nodes, edges);
+	}    
+    
 }

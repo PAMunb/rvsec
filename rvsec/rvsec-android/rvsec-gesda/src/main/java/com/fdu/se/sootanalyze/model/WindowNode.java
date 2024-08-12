@@ -103,4 +103,11 @@ public class WindowNode {
             }
         }
     }
+
+	@Override
+	public String toString() {
+		return String.format("WindowNode [id=%s, name=%s, label=%s, type=%s, hasOptionsMenu=%s, widgets=%s]", id, name, label, type, hasOptionsMenu, widgets);
+	}
+    
+    
 }
