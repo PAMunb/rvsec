@@ -1,6 +1,9 @@
 package com.fdu.se.sootanalyze.utils;
 
+import java.util.List;
+
 public class StringUtil {
+	
     public static String convertToAct(String classStr){
     	System.out.println("convertToAct="+classStr);
         int len = classStr.length();
@@ -19,5 +22,22 @@ public class StringUtil {
         String appFullName = nameArray[nameArray.length - 1];
         int length = appFullName.length();
         return appFullName.substring(0, length - 4);
+    }
+    
+    public static String longestCommonPrefix(List<String> strs) {
+        if (strs == null || strs.size() == 0) {
+            return "";
+        }
+
+        String prefix = strs.get(0);
+        for (int i = 1; i < strs.size(); i++) {
+            while (!strs.get(i).startsWith(prefix)) {
+                prefix = prefix.substring(0, prefix.length() - 1);
+                if (prefix.isEmpty()){
+                    return "";
+                }
+            }
+        }
+        return prefix;
     }
 }

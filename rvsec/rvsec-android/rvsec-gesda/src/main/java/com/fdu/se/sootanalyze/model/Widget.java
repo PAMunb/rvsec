@@ -3,20 +3,74 @@ package com.fdu.se.sootanalyze.model;
 import java.util.ArrayList;
 import java.util.List;
 
+import soot.SootField;
+import soot.SootMethod;
+
 public class Widget {
+	private long id;
+	
     private String widgetType;
     private String widgetId;
+    
     private String event;
-    private String listenerName;
-    private String eventMethod;
-    private int layoutRegister = 0;//whether the event of the widget is registered in the layout file, 1 yes, 0 no
-    private long id;
+    private String listenerName; //TODO esta sendo usado?
+    private String eventMethod;    
+    private boolean layoutRegister = false;//whether the event of the widget is registered in the layout file, 1 yes, 0 no
+    
     private List<Widget> dWidgets = new ArrayList<>();//the dependency of this widget
+    
+    private String text;
+    private String textId;
+    private String name;
+    
+    private SootField field;// sootfield
+	private SootMethod callbackMethod;
+    
 
     public Widget() {
     }
 
-    public String getWidgetType() {
+    public SootField getField() {
+		return field;
+	}
+
+	public void setField(SootField field) {
+		this.field = field;
+	}
+
+	public SootMethod getCallbackMethod() {
+		return callbackMethod;
+	}
+
+	public void setCallbackMethod(SootMethod callbackMethod) {
+		this.callbackMethod = callbackMethod;
+	}
+
+	public String getText() {
+		return text;
+	}
+
+	public void setText(String text) {
+		this.text = text;
+	}
+
+	public String getTextId() {
+		return textId;
+	}
+
+	public void setTextId(String textId) {
+		this.textId = textId;
+	}
+
+	public String getName() {
+		return name;
+	}
+
+	public void setName(String tmp) {
+		this.name = tmp;
+	}
+
+	public String getWidgetType() {
         return widgetType;
     }
 
@@ -56,11 +110,11 @@ public class Widget {
         this.eventMethod = eventMethod;
     }
 
-    public int getLayoutRegister() {
+    public boolean isLayoutRegister() {
         return layoutRegister;
     }
 
-    public void setLayoutRegister(int layoutRegister) {
+    public void setLayoutRegister(boolean layoutRegister) {
         this.layoutRegister = layoutRegister;
     }
 
@@ -80,16 +134,13 @@ public class Widget {
         this.dWidgets = dWidgets;
     }
 
-    @Override
-    public String toString() {
-        return "Widget{" +
-                "widgetType='" + widgetType + '\'' +
-                ", widgetId='" + widgetId + '\'' +
-                ", event='" + event + '\'' +
-                ", listenerName='" + listenerName + '\'' +
-                ", eventMethod='" + eventMethod + '\'' +
-                ", layoutRegister=" + layoutRegister +
-                ", id=" + id +
-                '}';
-    }
+	@Override
+	public String toString() {
+		return String.format("Widget [id=%s, widgetType=%s, widgetId=%s, event=%s, listenerName=%s, eventMethod=%s, layoutRegister=%s, text=%s, textId=%s, name=%s, field=%s, callbackMethod=%s]", id, widgetType, widgetId, event, listenerName,
+				eventMethod, layoutRegister, text, textId, name, field, callbackMethod);
+	}
+
+
+
+    
 }
