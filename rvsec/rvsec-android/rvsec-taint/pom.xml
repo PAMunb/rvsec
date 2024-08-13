@@ -23,17 +23,14 @@
 		<dependency>
 			<groupId>de.fraunhofer.sit.sse.flowdroid</groupId>
 			<artifactId>soot-infoflow</artifactId>
-			<version>${flowdroid.version}</version>
 		</dependency>
 		<dependency>
 			<groupId>de.fraunhofer.sit.sse.flowdroid</groupId>
 			<artifactId>soot-infoflow-summaries</artifactId>
-			<version>${flowdroid.version}</version>
 		</dependency>
 		<dependency>
 			<groupId>de.fraunhofer.sit.sse.flowdroid</groupId>
 			<artifactId>soot-infoflow-android</artifactId>
-			<version>${flowdroid.version}</version>
 		</dependency>
 
 <!--		<dependency>-->
@@ -51,7 +48,6 @@
 <dependency>
     <groupId>org.jgrapht</groupId>
     <artifactId>jgrapht-core</artifactId>
-    <version>1.5.2</version>
 </dependency>
 
 		<!--

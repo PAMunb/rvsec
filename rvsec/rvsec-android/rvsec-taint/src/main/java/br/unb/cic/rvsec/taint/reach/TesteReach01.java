@@ -17,6 +17,7 @@ import br.unb.cic.rvsec.taint.MopFacade;
 import br.unb.cic.rvsec.taint.SootConfig;
 import br.unb.cic.rvsec.taint.model.ApkInfo;
 import br.unb.cic.rvsec.taint.model.SootActivity;
+import br.unb.cic.rvsec.taint.util.AndroidUtil;
 import br.unb.cic.rvsec.taint.xml.XmlAnalysis;
 import soot.Scene;
 import soot.SootClass;
@@ -27,9 +28,11 @@ import soot.jimple.toolkits.callgraph.Edge;
 
 public class TesteReach01 {
 
+	private ApkInfo apkInfo;
+
 	public void execute(String apkPath, String mopSpecsDir, String androidPlatformsDir, String rtJarPath, String sourcesAndSinksFile) throws Exception {
 		ApkReader apkReader = new ApkReader();
-		ApkInfo apkInfo = apkReader.readApk(apkPath);
+		apkInfo = apkReader.readApk(apkPath);
 
 		SootConfig sootConfig = new SootConfig();
 		SetupApplication app = sootConfig.initialize(apkPath, androidPlatformsDir, rtJarPath);
@@ -94,6 +97,12 @@ public class TesteReach01 {
 	}
 
 	public boolean isValidEntrypoint(SootMethod sootMethod) {
+		System.out.println("isValidEntrypoint="+sootMethod);
+		System.out.println("\t-"+sootMethod.getDeclaringClass().declaresMethod(sootMethod.getSubSignature()));
+		System.out.println("\t- abstract="+sootMethod.isAbstract()+" :: concrete="+sootMethod.isConcrete()+" :: constructor="+sootMethod.isConstructor());
+		System.out.println("\t- declared="+sootMethod.isDeclared()+" :: "+sootMethod.isEntryMethod()+" :: main="+sootMethod.isMain()+" :: "+sootMethod.isPhantom());
+		System.out.println("\t- numSubSig"+sootMethod.getNumberedSubSignature());
+		System.out.println("\t- numSubSig"+sootMethod.getDeclaration());
 //		if (sootMethod.toString().contains("<init>") 
 //				|| sootMethod.toString().contains("<clinit>") 
 //				|| sootMethod.getName().equals("dummyMainMethod"))
@@ -104,11 +113,18 @@ public class TesteReach01 {
 	private Graph<SootMethod, DefaultEdge> toJGraph(CallGraph callGraph) {
 		Graph<SootMethod, DefaultEdge> g = new DefaultDirectedGraph<>(DefaultEdge.class);
 		for (Edge edge : callGraph) {
-			g.addVertex(edge.src());
-			g.addVertex(edge.tgt());
-			g.addEdge(edge.src(), edge.tgt());
+			if (isValid(edge)) {
+				g.addVertex(edge.src());
+				g.addVertex(edge.tgt());
+				g.addEdge(edge.src(), edge.tgt());
+			}
 		}
 		return g;
+	}
+
+	private boolean isValid(Edge edge) {
+		SootClass sourceClass = edge.getSrc().method().getDeclaringClass();
+		return AndroidUtil.isAppClass(sourceClass, apkInfo);
 	}
 
 	public static void main(String[] args) {
