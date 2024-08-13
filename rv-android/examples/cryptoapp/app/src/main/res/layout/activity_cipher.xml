@@ -14,11 +14,26 @@
         android:layout_weight="0"
         android:text="@string/cteCipher" />
 
-    <TextView
-        android:id="@+id/textViewNotImplementedYet"
-        android:layout_width="wrap_content"
+    <EditText
+        android:id="@+id/editTextCipherEncrypt"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_weight="0"
-        android:text="Not implemented yet !!!" />
+        android:ems="10"
+        android:hint="Input text ..."
+        android:inputType="textPersonName" />
+
+    <TextView
+        android:id="@+id/textViewCypherEncryptResult"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_weight="0"  />
+
+    <Button
+        android:id="@+id/btn_cipher_encrypt"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_weight="0"
+        android:text="@string/btnCipher" />
 
 </LinearLayout>

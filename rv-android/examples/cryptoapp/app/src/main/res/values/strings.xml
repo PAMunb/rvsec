@@ -4,6 +4,7 @@
     <string name="btnGenerateHash">Generate Hash</string>
     <string name="msgHashGenerated">Hash Generated!!!</string>
     <string name="cteCipher">Cipher</string>
+    <string name="btnCipher">Encrypt</string>
     <string name="msgError">Error</string>
     <string name="msgInvalidInput">Invalid input!!!</string>
 </resources>
