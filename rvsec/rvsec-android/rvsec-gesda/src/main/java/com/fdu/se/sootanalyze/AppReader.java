@@ -3,9 +3,14 @@ package com.fdu.se.sootanalyze;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.FileSystems;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.Set;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.xmlpull.v1.XmlPullParserException;
 
 import com.fdu.se.sootanalyze.model.xml.ActivityInfo;
@@ -21,6 +26,8 @@ import soot.jimple.infoflow.android.manifest.binary.BinaryManifestActivity;
 import soot.jimple.infoflow.android.resources.ARSCFileParser;
 
 public class AppReader {
+	private static Logger log = LoggerFactory.getLogger(AppReader.class);
+	
 	private static final String PACKAGE = "package";
 	private static final String NAME = "name";
 
@@ -29,26 +36,30 @@ public class AppReader {
 	static final String MAIN = "android.intent.action.MAIN";
 
 	public static AppInfo readApk(String apkPath) throws IOException, XmlPullParserException {
+		log.info("Reading APK: "+apkPath);
 		final File targetAPK = new File(apkPath);
 
 		AppInfo appInfo = new AppInfo(apkPath);
-		boolean samePackage = false;
+//		boolean samePackage = false;
 
 		ARSCFileParser resources = new ARSCFileParser();
 		resources.parse(targetAPK.getAbsolutePath());
 
 		try (ProcessManifest processManifest = new ProcessManifest(targetAPK, resources)) {
+			log.debug("Processing manifest");
 			Set<String> appPackage = new HashSet<>();
 			AXmlNode manifest = processManifest.getManifest();
 
 			String manifestPackage = getAttributeAsString(PACKAGE, manifest);
 			appInfo.setPackage(manifestPackage);
 			appInfo.setAppName(processManifest.getApplication().getName());
+			log.trace("package="+appInfo.getPackage());
+			log.trace("appName="+appInfo.getAppName());
 
 			for (BinaryManifestActivity binaryManifestActivity : processManifest.getActivities()) {
 				ActivityInfo activityInfo = readActivity(binaryManifestActivity);
 				if (!activityInfo.getPackageName().startsWith(appInfo.getPackage())) {
-					samePackage = false;
+//					samePackage = false;
 					appPackage.add(activityInfo.getPackageName());
 				}
 				appInfo.addActivity(activityInfo);
@@ -66,7 +77,7 @@ public class AppReader {
 	}	
 	
 	public static File decompileApp(AppInfo appInfo) {
-		System.out.println("Decompiling app: " + appInfo.getPath());
+		log.info("Decompiling app: " + appInfo.getPath());
 		String appName = appInfo.getLabel();
 		File outDir = new File("apks" + FileSystems.getDefault().getSeparator() + appName);
 		// Config config = Config.getInstance();
@@ -79,21 +90,29 @@ public class AppReader {
 
 		ApkDecoder decoder = new ApkDecoder(new File(appInfo.getPath()));
 		try {
+			if(outDir.exists()) {
+//				Files.delete(Path.of(outDir.getAbsolutePath()));
+				Files.walk(Path.of(outDir.getAbsolutePath()))
+			      .sorted(Comparator.reverseOrder())
+			      .map(Path::toFile)
+			      .forEach(File::delete);
+			}
 			decoder.decode(outDir);
-			System.out.println("decompile " + appName + " successfully");
+			log.info("Decompile " + appName + " successfully");
 			return outDir;
 		} catch (AndrolibException | DirectoryException | IOException e) {
 			// TODO Auto-generated catch block
-			System.out.println("decompile " + appName + " failed");
+			log.error("Decompile " + appName + " failed");
 			throw new RuntimeException("Error decompiling: "+appInfo.getPath(), e);
 		}
 	}
 
 	private static ActivityInfo readActivity(BinaryManifestActivity binaryManifestActivity) {
-		AXmlNode act = binaryManifestActivity.getAXmlNode();
-		String activityName = getAttributeAsString(NAME, act);
+		AXmlNode activityNode = binaryManifestActivity.getAXmlNode();
+		String activityName = getAttributeAsString(NAME, activityNode);
+		log.debug("Reading activity: "+activityName);
 		boolean isMain = false;
-		for (AXmlNode child : act.getChildren()) {
+		for (AXmlNode child : activityNode.getChildren()) {
 			if (INTENT_FILTER.equals(child.getTag())) {
 				for (AXmlNode grandchild : child.getChildren()) {
 					if (ACTION.equals(grandchild.getTag())) {

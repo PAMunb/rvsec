@@ -37,6 +37,12 @@
 		<dependency>
 			<groupId>de.fraunhofer.sit.sse.flowdroid</groupId>
 			<artifactId>soot-infoflow-android</artifactId>
+			<exclusions>
+				<exclusion>
+					<groupId>org.slf4j</groupId>
+					<artifactId>slf4j-simple</artifactId>
+				</exclusion>
+			</exclusions>
 		</dependency>
 
 		<!-- https://mvnrepository.com/artifact/org.apktool/apktool-lib -->
@@ -46,28 +52,34 @@
 			<version>2.9.3</version>
 		</dependency>
 
+		<dependency>
+			<groupId>ch.qos.logback</groupId>
+			<artifactId>logback-classic</artifactId>
+			<version>1.2.6</version>
+		</dependency>
+
 
 		<!-- <dependency>
             <groupId>ca.mcgill.sable</groupId>
             <artifactId>soot</artifactId>
             <version>4.1.0</version>
         </dependency>-->
-		<dependency>
-			<groupId>net.sf.trove4j</groupId>
-			<artifactId>trove4j</artifactId>
-			<version>3.0.3</version>
-		</dependency>
-		<dependency>
-			<groupId>mysql</groupId>
-			<artifactId>mysql-connector-java</artifactId>
-			<version>5.1.38</version>
-		</dependency>
+		<!--		<dependency>-->
+		<!--			<groupId>net.sf.trove4j</groupId>-->
+		<!--			<artifactId>trove4j</artifactId>-->
+		<!--			<version>3.0.3</version>-->
+		<!--		</dependency>-->
+		<!--		<dependency>-->
+		<!--			<groupId>mysql</groupId>-->
+		<!--			<artifactId>mysql-connector-java</artifactId>-->
+		<!--			<version>5.1.38</version>-->
+		<!--		</dependency>-->
 	</dependencies>
 
 	<repositories>
 		<repository>
 			<id>central</id>
-<!--			<url>https://repo.maven.apache.org/maven2</url>-->
+			<!--			<url>https://repo.maven.apache.org/maven2</url>-->
 			<url>https://repo1.maven.org/maven2/</url>
 		</repository>
 		<repository>

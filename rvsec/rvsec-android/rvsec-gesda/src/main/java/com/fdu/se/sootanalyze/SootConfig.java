@@ -3,6 +3,9 @@ package com.fdu.se.sootanalyze;
 import java.io.File;
 import java.util.Collections;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import soot.Scene;
 import soot.jimple.infoflow.InfoflowConfiguration;
 import soot.jimple.infoflow.android.InfoflowAndroidConfiguration;
@@ -10,6 +13,7 @@ import soot.jimple.infoflow.android.SetupApplication;
 import soot.options.Options;
 
 public class SootConfig {
+	private static Logger log = LoggerFactory.getLogger(SootAnalyze.class);
 
 	public static SetupApplication initialize(String apk, String androiPlatformsDir, String rtJarPath) {
 		initializeSoot(apk, androiPlatformsDir, rtJarPath);
@@ -26,20 +30,25 @@ public class SootConfig {
 		config.setEnableOriginalNames(true);
 		config.setSootIntegrationMode(InfoflowAndroidConfiguration.SootIntegrationMode.UseExistingInstance);
 
+		log.debug("Creating soot.jimple.infoflow.android.SetupApplication");
 		return new SetupApplication(config);
 	}
 
-	private static void initializeSoot(String apk, String androidJAR, String rtJarPath) {
+	private static void initializeSoot(String apk, String androidPlatformsDir, String rtJarPath) {
+		log.debug("Initializing Soot ...");
+		log.trace("APK: "+apk);
+		log.trace("Android platforms dir: "+androidPlatformsDir);
+		log.trace("RT jar: "+rtJarPath);
 		Options.v().set_full_resolver(true);
 		Options.v().set_allow_phantom_refs(true);
 		Options.v().set_prepend_classpath(true);
 		Options.v().set_validate(true);
 		Options.v().set_output_format(Options.output_format_none);
 		Options.v().set_process_dir(Collections.singletonList(apk));
-		Options.v().set_android_jars(androidJAR);
+		Options.v().set_android_jars(androidPlatformsDir);
 		Options.v().set_src_prec(Options.src_prec_apk);
 		Options.v().set_process_multiple_dex(true);
-		Options.v().set_soot_classpath(androidJAR + File.pathSeparatorChar + rtJarPath);
+		Options.v().set_soot_classpath(androidPlatformsDir + File.pathSeparatorChar + rtJarPath);
 
 		Options.v().parse(new String[]{"-keep-line-number", "-p", "jb", "use-original-names:true"});
 

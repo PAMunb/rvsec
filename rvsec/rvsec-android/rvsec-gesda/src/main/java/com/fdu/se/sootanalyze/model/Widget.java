@@ -13,8 +13,9 @@ public class Widget {
     private String widgetId;
     
     private String event;
-    private String listenerName; //TODO esta sendo usado?
-    private String eventMethod;    
+    private String listenerName; 
+    private String eventMethod; 
+    @Deprecated
     private boolean layoutRegister = false;//whether the event of the widget is registered in the layout file, 1 yes, 0 no
     
     private List<Widget> dWidgets = new ArrayList<>();//the dependency of this widget

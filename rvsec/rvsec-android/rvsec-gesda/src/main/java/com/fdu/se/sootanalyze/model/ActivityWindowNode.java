@@ -87,7 +87,7 @@ public class ActivityWindowNode extends WindowNode {
 
 	@Override
 	public String toString() {
-		return String.format("ActivityWindowNode [optionsMenuNode=%s, getName()=%s, isMain()=%s, getLayoutFileName()=%s, getId()=%s, getType()=%s, widgets=%s]", optionsMenuNode!=null, getName(), isMain(), getLayoutFileName(), getId(), getType(), getWidgets());
+		return String.format("ActivityWindowNode [optionsMenuNode=%s, getName()=%s, isMain()=%s, getLayoutFileName()=%s, getId()=%s, getType()=%s, optionsMenuNode=%s, widgets=%s]", optionsMenuNode!=null, getName(), isMain(), getLayoutFileName(), getId(), getType(), optionsMenuNode, getWidgets());
 	}
     
 }
