@@ -34,14 +34,14 @@ public class CipherActivity extends AppCompatActivity {
     }
 
     private void encrypt() {
-        Log.i("cryptoapp", "Encrypting ...");
+        Log.i("CryptoApp", "Encrypting ...");
         CipherUtil util = new CipherUtil();
         String text = editTextEncrypt.getText().toString();
         try {
             String result = util.encrypt(text);
             textViewEncryptResult.setText(result);
         } catch (Exception e) {
-            Log.e("cryptoapp", "Error: " + e.getMessage());
+            Log.e("CryptoApp", "Error: " + e.getMessage());
         }
     }
 }
