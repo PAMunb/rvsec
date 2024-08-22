@@ -44,4 +44,5 @@ public class CipherActivity extends AppCompatActivity {
             Log.e("CryptoApp", "Error: " + e.getMessage());
         }
     }
+
 }

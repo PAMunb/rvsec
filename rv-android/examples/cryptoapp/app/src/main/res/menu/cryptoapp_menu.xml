@@ -8,4 +8,11 @@
         android:id="@+id/menu_item_cipher"
         android:icon="@mipmap/ic_launcher"
         android:title="@string/cteCipher" />
+
+    <item
+        android:id="@+id/menu_item_home"
+        android:icon="@mipmap/ic_launcher"
+        android:title="@string/cteCipher"
+        android:onClick="showHome" />
+
 </menu>

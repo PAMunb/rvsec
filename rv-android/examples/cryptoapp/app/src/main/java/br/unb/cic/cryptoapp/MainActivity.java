@@ -21,12 +21,6 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-
-//        menuItemMessageDigest = (MenuItem) findViewById(R.id.menu_item_message_digest);
-//        menuItemMessageCipher = (MenuItem) findViewById(R.id.menu_item_cipher);
-//
-//        menuItemMessageDigest.setIntent(new Intent(this, MessageDigestActivity.class));
-//        menuItemMessageDigest.setIntent(new Intent(this, CipherActivity.class));
     }
 
     public void showScreenMessageDigest(View view) {
@@ -35,6 +29,11 @@ public class MainActivity extends AppCompatActivity {
 
     public void showScreenCipher(View view) {
         showScreen(CipherActivity.class);
+    }
+
+    public void showHome(MenuItem item){
+        Intent intent = new Intent(this, MainActivity.class);
+        startActivity(intent);
     }
 
     @Override
@@ -55,10 +54,6 @@ public class MainActivity extends AppCompatActivity {
 
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
-//        if (item.getItemId() == R.id.menu_item_message_digest) {
-//            Intent intent = new Intent(this, MessageDigestActivity.class);
-//            startActivity(intent);
-//        }
         if (item.getItemId() == R.id.menu_item_cipher) {
             Intent intent = new Intent(this, CipherActivity.class);
             startActivity(intent);
