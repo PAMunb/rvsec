@@ -14,11 +14,13 @@ import soot.options.Options;
 
 public class SootConfig {
 	private static Logger log = LoggerFactory.getLogger(SootAnalyze.class);
+	
+	private static InfoflowAndroidConfiguration config;
 
 	public static SetupApplication initialize(String apk, String androiPlatformsDir, String rtJarPath) {
 		initializeSoot(apk, androiPlatformsDir, rtJarPath);
 
-		final InfoflowAndroidConfiguration config = new InfoflowAndroidConfiguration();
+		config = new InfoflowAndroidConfiguration();
 		config.getAnalysisFileConfig().setTargetAPKFile(apk);
 //		config.getAnalysisFileConfig().setAdditionalClasspath(rtJarPath);
 		config.getAnalysisFileConfig().setAndroidPlatformDir(androiPlatformsDir);
@@ -34,6 +36,10 @@ public class SootConfig {
 		return new SetupApplication(config);
 	}
 
+	public static InfoflowAndroidConfiguration getConfig() {
+		return config;
+	}
+	
 	private static void initializeSoot(String apk, String androidPlatformsDir, String rtJarPath) {
 		log.debug("Initializing Soot ...");
 		log.trace("APK: "+apk);
@@ -44,6 +50,10 @@ public class SootConfig {
 		Options.v().set_prepend_classpath(true);
 		Options.v().set_validate(true);
 		Options.v().set_output_format(Options.output_format_none);
+		
+//		Options.v().set_output_format(Options.output_format_jimple);
+//		Options.v().set_output_dir("/home/pedro/tmp/cryptoapp_jimple");
+		
 		Options.v().set_process_dir(Collections.singletonList(apk));
 		Options.v().set_android_jars(androidPlatformsDir);
 		Options.v().set_src_prec(Options.src_prec_apk);
@@ -61,5 +71,8 @@ public class SootConfig {
 		Options.v().setPhaseOption("cg.spark", "verbose:false");
 
 		Scene.v().loadNecessaryClasses();
+		
+//		PackManager.v().runPacks();
+//		PackManager.v().writeOutput();
 	}
 }

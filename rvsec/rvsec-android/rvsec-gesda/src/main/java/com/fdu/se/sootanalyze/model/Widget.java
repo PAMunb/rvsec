@@ -15,8 +15,7 @@ public class Widget {
     private String event;
     private String listenerName; 
     private String eventMethod; 
-    @Deprecated
-    private boolean layoutRegister = false;//whether the event of the widget is registered in the layout file, 1 yes, 0 no
+    private boolean eventRegisteredInLayoutFile = false;//whether the event of the widget is registered in the layout file, 1 yes, 0 no
     
     private List<Widget> dWidgets = new ArrayList<>();//the dependency of this widget
     
@@ -111,12 +110,12 @@ public class Widget {
         this.eventMethod = eventMethod;
     }
 
-    public boolean isLayoutRegister() {
-        return layoutRegister;
+    public boolean isEventRegisteredInLayoutFile() {
+        return eventRegisteredInLayoutFile;
     }
 
-    public void setLayoutRegister(boolean layoutRegister) {
-        this.layoutRegister = layoutRegister;
+    public void setEventRegisteredInLayoutFile(boolean layoutRegister) {
+        this.eventRegisteredInLayoutFile = layoutRegister;
     }
 
     public String getListenerName() {
@@ -137,8 +136,8 @@ public class Widget {
 
 	@Override
 	public String toString() {
-		return String.format("Widget [id=%s, widgetType=%s, widgetId=%s, event=%s, listenerName=%s, eventMethod=%s, layoutRegister=%s, text=%s, textId=%s, name=%s, field=%s, callbackMethod=%s]", id, widgetType, widgetId, event, listenerName,
-				eventMethod, layoutRegister, text, textId, name, field, callbackMethod);
+		return String.format("Widget [id=%s, widgetType=%s, widgetId=%s, event=%s, listenerName=%s, eventMethod=%s, eventRegisteredInLayoutFile=%s, text=%s, textId=%s, name=%s, field=%s, callbackMethod=%s]", id, widgetType, widgetId, event, listenerName,
+				eventMethod, eventRegisteredInLayoutFile, text, textId, name, field, callbackMethod);
 	}
 
 

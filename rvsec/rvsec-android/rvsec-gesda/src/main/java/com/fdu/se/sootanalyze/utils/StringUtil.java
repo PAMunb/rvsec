@@ -40,4 +40,20 @@ public class StringUtil {
         }
         return prefix;
     }
+    
+    
+    public static boolean isHexadecimal(String strNum) {
+        if (strNum == null) {
+        	System.err.println("null");
+            return false;
+        }
+        try {
+            Integer.parseInt(strNum.substring(2), 16);
+        } catch (NumberFormatException nfe) {
+        	System.err.println("NumberFormatException: "+nfe.getMessage());
+            return false;
+        }
+        return true;
+    }
+    
 }
