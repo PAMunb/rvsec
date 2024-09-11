@@ -3,15 +3,19 @@ package com.fdu.se.sootanalyze.model;
 import java.util.ArrayList;
 import java.util.List;
 
+@Deprecated
 public class SubMenu extends Widget {
     private String text;
     private int subMenuId;
-    private List<MenuItem> items = new ArrayList<>();
+    private List<TextViewWidget> items = new ArrayList<>();
 
     public SubMenu() {
-        this.setEvent("click");
-        this.setWidgetType("android.view.SubMenu");
+    	super(WidgetBuilder.newSubMenu());//TODO
+//        this.setEvent("click");
+//        this.setWidgetType("android.view.SubMenu");
     }
+
+
 
     public String getText() {
         return text;
@@ -29,11 +33,15 @@ public class SubMenu extends Widget {
         this.subMenuId = subMenuId;
     }
 
-    public List<MenuItem> getItems() {
+    public List<TextViewWidget> getItems() {
         return items;
     }
 
-    public void setItems(List<MenuItem> items) {
+    public void setItems(List<TextViewWidget> items) {
         this.items = items;
     }
+
+
+
+
 }

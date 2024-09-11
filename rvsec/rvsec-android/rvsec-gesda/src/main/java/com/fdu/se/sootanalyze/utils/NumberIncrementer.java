@@ -24,4 +24,8 @@ public class NumberIncrementer {
 		return num;
 	}
 	
+	public long next() {
+		return increment();
+	}
+	
 }

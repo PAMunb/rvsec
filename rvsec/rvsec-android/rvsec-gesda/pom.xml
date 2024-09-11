@@ -12,6 +12,11 @@
 
 	<artifactId>rvsec-gesda</artifactId>
 
+	<properties>
+		<main.class>com.fdu.se.sootanalyze.Main</main.class>
+		<final.jar.name>rvsec-gesda</final.jar.name>
+	</properties>
+
 	<dependencies>
 		<dependency>
 			<groupId>de.fraunhofer.sit.sse.flowdroid</groupId>
@@ -39,7 +44,40 @@
 			<groupId>ch.qos.logback</groupId>
 			<artifactId>logback-classic</artifactId>
 		</dependency>
+		<dependency>
+			<groupId>com.beust</groupId>
+			<artifactId>jcommander</artifactId>
+		</dependency>
 	</dependencies>
+
+	<build>
+		<plugins>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-assembly-plugin</artifactId>
+				<configuration>
+					<archive>
+						<manifest>
+							<mainClass>${main.class}</mainClass>
+						</manifest>
+					</archive>
+					<descriptorRefs>
+						<descriptorRef>jar-with-dependencies</descriptorRef>
+					</descriptorRefs>
+					<finalName>${final.jar.name}</finalName>
+					<!--					<appendAssemblyId>false</appendAssemblyId>-->
+				</configuration>
+				<executions>
+					<execution>
+						<phase>package</phase>
+						<goals>
+							<goal>single</goal>
+						</goals>
+					</execution>
+				</executions>
+			</plugin>
+		</plugins>
+	</build>
 
 	<repositories>
 		<repository>

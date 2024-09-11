@@ -16,15 +16,21 @@ import org.xmlpull.v1.XmlPullParserException;
 
 import com.fdu.se.sootanalyze.model.ActivityWindowNode;
 import com.fdu.se.sootanalyze.model.AnalysisType;
-import com.fdu.se.sootanalyze.model.MenuItem;
+import com.fdu.se.sootanalyze.model.BaseListeners;
+import com.fdu.se.sootanalyze.model.Listener;
+import com.fdu.se.sootanalyze.model.ListenerType;
 import com.fdu.se.sootanalyze.model.SubMenu;
+import com.fdu.se.sootanalyze.model.TextViewWidget;
 import com.fdu.se.sootanalyze.model.TransitionEdge;
 import com.fdu.se.sootanalyze.model.TransitionGraph;
 import com.fdu.se.sootanalyze.model.Widget;
+import com.fdu.se.sootanalyze.model.WidgetBuilder;
+import com.fdu.se.sootanalyze.model.WidgetType;
 import com.fdu.se.sootanalyze.model.WindowNode;
 import com.fdu.se.sootanalyze.model.WindowType;
 import com.fdu.se.sootanalyze.model.xml.ActivityInfo;
 import com.fdu.se.sootanalyze.model.xml.AppInfo;
+import com.fdu.se.sootanalyze.model.xml.MethodInfo;
 import com.fdu.se.sootanalyze.utils.NumberIncrementer;
 import com.fdu.se.sootanalyze.utils.StringUtil;
 
@@ -40,7 +46,9 @@ import soot.UnitPatchingChain;
 import soot.Value;
 import soot.jimple.AssignStmt;
 import soot.jimple.CastExpr;
+import soot.jimple.ClassConstant;
 import soot.jimple.IdentityStmt;
+import soot.jimple.IntConstant;
 import soot.jimple.InterfaceInvokeExpr;
 import soot.jimple.InvokeExpr;
 import soot.jimple.InvokeStmt;
@@ -59,6 +67,8 @@ import soot.toolkits.graph.BriefUnitGraph;
 import soot.toolkits.graph.UnitGraph;
 
 public class SootAnalyze {
+	private static final String INTENT_NEW = "<android.content.Intent: void <init>(android.content.Context,java.lang.Class)>";
+
 	private static Logger log = LoggerFactory.getLogger(SootAnalyze.class);
 
 	private SetupApplication app;
@@ -86,7 +96,7 @@ public class SootAnalyze {
 	private NumberIncrementer curWidgetId = new NumberIncrementer();// the current id of Widget when constructing Transition Graph
 	private long curEdgeId = 0;// the current id of TransitionEdge when constructing Transition Graph
 
-	private List<String> setListeners;
+//	private List<String> setListeners;
 	private List<String> startActSignatures;
 	private List<String> addMenuItemSignatures;
 	private List<String> addSubMenuSignatures;
@@ -115,9 +125,24 @@ public class SootAnalyze {
 
 		appInfo = AppReader.readApk(apkPath);
 		initializeR(appInfo.getPackage());
+		complementAppInfo();
 		xmlParser = new XmlParser(appInfo, idMap);
 
 		return appInfo;
+	}
+
+	@Deprecated
+	private void complementAppInfo() {
+		for (SootClass clazz : Scene.v().getApplicationClasses()) {
+			for (ActivityInfo activityInfo : appInfo.getActivities()) {
+				if (clazz.getName().equals(activityInfo.getName())) {
+					for (SootMethod method : clazz.getMethods()) {
+						MethodInfo methodInfo = new MethodInfo(method.getName(), method.getSignature(), method.getModifiers());
+						activityInfo.addMethod(methodInfo);
+					}
+				}
+			}
+		}
 	}
 
 	public List<WindowNode> analyze() throws IOException, XmlPullParserException {
@@ -133,8 +158,8 @@ public class SootAnalyze {
 		List<WindowNode> activities = new ArrayList<>();// all activities'window node
 		for (SootClass clazz : Scene.v().getApplicationClasses()) {
 			for (ActivityInfo actInfo : appInfo.getActivities()) {
-				if (actInfo.getName().equals(clazz.getName())) {
 //				if (clazz.getName().startsWith(actInfo.getName())) { // include inner classes
+				if (actInfo.getName().equals(clazz.getName())) {
 					WindowNode activity = processActivity(actInfo, clazz);
 					activities.add(activity);
 				}
@@ -154,9 +179,9 @@ public class SootAnalyze {
 //				}
 //			}
 //		}
-//		
+//
 //		FastCallbackAnalyzer analyzer = new FastCallbackAnalyzer(SootConfig.getConfig(), entryPoints, callBackFile);
-//		
+//
 //		MultiMap<SootClass,AndroidCallbackDefinition> callbackMethods = analyzer.getCallbackMethods();
 //		System.out.println("callbackMethods: "+callbackMethods.size());
 //		for (SootClass sootClass : callbackMethods.keySet()) {
@@ -165,7 +190,7 @@ public class SootAnalyze {
 //			for(AndroidCallbackDefinition def: definitions) {
 //				System.out.println(" - "+def);
 //			}
-//		
+//
 //		}
 //	}
 
@@ -180,7 +205,7 @@ public class SootAnalyze {
 		if (layoutFileName != null) {
 			List<Widget> layoutWidgets = xmlParser.parseActivityLayout(layoutFileName);
 			for (Widget layoutWidget : layoutWidgets) {
-				layoutWidget.setId(curWidgetId.inc());
+//				layoutWidget.setId(curWidgetId.inc());
 				layoutWidget.setListenerName(activitySoot.getName());
 				widgets.add(layoutWidget);
 			}
@@ -206,7 +231,7 @@ public class SootAnalyze {
 //				widgets.add(layoutWidget);
 //			}
 ////		}
-//		}			
+//		}
 
 //		log.debug(activitySoot.getName() + " all methods: ");
 //		List<SootMethod> methods = activitySoot.getMethods();
@@ -442,7 +467,7 @@ public class SootAnalyze {
 //	@Deprecated
 //	public AppInfo getAppInfo() throws IOException, XmlPullParserException {
 //		File targetAPK = new File(apkPath);
-//		
+//
 //		AppInfo appInfo = AppReader.readApk(apkPath);
 //
 //		ARSCFileParser resources = new ARSCFileParser();
@@ -473,81 +498,205 @@ public class SootAnalyze {
 	}
 
 	private void processListeners(List<Widget> views, SootClass activity) {
-		for (Widget widget : views) {
-			// TODO ajustar condicao ...
-			if ("click".equals(widget.getEvent()) && !widget.isEventRegisteredInLayoutFile()) {
-				for (SootMethod method : activity.getMethods()) {
-					Body body = method.retrieveActiveBody();
-					UnitGraph cfg = new BriefUnitGraph(body);
-					UnitPatchingChain units = body.getUnits();
-					for (Unit u : units) {
-						Stmt stmt = (Stmt) u;
-						log.trace("$$$$$$$$$$$$$$$ stmt=" + stmt);
-						if (stmt.containsInvokeExpr()) {
-							InvokeExpr invokeExpr = stmt.getInvokeExpr();
-							log.trace("invokeExpr: " + invokeExpr);
-							if (invokeExpr instanceof VirtualInvokeExpr) {
-								VirtualInvokeExpr virtualInvokeExpr = (VirtualInvokeExpr) invokeExpr;
-								SootMethod invokeMethod = virtualInvokeExpr.getMethod();
-								String invokeMethodName = invokeMethod.getName();
-								if (setListeners.contains(invokeMethodName)) {
-									log.debug("&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&& Listener: " + invokeMethodName);
-
-									// TODO extrair metodo pra usar no menuItem tbm
-									String event = getEvent(invokeMethodName);
-									log.trace("event=" + event);
-									String eventCallBack = getEventCallBack(invokeMethodName);
-									log.trace("eventCallBack=" + eventCallBack);
-//		                    List<Unit> preStmts = cfg.getPredsOf(stmt);
-//		                    System.out.println(preStmts);
-									Value base = virtualInvokeExpr.getBase();// object of call method
-									log.trace("base=" + base);
-									// List<ValueBox> useValues = stmt.getUseBoxes();
-									// System.out.println(useValues);
-									Value arg = virtualInvokeExpr.getArg(0);
-									log.trace("arg=" + arg);
-									Type listener = arg.getType();// class name of the listener
-									log.trace("listener=" + listener);
+		log.trace("\n\n\n%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%\n");
+		log.trace("+ ACTIVITY="+activity.getName());
+		for (SootMethod method : activity.getMethods()) {
+			log.trace(" +++ METHOD="+method.getSignature());
+			Body body = method.retrieveActiveBody();
+			UnitGraph cfg = new BriefUnitGraph(body);
+			UnitPatchingChain units = body.getUnits();
+			for (Unit u : units) {
+				Stmt stmt = (Stmt) u;
+				log.trace(" ++++++ stmt=" + stmt);
+				if (stmt.containsInvokeExpr()) {
+					InvokeExpr invokeExpr = stmt.getInvokeExpr();
+					log.trace("invokeExpr: " + invokeExpr);
+					if (invokeExpr instanceof VirtualInvokeExpr) {
+						VirtualInvokeExpr virtualInvokeExpr = (VirtualInvokeExpr) invokeExpr;
+						SootMethod invokeMethod = virtualInvokeExpr.getMethod();
+						String invokeMethodName = invokeMethod.getName();
+						ListenerType listenerType = BaseListeners.getByListenerMethod(invokeMethodName);
+						log.trace("******************** listenerType=" + listenerType);
+						if (listenerType != null) {
+							log.debug("&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&& Listener: " + invokeMethodName);
+							Value base = virtualInvokeExpr.getBase();// object of call method
+							log.trace("base=" + base);
 //									SootField field = findField(arg, u, cfg);
 //									SootField field = findField(base, u, cfg);
-//									log.trace("FIELD: "+field);									
-									SootField field = testeXXX(base, u, cfg);
-									log.trace("FIELD:::" + field);
-									widget.setListenerName(listener.toString());
-									SootClass sootClassUnsafe = Scene.v().getSootClassUnsafe(listener.toString());
-									log.trace("sootClassUnsafe=" + sootClassUnsafe);
-									if (sootClassUnsafe != null) {
-										SootMethod methodByNameUnsafe = sootClassUnsafe.getMethodByNameUnsafe(eventCallBack);
-										log.trace("methodByNameUnsafe=" + methodByNameUnsafe);
-										widget.setCallbackMethod(methodByNameUnsafe);
-										if(methodByNameUnsafe != null) {
-											widget.setEventMethod(methodByNameUnsafe.getName());
-										}
-									}
-									log.trace("___________________________________________________________");
+//									log.trace("FIELD: "+field);
+							SootField field = testeXXX(base, u, cfg);
+							log.trace("FIELD:::" + field);
+							Widget widget = findWidgetByField(field, views);
+							if (widget != null) {
+								log.trace(">>>>>>>>>>>>>>>>> " + widget);
+								log.trace("event=" + listenerType.getEvent());
+								log.trace("eventCallBack=" + listenerType.getEventCallback());
+								Value arg = virtualInvokeExpr.getArg(0);
+								log.trace("arg=" + arg);
+								Type listenerArgType = arg.getType();// class name of the listener
+								log.trace("listenerArgType=" + listenerArgType);
+
+								Listener listener = new Listener(listenerType);
+								listener.setListernerClass(listenerArgType.toString());
+								SootClass sootClassUnsafe = Scene.v().getSootClassUnsafe(listenerArgType.toString());
+								log.trace("sootClassUnsafe=" + sootClassUnsafe);
+								if (sootClassUnsafe != null) {
+									SootMethod methodByNameUnsafe = sootClassUnsafe.getMethodByNameUnsafe(listenerType.getEventCallback());
+									log.trace("methodByNameUnsafe=" + methodByNameUnsafe);
+									listener.setCallbackMethod(methodByNameUnsafe);
+
+									log.trace("======================================================");
+//									testeIntent(methodByNameUnsafe);//TODO
 								}
+								log.trace("addListener=" + listener);
+								widget.addListener(listener);
+								log.trace("WIDGET="+widget);
 							}
 						}
+						log.trace("___________________________________________________________");
 					}
-
 				}
 			}
 		}
-
 	}
 
-	
+//	@Deprecated
+//	private void processListenersOld(List<Widget> views, SootClass activity) {
+//		for (Widget widget : views) {
+////			for (Listener listenerDoWidget : widget.getListeners()) { //TODO tratar isso em outro canto
+////				if (!listenerDoWidget.isEventRegisteredInLayoutFile()) {
+//			// TODO ajustar condicao ...
+////			if (!widget.isEventRegisteredInLayoutFile()) {
+//			if (true) {
+//				for (SootMethod method : activity.getMethods()) {
+//					Body body = method.retrieveActiveBody();
+//					UnitGraph cfg = new BriefUnitGraph(body);
+//					UnitPatchingChain units = body.getUnits();
+//					for (Unit u : units) {
+//						Stmt stmt = (Stmt) u;
+//						log.trace("$$$$$$$$$$$$$$$ stmt=" + stmt);
+//						if (stmt.containsInvokeExpr()) {
+//							InvokeExpr invokeExpr = stmt.getInvokeExpr();
+//							log.trace("invokeExpr: " + invokeExpr);
+//							if (invokeExpr instanceof VirtualInvokeExpr) {
+//								VirtualInvokeExpr virtualInvokeExpr = (VirtualInvokeExpr) invokeExpr;
+//								SootMethod invokeMethod = virtualInvokeExpr.getMethod();
+//								String invokeMethodName = invokeMethod.getName();
+//								if (setListeners.contains(invokeMethodName)) {
+//									log.debug("&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&& Listener: " + invokeMethodName);
+//
+//									ListenerEnum listenerEnum = BaseListeners.getByListenerMethod(invokeMethodName);
+//									log.trace("listenerEnum=" + listenerEnum);
+//									// TODO extrair metodo pra usar no menuItem tbm
+////									Event event = BaseListeners.getEvent(invokeMethodName);
+//									log.trace("event=" + listenerEnum.getEvent());
+////									String eventCallBack = BaseListeners.getEventCallBack(invokeMethodName);
+//									log.trace("eventCallBack=" + listenerEnum.getEventCallback());
+////				                    List<Unit> preStmts = cfg.getPredsOf(stmt);
+////				                    System.out.println(preStmts);
+//									Value base = virtualInvokeExpr.getBase();// object of call method
+//									log.trace("base=" + base);
+//									// List<ValueBox> useValues = stmt.getUseBoxes();
+//									// System.out.println(useValues);
+//									Value arg = virtualInvokeExpr.getArg(0);
+//									log.trace("arg=" + arg);
+//									Type listenerType = arg.getType();// class name of the listener
+//									log.trace("listener=" + listenerType);
+////											SootField field = findField(arg, u, cfg);
+////											SootField field = findField(base, u, cfg);
+////											log.trace("FIELD: "+field);
+//									SootField field = testeXXX(base, u, cfg);
+//									log.trace("FIELD:::" + field);
+//									if (field != null) {
+//										for (Widget w2 : views) {
+//											log.trace("FIELD ::: w2=" + w2.getField() + " ::: " + w2+ " :::: widget="+widget+" ::: equals="+w2.equals(widget));
+//											if (field.equals(w2.getField())) {
+//												log.trace(">>>>>>>>>>>>>>>>> " + w2);
+//												break;
+//											}
+//										}
+//									}
+//
+////									widget.setField(field);
+//									// TODO widget setField ............
+////										widget.setListenerName(listenerType.toString());
+//
+//									Listener listener = new Listener(listenerEnum);
+//									listener.setListernerClass(listenerType.toString());
+////									listenerDoWidget.setListernerClass(listenerType.toString());
+//									SootClass sootClassUnsafe = Scene.v().getSootClassUnsafe(listenerType.toString());
+//									log.trace("sootClassUnsafe=" + sootClassUnsafe);
+//									if (sootClassUnsafe != null) {
+//										SootMethod methodByNameUnsafe = sootClassUnsafe.getMethodByNameUnsafe(listenerEnum.getEventCallback());
+//										log.trace("methodByNameUnsafe=" + methodByNameUnsafe);
+//										listener.setCallbackMethod(methodByNameUnsafe);
+////										if (methodByNameUnsafe != null) {
+////											listener.setEventMethod(methodByNameUnsafe.getName());
+////										}
+//
+//										log.trace("======================================================");
+//										testeIntent(methodByNameUnsafe);
+//									}
+//									// TODO tem q achar o widget correspondente.....
+//									log.trace("addListener=" + listener);
+//									widget.addListener(listener);
+//									log.trace("___________________________________________________________");
+//								}
+//							}
+//						}
+//					}
+//
+//				}
+////					}
+//			}
+////			}
+//
+//		}
+//
+//	}
 
-	private void processDeclaredCallbacks(List<Widget> views, SootClass activity) {
-		for (Widget view : views) {
-			if (view.getEventMethod() != null) {
-				Optional<SootMethod> methodOpt = getMethodByName(view.getEventMethod(), activity);
-				if (methodOpt.isPresent()) {
-					SootMethod method = methodOpt.get();
-					view.setCallbackMethod(method);
+	private Widget findWidgetByField(SootField field, List<Widget> widgets) {
+		if (field != null) {
+			for (Widget widget : widgets) {
+				if (field.equals(widget.getField())) {
+					return widget;
 				}
 			}
 		}
+		return null;
+	}
+
+	private void processDeclaredCallbacks(List<Widget> views, SootClass activity) {
+
+//		TextViewWidget.builder().name("").
+
+		for (Widget view : views) {
+			for (Listener listener : view.getListeners()) {
+				if (listener.isEventRegisteredInLayoutFile()) {
+					String listernerMethod = listener.getListernerMethod();
+					log.trace("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ "+listernerMethod);
+					log.trace("@@@@@@@@@@@ "+listener.getCallbackMethodName());
+					log.trace("@@@@@@@@@@@ "+listener.getEventCallback());
+					Optional<SootMethod> methodOpt = getMethodByName(listener.getCallbackMethodName(), activity);
+					if (methodOpt.isPresent()) {
+						SootMethod method = methodOpt.get();
+						log.trace("@@@@@@@@@@@ "+method.getSignature());
+						listener.setCallbackMethod(method);
+						listener.setListernerClass(method.getDeclaringClass().getName());
+					}
+				}
+			}
+		}
+
+//		for (Widget view : views) {
+//			if (view.getEventMethod() != null) {
+//				Optional<SootMethod> methodOpt = getMethodByName(view.getEventMethod(), activity);
+//				if (methodOpt.isPresent()) {
+//					SootMethod method = methodOpt.get();
+//					view.setCallbackMethod(method);
+//				}
+//			}
+//		}
 	}
 
 	private void processViewAssignements(List<Widget> views, SootClass activity) {
@@ -596,7 +745,6 @@ public class SootAnalyze {
 		return mapa;
 	}
 
-
 	private String parseAppStrings(String name) {
 		return xmlParser.getStringValueByName(name);
 	}
@@ -604,7 +752,6 @@ public class SootAnalyze {
 	private List<Widget> parseAppMenu(String menuName) {
 		return xmlParser.parseAppMenu(menuName, curWidgetId);
 	}
-
 
 	public String getStringName(String stringValue) {
 		System.out.println(" * getStringName(" + stringValue + ")=" + idMap.get(stringValue));
@@ -615,67 +762,67 @@ public class SootAnalyze {
 		return menuMap.get(menuValue);
 	}
 
-	public String getEvent(String methodName) {
-		if (methodName.equals("setOnClickListener")) {
-			return "click";
-		}
-		if (methodName.equals("setOnLongClickListener")) {
-			return "long_click";
-		}
-		if (methodName.equals("setOnItemClickListener")) {
-			return "item_click";
-		}
-		if (methodName.equals("setOnItemLongClickListener")) {
-			return "item_long_click";
-		}
-		if (methodName.equals("setOnScrollListener")) {
-			return "scroll";
-		}
-		if (methodName.equals("setOnDragListener")) {
-			return "drag";
-		}
-		if (methodName.equals("setOnHoverListener")) {
-			return "hover";
-		}
-		if (methodName.equals("setOnTouchListener")) {
-			return "touch";
-		}
-		if (methodName.equals("setOnMenuItemClickListener")) {
-			return "click";
-		}
-		return null;
-	}
-
-	public String getEventCallBack(String methodName) {
-		if (methodName.equals("setOnClickListener")) {
-			return "onClick";
-		}
-		if (methodName.equals("setOnLongClickListener")) {
-			return "onLongClick";
-		}
-		if (methodName.equals("setOnItemClickListener")) {
-			return "onItemClick";
-		}
-		if (methodName.equals("setOnItemLongClickListener")) {
-			return "onItemLongClick";
-		}
-		if (methodName.equals("setOnScrollListener")) {
-			return "onScroll";
-		}
-		if (methodName.equals("setOnDragListener")) {
-			return "onDrag";
-		}
-		if (methodName.equals("setOnHoverListener")) {
-			return "onHover";
-		}
-		if (methodName.equals("setOnTouchListener")) {
-			return "onTouch";
-		}
-		if (methodName.equals("setOnMenuItemClickListener")) {
-			return "onClick";
-		}
-		return null;
-	}
+//	public String getEvent(String methodName) {
+//		if (methodName.equals("setOnClickListener")) {
+//			return "click";
+//		}
+//		if (methodName.equals("setOnLongClickListener")) {
+//			return "long_click";
+//		}
+//		if (methodName.equals("setOnItemClickListener")) {
+//			return "item_click";
+//		}
+//		if (methodName.equals("setOnItemLongClickListener")) {
+//			return "item_long_click";
+//		}
+//		if (methodName.equals("setOnScrollListener")) {
+//			return "scroll";
+//		}
+//		if (methodName.equals("setOnDragListener")) {
+//			return "drag";
+//		}
+//		if (methodName.equals("setOnHoverListener")) {
+//			return "hover";
+//		}
+//		if (methodName.equals("setOnTouchListener")) {
+//			return "touch";
+//		}
+//		if (methodName.equals("setOnMenuItemClickListener")) {
+//			return "click";
+//		}
+//		return null;
+//	}
+//
+//	public String getEventCallBack(String methodName) {
+//		if (methodName.equals("setOnClickListener")) {
+//			return "onClick";
+//		}
+//		if (methodName.equals("setOnLongClickListener")) {
+//			return "onLongClick";
+//		}
+//		if (methodName.equals("setOnItemClickListener")) {
+//			return "onItemClick";
+//		}
+//		if (methodName.equals("setOnItemLongClickListener")) {
+//			return "onItemLongClick";
+//		}
+//		if (methodName.equals("setOnScrollListener")) {
+//			return "onScroll";
+//		}
+//		if (methodName.equals("setOnDragListener")) {
+//			return "onDrag";
+//		}
+//		if (methodName.equals("setOnHoverListener")) {
+//			return "onHover";
+//		}
+//		if (methodName.equals("setOnTouchListener")) {
+//			return "onTouch";
+//		}
+//		if (methodName.equals("setOnMenuItemClickListener")) {
+//			return "onClick";
+//		}
+//		return null;
+//	}
 
 	/**
 	 * find method in callgraph
@@ -707,7 +854,6 @@ public class SootAnalyze {
 		}
 	}
 
-
 	/**
 	 * get MenuItems and SubMenus from create menu callback(for example
 	 * onCreateOptionsMenu)
@@ -719,8 +865,95 @@ public class SootAnalyze {
 		log.trace("getMenuWidgets: " + menuMethod);
 		List<Widget> menuWidgets = new ArrayList<>();
 		boolean hasMenuWidget = false;
-//		if (menuMethod.hasActiveBody()) {
+
+		Optional<InvokeExpr> invokeExprInflateOpt = getInvokeExprByMethodName("inflate", menuMethod);
+		if (invokeExprInflateOpt.isPresent()) {
+			InvokeExpr invokeExpr = invokeExprInflateOpt.get();
+			SootMethod invokeMethod = invokeExpr.getMethod();
+			String signature = invokeMethod.getSignature();
+			log.trace("getMenuWidgets111 ::: **** MenuInflater: " + signature);
+			Value menuIdValue = invokeExpr.getArg(0);
+			log.trace("getMenuWidgets111 ::: menuIdValue=" + menuIdValue);
+			String menuName = getMenuName(menuIdValue.toString());
+			log.trace("getMenuWidgets111 ::: menuName=" + menuName);
+			if (menuName != null) {
+				menuWidgets = parseAppMenu(menuName);
+			}
+		}
+
+		// TODO lista
 		UnitGraph cfg = new BriefUnitGraph(menuMethod.retrieveActiveBody());
+		List<Unit> allInvokeExprSetOnMenuItemClickListenerUnits = getAllInvokeExprByMethodName("setOnMenuItemClickListener", menuMethod);
+		for (Unit unit : allInvokeExprSetOnMenuItemClickListenerUnits) {
+			Stmt stmt = (Stmt) unit;
+			InvokeExpr invokeExprMenuItemClickListener = stmt.getInvokeExpr();
+//			invokeExprMenuItemClickListener.getMethod()
+			log.trace("getMenuWidgets ::: ####################### setOnMenuItemClickListener " + invokeExprMenuItemClickListener);
+			log.trace("getMenuWidgets :::" + invokeExprMenuItemClickListener.getMethod().getSignature());
+			log.trace("getMenuWidgets :::" + invokeExprMenuItemClickListener.getType());
+			log.trace("getMenuWidgets :::" + invokeExprMenuItemClickListener.getMethodRef());
+			log.trace("getMenuWidgets :::" + invokeExprMenuItemClickListener.getArgs());
+			for (Value value : invokeExprMenuItemClickListener.getArgs()) {
+				log.trace("getMenuWidgets ::: arg" + value + " ::: " + value.getType() + " ::: " + value.getClass());
+			}
+
+			Value invokeParameter = invokeExprMenuItemClickListener.getArg(0);
+			SootClass sootClassUnsafe = Scene.v().getSootClassUnsafe(invokeParameter.getType().toString());
+			log.trace("getMenuWidgets ::: sootClassUnsafe=" + sootClassUnsafe);
+			if (sootClassUnsafe != null) {
+				ListenerType listenerEnum = ListenerType.OnMenuItemClickListener;
+				SootMethod methodByNameUnsafe = sootClassUnsafe.getMethodByNameUnsafe(listenerEnum.getEventCallback());
+				log.trace("getMenuWidgets ::: methodByNameUnsafe=" + methodByNameUnsafe);
+				if (methodByNameUnsafe != null) {
+					// TODO
+//					String targetClass = testeIntent(methodByNameUnsafe);
+//					log.trace("getMenuWidgets ::: ********** targetClass=" + targetClass);
+					Widget widget = testeFindMenuWidget(menuWidgets, invokeExprMenuItemClickListener.getArg(0), cfg, unit);
+					if (widget != null) {
+						// TODO add targetClass (activity)
+
+						Listener listener = new Listener(listenerEnum);
+						listener.setCallbackMethod(methodByNameUnsafe);
+						listener.setListernerClass(sootClassUnsafe.getName());
+						widget.addListener(listener);
+						log.trace("getMenuWidgets ::: ********** widget=" + widget);// + " >>>>>>>>>> " + targetClass);
+					}
+				}
+			}
+		}
+
+//		Optional<InvokeExpr> invokeExprOpt = getInvokeExprByMethodName("setOnMenuItemClickListener", menuMethod);
+//		if (invokeExprOpt.isPresent()) {
+//			InvokeExpr invokeExprMenuItemClickListener = invokeExprOpt.get();
+////			invokeExprMenuItemClickListener.getMethod()
+//			log.trace("getMenuWidgets ::: ####################### setOnMenuItemClickListener " + invokeExprMenuItemClickListener);
+//			log.trace("getMenuWidgets :::" + invokeExprMenuItemClickListener.getMethod().getSignature());
+//			log.trace("getMenuWidgets :::" + invokeExprMenuItemClickListener.getType());
+//			log.trace("getMenuWidgets :::" + invokeExprMenuItemClickListener.getMethodRef());
+//			log.trace("getMenuWidgets :::" + invokeExprMenuItemClickListener.getArgs());
+//			for (Value value : invokeExprMenuItemClickListener.getArgs()) {
+//				log.trace("getMenuWidgets ::: arg" + value + " ::: " + value.getType() + " ::: " + value.getClass());
+//			}
+//
+//			Value invokeParameter = invokeExprMenuItemClickListener.getArg(0);
+//
+//			// TODO
+//			// SootClass sootClassUnsafe =
+//			// Scene.v().getSootClassUnsafe("br.unb.cic.cryptoapp.MainActivity$1");
+//			SootClass sootClassUnsafe = Scene.v().getSootClassUnsafe(invokeParameter.getType().toString());
+//			log.trace("getMenuWidgets ::: sootClassUnsafe=" + sootClassUnsafe);
+//			if (sootClassUnsafe != null) {
+//				SootMethod methodByNameUnsafe = sootClassUnsafe.getMethodByNameUnsafe("onMenuItemClick");
+//				log.trace("getMenuWidgets ::: methodByNameUnsafe=" + methodByNameUnsafe);
+//				if (methodByNameUnsafe != null) {
+//					String targetClass = testeIntent(methodByNameUnsafe);
+//					log.trace("getMenuWidgets ::: ********** targetClass=" + targetClass);
+//				}
+//			}
+//		}
+
+//		if (menuMethod.hasActiveBody()) {
+//		UnitGraph cfg = new BriefUnitGraph(menuMethod.retrieveActiveBody());
 		UnitPatchingChain unitsChain = menuMethod.retrieveActiveBody().getUnits();
 		for (Unit u : unitsChain) {
 			Stmt stmt = (Stmt) u;
@@ -729,72 +962,94 @@ public class SootAnalyze {
 				InvokeExpr invokeExpr = stmt.getInvokeExpr();
 				SootMethod invokeMethod = invokeExpr.getMethod();
 				String signature = invokeMethod.getSignature();
-				if (signature.equals("<android.view.MenuInflater: void inflate(int,android.view.Menu)>")) {
-					log.trace("getMenuWidgets ::: **** MenuInflater: " + signature);
-					Value menuIdValue = invokeExpr.getArg(0);
-					log.trace("getMenuWidgets ::: menuIdValue=" + menuIdValue);
-					String menuName = getMenuName(menuIdValue.toString());
-					log.trace("getMenuWidgets ::: menuName=" + menuName);
-					if (menuName != null) {
-						return parseAppMenu(menuName);
-					}
-				}
+//				if (signature.equals("<android.view.MenuInflater: void inflate(int,android.view.Menu)>")) {
+//					log.trace("getMenuWidgets ::: **** MenuInflater: " + signature);
+//					Value menuIdValue = invokeExpr.getArg(0);
+//					log.trace("getMenuWidgets ::: menuIdValue=" + menuIdValue);
+//					String menuName = getMenuName(menuIdValue.toString());
+//					log.trace("getMenuWidgets ::: menuName=" + menuName);
+//					if (menuName != null) {
+//						return parseAppMenu(menuName);
+//					}
+//				}
 
-				Optional<InvokeExpr> invokeExprOpt = getInvokeExprByMethodName("setOnMenuItemClickListener", menuMethod);
-				if (invokeExprOpt.isPresent()) {
-					InvokeExpr invokeExprMenuItemClickListener = invokeExprOpt.get();
-					log.trace("getMenuWidgets ::: ####################### setOnMenuItemClickListener " + invokeExprMenuItemClickListener);
-					//TODO
-					SootClass sootClassUnsafe = Scene.v().getSootClassUnsafe("br.unb.cic.cryptoapp.MainActivity$1");
-					log.trace("getMenuWidgets ::: sootClassUnsafe=" + sootClassUnsafe);
-					if (sootClassUnsafe != null) {
-						SootMethod methodByNameUnsafe = sootClassUnsafe.getMethodByNameUnsafe("onMenuItemClick");
-						log.trace("getMenuWidgets ::: methodByNameUnsafe=" + methodByNameUnsafe);
-						if (methodByNameUnsafe != null) {
-							methodByNameUnsafe.retrieveActiveBody().getUnits().forEach(_u -> {
-								getIntentTarget((Stmt) _u);
-							});
-						}
-					}
-				}
+//				getMenuItemClickListener(menu)
+
+//				Optional<InvokeExpr> invokeExprOpt = getInvokeExprByMethodName("setOnMenuItemClickListener", menuMethod);
+//				if (invokeExprOpt.isPresent()) {
+//					InvokeExpr invokeExprMenuItemClickListener = invokeExprOpt.get();
+////					invokeExprMenuItemClickListener.getMethod()
+//					log.trace("getMenuWidgets ::: ####################### setOnMenuItemClickListener " + invokeExprMenuItemClickListener);
+//					log.trace("getMenuWidgets :::" + invokeExprMenuItemClickListener.getMethod().getSignature());
+//					log.trace("getMenuWidgets :::" + invokeExprMenuItemClickListener.getType());
+//					log.trace("getMenuWidgets :::" + invokeExprMenuItemClickListener.getMethodRef());
+//					log.trace("getMenuWidgets :::" + invokeExprMenuItemClickListener.getArgs());
+//					for (Value value : invokeExprMenuItemClickListener.getArgs()) {
+//						log.trace("getMenuWidgets ::: arg" + value + " ::: " + value.getType() + " ::: " + value.getClass());
+//					}
+//
+//					Value invokeParameter = invokeExprMenuItemClickListener.getArg(0);
+//
+//					// TODO
+//					// SootClass sootClassUnsafe =
+//					// Scene.v().getSootClassUnsafe("br.unb.cic.cryptoapp.MainActivity$1");
+//					SootClass sootClassUnsafe = Scene.v().getSootClassUnsafe(invokeParameter.getType().toString());
+//					log.trace("getMenuWidgets ::: sootClassUnsafe=" + sootClassUnsafe);
+//					if (sootClassUnsafe != null) {
+//						SootMethod methodByNameUnsafe = sootClassUnsafe.getMethodByNameUnsafe("onMenuItemClick");
+//						log.trace("getMenuWidgets ::: methodByNameUnsafe=" + methodByNameUnsafe);
+//						if (methodByNameUnsafe != null) {
+//							String targetClass = testeIntent(methodByNameUnsafe);
+//							log.trace("getMenuWidgets ::: ********** targetClass=" + targetClass);
+//						}
+//					}
+//				}
 
 				if (addMenuItemSignatures.contains(signature) || addSubMenuSignatures.contains(signature) || addSubMenuItemSignatures.contains(signature)) {
 					hasMenuWidget = true;
 					if (signature.equals("<android.view.Menu: android.view.MenuItem add(int,int,int,java.lang.CharSequence)>")) {
-						MenuItem menuItem = new MenuItem();
-						menuItem.setId(curWidgetId.inc());
+
+//						MenuItem menuItem = new MenuItem();
+//						menuItem.setId(curWidgetId.inc());
 						Value idValue = invokeExpr.getArg(1);
-						int id = Integer.parseInt(idValue.toString());
-						menuItem.setItemId(id);
+////						int id = Integer.parseInt(idValue.toString());
+//						menuItem.setWidgetId(idValue.toString());
 						Value textValue = invokeExpr.getArg(3);
-						String text = textValue.toString();
-						menuItem.setText(text);
+//						String text = textValue.toString();
+//						menuItem.setText(text);
+
+						TextViewWidget menuItem = WidgetBuilder.newMenuItem().widgetId(idValue.toString()).text(textValue.toString()).build();
+
 						menuWidgets.add(menuItem);
 					}
 					if (signature.equals("<android.view.Menu: android.view.MenuItem add(int,int,int,int)>")) {
-						MenuItem menuItem = new MenuItem();
-						menuItem.setId(curWidgetId.inc());
+//						MenuItem menuItem = new MenuItem();
+//						menuItem.setId(curWidgetId.inc());
 						Value idValue = invokeExpr.getArg(1);
-						int id = Integer.parseInt(idValue.toString());
-						menuItem.setItemId(id);
+//						int id = Integer.parseInt(idValue.toString());
+//						menuItem.setItemId(id);
 						String textIdValue = invokeExpr.getArg(3).toString();
 						String textId = getStringName(textIdValue);
+						String text = null;
 						if (textId != null) {
-							String text = parseAppStrings(textId);
-							menuItem.setText(text);
+							text = parseAppStrings(textId);
+//							menuItem.setText(text);
 						}
+
+						TextViewWidget menuItem = WidgetBuilder.newMenuItem().widgetId(idValue.toString()).text(text).build();
+
 						menuWidgets.add(menuItem);
 					}
 					if (signature.equals("<android.view.Menu: android.view.SubMenu addSubMenu(int,int,int,java.lang.CharSequence)>")) {
 						SubMenu subMenu = new SubMenu();
-						subMenu.setId(curWidgetId.inc());
+//						subMenu.setId(curWidgetId.inc()); //TODO descomentar
 						Value idValue = invokeExpr.getArg(1);
 						int id = Integer.parseInt(idValue.toString());
 						subMenu.setSubMenuId(id);
 						Value textValue = invokeExpr.getArg(3);
 						String text = textValue.toString();
 						subMenu.setText(text);
-						List<MenuItem> items = getSubItems(stmt, cfg);
+						List<TextViewWidget> items = getSubItems(stmt, cfg);
 //                            if(stmt instanceof AssignStmt){
 //                                AssignStmt assignStmt = (AssignStmt)stmt;
 //                                Value left = assignStmt.getLeftOp();
@@ -844,7 +1099,7 @@ public class SootAnalyze {
 					}
 					if (signature.equals("<android.view.Menu: android.view.SubMenu addSubMenu(int,int,int,int)>")) {
 						SubMenu subMenu = new SubMenu();
-						subMenu.setId(curWidgetId.inc());
+//						subMenu.setId(curWidgetId.inc()); //TODO descomentar
 						Value idValue = invokeExpr.getArg(1);
 						int id = Integer.parseInt(idValue.toString());
 						subMenu.setSubMenuId(id);
@@ -854,35 +1109,196 @@ public class SootAnalyze {
 							String text = parseAppStrings(textId);
 							subMenu.setText(text);
 						}
-						List<MenuItem> items = getSubItems(stmt, cfg);
+						List<TextViewWidget> items = getSubItems(stmt, cfg);
 						subMenu.setItems(items);
 						menuWidgets.add(subMenu);
 					}
 				}
 			}
 		}
-		if (!hasMenuWidget) {// menu creation is not directly in menuMethod
-			Iterator<Unit> units = cfg.iterator();
-			while (units.hasNext()) {
-				Stmt stmt = (Stmt) units.next();
-				if (stmt.containsInvokeExpr()) {
-					InvokeExpr invokeExpr = stmt.getInvokeExpr();
-					if (invokeExpr.getArgCount() == 1) {
-						Value arg = invokeExpr.getArg(0);
-						if (arg.getType().toString().equals("android.view.Menu")) {
-							SootMethod m = invokeExpr.getMethod();
-							return getMenuWidgets(m);
-						}
-					}
-				}
-			}
-		}
+		// TODO ???????
+//		if (!hasMenuWidget) {// menu creation is not directly in menuMethod
+//			log.trace("getMenuWidgets ::: hasMenuWidget=" + hasMenuWidget);
+//			Iterator<Unit> units = cfg.iterator();
+//			while (units.hasNext()) {
+//				Stmt stmt = (Stmt) units.next();
+//				if (stmt.containsInvokeExpr()) {
+//					InvokeExpr invokeExpr = stmt.getInvokeExpr();
+//					if (invokeExpr.getArgCount() == 1) {
+//						Value arg = invokeExpr.getArg(0);
+//						if ("android.view.Menu".equals(arg.getType().toString())) {
+//							SootMethod m = invokeExpr.getMethod();
+//							return getMenuWidgets(m);
+//						}
+//					}
+//				}
+//			}
+//		}
 //		}
 		return menuWidgets;
 	}
 
-	private List<MenuItem> getSubItems(Stmt stmt, UnitGraph cfg) {
-		List<MenuItem> items = new ArrayList<>();
+	private Value findMenuDefinitionId(Value value, UnitGraph cfg, Unit unit) {
+		log.trace("findMenuDefinitionId ::: value=" + value + " ::: unit=" + unit);
+		Stmt stmt = (Stmt) unit;
+
+		if (stmt.containsInvokeExpr()) {
+			InvokeExpr invokeExpr = stmt.getInvokeExpr();
+			if (invokeExpr instanceof InterfaceInvokeExpr) {
+				InterfaceInvokeExpr interfaceInvokeExpr = (InterfaceInvokeExpr) invokeExpr;
+				log.trace("findMenuDefinitionId ::: interfaceInvokeExpr=" + interfaceInvokeExpr + " ::: " + interfaceInvokeExpr.getArg(0));
+				if (value.equivTo(interfaceInvokeExpr.getArg(0))) {
+					Value base = interfaceInvokeExpr.getBase();
+					for (Unit pred : cfg.getPredsOf(unit)) {
+						return findMenuDefinitionId(base, cfg, pred);
+					}
+				}
+			}
+		}
+
+		if (stmt instanceof AssignStmt) {
+			AssignStmt assignStmt = (AssignStmt) stmt;
+			log.trace("findMenuDefinitionId ::: assignStmt=" + assignStmt);
+			if (assignStmt.getLeftOp().equivTo(value)) {
+				Value rightOp = assignStmt.getRightOp();
+
+//				TODO if(rightOp instanceof InterfaceInvokeExpr)
+				log.trace("findMenuDefinitionId ::: equivTo ....." + assignStmt.getRightOp());
+				log.trace("findMenuDefinitionId ::: equivTo ..ID=" + assignStmt.getInvokeExpr().getArg(0));
+				return assignStmt.getInvokeExpr().getArg(0);
+			}
+		}
+
+		for (Unit pred : cfg.getPredsOf(unit)) {
+			return findMenuDefinitionId(value, cfg, pred);
+		}
+
+		return null;
+	}
+
+	private Widget testeFindMenuWidget(List<Widget> menuWidgets, Value arg, UnitGraph cfg, Unit unit) {
+
+		log.trace("testeFindMenuWidget ::: arg=" + arg + " ::: unit=" + unit + " >>>>> " + cfg.getPredsOf(unit));
+
+		Value menuId = findMenuDefinitionId(arg, cfg, unit);
+		if (menuId instanceof IntConstant) {
+			IntConstant cte = (IntConstant) menuId;
+			int id = cte.value;
+			log.trace("testeFindMenuWidget ::: testeWWW=" + menuId + " ::: " + menuId.getClass() + " ::: type=" + menuId.getType() + " ::: id=" + id);
+			for (Widget widget : menuWidgets) {
+				if (widget.getWidgetId().equals(id + "")) {
+					log.trace("testeFindMenuWidget ::: widget=" + widget.getWidgetId());
+					return widget;
+				}
+			}
+
+		}
+		return null;
+
+//		Stmt stmt = (Stmt) unit;
+//
+//		if(stmt instanceof AssignStmt) {
+//			AssignStmt assignStmt = (AssignStmt) stmt;
+//			log.trace("testeFindMenuWidget ::: assignStmt="+assignStmt);
+//			if(assignStmt.getLeftOp().equivTo(arg)) {
+//				log.trace("testeFindMenuWidget ::: equivTo ....."+assignStmt.getRightOp());
+//				return testeFindMenuWidget(menuWidgets, arg, cfg, unit);
+//			}
+//		}
+//
+//
+//		for (Unit predUnit : cfg.getPredsOf(unit)) {
+//			Stmt stmt = (Stmt) predUnit;
+//
+//			if(stmt instanceof AssignStmt) {
+//				AssignStmt assignStmt = (AssignStmt) stmt;
+//				log.trace("testeFindMenuWidget ::: assignStmt="+assignStmt);
+//				if(assignStmt.getLeftOp().equivTo(arg)) {
+//					log.trace("testeFindMenuWidget ::: equivTo ....."+assignStmt.getRightOp());
+//				}
+//			}
+//		}
+
+//		UnitPatchingChain unitsChain = menuMethod.retrieveActiveBody().getUnits();
+//		for (Unit u : unitsChain) {
+//			Stmt stmt = (Stmt) u;
+//
+//			if(stmt instanceof AssignStmt) {
+//				AssignStmt assignStmt = (AssignStmt) stmt;
+//				log.trace("testeFindMenuWidget ::: assignStmt="+assignStmt);
+//				if(assignStmt.getLeftOp().equivTo(arg)) {
+//					log.trace("testeFindMenuWidget ::: equivTo ....."+assignStmt.getRightOp());
+//				}
+//			}
+//		}
+//		return null;
+	}
+
+	private String testeIntent(SootMethod method) {
+		return testeIntent(method, 0);
+	}
+
+	private String testeIntent(SootMethod method, int depth) {
+		log.trace("testeIntent: " + method.getSignature());
+
+		String intentTargetClass = findIntentDefinition(method);
+		if (intentTargetClass != null) {
+			log.trace(">>>>>>>>>>>>>>>>>> " + intentTargetClass);
+			return intentTargetClass;
+		}
+
+//		UnitGraph cfg = new BriefUnitGraph(method.retrieveActiveBody());
+		int currentDepth = ++depth;
+		UnitPatchingChain unitsChain = method.retrieveActiveBody().getUnits();
+		for (Unit u : unitsChain) {
+			Stmt stmt = (Stmt) u;
+
+			if (stmt.containsInvokeExpr()) {
+				InvokeExpr invokeExpr = stmt.getInvokeExpr();
+				SootMethod invokeMethod = invokeExpr.getMethod();
+				if (invokeMethod.getDeclaringClass().getName().contains(appInfo.getPackage()) && currentDepth < 4) {
+					return testeIntent(invokeMethod, currentDepth);
+				}
+			}
+
+		}
+		return null;
+	}
+
+	private String findIntentDefinition(SootMethod method) {
+		log.trace("findIntentDefinition: " + method.getSignature());
+		UnitPatchingChain unitsChain = method.retrieveActiveBody().getUnits();
+		for (Unit u : unitsChain) {
+			Stmt stmt = (Stmt) u;
+			log.trace("findIntentDefinition ::: stmt= " + stmt);
+			if (stmt.containsInvokeExpr()) {
+				InvokeExpr invokeExpr = stmt.getInvokeExpr();
+
+				if (invokeExpr instanceof SpecialInvokeExpr) {
+					SpecialInvokeExpr specialInvokeExpr = (SpecialInvokeExpr) invokeExpr;
+					SootMethod invokeMethod = specialInvokeExpr.getMethod();
+					String signature = invokeMethod.getSignature();
+					if (signature.equals(INTENT_NEW)) {
+						Value arg = specialInvokeExpr.getArg(1);
+						log.trace("&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&& INTENT: " + arg + " ::: type=" + arg.getType() + " ::: " + arg.getClass());
+
+						if (arg instanceof ClassConstant) {
+							ClassConstant cte = (ClassConstant) arg;
+							String internalString = cte.toInternalString();
+							log.trace("findIntentDefinition ::: cte= " + cte.getType() + " ::: " + cte.getValue() + " ::: " + cte);
+							return internalString.replace('/', '.');
+//							System.out.println(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>"+cte.getValue()+" ::: "+cte.toInternalString()+" ::: "+cte.isRefType());
+						}
+					}
+//					findIntentDefinition(invokeMethod);
+				}
+			}
+		}
+		return null;
+	}
+
+	private List<TextViewWidget> getSubItems(Stmt stmt, UnitGraph cfg) {
+		List<TextViewWidget> items = new ArrayList<>();
 		if (stmt instanceof AssignStmt) {
 			AssignStmt assignStmt = (AssignStmt) stmt;
 			Value left = assignStmt.getLeftOp();
@@ -899,28 +1315,35 @@ public class SootAnalyze {
 							String interfaceMethodSign = interfaceInvokeMethod.getSignature();
 							if (left.equivTo(invokeObj)) {
 								if (interfaceMethodSign.equals("<android.view.SubMenu: android.view.MenuItem add(int,int,int,java.lang.CharSequence)>")) {
-									MenuItem item = new MenuItem();
-									item.setId(curWidgetId.inc());
+//									MenuItem item = new MenuItem();
+//									item.setId(curWidgetId.inc());
 									Value subItemIdValue = interfaceInvokeExpr.getArg(1);
-									int subItemId = Integer.parseInt(subItemIdValue.toString());
-									item.setItemId(subItemId);
+//									int subItemId = Integer.parseInt(subItemIdValue.toString());
+//									item.setItemId(subItemId);
 									Value subItemTextValue = interfaceInvokeExpr.getArg(3);
-									String subItemText = subItemTextValue.toString();
-									item.setText(subItemText);
+//									String subItemText = subItemTextValue.toString();
+//									item.setText(subItemText);
+
+									TextViewWidget item = WidgetBuilder.newMenuItem().widgetId(subItemIdValue.toString()).text(subItemTextValue.toString()).build();
+
 									items.add(item);
 								}
 								if (interfaceMethodSign.equals("<android.view.SubMenu: android.view.MenuItem add(int,int,int,int)>")) {
-									MenuItem item = new MenuItem();
-									item.setId(curWidgetId.inc());
+//									MenuItem item = new MenuItem();
+//									item.setId(curWidgetId.inc());
 									Value subItemIdValue = interfaceInvokeExpr.getArg(1);
-									int subItemId = Integer.parseInt(subItemIdValue.toString());
-									item.setItemId(subItemId);
+//									int subItemId = Integer.parseInt(subItemIdValue.toString());
+//									item.setItemId(subItemId);
 									Value subItemTextIdValue = interfaceInvokeExpr.getArg(3);
 									String subItemTextId = getStringName(subItemTextIdValue.toString());
+									String text = null;
 									if (subItemTextId != null) {
-										String subItemText = parseAppStrings(subItemTextId);
-										item.setText(subItemText);
+										text = parseAppStrings(subItemTextId);
+//										item.setText(subItemText);
 									}
+
+									TextViewWidget item = WidgetBuilder.newMenuItem().widgetId(subItemIdValue.toString()).text(text).build();
+
 									items.add(item);
 								}
 							}
@@ -1046,7 +1469,7 @@ public class SootAnalyze {
 					SootMethod invokeMethod = specialInvokeExpr.getMethod();
 					String signature = invokeMethod.getSignature();
 					System.out.println("signature:::" + signature);
-					if (signature.equals("<android.content.Intent: void <init>(android.content.Context,java.lang.Class)>")) {
+					if (signature.equals(INTENT_NEW)) {
 						Value invokeObj = specialInvokeExpr.getBase();
 						System.out.println("invokeObj=" + invokeObj + ":::" + specialInvokeExpr.getArgs() + ":::intentValue=" + intentValue);
 						if (invokeObj.equivTo(intentValue)) {
@@ -1096,7 +1519,7 @@ public class SootAnalyze {
 									SpecialInvokeExpr specialInvokeExpr = (SpecialInvokeExpr) invokeExpr;
 									SootMethod invokeMethod = specialInvokeExpr.getMethod();
 									String signature = invokeMethod.getSignature();
-									if (signature.equals("<android.content.Intent: void <init>(android.content.Context,java.lang.Class)>")) {
+									if (signature.equals(INTENT_NEW)) {
 										Value invokeObj = specialInvokeExpr.getBase();
 										if (invokeObj.equivTo(returnValue)) {
 											return specialInvokeExpr.getArg(1).toString();
@@ -1116,7 +1539,7 @@ public class SootAnalyze {
 
 	// TODO
 	private void getIntentTarget(Stmt stmt) {
-		log.trace("getIntentTarget: "+stmt);
+		log.trace("getIntentTarget: " + stmt);
 		if (stmt instanceof InvokeStmt) {
 			InvokeExpr invokeExpr = stmt.getInvokeExpr();
 			if (invokeExpr instanceof VirtualInvokeExpr) {
@@ -1126,7 +1549,7 @@ public class SootAnalyze {
 				String signature = invokeMethod.getSignature();
 				if (signature.equals("<android.content.Intent: android.content.Intent setClass(android.content.Context,java.lang.Class)>")) {
 					Value invokeObj = virtualInvokeExpr.getBase();
-					log.trace("getIntentTarget ::: virtualInvokeExpr::invokeObj=" + invokeObj+" ::: tmp="+virtualInvokeExpr.getArg(1));
+					log.trace("getIntentTarget ::: virtualInvokeExpr::invokeObj=" + invokeObj + " ::: tmp=" + virtualInvokeExpr.getArg(1));
 //					if (invokeObj.equivTo(returnValue)) {
 //						return virtualInvokeExpr.getArg(1).toString();
 //					}
@@ -1137,9 +1560,10 @@ public class SootAnalyze {
 				log.trace("getIntentTarget ::: specialInvokeExpr=" + specialInvokeExpr);
 				SootMethod invokeMethod = specialInvokeExpr.getMethod();
 				String signature = invokeMethod.getSignature();
-				if (signature.equals("<android.content.Intent: void <init>(android.content.Context,java.lang.Class)>")) {
+				if (signature.equals(INTENT_NEW)) {
 					Value invokeObj = specialInvokeExpr.getBase();
-					log.trace("getIntentTarget ::: specialInvokeExpr::invokeObj=" + invokeObj+" ::: tmp="+specialInvokeExpr.getArg(1));
+					log.trace("getIntentTarget ::: specialInvokeExpr::invokeObj=" + invokeObj + " ::: tmp=" + specialInvokeExpr.getArg(1));
+					// TODO
 //					if (invokeObj.equivTo(returnValue)) {
 //						return specialInvokeExpr.getArg(1).toString();
 //					}
@@ -1175,15 +1599,15 @@ public class SootAnalyze {
 		}
 		return null;
 	}
-	
+
 	private SootField testeXXXY(Value value, Unit u, UnitGraph cfg, AnalysisType type) {
 		List<Unit> units;
-		if(type == AnalysisType.FORWARD) {
+		if (type == AnalysisType.FORWARD) {
 			units = cfg.getSuccsOf(u);
-		}else {
+		} else {
 			units = cfg.getPredsOf(u);
 		}
-		
+
 		log.trace("testeXXX ::: value=" + value + " ::: unit=" + u);
 //		List<Unit> predsOf = cfg.getPredsOf(u);
 		for (Unit unit : units) {
@@ -1218,7 +1642,7 @@ public class SootAnalyze {
 		}
 		return null;
 	}
-	
+
 	private SootField testeXXX(Value value, Unit u, UnitGraph cfg) {
 		return testeXXXY(value, u, cfg, AnalysisType.BACKWARD);
 //		log.trace("testeXXX ::: value=" + value + " ::: unit=" + u);
@@ -1255,7 +1679,7 @@ public class SootAnalyze {
 //		}
 //		return null;
 	}
-	
+
 	private SootField findField(Value value, Unit u, UnitGraph cfg) {
 		return testeXXXY(value, u, cfg, AnalysisType.FORWARD);
 		// TODO .........................ver condicao de parada
@@ -1325,7 +1749,7 @@ public class SootAnalyze {
 				if (!widgets.isEmpty()) {
 					for (Widget w : widgets) {
 						String listener = w.getListenerName();
-						String eventMethod = w.getEventMethod();
+						String eventMethod = "";// TODO w.getEventMethod();
 						List<Widget> dWidgets = new ArrayList<>();
 						List<String> w_ids = new ArrayList<>();
 						CallGraph cg = Scene.v().getCallGraph();
@@ -1366,11 +1790,15 @@ public class SootAnalyze {
 									if (d_id != null && !w_ids.contains(d_id)) {
 										w_ids.add(d_id);
 										// System.out.println(d_id);
-										Widget dWidget = new Widget();
-										dWidget.setId(curWidgetId.inc());
-										dWidget.setWidgetId(d_id);
-										dWidget.setWidgetType(invokeObj.getType().toString());
+//										Widget dWidget = new Widget();
+//										dWidget.setId(curWidgetId.inc());
+//										dWidget.setWidgetId(d_id);
+//										dWidget.setWidgetType(invokeObj.getType().toString());
 										// System.out.println(dWidget.getId()+"\t"+dWidget.getWidgetId()+"\t"+dWidget.getWidgetType());
+
+										// TODO rever o type
+										TextViewWidget dWidget = WidgetBuilder.newWidget(WidgetType.getByWidgetClass(invokeObj.getType().toString())).widgetId(d_id).build();
+
 										dWidgets.add(dWidget);
 									}
 								}
@@ -1408,7 +1836,7 @@ public class SootAnalyze {
 			if (!widgets.isEmpty()) {
 				for (Widget w : widgets) {
 					String listener = w.getListenerName();
-					String eventMethod = w.getEventMethod();
+					String eventMethod = "";// TODO w.getEventMethod();
 					CallGraph cg = Scene.v().getCallGraph();
 					removeDisEdges(cg);
 					MethodOrMethodContext cbContext = findMethodContex(cg, listener, eventMethod);
@@ -1579,9 +2007,7 @@ public class SootAnalyze {
 		setup.setCallbackFile(callbackPath);
 		try {
 			setup.runInfoflow();
-		} catch (IOException e) {
-			e.printStackTrace();
-		} catch (XmlPullParserException e) {
+		} catch (IOException | XmlPullParserException e) {
 			e.printStackTrace();
 		}
 	}
@@ -1634,6 +2060,22 @@ public class SootAnalyze {
 			}
 		}
 		return Optional.empty();
+	}
+
+	private List<Unit> getAllInvokeExprByMethodName(String methodName, SootMethod method) {
+		List<Unit> invokeExpressions = new ArrayList<>();
+		UnitPatchingChain units = method.retrieveActiveBody().getUnits();
+		for (Unit u : units) {
+			Stmt stmt = (Stmt) u;
+			if (stmt.containsInvokeExpr()) {
+				InvokeExpr invokeExpr = stmt.getInvokeExpr();
+				SootMethod invokeMethod = invokeExpr.getMethod();
+				if (invokeMethod.getName().equals(methodName)) {
+					invokeExpressions.add(u);
+				}
+			}
+		}
+		return invokeExpressions;
 	}
 
 	private Optional<SootMethod> getMethodByName(String methodName, SootClass clazz) {
@@ -1704,17 +2146,18 @@ public class SootAnalyze {
 		systemCallbacks.add("onTouchEvent");
 	}
 
+	@Deprecated
 	private void initializeSetListeners() {
-		setListeners = new ArrayList<>();
-		setListeners.add("setOnClickListener");
-		setListeners.add("setOnLongClickListener");
-		setListeners.add("setOnItemClickListener");
-		setListeners.add("setOnItemLongClickListener");
-		setListeners.add("setOnScrollListener");
-		setListeners.add("setOnDragListener");
-		setListeners.add("setOnHoverListener");
-		setListeners.add("setOnTouchListener");
-		setListeners.add("setOnMenuItemClickListener");
+//		setListeners = new ArrayList<>();
+//		setListeners.add("setOnClickListener");
+//		setListeners.add("setOnLongClickListener");
+//		setListeners.add("setOnItemClickListener");
+//		setListeners.add("setOnItemLongClickListener");
+//		setListeners.add("setOnScrollListener");
+//		setListeners.add("setOnDragListener");
+//		setListeners.add("setOnHoverListener");
+//		setListeners.add("setOnTouchListener");
+//		setListeners.add("setOnMenuItemClickListener");
 	}
 
 	private void initStartActSignatures() {
@@ -1750,7 +2193,7 @@ public class SootAnalyze {
 		String androidPlatformsDir = "/home/pedro/desenvolvimento/aplicativos/android/sdk/platforms";
 		String rtJarPath = "/home/pedro/.sdkman/candidates/java/8.0.302-open/jre/lib/rt.jar";
 
-		String baseDir = "/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec/rv-android/apks_mini/";
+		String baseDir = "/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec/rv-android/apks_examples/";
 		String apk = baseDir + "cryptoapp.apk";
 
 		String sourcesAndSinksFile = "/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec/rvsec/rvsec-android/rvsec-taint/SourcesAndSinks.txt";
@@ -1763,6 +2206,8 @@ public class SootAnalyze {
 			AppInfo info = sootAnalyze.init(apk);
 			List<WindowNode> nodes = sootAnalyze.analyze();
 
+			System.out.println("INFO: ");
+			info.getActivities().forEach(System.out::println);
 			System.out.println("NODES:");
 			nodes.forEach(System.out::println);
 

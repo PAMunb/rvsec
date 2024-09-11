@@ -1,26 +1,22 @@
 package com.fdu.se.sootanalyze.model.xml;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
+import java.util.HashSet;
 import java.util.Objects;
-
+import java.util.Set;
 
 public class ActivityInfo {
 	private String name, shortName, packageName;
 	private boolean isMain = false;
-
 	private String layoutFileName;
-	private List<ViewInfo> views = new ArrayList<>();
+	private Set<MethodInfo> methods = new HashSet<>();
 	
-//	private boolean reachesMop = false;
-//	private SootClass sootClass;
-	
+
 	public ActivityInfo(String name, boolean isMain) {
 		setName(name);
 		this.isMain = isMain;
 	}
 
+	
 	public String getName() {
 		return name;
 	}
@@ -51,23 +47,17 @@ public class ActivityInfo {
 		this.layoutFileName = layoutFileName;
 	}
 
-	public List<ViewInfo> getViews() {
-		return Collections.unmodifiableList(views);
+	public Set<MethodInfo> getMethods() {
+		return methods;
 	}
 
-	public void setViews(List<ViewInfo> views) {
-		this.views = views;
-	}
-
-	public void addView(ViewInfo view) {
-		if (!views.contains(view)) {
-			views.add(view);
-		}
+	public boolean addMethod(MethodInfo methodInfo) {
+		return methods.add(methodInfo);
 	}
 
 	@Override
 	public int hashCode() {
-		return Objects.hash(isMain, name, packageName, shortName);
+		return Objects.hash(isMain, layoutFileName, methods, name, packageName, shortName);
 	}
 
 	@Override
@@ -77,11 +67,13 @@ public class ActivityInfo {
 		if ((obj == null) || (getClass() != obj.getClass()))
 			return false;
 		ActivityInfo other = (ActivityInfo) obj;
-		return isMain == other.isMain && Objects.equals(name, other.name) && Objects.equals(packageName, other.packageName) && Objects.equals(shortName, other.shortName);
+		return isMain == other.isMain && Objects.equals(layoutFileName, other.layoutFileName) && Objects.equals(methods, other.methods) && Objects.equals(name, other.name) && Objects.equals(packageName, other.packageName)
+				&& Objects.equals(shortName, other.shortName);
 	}
 
 	@Override
 	public String toString() {
-		return String.format("ActivityInfo [name=%s, isMain=%s, layoutFileName=%s, views=%s]", name, isMain, layoutFileName, views);
+		return String.format("ActivityInfo [name=%s, isMain=%s, layoutFileName=%s, methods=%s]", name, isMain, layoutFileName, methods);
 	}
+
 }

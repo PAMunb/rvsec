@@ -1,36 +1,84 @@
 package com.fdu.se.sootanalyze.model;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 import soot.SootField;
-import soot.SootMethod;
+import soot.Unit;
 
-public class Widget {
+public abstract class Widget {
 	private long id;
-	
-    private String widgetType;
-    private String widgetId;
-    
-    private String event;
-    private String listenerName; 
-    private String eventMethod; 
-    private boolean eventRegisteredInLayoutFile = false;//whether the event of the widget is registered in the layout file, 1 yes, 0 no
-    
-    private List<Widget> dWidgets = new ArrayList<>();//the dependency of this widget
-    
-    private String text;
-    private String textId;
-    private String name;
-    
-    private SootField field;// sootfield
-	private SootMethod callbackMethod;
-    
 
-    public Widget() {
-    }
+//	@Deprecated
+//	private String widgetType;
+	private String widgetId;
 
-    public SootField getField() {
+//	@Deprecated
+//	private String event;
+	@Deprecated//TODO nome da atividade (caminho completo)
+	private String listenerName;
+//	@Deprecated
+//	private String eventMethod;
+//	@Deprecated
+//	private boolean eventRegisteredInLayoutFile = false;// whether the event of the widget is registered in the layout file, 1 yes, 0 no
+
+	// ???????????
+	private List<Widget> dWidgets = new ArrayList<>();// the dependency of this widget
+
+//	private String text;
+//	private String textId;
+	private WidgetType type; // TODO
+	private String name;
+
+	private Set<Listener> listeners = new HashSet<>();// TODO
+
+	private SootField field;// sootfield
+//	@Deprecated
+//	private SootMethod callbackMethod;
+
+	private Unit declaration; /// ?????
+
+
+	protected Widget(BaseWidgetBuilderNovo builder) {
+		this.id = builder.getId();
+		this.widgetId = builder.getWidgetId();
+		this.type = builder.getType();
+		this.name = builder.getName();
+		this.listeners = builder.getListeners();
+		this.field = builder.getField();
+	}
+
+	public long getId() {
+		return id;
+	}
+
+	public String getWidgetId() {
+		return widgetId;
+	}
+
+	public WidgetType getType() {
+		return type;
+	}
+
+	public String getName() {
+		return name;
+	}
+
+	public Set<Listener> getListeners() {
+		return listeners;
+	}
+
+	public List<Widget> getdWidgets() {
+		return dWidgets;
+	}
+
+	public void setdWidgets(List<Widget> dWidgets) {
+		this.dWidgets = dWidgets;
+	}
+
+	public SootField getField() {
 		return field;
 	}
 
@@ -38,109 +86,37 @@ public class Widget {
 		this.field = field;
 	}
 
-	public SootMethod getCallbackMethod() {
-		return callbackMethod;
+	public Unit getDeclaration() {
+		return declaration;
 	}
 
-	public void setCallbackMethod(SootMethod callbackMethod) {
-		this.callbackMethod = callbackMethod;
+	public void setDeclaration(Unit declaration) {
+		this.declaration = declaration;
 	}
 
-	public String getText() {
-		return text;
+	@Deprecated
+	public boolean isEventRegisteredInLayoutFile() {
+		return listeners.stream().anyMatch(Listener::isEventRegisteredInLayoutFile);
 	}
 
-	public void setText(String text) {
-		this.text = text;
+	@Deprecated
+	public String getListenerName() {
+		return listenerName;
 	}
 
-	public String getTextId() {
-		return textId;
+	@Deprecated
+	public void setListenerName(String listenerName) {
+		this.listenerName = listenerName;
 	}
 
-	public void setTextId(String textId) {
-		this.textId = textId;
+	public void addListener(Listener listener) {
+		listeners.add(listener);
 	}
-
-	public String getName() {
-		return name;
-	}
-
-	public void setName(String tmp) {
-		this.name = tmp;
-	}
-
-	public String getWidgetType() {
-        return widgetType;
-    }
-
-    public void setWidgetType(String widgetType) {
-        this.widgetType = widgetType;
-    }
-
-    public String getWidgetId() {
-        return widgetId;
-    }
-
-    public void setWidgetId(String widgetId) {
-        this.widgetId = widgetId;
-    }
-
-    public String getEvent() {
-        return event;
-    }
-
-    public void setEvent(String event) {
-        this.event = event;
-    }
-
-    public long getId() {
-        return id;
-    }
-
-    public void setId(long id) {
-        this.id = id;
-    }
-
-    public String getEventMethod() {
-        return eventMethod;
-    }
-
-    public void setEventMethod(String eventMethod) {
-        this.eventMethod = eventMethod;
-    }
-
-    public boolean isEventRegisteredInLayoutFile() {
-        return eventRegisteredInLayoutFile;
-    }
-
-    public void setEventRegisteredInLayoutFile(boolean layoutRegister) {
-        this.eventRegisteredInLayoutFile = layoutRegister;
-    }
-
-    public String getListenerName() {
-        return listenerName;
-    }
-
-    public void setListenerName(String listenerName) {
-        this.listenerName = listenerName;
-    }
-
-    public List<Widget> getdWidgets() {
-        return dWidgets;
-    }
-
-    public void setdWidgets(List<Widget> dWidgets) {
-        this.dWidgets = dWidgets;
-    }
 
 	@Override
 	public String toString() {
-		return String.format("Widget [id=%s, widgetType=%s, widgetId=%s, event=%s, listenerName=%s, eventMethod=%s, eventRegisteredInLayoutFile=%s, text=%s, textId=%s, name=%s, field=%s, callbackMethod=%s]", id, widgetType, widgetId, event, listenerName,
-				eventMethod, eventRegisteredInLayoutFile, text, textId, name, field, callbackMethod);
+		return String.format("Widget [id=%s, widgetId=%s, listenerName=%s, type=%s, name=%s, listeners=%s, field=%s, declaration=%s]", id, widgetId, listenerName, type, name,
+				listeners, field, declaration);
 	}
 
-
-
-    
 }

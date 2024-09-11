@@ -58,10 +58,10 @@ public class AppReader {
 
 			for (BinaryManifestActivity binaryManifestActivity : processManifest.getActivities()) {
 				ActivityInfo activityInfo = readActivity(binaryManifestActivity);
-				if (!activityInfo.getPackageName().startsWith(appInfo.getPackage())) {
+//				if (!activityInfo.getPackageName().startsWith(appInfo.getPackage())) {
 //					samePackage = false;
-					appPackage.add(activityInfo.getPackageName());
-				}
+//					appPackage.add(activityInfo.getPackageName());
+//				}
 				appInfo.addActivity(activityInfo);
 			}
 
@@ -91,7 +91,6 @@ public class AppReader {
 		ApkDecoder decoder = new ApkDecoder(new File(appInfo.getPath()));
 		try {
 			if(outDir.exists()) {
-//				Files.delete(Path.of(outDir.getAbsolutePath()));
 				Files.walk(Path.of(outDir.getAbsolutePath()))
 			      .sorted(Comparator.reverseOrder())
 			      .map(Path::toFile)

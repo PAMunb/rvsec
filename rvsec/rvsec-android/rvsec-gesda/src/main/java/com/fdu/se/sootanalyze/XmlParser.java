@@ -21,13 +21,21 @@ import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 import org.xml.sax.SAXException;
 
-import com.fdu.se.sootanalyze.model.MenuItem;
+import com.fdu.se.sootanalyze.model.BaseListeners;
+import com.fdu.se.sootanalyze.model.Listener;
+import com.fdu.se.sootanalyze.model.ListenerType;
+import com.fdu.se.sootanalyze.model.SpinnerWidget;
 import com.fdu.se.sootanalyze.model.SubMenu;
+import com.fdu.se.sootanalyze.model.TextViewWidget;
+import com.fdu.se.sootanalyze.model.TextViewWidgetBuilderNovo;
 import com.fdu.se.sootanalyze.model.Widget;
+import com.fdu.se.sootanalyze.model.WidgetBuilder;
+import com.fdu.se.sootanalyze.model.WidgetType;
 import com.fdu.se.sootanalyze.model.xml.AppInfo;
 import com.fdu.se.sootanalyze.utils.NumberIncrementer;
 import com.fdu.se.sootanalyze.utils.StringUtil;
 
+import pxb.android.axml.AxmlVisitor;
 import soot.jimple.infoflow.android.axml.AXmlAttribute;
 import soot.jimple.infoflow.android.axml.AXmlHandler;
 import soot.jimple.infoflow.android.axml.AXmlNode;
@@ -38,35 +46,33 @@ public class XmlParser {
 
 	private static Logger log = LoggerFactory.getLogger(XmlParser.class);
 
-	private AppInfo appInfo;
-	private String apkPath;
-	private Map<String, String> idMap;
+	private final AppInfo appInfo;
+	private final String apkPath;
+	private final Map<String, String> idMap;
 	private Map<String, String> mapAppStrings;
 	private File decompiledApkDir;
-	
+
 
 	public XmlParser(AppInfo appInfo, Map<String, String> idMap) {
 		this.appInfo = appInfo;
 		this.apkPath = appInfo.getPath();
 		this.idMap = idMap;
+		initializeStringsMap();
 	}
 
 	public List<Widget> parseActivityLayout(String filename) {
 		List<Widget> views = new ArrayList<>();
 		String layoutPath = Path.of("res", "layout", filename + ".xml").toString();
-		log.debug("Parsing activity layout file: "+layoutPath);
+		log.debug("Parsing activity layout file: " + layoutPath);
 		try (ApkHandler apkHandler = new ApkHandler(apkPath)) {
 			InputStream layoutStream = apkHandler.getInputStream(layoutPath);
 			if (layoutStream != null) {
 				AXmlHandler aXmlHandler = new AXmlHandler(layoutStream);
-				
+
 				// TODO mudar a logica pra ficar na ordem (na lista) q eh declarado ??
 
-				List<Widget> buttons = parseButtons(aXmlHandler);
-				views.addAll(buttons);
-
-				List<Widget> editTexts = parseEditTexts(aXmlHandler);
-				views.addAll(editTexts);
+				List<Widget> textViewWidgets = parseTextViewWidgets(aXmlHandler);
+				views.addAll(textViewWidgets);
 
 				List<Widget> spinnerTexts = parseSpinners(aXmlHandler);
 				views.addAll(spinnerTexts);
@@ -79,10 +85,10 @@ public class XmlParser {
 	}
 
 	public String getStringValueByName(String name) {
-		if (mapAppStrings == null) {
-			initializeStringsMap();
-		}
-		log.trace("getStringValueByName("+name+")="+mapAppStrings.get(name));
+//		if (mapAppStrings == null) {
+//			initializeStringsMap();
+//		}
+		log.trace("getStringValueByName(" + name + ")=" + mapAppStrings.get(name));
 		return mapAppStrings.get(name);
 	}
 
@@ -90,19 +96,19 @@ public class XmlParser {
 		mapAppStrings = new HashMap<>();
 		try {
 			decompiledApkDir = AppReader.decompileApp(appInfo);
-			
+
 			String stringPath = Path.of(decompiledApkDir.getAbsolutePath(), "res", "values", "strings.xml").toString();
-			parseStringFile(stringPath);			
-//			
+			parseStringFile(stringPath);
+//
 			String publicPath = Path.of(decompiledApkDir.getAbsolutePath(), "res", "values", "public.xml").toString();
 			parsePublicStringFile(publicPath);
 		} catch (Exception e) {
-			log.error("Error parsing resources file: "+e.getMessage(), e);
+			log.error("Error parsing resources file: " + e.getMessage(), e);
 		}
 	}
-	
+
 	private void parseStringFile(String filePath) throws ParserConfigurationException, SAXException, IOException {
-		log.debug("Parsing strings file: "+filePath);
+		log.debug("Parsing strings file: " + filePath);
 		File stringsFile = new File(filePath);
 		DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
 		DocumentBuilder docBuilder = dbf.newDocumentBuilder();
@@ -115,9 +121,9 @@ public class XmlParser {
 			mapAppStrings.put(nameValue, strElement.getFirstChild().getNodeValue());
 		}
 	}
-	
+
 	private void parsePublicStringFile(String filePath) throws ParserConfigurationException, SAXException, IOException {
-		log.debug("Parsing public strings file: "+filePath);
+		log.debug("Parsing public strings file: " + filePath);
 		final List<String> validTypes = List.of("id", "menu", "string");
 		DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
 		DocumentBuilder docBuilder = dbf.newDocumentBuilder();
@@ -127,79 +133,110 @@ public class XmlParser {
 			Node element = elements.item(i);
 			Element e = (Element) element;
 			String typeValue = e.getAttribute("type");
-			if(validTypes.contains(typeValue)) {
+			if (validTypes.contains(typeValue)) {
 				String nameValue = e.getAttribute("name");
 				String idValue = e.getAttribute("id");
-				if(StringUtil.isHexadecimal(idValue)) {
+//				log.trace("parsePublicStringFile ::: name=" + nameValue + " ::: id=" + idValue);
+				if (StringUtil.isHexadecimal(idValue)) {
 					int id = Integer.parseInt(idValue.substring(2), 16);
-					idMap.put(id+"", nameValue);				
+//					log.trace("\t-" + id + "=" + nameValue);
+					idMap.put(id + "", nameValue);
+//					mapAppStrings.put(id+"", nameValue);
 				}
 			}
 		}
 	}
 
-	private List<Widget> parseButtons(AXmlHandler aXmlHandler) {
-		log.debug("Parsing Buttons ...");
-		List<Widget> views = new ArrayList<>();
-		List<AXmlNode> buttonNodes = aXmlHandler.getNodesWithTag("Button");
-		for (AXmlNode node : buttonNodes) {
-			log.trace("Button node ..."+node);
-			Integer id = getAttributeValue("id", node);
-			log.trace("\tid= " + id);
-			String callback = getAttributeValue("onClick", node);
-			log.trace("\tcallback=" + callback);
-			String name = getNameById(id.toString());
-			log.trace("\tbuttonName=" + name);
-
-			//TODO
-			String textId = null;
-			AXmlAttribute<?> textAttribute = node.getAttribute(TEXT);
-			if (textAttribute != null) {
-				textId = textAttribute.getValue().toString();
-			}
-			log.trace("\ttextId="+textId);			
-
-			Widget button = new Widget();
-			button.setWidgetType("android.widget.Button");
-			button.setEvent("click");
-			button.setEventMethod(callback);
-			button.setEventRegisteredInLayoutFile(callback != null);
-			button.setWidgetId(id.toString());
-			button.setName(name);
-			button.setTextId(textId);
-			button.setText(getNameById(textId));
-
-			log.debug("Adding button: "+button);
-			views.add(button);
-		}
-		return views;
-	}
-
-	
-	
-	private List<Widget> parseEditTexts(AXmlHandler aXmlHandler) {
-		log.debug("Parsing EditTexts ...");
-		
-//		List<Widget> widgets = parseWidgetsByTag(aXmlHandler, "EditText", "android.widget.EditText", "edit");
-//		List<AXmlNode> buttonNodes = aXmlHandler.getNodesWithTag("EditText");
+//	private List<Widget> parseButtons(AXmlHandler aXmlHandler) {
+//		log.debug("Parsing Buttons ...");
+//		List<Widget> views = new ArrayList<>();
+//		List<AXmlNode> buttonNodes = aXmlHandler.getNodesWithTag("Button");
 //		for (AXmlNode node : buttonNodes) {
+//			log.trace("Button node ..." + node);
 //			Integer id = getAttributeValue("id", node);
-//			Widget widget = findWidgetById(id, widgets);
-			
-			//TODO
-//			String hint = getAttributeValue("hint", node);
-//			log.trace("parseEditTexts ::: hint="+hint);
-//			widget.setHint(hint);
-//			
-//			//https://developer.android.com/reference/android/widget/TextView.html#attr_android%3ainputType
-//			String inputType = getAttributeValue("inputType", node);
-//			widget.setInputType(inputType);
+//			log.trace("\tid= " + id);
+//			String callback = getAttributeValue("onClick", node);
+//			log.trace("\tcallback=" + callback);
+//			String name = getNameById(id.toString());
+//			log.trace("\tbuttonName=" + name);
+//
+//			// TODO
+//			String text = null;
+//			AXmlAttribute<?> textAttribute = node.getAttribute(TEXT);
+//			if (textAttribute != null) {
+//				text = textAttribute.getValue().toString();
+//				log.trace("\tvalue=" + text);
+//				if (AxmlVisitor.TYPE_INT_HEX == textAttribute.getType()) {
+//					text = getNameById(text);
+//					log.trace("\tvalue ::: int=" + text);
+//				}
+//			}
+//			log.trace("\ttext=" + text);
+//
+////			Widget button = new Widget();
+////			button.setWidgetType("android.widget.Button");
+////			button.setEvent("click");
+////			button.setEventMethod(callback);
+////			button.setEventRegisteredInLayoutFile(callback != null);
+////			button.setWidgetId(id.toString());
+////			button.setName(name);
+////			button.setTextId(textId);
+////			button.setText(getNameById(textId));
+//
+//			Listener listener = getListener(node);
+//			log.trace("\tlistener=" + listener);
+//
+//			TextViewWidget button = WidgetBuilder.newButton()
+//					.withListener(listener)
+//					.widgetId(id.toString())
+//					.name(name)
+//					.text(text)
+//					.build();
+//
+//			log.debug("Adding button: " + button);
+//			views.add(button);
 //		}
-		
-		
-		return parseWidgetsByTag(aXmlHandler, "EditText", "android.widget.EditText", "edit");
+//		return views;
+//	}
+
+	private Listener getListener(AXmlNode node) {
+		String method = "onClick";
+		log.trace("\tgetListener(): " + node);
+		String callback = getAttributeValue(method, node);
+		log.trace("\tgetListener() ::: callback=" + callback);
+		if (callback != null) {
+			ListenerType listenerEnum = BaseListeners.getByEventCallback(method);
+			log.trace("\tgetListener() ::: listenerEnum=" + listenerEnum);
+			if (listenerEnum != null) {
+				return new Listener(listenerEnum, callback, true);
+			}
+		}
+
+		return null;
 	}
-	
+
+//	private List<Widget> parseEditTexts(AXmlHandler aXmlHandler) {
+//		log.debug("Parsing EditTexts ...");
+//
+////		List<Widget> widgets = parseWidgetsByTag(aXmlHandler, "EditText", "android.widget.EditText", "edit");
+////		List<AXmlNode> buttonNodes = aXmlHandler.getNodesWithTag("EditText");
+////		for (AXmlNode node : buttonNodes) {
+////			Integer id = getAttributeValue("id", node);
+////			Widget widget = findWidgetById(id, widgets);
+//
+//		// TODO
+////			String hint = getAttributeValue("hint", node);
+////			log.trace("parseEditTexts ::: hint="+hint);
+////			widget.setHint(hint);
+////
+////			//https://developer.android.com/reference/android/widget/TextView.html#attr_android%3ainputType
+////			String inputType = getAttributeValue("inputType", node);
+////			widget.setInputType(inputType);
+////		}
+//
+//		return parseWidgetsByTag(aXmlHandler, "EditText", "android.widget.EditText", "edit");
+//	}
+
 //	private Widget findWidgetById(Integer id, List<Widget> widgets) {
 //		String idStr = id.toString();
 //		for (Widget widget : widgets) {
@@ -210,71 +247,197 @@ public class XmlParser {
 //		return null;
 //	}
 
-	private List<Widget> parseSpinners(AXmlHandler aXmlHandler) {
-		log.debug("Parsing Spinners ...");
-		
-		
-//		List<AXmlNode> buttonNodes = aXmlHandler.getNodesWithTag("Spinner");
-//		for (AXmlNode node : buttonNodes) {
-//			log.trace("Spinner node ... : "+node);
+//	private List<Widget> parseSpinners(AXmlHandler aXmlHandler) {
+//		log.debug("Parsing Spinners ...");
+//
+////		List<AXmlNode> buttonNodes = aXmlHandler.getNodesWithTag("Spinner");
+////		for (AXmlNode node : buttonNodes) {
+////			log.trace("Spinner node ... : "+node);
+////			Integer id = getAttributeValue("id", node);
+////			log.trace("\tid= " + id);
+////			String name = getNameById(id.toString());
+////			log.trace("\tspinnerName=" + name);
+////
+////			Widget spinner = new Widget();
+////			spinner.setWidgetType("android.widget.Spinner");
+////			spinner.setEvent("select");
+////			spinner.setWidgetId(id.toString());
+////			spinner.setName(name);
+////			spinner.setText(getAttributeValue(TEXT, node));
+////
+////			// TODO values e text
+////
+////			log.debug("Adding spinner: "+spinner);
+////			views.add(spinner);
+////		}
+//		return parseWidgetsByTag(aXmlHandler, "Spinner", "android.widget.Spinner", "select");
+//	}
+
+//	@Deprecated
+//	private List<Widget> parseWidgetsByTag(AXmlHandler aXmlHandler, String tag, String type, String event) {
+//		List<Widget> views = new ArrayList<>();
+//		List<AXmlNode> nodes = aXmlHandler.getNodesWithTag(tag);
+//		for (AXmlNode node : nodes) {
+//			log.trace("Widget node ... : " + node);
 //			Integer id = getAttributeValue("id", node);
 //			log.trace("\tid= " + id);
 //			String name = getNameById(id.toString());
-//			log.trace("\tspinnerName=" + name);
+//			log.trace("\tname=" + name);
 //
-//			Widget spinner = new Widget();
-//			spinner.setWidgetType("android.widget.Spinner");
-//			spinner.setEvent("select");
-//			spinner.setWidgetId(id.toString());
-//			spinner.setName(name);
-//			spinner.setText(getAttributeValue(TEXT, node));
+////			Widget widget = Widget.builder()
+////				.widgetType(type)
+////				.event(event)
+////				.widgetId(id.toString())
+////				.name(name)
+////				.text(getAttributeValue(TEXT, node))
+////				.build();
 //
-//			// TODO values e text
+////			Widget widget = new Widget();
+////			widget.setWidgetType(type);
+////			widget.setEvent(event);
+////			widget.setWidgetId(id.toString());
+////			widget.setName(name);
+////			//TODO
+//			log.trace("parseWidgetsByTag ::: 01=" + getAttributeValue(TEXT, node));
+//			log.trace("parseWidgetsByTag ::: 02=" + getNameById(getAttributeValue(TEXT, node)));
+////			widget.setText(getAttributeValue(TEXT, node));
 //
-//			log.debug("Adding spinner: "+spinner);
-//			views.add(spinner);
+//			String hint = getAttributeValue("hint", node);
+//			log.trace("parseWidgetsByTag ::: hint=" + hint);
+////			widget.setHint(hint);
+//
+//			// https://developer.android.com/reference/android/widget/TextView.html#attr_android%3ainputType
+//			Integer inputTypeInt = getAttributeValue("inputType", node);
+//			String inputType = (inputTypeInt == null) ? null : inputTypeInt.toString();
+//			log.trace("parseWidgetsByTag ::: inputType=" + inputTypeInt);
+//			log.trace("parseWidgetsByTag ::: inputMode=" + getAttributeValue("inputMode", node));
+//			log.trace("parseWidgetsByTag ::: tooltipText=" + getAttributeValue("tooltipText", node));
+//			log.trace("parseWidgetsByTag ::: autofillHints=" + getAttributeValue("autofillHints", node));
+////			widget.setInputType(inputType);
+//
+//			TextViewWidget widget = WidgetBuilder
+//					.newWidget(type, event)
+//					.widgetId(id.toString())
+//					.name(name)
+//					.text(getAttributeValue(TEXT, node))
+//					.hint(getAttributeValue("hint", node))
+//					.inputMethod(getAttributeValue("inputMethod", node))
+//					.inputType(inputType).build();
+//
+//			log.debug("Adding widget: " + widget);
+//			views.add(widget);
 //		}
-		return parseWidgetsByTag(aXmlHandler, "Spinner", "android.widget.Spinner", "select");
-	}
-	
-	private List<Widget> parseWidgetsByTag(AXmlHandler aXmlHandler, String tag, String type, String event) {
+//		return views;
+//	}
+
+	private List<Widget> parseTextViewWidgets(AXmlHandler aXmlHandler) {
 		List<Widget> views = new ArrayList<>();
-		List<AXmlNode> nodes = aXmlHandler.getNodesWithTag(tag);
+
+		List<WidgetType> widgetTypes = List.of(WidgetType.BUTTON, WidgetType.EDIT_TEXT, WidgetType.TEXT_VIEW);
+
+		for (WidgetType type : widgetTypes) {
+			List<AXmlNode> nodes = aXmlHandler.getNodesWithTag(type.getXmlTag());
+			for (AXmlNode node : nodes) {
+				log.trace("Widget node ... : " + node);
+				Integer id = getAttributeValue("id", node);
+				log.trace("\tid= " + id);
+				String name = getNameById(id.toString());
+				log.trace("\tname=" + name);
+//				//TODO
+//				log.trace("parseWidgetsByTag ::: 01=" + getAttributeValue(TEXT, node));
+//				log.trace("parseWidgetsByTag ::: 02=" + getNameById(getAttributeValue(TEXT, node)));
+//				widget.setText(getAttributeValue(TEXT, node));
+
+				String hint = getAttributeValue("hint", node);
+				log.trace("parseWidgetsByTag ::: hint=" + hint);
+//				widget.setHint(hint);
+
+				// https://developer.android.com/reference/android/widget/TextView.html#attr_android%3ainputType
+				Integer inputTypeInt = getAttributeValue("inputType", node);
+				String inputType = (inputTypeInt == null) ? null : inputTypeInt.toString();
+				log.trace("parseWidgetsByTag ::: inputType=" + inputTypeInt);
+				log.trace("parseWidgetsByTag ::: inputMode=" + getAttributeValue("inputMode", node));
+				log.trace("parseWidgetsByTag ::: tooltipText=" + getAttributeValue("tooltipText", node));
+				log.trace("parseWidgetsByTag ::: autofillHints=" + getAttributeValue("autofillHints", node));
+//				widget.setInputType(inputType);
+
+				String text = null;
+				AXmlAttribute<?> attribute = node.getAttribute(TEXT);
+				if (attribute != null) {
+					if (AxmlVisitor.TYPE_INT_HEX == attribute.getAttributeType()) {
+						Integer textId = (Integer) attribute.getValue();
+						text = getNameById(textId.toString());
+					} else if (AxmlVisitor.TYPE_STRING == attribute.getAttributeType()) {
+						text = attribute.getValue().toString();
+					}
+
+				}
+				log.trace("\tTEXT=" + text);
+
+				Listener listener = getListener(node);
+				log.trace("\tlistener=" + listener);
+
+				TextViewWidget widget = WidgetBuilder.newWidget(type).widgetId(id.toString()).name(name).text(text).hint(hint).inputMethod(getAttributeValue("inputMethod", node)).inputType(inputType).withListener(listener).build();
+
+				log.debug("Adding widget: " + widget);
+				views.add(widget);
+			}
+		}
+
+		return views;
+	}
+
+	private List<Widget> parseSpinners(AXmlHandler aXmlHandler) {
+		List<Widget> views = new ArrayList<>();
+		WidgetType type = WidgetType.SPINNER;
+		List<AXmlNode> nodes = aXmlHandler.getNodesWithTag(type.getXmlTag());
 		for (AXmlNode node : nodes) {
-			log.trace("Widget node ... : "+node);
+			log.trace("Widget node ... : " + node);
 			Integer id = getAttributeValue("id", node);
 			log.trace("\tid= " + id);
 			String name = getNameById(id.toString());
 			log.trace("\tname=" + name);
 
-			Widget widget = new Widget();
-			widget.setWidgetType(type);
-			widget.setEvent(event);
-			widget.setWidgetId(id.toString());
-			widget.setName(name);
-			//TODO
-			log.trace("parseWidgetsByTag ::: 01="+getAttributeValue(TEXT, node));
-			log.trace("parseWidgetsByTag ::: 02="+getNameById(getAttributeValue(TEXT, node)));
-			widget.setText(getAttributeValue(TEXT, node));
-			
+//			Widget widget = Widget.builder()
+//				.widgetType(type)
+//				.event(event)
+//				.widgetId(id.toString())
+//				.name(name)
+//				.text(getAttributeValue(TEXT, node))
+//				.build();
+
+//			Widget widget = new Widget();
+//			widget.setWidgetType(type);
+//			widget.setEvent(event);
+//			widget.setWidgetId(id.toString());
+//			widget.setName(name);
+//			//TODO
+			log.trace("parseWidgetsByTag ::: 01=" + getAttributeValue(TEXT, node));
+			log.trace("parseWidgetsByTag ::: 02=" + getNameById(getAttributeValue(TEXT, node)));
+//			widget.setText(getAttributeValue(TEXT, node));
+
 			String hint = getAttributeValue("hint", node);
-			log.trace("parseWidgetsByTag ::: hint="+hint);
+			log.trace("parseWidgetsByTag ::: hint=" + hint);
 //			widget.setHint(hint);
-			
-			//https://developer.android.com/reference/android/widget/TextView.html#attr_android%3ainputType
-			Integer inputType = getAttributeValue("inputType", node);
-			log.trace("parseWidgetsByTag ::: inputType="+inputType);
-			log.trace("parseWidgetsByTag ::: inputMode="+getAttributeValue("inputMode", node));
-			log.trace("parseWidgetsByTag ::: tooltipText="+getAttributeValue("tooltipText", node));
-			log.trace("parseWidgetsByTag ::: autofillHints="+getAttributeValue("autofillHints", node));
+
+			// https://developer.android.com/reference/android/widget/TextView.html#attr_android%3ainputType
+			Integer inputTypeInt = getAttributeValue("inputType", node);
+			String inputType = (inputTypeInt == null) ? null : inputTypeInt.toString();
+			log.trace("parseWidgetsByTag ::: inputType=" + inputTypeInt);
+			log.trace("parseWidgetsByTag ::: inputMode=" + getAttributeValue("inputMode", node));
+			log.trace("parseWidgetsByTag ::: tooltipText=" + getAttributeValue("tooltipText", node));
+			log.trace("parseWidgetsByTag ::: autofillHints=" + getAttributeValue("autofillHints", node));
 //			widget.setInputType(inputType);
 
-			log.debug("Adding widget: "+widget);
+			SpinnerWidget widget = WidgetBuilder.newSpinner().widgetId(id.toString()).name(name).values(new ArrayList<>()) // TODO
+					.build();
+
+			log.debug("Adding widget: " + widget);
 			views.add(widget);
 		}
 		return views;
 	}
-	
+
 	public List<Widget> parseAppMenu(String menuName, NumberIncrementer curWidgetId) {
 		log.trace("* parseAppMenu: " + menuName);
 		List<Widget> menuWidgets = new ArrayList<>();
@@ -291,7 +454,7 @@ public class XmlParser {
 						menuWidgets.add(newMenuTitem(itemNode, curWidgetId));
 					} else {// itemNode is SubMenu
 						SubMenu subMenu = new SubMenu();
-						subMenu.setId(curWidgetId.inc());
+//						subMenu.setId(curWidgetId.inc()); TODO descomentar
 						AXmlAttribute<Integer> idAttr = (AXmlAttribute<Integer>) itemNode.getAttribute("id");
 						if (idAttr != null) {
 							int subId = idAttr.getValue();
@@ -300,7 +463,7 @@ public class XmlParser {
 						String subText = getTitleFromMenuRes(itemNode);
 						subMenu.setText(subText);
 						List<AXmlNode> subItemNodes = sub.get(0).getChildrenWithTag("item");
-						List<MenuItem> subItems = new ArrayList<>();
+						List<TextViewWidget> subItems = new ArrayList<>();
 						for (AXmlNode subItemNode : subItemNodes) {
 							subItems.add(newMenuTitem(subItemNode, curWidgetId));
 						}
@@ -315,39 +478,58 @@ public class XmlParser {
 		return menuWidgets;
 	}
 
-	private MenuItem newMenuTitem(AXmlNode node, NumberIncrementer curWidgetId) {
-		log.trace("newMenuTitem ::: node="+node);
-		MenuItem item = new MenuItem();
-		item.setId(curWidgetId.inc());
-		AXmlAttribute<Integer> subIdAttr = (AXmlAttribute<Integer>) node.getAttribute("id");
-		if (subIdAttr != null) {
-			int subId = subIdAttr.getValue();
-			log.trace("newMenuTitem ::: subId="+subId);
-			item.setItemId(subId);
+	private TextViewWidget newMenuTitem(AXmlNode node, NumberIncrementer curWidgetId) {
+		log.trace("newMenuTitem ::: node=" + node);
+
+		TextViewWidgetBuilderNovo builder = WidgetBuilder.newMenuItem();
+
+//		MenuItem item = new MenuItem();
+//		item.setId(curWidgetId.inc());
+		AXmlAttribute<Integer> idAttribute = (AXmlAttribute<Integer>) node.getAttribute("id");
+		if (idAttribute != null) {
+//			int subId = subIdAttr.getValue();
+//			log.trace("newMenuTitem ::: subId="+subId);
+			String widgetId = idAttribute.getValue().toString();
+			builder.widgetId(widgetId);
+			builder.name(getNameById(widgetId));
+			log.trace("newMenuTitem ::: widgetId=" + widgetId);
+			log.trace("newMenuTitem ::: name=" + getNameById(widgetId));
+//			item.setItemId(subId);
 		}
+
+		String onClickStr = getAttributeValue("onClick", node);
+		log.trace("newMenuTitem ::: onClickStr=" + onClickStr);
+
+		Listener listener = getListener(node);
+		log.trace("newMenuTitem ::: listener=" + listener);
+		builder.withListener(listener);
+//		item.setEventMethod(onClickStr);
+
 		String itemText = getTitleFromMenuRes(node);
-		log.trace("newMenuTitem ::: itemText="+itemText);
-		item.setText(itemText);
-		return item;
+		log.trace("newMenuTitem ::: itemText=" + itemText);
+		builder.text(itemText);
+//		item.setText(itemText);
+
+		return builder.build();
 	}
-	
+
 	private String getTitleFromMenuRes(AXmlNode node) {
-		log.trace("getTitleFromMenuRes: "+node);
+		log.trace("getTitleFromMenuRes: " + node);
 		AXmlAttribute<?> attr = node.getAttribute("title");
-		log.trace("getTitleFromMenuRes ::: attr="+attr);
+		log.trace("getTitleFromMenuRes ::: attr_title=" + attr);
 		if (attr != null) {
-			Object titleValue = attr.getValue();			
+			Object titleValue = attr.getValue();
 			if (titleValue instanceof Integer) {// Attribute is Integer
 				Integer intValue = (Integer) titleValue;
-				log.trace("getTitleFromMenuRes ::: intValue="+intValue);
-				//TODO esta no public?
+				log.trace("getTitleFromMenuRes ::: intValue=" + intValue);
+				// TODO esta no public?
 				String name = getNameById(intValue.toString());
-				log.trace("getTitleFromMenuRes ::: name="+name);
+				log.trace("getTitleFromMenuRes ::: name=" + name);
 				if (name != null) {
 					return getStringValueByName(name);
 				}
 			} else if (titleValue instanceof String) {// Attribute is String
-				log.trace("getTitleFromMenuRes ::: string="+titleValue);
+				log.trace("getTitleFromMenuRes ::: string=" + titleValue);
 				return (String) titleValue;
 			}
 		}
@@ -355,18 +537,20 @@ public class XmlParser {
 	}
 
 	private String getNameById(String id) {
-		log.trace("getNameById: "+id);
-		if(idMap == null) {
-			//TODO
+//		log.trace("getNameById: "+id);
+		if (idMap == null) {
+			// TODO
 //			log.trace("getNameById ::: idMap == null");
 			return null;
 		}
-//		log.trace("getNameById ::: "+idMap.get(id));
+//		log.trace("getNameById ::: value="+idMap.get(id));
 //		log.trace("getNameById ::: mapAppStrings ... "+getStringValueByName(id));
 //		idMap.keySet().forEach(k -> log.trace("getNameById ::: idMap ::: "+k+"="+idMap.get(k)));
-		return idMap.get(id);
+		String result = idMap.get(id);
+		log.trace("getNameById: " + id + "=" + result);
+		return result;
 	}
-	
+
 	private <T> T getAttributeValue(String name, AXmlNode bNode) {
 		AXmlAttribute<T> attribute = (AXmlAttribute<T>) bNode.getAttribute(name);
 		if (attribute == null) {
