@@ -5,7 +5,7 @@
 	<parent>
 		<groupId>br.unb.cic</groupId>
 		<artifactId>rvsec-android</artifactId>
-		<version>0.5.0-SNAPSHOT</version>
+		<version>0.6.0-SNAPSHOT</version>
 	</parent>
 	<artifactId>rvsec-taint</artifactId>
 	<name>RVSec :: Android :: Taint Analysis</name>
