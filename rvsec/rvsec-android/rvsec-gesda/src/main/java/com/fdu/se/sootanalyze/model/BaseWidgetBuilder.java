@@ -7,7 +7,7 @@ import com.fdu.se.sootanalyze.utils.NumberIncrementer;
 
 import soot.SootField;
 
-public class BaseWidgetBuilderNovo {
+public class BaseWidgetBuilder {
 	private static NumberIncrementer currentId = new NumberIncrementer();// the current id of Widget
 
 	private long id;
@@ -17,7 +17,7 @@ public class BaseWidgetBuilderNovo {
 	private Set<Listener> listeners = new HashSet<>();
 	private SootField field;
 
-	protected BaseWidgetBuilderNovo(WidgetType widgetType) {
+	protected BaseWidgetBuilder(WidgetType widgetType) {
 		this.id = currentId.next();
 		this.type = widgetType;
 	}

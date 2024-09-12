@@ -10,38 +10,24 @@ import soot.Unit;
 
 public abstract class Widget {
 	private long id;
-
-//	@Deprecated
-//	private String widgetType;
 	private String widgetId;
+	private WidgetType type; 
+	private String name;
+	private Set<Listener> listeners = new HashSet<>();
+	private SootField field;
+	
+	private String contentDescription;
 
-//	@Deprecated
-//	private String event;
+	private Unit declaration; /// ?????
+	
 	@Deprecated//TODO nome da atividade (caminho completo)
 	private String listenerName;
-//	@Deprecated
-//	private String eventMethod;
-//	@Deprecated
-//	private boolean eventRegisteredInLayoutFile = false;// whether the event of the widget is registered in the layout file, 1 yes, 0 no
 
 	// ???????????
 	private List<Widget> dWidgets = new ArrayList<>();// the dependency of this widget
 
-//	private String text;
-//	private String textId;
-	private WidgetType type; // TODO
-	private String name;
 
-	private Set<Listener> listeners = new HashSet<>();// TODO
-
-	private SootField field;// sootfield
-//	@Deprecated
-//	private SootMethod callbackMethod;
-
-	private Unit declaration; /// ?????
-
-
-	protected Widget(BaseWidgetBuilderNovo builder) {
+	protected Widget(BaseWidgetBuilder builder) {
 		this.id = builder.getId();
 		this.widgetId = builder.getWidgetId();
 		this.type = builder.getType();
@@ -92,11 +78,6 @@ public abstract class Widget {
 
 	public void setDeclaration(Unit declaration) {
 		this.declaration = declaration;
-	}
-
-	@Deprecated
-	public boolean isEventRegisteredInLayoutFile() {
-		return listeners.stream().anyMatch(Listener::isEventRegisteredInLayoutFile);
 	}
 
 	@Deprecated

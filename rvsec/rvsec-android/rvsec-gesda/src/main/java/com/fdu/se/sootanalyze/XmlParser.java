@@ -27,9 +27,9 @@ import com.fdu.se.sootanalyze.model.ListenerType;
 import com.fdu.se.sootanalyze.model.SpinnerWidget;
 import com.fdu.se.sootanalyze.model.SubMenu;
 import com.fdu.se.sootanalyze.model.TextViewWidget;
-import com.fdu.se.sootanalyze.model.TextViewWidgetBuilderNovo;
+import com.fdu.se.sootanalyze.model.TextViewWidgetBuilder;
 import com.fdu.se.sootanalyze.model.Widget;
-import com.fdu.se.sootanalyze.model.WidgetBuilder;
+import com.fdu.se.sootanalyze.model.WidgetBuilderFactory;
 import com.fdu.se.sootanalyze.model.WidgetType;
 import com.fdu.se.sootanalyze.model.xml.AppInfo;
 import com.fdu.se.sootanalyze.utils.NumberIncrementer;
@@ -186,7 +186,7 @@ public class XmlParser {
 //			Listener listener = getListener(node);
 //			log.trace("\tlistener=" + listener);
 //
-//			TextViewWidget button = WidgetBuilder.newButton()
+//			TextViewWidget button = WidgetBuilderFactory.newButton()
 //					.withListener(listener)
 //					.widgetId(id.toString())
 //					.name(name)
@@ -315,7 +315,7 @@ public class XmlParser {
 //			log.trace("parseWidgetsByTag ::: autofillHints=" + getAttributeValue("autofillHints", node));
 ////			widget.setInputType(inputType);
 //
-//			TextViewWidget widget = WidgetBuilder
+//			TextViewWidget widget = WidgetBuilderFactory
 //					.newWidget(type, event)
 //					.widgetId(id.toString())
 //					.name(name)
@@ -377,7 +377,7 @@ public class XmlParser {
 				Listener listener = getListener(node);
 				log.trace("\tlistener=" + listener);
 
-				TextViewWidget widget = WidgetBuilder.newWidget(type).widgetId(id.toString()).name(name).text(text).hint(hint).inputMethod(getAttributeValue("inputMethod", node)).inputType(inputType).withListener(listener).build();
+				TextViewWidget widget = WidgetBuilderFactory.newWidget(type).widgetId(id.toString()).name(name).text(text).hint(hint).inputMethod(getAttributeValue("inputMethod", node)).inputType(inputType).withListener(listener).build();
 
 				log.debug("Adding widget: " + widget);
 				views.add(widget);
@@ -387,6 +387,7 @@ public class XmlParser {
 		return views;
 	}
 
+	//https://developer.android.com/reference/android/widget/Spinner#xml-attributes
 	private List<Widget> parseSpinners(AXmlHandler aXmlHandler) {
 		List<Widget> views = new ArrayList<>();
 		WidgetType type = WidgetType.SPINNER;
@@ -412,24 +413,25 @@ public class XmlParser {
 //			widget.setWidgetId(id.toString());
 //			widget.setName(name);
 //			//TODO
-			log.trace("parseWidgetsByTag ::: 01=" + getAttributeValue(TEXT, node));
-			log.trace("parseWidgetsByTag ::: 02=" + getNameById(getAttributeValue(TEXT, node)));
+			log.trace("parseSpinners ::: 01=" + getAttributeValue(TEXT, node));
+			log.trace("parseSpinners ::: 02=" + getNameById(getAttributeValue(TEXT, node)));
 //			widget.setText(getAttributeValue(TEXT, node));
 
 			String hint = getAttributeValue("hint", node);
-			log.trace("parseWidgetsByTag ::: hint=" + hint);
+			log.trace("parseSpinners ::: hint=" + hint);
 //			widget.setHint(hint);
 
 			// https://developer.android.com/reference/android/widget/TextView.html#attr_android%3ainputType
 			Integer inputTypeInt = getAttributeValue("inputType", node);
 			String inputType = (inputTypeInt == null) ? null : inputTypeInt.toString();
-			log.trace("parseWidgetsByTag ::: inputType=" + inputTypeInt);
-			log.trace("parseWidgetsByTag ::: inputMode=" + getAttributeValue("inputMode", node));
-			log.trace("parseWidgetsByTag ::: tooltipText=" + getAttributeValue("tooltipText", node));
-			log.trace("parseWidgetsByTag ::: autofillHints=" + getAttributeValue("autofillHints", node));
+			log.trace("parseSpinners ::: inputType=" + inputTypeInt);
+			log.trace("parseSpinners ::: inputMode=" + getAttributeValue("inputMode", node));
+			log.trace("parseSpinners ::: tooltipText=" + getAttributeValue("tooltipText", node));
+			log.trace("parseSpinners ::: autofillHints=" + getAttributeValue("autofillHints", node));
 //			widget.setInputType(inputType);
 
-			SpinnerWidget widget = WidgetBuilder.newSpinner().widgetId(id.toString()).name(name).values(new ArrayList<>()) // TODO
+			//android:entries="@array/messageDigestAlgorithms"
+			SpinnerWidget widget = WidgetBuilderFactory.newSpinner().widgetId(id.toString()).name(name).values(new ArrayList<>()) // TODO
 					.build();
 
 			log.debug("Adding widget: " + widget);
@@ -481,7 +483,7 @@ public class XmlParser {
 	private TextViewWidget newMenuTitem(AXmlNode node, NumberIncrementer curWidgetId) {
 		log.trace("newMenuTitem ::: node=" + node);
 
-		TextViewWidgetBuilderNovo builder = WidgetBuilder.newMenuItem();
+		TextViewWidgetBuilder builder = WidgetBuilderFactory.newMenuItem();
 
 //		MenuItem item = new MenuItem();
 //		item.setId(curWidgetId.inc());

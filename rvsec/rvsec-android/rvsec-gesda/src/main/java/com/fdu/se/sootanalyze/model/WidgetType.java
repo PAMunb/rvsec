@@ -6,7 +6,12 @@ public enum WidgetType {
 	SUB_MENU("android.view.SubMenu", ""), // TODO
 	EDIT_TEXT("android.widget.EditText", "EditText"),
 	SPINNER("android.widget.Spinner", "Spinner"),
-	TEXT_VIEW("android.widget.EditText", "TextView");
+	TEXT_VIEW("android.widget.TextView", "TextView"),
+	CHECKED_TEXT_VIEW("android.widget.CheckedTextView", "CheckedTextView"),
+	CHECKBOX("android.widget.CheckBox", "CheckBox"),
+	TOGGLE_BUTTON("android.widget.ToggleButton", "ToggleButton"),
+	RADIO_BUTTON("android.widget.RadioButton", "RadioButton"),
+	IMAGE_BUTTON("android.widget.ImageButton", "ImageButton");
 
 	private String widgetClass;
 	private String xmlTag;

@@ -4,10 +4,12 @@ import java.util.List;
 
 public class SpinnerWidget extends Widget {
 	private List<String> values;
+	private String prompt;
+	private int spinnerMode;
 
-	SpinnerWidget(SpinnerWidgetBuilderNovo spinnerWidgetBuilderNovo) {
-		super(spinnerWidgetBuilderNovo);
-		this.values = spinnerWidgetBuilderNovo.values;
+	SpinnerWidget(SpinnerWidgetBuilder spinnerWidgetBuilder) {
+		super(spinnerWidgetBuilder);
+		this.values = spinnerWidgetBuilder.values;
 	}
 
 	public List<String> getValues() {

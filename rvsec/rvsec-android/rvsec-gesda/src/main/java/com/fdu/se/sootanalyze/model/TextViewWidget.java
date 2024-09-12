@@ -7,12 +7,12 @@ public class TextViewWidget extends Widget {
 	private String inputMethod;
 	private String inputType;
 
-	TextViewWidget(TextViewWidgetBuilderNovo textViewWidgetBuilderNovo) {
-		super(textViewWidgetBuilderNovo);
-		this.text = textViewWidgetBuilderNovo.getText();
-		this.hint = textViewWidgetBuilderNovo.getHint();
-		this.inputMethod = textViewWidgetBuilderNovo.getInputMethod();
-		this.inputType = textViewWidgetBuilderNovo.getInputType();
+	TextViewWidget(TextViewWidgetBuilder textViewWidgetBuilder) {
+		super(textViewWidgetBuilder);
+		this.text = textViewWidgetBuilder.getText();
+		this.hint = textViewWidgetBuilder.getHint();
+		this.inputMethod = textViewWidgetBuilder.getInputMethod();
+		this.inputType = textViewWidgetBuilder.getInputType();
 	}
 
 	public String getText() {

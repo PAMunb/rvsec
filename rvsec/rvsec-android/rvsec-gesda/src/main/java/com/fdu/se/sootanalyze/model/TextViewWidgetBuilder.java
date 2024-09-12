@@ -2,52 +2,52 @@ package com.fdu.se.sootanalyze.model;
 
 import soot.SootField;
 
-public class TextViewWidgetBuilderNovo extends BaseWidgetBuilderNovo {
+public class TextViewWidgetBuilder extends BaseWidgetBuilder {
 	private String text;
 	private String hint;
 	private String inputMethod;
 	private String inputType;
 
-	public TextViewWidgetBuilderNovo(WidgetType widgetType) {
+	public TextViewWidgetBuilder(WidgetType widgetType) {
 		super(widgetType);
 	}
 
-	public TextViewWidgetBuilderNovo text(String text) {
+	public TextViewWidgetBuilder text(String text) {
 		this.text = text;
 		return this;
 	}
 
-	public TextViewWidgetBuilderNovo hint(String hint) {
+	public TextViewWidgetBuilder hint(String hint) {
 		this.hint = hint;
 		return this;
 	}
 
-	public TextViewWidgetBuilderNovo inputMethod(String inputMethod) {
+	public TextViewWidgetBuilder inputMethod(String inputMethod) {
 		this.inputMethod = inputMethod;
 		return this;
 	}
 
-	public TextViewWidgetBuilderNovo inputType(String inputType) {
+	public TextViewWidgetBuilder inputType(String inputType) {
 		this.inputType = inputType;
 		return this;
 	}
 
-	public TextViewWidgetBuilderNovo widgetId(String widgetId) {
+	public TextViewWidgetBuilder widgetId(String widgetId) {
 		setWidgetId(widgetId);
 		return this;
 	}
 
-	public TextViewWidgetBuilderNovo name(String name) {
+	public TextViewWidgetBuilder name(String name) {
 		setName(name);
 		return this;
 	}
 
-	public TextViewWidgetBuilderNovo withListener(Listener listener) {
+	public TextViewWidgetBuilder withListener(Listener listener) {
 		addListener(listener);
 		return this;
 	}
 
-	public TextViewWidgetBuilderNovo field(SootField field) {
+	public TextViewWidgetBuilder field(SootField field) {
 		setField(field);
 		return this;
 	}

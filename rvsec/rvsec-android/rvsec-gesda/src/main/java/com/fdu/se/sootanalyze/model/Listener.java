@@ -8,7 +8,7 @@ public class Listener {
 	private ListenerType type;
 	private String listernerClass;
 	private SootMethod callbackMethod;
-	private boolean eventRegisteredInLayoutFile = false;// whether the event of the widget is registered in the layout file, 1 yes, 0 no
+	private boolean eventRegisteredInLayoutFile = false;// whether the event of the widget is registered in the layout file
 
 	private String callbackMethodName;
 

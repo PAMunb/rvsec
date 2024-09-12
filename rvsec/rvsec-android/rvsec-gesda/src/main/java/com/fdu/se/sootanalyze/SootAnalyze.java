@@ -1,5 +1,6 @@
 package com.fdu.se.sootanalyze;
 
+import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -24,13 +25,15 @@ import com.fdu.se.sootanalyze.model.TextViewWidget;
 import com.fdu.se.sootanalyze.model.TransitionEdge;
 import com.fdu.se.sootanalyze.model.TransitionGraph;
 import com.fdu.se.sootanalyze.model.Widget;
-import com.fdu.se.sootanalyze.model.WidgetBuilder;
+import com.fdu.se.sootanalyze.model.WidgetBuilderFactory;
 import com.fdu.se.sootanalyze.model.WidgetType;
 import com.fdu.se.sootanalyze.model.WindowNode;
 import com.fdu.se.sootanalyze.model.WindowType;
 import com.fdu.se.sootanalyze.model.xml.ActivityInfo;
 import com.fdu.se.sootanalyze.model.xml.AppInfo;
 import com.fdu.se.sootanalyze.model.xml.MethodInfo;
+import com.fdu.se.sootanalyze.output.ApkInfoOut;
+import com.fdu.se.sootanalyze.output.OutputWriter;
 import com.fdu.se.sootanalyze.utils.NumberIncrementer;
 import com.fdu.se.sootanalyze.utils.StringUtil;
 
@@ -1018,7 +1021,7 @@ public class SootAnalyze {
 //						String text = textValue.toString();
 //						menuItem.setText(text);
 
-						TextViewWidget menuItem = WidgetBuilder.newMenuItem().widgetId(idValue.toString()).text(textValue.toString()).build();
+						TextViewWidget menuItem = WidgetBuilderFactory.newMenuItem().widgetId(idValue.toString()).text(textValue.toString()).build();
 
 						menuWidgets.add(menuItem);
 					}
@@ -1036,7 +1039,7 @@ public class SootAnalyze {
 //							menuItem.setText(text);
 						}
 
-						TextViewWidget menuItem = WidgetBuilder.newMenuItem().widgetId(idValue.toString()).text(text).build();
+						TextViewWidget menuItem = WidgetBuilderFactory.newMenuItem().widgetId(idValue.toString()).text(text).build();
 
 						menuWidgets.add(menuItem);
 					}
@@ -1324,7 +1327,7 @@ public class SootAnalyze {
 //									String subItemText = subItemTextValue.toString();
 //									item.setText(subItemText);
 
-									TextViewWidget item = WidgetBuilder.newMenuItem().widgetId(subItemIdValue.toString()).text(subItemTextValue.toString()).build();
+									TextViewWidget item = WidgetBuilderFactory.newMenuItem().widgetId(subItemIdValue.toString()).text(subItemTextValue.toString()).build();
 
 									items.add(item);
 								}
@@ -1342,7 +1345,7 @@ public class SootAnalyze {
 //										item.setText(subItemText);
 									}
 
-									TextViewWidget item = WidgetBuilder.newMenuItem().widgetId(subItemIdValue.toString()).text(text).build();
+									TextViewWidget item = WidgetBuilderFactory.newMenuItem().widgetId(subItemIdValue.toString()).text(text).build();
 
 									items.add(item);
 								}
@@ -1797,7 +1800,7 @@ public class SootAnalyze {
 										// System.out.println(dWidget.getId()+"\t"+dWidget.getWidgetId()+"\t"+dWidget.getWidgetType());
 
 										// TODO rever o type
-										TextViewWidget dWidget = WidgetBuilder.newWidget(WidgetType.getByWidgetClass(invokeObj.getType().toString())).widgetId(d_id).build();
+										TextViewWidget dWidget = WidgetBuilderFactory.newWidget(WidgetType.getByWidgetClass(invokeObj.getType().toString())).widgetId(d_id).build();
 
 										dWidgets.add(dWidget);
 									}
@@ -2199,6 +2202,10 @@ public class SootAnalyze {
 		String sourcesAndSinksFile = "/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec/rvsec/rvsec-android/rvsec-taint/SourcesAndSinks.txt";
 //		String sinksFile = "";
 		String callbacksFile = "";
+		
+		String outputFile = "/home/pedro/tmp/rvsec-gesda.json";
+		
+		
 
 		SootAnalyze sootAnalyze = new SootAnalyze(androidPlatformsDir, rtJarPath);
 
@@ -2214,6 +2221,9 @@ public class SootAnalyze {
 //			sootAnalyze.analyseDependencies(nodes);
 //			TransitionGraph graph = sootAnalyze.generateTransitionGraph(nodes);
 //			System.out.println("Graph: " + graph);
+			
+			ApkInfoOut infoOut = new ApkInfoOut(info, nodes);
+			OutputWriter.write(infoOut, new File(outputFile));
 		} catch (IOException | XmlPullParserException e) {
 			e.printStackTrace();
 		}

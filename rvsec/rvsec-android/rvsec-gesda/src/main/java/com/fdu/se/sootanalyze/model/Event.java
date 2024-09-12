@@ -8,10 +8,10 @@ public enum Event {
 	DRAG,
 	HOVER,
 	TOUCH,
-	FOCUS,//TODO
+	FOCUS,
 	TEXT_CHANGE,//TODO
 	GESTURE,//TODO
-	SELECTION;//TODO
+	SELECTION;
 
 //Tipos comuns de eventos em views Android:
 //

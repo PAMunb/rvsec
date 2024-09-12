@@ -2,6 +2,8 @@ package com.fdu.se.sootanalyze.model.info;
 
 import java.util.Objects;
 
+@Deprecated
+//vai para modulo especifico para reachability
 public class RVSecInfo {
 
 	// reachable from any entrypoint

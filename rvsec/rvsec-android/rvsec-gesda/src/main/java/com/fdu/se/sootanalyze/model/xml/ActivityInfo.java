@@ -8,6 +8,7 @@ public class ActivityInfo {
 	private String name, shortName, packageName;
 	private boolean isMain = false;
 	private String layoutFileName;
+	@Deprecated
 	private Set<MethodInfo> methods = new HashSet<>();
 	
 

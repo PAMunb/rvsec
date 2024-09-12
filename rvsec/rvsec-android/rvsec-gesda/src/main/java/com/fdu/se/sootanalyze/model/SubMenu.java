@@ -10,7 +10,7 @@ public class SubMenu extends Widget {
     private List<TextViewWidget> items = new ArrayList<>();
 
     public SubMenu() {
-    	super(WidgetBuilder.newSubMenu());//TODO
+    	super(WidgetBuilderFactory.newSubMenu());//TODO
 //        this.setEvent("click");
 //        this.setWidgetType("android.view.SubMenu");
     }
