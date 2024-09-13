@@ -11,9 +11,9 @@ import org.xmlpull.v1.XmlPullParserException;
 import com.beust.jcommander.JCommander;
 import com.fdu.se.sootanalyze.cli.CommandLineArgs;
 import com.fdu.se.sootanalyze.model.WindowNode;
+import com.fdu.se.sootanalyze.model.out.ApkInfoOut;
+import com.fdu.se.sootanalyze.model.out.OutputWriter;
 import com.fdu.se.sootanalyze.model.xml.AppInfo;
-import com.fdu.se.sootanalyze.output.ApkInfoOut;
-import com.fdu.se.sootanalyze.output.OutputWriter;
 
 public class Main {
 

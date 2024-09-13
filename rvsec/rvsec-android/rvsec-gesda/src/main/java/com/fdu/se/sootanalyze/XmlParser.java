@@ -21,14 +21,10 @@ import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 import org.xml.sax.SAXException;
 
-import com.fdu.se.sootanalyze.model.BaseListeners;
 import com.fdu.se.sootanalyze.model.Listener;
 import com.fdu.se.sootanalyze.model.ListenerType;
-import com.fdu.se.sootanalyze.model.SpinnerWidget;
-import com.fdu.se.sootanalyze.model.SubMenu;
-import com.fdu.se.sootanalyze.model.TextViewWidget;
-import com.fdu.se.sootanalyze.model.TextViewWidgetBuilder;
 import com.fdu.se.sootanalyze.model.Widget;
+import com.fdu.se.sootanalyze.model.Widget.WidgetBuilder;
 import com.fdu.se.sootanalyze.model.WidgetBuilderFactory;
 import com.fdu.se.sootanalyze.model.WidgetType;
 import com.fdu.se.sootanalyze.model.xml.AppInfo;
@@ -43,6 +39,7 @@ import soot.jimple.infoflow.android.axml.ApkHandler;
 
 public class XmlParser {
 	private static final String TEXT = "text";
+	private static final Map<Integer, String> inputTypeValues = new HashMap<>();
 
 	private static Logger log = LoggerFactory.getLogger(XmlParser.class);
 
@@ -51,7 +48,6 @@ public class XmlParser {
 	private final Map<String, String> idMap;
 	private Map<String, String> mapAppStrings;
 	private File decompiledApkDir;
-
 
 	public XmlParser(AppInfo appInfo, Map<String, String> idMap) {
 		this.appInfo = appInfo;
@@ -77,7 +73,7 @@ public class XmlParser {
 				List<Widget> spinnerTexts = parseSpinners(aXmlHandler);
 				views.addAll(spinnerTexts);
 			}
-		} catch (IOException e) {
+		} catch (Exception e) {
 			// TODO
 			e.printStackTrace();
 		}
@@ -85,9 +81,6 @@ public class XmlParser {
 	}
 
 	public String getStringValueByName(String name) {
-//		if (mapAppStrings == null) {
-//			initializeStringsMap();
-//		}
 		log.trace("getStringValueByName(" + name + ")=" + mapAppStrings.get(name));
 		return mapAppStrings.get(name);
 	}
@@ -99,7 +92,7 @@ public class XmlParser {
 
 			String stringPath = Path.of(decompiledApkDir.getAbsolutePath(), "res", "values", "strings.xml").toString();
 			parseStringFile(stringPath);
-//
+
 			String publicPath = Path.of(decompiledApkDir.getAbsolutePath(), "res", "values", "public.xml").toString();
 			parsePublicStringFile(publicPath);
 		} catch (Exception e) {
@@ -136,10 +129,8 @@ public class XmlParser {
 			if (validTypes.contains(typeValue)) {
 				String nameValue = e.getAttribute("name");
 				String idValue = e.getAttribute("id");
-//				log.trace("parsePublicStringFile ::: name=" + nameValue + " ::: id=" + idValue);
 				if (StringUtil.isHexadecimal(idValue)) {
 					int id = Integer.parseInt(idValue.substring(2), 16);
-//					log.trace("\t-" + id + "=" + nameValue);
 					idMap.put(id + "", nameValue);
 //					mapAppStrings.put(id+"", nameValue);
 				}
@@ -147,237 +138,46 @@ public class XmlParser {
 		}
 	}
 
-//	private List<Widget> parseButtons(AXmlHandler aXmlHandler) {
-//		log.debug("Parsing Buttons ...");
-//		List<Widget> views = new ArrayList<>();
-//		List<AXmlNode> buttonNodes = aXmlHandler.getNodesWithTag("Button");
-//		for (AXmlNode node : buttonNodes) {
-//			log.trace("Button node ..." + node);
-//			Integer id = getAttributeValue("id", node);
-//			log.trace("\tid= " + id);
-//			String callback = getAttributeValue("onClick", node);
-//			log.trace("\tcallback=" + callback);
-//			String name = getNameById(id.toString());
-//			log.trace("\tbuttonName=" + name);
-//
-//			// TODO
-//			String text = null;
-//			AXmlAttribute<?> textAttribute = node.getAttribute(TEXT);
-//			if (textAttribute != null) {
-//				text = textAttribute.getValue().toString();
-//				log.trace("\tvalue=" + text);
-//				if (AxmlVisitor.TYPE_INT_HEX == textAttribute.getType()) {
-//					text = getNameById(text);
-//					log.trace("\tvalue ::: int=" + text);
-//				}
-//			}
-//			log.trace("\ttext=" + text);
-//
-////			Widget button = new Widget();
-////			button.setWidgetType("android.widget.Button");
-////			button.setEvent("click");
-////			button.setEventMethod(callback);
-////			button.setEventRegisteredInLayoutFile(callback != null);
-////			button.setWidgetId(id.toString());
-////			button.setName(name);
-////			button.setTextId(textId);
-////			button.setText(getNameById(textId));
-//
-//			Listener listener = getListener(node);
-//			log.trace("\tlistener=" + listener);
-//
-//			TextViewWidget button = WidgetBuilderFactory.newButton()
-//					.withListener(listener)
-//					.widgetId(id.toString())
-//					.name(name)
-//					.text(text)
-//					.build();
-//
-//			log.debug("Adding button: " + button);
-//			views.add(button);
-//		}
-//		return views;
-//	}
-
 	private Listener getListener(AXmlNode node) {
-		String method = "onClick";
+		ListenerType type = ListenerType.OnClickListener;
+//		String method = "onClick";
 		log.trace("\tgetListener(): " + node);
-		String callback = getAttributeValue(method, node);
+		String callback = getAttributeValue(type.getEventCallback(), node);
 		log.trace("\tgetListener() ::: callback=" + callback);
 		if (callback != null) {
-			ListenerType listenerEnum = BaseListeners.getByEventCallback(method);
-			log.trace("\tgetListener() ::: listenerEnum=" + listenerEnum);
-			if (listenerEnum != null) {
-				return new Listener(listenerEnum, callback, true);
-			}
+//			ListenerType listenerEnum = BaseListeners.getByEventCallback(method);
+//			log.trace("\tgetListener() ::: listenerEnum=" + listenerEnum);
+//			if (listenerEnum != null) {
+			return new Listener(type, callback, true);
+//			}
 		}
-
 		return null;
 	}
-
-//	private List<Widget> parseEditTexts(AXmlHandler aXmlHandler) {
-//		log.debug("Parsing EditTexts ...");
-//
-////		List<Widget> widgets = parseWidgetsByTag(aXmlHandler, "EditText", "android.widget.EditText", "edit");
-////		List<AXmlNode> buttonNodes = aXmlHandler.getNodesWithTag("EditText");
-////		for (AXmlNode node : buttonNodes) {
-////			Integer id = getAttributeValue("id", node);
-////			Widget widget = findWidgetById(id, widgets);
-//
-//		// TODO
-////			String hint = getAttributeValue("hint", node);
-////			log.trace("parseEditTexts ::: hint="+hint);
-////			widget.setHint(hint);
-////
-////			//https://developer.android.com/reference/android/widget/TextView.html#attr_android%3ainputType
-////			String inputType = getAttributeValue("inputType", node);
-////			widget.setInputType(inputType);
-////		}
-//
-//		return parseWidgetsByTag(aXmlHandler, "EditText", "android.widget.EditText", "edit");
-//	}
-
-//	private Widget findWidgetById(Integer id, List<Widget> widgets) {
-//		String idStr = id.toString();
-//		for (Widget widget : widgets) {
-//			if(widget.getWidgetId().equals(idStr)) {
-//				return widget;
-//			}
-//		}
-//		return null;
-//	}
-
-//	private List<Widget> parseSpinners(AXmlHandler aXmlHandler) {
-//		log.debug("Parsing Spinners ...");
-//
-////		List<AXmlNode> buttonNodes = aXmlHandler.getNodesWithTag("Spinner");
-////		for (AXmlNode node : buttonNodes) {
-////			log.trace("Spinner node ... : "+node);
-////			Integer id = getAttributeValue("id", node);
-////			log.trace("\tid= " + id);
-////			String name = getNameById(id.toString());
-////			log.trace("\tspinnerName=" + name);
-////
-////			Widget spinner = new Widget();
-////			spinner.setWidgetType("android.widget.Spinner");
-////			spinner.setEvent("select");
-////			spinner.setWidgetId(id.toString());
-////			spinner.setName(name);
-////			spinner.setText(getAttributeValue(TEXT, node));
-////
-////			// TODO values e text
-////
-////			log.debug("Adding spinner: "+spinner);
-////			views.add(spinner);
-////		}
-//		return parseWidgetsByTag(aXmlHandler, "Spinner", "android.widget.Spinner", "select");
-//	}
-
-//	@Deprecated
-//	private List<Widget> parseWidgetsByTag(AXmlHandler aXmlHandler, String tag, String type, String event) {
-//		List<Widget> views = new ArrayList<>();
-//		List<AXmlNode> nodes = aXmlHandler.getNodesWithTag(tag);
-//		for (AXmlNode node : nodes) {
-//			log.trace("Widget node ... : " + node);
-//			Integer id = getAttributeValue("id", node);
-//			log.trace("\tid= " + id);
-//			String name = getNameById(id.toString());
-//			log.trace("\tname=" + name);
-//
-////			Widget widget = Widget.builder()
-////				.widgetType(type)
-////				.event(event)
-////				.widgetId(id.toString())
-////				.name(name)
-////				.text(getAttributeValue(TEXT, node))
-////				.build();
-//
-////			Widget widget = new Widget();
-////			widget.setWidgetType(type);
-////			widget.setEvent(event);
-////			widget.setWidgetId(id.toString());
-////			widget.setName(name);
-////			//TODO
-//			log.trace("parseWidgetsByTag ::: 01=" + getAttributeValue(TEXT, node));
-//			log.trace("parseWidgetsByTag ::: 02=" + getNameById(getAttributeValue(TEXT, node)));
-////			widget.setText(getAttributeValue(TEXT, node));
-//
-//			String hint = getAttributeValue("hint", node);
-//			log.trace("parseWidgetsByTag ::: hint=" + hint);
-////			widget.setHint(hint);
-//
-//			// https://developer.android.com/reference/android/widget/TextView.html#attr_android%3ainputType
-//			Integer inputTypeInt = getAttributeValue("inputType", node);
-//			String inputType = (inputTypeInt == null) ? null : inputTypeInt.toString();
-//			log.trace("parseWidgetsByTag ::: inputType=" + inputTypeInt);
-//			log.trace("parseWidgetsByTag ::: inputMode=" + getAttributeValue("inputMode", node));
-//			log.trace("parseWidgetsByTag ::: tooltipText=" + getAttributeValue("tooltipText", node));
-//			log.trace("parseWidgetsByTag ::: autofillHints=" + getAttributeValue("autofillHints", node));
-////			widget.setInputType(inputType);
-//
-//			TextViewWidget widget = WidgetBuilderFactory
-//					.newWidget(type, event)
-//					.widgetId(id.toString())
-//					.name(name)
-//					.text(getAttributeValue(TEXT, node))
-//					.hint(getAttributeValue("hint", node))
-//					.inputMethod(getAttributeValue("inputMethod", node))
-//					.inputType(inputType).build();
-//
-//			log.debug("Adding widget: " + widget);
-//			views.add(widget);
-//		}
-//		return views;
-//	}
 
 	private List<Widget> parseTextViewWidgets(AXmlHandler aXmlHandler) {
 		List<Widget> views = new ArrayList<>();
 
-		List<WidgetType> widgetTypes = List.of(WidgetType.BUTTON, WidgetType.EDIT_TEXT, WidgetType.TEXT_VIEW);
+		List<WidgetType> widgetTypes = List.of(WidgetType.BUTTON, WidgetType.EDIT_TEXT, WidgetType.TEXT_VIEW, 
+				WidgetType.CHECKED_TEXT_VIEW, WidgetType.CHECKBOX, WidgetType.TOGGLE_BUTTON, 
+				WidgetType.RADIO_BUTTON, WidgetType.IMAGE_BUTTON);
 
 		for (WidgetType type : widgetTypes) {
 			List<AXmlNode> nodes = aXmlHandler.getNodesWithTag(type.getXmlTag());
 			for (AXmlNode node : nodes) {
-				log.trace("Widget node ... : " + node);
-				Integer id = getAttributeValue("id", node);
-				log.trace("\tid= " + id);
-				String name = getNameById(id.toString());
-				log.trace("\tname=" + name);
-//				//TODO
-//				log.trace("parseWidgetsByTag ::: 01=" + getAttributeValue(TEXT, node));
-//				log.trace("parseWidgetsByTag ::: 02=" + getNameById(getAttributeValue(TEXT, node)));
-//				widget.setText(getAttributeValue(TEXT, node));
-
-				String hint = getAttributeValue("hint", node);
-				log.trace("parseWidgetsByTag ::: hint=" + hint);
-//				widget.setHint(hint);
+				WidgetBuilder builder = parseView(node, type);
 
 				// https://developer.android.com/reference/android/widget/TextView.html#attr_android%3ainputType
 				Integer inputTypeInt = getAttributeValue("inputType", node);
-				String inputType = (inputTypeInt == null) ? null : inputTypeInt.toString();
-				log.trace("parseWidgetsByTag ::: inputType=" + inputTypeInt);
-				log.trace("parseWidgetsByTag ::: inputMode=" + getAttributeValue("inputMode", node));
-				log.trace("parseWidgetsByTag ::: tooltipText=" + getAttributeValue("tooltipText", node));
-				log.trace("parseWidgetsByTag ::: autofillHints=" + getAttributeValue("autofillHints", node));
-//				widget.setInputType(inputType);
+				String inputType = (inputTypeInt == null) ? null : inputTypeValues.get(inputTypeInt);
+//				String inputTypeString = inputTypeValues.get(inputTypeInt);
 
-				String text = null;
-				AXmlAttribute<?> attribute = node.getAttribute(TEXT);
-				if (attribute != null) {
-					if (AxmlVisitor.TYPE_INT_HEX == attribute.getAttributeType()) {
-						Integer textId = (Integer) attribute.getValue();
-						text = getNameById(textId.toString());
-					} else if (AxmlVisitor.TYPE_STRING == attribute.getAttributeType()) {
-						text = attribute.getValue().toString();
-					}
-
-				}
-				log.trace("\tTEXT=" + text);
-
-				Listener listener = getListener(node);
-				log.trace("\tlistener=" + listener);
-
-				TextViewWidget widget = WidgetBuilderFactory.newWidget(type).widgetId(id.toString()).name(name).text(text).hint(hint).inputMethod(getAttributeValue("inputMethod", node)).inputType(inputType).withListener(listener).build();
+				Widget widget = builder
+						.text(getAttributeValueAsString(TEXT, node))
+						.hint(getAttributeValue("hint", node))
+//						.inputMethod(getAttributeValue("inputMethod", node))
+						.inputType(inputType)
+						.addListener(getListener(node))
+						.build();
 
 				log.debug("Adding widget: " + widget);
 				views.add(widget);
@@ -387,57 +187,83 @@ public class XmlParser {
 		return views;
 	}
 
-	//https://developer.android.com/reference/android/widget/Spinner#xml-attributes
-	private List<Widget> parseSpinners(AXmlHandler aXmlHandler) {
+	private String getAttributeValueAsString(String attributeName, AXmlNode node) {
+		String text = null;
+		AXmlAttribute<?> attribute = node.getAttribute(attributeName);
+		if (attribute != null) {
+			if (AxmlVisitor.TYPE_INT_HEX == attribute.getAttributeType()) {
+				Integer textId = (Integer) attribute.getValue();
+				text = getNameById(textId.toString());
+			} else if (AxmlVisitor.TYPE_STRING == attribute.getAttributeType()) {
+				text = attribute.getValue().toString();
+			}
+
+		}
+		log.trace("\tVALUE=" + text);
+		return text;
+	}
+
+	private WidgetBuilder parseView(AXmlNode node, WidgetType type) {
+		log.trace("Widget node ... : " + node);
+		Integer id = getAttributeValue("id", node);
+		log.trace("\tid= " + id);
+		String name = getNameById(id.toString());
+		log.trace("\tname=" + name);
+		String contentDescription = getAttributeValueAsString("contentDescription", node);
+		log.trace("\tcontentDescription=" + contentDescription);
+		String tooltipText = getAttributeValue("tooltipText", node);
+		log.trace("\ttooltipText=" + tooltipText);
+		return Widget.builder(type)
+				.widgetId(id.toString())
+				.name(name)
+				.contentDescription(contentDescription)
+				.tooltipText(tooltipText);
+	}
+
+	// https://developer.android.com/reference/android/widget/Spinner#xml-attributes
+	private List<Widget> parseSpinners(AXmlHandler aXmlHandler) throws SAXException, IOException, ParserConfigurationException {
+		log.trace("parseSpinners");
 		List<Widget> views = new ArrayList<>();
 		WidgetType type = WidgetType.SPINNER;
 		List<AXmlNode> nodes = aXmlHandler.getNodesWithTag(type.getXmlTag());
 		for (AXmlNode node : nodes) {
-			log.trace("Widget node ... : " + node);
-			Integer id = getAttributeValue("id", node);
-			log.trace("\tid= " + id);
-			String name = getNameById(id.toString());
-			log.trace("\tname=" + name);
-
-//			Widget widget = Widget.builder()
-//				.widgetType(type)
-//				.event(event)
-//				.widgetId(id.toString())
-//				.name(name)
-//				.text(getAttributeValue(TEXT, node))
-//				.build();
-
-//			Widget widget = new Widget();
-//			widget.setWidgetType(type);
-//			widget.setEvent(event);
-//			widget.setWidgetId(id.toString());
-//			widget.setName(name);
-//			//TODO
-			log.trace("parseSpinners ::: 01=" + getAttributeValue(TEXT, node));
-			log.trace("parseSpinners ::: 02=" + getNameById(getAttributeValue(TEXT, node)));
-//			widget.setText(getAttributeValue(TEXT, node));
-
-			String hint = getAttributeValue("hint", node);
-			log.trace("parseSpinners ::: hint=" + hint);
-//			widget.setHint(hint);
-
-			// https://developer.android.com/reference/android/widget/TextView.html#attr_android%3ainputType
-			Integer inputTypeInt = getAttributeValue("inputType", node);
-			String inputType = (inputTypeInt == null) ? null : inputTypeInt.toString();
-			log.trace("parseSpinners ::: inputType=" + inputTypeInt);
-			log.trace("parseSpinners ::: inputMode=" + getAttributeValue("inputMode", node));
-			log.trace("parseSpinners ::: tooltipText=" + getAttributeValue("tooltipText", node));
-			log.trace("parseSpinners ::: autofillHints=" + getAttributeValue("autofillHints", node));
-//			widget.setInputType(inputType);
-
-			//android:entries="@array/messageDigestAlgorithms"
-			SpinnerWidget widget = WidgetBuilderFactory.newSpinner().widgetId(id.toString()).name(name).values(new ArrayList<>()) // TODO
-					.build();
-
-			log.debug("Adding widget: " + widget);
+			log.trace("parseSpinners ::: node=" + node);
+			WidgetBuilder builder = parseView(node, type);
+			parseSpinnerEntries(node, builder);
+			Widget widget = builder.build();
+			log.debug("Adding widget: " + widget); 
 			views.add(widget);
 		}
 		return views;
+	}
+
+	private void parseSpinnerEntries(AXmlNode node, WidgetBuilder builder) throws SAXException, IOException, ParserConfigurationException {
+		Integer id = getAttributeValue("entries", node);
+		if (id != null) {
+			String name = getNameById(id.toString());
+			if (name != null) {
+				String arraysFilePath = Path.of(decompiledApkDir.getAbsolutePath(), "res", "values", "arrays.xml").toString();
+				log.trace("parseSpinnerEntries ::: arraysFilePath=" + arraysFilePath);
+				DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
+				DocumentBuilder docBuilder = dbf.newDocumentBuilder();
+				Document resources = docBuilder.parse(new File(arraysFilePath));
+				NodeList elements = resources.getElementsByTagName("string-array");
+				for (int i = 0; i < elements.getLength(); i++) {
+					Node element = elements.item(i);
+					Element e = (Element) element;
+					String nameValue = e.getAttribute("name");
+					if (nameValue.equals(name)) {
+						NodeList items = e.getElementsByTagName("item");
+						for (int j = 0; j < items.getLength(); j++) {
+							Node item = items.item(j);
+							Element it = (Element) item;
+							String value = it.getTextContent();
+							builder.addEntry(value);
+						}
+					}
+				}
+			}
+		}
 	}
 
 	public List<Widget> parseAppMenu(String menuName, NumberIncrementer curWidgetId) {
@@ -453,66 +279,50 @@ public class XmlParser {
 				for (AXmlNode itemNode : itemNodes) {
 					List<AXmlNode> sub = itemNode.getChildrenWithTag("menu");
 					if (sub.isEmpty()) {// itemNode is MenuItem
-						menuWidgets.add(newMenuTitem(itemNode, curWidgetId));
+						Widget menuItem = newMenuItem(itemNode, curWidgetId);
+						log.debug("Adding menu item: "+menuItem);
+						menuWidgets.add(menuItem);
 					} else {// itemNode is SubMenu
-						SubMenu subMenu = new SubMenu();
-//						subMenu.setId(curWidgetId.inc()); TODO descomentar
+						WidgetBuilder builder = WidgetBuilderFactory.newSubMenu();
 						AXmlAttribute<Integer> idAttr = (AXmlAttribute<Integer>) itemNode.getAttribute("id");
 						if (idAttr != null) {
 							int subId = idAttr.getValue();
-							subMenu.setSubMenuId(subId);
+							builder.widgetId(subId + "");
 						}
 						String subText = getTitleFromMenuRes(itemNode);
-						subMenu.setText(subText);
+						builder.text(subText);
 						List<AXmlNode> subItemNodes = sub.get(0).getChildrenWithTag("item");
-						List<TextViewWidget> subItems = new ArrayList<>();
 						for (AXmlNode subItemNode : subItemNodes) {
-							subItems.add(newMenuTitem(subItemNode, curWidgetId));
+							builder.addMenuItem(newMenuItem(subItemNode, curWidgetId));
 						}
-						subMenu.setItems(subItems);
+						Widget subMenu = builder.build();
+						log.debug("Adding sub menu: "+subMenu);
 						menuWidgets.add(subMenu);
 					}
 				}
 			}
 		} catch (IOException e) {
-			e.printStackTrace();
+			log.error("Error parsing menu: "+e.getMessage(), e);			
 		}
 		return menuWidgets;
 	}
 
-	private TextViewWidget newMenuTitem(AXmlNode node, NumberIncrementer curWidgetId) {
+	private Widget newMenuItem(AXmlNode node, NumberIncrementer curWidgetId) {
 		log.trace("newMenuTitem ::: node=" + node);
 
-		TextViewWidgetBuilder builder = WidgetBuilderFactory.newMenuItem();
-
-//		MenuItem item = new MenuItem();
-//		item.setId(curWidgetId.inc());
+		WidgetBuilder builder = WidgetBuilderFactory.newMenuItem();
+		
 		AXmlAttribute<Integer> idAttribute = (AXmlAttribute<Integer>) node.getAttribute("id");
 		if (idAttribute != null) {
-//			int subId = subIdAttr.getValue();
-//			log.trace("newMenuTitem ::: subId="+subId);
 			String widgetId = idAttribute.getValue().toString();
 			builder.widgetId(widgetId);
 			builder.name(getNameById(widgetId));
-			log.trace("newMenuTitem ::: widgetId=" + widgetId);
-			log.trace("newMenuTitem ::: name=" + getNameById(widgetId));
-//			item.setItemId(subId);
 		}
 
-		String onClickStr = getAttributeValue("onClick", node);
-		log.trace("newMenuTitem ::: onClickStr=" + onClickStr);
-
-		Listener listener = getListener(node);
-		log.trace("newMenuTitem ::: listener=" + listener);
-		builder.withListener(listener);
-//		item.setEventMethod(onClickStr);
-
-		String itemText = getTitleFromMenuRes(node);
-		log.trace("newMenuTitem ::: itemText=" + itemText);
-		builder.text(itemText);
-//		item.setText(itemText);
-
-		return builder.build();
+		return builder
+				.addListener(getListener(node))
+				.text(getTitleFromMenuRes(node))
+				.build();
 	}
 
 	private String getTitleFromMenuRes(AXmlNode node) {
@@ -559,6 +369,245 @@ public class XmlParser {
 			return null;
 		}
 		return attribute.getValue();
+	}
+
+	static {
+		// map inspired on res/values/attrs.xml from android.jar
+		/* There is no content type. The text is not editable. */
+		inputTypeValues.put(Integer.parseInt("00000000", 16), "none");
+		/*
+		 * Just plain old text. Corresponds to {@link
+		 * android.text.InputType#TYPE_CLASS_TEXT} | {@link
+		 * android.text.InputType#TYPE_TEXT_VARIATION_NORMAL}.
+		 */
+		inputTypeValues.put(Integer.parseInt("00000001", 16), "text");
+		/*
+		 * Can be combined with <var>text</var> and its variations to request
+		 * capitalization of all characters. Corresponds to {@link
+		 * android.text.InputType#TYPE_TEXT_FLAG_CAP_CHARACTERS}.
+		 */
+		inputTypeValues.put(Integer.parseInt("00001001", 16), "textCapCharacters");
+		/*
+		 * Can be combined with <var>text</var> and its variations to request
+		 * capitalization of the first character of every word. Corresponds to {@link
+		 * android.text.InputType#TYPE_TEXT_FLAG_CAP_WORDS}.
+		 */
+		inputTypeValues.put(Integer.parseInt("00002001", 16), "textCapWords");
+		/*
+		 * Can be combined with <var>text</var> and its variations to request
+		 * capitalization of the first character of every sentence. Corresponds to
+		 * {@link android.text.InputType#TYPE_TEXT_FLAG_CAP_SENTENCES}.
+		 */
+		inputTypeValues.put(Integer.parseInt("00004001", 16), "textCapSentences");
+		/*
+		 * Can be combined with <var>text</var> and its variations to request
+		 * auto-correction of text being input. Corresponds to {@link
+		 * android.text.InputType#TYPE_TEXT_FLAG_AUTO_CORRECT}.
+		 */
+		inputTypeValues.put(Integer.parseInt("00008001", 16), "textAutoCorrect");
+		/*
+		 * Can be combined with <var>text</var> and its variations to specify that this
+		 * field will be doing its own auto-completion and talking with the input method
+		 * appropriately. Corresponds to {@link
+		 * android.text.InputType#TYPE_TEXT_FLAG_AUTO_COMPLETE}.
+		 */
+		inputTypeValues.put(Integer.parseInt("00010001", 16), "textAutoComplete");
+		/*
+		 * Can be combined with <var>text</var> and its variations to allow multiple
+		 * lines of text in the field. If this flag is not set, the text field will be
+		 * constrained to a single line. Corresponds to {@link
+		 * android.text.InputType#TYPE_TEXT_FLAG_MULTI_LINE}.
+		 * 
+		 * Note: If this flag is not set and the text field doesn't have max length
+		 * limit, the framework automatically set maximum length of the characters to
+		 * 5000 for the performance reasons.
+		 */
+		inputTypeValues.put(Integer.parseInt("00020001", 16), "textMultiLine");
+		/*
+		 * Can be combined with <var>text</var> and its variations to indicate that
+		 * though the regular text view should not be multiple lines, the IME should
+		 * provide multiple lines if it can. Corresponds to {@link
+		 * android.text.InputType#TYPE_TEXT_FLAG_IME_MULTI_LINE}.
+		 */
+		inputTypeValues.put(Integer.parseInt("00040001", 16), "textImeMultiLine");
+		/*
+		 * Can be combined with <var>text</var> and its variations to indicate that the
+		 * IME should not show any dictionary-based word suggestions. Corresponds to
+		 * {@link android.text.InputType#TYPE_TEXT_FLAG_NO_SUGGESTIONS}.
+		 */
+		inputTypeValues.put(Integer.parseInt("00080001", 16), "textNoSuggestions");
+		/*
+		 * Can be combined with <var>text</var> and its variations to indicate that if
+		 * there is extra information, the IME should provide {@link
+		 * android.view.inputmethod.TextAttribute}. Corresponds to {@link
+		 * android.text.InputType#TYPE_TEXT_FLAG_ENABLE_TEXT_CONVERSION_SUGGESTIONS}.
+		 */
+		inputTypeValues.put(Integer.parseInt("00100001", 16), "textEnableTextConversionSuggestions");
+		/*
+		 * Text that will be used as a URI. Corresponds to {@link
+		 * android.text.InputType#TYPE_CLASS_TEXT} | {@link
+		 * android.text.InputType#TYPE_TEXT_VARIATION_URI}.
+		 */
+		inputTypeValues.put(Integer.parseInt("00000011", 16), "textUri");
+		/*
+		 * Text that will be used as an e-mail address. Corresponds to {@link
+		 * android.text.InputType#TYPE_CLASS_TEXT} | {@link
+		 * android.text.InputType#TYPE_TEXT_VARIATION_EMAIL_ADDRESS}.
+		 */
+		inputTypeValues.put(Integer.parseInt("00000021", 16), "textEmailAddress");
+		/*
+		 * Text that is being supplied as the subject of an e-mail. Corresponds to
+		 * {@link android.text.InputType#TYPE_CLASS_TEXT} | {@link
+		 * android.text.InputType#TYPE_TEXT_VARIATION_EMAIL_SUBJECT}.
+		 */
+		inputTypeValues.put(Integer.parseInt("00000031", 16), "textEmailSubject");
+		/*
+		 * Text that is the content of a short message. Corresponds to {@link
+		 * android.text.InputType#TYPE_CLASS_TEXT} | {@link
+		 * android.text.InputType#TYPE_TEXT_VARIATION_SHORT_MESSAGE}.
+		 */
+		inputTypeValues.put(Integer.parseInt("00000041", 16), "textShortMessage");
+		/*
+		 * Text that is the content of a long message. Corresponds to {@link
+		 * android.text.InputType#TYPE_CLASS_TEXT} | {@link
+		 * android.text.InputType#TYPE_TEXT_VARIATION_LONG_MESSAGE}.
+		 */
+		inputTypeValues.put(Integer.parseInt("00000051", 16), "textLongMessage");
+		/*
+		 * Text that is the name of a person. Corresponds to {@link
+		 * android.text.InputType#TYPE_CLASS_TEXT} | {@link
+		 * android.text.InputType#TYPE_TEXT_VARIATION_PERSON_NAME}.
+		 */
+		inputTypeValues.put(Integer.parseInt("00000061", 16), "textPersonName");
+		/*
+		 * Text that is being supplied as a postal mailing address. Corresponds to
+		 * {@link android.text.InputType#TYPE_CLASS_TEXT} | {@link
+		 * android.text.InputType#TYPE_TEXT_VARIATION_POSTAL_ADDRESS}.
+		 */
+		inputTypeValues.put(Integer.parseInt("00000071", 16), "textPostalAddress");
+		/*
+		 * Text that is a password. Corresponds to {@link
+		 * android.text.InputType#TYPE_CLASS_TEXT} | {@link
+		 * android.text.InputType#TYPE_TEXT_VARIATION_PASSWORD}.
+		 */
+		inputTypeValues.put(Integer.parseInt("00000081", 16), "textPassword");
+		/*
+		 * Text that is a password that should be visible. Corresponds to {@link
+		 * android.text.InputType#TYPE_CLASS_TEXT} | {@link
+		 * android.text.InputType#TYPE_TEXT_VARIATION_VISIBLE_PASSWORD}.
+		 */
+		inputTypeValues.put(Integer.parseInt("00000091", 16), "textVisiblePassword");
+		/*
+		 * Text that is being supplied as text in a web form. Corresponds to {@link
+		 * android.text.InputType#TYPE_CLASS_TEXT} | {@link
+		 * android.text.InputType#TYPE_TEXT_VARIATION_WEB_EDIT_TEXT}.
+		 */
+		inputTypeValues.put(Integer.parseInt("000000a1", 16), "textWebEditText");
+		/*
+		 * Text that is filtering some other data. Corresponds to {@link
+		 * android.text.InputType#TYPE_CLASS_TEXT} | {@link
+		 * android.text.InputType#TYPE_TEXT_VARIATION_FILTER}.
+		 */
+		inputTypeValues.put(Integer.parseInt("000000b1", 16), "textFilter");
+		/*
+		 * Text that is for phonetic pronunciation, such as a phonetic name field in a
+		 * contact entry. Corresponds to {@link android.text.InputType#TYPE_CLASS_TEXT}
+		 * | {@link android.text.InputType#TYPE_TEXT_VARIATION_PHONETIC}.
+		 */
+		inputTypeValues.put(Integer.parseInt("000000c1", 16), "textPhonetic");
+		/*
+		 * Text that will be used as an e-mail address on a web form. Corresponds to
+		 * {@link android.text.InputType#TYPE_CLASS_TEXT} | {@link
+		 * android.text.InputType#TYPE_TEXT_VARIATION_WEB_EMAIL_ADDRESS}.
+		 */
+		inputTypeValues.put(Integer.parseInt("000000d1", 16), "textWebEmailAddress");
+		/*
+		 * Text that will be used as a password on a web form. Corresponds to {@link
+		 * android.text.InputType#TYPE_CLASS_TEXT} | {@link
+		 * android.text.InputType#TYPE_TEXT_VARIATION_WEB_PASSWORD}.
+		 */
+		inputTypeValues.put(Integer.parseInt("000000e1", 16), "textWebPassword");
+		/*
+		 * A numeric only field. Corresponds to {@link
+		 * android.text.InputType#TYPE_CLASS_NUMBER} | {@link
+		 * android.text.InputType#TYPE_NUMBER_VARIATION_NORMAL}.
+		 */
+		inputTypeValues.put(Integer.parseInt("00000002", 16), "number");
+		/*
+		 * Can be combined with <var>number</var> and its other options to allow a
+		 * signed number. Corresponds to {@link
+		 * android.text.InputType#TYPE_CLASS_NUMBER} | {@link
+		 * android.text.InputType#TYPE_NUMBER_FLAG_SIGNED}.
+		 */
+		inputTypeValues.put(Integer.parseInt("00001002", 16), "numberSigned");
+		/*
+		 * Can be combined with <var>number</var> and its other options to allow a
+		 * decimal (fractional) number. Corresponds to {@link
+		 * android.text.InputType#TYPE_CLASS_NUMBER} | {@link
+		 * android.text.InputType#TYPE_NUMBER_FLAG_DECIMAL}.
+		 */
+		inputTypeValues.put(Integer.parseInt("00002002", 16), "numberDecimal");
+		/*
+		 * A numeric password field. Corresponds to {@link
+		 * android.text.InputType#TYPE_CLASS_NUMBER} | {@link
+		 * android.text.InputType#TYPE_NUMBER_VARIATION_PASSWORD}.
+		 */
+		inputTypeValues.put(Integer.parseInt("00000012", 16), "numberPassword");
+		/*
+		 * For entering a phone number. Corresponds to {@link
+		 * android.text.InputType#TYPE_CLASS_PHONE}.
+		 */
+		inputTypeValues.put(Integer.parseInt("00000003", 16), "phone");
+		/*
+		 * For entering a date and time. Corresponds to {@link
+		 * android.text.InputType#TYPE_CLASS_DATETIME} | {@link
+		 * android.text.InputType#TYPE_DATETIME_VARIATION_NORMAL}.
+		 */
+		inputTypeValues.put(Integer.parseInt("00000004", 16), "datetime");
+		/*
+		 * For entering a date. Corresponds to {@link
+		 * android.text.InputType#TYPE_CLASS_DATETIME} | {@link
+		 * android.text.InputType#TYPE_DATETIME_VARIATION_DATE}.
+		 */
+		inputTypeValues.put(Integer.parseInt("00000014", 16), "date");
+		/*
+		 * For entering a time. Corresponds to {@link
+		 * android.text.InputType#TYPE_CLASS_DATETIME} | {@link
+		 * android.text.InputType#TYPE_DATETIME_VARIATION_TIME}.
+		 */
+		inputTypeValues.put(Integer.parseInt("00000024", 16), "time");
+//		inputTypeValues.put(0,"TYPE_DATETIME_VARIATION_NORMAL");
+//		inputTypeValues.put(1,"TYPE_CLASS_TEXT");
+//		inputTypeValues.put(2,"TYPE_CLASS_NUMBER");
+//		inputTypeValues.put(3,"TYPE_CLASS_PHONE");
+//		inputTypeValues.put(4,"TYPE_CLASS_DATETIME");
+//		inputTypeValues.put(15,"TYPE_MASK_CLASS");
+//		inputTypeValues.put(16,"TYPE_DATETIME_VARIATION_DATE");
+//		inputTypeValues.put(32,"TYPE_DATETIME_VARIATION_TIME");
+//		inputTypeValues.put(33,"TYPE_TEXT_VARIATION_WEB_EMAIL_ADDRESS");
+//		inputTypeValues.put(48,"TYPE_TEXT_VARIATION_EMAIL_SUBJECT");
+//		inputTypeValues.put(64,"TYPE_TEXT_VARIATION_SHORT_MESSAGE");
+//		inputTypeValues.put(80,"TYPE_TEXT_VARIATION_LONG_MESSAGE");
+//		inputTypeValues.put(96,"TYPE_TEXT_VARIATION_PERSON_NAME");
+//		inputTypeValues.put(97,"TYPE_TEXT_VARIATION_PERSON_NAME");
+//		inputTypeValues.put(112,"TYPE_TEXT_VARIATION_POSTAL_ADDRESS");
+//		inputTypeValues.put(128,"TYPE_TEXT_VARIATION_PASSWORD");
+//		inputTypeValues.put(144,"TYPE_TEXT_VARIATION_VISIBLE_PASSWORD");
+//		inputTypeValues.put(160,"TYPE_TEXT_VARIATION_WEB_EDIT_TEXT");
+//		inputTypeValues.put(176,"TYPE_TEXT_VARIATION_FILTER");
+//		inputTypeValues.put(192,"TYPE_TEXT_VARIATION_PHONETIC");
+//		inputTypeValues.put(208,"TYPE_TEXT_VARIATION_WEB_EMAIL_ADDRESS");
+//		inputTypeValues.put(224,"TYPE_TEXT_VARIATION_WEB_PASSWORD");
+//		inputTypeValues.put(4080,"TYPE_MASK_VARIATION");
+//		inputTypeValues.put(4096,"TYPE_NUMBER_FLAG_SIGNED");
+//		inputTypeValues.put(8192,"TYPE_NUMBER_FLAG_DECIMAL");
+//		inputTypeValues.put(16384,"TYPE_TEXT_FLAG_CAP_SENTENCES");
+//		inputTypeValues.put(32768,"TYPE_TEXT_FLAG_AUTO_CORRECT");
+//		inputTypeValues.put(65536,"TYPE_TEXT_FLAG_AUTO_COMPLETE");
+//		inputTypeValues.put(131072,"TYPE_TEXT_FLAG_MULTI_LINE");
+//		inputTypeValues.put(262144,"TYPE_TEXT_FLAG_IME_MULTI_LINE");
+//		inputTypeValues.put(524288,"TYPE_TEXT_FLAG_NO_SUGGESTIONS");
+//		inputTypeValues.put(16773120,"TYPE_MASK_FLAGS");
 	}
 
 }

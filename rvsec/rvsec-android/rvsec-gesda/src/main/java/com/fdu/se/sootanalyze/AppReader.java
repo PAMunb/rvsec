@@ -6,8 +6,6 @@ import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Comparator;
-import java.util.HashSet;
-import java.util.Set;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -47,7 +45,7 @@ public class AppReader {
 
 		try (ProcessManifest processManifest = new ProcessManifest(targetAPK, resources)) {
 			log.debug("Processing manifest");
-			Set<String> appPackage = new HashSet<>();
+//			Set<String> appPackage = new HashSet<>();
 			AXmlNode manifest = processManifest.getManifest();
 
 			String manifestPackage = getAttributeAsString(PACKAGE, manifest);
@@ -79,6 +77,7 @@ public class AppReader {
 	public static File decompileApp(AppInfo appInfo) {
 		log.info("Decompiling app: " + appInfo.getPath());
 		String appName = appInfo.getLabel();
+		//TODO receber parametro
 		File outDir = new File("apks" + FileSystems.getDefault().getSeparator() + appName);
 		// Config config = Config.getInstance();
 		// config.setDecodeAssets(Config.DECODE_ASSETS_FULL);
@@ -100,8 +99,7 @@ public class AppReader {
 			log.info("Decompile " + appName + " successfully");
 			return outDir;
 		} catch (AndrolibException | DirectoryException | IOException e) {
-			// TODO Auto-generated catch block
-			log.error("Decompile " + appName + " failed");
+			log.error("Decompile " + appName + " failed: "+e.getMessage(), e);
 			throw new RuntimeException("Error decompiling: "+appInfo.getPath(), e);
 		}
 	}

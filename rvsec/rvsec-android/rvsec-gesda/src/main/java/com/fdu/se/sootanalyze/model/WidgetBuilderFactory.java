@@ -1,25 +1,29 @@
 package com.fdu.se.sootanalyze.model;
 
+import com.fdu.se.sootanalyze.model.Widget.WidgetBuilder;
+
+//TODO remover???
+@Deprecated
 public class WidgetBuilderFactory {
 
-	public static TextViewWidgetBuilder newWidget(WidgetType widgetType) {
-		return new TextViewWidgetBuilder(widgetType);
+	public static WidgetBuilder newWidget(WidgetType widgetType) {
+		return new Widget.WidgetBuilder(widgetType);
 	}
 
-	public static TextViewWidgetBuilder newButton() {
+	public static WidgetBuilder newButton() {
 		return newWidget(WidgetType.BUTTON);
 	}
 
-	public static TextViewWidgetBuilder newMenuItem() {
+	public static WidgetBuilder newMenuItem() {
 		return newWidget(WidgetType.MENU_ITEM);
 	}
 
-	public static TextViewWidgetBuilder newSubMenu() {
+	public static WidgetBuilder newSubMenu() {
 		return newWidget(WidgetType.SUB_MENU);
 	}
 
-	public static SpinnerWidgetBuilder newSpinner() {
-		return new SpinnerWidgetBuilder(WidgetType.SPINNER);
+	public static WidgetBuilder newSpinner() {
+		return newWidget(WidgetType.SPINNER);
 	}
 
 }

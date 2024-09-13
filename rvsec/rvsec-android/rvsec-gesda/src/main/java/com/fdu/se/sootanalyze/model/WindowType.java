@@ -1,5 +1,6 @@
 package com.fdu.se.sootanalyze.model;
 
+//TODO enum
 public class WindowType {
     public static String ACT = "ACT";
     public static String OPTMENU = "OPTIONSMENU";

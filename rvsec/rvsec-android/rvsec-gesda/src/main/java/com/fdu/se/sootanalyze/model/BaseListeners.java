@@ -25,10 +25,6 @@ public class BaseListeners {
 
 	public Set<ListenerType> getListenersByEvent(Event event) {
 		return mapByEvent.get(event);
-//		if(set == null) {
-//			set = new HashSet<>();
-//		}
-//		return set;
 	}
 
 	public static ListenerType getByListenerMethod(String listenerMethod) {
@@ -40,9 +36,9 @@ public class BaseListeners {
 	}
 
 	public static Event getEvent(String listenerMethod) {
-		ListenerType listenerEnum2 = mapByListenerMethod.get(listenerMethod);
-		if(listenerEnum2 != null) {
-			return listenerEnum2.getEvent();
+		ListenerType listenerType = mapByListenerMethod.get(listenerMethod);
+		if(listenerType != null) {
+			return listenerType.getEvent();
 		}
 		return null;
 	}

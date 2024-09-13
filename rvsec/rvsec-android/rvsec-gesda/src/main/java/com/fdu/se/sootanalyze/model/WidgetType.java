@@ -30,6 +30,9 @@ public enum WidgetType {
 	}
 
 	public static WidgetType getByWidgetClass(String clazz) {
+		if(clazz == null) {
+			return null;
+		}
 		for (WidgetType type : values()) {
 			if (type.getWidgetClass().equals(clazz)) {
 				return type;
