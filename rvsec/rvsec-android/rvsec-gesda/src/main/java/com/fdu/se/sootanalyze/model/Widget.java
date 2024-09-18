@@ -39,6 +39,9 @@ public class Widget {
 	// subMenu
 	private List<Widget> items = new ArrayList<>();
 
+	@Deprecated
+	private Set<String> targets = new HashSet<>();
+
 	protected Widget(WidgetBuilder WidgetBuilder) {
 		this.id = WidgetBuilder.id;
 		this.type = WidgetBuilder.type;
@@ -265,11 +268,18 @@ public class Widget {
 	@Override
 	public String toString() {
 		return String.format(
-				"Widget [id=%s, widgetId=%s, type=%s, name=%s, listeners=%s, field=%s, dWidgets=%s, listenerName=%s, contentDescription=%s, tooltipText=%s, text=%s, hint=%s, inputType=%s, entries=%s, prompt=%s, spinnerMode=%s, items=%s]", id,
-				widgetId, type, name, listeners, field, dWidgets, listenerName, contentDescription, tooltipText, text, hint, inputType, entries, prompt, spinnerMode, items);
+				"Widget [id=%s, widgetId=%s, type=%s, name=%s, listeners=%s, field=%s, dWidgets=%s, listenerName=%s, contentDescription=%s, tooltipText=%s, text=%s, hint=%s, inputType=%s, entries=%s, prompt=%s, spinnerMode=%s, items=%s, targets=%s]", id,
+				widgetId, type, name, listeners, field, dWidgets, listenerName, contentDescription, tooltipText, text, hint, inputType, entries, prompt, spinnerMode, items, targets);
 	}
-	
-	
 
+	public void addTarget(String targetClass) {
+		if (targetClass != null) {
+			targets.add(targetClass);
+		}
+	}
+
+	public Set<String> getTargets() {
+		return targets;
+	}
 
 }

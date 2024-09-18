@@ -1,0 +1,218 @@
+public class br.unb.cic.cryptoapp.cipher.CipherActivity extends androidx.appcompat.app.AppCompatActivity
+{
+    private android.widget.Button btnEncrypt;
+    private android.widget.EditText editTextEncrypt;
+    private android.widget.TextView textViewEncryptResult;
+    private android.widget.ToggleButton toggleButton;
+
+    public void <init>()
+    {
+        br.unb.cic.cryptoapp.cipher.CipherActivity this;
+
+        this := @this: br.unb.cic.cryptoapp.cipher.CipherActivity;
+
+        specialinvoke this.<androidx.appcompat.app.AppCompatActivity: void <init>()>();
+
+        return;
+    }
+
+    static android.widget.ToggleButton access$000(br.unb.cic.cryptoapp.cipher.CipherActivity)
+    {
+        br.unb.cic.cryptoapp.cipher.CipherActivity $u1;
+        android.widget.ToggleButton ret0;
+
+        $u1 := @parameter0: br.unb.cic.cryptoapp.cipher.CipherActivity;
+
+        ret0 = $u1.<br.unb.cic.cryptoapp.cipher.CipherActivity: android.widget.ToggleButton toggleButton>;
+
+        return ret0;
+    }
+
+    static void access$100(br.unb.cic.cryptoapp.cipher.CipherActivity, boolean)
+    {
+        br.unb.cic.cryptoapp.cipher.CipherActivity $u0;
+        boolean $u1;
+
+        $u0 := @parameter0: br.unb.cic.cryptoapp.cipher.CipherActivity;
+
+        $u1 := @parameter1: boolean;
+
+        specialinvoke $u0.<br.unb.cic.cryptoapp.cipher.CipherActivity: void encrypt2(boolean)>($u1);
+
+        return;
+    }
+
+    private void encrypt()
+    {
+        br.unb.cic.cryptoapp.cipher.CipherActivity this;
+        android.text.Editable $u-1;
+        java.lang.Exception result;
+        android.widget.TextView $u5;
+        br.unb.cic.cryptoapp.cipher.CipherUtil util;
+        java.lang.StringBuilder $u5#15;
+        java.lang.String $u-1#6;
+        android.widget.ToggleButton random;
+        android.widget.EditText text;
+
+        this := @this: br.unb.cic.cryptoapp.cipher.CipherActivity;
+
+        staticinvoke <android.util.Log: int i(java.lang.String,java.lang.String)>("CryptoApp", "Encrypting ...");
+
+        util = new br.unb.cic.cryptoapp.cipher.CipherUtil;
+
+        specialinvoke util.<br.unb.cic.cryptoapp.cipher.CipherUtil: void <init>()>();
+
+        text = this.<br.unb.cic.cryptoapp.cipher.CipherActivity: android.widget.EditText editTextEncrypt>;
+
+        $u-1 = virtualinvoke text.<android.widget.EditText: android.text.Editable getText()>();
+
+        $u-1#6 = virtualinvoke $u-1.<java.lang.Object: java.lang.String toString()>();
+
+        random = this.<br.unb.cic.cryptoapp.cipher.CipherActivity: android.widget.ToggleButton toggleButton>;
+
+        virtualinvoke random.<android.widget.ToggleButton: boolean isChecked()>();
+
+     label1:
+        $u-1#6 = virtualinvoke util.<br.unb.cic.cryptoapp.cipher.CipherUtil: java.lang.String encrypt(java.lang.String)>($u-1#6);
+
+        $u5 = this.<br.unb.cic.cryptoapp.cipher.CipherActivity: android.widget.TextView textViewEncryptResult>;
+
+        virtualinvoke $u5.<android.widget.TextView: void setText(java.lang.CharSequence)>($u-1#6);
+
+     label2:
+        return;
+
+     label3:
+        result := @caughtexception;
+
+        $u5#15 = new java.lang.StringBuilder;
+
+        specialinvoke $u5#15.<java.lang.StringBuilder: void <init>()>();
+
+        virtualinvoke $u5#15.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>("Error: ");
+
+        $u-1#6 = virtualinvoke result.<java.lang.Exception: java.lang.String getMessage()>();
+
+        virtualinvoke $u5#15.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>($u-1#6);
+
+        $u-1#6 = virtualinvoke $u5#15.<java.lang.StringBuilder: java.lang.String toString()>();
+
+        staticinvoke <android.util.Log: int e(java.lang.String,java.lang.String)>("CryptoApp", $u-1#6);
+
+        return;
+
+        catch java.lang.Exception from label1 to label2 with label3;
+    }
+
+    private void encrypt2(boolean)
+    {
+        br.unb.cic.cryptoapp.cipher.CipherActivity this;
+        android.text.Editable $u-1;
+        java.lang.Exception result;
+        android.widget.TextView $u4;
+        br.unb.cic.cryptoapp.cipher.CipherUtil util;
+        java.lang.StringBuilder $u4#12;
+        java.lang.String $u-1#6;
+        android.widget.EditText text;
+        boolean $u7;
+
+        this := @this: br.unb.cic.cryptoapp.cipher.CipherActivity;
+
+        $u7 := @parameter0: boolean;
+
+        staticinvoke <android.util.Log: int i(java.lang.String,java.lang.String)>("CryptoApp", "Encrypting ...");
+
+        util = new br.unb.cic.cryptoapp.cipher.CipherUtil;
+
+        specialinvoke util.<br.unb.cic.cryptoapp.cipher.CipherUtil: void <init>()>();
+
+        text = this.<br.unb.cic.cryptoapp.cipher.CipherActivity: android.widget.EditText editTextEncrypt>;
+
+        $u-1 = virtualinvoke text.<android.widget.EditText: android.text.Editable getText()>();
+
+        $u-1#6 = virtualinvoke $u-1.<java.lang.Object: java.lang.String toString()>();
+
+     label1:
+        $u-1#6 = virtualinvoke util.<br.unb.cic.cryptoapp.cipher.CipherUtil: java.lang.String encrypt(java.lang.String)>($u-1#6);
+
+        $u4 = this.<br.unb.cic.cryptoapp.cipher.CipherActivity: android.widget.TextView textViewEncryptResult>;
+
+        virtualinvoke $u4.<android.widget.TextView: void setText(java.lang.CharSequence)>($u-1#6);
+
+     label2:
+        return;
+
+     label3:
+        result := @caughtexception;
+
+        $u4#12 = new java.lang.StringBuilder;
+
+        specialinvoke $u4#12.<java.lang.StringBuilder: void <init>()>();
+
+        virtualinvoke $u4#12.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>("Error: ");
+
+        $u-1#6 = virtualinvoke result.<java.lang.Exception: java.lang.String getMessage()>();
+
+        virtualinvoke $u4#12.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>($u-1#6);
+
+        $u-1#6 = virtualinvoke $u4#12.<java.lang.StringBuilder: java.lang.String toString()>();
+
+        staticinvoke <android.util.Log: int e(java.lang.String,java.lang.String)>("CryptoApp", $u-1#6);
+
+        return;
+
+        catch java.lang.Exception from label1 to label2 with label3;
+    }
+
+    protected void onCreate(android.os.Bundle)
+    {
+        android.os.Bundle $u3;
+        br.unb.cic.cryptoapp.cipher.CipherActivity this;
+        br.unb.cic.cryptoapp.cipher.CipherActivity$1 $u1;
+        android.widget.TextView $u0#13;
+        android.view.View $u-1;
+        android.widget.Button $u0#17;
+        android.widget.ToggleButton $u0;
+        android.widget.EditText $u0#9;
+
+        this := @this: br.unb.cic.cryptoapp.cipher.CipherActivity;
+
+        $u3 := @parameter0: android.os.Bundle;
+
+        specialinvoke this.<androidx.appcompat.app.AppCompatActivity: void onCreate(android.os.Bundle)>($u3);
+
+        virtualinvoke this.<br.unb.cic.cryptoapp.cipher.CipherActivity: void setContentView(int)>(2131492892);
+
+        $u-1 = virtualinvoke this.<br.unb.cic.cryptoapp.cipher.CipherActivity: android.view.View findViewById(int)>(2131296738);
+
+        $u0 = (android.widget.ToggleButton) $u-1;
+
+        this.<br.unb.cic.cryptoapp.cipher.CipherActivity: android.widget.ToggleButton toggleButton> = $u0;
+
+        $u-1 = virtualinvoke this.<br.unb.cic.cryptoapp.cipher.CipherActivity: android.view.View findViewById(int)>(2131296441);
+
+        $u0#9 = (android.widget.EditText) $u-1;
+
+        this.<br.unb.cic.cryptoapp.cipher.CipherActivity: android.widget.EditText editTextEncrypt> = $u0#9;
+
+        $u-1 = virtualinvoke this.<br.unb.cic.cryptoapp.cipher.CipherActivity: android.view.View findViewById(int)>(2131296722);
+
+        $u0#13 = (android.widget.TextView) $u-1;
+
+        this.<br.unb.cic.cryptoapp.cipher.CipherActivity: android.widget.TextView textViewEncryptResult> = $u0#13;
+
+        $u-1 = virtualinvoke this.<br.unb.cic.cryptoapp.cipher.CipherActivity: android.view.View findViewById(int)>(2131296354);
+
+        $u0#17 = (android.widget.Button) $u-1;
+
+        this.<br.unb.cic.cryptoapp.cipher.CipherActivity: android.widget.Button btnEncrypt> = $u0#17;
+
+        $u1 = new br.unb.cic.cryptoapp.cipher.CipherActivity$1;
+
+        specialinvoke $u1.<br.unb.cic.cryptoapp.cipher.CipherActivity$1: void <init>(br.unb.cic.cryptoapp.cipher.CipherActivity)>(this);
+
+        virtualinvoke $u0#17.<android.widget.Button: void setOnClickListener(android.view.View$OnClickListener)>($u1);
+
+        return;
+    }
+}

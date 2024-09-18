@@ -6,6 +6,7 @@ import java.util.Collections;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import soot.G;
 import soot.Scene;
 import soot.jimple.infoflow.InfoflowConfiguration;
 import soot.jimple.infoflow.android.InfoflowAndroidConfiguration;
@@ -45,13 +46,14 @@ public class SootConfig {
 		log.trace("APK: "+apk);
 		log.trace("Android platforms dir: "+androidPlatformsDir);
 		log.trace("RT jar: "+rtJarPath);
+		G.reset();
 		Options.v().set_full_resolver(true);
 		Options.v().set_allow_phantom_refs(true);
 		Options.v().set_prepend_classpath(true);
 		Options.v().set_validate(true);
-		Options.v().set_output_format(Options.output_format_none);
+//		Options.v().set_output_format(Options.output_format_none);
 		
-//		Options.v().set_output_format(Options.output_format_jimple);
+		Options.v().set_output_format(Options.output_format_jimple);
 //		Options.v().set_output_dir("/home/pedro/tmp/cryptoapp_jimple");
 		
 		Options.v().set_process_dir(Collections.singletonList(apk));
@@ -60,7 +62,12 @@ public class SootConfig {
 		Options.v().set_process_multiple_dex(true);
 		Options.v().set_soot_classpath(androidPlatformsDir + File.pathSeparatorChar + rtJarPath);
 
-		Options.v().parse(new String[]{"-keep-line-number", "-p", "jb", "use-original-names:true"});
+//		Options.v().parse(new String[]{"-keep-line-number", "-p", "jb", "use-original-names:true"});
+//		Options.v().parse(new String[]{"-keep-line-number"});
+		Options.v().keep_line_number();
+		Options.v().parse(new String[]{"-p", "jb", "use-original-names:true"});
+		Options.v().setPhaseOption("jb", "use-original-names:true");
+		
 
 //		soot.options.Options.v().set_whole_program(true);
 //		soot.options.Options.v().set_force_android_jar(androidJAR);

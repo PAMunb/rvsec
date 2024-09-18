@@ -1,0 +1,45 @@
+class br.unb.cic.cryptoapp.cipher.CipherActivity$1 extends java.lang.Object implements android.view.View$OnClickListener
+{
+    final br.unb.cic.cryptoapp.cipher.CipherActivity this$0;
+
+    void <init>(br.unb.cic.cryptoapp.cipher.CipherActivity)
+    {
+        br.unb.cic.cryptoapp.cipher.CipherActivity $u1;
+        br.unb.cic.cryptoapp.cipher.CipherActivity$1 this;
+
+        this := @this: br.unb.cic.cryptoapp.cipher.CipherActivity$1;
+
+        $u1 := @parameter0: br.unb.cic.cryptoapp.cipher.CipherActivity;
+
+        this.<br.unb.cic.cryptoapp.cipher.CipherActivity$1: br.unb.cic.cryptoapp.cipher.CipherActivity this$0> = $u1;
+
+        specialinvoke this.<java.lang.Object: void <init>()>();
+
+        return;
+    }
+
+    public void onClick(android.view.View)
+    {
+        br.unb.cic.cryptoapp.cipher.CipherActivity $u1;
+        br.unb.cic.cryptoapp.cipher.CipherActivity$1 this;
+        android.view.View $u3;
+        android.widget.ToggleButton $u-1;
+        boolean $u-1#4;
+
+        this := @this: br.unb.cic.cryptoapp.cipher.CipherActivity$1;
+
+        $u3 := @parameter0: android.view.View;
+
+        $u1 = this.<br.unb.cic.cryptoapp.cipher.CipherActivity$1: br.unb.cic.cryptoapp.cipher.CipherActivity this$0>;
+
+        $u-1 = staticinvoke <br.unb.cic.cryptoapp.cipher.CipherActivity: android.widget.ToggleButton access$000(br.unb.cic.cryptoapp.cipher.CipherActivity)>($u1);
+
+        $u-1#4 = virtualinvoke $u-1.<android.widget.ToggleButton: boolean isChecked()>();
+
+        $u1 = this.<br.unb.cic.cryptoapp.cipher.CipherActivity$1: br.unb.cic.cryptoapp.cipher.CipherActivity this$0>;
+
+        staticinvoke <br.unb.cic.cryptoapp.cipher.CipherActivity: void access$100(br.unb.cic.cryptoapp.cipher.CipherActivity,boolean)>($u1, $u-1#4);
+
+        return;
+    }
+}

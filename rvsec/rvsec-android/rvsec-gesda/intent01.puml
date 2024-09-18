@@ -1,0 +1,17 @@
+@startuml
+class MainActivity {
+  showHome(MenuItem)
+}
+
+note right of MainActivity::showHome
+<u>JAVA:</u>
+Intent <color:royalBlue>intent</color> = new Intent(this, <b>MainActivity.class</b>);
+startActivity(<color:royalBlue>intent</color>);
+
+<u>JIMPLE:</u>
+<color:royalBlue>intent</color> = new android.content.Intent;
+specialinvoke <color:royalBlue>intent</color>.<android.content.Intent: void <init>(android.content.Context,java.lang.Class)>(this, class "<b>Lbr/unb/cic/cryptoapp/MainActivity;</b>");
+virtualinvoke this.<br.unb.cic.cryptoapp.MainActivity: void <b>startActivity</b>(android.content.Intent)(<color:royalBlue>intent</color>);
+end note
+
+@enduml

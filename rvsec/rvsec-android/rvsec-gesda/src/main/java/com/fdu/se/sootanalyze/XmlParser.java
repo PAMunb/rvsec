@@ -27,10 +27,11 @@ import com.fdu.se.sootanalyze.model.Widget;
 import com.fdu.se.sootanalyze.model.Widget.WidgetBuilder;
 import com.fdu.se.sootanalyze.model.WidgetBuilderFactory;
 import com.fdu.se.sootanalyze.model.WidgetType;
-import com.fdu.se.sootanalyze.model.xml.AppInfo;
 import com.fdu.se.sootanalyze.utils.NumberIncrementer;
 import com.fdu.se.sootanalyze.utils.StringUtil;
 
+import br.unb.cic.rvsec.apk.model.AppInfo;
+import br.unb.cic.rvsec.apk.reader.AppReader;
 import pxb.android.axml.AxmlVisitor;
 import soot.jimple.infoflow.android.axml.AXmlAttribute;
 import soot.jimple.infoflow.android.axml.AXmlHandler;

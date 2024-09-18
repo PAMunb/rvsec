@@ -1,6 +1,6 @@
 package com.fdu.se.sootanalyze.model;
 
-import com.fdu.se.sootanalyze.model.xml.ActivityInfo;
+import br.unb.cic.rvsec.apk.model.ActivityInfo;
 
 public class ActivityWindowNode extends WindowNode {
     private WindowNode optionsMenuNode;

@@ -11,7 +11,8 @@ public enum WidgetType {
 	CHECKBOX("android.widget.CheckBox", "CheckBox"),
 	TOGGLE_BUTTON("android.widget.ToggleButton", "ToggleButton"),
 	RADIO_BUTTON("android.widget.RadioButton", "RadioButton"),
-	IMAGE_BUTTON("android.widget.ImageButton", "ImageButton");
+	IMAGE_BUTTON("android.widget.ImageButton", "ImageButton"),
+	IMAGE_VIEW("android.widget.ImageView", "ImageView");
 
 	private String widgetClass;
 	private String xmlTag;

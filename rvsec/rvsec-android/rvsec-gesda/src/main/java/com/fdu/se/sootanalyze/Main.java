@@ -13,7 +13,8 @@ import com.fdu.se.sootanalyze.cli.CommandLineArgs;
 import com.fdu.se.sootanalyze.model.WindowNode;
 import com.fdu.se.sootanalyze.model.out.ApkInfoOut;
 import com.fdu.se.sootanalyze.model.out.OutputWriter;
-import com.fdu.se.sootanalyze.model.xml.AppInfo;
+
+import br.unb.cic.rvsec.apk.model.AppInfo;
 
 public class Main {
 

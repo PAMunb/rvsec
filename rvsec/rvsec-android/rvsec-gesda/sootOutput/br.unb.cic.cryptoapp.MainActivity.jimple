@@ -1,0 +1,158 @@
+public class br.unb.cic.cryptoapp.MainActivity extends androidx.appcompat.app.AppCompatActivity
+{
+    private android.view.MenuItem menuItemMessageCipher;
+    private android.view.MenuItem menuItemMessageDigest;
+
+    public void <init>()
+    {
+        br.unb.cic.cryptoapp.MainActivity this;
+
+        this := @this: br.unb.cic.cryptoapp.MainActivity;
+
+        specialinvoke this.<androidx.appcompat.app.AppCompatActivity: void <init>()>();
+
+        return;
+    }
+
+    private void showScreen(java.lang.Class)
+    {
+        br.unb.cic.cryptoapp.MainActivity this;
+        java.lang.Class $u2;
+        android.content.Intent intent;
+
+        this := @this: br.unb.cic.cryptoapp.MainActivity;
+
+        $u2 := @parameter0: java.lang.Class;
+
+        intent = new android.content.Intent;
+
+        specialinvoke intent.<android.content.Intent: void <init>(android.content.Context,java.lang.Class)>(this, $u2);
+
+        virtualinvoke this.<br.unb.cic.cryptoapp.MainActivity: void startActivity(android.content.Intent)>(intent);
+
+        return;
+    }
+
+    protected void onCreate(android.os.Bundle)
+    {
+        br.unb.cic.cryptoapp.MainActivity this;
+        android.os.Bundle $u2;
+
+        this := @this: br.unb.cic.cryptoapp.MainActivity;
+
+        $u2 := @parameter0: android.os.Bundle;
+
+        specialinvoke this.<androidx.appcompat.app.AppCompatActivity: void onCreate(android.os.Bundle)>($u2);
+
+        virtualinvoke this.<br.unb.cic.cryptoapp.MainActivity: void setContentView(int)>(2131492893);
+
+        return;
+    }
+
+    public boolean onCreateOptionsMenu(android.view.Menu)
+    {
+        android.view.MenuInflater $u-1;
+        android.view.Menu $u4;
+        br.unb.cic.cryptoapp.MainActivity$1 $u2;
+        br.unb.cic.cryptoapp.MainActivity this;
+        android.view.MenuItem $u-1#4;
+        boolean $u-1#6;
+
+        this := @this: br.unb.cic.cryptoapp.MainActivity;
+
+        $u4 := @parameter0: android.view.Menu;
+
+        $u-1 = virtualinvoke this.<br.unb.cic.cryptoapp.MainActivity: android.view.MenuInflater getMenuInflater()>();
+
+        virtualinvoke $u-1.<android.view.MenuInflater: void inflate(int,android.view.Menu)>(2131558400, $u4);
+
+        $u-1#4 = interfaceinvoke $u4.<android.view.Menu: android.view.MenuItem findItem(int)>(2131296547);
+
+        this.<br.unb.cic.cryptoapp.MainActivity: android.view.MenuItem menuItemMessageDigest> = $u-1#4;
+
+        $u2 = new br.unb.cic.cryptoapp.MainActivity$1;
+
+        specialinvoke $u2.<br.unb.cic.cryptoapp.MainActivity$1: void <init>(br.unb.cic.cryptoapp.MainActivity)>(this);
+
+        interfaceinvoke $u-1#4.<android.view.MenuItem: android.view.MenuItem setOnMenuItemClickListener(android.view.MenuItem$OnMenuItemClickListener)>($u2);
+
+        $u-1#6 = specialinvoke this.<androidx.appcompat.app.AppCompatActivity: boolean onCreateOptionsMenu(android.view.Menu)>($u4);
+
+        return $u-1#6;
+    }
+
+    public boolean onOptionsItemSelected(android.view.MenuItem)
+    {
+        int $u-1;
+        br.unb.cic.cryptoapp.MainActivity this;
+        android.content.Intent intent;
+        android.view.MenuItem $u3;
+        boolean $u-1#6;
+
+        this := @this: br.unb.cic.cryptoapp.MainActivity;
+
+        $u3 := @parameter0: android.view.MenuItem;
+
+        $u-1 = interfaceinvoke $u3.<android.view.MenuItem: int getItemId()>();
+
+        if $u-1 != 2131296545 goto label1;
+
+        intent = new android.content.Intent;
+
+        specialinvoke intent.<android.content.Intent: void <init>(android.content.Context,java.lang.Class)>(this, class "Lbr/unb/cic/cryptoapp/cipher/CipherActivity;");
+
+        virtualinvoke this.<br.unb.cic.cryptoapp.MainActivity: void startActivity(android.content.Intent)>(intent);
+
+     label1:
+        $u-1#6 = specialinvoke this.<androidx.appcompat.app.AppCompatActivity: boolean onOptionsItemSelected(android.view.MenuItem)>($u3);
+
+        return $u-1#6;
+    }
+
+    public void showHome(android.view.MenuItem)
+    {
+        br.unb.cic.cryptoapp.MainActivity this;
+        android.content.Intent intent;
+        android.view.MenuItem $u3;
+
+        this := @this: br.unb.cic.cryptoapp.MainActivity;
+
+        $u3 := @parameter0: android.view.MenuItem;
+
+        intent = new android.content.Intent;
+
+        specialinvoke intent.<android.content.Intent: void <init>(android.content.Context,java.lang.Class)>(this, class "Lbr/unb/cic/cryptoapp/MainActivity;");
+
+        virtualinvoke this.<br.unb.cic.cryptoapp.MainActivity: void startActivity(android.content.Intent)>(intent);
+
+        return;
+    }
+
+    public void showScreenCipher(android.view.View)
+    {
+        br.unb.cic.cryptoapp.MainActivity this;
+        android.view.View $u2;
+
+        this := @this: br.unb.cic.cryptoapp.MainActivity;
+
+        $u2 := @parameter0: android.view.View;
+
+        specialinvoke this.<br.unb.cic.cryptoapp.MainActivity: void showScreen(java.lang.Class)>(class "Lbr/unb/cic/cryptoapp/cipher/CipherActivity;");
+
+        return;
+    }
+
+    public void showScreenMessageDigest(android.view.View)
+    {
+        br.unb.cic.cryptoapp.MainActivity this;
+        android.view.View $u2;
+
+        this := @this: br.unb.cic.cryptoapp.MainActivity;
+
+        $u2 := @parameter0: android.view.View;
+
+        specialinvoke this.<br.unb.cic.cryptoapp.MainActivity: void showScreen(java.lang.Class)>(class "Lbr/unb/cic/cryptoapp/messagedigest/MessageDigestActivity;");
+
+        return;
+    }
+}

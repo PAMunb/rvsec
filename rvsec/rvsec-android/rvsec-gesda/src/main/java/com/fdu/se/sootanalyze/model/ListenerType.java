@@ -10,7 +10,9 @@ public enum ListenerType {
 	OnDragListener("setOnDragListener", "onDrag", Event.DRAG),
 	OnHoverListener("setOnHoverListener", "onHover", Event.HOVER),
 	OnTouchListener("setOnTouchListener", "onTouch", Event.TOUCH),
+	OnKeyListener("setOnKeyListener", "onKey", Event.KEY),
 	OnItemSelectedListener("setOnItemSelectedListener", "onItemSelected", Event.SELECTION),
+	OnCheckedChangeListener("setOnCheckedChangeListener", "onCheckedChanged", Event.CLICK),
 	OnFocusChangeListener("setOnFocusChangeListener", "onFocusChange", Event.FOCUS);
 
 //	 //TODO

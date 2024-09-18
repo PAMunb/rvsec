@@ -1,0 +1,22 @@
+public final class br.unb.cic.cryptoapp.R$array extends java.lang.Object
+{
+    public static final int messageDigestAlgorithms;
+
+    private void <init>()
+    {
+        br.unb.cic.cryptoapp.R$array this;
+
+        this := @this: br.unb.cic.cryptoapp.R$array;
+
+        specialinvoke this.<java.lang.Object: void <init>()>();
+
+        return;
+    }
+
+    public static void <clinit>()
+    {
+        <br.unb.cic.cryptoapp.R$array: int messageDigestAlgorithms> = 2130903040;
+
+        return;
+    }
+}

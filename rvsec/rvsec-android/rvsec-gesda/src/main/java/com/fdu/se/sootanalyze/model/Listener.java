@@ -1,6 +1,8 @@
 package com.fdu.se.sootanalyze.model;
 
+import java.util.HashSet;
 import java.util.Objects;
+import java.util.Set;
 
 import soot.SootMethod;
 
@@ -11,6 +13,7 @@ public class Listener {
 	private boolean eventRegisteredInLayoutFile = false;// whether the event of the widget is registered in the layout file
 
 	private String callbackMethodName;
+	private Set<String> targets = new HashSet<>();
 
 	public Listener(ListenerType listenerType) {
 		Objects.requireNonNull(listenerType);
@@ -70,10 +73,20 @@ public class Listener {
 	public void setCallbackMethodName(String callbackMethodName) {
 		this.callbackMethodName = callbackMethodName;
 	}
+	
+	public void addTarget(String targetClass) {
+		if (targetClass != null) {
+			targets.add(targetClass);
+		}
+	}
+
+	public Set<String> getTargets() {
+		return targets;
+	}
 
 	@Override
 	public String toString() {
-		return String.format("Listener [listenerEnum=%s, listernerClass=%s, callbackMethod=%s, eventRegisteredInLayoutFile=%s]", type, listernerClass, callbackMethod, eventRegisteredInLayoutFile);
+		return String.format("Listener [listenerEnum=%s, listernerClass=%s, callbackMethod=%s, eventRegisteredInLayoutFile=%s, targets=%s]", type, listernerClass, callbackMethod, eventRegisteredInLayoutFile, targets);
 	}
 
 }

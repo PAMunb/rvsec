@@ -5,7 +5,8 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 import com.fdu.se.sootanalyze.model.WindowNode;
-import com.fdu.se.sootanalyze.model.xml.AppInfo;
+
+import br.unb.cic.rvsec.apk.model.AppInfo;
 
 public class ApkInfoOut {
 	private String fileName;

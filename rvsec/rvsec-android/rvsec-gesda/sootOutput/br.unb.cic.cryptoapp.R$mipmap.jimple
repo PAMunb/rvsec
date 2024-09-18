@@ -1,0 +1,25 @@
+public final class br.unb.cic.cryptoapp.R$mipmap extends java.lang.Object
+{
+    public static final int ic_launcher;
+    public static final int ic_launcher_round;
+
+    private void <init>()
+    {
+        br.unb.cic.cryptoapp.R$mipmap this;
+
+        this := @this: br.unb.cic.cryptoapp.R$mipmap;
+
+        specialinvoke this.<java.lang.Object: void <init>()>();
+
+        return;
+    }
+
+    public static void <clinit>()
+    {
+        <br.unb.cic.cryptoapp.R$mipmap: int ic_launcher_round> = 2131623937;
+
+        <br.unb.cic.cryptoapp.R$mipmap: int ic_launcher> = 2131623936;
+
+        return;
+    }
+}

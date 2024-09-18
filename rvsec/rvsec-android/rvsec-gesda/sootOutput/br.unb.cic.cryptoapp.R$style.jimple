@@ -1,0 +1,22 @@
+public final class br.unb.cic.cryptoapp.R$style extends java.lang.Object
+{
+    public static final int Theme_CryptoApp;
+
+    private void <init>()
+    {
+        br.unb.cic.cryptoapp.R$style this;
+
+        this := @this: br.unb.cic.cryptoapp.R$style;
+
+        specialinvoke this.<java.lang.Object: void <init>()>();
+
+        return;
+    }
+
+    public static void <clinit>()
+    {
+        <br.unb.cic.cryptoapp.R$style: int Theme_CryptoApp> = 2131821070;
+
+        return;
+    }
+}

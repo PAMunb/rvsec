@@ -24,17 +24,18 @@ import com.fdu.se.sootanalyze.model.TransitionEdge;
 import com.fdu.se.sootanalyze.model.TransitionGraph;
 import com.fdu.se.sootanalyze.model.Widget;
 import com.fdu.se.sootanalyze.model.Widget.WidgetBuilder;
-import com.fdu.se.sootanalyze.model.out.ApkInfoOut;
-import com.fdu.se.sootanalyze.model.out.OutputWriter;
 import com.fdu.se.sootanalyze.model.WidgetBuilderFactory;
 import com.fdu.se.sootanalyze.model.WidgetType;
 import com.fdu.se.sootanalyze.model.WindowNode;
 import com.fdu.se.sootanalyze.model.WindowType;
-import com.fdu.se.sootanalyze.model.xml.ActivityInfo;
-import com.fdu.se.sootanalyze.model.xml.AppInfo;
+import com.fdu.se.sootanalyze.model.out.ApkInfoOut;
+import com.fdu.se.sootanalyze.model.out.OutputWriter;
 import com.fdu.se.sootanalyze.utils.NumberIncrementer;
 import com.fdu.se.sootanalyze.utils.StringUtil;
 
+import br.unb.cic.rvsec.apk.model.ActivityInfo;
+import br.unb.cic.rvsec.apk.model.AppInfo;
+import br.unb.cic.rvsec.apk.reader.AppReader;
 import soot.Body;
 import soot.MethodOrMethodContext;
 import soot.Scene;
@@ -55,6 +56,7 @@ import soot.jimple.InvokeExpr;
 import soot.jimple.InvokeStmt;
 import soot.jimple.ReturnStmt;
 import soot.jimple.SpecialInvokeExpr;
+import soot.jimple.StaticInvokeExpr;
 import soot.jimple.Stmt;
 import soot.jimple.VirtualInvokeExpr;
 import soot.jimple.infoflow.android.InfoflowAndroidConfiguration;
@@ -98,7 +100,7 @@ public class SootAnalyze {
 	private long curEdgeId = 0;// the current id of TransitionEdge when constructing Transition Graph
 
 //	private List<String> setListeners;
-	private List<String> startActSignatures;
+	private List<String> startActivitySignatures;
 	private List<String> addMenuItemSignatures;
 	private List<String> addSubMenuSignatures;
 	private List<String> addSubMenuItemSignatures;
@@ -106,7 +108,6 @@ public class SootAnalyze {
 
 	private AppInfo appInfo;
 
-	
 	public SootAnalyze(String androiPlatformsDir, String rtJar) {
 		sdkPath = androiPlatformsDir;
 		rtJarPath = rtJar;
@@ -304,8 +305,10 @@ public class SootAnalyze {
 									log.trace("methodByNameUnsafe=" + methodByNameUnsafe);
 									listener.setCallbackMethod(methodByNameUnsafe);
 
-									log.trace("======================================================");
-//									testeIntent(methodByNameUnsafe);//TODO
+									log.trace("======================================================%$#@");
+									String targetClass = testeIntent(methodByNameUnsafe);// TODO
+									log.trace("****************************************** targetClass=" + targetClass);
+									widget.addTarget(targetClass);
 								}
 								log.trace("addListener=" + listener);
 								widget.addListener(listener);
@@ -366,7 +369,8 @@ public class SootAnalyze {
 	}
 
 	private Map<String, SootField> getAllViewsAssignments(SootMethod method) {
-		// view_name --> soot field ::: stmt_example: soot_field = findViewById(view_name)
+		// view_name --> soot field ::: stmt_example: soot_field =
+		// findViewById(view_name)
 		Map<String, SootField> views = new HashMap<>();
 
 		Body body = method.retrieveActiveBody();
@@ -418,19 +422,37 @@ public class SootAnalyze {
 	 * @return
 	 */
 	public MethodOrMethodContext findMethodContex(CallGraph cg, String declClass, String method) {
-		log.trace("findMethodContex: declClass="+declClass+", method="+method);
+		log.trace("findMethodContex: declClass=" + declClass + ", method=" + method);
 		for (Edge callEdge : cg) {
 			MethodOrMethodContext src = callEdge.getSrc();
 			SootMethod srcMethod = src.method();
 			String dClassName = srcMethod.getDeclaringClass().getName();
 			String methodName = srcMethod.getName();
 			if (declClass.equals(dClassName) && method.equals(methodName)) {
-				log.trace("findMethodContex ::: "+src);
+				log.trace("findMethodContex ::: " + src);
 				return src;
 			}
 		}
 		return null;
 	}
+
+	public MethodOrMethodContext findMethodContex(CallGraph cg, Listener listener) {
+		return findMethodContex(cg, listener.getListernerClass(), listener.getEventCallback());
+	}
+
+//	public SootMethod findMethodContexNovo(Listener listener) {
+//		log.trace("findMethodContexNovo: declClass=" + listener.getListernerClass() + ", method=" + listener.getEventCallback());
+//		
+//		SootClass sootClassUnsafe = Scene.v().getSootClassUnsafe(listener.getListernerClass());
+//		log.trace("findMethodContexNovo ::: sootClassUnsafe=" + sootClassUnsafe);
+//		if (sootClassUnsafe != null) {
+//			SootMethod methodByNameUnsafe = sootClassUnsafe.getMethodByNameUnsafe(listener.getEventCallback());
+//			log.trace("findMethodContexNovo ::: methodByNameUnsafe=" + methodByNameUnsafe);
+//			listener.setCallbackMethod(methodByNameUnsafe);
+//			return methodByNameUnsafe;
+//		}
+//		return null;
+//	}
 
 	@Deprecated
 	public void analyseCallGraph() {
@@ -471,7 +493,7 @@ public class SootAnalyze {
 
 		// TODO lista
 		ListenerType listenerEnum = ListenerType.OnMenuItemClickListener;
-		UnitGraph cfg = new BriefUnitGraph(menuMethod.retrieveActiveBody()); 
+		UnitGraph cfg = new BriefUnitGraph(menuMethod.retrieveActiveBody());
 		List<Unit> allInvokeExprSetOnMenuItemClickListenerUnits = getAllInvokeExprByMethodName(listenerEnum.getListernerMethod(), menuMethod);
 		for (Unit unit : allInvokeExprSetOnMenuItemClickListenerUnits) {
 			Stmt stmt = (Stmt) unit;
@@ -787,7 +809,7 @@ public class SootAnalyze {
 
 		String intentTargetClass = findIntentDefinition(method);
 		if (intentTargetClass != null) {
-			log.trace(">>>>>>>>>>>>>>>>>> " + intentTargetClass);
+			log.trace("testeIntent ::: ****** intentTargetClass=" + intentTargetClass);
 			return intentTargetClass;
 		}
 
@@ -798,7 +820,15 @@ public class SootAnalyze {
 			Stmt stmt = (Stmt) u;
 
 			if (stmt.containsInvokeExpr()) {
+				log.trace("testeIntent ::: invoke=" + stmt);
 				InvokeExpr invokeExpr = stmt.getInvokeExpr();
+				
+				if(invokeExpr instanceof StaticInvokeExpr) {
+					StaticInvokeExpr staticInvokeExpr = (StaticInvokeExpr) invokeExpr;
+					log.trace("testeIntent ::: staticInvokeExpr=" + staticInvokeExpr+" ... ");
+				}
+				
+				
 				SootMethod invokeMethod = invokeExpr.getMethod();
 				if (invokeMethod.getDeclaringClass().getName().contains(appInfo.getPackage()) && currentDepth < 4) {
 					return testeIntent(invokeMethod, currentDepth);
@@ -900,7 +930,7 @@ public class SootAnalyze {
 	}
 
 	public void removeDisEdges(CallGraph cg) {
-		log.trace("removeDisEdges ::: qtde_cg="+cg.size());
+		log.trace("removeDisEdges ::: qtde_cg=" + cg.size());
 		List<Edge> delEdges = new ArrayList<>();
 		for (Edge e : cg) {
 			MethodOrMethodContext src = e.getSrc();
@@ -914,19 +944,21 @@ public class SootAnalyze {
 				delEdges.add(e);
 			}
 		}
-		log.trace("removeDisEdges ::: qtde_delEdges="+delEdges.size());
+		log.trace("removeDisEdges ::: qtde_delEdges=" + delEdges.size());
 		for (Edge delEdge : delEdges) {
 			cg.removeEdge(delEdge);
 		}
-		log.trace("removeDisEdges ::: qtde_cg_after="+cg.size());
+		log.trace("removeDisEdges ::: qtde_cg_after=" + cg.size());
 	}
 
-	public void findStartActEdges(CallGraph cg, Edge e, Stack<Edge> path, List<Edge> startActEdges) {
-		System.out.println("findStartActEdges ... " + e);
+	private void findStartActivityEdges(CallGraph cg, Edge e, Stack<Edge> path, List<Edge> startActEdges) {
+		log.trace("findStartActivityEdges ... " + e.getSrc().method().getSignature() + " >>> " + e.tgt().method().getSignature());
+		log.trace("findStartActivityEdges ::: path= " + path);
 		MethodOrMethodContext tgt = e.getTgt();
 		Iterator<Edge> outEdges = cg.edgesOutOf(tgt);
-		if (!path.empty() && isStartActMethod(path.peek().tgt())) {
+		if (!path.empty() && isStartActivityMethod(path.peek().tgt())) {
 			Edge startActEdge = path.pop();
+			log.trace("findStartActivityEdges ::: startActEdge= " + startActEdge);
 			startActEdges.add(startActEdge);
 			return;
 		}
@@ -937,16 +969,14 @@ public class SootAnalyze {
 		while (outEdges.hasNext()) {
 			Edge outEdge = outEdges.next();
 			path.push(outEdge);
-			System.out.println(outEdge.getSrc() + " --> " + outEdge.getTgt());
-			// System.out.println(outEdge.getSrc().method().getName());
-			// System.out.println(outEdge.getSrc().equals(outEdge.getTgt()));
-			findStartActEdges(cg, outEdge, path, startActEdges);
+			log.trace("findStartActivityEdges ::: outEdge=" + outEdge.getSrc().method().getSignature() + " --> " + outEdge.getTgt().method().getSignature());
+			findStartActivityEdges(cg, outEdge, path, startActEdges);
 		}
 		path.pop();
-		// return startActEdges;
 	}
 
-	public void findDepInvokeEdges(CallGraph cg, Edge e, Stack<Edge> path, Set<Edge> depInvokeEdges) {
+	private void findDepInvokeEdges(CallGraph cg, Edge e, Stack<Edge> path, Set<Edge> depInvokeEdges) {
+		log.trace("findDepInvokeEdges: " + e);
 		MethodOrMethodContext tgt = e.getTgt();
 		Iterator<Edge> outEdges = cg.edgesOutOf(tgt);
 		if (!path.empty() && isDepMethod(path.peek().tgt())) {
@@ -966,15 +996,15 @@ public class SootAnalyze {
 		path.pop();
 	}
 
-	public boolean isStartActMethod(SootMethod method) {
+	private boolean isStartActivityMethod(SootMethod method) {
 		String signature = method.getSignature();
-		if (startActSignatures.contains(signature)) {
+		if (startActivitySignatures.contains(signature)) {
 			return true;
 		}
 		return false;
 	}
 
-	public boolean isDepMethod(SootMethod method) {
+	private boolean isDepMethod(SootMethod method) {
 		String name = method.getName();
 		if (name.equals("isChecked")) {
 			return true;
@@ -982,11 +1012,11 @@ public class SootAnalyze {
 		return false;
 	}
 
-	public String getTargetAct(UnitGraph cfg, Stmt invokeStmt) {
-		System.out.println("getTargetAct: " + invokeStmt);
+	private String getTargetAct(UnitGraph cfg, Stmt invokeStmt) {
+		log.trace("getTargetAct: " + invokeStmt);
 		InvokeExpr startActExpr = invokeStmt.getInvokeExpr();
 		Value intentValue = startActExpr.getArg(0);
-		System.out.println("intentValue: " + intentValue);
+		log.trace("getTargetAct ::: intentValue: " + intentValue);
 		Stmt curStmt = invokeStmt;
 
 		System.out.println("PREDS_OF: " + curStmt);
@@ -997,7 +1027,7 @@ public class SootAnalyze {
 
 		while (!cfg.getPredsOf(curStmt).isEmpty()) {
 			curStmt = (Stmt) cfg.getPredsOf(curStmt).get(0);
-			System.out.println("curStmt=" + curStmt);
+			log.trace("getTargetAct ::: curStmt=" + curStmt);
 			if (curStmt instanceof InvokeStmt) {
 				InvokeExpr invokeExpr = curStmt.getInvokeExpr();
 				if (invokeExpr instanceof VirtualInvokeExpr) {
@@ -1013,17 +1043,18 @@ public class SootAnalyze {
 				}
 				if (invokeExpr instanceof SpecialInvokeExpr) {
 					SpecialInvokeExpr specialInvokeExpr = (SpecialInvokeExpr) invokeExpr;
+					log.trace("getTargetAct ::: specialInvokeExpr=" + specialInvokeExpr);
 					SootMethod invokeMethod = specialInvokeExpr.getMethod();
 					String signature = invokeMethod.getSignature();
-					System.out.println("signature:::" + signature);
 					if (signature.equals(INTENT_NEW)) {
 						Value invokeObj = specialInvokeExpr.getBase();
-						System.out.println("invokeObj=" + invokeObj + ":::" + specialInvokeExpr.getArgs() + ":::intentValue=" + intentValue);
+						log.trace("getTargetAct ::: invokeObj=" + invokeObj + ":::" + specialInvokeExpr.getArgs() + ":::intentValue=" + intentValue);
 						if (invokeObj.equivTo(intentValue)) {
 //TODO ...............................
-							System.out.println("teste .....");
+							log.trace("getTargetAct ::: teste ......................................");
 							Value arg = specialInvokeExpr.getArg(1);
 							String teste = teste(curStmt, arg, cfg);
+							log.trace("getTargetAct ::: teste=" + teste);
 							if (teste == null) {
 								teste = specialInvokeExpr.getArg(1).toString();
 							}
@@ -1285,24 +1316,71 @@ public class SootAnalyze {
 			throw new RuntimeException(" iniciar antes..............");
 		}
 
-		log.trace("analyseDependencies");
+		log.trace("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% analyseDependencies");
 		app.constructCallgraph();
 
+		CallGraph cg = Scene.v().getCallGraph();
+		removeDisEdges(cg);
+
 		for (WindowNode window : wNodes) {
-			log.trace("analyseDependencies ::: window="+window.getName());
+			log.trace("analyseDependencies ::: window=" + window.getName());
 			String windowType = window.getType();
 			if (windowType.equals(WindowType.ACT) || windowType.equals(WindowType.DIALOG)) {
 				List<Widget> widgets = window.getWidgets();
 				for (Widget widget : widgets) {
-					log.trace("analyseDependencies ::::: widget="+widget.getName()+", "+widget.getType());
-					String listener = widget.getListenerName();
-					String eventMethod = "";// TODO w.getEventMethod();
-					List<Widget> dWidgets = new ArrayList<>();
-					List<String> w_ids = new ArrayList<>();
-					CallGraph cg = Scene.v().getCallGraph();
-					removeDisEdges(cg);
-					MethodOrMethodContext cbContext = findMethodContex(cg, listener, eventMethod);
-					if (cbContext != null) {
+					log.trace("analyseDependencies ::::: widget=" + widget.getName() + ", " + widget.getType());
+
+					for (Listener listener : widget.getListeners()) {
+						log.trace("analyseDependencies :::::::: listener=" + listener.getType());
+						List<Widget> dWidgets = new ArrayList<>();
+						List<String> w_ids = new ArrayList<>();
+
+						SootMethod cbMethod = listener.getCallbackMethod();
+						if (cbMethod == null) {
+							MethodOrMethodContext methodContex = findMethodContex(cg, listener);
+							if (methodContex != null) {
+								cbMethod = methodContex.method();
+							}
+						}
+						log.trace("analyseDependencies :::::::: cbMethod=" + cbMethod);
+						if (cbMethod != null) {
+							UnitGraph cbCfg = new BriefUnitGraph(cbMethod.retrieveActiveBody());
+							Iterator<Unit> stmts = cbCfg.iterator();
+							while (stmts.hasNext()) {
+								Stmt stmt = (Stmt) stmts.next();
+								log.trace("analyseDependencies :::::::: stmt=" + stmt);
+								if (isDepStmt(stmt)) {
+									log.trace("analyseDependencies :::::::: ************ isDepStmt=" + stmt);
+									AssignStmt assignStmt = (AssignStmt) stmt;
+									Value rightValue = assignStmt.getRightOp();
+									Value invokeObj = ((VirtualInvokeExpr) rightValue).getBase();
+									String d_id = findWidgetDef(invokeObj, stmt, cbMethod);
+									log.trace("analyseDependencies :::::::: d_id=" + d_id);
+									if (d_id != null && !w_ids.contains(d_id)) {
+										w_ids.add(d_id);
+										// System.out.println(d_id);
+//											Widget dWidget = new Widget();
+//											dWidget.setId(curWidgetId.inc());
+//											dWidget.setWidgetId(d_id);
+//											dWidget.setWidgetType(invokeObj.getType().toString());
+										// System.out.println(dWidget.getId()+"\t"+dWidget.getWidgetId()+"\t"+dWidget.getWidgetType());
+
+										// TODO buscar pelo id do widget
+										Widget dWidget = WidgetBuilderFactory.newWidget(WidgetType.getByWidgetClass(invokeObj.getType().toString())).widgetId(d_id).build();
+
+										dWidgets.add(dWidget);
+									}
+								}
+							}
+						}
+					}
+
+//					String listener = widget.getListenerName();
+//					String eventMethod = "";// TODO w.getEventMethod();
+//					CallGraph cg = Scene.v().getCallGraph();
+//					removeDisEdges(cg);
+//					MethodOrMethodContext cbContext = findMethodContexNovo(listener, eventMethod);
+//					if (cbContext != null) {
 //                        Iterator<Edge> outEdges = cg.edgesOutOf(cbContext);
 //                        Set<Edge> depInvokes = new HashSet<>();
 //                        while(outEdges.hasNext()){
@@ -1323,53 +1401,72 @@ public class SootAnalyze {
 //                                }
 //                            }
 //                        }
-						SootMethod cbMethod = cbContext.method();
-//							if (cbMethod.hasActiveBody()) {
-						UnitGraph cbCfg = new BriefUnitGraph(cbMethod.retrieveActiveBody());
-						Iterator<Unit> stmts = cbCfg.iterator();
-						while (stmts.hasNext()) {
-							Stmt stmt = (Stmt) stmts.next();
-							if (isDepStmt(stmt)) {
-								AssignStmt assignStmt = (AssignStmt) stmt;
-								Value rightValue = assignStmt.getRightOp();
-								Value invokeObj = ((VirtualInvokeExpr) rightValue).getBase();
-								String d_id = findWidgetDef(invokeObj, stmt, cbMethod);
-								if (d_id != null && !w_ids.contains(d_id)) {
-									w_ids.add(d_id);
-									// System.out.println(d_id);
-//										Widget dWidget = new Widget();
-//										dWidget.setId(curWidgetId.inc());
-//										dWidget.setWidgetId(d_id);
-//										dWidget.setWidgetType(invokeObj.getType().toString());
-									// System.out.println(dWidget.getId()+"\t"+dWidget.getWidgetId()+"\t"+dWidget.getWidgetType());
-
-									// TODO rever o type
-									Widget dWidget = WidgetBuilderFactory
-											.newWidget(WidgetType.getByWidgetClass(invokeObj.getType().toString()))
-											.widgetId(d_id)
-											.build();
-
-									dWidgets.add(dWidget);
-								}
-							}
-						}
+//						SootMethod cbMethod = cbContext.method();
+////							if (cbMethod.hasActiveBody()) {
+//						UnitGraph cbCfg = new BriefUnitGraph(cbMethod.retrieveActiveBody());
+//						Iterator<Unit> stmts = cbCfg.iterator();
+//						while (stmts.hasNext()) {
+//							Stmt stmt = (Stmt) stmts.next();
+//							if (isDepStmt(stmt)) {
+//								log.trace("analyseDependencies ::::: isDepStmt="+stmt);
+//								AssignStmt assignStmt = (AssignStmt) stmt;
+//								Value rightValue = assignStmt.getRightOp();
+//								Value invokeObj = ((VirtualInvokeExpr) rightValue).getBase();
+//								String d_id = findWidgetDef(invokeObj, stmt, cbMethod);
+//								if (d_id != null && !w_ids.contains(d_id)) {
+//									w_ids.add(d_id);
+//									// System.out.println(d_id);
+////										Widget dWidget = new Widget();
+////										dWidget.setId(curWidgetId.inc());
+////										dWidget.setWidgetId(d_id);
+////										dWidget.setWidgetType(invokeObj.getType().toString());
+//									// System.out.println(dWidget.getId()+"\t"+dWidget.getWidgetId()+"\t"+dWidget.getWidgetType());
+//
+//									// TODO rever o type
+//									Widget dWidget = WidgetBuilderFactory
+//											.newWidget(WidgetType.getByWidgetClass(invokeObj.getType().toString()))
+//											.widgetId(d_id)
+//											.build();
+//
+//									dWidgets.add(dWidget);
+//								}
 //							}
-					}
-					widget.setdWidgets(dWidgets);
+//						}
+//							}
+//					} 
+//					widget.setdWidgets(dWidgets);
 				}
 			}
 		}
 	}
 
 	public boolean isDepStmt(Stmt stmt) {
+		log.trace("isDepStmt: " + stmt);
+
+//		if(stmt.containsInvokeExpr()) {
+//			InvokeExpr invokeExpr = stmt.getInvokeExpr();
+//			SootMethod invokeMethod = invokeExpr.getMethod();
+//			String name = invokeMethod.getName();
+//			// interface android.widget.Checkable: CheckBox, CheckedTextView, CompoundButton, RadioButton, Switch, ToggleButton
+//			if (name.equals("isChecked")) {
+//				log.trace("isDepStmt ::: isChecked ***********************");
+//				return true;
+//			}
+//		}
+
 		if (stmt instanceof AssignStmt) {
 			AssignStmt assignStmt = (AssignStmt) stmt;
+			log.trace("isDepStmt ::: assignStmt=" + assignStmt);
 			Value right = assignStmt.getRightOp();
 			if (right instanceof VirtualInvokeExpr) {
 				VirtualInvokeExpr virtualInvokeExpr = (VirtualInvokeExpr) right;
+				log.trace("isDepStmt ::: virtualInvokeExpr=" + virtualInvokeExpr);
 				SootMethod invokeMethod = virtualInvokeExpr.getMethod();
 				String name = invokeMethod.getName();
+				// interface android.widget.Checkable: CheckBox, CheckedTextView,
+				// CompoundButton, RadioButton, Switch, ToggleButton
 				if (name.equals("isChecked")) {
+					log.trace("isDepStmt ::: isChecked ***********************");
 					return true;
 				}
 			}
@@ -1381,49 +1478,96 @@ public class SootAnalyze {
 		log.info("Generating Window Transition Graph ...");
 		TransitionGraph graph = new TransitionGraph();
 		List<TransitionEdge> edges = new ArrayList<>();
-		for (WindowNode wn : wNodes) {
-			List<Widget> widgets = wn.getWidgets();
-			if (!widgets.isEmpty()) {
-				for (Widget w : widgets) {
-					String listener = w.getListenerName();
-					String eventMethod = "";// TODO w.getEventMethod();
-					CallGraph cg = Scene.v().getCallGraph();
-					removeDisEdges(cg);
-					MethodOrMethodContext cbContext = findMethodContex(cg, listener, eventMethod);
+		CallGraph cg = Scene.v().getCallGraph();
+		removeDisEdges(cg);
+		for (WindowNode window : wNodes) {
+			log.trace("generateTransitionGraph ::: window=" + window.getName());
+			List<Widget> widgets = window.getWidgets();
+			for (Widget widget : widgets) {
+				log.trace("generateTransitionGraph :::::: widget=" + widget.getName());
+				for (Listener listener : widget.getListeners()) {
+					log.trace("generateTransitionGraph ::::::::: listener=" + listener.getType());
+					MethodOrMethodContext cbContext = findMethodContex(cg, listener);
 					if (cbContext != null) {
+						log.trace("generateTransitionGraph ::::::::: cbContext=" + cbContext.method().getSignature());
 						Iterator<Edge> outEdges = cg.edgesOutOf(cbContext);
 						List<Edge> startActs = new ArrayList<>();
 						while (outEdges.hasNext()) {
 							Stack<Edge> path = new Stack<>();
 							Edge outEdge = outEdges.next();
 							path.push(outEdge);
-							findStartActEdges(cg, outEdge, path, startActs);
+							log.trace("generateTransitionGraph :::::: findStartActivityEdges=" + outEdge);
+							findStartActivityEdges(cg, outEdge, path, startActs);
 						}
+						log.trace("generateTransitionGraph ::::::::: startActs=" + startActs.size());
 						for (Edge e : startActs) {
+							log.trace("generateTransitionGraph ::::::::: startAct=" + e);
 							SootMethod srcMethod = e.src();// the method calling ICC method
-//							if (srcMethod.hasActiveBody()) {
+//								if (srcMethod.hasActiveBody()) {
 							UnitGraph cfg = new BriefUnitGraph(srcMethod.retrieveActiveBody());
 							Stmt invokeStmt = e.srcStmt();
 							String target = getTargetAct(cfg, invokeStmt);
 							if (target != null) {
-								System.out.println("TARGET: " + target);
+								log.trace("generateTransitionGraph ::::::::: target=" + e);
 								String targetAct = StringUtil.convertToAct(target);
 								WindowNode targetWNode = findNodeByName(wNodes, targetAct);
+								log.trace("generateTransitionGraph ::::::::: targetWNode=" + targetWNode);
 								if (targetWNode != null) {
 									TransitionEdge edge = new TransitionEdge();
 									edge.setId(++curEdgeId);
 									edge.setLabel(appInfo.getLabel());
-									edge.setSource(wn);
+									edge.setSource(window);
 									edge.setTarget(targetWNode);
-									edge.setWidget(w);
+									edge.setWidget(widget);
 									edges.add(edge);
-									Set<TransitionEdge> oes = wn.getOutEdges();// outedges of source node
+									Set<TransitionEdge> oes = window.getOutEdges();// outedges of source node
 									oes.add(edge);
-									wn.setOutEdges(oes);
+									window.setOutEdges(oes);
 								}
 							}
-//							}
+//								}
 						}
+					}
+				}
+
+				String listener = widget.getListenerName();
+				String eventMethod = "";// TODO w.getEventMethod();
+//				CallGraph cg = Scene.v().getCallGraph();
+//				removeDisEdges(cg); 
+				MethodOrMethodContext cbContext = findMethodContex(cg, listener, eventMethod);
+				if (cbContext != null) {
+					Iterator<Edge> outEdges = cg.edgesOutOf(cbContext);
+					List<Edge> startActs = new ArrayList<>();
+					while (outEdges.hasNext()) {
+						Stack<Edge> path = new Stack<>();
+						Edge outEdge = outEdges.next();
+						path.push(outEdge);
+						findStartActivityEdges(cg, outEdge, path, startActs);
+					}
+					for (Edge e : startActs) {
+						SootMethod srcMethod = e.src();// the method calling ICC method
+//							if (srcMethod.hasActiveBody()) {
+						UnitGraph cfg = new BriefUnitGraph(srcMethod.retrieveActiveBody());
+						Stmt invokeStmt = e.srcStmt();
+						String target = getTargetAct(cfg, invokeStmt);
+						if (target != null) {
+							System.out.println("TARGET: " + target);
+							String targetAct = StringUtil.convertToAct(target);
+							WindowNode targetWNode = findNodeByName(wNodes, targetAct);
+							if (targetWNode != null) {
+								TransitionEdge edge = new TransitionEdge();
+								edge.setId(++curEdgeId);
+								edge.setLabel(appInfo.getLabel());
+								edge.setSource(window);
+								edge.setTarget(targetWNode);
+								edge.setWidget(widget);
+								edges.add(edge);
+								Set<TransitionEdge> oes = window.getOutEdges();// outedges of source node
+								oes.add(edge);
+								window.setOutEdges(oes);
+							}
+						}
+//							}
 					}
 				}
 			}
@@ -1442,7 +1586,9 @@ public class SootAnalyze {
 		return null;
 	}
 
-	public String findWidgetDef(Value value, Stmt stmt, SootMethod method) {
+	// TODO usar o findField???
+	private String findWidgetDef(Value value, Stmt stmt, SootMethod method) {
+		log.trace("findWidgetDef: value=" + value + ", method=" + method.getName() + ", stmt=" + stmt);
 		Stmt curStmt = stmt;
 		Value curValue = value;
 		Stmt dataflowStmt = stmt;
@@ -1539,7 +1685,7 @@ public class SootAnalyze {
 	}
 
 	public void runflow() {
-		//TODO
+		// TODO
 		InfoflowAndroidConfiguration conf = new InfoflowAndroidConfiguration();
 // androidDirPath is the platforms directory location in android sdk
 		conf.getAnalysisFileConfig().setAndroidPlatformDir(sdkPath);
@@ -1654,7 +1800,7 @@ public class SootAnalyze {
 				rMenuClass = clazz;
 				populateMap(menuMap, rMenuClass);
 			}
-			
+
 			if (name.equals(basePackage + ".R$array")) {
 				rArrayClass = clazz;
 				populateMap(idMap, rArrayClass);
@@ -1663,10 +1809,10 @@ public class SootAnalyze {
 	}
 
 	private void populateMap(final Map<String, String> map, SootClass clazz) {
-		log.trace("populateMap: "+clazz.getName());
+		log.trace("populateMap: " + clazz.getName());
 		for (SootField idField : clazz.getFields()) {
 			if (idField.isFinal() && idField.isStatic()) {
-				log.trace("populateMap ::: "+idField.getSignature());
+				log.trace("populateMap ::: " + idField.getSignature());
 				String fieldName = idField.getName();
 				Tag fieldTag = idField.getTag("IntegerConstantValueTag");
 				if (fieldTag != null) {
@@ -1687,13 +1833,13 @@ public class SootAnalyze {
 	}
 
 	private void initStartActSignatures() {
-		startActSignatures = new ArrayList<>();
-		startActSignatures.add("<android.app.Activity: void startActivity(android.content.Intent)>");
-		startActSignatures.add("<android.app.Activity: void startActivity(android.content.Intent,android.os.Bundle)");
-		startActSignatures.add("<android.app.Activity: void startActivityForResult(android.content.Intent,int)>");
-		startActSignatures.add("<android.app.Activity: void startActivityForResult(android.content.Intent,int,android.os.Bundle)>");
-		startActSignatures.add("<android.app.Activity: void startActivityIfNeeded(android.content.Intent,int,android.os.Bundle)>");
-		startActSignatures.add("<android.app.Activity: void startActivityIfNeeded(android.content.Intent,int)>");
+		startActivitySignatures = new ArrayList<>();
+		startActivitySignatures.add("<android.app.Activity: void startActivity(android.content.Intent)>");
+		startActivitySignatures.add("<android.app.Activity: void startActivity(android.content.Intent,android.os.Bundle)");
+		startActivitySignatures.add("<android.app.Activity: void startActivityForResult(android.content.Intent,int)>");
+		startActivitySignatures.add("<android.app.Activity: void startActivityForResult(android.content.Intent,int,android.os.Bundle)>");
+		startActivitySignatures.add("<android.app.Activity: void startActivityIfNeeded(android.content.Intent,int,android.os.Bundle)>");
+		startActivitySignatures.add("<android.app.Activity: void startActivityIfNeeded(android.content.Intent,int)>");
 	}
 
 	private void initAddMenuItemSignatures() {
@@ -1738,6 +1884,8 @@ public class SootAnalyze {
 			System.out.println("NODES:");
 			nodes.forEach(System.out::println);
 
+//			sootAnalyze.teste123(nodes);
+
 //			sootAnalyze.analyseDependencies(nodes);
 //			TransitionGraph graph = sootAnalyze.generateTransitionGraph(nodes);
 //			System.out.println("Graph: " + graph);
@@ -1749,6 +1897,23 @@ public class SootAnalyze {
 		}
 
 		System.out.println("FIM DE FESTA !!!");
+	}
+
+	private void teste123(List<WindowNode> nodes) {
+		for (WindowNode window : nodes) {
+			for (Widget widget : window.getWidgets()) {
+				for (Listener listener : widget.getListeners()) {
+					teste1234(listener);
+				}
+			}
+		}
+	}
+
+	private void teste1234(Listener listener) {
+		if (listener != null && listener.getCallbackMethod() != null) {
+			SootMethod callbackMethod = listener.getCallbackMethod();
+			
+		}
 	}
 
 }

@@ -1,0 +1,25 @@
+public final class br.unb.cic.cryptoapp.R$drawable extends java.lang.Object
+{
+    public static final int ic_launcher_background;
+    public static final int ic_launcher_foreground;
+
+    private void <init>()
+    {
+        br.unb.cic.cryptoapp.R$drawable this;
+
+        this := @this: br.unb.cic.cryptoapp.R$drawable;
+
+        specialinvoke this.<java.lang.Object: void <init>()>();
+
+        return;
+    }
+
+    public static void <clinit>()
+    {
+        <br.unb.cic.cryptoapp.R$drawable: int ic_launcher_foreground> = 2131230824;
+
+        <br.unb.cic.cryptoapp.R$drawable: int ic_launcher_background> = 2131230823;
+
+        return;
+    }
+}

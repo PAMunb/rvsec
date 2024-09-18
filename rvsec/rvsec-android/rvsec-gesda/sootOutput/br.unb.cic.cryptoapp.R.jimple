@@ -1,0 +1,14 @@
+public final class br.unb.cic.cryptoapp.R extends java.lang.Object
+{
+
+    private void <init>()
+    {
+        br.unb.cic.cryptoapp.R this;
+
+        this := @this: br.unb.cic.cryptoapp.R;
+
+        specialinvoke this.<java.lang.Object: void <init>()>();
+
+        return;
+    }
+}

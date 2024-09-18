@@ -1,0 +1,103 @@
+public final class br.unb.cic.cryptoapp.R$id extends java.lang.Object
+{
+    public static final int btn_cipher_encrypt;
+    public static final int buttonCipher;
+    public static final int buttonGenerateHash;
+    public static final int buttonMessageDigest;
+    public static final int checkBox;
+    public static final int checkedTextView;
+    public static final int chip4;
+    public static final int chip5;
+    public static final int cipherTextView;
+    public static final int editTextCipherEncrypt;
+    public static final int editTextDate;
+    public static final int editTextDate2;
+    public static final int editTextMessageDigest;
+    public static final int editTextNumber;
+    public static final int editTextPhone;
+    public static final int editTextTextEmailAddress;
+    public static final int floatingActionButton;
+    public static final int imageButton;
+    public static final int menu_item_cipher;
+    public static final int menu_item_home;
+    public static final int menu_item_message_digest;
+    public static final int radioButton;
+    public static final int spinnerMessageDigest;
+    public static final int switch1;
+    public static final int textView;
+    public static final int textViewCypherEncryptResult;
+    public static final int textViewMessageDigestResult;
+    public static final int toggleButton;
+
+    private void <init>()
+    {
+        br.unb.cic.cryptoapp.R$id this;
+
+        this := @this: br.unb.cic.cryptoapp.R$id;
+
+        specialinvoke this.<java.lang.Object: void <init>()>();
+
+        return;
+    }
+
+    public static void <clinit>()
+    {
+        <br.unb.cic.cryptoapp.R$id: int toggleButton> = 2131296738;
+
+        <br.unb.cic.cryptoapp.R$id: int textViewMessageDigestResult> = 2131296723;
+
+        <br.unb.cic.cryptoapp.R$id: int textViewCypherEncryptResult> = 2131296722;
+
+        <br.unb.cic.cryptoapp.R$id: int textView> = 2131296721;
+
+        <br.unb.cic.cryptoapp.R$id: int switch1> = 2131296695;
+
+        <br.unb.cic.cryptoapp.R$id: int spinnerMessageDigest> = 2131296673;
+
+        <br.unb.cic.cryptoapp.R$id: int radioButton> = 2131296623;
+
+        <br.unb.cic.cryptoapp.R$id: int menu_item_message_digest> = 2131296547;
+
+        <br.unb.cic.cryptoapp.R$id: int menu_item_home> = 2131296546;
+
+        <br.unb.cic.cryptoapp.R$id: int menu_item_cipher> = 2131296545;
+
+        <br.unb.cic.cryptoapp.R$id: int imageButton> = 2131296498;
+
+        <br.unb.cic.cryptoapp.R$id: int floatingActionButton> = 2131296472;
+
+        <br.unb.cic.cryptoapp.R$id: int editTextTextEmailAddress> = 2131296447;
+
+        <br.unb.cic.cryptoapp.R$id: int editTextPhone> = 2131296446;
+
+        <br.unb.cic.cryptoapp.R$id: int editTextNumber> = 2131296445;
+
+        <br.unb.cic.cryptoapp.R$id: int editTextMessageDigest> = 2131296444;
+
+        <br.unb.cic.cryptoapp.R$id: int editTextDate2> = 2131296443;
+
+        <br.unb.cic.cryptoapp.R$id: int editTextDate> = 2131296442;
+
+        <br.unb.cic.cryptoapp.R$id: int editTextCipherEncrypt> = 2131296441;
+
+        <br.unb.cic.cryptoapp.R$id: int cipherTextView> = 2131296383;
+
+        <br.unb.cic.cryptoapp.R$id: int chip5> = 2131296380;
+
+        <br.unb.cic.cryptoapp.R$id: int chip4> = 2131296379;
+
+        <br.unb.cic.cryptoapp.R$id: int checkedTextView> = 2131296374;
+
+        <br.unb.cic.cryptoapp.R$id: int checkBox> = 2131296371;
+
+        <br.unb.cic.cryptoapp.R$id: int buttonMessageDigest> = 2131296357;
+
+        <br.unb.cic.cryptoapp.R$id: int buttonGenerateHash> = 2131296356;
+
+        <br.unb.cic.cryptoapp.R$id: int buttonCipher> = 2131296355;
+
+        <br.unb.cic.cryptoapp.R$id: int btn_cipher_encrypt> = 2131296354;
+
+        return;
+    }
+}

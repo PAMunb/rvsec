@@ -1,0 +1,342 @@
+public class br.unb.cic.cryptoapp.messagedigest.MessageDigestActivity extends androidx.appcompat.app.AppCompatActivity
+{
+    private android.widget.EditText editTextInput;
+    private android.widget.Spinner spinnerAlgorithm;
+    private android.widget.TextView textViewResult;
+
+    public void <init>()
+    {
+        br.unb.cic.cryptoapp.messagedigest.MessageDigestActivity this;
+
+        this := @this: br.unb.cic.cryptoapp.messagedigest.MessageDigestActivity;
+
+        specialinvoke this.<androidx.appcompat.app.AppCompatActivity: void <init>()>();
+
+        return;
+    }
+
+    private void clearErrors()
+    {
+        android.widget.TextView $u0#3;
+        android.view.View $u-1;
+        android.widget.EditText $u0#4;
+        br.unb.cic.cryptoapp.messagedigest.MessageDigestActivity this;
+        android.widget.Spinner $u0;
+
+        this := @this: br.unb.cic.cryptoapp.messagedigest.MessageDigestActivity;
+
+        $u0 = this.<br.unb.cic.cryptoapp.messagedigest.MessageDigestActivity: android.widget.Spinner spinnerAlgorithm>;
+
+        $u-1 = virtualinvoke $u0.<android.widget.Spinner: android.view.View getSelectedView()>();
+
+        $u0#3 = (android.widget.TextView) $u-1;
+
+        virtualinvoke $u0#3.<android.widget.TextView: void setError(java.lang.CharSequence)>(null);
+
+        $u0#4 = this.<br.unb.cic.cryptoapp.messagedigest.MessageDigestActivity: android.widget.EditText editTextInput>;
+
+        virtualinvoke $u0#4.<android.widget.EditText: void setError(java.lang.CharSequence)>(null);
+
+        return;
+    }
+
+    static void lambda$onCreate$0(android.view.View, boolean)
+    {
+        android.view.View $u0;
+        boolean $u1;
+
+        $u0 := @parameter0: android.view.View;
+
+        $u1 := @parameter1: boolean;
+
+        return;
+    }
+
+    private void showErrorDialog(java.lang.String)
+    {
+        java.lang.String $u4, $u-1;
+        androidx.appcompat.app.AlertDialog$Builder dialog;
+        br.unb.cic.cryptoapp.messagedigest.MessageDigestActivity this;
+
+        this := @this: br.unb.cic.cryptoapp.messagedigest.MessageDigestActivity;
+
+        $u4 := @parameter0: java.lang.String;
+
+        dialog = new androidx.appcompat.app.AlertDialog$Builder;
+
+        specialinvoke dialog.<androidx.appcompat.app.AlertDialog$Builder: void <init>(android.content.Context)>(this);
+
+        $u-1 = virtualinvoke this.<br.unb.cic.cryptoapp.messagedigest.MessageDigestActivity: java.lang.String getString(int)>(2131755092);
+
+        dialog = virtualinvoke dialog.<androidx.appcompat.app.AlertDialog$Builder: androidx.appcompat.app.AlertDialog$Builder setTitle(java.lang.CharSequence)>($u-1);
+
+        dialog = virtualinvoke dialog.<androidx.appcompat.app.AlertDialog$Builder: androidx.appcompat.app.AlertDialog$Builder setMessage(java.lang.CharSequence)>($u4);
+
+        dialog = virtualinvoke dialog.<androidx.appcompat.app.AlertDialog$Builder: androidx.appcompat.app.AlertDialog$Builder setIcon(int)>(17301543);
+
+        dialog = virtualinvoke dialog.<androidx.appcompat.app.AlertDialog$Builder: androidx.appcompat.app.AlertDialog$Builder setCancelable(boolean)>(1);
+
+        virtualinvoke dialog.<androidx.appcompat.app.AlertDialog$Builder: androidx.appcompat.app.AlertDialog show()>();
+
+        return;
+    }
+
+    private boolean validateAlgorithm(java.lang.String)
+    {
+        android.widget.TextView $u1#8;
+        android.view.View $u-1#6;
+        java.lang.String $u4, $u1;
+        br.unb.cic.cryptoapp.messagedigest.MessageDigestActivity this;
+        boolean $u-1;
+        android.widget.Spinner $u1#5;
+
+        this := @this: br.unb.cic.cryptoapp.messagedigest.MessageDigestActivity;
+
+        $u4 := @parameter0: java.lang.String;
+
+        $u1 = "Select";
+
+        $u-1 = virtualinvoke $u1.<java.lang.String: boolean equalsIgnoreCase(java.lang.String)>($u4);
+
+        if $u-1 == 0 goto label1;
+
+        $u1#5 = this.<br.unb.cic.cryptoapp.messagedigest.MessageDigestActivity: android.widget.Spinner spinnerAlgorithm>;
+
+        $u-1#6 = virtualinvoke $u1#5.<android.widget.Spinner: android.view.View getSelectedView()>();
+
+        $u1#8 = (android.widget.TextView) $u-1#6;
+
+        virtualinvoke $u1#8.<android.widget.TextView: void setError(java.lang.CharSequence)>("Select an algorithm ...");
+
+        return 0;
+
+     label1:
+        return 1;
+    }
+
+    private boolean validateInput(java.lang.String)
+    {
+        java.lang.String $u4;
+        android.widget.EditText $u1;
+        br.unb.cic.cryptoapp.messagedigest.MessageDigestActivity this;
+        boolean $u-1;
+
+        this := @this: br.unb.cic.cryptoapp.messagedigest.MessageDigestActivity;
+
+        $u4 := @parameter0: java.lang.String;
+
+        $u-1 = virtualinvoke $u4.<java.lang.String: boolean isEmpty()>();
+
+        if $u-1 == 0 goto label1;
+
+        $u1 = this.<br.unb.cic.cryptoapp.messagedigest.MessageDigestActivity: android.widget.EditText editTextInput>;
+
+        virtualinvoke $u1.<android.widget.EditText: void setError(java.lang.CharSequence)>("Please, insert a text");
+
+        return 0;
+
+     label1:
+        return 1;
+    }
+
+    public void generateHash(android.view.View)
+    {
+        android.text.Editable $u-1#7;
+        br.unb.cic.cryptoapp.messagedigest.MessageDigestUtil util#25;
+        java.lang.Exception result;
+        br.unb.cic.cryptoapp.messagedigest.MessageDigestActivity this;
+        android.widget.Spinner algorithm;
+        android.widget.TextView $u5;
+        android.view.View $u8;
+        java.lang.Object $u-1;
+        java.lang.StringBuilder util;
+        java.lang.String $u-1#4, $u-1#9, $u-1#13;
+        android.widget.EditText input;
+        boolean $u-1#20, $u-1#22;
+
+        this := @this: br.unb.cic.cryptoapp.messagedigest.MessageDigestActivity;
+
+        $u8 := @parameter0: android.view.View;
+
+        algorithm = this.<br.unb.cic.cryptoapp.messagedigest.MessageDigestActivity: android.widget.Spinner spinnerAlgorithm>;
+
+        $u-1 = virtualinvoke algorithm.<android.widget.Spinner: java.lang.Object getSelectedItem()>();
+
+        $u-1#4 = virtualinvoke $u-1.<java.lang.Object: java.lang.String toString()>();
+
+        input = this.<br.unb.cic.cryptoapp.messagedigest.MessageDigestActivity: android.widget.EditText editTextInput>;
+
+        $u-1#7 = virtualinvoke input.<android.widget.EditText: android.text.Editable getText()>();
+
+        $u-1#9 = virtualinvoke $u-1#7.<java.lang.Object: java.lang.String toString()>();
+
+        util = new java.lang.StringBuilder;
+
+        specialinvoke util.<java.lang.StringBuilder: void <init>()>();
+
+        virtualinvoke util.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>("algorithm=");
+
+        virtualinvoke util.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>($u-1#4);
+
+        $u-1#13 = virtualinvoke util.<java.lang.StringBuilder: java.lang.String toString()>();
+
+        staticinvoke <android.util.Log: int i(java.lang.String,java.lang.String)>("CryptoApp", $u-1#13);
+
+        util = new java.lang.StringBuilder;
+
+        specialinvoke util.<java.lang.StringBuilder: void <init>()>();
+
+        virtualinvoke util.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>("input=");
+
+        virtualinvoke util.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>($u-1#9);
+
+        $u-1#13 = virtualinvoke util.<java.lang.StringBuilder: java.lang.String toString()>();
+
+        staticinvoke <android.util.Log: int i(java.lang.String,java.lang.String)>("CryptoApp", $u-1#13);
+
+        $u-1#20 = specialinvoke this.<br.unb.cic.cryptoapp.messagedigest.MessageDigestActivity: boolean validateAlgorithm(java.lang.String)>($u-1#4);
+
+        $u-1#22 = specialinvoke this.<br.unb.cic.cryptoapp.messagedigest.MessageDigestActivity: boolean validateInput(java.lang.String)>($u-1#9);
+
+        $u-1#20 = $u-1#20 & $u-1#22;
+
+        if $u-1#20 == 0 goto label7;
+
+        specialinvoke this.<br.unb.cic.cryptoapp.messagedigest.MessageDigestActivity: void clearErrors()>();
+
+        util#25 = new br.unb.cic.cryptoapp.messagedigest.MessageDigestUtil;
+
+        specialinvoke util#25.<br.unb.cic.cryptoapp.messagedigest.MessageDigestUtil: void <init>()>();
+
+     label1:
+        $u-1#4 = virtualinvoke util#25.<br.unb.cic.cryptoapp.messagedigest.MessageDigestUtil: java.lang.String hash(java.lang.String,java.lang.String)>($u-1#9, $u-1#4);
+
+     label2:
+        util = new java.lang.StringBuilder;
+
+     label3:
+        specialinvoke util.<java.lang.StringBuilder: void <init>()>();
+
+        virtualinvoke util.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>("result=");
+
+        virtualinvoke util.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>($u-1#4);
+
+        $u-1#9 = virtualinvoke util.<java.lang.StringBuilder: java.lang.String toString()>();
+
+        staticinvoke <android.util.Log: int i(java.lang.String,java.lang.String)>("CryptoApp", $u-1#9);
+
+        $u5 = this.<br.unb.cic.cryptoapp.messagedigest.MessageDigestActivity: android.widget.TextView textViewResult>;
+
+        virtualinvoke $u5.<android.widget.TextView: void setText(java.lang.CharSequence)>($u-1#4);
+
+        $u-1#4 = virtualinvoke this.<br.unb.cic.cryptoapp.messagedigest.MessageDigestActivity: java.lang.String getString(int)>(2131755093);
+
+        staticinvoke <android.widget.Toast: android.widget.Toast makeText(android.content.Context,java.lang.CharSequence,int)>(this, $u-1#4, 0);
+
+     label4:
+        goto label6;
+
+     label5:
+        result := @caughtexception;
+
+        util = new java.lang.StringBuilder;
+
+        specialinvoke util.<java.lang.StringBuilder: void <init>()>();
+
+        virtualinvoke util.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>("Error: ");
+
+        $u-1#4 = virtualinvoke result.<java.lang.Exception: java.lang.String getMessage()>();
+
+        virtualinvoke util.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>($u-1#4);
+
+        $u-1#4 = virtualinvoke util.<java.lang.StringBuilder: java.lang.String toString()>();
+
+        staticinvoke <android.util.Log: int w(java.lang.String,java.lang.String)>("CryptoApp", $u-1#4);
+
+        $u-1#4 = virtualinvoke result.<java.lang.Exception: java.lang.String getMessage()>();
+
+        specialinvoke this.<br.unb.cic.cryptoapp.messagedigest.MessageDigestActivity: void showErrorDialog(java.lang.String)>($u-1#4);
+
+     label6:
+        return;
+
+     label7:
+        staticinvoke <android.util.Log: int w(java.lang.String,java.lang.String)>("CryptoApp", "Invalid inputs");
+
+        $u5 = this.<br.unb.cic.cryptoapp.messagedigest.MessageDigestActivity: android.widget.TextView textViewResult>;
+
+        virtualinvoke $u5.<android.widget.TextView: void setText(java.lang.CharSequence)>("");
+
+        $u-1#4 = virtualinvoke this.<br.unb.cic.cryptoapp.messagedigest.MessageDigestActivity: java.lang.String getString(int)>(2131755094);
+
+        staticinvoke <android.widget.Toast: android.widget.Toast makeText(android.content.Context,java.lang.CharSequence,int)>(this, $u-1#4, 1);
+
+        return;
+
+        catch java.lang.Exception from label1 to label2 with label5;
+        catch java.lang.Exception from label3 to label4 with label5;
+    }
+
+    protected void onCreate(android.os.Bundle)
+    {
+        android.os.Bundle $u3;
+        br.unb.cic.cryptoapp.messagedigest.MessageDigestActivity this;
+        android.widget.Spinner $u0;
+        br.unb.cic.cryptoapp.messagedigest.MessageDigestActivity$$ExternalSyntheticLambda0 $u1;
+        br.unb.cic.cryptoapp.messagedigest.MessageDigestActivity$1 $u1#17;
+        android.widget.TextView $u0#13;
+        br.unb.cic.cryptoapp.messagedigest.MessageDigestActivity$2 $u1#19;
+        android.view.View $u-1;
+        android.widget.EditText $u0#9;
+
+        this := @this: br.unb.cic.cryptoapp.messagedigest.MessageDigestActivity;
+
+        $u3 := @parameter0: android.os.Bundle;
+
+        specialinvoke this.<androidx.appcompat.app.AppCompatActivity: void onCreate(android.os.Bundle)>($u3);
+
+        virtualinvoke this.<br.unb.cic.cryptoapp.messagedigest.MessageDigestActivity: void setContentView(int)>(2131492894);
+
+        $u-1 = virtualinvoke this.<br.unb.cic.cryptoapp.messagedigest.MessageDigestActivity: android.view.View findViewById(int)>(2131296673);
+
+        $u0 = (android.widget.Spinner) $u-1;
+
+        this.<br.unb.cic.cryptoapp.messagedigest.MessageDigestActivity: android.widget.Spinner spinnerAlgorithm> = $u0;
+
+        $u-1 = virtualinvoke this.<br.unb.cic.cryptoapp.messagedigest.MessageDigestActivity: android.view.View findViewById(int)>(2131296444);
+
+        $u0#9 = (android.widget.EditText) $u-1;
+
+        this.<br.unb.cic.cryptoapp.messagedigest.MessageDigestActivity: android.widget.EditText editTextInput> = $u0#9;
+
+        $u-1 = virtualinvoke this.<br.unb.cic.cryptoapp.messagedigest.MessageDigestActivity: android.view.View findViewById(int)>(2131296723);
+
+        $u0#13 = (android.widget.TextView) $u-1;
+
+        this.<br.unb.cic.cryptoapp.messagedigest.MessageDigestActivity: android.widget.TextView textViewResult> = $u0#13;
+
+        $u0#9 = this.<br.unb.cic.cryptoapp.messagedigest.MessageDigestActivity: android.widget.EditText editTextInput>;
+
+        $u1 = <br.unb.cic.cryptoapp.messagedigest.MessageDigestActivity$$ExternalSyntheticLambda0: br.unb.cic.cryptoapp.messagedigest.MessageDigestActivity$$ExternalSyntheticLambda0 INSTANCE>;
+
+        virtualinvoke $u0#9.<android.widget.EditText: void setOnFocusChangeListener(android.view.View$OnFocusChangeListener)>($u1);
+
+        $u0#9 = this.<br.unb.cic.cryptoapp.messagedigest.MessageDigestActivity: android.widget.EditText editTextInput>;
+
+        $u1#17 = new br.unb.cic.cryptoapp.messagedigest.MessageDigestActivity$1;
+
+        specialinvoke $u1#17.<br.unb.cic.cryptoapp.messagedigest.MessageDigestActivity$1: void <init>(br.unb.cic.cryptoapp.messagedigest.MessageDigestActivity)>(this);
+
+        virtualinvoke $u0#9.<android.widget.EditText: void setOnHoverListener(android.view.View$OnHoverListener)>($u1#17);
+
+        $u0#9 = this.<br.unb.cic.cryptoapp.messagedigest.MessageDigestActivity: android.widget.EditText editTextInput>;
+
+        $u1#19 = new br.unb.cic.cryptoapp.messagedigest.MessageDigestActivity$2;
+
+        specialinvoke $u1#19.<br.unb.cic.cryptoapp.messagedigest.MessageDigestActivity$2: void <init>(br.unb.cic.cryptoapp.messagedigest.MessageDigestActivity)>(this);
+
+        virtualinvoke $u0#9.<android.widget.EditText: void setOnLongClickListener(android.view.View$OnLongClickListener)>($u1#19);
+
+        return;
+    }
+}

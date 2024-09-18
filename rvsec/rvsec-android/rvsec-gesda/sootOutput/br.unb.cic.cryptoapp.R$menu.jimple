@@ -1,0 +1,22 @@
+public final class br.unb.cic.cryptoapp.R$menu extends java.lang.Object
+{
+    public static final int cryptoapp_menu;
+
+    private void <init>()
+    {
+        br.unb.cic.cryptoapp.R$menu this;
+
+        this := @this: br.unb.cic.cryptoapp.R$menu;
+
+        specialinvoke this.<java.lang.Object: void <init>()>();
+
+        return;
+    }
+
+    public static void <clinit>()
+    {
+        <br.unb.cic.cryptoapp.R$menu: int cryptoapp_menu> = 2131558400;
+
+        return;
+    }
+}

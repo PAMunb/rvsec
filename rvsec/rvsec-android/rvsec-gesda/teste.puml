@@ -1,0 +1,18 @@
+@startuml
+class MainActivity {
+  onCreate(Bundle)
+  showHome(MenuItem)
+}
+note right of MainActivity::onCreate
+{{
+}}
+JAVA
+setContentView(R.<b>layout.activity_main<b>);
+end note
+note right of MainActivity::showHome
+specialinvoke intent.<android.content.Intent: void <init>(android.content.Context,java.lang.Class)>(this, class "<b>Lbr/unb/cic/cryptoapp/MainActivity;</b>");
+virtualinvoke this.<br.unb.cic.cryptoapp.MainActivity: void startActivity(android.content.Intent)>(intent);
+end note
+
+
+@enduml

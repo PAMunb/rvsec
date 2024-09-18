@@ -1,0 +1,125 @@
+public class br.unb.cic.cryptoapp.messagedigest.MessageDigestUtil extends java.lang.Object
+{
+
+    public void <init>()
+    {
+        br.unb.cic.cryptoapp.messagedigest.MessageDigestUtil this;
+
+        this := @this: br.unb.cic.cryptoapp.messagedigest.MessageDigestUtil;
+
+        specialinvoke this.<java.lang.Object: void <init>()>();
+
+        return;
+    }
+
+    public java.lang.String hash(java.lang.String, java.lang.String)
+    {
+        byte[] $u-1;
+        java.lang.String $u2, $u3;
+        br.unb.cic.cryptoapp.messagedigest.MessageDigestUtil this;
+
+        this := @this: br.unb.cic.cryptoapp.messagedigest.MessageDigestUtil;
+
+        $u2 := @parameter0: java.lang.String;
+
+        $u3 := @parameter1: java.lang.String;
+
+        $u-1 = virtualinvoke $u2.<java.lang.String: byte[] getBytes()>();
+
+        $u2 = virtualinvoke this.<br.unb.cic.cryptoapp.messagedigest.MessageDigestUtil: java.lang.String hash(byte[],java.lang.String)>($u-1, $u3);
+
+        return $u2;
+    }
+
+    public java.lang.String hash(byte[], java.lang.String)
+    {
+        byte[] $u6;
+        java.security.MessageDigest $u-1;
+        java.lang.RuntimeException digest;
+        br.unb.cic.cryptoapp.messagedigest.MessageDigestUtil this;
+        java.lang.Exception messageDigest;
+        java.security.NoSuchAlgorithmException messageDigest#17;
+        java.lang.StringBuilder $u3;
+        java.lang.String $u7;
+
+        this := @this: br.unb.cic.cryptoapp.messagedigest.MessageDigestUtil;
+
+        $u6 := @parameter0: byte[];
+
+        $u7 := @parameter1: java.lang.String;
+
+     label1:
+        $u-1 = staticinvoke <java.security.MessageDigest: java.security.MessageDigest getInstance(java.lang.String)>($u7);
+
+        virtualinvoke $u-1.<java.security.MessageDigest: void update(byte[])>($u6);
+
+        $u6 = virtualinvoke $u-1.<java.security.MessageDigest: byte[] digest()>();
+
+        $u7 = staticinvoke <br.unb.cic.cryptoapp.util.Utils: java.lang.String bytesToHex(byte[])>($u6);
+
+     label2:
+        return $u7;
+
+     label3:
+        messageDigest := @caughtexception;
+
+        digest = new java.lang.RuntimeException;
+
+        $u3 = new java.lang.StringBuilder;
+
+        specialinvoke $u3.<java.lang.StringBuilder: void <init>()>();
+
+        virtualinvoke $u3.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>("MessageDigest error: ");
+
+        $u7 = virtualinvoke messageDigest.<java.lang.Exception: java.lang.String getMessage()>();
+
+        virtualinvoke $u3.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>($u7);
+
+        $u7 = virtualinvoke $u3.<java.lang.StringBuilder: java.lang.String toString()>();
+
+        specialinvoke digest.<java.lang.RuntimeException: void <init>(java.lang.String,java.lang.Throwable)>($u7, messageDigest);
+
+        throw digest;
+
+     label4:
+        messageDigest#17 := @caughtexception;
+
+        digest = new java.lang.RuntimeException;
+
+        $u3 = new java.lang.StringBuilder;
+
+        specialinvoke $u3.<java.lang.StringBuilder: void <init>()>();
+
+        virtualinvoke $u3.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>("No such algorithm: ");
+
+        $u7 = virtualinvoke messageDigest#17.<java.security.NoSuchAlgorithmException: java.lang.String getMessage()>();
+
+        virtualinvoke $u3.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>($u7);
+
+        $u7 = virtualinvoke $u3.<java.lang.StringBuilder: java.lang.String toString()>();
+
+        specialinvoke digest.<java.lang.RuntimeException: void <init>(java.lang.String,java.lang.Throwable)>($u7, messageDigest#17);
+
+        throw digest;
+
+        catch java.security.NoSuchAlgorithmException from label1 to label2 with label4;
+        catch java.lang.Exception from label1 to label2 with label3;
+    }
+
+    public java.lang.String unreachableHash(java.lang.String)
+    {
+        byte[] $u-1;
+        java.lang.String $u3;
+        br.unb.cic.cryptoapp.messagedigest.MessageDigestUtil this;
+
+        this := @this: br.unb.cic.cryptoapp.messagedigest.MessageDigestUtil;
+
+        $u3 := @parameter0: java.lang.String;
+
+        $u-1 = virtualinvoke $u3.<java.lang.String: byte[] getBytes()>();
+
+        $u3 = virtualinvoke this.<br.unb.cic.cryptoapp.messagedigest.MessageDigestUtil: java.lang.String hash(byte[],java.lang.String)>($u-1, "MD5");
+
+        return $u3;
+    }
+}
