@@ -15,22 +15,29 @@
 	<name>RVSec :: Android</name>
 
 	<modules>
+		<module>rvsec-apk</module>
 		<module>rvsec-logger-logcat</module>
 		<module>rvsec-methods-extractor</module>
-		<module>rvsec-taint</module>
+		<module>rvsec-reachability</module>		
 		<module>rvsec-gesda</module>
-		<module>teste-sootup</module>
+		<module>rvsec-taint</module> <!-- deprecated ... apenas para testes -->
 	</modules>
 
 	<properties>
 		<apktool.version>2.9.3</apktool.version>
 		<flowdroid.version>2.10.0</flowdroid.version>
+		<gson.version>2.10.1</gson.version>
 		<jgrapht.version>1.5.2</jgrapht.version>
 		<logback.version>1.2.6</logback.version>
 	</properties>
 
 	<dependencyManagement>
 		<dependencies>
+			<dependency>
+				<groupId>br.unb.cic</groupId>
+				<artifactId>rvsec-apk</artifactId>
+				<version>${project.version}</version>
+			</dependency>
 			<dependency>
 				<groupId>de.fraunhofer.sit.sse.flowdroid</groupId>
 				<artifactId>soot-infoflow</artifactId>
@@ -60,6 +67,11 @@
 				<groupId>ch.qos.logback</groupId>
 				<artifactId>logback-classic</artifactId>
 				<version>${logback.version}</version>
+			</dependency>
+			<dependency>
+				<groupId>com.google.code.gson</groupId>
+				<artifactId>gson</artifactId>
+				<version>${gson.version}</version>
 			</dependency>
 		</dependencies>
 	</dependencyManagement>
