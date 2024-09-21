@@ -1,0 +1,92 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+
+	<parent>
+		<groupId>br.unb.cic</groupId>
+		<artifactId>rvsec-android</artifactId>
+		<version>0.6.0-SNAPSHOT</version>
+	</parent>
+
+	<artifactId>rvsec-reachability</artifactId>
+
+	<properties>
+		<main.class>br.unb.cic.rvsec.reach.Main</main.class>
+		<final.jar.name>rvsec-reach</final.jar.name>
+	</properties>
+
+	<dependencies>
+		<dependency>
+			<groupId>br.unb.cic</groupId>
+			<artifactId>rvsec-mop-extractor</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>br.unb.cic</groupId>
+			<artifactId>rvsec-apk</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>de.fraunhofer.sit.sse.flowdroid</groupId>
+			<artifactId>soot-infoflow</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>de.fraunhofer.sit.sse.flowdroid</groupId>
+			<artifactId>soot-infoflow-summaries</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>de.fraunhofer.sit.sse.flowdroid</groupId>
+			<artifactId>soot-infoflow-android</artifactId>
+			<exclusions>
+				<exclusion>
+					<groupId>org.slf4j</groupId>
+					<artifactId>slf4j-simple</artifactId>
+				</exclusion>
+			</exclusions>
+		</dependency>
+		<dependency>
+			<groupId>org.jgrapht</groupId>
+			<artifactId>jgrapht-core</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>ch.qos.logback</groupId>
+			<artifactId>logback-classic</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>com.beust</groupId>
+			<artifactId>jcommander</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>com.google.code.gson</groupId>
+			<artifactId>gson</artifactId>
+		</dependency>
+	</dependencies>
+
+	<build>
+		<plugins>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-assembly-plugin</artifactId>
+				<configuration>
+					<archive>
+						<manifest>
+							<mainClass>${main.class}</mainClass>
+						</manifest>
+					</archive>
+					<descriptorRefs>
+						<descriptorRef>jar-with-dependencies</descriptorRef>
+					</descriptorRefs>
+					<finalName>${final.jar.name}</finalName>
+				</configuration>
+				<executions>
+					<execution>
+						<phase>package</phase>
+						<goals>
+							<goal>single</goal>
+						</goals>
+					</execution>
+				</executions>
+			</plugin>
+		</plugins>
+	</build>
+
+</project>
