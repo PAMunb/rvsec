@@ -17,7 +17,7 @@ import soot.SootMethod;
 import soot.jimple.toolkits.callgraph.CallGraph;
 import soot.jimple.toolkits.callgraph.Edge;
 
-public class SootReachabilityAnalysis implements ReachabilityAnalysis<SootMethod, Path> {
+public class SootReachabilityStrategy implements ReachabilityStrategy<SootMethod, Path> {
 
 	private CallGraph callGraph;
 

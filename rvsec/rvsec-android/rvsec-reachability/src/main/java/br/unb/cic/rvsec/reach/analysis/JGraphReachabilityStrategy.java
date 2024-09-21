@@ -16,8 +16,8 @@ import soot.SootMethod;
 import soot.jimple.toolkits.callgraph.CallGraph;
 import soot.jimple.toolkits.callgraph.Edge;
 
-public class JGraphReachabilityAnalysis implements ReachabilityAnalysis<SootMethod, Path> {
-	private static Logger log = LoggerFactory.getLogger(JGraphReachabilityAnalysis.class);
+public class JGraphReachabilityStrategy implements ReachabilityStrategy<SootMethod, Path> {
+	private static Logger log = LoggerFactory.getLogger(JGraphReachabilityStrategy.class);
 	
 	private Graph<SootMethod, DefaultEdge> graph;
 	private DijkstraShortestPath<SootMethod, DefaultEdge> dijkstra;
