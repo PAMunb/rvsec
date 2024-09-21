@@ -11,15 +11,15 @@ public class Path {
 	private List<SootMethod> path;
 
 	public Path(List<SootMethod> path) {
-		if (!isValid(path)) {
-			throw new RuntimeException("Invalid path: " + path);
-		}
+//		if (!isValid(path)) {
+//			throw new RuntimeException("Invalid path: " + path);
+//		}
 		this.path = path;
 	}
 
-	private boolean isValid(List<SootMethod> pathToCheck) {
-		return pathToCheck != null && pathToCheck.size() > 1;
-	}
+//	private boolean isValid(List<SootMethod> pathToCheck) {
+//		return pathToCheck != null && pathToCheck.size() > 1;
+//	}
 
 	public List<SootMethod> getPath() {
 		return path;

@@ -29,7 +29,14 @@ public class SootReachabilityAnalysis implements ReachabilityAnalysis<SootMethod
 	@Override
 	public Optional<Path> findPath(SootMethod origin, SootMethod destination) {
 		List<SootMethod> path = computeBestPath(origin, destination);
-		return Optional.of(new Path(path));
+		if(isValid(path)) {
+			return Optional.of(new Path(path));
+		}
+		return Optional.empty();
+	}
+	
+	private boolean isValid(List<SootMethod> pathToCheck) {
+		return pathToCheck != null && pathToCheck.size() > 1;
 	}
 	
 	//TODO testar ...

@@ -112,6 +112,12 @@ public class RvsecMethod {
 				&& Objects.equals(possiblePath, other.possiblePath) && Objects.equals(possiblePathToMop, other.possiblePathToMop) && reachable == other.reachable && reachesMop == other.reachesMop;
 	}
 
+	@Override
+	public String toString() {
+		return String.format("RvsecMethod [methodName=%s, methodSignature=%s, modifiers=%s, reachable=%s, reachesMop=%s, directlyReachesMop=%s, possiblePath=%s, possiblePathToMop=%s]", methodName, methodSignature, modifiers, reachable, reachesMop,
+				directlyReachesMop, possiblePath, possiblePathToMop);
+	}
+
 	
 
 }

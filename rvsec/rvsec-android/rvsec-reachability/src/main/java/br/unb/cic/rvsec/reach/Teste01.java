@@ -18,8 +18,8 @@ import org.slf4j.LoggerFactory;
 import br.unb.cic.rvsec.apk.model.ActivityInfo;
 import br.unb.cic.rvsec.apk.model.AppInfo;
 import br.unb.cic.rvsec.apk.reader.AppReader;
-import br.unb.cic.rvsec.reach.analysis.JGraphReachabilityAnalysis;
 import br.unb.cic.rvsec.reach.analysis.ReachabilityAnalysis;
+import br.unb.cic.rvsec.reach.analysis.SootReachabilityAnalysis;
 import br.unb.cic.rvsec.reach.model.Path;
 import br.unb.cic.rvsec.reach.model.RvsecClass;
 import br.unb.cic.rvsec.reach.model.RvsecMethod;
@@ -71,6 +71,7 @@ public class Teste01 {
 	}
 
 	private void writeResults(Set<RvsecClass> result, String resultsFile) {
+		log.info("Results: "+result.size());
 		for (RvsecClass clazz : result) {
 			log.info("CLASS: "+clazz.getClassName()+", isActivity="+clazz.isActivity());
 			for (RvsecMethod method : clazz.getMethods()) {
@@ -82,8 +83,8 @@ public class Teste01 {
 	private Set<RvsecClass> reachabilityAnalysis(Set<SootMethod> mopMethods, List<SootClass> activities, Set<SootMethod> entryPoints) {
 		Set<RvsecClass> result = new HashSet<>();
 		
-		analysis = new JGraphReachabilityAnalysis();
-//		analysis = new SootReachabilityAnalysis();	
+//		analysis = new JGraphReachabilityAnalysis();
+		analysis = new SootReachabilityAnalysis();	
 		analysis.initialize(Scene.v().getCallGraph(), appInfo);
 
 		//for each class (in package declared in manifest)
