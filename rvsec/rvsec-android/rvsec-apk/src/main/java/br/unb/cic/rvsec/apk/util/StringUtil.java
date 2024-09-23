@@ -10,7 +10,6 @@ public class StringUtil {
 //    }
 
     public static String convertToLabel(String apkPath){
-    	System.out.println("convertToLabel: "+apkPath);
         String[] nameArray = null;
         if(apkPath.contains("/")){
             nameArray = apkPath.split("/");
