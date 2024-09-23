@@ -26,6 +26,10 @@
 			<artifactId>rvsec-apk</artifactId>
 		</dependency>
 		<dependency>
+			<groupId>br.unb.cic</groupId>
+			<artifactId>rvsec-gesda</artifactId>
+		</dependency>
+		<dependency>
 			<groupId>de.fraunhofer.sit.sse.flowdroid</groupId>
 			<artifactId>soot-infoflow</artifactId>
 		</dependency>

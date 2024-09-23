@@ -1,5 +1,7 @@
 package br.unb.cic.rvsec.reach;
 
+import java.io.File;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -7,6 +9,10 @@ import java.util.Set;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.xmlpull.v1.XmlPullParserException;
+
+import com.fdu.se.sootanalyze.SootAnalyze;
+import com.fdu.se.sootanalyze.model.WindowNode;
 
 import br.unb.cic.rvsec.apk.model.ActivityInfo;
 import br.unb.cic.rvsec.apk.model.AppInfo;
@@ -18,6 +24,8 @@ import br.unb.cic.rvsec.reach.model.Path;
 import br.unb.cic.rvsec.reach.model.RvsecClass;
 import br.unb.cic.rvsec.reach.model.RvsecMethod;
 import br.unb.cic.rvsec.reach.mop.MopFacade;
+import br.unb.cic.rvsec.reach.writer.CsvWriter;
+import br.unb.cic.rvsec.reach.writer.Writer;
 import javamop.util.MOPException;
 import soot.Scene;
 import soot.SootClass;
@@ -25,7 +33,7 @@ import soot.SootMethod;
 import soot.jimple.infoflow.android.SetupApplication;
 
 public class Main {
-	private static Logger log = LoggerFactory.getLogger(Teste01.class);
+	private static final Logger log = LoggerFactory.getLogger(Main.class);
 
 	public void execute(String apkPath, String mopSpecsDir, String androidPlatformsDir, String rtJarPath, String resultsFile) throws Exception {
 		log.info("Executing ...");
@@ -35,7 +43,7 @@ public class Main {
 		log.info("App info: " + appInfo);
 
 		// initialize soot (infoflow)
-		SetupApplication app = SootConfig.initialize(apkPath, androidPlatformsDir, rtJarPath);
+		SetupApplication infoflow = SootConfig.initialize(apkPath, androidPlatformsDir, rtJarPath);
 
 		// methods used in MOP specifications
 		Set<SootMethod> mopMethods = getMopMethods(mopSpecsDir, appInfo);
@@ -47,20 +55,34 @@ public class Main {
 		Set<SootMethod> entryPoints = getEntrypoints(activities, appInfo);
 
 		log.info("Constructing call graph ...");
-		app.constructCallgraph();
+		infoflow.constructCallgraph();
 
-		//
-		ReachabilityAnalysis analysis = new ReachabilityAnalysis(appInfo, mopMethods, entryPoints);
-		ReachabilityStrategy<SootMethod, Path> analysisStrategy = new SootReachabilityStrategy();
-//		ReachabilityStrategy<SootMethod, Path> analysisStrategy = new JGraphReachabilityAnalysis();
-		Set<RvsecClass> result = analysis.reachabilityAnalysis(analysisStrategy);
-
-		writeResults(result, resultsFile);
-
-		System.out.println("FIM DE FESTA !!!");
+		ReachabilityStrategy<SootMethod, Path> analysisStrategy = new SootReachabilityStrategy(); //TODO vir como parametro (CLI)
+		// ReachabilityStrategy<SootMethod, Path> analysisStrategy = new JGraphReachabilityAnalysis();
+		Set<RvsecClass> result = reachabilityAnalysis(appInfo, infoflow, mopMethods, entryPoints, analysisStrategy);
+		
+		Writer writer = new CsvWriter(); //TODO vir como parametro (CLI)
+		writeResults(result, resultsFile, writer);
 	}
 
-	private void writeResults(Set<RvsecClass> result, String resultsFile) {
+	private Set<RvsecClass> reachabilityAnalysis(AppInfo appInfo, SetupApplication infoflow, Set<SootMethod> mopMethods, Set<SootMethod> entryPoints, ReachabilityStrategy<SootMethod, Path> analysisStrategy) throws IOException, XmlPullParserException {
+		ReachabilityAnalysis analysis = new ReachabilityAnalysis(appInfo, mopMethods, entryPoints);
+
+		Set<RvsecClass> result = analysis.reachabilityAnalysis(analysisStrategy);
+
+		SootAnalyze gesda = new SootAnalyze();
+		gesda.init(appInfo, infoflow);
+		List<WindowNode> windows = gesda.analyze();
+		
+		analysis.complementReachabilityAnalysis(result, windows);
+		
+		return result;
+	}
+	
+	private void writeResults(Set<RvsecClass> result, String resultsFile, Writer writer) {
+		writer.write(result, new File(resultsFile));
+		log.info("Results saved in: "+resultsFile);
+
 		log.info("Results: "+result.size());
 		for (RvsecClass clazz : result) {
 			log.info("CLASS: "+clazz.getClassName()+", isActivity="+clazz.isActivity());
@@ -74,31 +96,23 @@ public class Main {
 		Set<SootMethod> entryPoints = new HashSet<>();
 		for (SootClass clazz : activities) {
 			for (SootMethod method : clazz.getMethods()) {
-				if (isValidEntrypoint(method)) {
+				if (isValidEntrypoint(method, appInfo)) {
 					entryPoints.add(method);
 				}
 			}
 		}
-		log.info("Entrypoints: " + entryPoints.size());
+		log.info("EntryPoints: " + entryPoints.size());
 		entryPoints.forEach(m -> log.debug(" - " + m.getSignature()));
 		return entryPoints;
 	}
 
-	private boolean isValidEntrypoint(SootMethod sootMethod) {
-//		System.out.println("isValidEntrypoint=" + sootMethod);
-//		System.out.println("\t-" + sootMethod.getDeclaringClass().declaresMethod(sootMethod.getSubSignature()));
-//		System.out.println("\t- abstract=" + sootMethod.isAbstract() + " :: concrete=" + sootMethod.isConcrete() + " :: constructor=" + sootMethod.isConstructor());
-//		System.out.println("\t- declared=" + sootMethod.isDeclared() + " :: " + sootMethod.isEntryMethod() + " :: main=" + sootMethod.isMain() + " :: " + sootMethod.isPhantom());
-//		System.out.println("\t- numSubSig" + sootMethod.getNumberedSubSignature());
-//		System.out.println("\t- numSubSig" + sootMethod.getDeclaration());
-
-//		if (sootMethod.toString().contains("<init>") 
-//				|| sootMethod.toString().contains("<clinit>") 
-//				|| sootMethod.getName().equals("dummyMainMethod"))
-//			return false;
+	private boolean isValidEntrypoint(SootMethod sootMethod, AppInfo appInfo) {
+		if(sootMethod.isConstructor() || sootMethod.isPrivate()) {
+			return false;
+		}
 		return true;
 	}
-
+	
 	private Set<SootMethod> getMopMethods(String mopSpecsDir, AppInfo appInfo) throws MOPException {
 		MopFacade mopFacade = new MopFacade();
 		Set<SootMethod> mopMethods = mopFacade.getMopMethods(mopSpecsDir, appInfo);

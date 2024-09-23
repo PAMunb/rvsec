@@ -9,7 +9,7 @@ import soot.SootMethod;
 public class RvsecMethod {
 	private final String methodName;
 	private final String methodSignature;
-	private int modifiers;
+	private final int modifiers;
 
 	// is reachable from an entrypoint (methods from activities)
 	private boolean reachable = false;
@@ -18,13 +18,14 @@ public class RvsecMethod {
 	private boolean reachesMop = false;
 
 	// true if directly calls a MOP method
-	// false if the MOP method is reached by a library
+	// false if the MOP method is reached by a library/system
 	private boolean directlyReachesMop = false;
 
 	// one of the possible paths (from an endpoint and this method)
 	private Path possiblePath;
 
 	// all paths (from this method to a mop method)
+	//TODO renomear
 	private List<Path> possiblePathToMop = new ArrayList<>();
 
 	public RvsecMethod(SootMethod method) {
@@ -117,7 +118,5 @@ public class RvsecMethod {
 		return String.format("RvsecMethod [methodName=%s, methodSignature=%s, modifiers=%s, reachable=%s, reachesMop=%s, directlyReachesMop=%s, possiblePath=%s, possiblePathToMop=%s]", methodName, methodSignature, modifiers, reachable, reachesMop,
 				directlyReachesMop, possiblePath, possiblePathToMop);
 	}
-
-	
 
 }

@@ -10,7 +10,7 @@ import org.slf4j.LoggerFactory;
 import br.unb.cic.mop.extractor.JavamopFacade;
 import br.unb.cic.mop.extractor.model.MopMethod;
 import br.unb.cic.rvsec.apk.model.AppInfo;
-import br.unb.cic.rvsec.reach.util.AndroidUtil;
+import br.unb.cic.rvsec.apk.util.AndroidUtil;
 import javamop.util.MOPException;
 import soot.Scene;
 import soot.SootClass;

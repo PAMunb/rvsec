@@ -11,6 +11,9 @@ import java.util.Optional;
 import java.util.Queue;
 import java.util.Set;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import br.unb.cic.rvsec.apk.model.AppInfo;
 import br.unb.cic.rvsec.reach.model.Path;
 import soot.SootMethod;
@@ -18,17 +21,19 @@ import soot.jimple.toolkits.callgraph.CallGraph;
 import soot.jimple.toolkits.callgraph.Edge;
 
 public class SootReachabilityStrategy implements ReachabilityStrategy<SootMethod, Path> {
+	private static final Logger log = LoggerFactory.getLogger(SootReachabilityStrategy.class);
 
 	private CallGraph callGraph;
 
 	@Override
 	public void initialize(CallGraph callGraph, AppInfo appInfo) {
+		log.info("Initializing: "+appInfo.getFileName());
 		this.callGraph = callGraph;
 	}
 	
 	@Override
 	public Optional<Path> findPath(SootMethod origin, SootMethod destination) {
-		List<SootMethod> path = computeBestPath(origin, destination);
+		List<SootMethod> path = computePath(origin, destination);
 		if(isValid(path)) {
 			return Optional.of(new Path(path));
 		}
@@ -39,8 +44,7 @@ public class SootReachabilityStrategy implements ReachabilityStrategy<SootMethod
 		return pathToCheck != null && pathToCheck.size() > 1;
 	}
 	
-	//TODO testar ...
-	private List<SootMethod> computeBestPath(SootMethod origin, SootMethod destination) {
+	private List<SootMethod> computePath(SootMethod origin, SootMethod destination) {
         Queue<SootMethod> queue = new LinkedList<>();
         Set<SootMethod> visited = new HashSet<>();
         Map<SootMethod, SootMethod> parentMap = new HashMap<>();

@@ -8,23 +8,29 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import com.esotericsoftware.minlog.Log;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.fdu.se.sootanalyze.model.Listener;
+import com.fdu.se.sootanalyze.model.Widget;
+import com.fdu.se.sootanalyze.model.WindowNode;
 
 import br.unb.cic.rvsec.apk.model.ActivityInfo;
 import br.unb.cic.rvsec.apk.model.AppInfo;
+import br.unb.cic.rvsec.apk.util.AndroidUtil;
 import br.unb.cic.rvsec.reach.model.Path;
 import br.unb.cic.rvsec.reach.model.RvsecClass;
 import br.unb.cic.rvsec.reach.model.RvsecMethod;
-import br.unb.cic.rvsec.reach.util.AndroidUtil;
 import soot.Scene;
 import soot.SootClass;
 import soot.SootMethod;
 
 public class ReachabilityAnalysis {
+	private static final Logger log = LoggerFactory.getLogger(ReachabilityAnalysis.class);
 	
-	private AppInfo appInfo;	
-	private Set<SootMethod> mopMethods;
-	private Set<SootMethod> entryPoints;
+	private final AppInfo appInfo;
+	private final Set<SootMethod> mopMethods;
+	private final Set<SootMethod> entryPoints;
 	private ReachabilityStrategy<SootMethod, Path> analysisStrategy;
 	
 	public ReachabilityAnalysis(AppInfo appInfo, Set<SootMethod> mopMethods, Set<SootMethod> entryPoints) {
@@ -43,7 +49,7 @@ public class ReachabilityAnalysis {
 		for (SootClass sootClass : getApplicationClasses()) {
 			RvsecClass clazz = createRvsecClass(sootClass);
 			result.add(clazz);
-			Log.debug("Processing class: "+clazz.getClassName());
+			log.debug("Processing class: "+clazz.getClassName());
 			// for each method of the clazz
 			for (SootMethod sootMethod : sootClass.getMethods()) {
 				RvsecMethod method = new RvsecMethod(sootMethod);
@@ -58,6 +64,56 @@ public class ReachabilityAnalysis {
 		}
 		
 		return result;
+	}
+	
+	public void complementReachabilityAnalysis(Set<RvsecClass> result, List<WindowNode> windows) {
+		// complement reachability analysis with gesda results (listener/clalbacks)
+		processGesdaResults(result, windows);
+		
+		processActivityLifecycleCallbacks(result);
+	}
+
+	private void processGesdaResults(Set<RvsecClass> result, List<WindowNode> windows) {
+		for (WindowNode window : windows) {
+			for (Widget widget : window.getWidgets()) {
+				for (Listener listener : widget.getListeners()) {
+					if(listener.getCallbackMethod() != null) {
+						SootMethod callbackMethod = listener.getCallbackMethod();
+						RvsecMethod method = getMethodInResults(callbackMethod.getSignature(), result);
+						if(method != null) {
+							method.setReachable(true);
+						}else {
+							System.out.println(">>>>>>>> INCONSISTENCIA ........................ "+callbackMethod.getSignature());
+						}
+					}
+				}
+			}
+		}
+	}
+
+	private void processActivityLifecycleCallbacks(Set<RvsecClass> result) {
+		List<String> activityLifecycleMethods = List.of("onCreate", "onStart", "onResume"
+				, "onPause", "onStop", "onDestroy", "onSaveInstanceState", "onRestoreInstanceState");
+		for (RvsecClass clazz : result) {
+			for (RvsecMethod method : clazz.getMethods()) {
+				for (String callBack : activityLifecycleMethods) {
+					if(method.getMethodName().equals(callBack)) {
+						method.setReachable(true);
+					}
+				}				
+			}
+		}
+	}
+
+	private RvsecMethod getMethodInResults(String signature, Set<RvsecClass> result) {
+		for (RvsecClass clazz : result) {
+			for (RvsecMethod method : clazz.getMethods()) {
+				if(method.getMethodSignature().equals(signature)) {
+					return method;
+				}
+			}
+		}
+		return null;
 	}
 
 	private RvsecClass createRvsecClass(SootClass sootClass) {
@@ -118,13 +174,11 @@ public class ReachabilityAnalysis {
 	}
 	
 	private ActivityInfo getActivityInfo(SootClass clazz) {
-		for (ActivityInfo info : appInfo.getActivities()) {
-			if (info.getName().equals(clazz.getName())) {
-				return info;
-			}
-		}
-		return null;
-	}
+        return appInfo.getActivities().stream()
+				.filter(info -> info.getName().equals(clazz.getName()))
+				.findFirst()
+				.orElse(null);
+    }
 	
 	private List<SootClass> getApplicationClasses() {
 		return Scene.v().getApplicationClasses().stream()

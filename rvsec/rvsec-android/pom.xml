@@ -17,7 +17,7 @@
 	<modules>
 		<module>rvsec-apk</module>
 		<module>rvsec-logger-logcat</module>
-		<module>rvsec-methods-extractor</module>
+		<module>rvsec-methods-extractor</module> <!-- deprecated ??? -->
 		<module>rvsec-reachability</module>		
 		<module>rvsec-gesda</module>
 		<module>rvsec-taint</module> <!-- deprecated ... apenas para testes -->
@@ -36,6 +36,16 @@
 			<dependency>
 				<groupId>br.unb.cic</groupId>
 				<artifactId>rvsec-apk</artifactId>
+				<version>${project.version}</version>
+			</dependency>
+			<dependency>
+				<groupId>br.unb.cic</groupId>
+				<artifactId>rvsec-gesda</artifactId>
+				<version>${project.version}</version>
+			</dependency>
+			<dependency>
+				<groupId>br.unb.cic</groupId>
+				<artifactId>rvsec-reachability</artifactId>
 				<version>${project.version}</version>
 			</dependency>
 			<dependency>
