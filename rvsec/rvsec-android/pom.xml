@@ -20,6 +20,7 @@
 		<module>rvsec-methods-extractor</module> <!-- deprecated ??? -->
 		<module>rvsec-reachability</module>		
 		<module>rvsec-gesda</module>
+		<module>rvsec-gator</module>
 		<module>rvsec-taint</module> <!-- deprecated ... apenas para testes -->
 	</modules>
 
@@ -46,6 +47,21 @@
 			<dependency>
 				<groupId>br.unb.cic</groupId>
 				<artifactId>rvsec-reachability</artifactId>
+				<version>${project.version}</version>
+			</dependency>
+			<dependency>
+				<groupId>br.unb.cic</groupId>
+				<artifactId>rvsec-gator-commons</artifactId>
+				<version>${project.version}</version>
+			</dependency>
+			<dependency>
+				<groupId>br.unb.cic</groupId>
+				<artifactId>rvsec-gator-sootandroid</artifactId>
+				<version>${project.version}</version>
+			</dependency>
+			<dependency>
+				<groupId>br.unb.cic</groupId>
+				<artifactId>rvsec-gator-client</artifactId>
 				<version>${project.version}</version>
 			</dependency>
 			<dependency>

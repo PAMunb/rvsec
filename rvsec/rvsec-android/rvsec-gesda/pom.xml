@@ -11,6 +11,7 @@
 	</parent>
 
 	<artifactId>rvsec-gesda</artifactId>
+	<name>RVSec :: Android :: GESDA</name>
 
 	<properties>
 		<main.class>com.fdu.se.sootanalyze.Main</main.class>

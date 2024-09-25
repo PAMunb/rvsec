@@ -14,8 +14,8 @@ import soot.jimple.infoflow.android.SetupApplication;
 import soot.options.Options;
 
 public class SootConfig {
-	private static Logger log = LoggerFactory.getLogger(SootAnalyze.class);
-	
+	private static Logger log = LoggerFactory.getLogger(SootConfig.class);
+
 	private static InfoflowAndroidConfiguration config;
 
 	public static SetupApplication initialize(String apk, String androiPlatformsDir, String rtJarPath) {
@@ -40,22 +40,22 @@ public class SootConfig {
 	public static InfoflowAndroidConfiguration getConfig() {
 		return config;
 	}
-	
+
 	private static void initializeSoot(String apk, String androidPlatformsDir, String rtJarPath) {
 		log.debug("Initializing Soot ...");
-		log.trace("APK: "+apk);
-		log.trace("Android platforms dir: "+androidPlatformsDir);
-		log.trace("RT jar: "+rtJarPath);
+		log.trace("APK: " + apk);
+		log.trace("Android platforms dir: " + androidPlatformsDir);
+		log.trace("RT jar: " + rtJarPath);
 		G.reset();
 		Options.v().set_full_resolver(true);
 		Options.v().set_allow_phantom_refs(true);
 		Options.v().set_prepend_classpath(true);
 		Options.v().set_validate(true);
 //		Options.v().set_output_format(Options.output_format_none);
-		
+
 		Options.v().set_output_format(Options.output_format_jimple);
 //		Options.v().set_output_dir("/home/pedro/tmp/cryptoapp_jimple");
-		
+
 		Options.v().set_process_dir(Collections.singletonList(apk));
 		Options.v().set_android_jars(androidPlatformsDir);
 		Options.v().set_src_prec(Options.src_prec_apk);
@@ -65,9 +65,8 @@ public class SootConfig {
 //		Options.v().parse(new String[]{"-keep-line-number", "-p", "jb", "use-original-names:true"});
 //		Options.v().parse(new String[]{"-keep-line-number"});
 		Options.v().keep_line_number();
-		Options.v().parse(new String[]{"-p", "jb", "use-original-names:true"});
+		Options.v().parse(new String[] { "-p", "jb", "use-original-names:true" });
 		Options.v().setPhaseOption("jb", "use-original-names:true");
-		
 
 //		soot.options.Options.v().set_whole_program(true);
 //		soot.options.Options.v().set_force_android_jar(androidJAR);
@@ -78,7 +77,7 @@ public class SootConfig {
 		Options.v().setPhaseOption("cg.spark", "verbose:false");
 
 		Scene.v().loadNecessaryClasses();
-		
+
 //		PackManager.v().runPacks();
 //		PackManager.v().writeOutput();
 	}

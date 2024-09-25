@@ -117,15 +117,34 @@ public class SootAnalyze {
 		initAddSubMenuItemSignatures();
 		initSystemCallbacks();
 	}
+	
+	public SootAnalyze() {
+		initStartActSignatures();
+		initAddMenuItemSignatures();
+		initAddSubMenuSignatures();
+		initAddSubMenuItemSignatures();
+		initSystemCallbacks();
+	}
 
 	public AppInfo init(String apkPath) throws IOException, XmlPullParserException {
+		return init(AppReader.readApk(apkPath));
+	}
+	
+	public AppInfo init(AppInfo appInfo) throws IOException, XmlPullParserException {
+		if(sdkPath == null || rtJarPath == null) {
+			throw new RuntimeException("Invalid configuration: sdkPath="+sdkPath+", rtJarPath="+rtJarPath);
+		}
+		return init(appInfo, SootConfig.initialize(appInfo.getPath(), sdkPath, rtJarPath));
+	}
+	
+	public AppInfo init(AppInfo appInfo, SetupApplication app) throws IOException, XmlPullParserException {
 		log.info("Initializing ...");
-		app = SootConfig.initialize(apkPath, sdkPath, rtJarPath);
+		this.appInfo = appInfo;
+		this.app = app;
 
 		// TODO tratar callback agora???
 		// app.setCallbackFile(callbackPath);
 
-		appInfo = AppReader.readApk(apkPath);
 		initializeR(appInfo.getPackage());
 		xmlParser = new XmlParser(appInfo, idMap);
 
