@@ -36,9 +36,8 @@ public class Main {
 		boolean debug = jArgs.isDebug();
 
 		if (debug) {
-			// Obtém o logger root e define o nível
 			ch.qos.logback.classic.Logger root = (ch.qos.logback.classic.Logger) LoggerFactory.getLogger(Logger.ROOT_LOGGER_NAME);
-			root.setLevel(ch.qos.logback.classic.Level.TRACE);
+			root.setLevel(ch.qos.logback.classic.Level.DEBUG);
 		}
 
 		SootAnalyze sootAnalyze = new SootAnalyze(androidPlatformsDir, rtJarPath);
@@ -51,7 +50,6 @@ public class Main {
 			System.out.println("NODES:");
 			nodes.forEach(System.out::println);
 			
-//TODO
 //			sootAnalyze.analyseDependencies(nodes);
 //			TransitionGraph graph = sootAnalyze.generateTransitionGraph(nodes);
 //			System.out.println("Graph: " + graph);
@@ -63,7 +61,6 @@ public class Main {
 		}
 
 		System.out.println("FIM DE FESTA !!!");
-
 	}
 
 }

@@ -22,9 +22,6 @@ public class CommandLineArgs {
 	@Parameter(names = "-debug", description = "Debug mode")
 	private boolean debug = false;
 
-//	@Parameter(names = "--help", help = true)
-//	boolean help;
-
 	public CommandLineArgs() {
 		String androidHome = System.getenv("ANDROID_HOME");
 		if (androidHome != null) {

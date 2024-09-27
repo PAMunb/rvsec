@@ -13,15 +13,16 @@ public class WindowInfoOut {
 	private boolean isMain = false;
 	private String layoutFileName;
 	private String type;
-	
+
 	private Set<WidgetInfoOut> widgets = new HashSet<>();
-	
-	//TODO remover ... temporario
+	private WindowInfoOut optionsMenu;
+
+	// TODO remover ... temporario
 //	private WindowNode node;
 
 	public WindowInfoOut(WindowNode node) {
 //		this.node = node;
-		if(node != null) {
+		if (node != null) {
 			this.id = node.getId();
 			this.name = node.getName();
 			this.type = node.getType();
@@ -31,16 +32,20 @@ public class WindowInfoOut {
 
 	private Set<WidgetInfoOut> getWidgets(WindowNode node) {
 		return node.getWidgets().stream()
-			.map(WidgetInfoOut::new)
-			.collect(Collectors.toSet());
+				.map(WidgetInfoOut::new)
+				.collect(Collectors.toSet());
 	}
-	
+
 	private void process(WindowNode windowNode) {
 		this.widgets = getWidgets(windowNode);
-		if(windowNode instanceof ActivityWindowNode) {
+		if (windowNode instanceof ActivityWindowNode) {
 			ActivityWindowNode node = (ActivityWindowNode) windowNode;
 			this.isMain = node.isMain();
 			this.layoutFileName = node.getLayoutFileName();
+			WindowNode menu = node.getOptionsMenuNode();
+			if (menu != null) {
+				this.optionsMenu = new WindowInfoOut(menu);
+			}
 		}
 	}
 
@@ -68,13 +73,13 @@ public class WindowInfoOut {
 		return widgets;
 	}
 
-//	public WindowNode getNode() {
-//		return node;
-//	}
+	public WindowInfoOut getOptionsMenu() {
+		return optionsMenu;
+	}
 
 	@Override
 	public String toString() {
-		return String.format("WindowInfoOut [id=%s, name=%s, isMain=%s, layoutFileName=%s, type=%s, widgets=%s]", id, name, isMain, layoutFileName, type, widgets);
+		return String.format("WindowInfoOut [id=%s, name=%s, isMain=%s, layoutFileName=%s, type=%s, widgets=%s, optionsMenu=%s]", id, name, isMain, layoutFileName, type, widgets, optionsMenu);
 	}
-	
+
 }

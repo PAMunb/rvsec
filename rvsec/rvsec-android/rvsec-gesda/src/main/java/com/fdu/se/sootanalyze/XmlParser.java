@@ -66,8 +66,6 @@ public class XmlParser {
 			if (layoutStream != null) {
 				AXmlHandler aXmlHandler = new AXmlHandler(layoutStream);
 
-				// TODO mudar a logica pra ficar na ordem (na lista) q eh declarado ??
-
 				List<Widget> textViewWidgets = parseTextViewWidgets(aXmlHandler);
 				views.addAll(textViewWidgets);
 
@@ -82,7 +80,6 @@ public class XmlParser {
 	}
 
 	public String getStringValueByName(String name) {
-		log.trace("getStringValueByName(" + name + ")=" + mapAppStrings.get(name));
 		return mapAppStrings.get(name);
 	}
 
@@ -141,16 +138,9 @@ public class XmlParser {
 
 	private Listener getListener(AXmlNode node) {
 		ListenerType type = ListenerType.OnClickListener;
-//		String method = "onClick";
-		log.trace("\tgetListener(): " + node);
 		String callback = getAttributeValue(type.getEventCallback(), node);
-		log.trace("\tgetListener() ::: callback=" + callback);
 		if (callback != null) {
-//			ListenerType listenerEnum = BaseListeners.getByEventCallback(method);
-//			log.trace("\tgetListener() ::: listenerEnum=" + listenerEnum);
-//			if (listenerEnum != null) {
 			return new Listener(type, callback, true);
-//			}
 		}
 		return null;
 	}
@@ -170,12 +160,10 @@ public class XmlParser {
 				// https://developer.android.com/reference/android/widget/TextView.html#attr_android%3ainputType
 				Integer inputTypeInt = getAttributeValue("inputType", node);
 				String inputType = (inputTypeInt == null) ? null : inputTypeValues.get(inputTypeInt);
-//				String inputTypeString = inputTypeValues.get(inputTypeInt);
 
 				Widget widget = builder
 						.text(getAttributeValueAsString(TEXT, node))
 						.hint(getAttributeValue("hint", node))
-//						.inputMethod(getAttributeValue("inputMethod", node))
 						.inputType(inputType)
 						.addListener(getListener(node))
 						.build();
@@ -200,20 +188,14 @@ public class XmlParser {
 			}
 
 		}
-		log.trace("\tVALUE=" + text);
 		return text;
 	}
 
 	private WidgetBuilder parseView(AXmlNode node, WidgetType type) {
-		log.trace("Widget node ... : " + node);
 		Integer id = getAttributeValue("id", node);
-		log.trace("\tid= " + id);
 		String name = getNameById(id.toString());
-		log.trace("\tname=" + name);
 		String contentDescription = getAttributeValueAsString("contentDescription", node);
-		log.trace("\tcontentDescription=" + contentDescription);
 		String tooltipText = getAttributeValue("tooltipText", node);
-		log.trace("\ttooltipText=" + tooltipText);
 		return Widget.builder(type)
 				.widgetId(id.toString())
 				.name(name)
@@ -223,16 +205,14 @@ public class XmlParser {
 
 	// https://developer.android.com/reference/android/widget/Spinner#xml-attributes
 	private List<Widget> parseSpinners(AXmlHandler aXmlHandler) throws SAXException, IOException, ParserConfigurationException {
-		log.trace("parseSpinners");
 		List<Widget> views = new ArrayList<>();
 		WidgetType type = WidgetType.SPINNER;
 		List<AXmlNode> nodes = aXmlHandler.getNodesWithTag(type.getXmlTag());
 		for (AXmlNode node : nodes) {
-			log.trace("parseSpinners ::: node=" + node);
 			WidgetBuilder builder = parseView(node, type);
 			parseSpinnerEntries(node, builder);
 			Widget widget = builder.build();
-			log.debug("Adding widget: " + widget); 
+			log.debug("Adding spinner: " + widget); 
 			views.add(widget);
 		}
 		return views;
@@ -244,7 +224,6 @@ public class XmlParser {
 			String name = getNameById(id.toString());
 			if (name != null) {
 				String arraysFilePath = Path.of(decompiledApkDir.getAbsolutePath(), "res", "values", "arrays.xml").toString();
-				log.trace("parseSpinnerEntries ::: arraysFilePath=" + arraysFilePath);
 				DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
 				DocumentBuilder docBuilder = dbf.newDocumentBuilder();
 				Document resources = docBuilder.parse(new File(arraysFilePath));
@@ -268,7 +247,6 @@ public class XmlParser {
 	}
 
 	public List<Widget> parseAppMenu(String menuName, NumberIncrementer curWidgetId) {
-		log.trace("* parseAppMenu: " + menuName);
 		List<Widget> menuWidgets = new ArrayList<>();
 		String menuPath = "res/menu/" + menuName + ".xml";
 		try (ApkHandler apkHandler = new ApkHandler(appInfo.getPath())) {
@@ -309,8 +287,6 @@ public class XmlParser {
 	}
 
 	private Widget newMenuItem(AXmlNode node, NumberIncrementer curWidgetId) {
-		log.trace("newMenuTitem ::: node=" + node);
-
 		WidgetBuilder builder = WidgetBuilderFactory.newMenuItem();
 		
 		AXmlAttribute<Integer> idAttribute = (AXmlAttribute<Integer>) node.getAttribute("id");
@@ -327,22 +303,16 @@ public class XmlParser {
 	}
 
 	private String getTitleFromMenuRes(AXmlNode node) {
-		log.trace("getTitleFromMenuRes: " + node);
 		AXmlAttribute<?> attr = node.getAttribute("title");
-		log.trace("getTitleFromMenuRes ::: attr_title=" + attr);
 		if (attr != null) {
 			Object titleValue = attr.getValue();
 			if (titleValue instanceof Integer) {// Attribute is Integer
 				Integer intValue = (Integer) titleValue;
-				log.trace("getTitleFromMenuRes ::: intValue=" + intValue);
-				// TODO esta no public?
 				String name = getNameById(intValue.toString());
-				log.trace("getTitleFromMenuRes ::: name=" + name);
 				if (name != null) {
 					return getStringValueByName(name);
 				}
 			} else if (titleValue instanceof String) {// Attribute is String
-				log.trace("getTitleFromMenuRes ::: string=" + titleValue);
 				return (String) titleValue;
 			}
 		}
@@ -350,18 +320,11 @@ public class XmlParser {
 	}
 
 	private String getNameById(String id) {
-//		log.trace("getNameById: "+id);
 		if (idMap == null) {
 			// TODO
-//			log.trace("getNameById ::: idMap == null");
 			return null;
 		}
-//		log.trace("getNameById ::: value="+idMap.get(id));
-//		log.trace("getNameById ::: mapAppStrings ... "+getStringValueByName(id));
-//		idMap.keySet().forEach(k -> log.trace("getNameById ::: idMap ::: "+k+"="+idMap.get(k)));
-		String result = idMap.get(id);
-		log.trace("getNameById: " + id + "=" + result);
-		return result;
+		return idMap.get(id);
 	}
 
 	private <T> T getAttributeValue(String name, AXmlNode bNode) {
@@ -374,6 +337,7 @@ public class XmlParser {
 
 	static {
 		// map inspired on res/values/attrs.xml from android.jar
+		
 		/* There is no content type. The text is not editable. */
 		inputTypeValues.put(Integer.parseInt("00000000", 16), "none");
 		/*

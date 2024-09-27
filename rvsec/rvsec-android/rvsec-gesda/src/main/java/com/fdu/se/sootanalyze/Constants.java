@@ -1,4 +1,4 @@
-package com.fdu.se.sootanalyze.tmp;
+package com.fdu.se.sootanalyze;
 
 import java.util.ArrayList;
 import java.util.List;
