@@ -56,16 +56,8 @@ public class SootReachabilityStrategy implements ReachabilityStrategy<SootMethod
             SootMethod currentMethod = queue.poll();
 
             if (currentMethod.equals(destination)) {
-                List<SootMethod> path = new ArrayList<>();
-                SootMethod tempMethod = currentMethod;
-
-                while (tempMethod != null) {
-                    path.add(0, tempMethod);
-                    tempMethod = parentMap.get(tempMethod);
-                }
-
-                return path;
-            }
+				return getPath(currentMethod, parentMap);
+			}
 
             Iterator<Edge> edgeIterator = callGraph.edgesOutOf(currentMethod);
 
@@ -83,6 +75,18 @@ public class SootReachabilityStrategy implements ReachabilityStrategy<SootMethod
 
         return new ArrayList<>();
     }
+
+	private static List<SootMethod> getPath(SootMethod currentMethod, Map<SootMethod, SootMethod> parentMap) {
+		List<SootMethod> path = new ArrayList<>();
+		SootMethod tempMethod = currentMethod;
+
+		while (tempMethod != null) {
+			path.add(0, tempMethod);
+			tempMethod = parentMap.get(tempMethod);
+		}
+
+		return path;
+	}
 
 	@Override
 	public boolean isSuccessor(SootMethod source, SootMethod target) {

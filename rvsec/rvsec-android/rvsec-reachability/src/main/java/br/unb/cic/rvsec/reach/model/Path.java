@@ -8,7 +8,7 @@ import soot.SootMethod;
 
 public class Path {
 
-	private List<SootMethod> path;
+	private final List<SootMethod> path;
 
 	public Path(List<SootMethod> path) {
 //		if (!isValid(path)) {

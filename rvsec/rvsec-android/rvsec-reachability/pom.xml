@@ -10,6 +10,7 @@
 	</parent>
 
 	<artifactId>rvsec-reachability</artifactId>
+	<name>RVSec :: Android :: Reachability Analysis</name>
 
 	<properties>
 		<main.class>br.unb.cic.rvsec.reach.Main</main.class>
@@ -25,10 +26,10 @@
 			<groupId>br.unb.cic</groupId>
 			<artifactId>rvsec-apk</artifactId>
 		</dependency>
-		<dependency>
-			<groupId>br.unb.cic</groupId>
-			<artifactId>rvsec-gesda</artifactId>
-		</dependency>
+<!--		<dependency>-->
+<!--			<groupId>br.unb.cic</groupId>-->
+<!--			<artifactId>rvsec-gesda</artifactId>-->
+<!--		</dependency>-->
 		<dependency>
 			<groupId>de.fraunhofer.sit.sse.flowdroid</groupId>
 			<artifactId>soot-infoflow</artifactId>
@@ -63,7 +64,11 @@
 			<groupId>com.google.code.gson</groupId>
 			<artifactId>gson</artifactId>
 		</dependency>
-	</dependencies>
+        <dependency>
+            <groupId>junit</groupId>
+            <artifactId>junit</artifactId>
+        </dependency>
+    </dependencies>
 
 	<build>
 		<plugins>

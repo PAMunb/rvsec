@@ -11,9 +11,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.xmlpull.v1.XmlPullParserException;
 
-import com.fdu.se.sootanalyze.SootAnalyze;
-import com.fdu.se.sootanalyze.model.WindowNode;
-
 import br.unb.cic.rvsec.apk.model.ActivityInfo;
 import br.unb.cic.rvsec.apk.model.AppInfo;
 import br.unb.cic.rvsec.apk.reader.AppReader;
@@ -57,6 +54,7 @@ public class Main {
 		log.info("Constructing call graph ...");
 		infoflow.constructCallgraph();
 
+//		ReachabilityStrategy<SootMethod, Path> analysisStrategy = new TesteReachabilityStrategy();
 		ReachabilityStrategy<SootMethod, Path> analysisStrategy = new SootReachabilityStrategy(); //TODO vir como parametro (CLI)
 		// ReachabilityStrategy<SootMethod, Path> analysisStrategy = new JGraphReachabilityAnalysis();
 		Set<RvsecClass> result = reachabilityAnalysis(appInfo, infoflow, mopMethods, entryPoints, analysisStrategy);
@@ -68,15 +66,16 @@ public class Main {
 	private Set<RvsecClass> reachabilityAnalysis(AppInfo appInfo, SetupApplication infoflow, Set<SootMethod> mopMethods, Set<SootMethod> entryPoints, ReachabilityStrategy<SootMethod, Path> analysisStrategy) throws IOException, XmlPullParserException {
 		ReachabilityAnalysis analysis = new ReachabilityAnalysis(appInfo, mopMethods, entryPoints);
 
-		Set<RvsecClass> result = analysis.reachabilityAnalysis(analysisStrategy);
+		
 
-		SootAnalyze gesda = new SootAnalyze();
-		gesda.init(appInfo, infoflow);
-		List<WindowNode> windows = gesda.analyze();
+		//TODO
+//		SootAnalyze gesda = new SootAnalyze();
+//		gesda.init(appInfo, infoflow);
+//		List<WindowNode> windows = gesda.analyze();
+//		
+//		analysis.complementReachabilityAnalysis(result, windows);
 		
-		analysis.complementReachabilityAnalysis(result, windows);
-		
-		return result;
+		return analysis.reachabilityAnalysis(analysisStrategy);
 	}
 	
 	private void writeResults(Set<RvsecClass> result, String resultsFile, Writer writer) {
@@ -107,11 +106,8 @@ public class Main {
 	}
 
 	private boolean isValidEntrypoint(SootMethod sootMethod, AppInfo appInfo) {
-		if(sootMethod.isConstructor() || sootMethod.isPrivate()) {
-			return false;
-		}
-		return true;
-	}
+        return !sootMethod.isConstructor() && !sootMethod.isPrivate();
+    }
 	
 	private Set<SootMethod> getMopMethods(String mopSpecsDir, AppInfo appInfo) throws MOPException {
 		MopFacade mopFacade = new MopFacade();

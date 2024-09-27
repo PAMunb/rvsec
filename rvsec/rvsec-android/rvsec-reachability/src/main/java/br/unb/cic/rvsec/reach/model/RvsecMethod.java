@@ -26,7 +26,7 @@ public class RvsecMethod {
 
 	// all paths (from this method to a mop method)
 	//TODO renomear
-	private List<Path> possiblePathToMop = new ArrayList<>();
+	private final List<Path> possiblePathToMop = new ArrayList<>();
 
 	public RvsecMethod(SootMethod method) {
 		this.methodName = method.getName();
@@ -90,9 +90,6 @@ public class RvsecMethod {
 		return possiblePathToMop;
 	}
 
-//	public void setPossiblePathToMop(List<Path> possiblePathToMop) {
-//		this.possiblePathToMop = possiblePathToMop;
-//	}
 	public void addPathToMop(Path path) {
 		possiblePathToMop.add(path);
 	}
@@ -115,8 +112,15 @@ public class RvsecMethod {
 
 	@Override
 	public String toString() {
-		return String.format("RvsecMethod [methodName=%s, methodSignature=%s, modifiers=%s, reachable=%s, reachesMop=%s, directlyReachesMop=%s, possiblePath=%s, possiblePathToMop=%s]", methodName, methodSignature, modifiers, reachable, reachesMop,
-				directlyReachesMop, possiblePath, possiblePathToMop);
+		return String.format("RvsecMethod [methodName=%s, reachable=%s, reachesMop=%s, directlyReachesMop=%s]", methodName, reachable, reachesMop, directlyReachesMop);
 	}
 
+//	@Override
+//	public String toString() {
+//		return String.format("RvsecMethod [methodName=%s, methodSignature=%s, modifiers=%s, reachable=%s, reachesMop=%s, directlyReachesMop=%s, possiblePath=%s, possiblePathToMop=%s]", methodName, methodSignature, modifiers, reachable, reachesMop,
+//				directlyReachesMop, possiblePath, possiblePathToMop);
+//	}
+	
+
+	
 }

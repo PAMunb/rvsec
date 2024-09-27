@@ -10,7 +10,7 @@ public class RvsecClass {
 	private final boolean isActivity;
 	private final boolean isMainActivity;
 
-	private Set<RvsecMethod> methods = new HashSet<>();
+	private final Set<RvsecMethod> methods = new HashSet<>();
 
 	public RvsecClass(SootClass clazz, boolean isActivity, boolean isMainActivity) {
 		this.className = clazz.getName();

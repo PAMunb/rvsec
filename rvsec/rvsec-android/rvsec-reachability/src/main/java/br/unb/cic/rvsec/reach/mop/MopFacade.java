@@ -35,17 +35,16 @@ public class MopFacade {
 //				System.out.println("CLASSE: " + c.getName());
 				for (SootMethod m : c.getMethods()) {
 					UnitPatchingChain units = m.retrieveActiveBody().getUnits();
-					Iterator<Unit> it = units.iterator();
-					while (it.hasNext()) {
-						Stmt stmt = (Stmt) it.next();
-						if (stmt.containsInvokeExpr()) {
-							InvokeExpr invokeExpr = stmt.getInvokeExpr();
-							if (isMop(invokeExpr, mopMethods)) {
+                    for (Unit unit : units) {
+                        Stmt stmt = (Stmt) unit;
+                        if (stmt.containsInvokeExpr()) {
+                            InvokeExpr invokeExpr = stmt.getInvokeExpr();
+                            if (isMop(invokeExpr, mopMethods)) {
 //								System.out.println("MOP ********************* " + invokeExpr.getMethod().getDeclaringClass().getName() + " :: " + invokeExpr.getMethod().getSubSignature());
-								sootMopMethods.add(invokeExpr.getMethod());
-							}
-						}
-					}
+                                sootMopMethods.add(invokeExpr.getMethod());
+                            }
+                        }
+                    }
 				}
 			}
 		}

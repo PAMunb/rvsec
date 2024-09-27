@@ -7,7 +7,7 @@ import soot.jimple.toolkits.callgraph.CallGraph;
 import soot.jimple.toolkits.callgraph.Edge;
 
 /**
- * Interface for analyzing the reachability of methods IN A GIVEN APPLICAITON.
+ * Interface for analyzing the reachability of methods in a given application.
  *
  * @param <I> The type of identifier used for methods or other program elements.
  * @param <P> The type of path representing a sequence of methods or program elements.
