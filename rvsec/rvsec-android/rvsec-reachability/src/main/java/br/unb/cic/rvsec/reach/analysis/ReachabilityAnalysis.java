@@ -14,6 +14,11 @@ import org.slf4j.LoggerFactory;
 import br.unb.cic.rvsec.apk.model.ActivityInfo;
 import br.unb.cic.rvsec.apk.model.AppInfo;
 import br.unb.cic.rvsec.apk.util.AndroidUtil;
+import br.unb.cic.rvsec.reach.gesda.ApkInfoOut;
+import br.unb.cic.rvsec.reach.gesda.ListenerInfoOut;
+import br.unb.cic.rvsec.reach.gesda.MethodInfoOut;
+import br.unb.cic.rvsec.reach.gesda.WidgetInfoOut;
+import br.unb.cic.rvsec.reach.gesda.WindowInfoOut;
 import br.unb.cic.rvsec.reach.model.Path;
 import br.unb.cic.rvsec.reach.model.RvsecClass;
 import br.unb.cic.rvsec.reach.model.RvsecMethod;
@@ -28,11 +33,14 @@ public class ReachabilityAnalysis {
 	private final Set<SootMethod> mopMethods;
 	private final Set<SootMethod> entryPoints;
 	private ReachabilityStrategy<SootMethod, Path> analysisStrategy;
+
+	private String gesdaFile;
 	
-	public ReachabilityAnalysis(AppInfo appInfo, Set<SootMethod> mopMethods, Set<SootMethod> entryPoints) {
+	public ReachabilityAnalysis(AppInfo appInfo, Set<SootMethod> mopMethods, Set<SootMethod> entryPoints, String gesdaFile) {
 		this.appInfo = appInfo;
 		this.mopMethods = mopMethods;
 		this.entryPoints = entryPoints;
+		this.gesdaFile = gesdaFile;
 	}
 
 	public Set<RvsecClass> reachabilityAnalysis(ReachabilityStrategy<SootMethod, Path> strategy) {
@@ -62,55 +70,60 @@ public class ReachabilityAnalysis {
 		return result;
 	}
 	
-//	public void complementReachabilityAnalysis(Set<RvsecClass> result, List<WindowNode> windows) {
-//		// complement reachability analysis with gesda results (listener/callbacks)
-//		processGesdaResults(result, windows);
-//		
-//		processActivityLifecycleCallbacks(result);
-//	}
-//
-//	private void processGesdaResults(Set<RvsecClass> result, List<WindowNode> windows) {
-//		for (WindowNode window : windows) {
-//			for (Widget widget : window.getWidgets()) {
-//				for (Listener listener : widget.getListeners()) {
-//					if(listener.getCallbackMethod() != null) {
-//						SootMethod callbackMethod = listener.getCallbackMethod();
-//						RvsecMethod method = getMethodInResults(callbackMethod.getSignature(), result);
-//						if(method != null) {
-//							method.setReachable(true);
-//						}else {
-//							System.out.println(">>>>>>>> INCONSISTENCIA ........................ "+callbackMethod.getSignature());
-//						}
-//					}
-//				}
-//			}
-//		}
-//	}
-//
-//	private void processActivityLifecycleCallbacks(Set<RvsecClass> result) {
-//		List<String> activityLifecycleMethods = List.of("onCreate", "onStart", "onResume"
-//				, "onPause", "onStop", "onDestroy", "onSaveInstanceState", "onRestoreInstanceState");
-//		for (RvsecClass clazz : result) {
-//			for (RvsecMethod method : clazz.getMethods()) {
-//				for (String callBack : activityLifecycleMethods) {
-//					if(method.getMethodName().equals(callBack)) {
-//						method.setReachable(true);
-//					}
-//				}				
-//			}
-//		}
-//	}
-//
-//	private RvsecMethod getMethodInResults(String signature, Set<RvsecClass> result) {
-//		for (RvsecClass clazz : result) {
-//			for (RvsecMethod method : clazz.getMethods()) {
-//				if(method.getMethodSignature().equals(signature)) {
-//					return method;
-//				}
-//			}
-//		}
-//		return null;
-//	}
+	public void complementReachabilityAnalysis(Set<RvsecClass> result, ApkInfoOut apkInfo) {
+		// complement reachability analysis with gesda results (listener/callbacks)
+		processGesdaResults(result, apkInfo);
+		
+		processActivityLifecycleCallbacks(result);
+	}
+
+	private void processGesdaResults(Set<RvsecClass> result, ApkInfoOut apkInfo) {
+		log.debug("Process GESDA info ...");
+		if(apkInfo == null) {
+			return;
+		}
+		for (WindowInfoOut window : apkInfo.getWindows()) {
+			for (WidgetInfoOut widget : window.getWidgets()) {
+				for (ListenerInfoOut listener : widget.getListeners()) {
+					if(listener.getCallbackMethod() != null) {
+						MethodInfoOut callbackMethod = listener.getCallbackMethod();
+						RvsecMethod method = getMethodInResults(callbackMethod.getSignature(), result);
+						if(method != null) {
+							method.setReachable(true);
+							log.debug("reachable: "+method.getMethodSignature());
+						}else {
+							System.out.println(">>>>>>>> INCONSISTENCIA ........................ "+callbackMethod.getSignature());
+						}
+					}
+				}
+			}
+		}
+	}
+
+	private void processActivityLifecycleCallbacks(Set<RvsecClass> result) {
+		List<String> activityLifecycleMethods = List.of("onCreate", "onStart", "onResume"
+				, "onPause", "onStop", "onDestroy", "onSaveInstanceState", "onRestoreInstanceState");
+		for (RvsecClass clazz : result) {
+			for (RvsecMethod method : clazz.getMethods()) {
+				for (String callBack : activityLifecycleMethods) {
+					if(method.getMethodName().equals(callBack)) {
+						method.setReachable(true);
+					}
+				}				
+			}
+		}
+	}
+
+	private RvsecMethod getMethodInResults(String signature, Set<RvsecClass> result) {
+		for (RvsecClass clazz : result) {
+			for (RvsecMethod method : clazz.getMethods()) {
+				if(method.getMethodSignature().equals(signature)) {
+					return method;
+				}
+			}
+		}
+		return null;
+	}
 
 	private RvsecClass createRvsecClass(SootClass sootClass) {
 		boolean isActivity = false;

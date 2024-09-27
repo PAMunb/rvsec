@@ -19,6 +19,9 @@ public class CommandLineArgs {
 	@Parameter(names = { "--output", "-o" }, description = "Output file containing the results", required = true)
 	private String outputFile;
 
+	@Parameter(names = { "--gesda", "-g" }, description = "Gesda output file containing APK info", required = false)
+	private String gesdaFile;
+
 	@Parameter(names = "-debug", description = "Debug mode")
 	private boolean debug = false;
 
@@ -42,6 +45,10 @@ public class CommandLineArgs {
 
 	public String getOutputFile() {
 		return outputFile;
+	}
+
+	public String getGesdaFile() {
+		return gesdaFile;
 	}
 
 	public String getApk() {

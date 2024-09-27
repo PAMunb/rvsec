@@ -17,6 +17,8 @@ import br.unb.cic.rvsec.apk.reader.AppReader;
 import br.unb.cic.rvsec.reach.analysis.ReachabilityAnalysis;
 import br.unb.cic.rvsec.reach.analysis.ReachabilityStrategy;
 import br.unb.cic.rvsec.reach.analysis.SootReachabilityStrategy;
+import br.unb.cic.rvsec.reach.gesda.ApkInfoOut;
+import br.unb.cic.rvsec.reach.gesda.GesdaReader;
 import br.unb.cic.rvsec.reach.model.Path;
 import br.unb.cic.rvsec.reach.model.RvsecClass;
 import br.unb.cic.rvsec.reach.model.RvsecMethod;
@@ -32,7 +34,7 @@ import soot.jimple.infoflow.android.SetupApplication;
 public class Main {
 	private static final Logger log = LoggerFactory.getLogger(Main.class);
 
-	public void execute(String apkPath, String mopSpecsDir, String androidPlatformsDir, String rtJarPath, String resultsFile) throws Exception {
+	public void execute(String apkPath, String mopSpecsDir, String androidPlatformsDir, String rtJarPath, String resultsFile, String gesdaFile) throws Exception {
 		log.info("Executing ...");
 
 		// get some application info
@@ -57,25 +59,20 @@ public class Main {
 //		ReachabilityStrategy<SootMethod, Path> analysisStrategy = new TesteReachabilityStrategy();
 		ReachabilityStrategy<SootMethod, Path> analysisStrategy = new SootReachabilityStrategy(); //TODO vir como parametro (CLI)
 		// ReachabilityStrategy<SootMethod, Path> analysisStrategy = new JGraphReachabilityAnalysis();
-		Set<RvsecClass> result = reachabilityAnalysis(appInfo, infoflow, mopMethods, entryPoints, analysisStrategy);
+		Set<RvsecClass> result = reachabilityAnalysis(appInfo, infoflow, mopMethods, entryPoints, analysisStrategy, gesdaFile);
 		
 		Writer writer = new CsvWriter(); //TODO vir como parametro (CLI)
 		writeResults(result, resultsFile, writer);
 	}
 
-	private Set<RvsecClass> reachabilityAnalysis(AppInfo appInfo, SetupApplication infoflow, Set<SootMethod> mopMethods, Set<SootMethod> entryPoints, ReachabilityStrategy<SootMethod, Path> analysisStrategy) throws IOException, XmlPullParserException {
-		ReachabilityAnalysis analysis = new ReachabilityAnalysis(appInfo, mopMethods, entryPoints);
-
+	private Set<RvsecClass> reachabilityAnalysis(AppInfo appInfo, SetupApplication infoflow, Set<SootMethod> mopMethods, Set<SootMethod> entryPoints, ReachabilityStrategy<SootMethod, Path> analysisStrategy, String gesdaFile) throws IOException, XmlPullParserException {
+		ReachabilityAnalysis analysis = new ReachabilityAnalysis(appInfo, mopMethods, entryPoints, gesdaFile);
+		Set<RvsecClass> result = analysis.reachabilityAnalysis(analysisStrategy);
 		
-
-		//TODO
-//		SootAnalyze gesda = new SootAnalyze();
-//		gesda.init(appInfo, infoflow);
-//		List<WindowNode> windows = gesda.analyze();
-//		
-//		analysis.complementReachabilityAnalysis(result, windows);
+		ApkInfoOut apkInfo = GesdaReader.read(gesdaFile);
+		analysis.complementReachabilityAnalysis(result, apkInfo);
 		
-		return analysis.reachabilityAnalysis(analysisStrategy);
+		return result;
 	}
 	
 	private void writeResults(Set<RvsecClass> result, String resultsFile, Writer writer) {
@@ -158,10 +155,11 @@ public class Main {
 //		String callbacksFile = "";
 
 		String outFile = "/home/pedro/tmp/teste.csv";
+		String gesdaFile = "/home/pedro/tmp/rvsec-gesda.json";
 		
 		Main main = new Main();
 		try {
-			main.execute(apk, mopSpecsDir, androidPlatformsDir, rtJarPath, outFile);
+			main.execute(apk, mopSpecsDir, androidPlatformsDir, rtJarPath, outFile, gesdaFile);
 		} catch (Exception e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
