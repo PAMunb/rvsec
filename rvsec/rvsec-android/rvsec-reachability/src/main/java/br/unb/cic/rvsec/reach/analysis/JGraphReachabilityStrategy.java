@@ -30,9 +30,12 @@ public class JGraphReachabilityStrategy implements ReachabilityStrategy<SootMeth
 	
 	@Override
 	public Optional<Path> findPath(SootMethod source, SootMethod target) {
-		GraphPath<SootMethod, DefaultEdge> path = dijkstra.getPath(source, target);
-		if (path != null) {
-			return Optional.of(new Path(path.getVertexList()));
+		try {
+			GraphPath<SootMethod, DefaultEdge> path = dijkstra.getPath(source, target);
+			if (path != null) {
+				return Optional.of(new Path(path.getVertexList()));
+			}
+		} catch (Exception e) {
 		}
 		return Optional.empty();
 	}
@@ -49,14 +52,24 @@ public class JGraphReachabilityStrategy implements ReachabilityStrategy<SootMeth
 			if (isValid(edge, appInfo)) {
 				g.addVertex(edge.src());
 				g.addVertex(edge.tgt());
-				if (g.containsEdge(edge.src(), edge.tgt())) {
-					System.out.println("******************* JA CONTEM");
-				}
+//				if (g.containsEdge(edge.src(), edge.tgt())) {
+//					System.out.println("******************* JA CONTEM");
+//				}
 				g.addEdge(edge.src(), edge.tgt());
 			}
 		}
 		log.debug("CallGraph (jgraph) = " + g.edgeSet().size());
 		return g;
+	}
+	
+	
+	@Override
+	public boolean isValid(Edge edge, AppInfo appInfo) {
+		//AndroidUtil.isClassInApplicationPackage(edge.src().getDeclaringClass(), appInfo);
+		if(edge.src().equals(edge.tgt())) {
+			return false;
+		}
+		return true;
 	}
 	
 }

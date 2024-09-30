@@ -3,6 +3,7 @@ package br.unb.cic.rvsec.reach.gesda;
 import java.io.File;
 import java.io.FileReader;
 
+import com.fdu.se.sootanalyze.model.out.ApkInfoOut;
 import com.google.gson.Gson;
 
 public class GesdaReader {

@@ -3,6 +3,7 @@ package br.unb.cic.rvsec.reach.model;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.stream.Collectors;
 
 import soot.SootMethod;
 
@@ -89,9 +90,15 @@ public class RvsecMethod {
 	public List<Path> getPossiblePathToMop() {
 		return possiblePathToMop;
 	}
-
+	
 	public void addPathToMop(Path path) {
 		possiblePathToMop.add(path);
+	}
+	
+	private String allPathsToMop() {
+		return possiblePathToMop.stream()
+			.map(p -> "path=["+p+"]")
+			.collect(Collectors.joining(", "));
 	}
 
 	@Override
@@ -110,16 +117,16 @@ public class RvsecMethod {
 				&& Objects.equals(possiblePath, other.possiblePath) && Objects.equals(possiblePathToMop, other.possiblePathToMop) && reachable == other.reachable && reachesMop == other.reachesMop;
 	}
 
-	@Override
-	public String toString() {
-		return String.format("RvsecMethod [methodName=%s, reachable=%s, reachesMop=%s, directlyReachesMop=%s]", methodName, reachable, reachesMop, directlyReachesMop);
-	}
-
 //	@Override
 //	public String toString() {
-//		return String.format("RvsecMethod [methodName=%s, methodSignature=%s, modifiers=%s, reachable=%s, reachesMop=%s, directlyReachesMop=%s, possiblePath=%s, possiblePathToMop=%s]", methodName, methodSignature, modifiers, reachable, reachesMop,
-//				directlyReachesMop, possiblePath, possiblePathToMop);
+//		return String.format("RvsecMethod [methodName=%s, reachable=%s, reachesMop=%s, directlyReachesMop=%s]", methodName, reachable, reachesMop, directlyReachesMop);
 //	}
+
+	@Override
+	public String toString() {
+		return String.format("RvsecMethod [methodName=%s, methodSignature=%s, modifiers=%s, reachable=%s, reachesMop=%s, directlyReachesMop=%s, possiblePath=%s, possiblePathToMop=%s]", methodName, methodSignature, modifiers, reachable, reachesMop,
+				directlyReachesMop, possiblePath, allPathsToMop());
+	}
 	
 
 	

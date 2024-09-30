@@ -11,13 +11,14 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.xmlpull.v1.XmlPullParserException;
 
+import com.fdu.se.sootanalyze.model.out.ApkInfoOut;
+
 import br.unb.cic.rvsec.apk.model.ActivityInfo;
 import br.unb.cic.rvsec.apk.model.AppInfo;
 import br.unb.cic.rvsec.apk.reader.AppReader;
+import br.unb.cic.rvsec.reach.analysis.JGraphReachabilityStrategy;
 import br.unb.cic.rvsec.reach.analysis.ReachabilityAnalysis;
 import br.unb.cic.rvsec.reach.analysis.ReachabilityStrategy;
-import br.unb.cic.rvsec.reach.analysis.SootReachabilityStrategy;
-import br.unb.cic.rvsec.reach.gesda.ApkInfoOut;
 import br.unb.cic.rvsec.reach.gesda.GesdaReader;
 import br.unb.cic.rvsec.reach.model.Path;
 import br.unb.cic.rvsec.reach.model.RvsecClass;
@@ -53,12 +54,12 @@ public class Main {
 		// Entrypoints: methods (public or protected) of each activity
 		Set<SootMethod> entryPoints = getEntrypoints(activities, appInfo);
 
-		log.info("Constructing call graph ...");
+		log.info("Constructing callgraph ...");
 		infoflow.constructCallgraph();
 
 //		ReachabilityStrategy<SootMethod, Path> analysisStrategy = new TesteReachabilityStrategy();
-		ReachabilityStrategy<SootMethod, Path> analysisStrategy = new SootReachabilityStrategy(); //TODO vir como parametro (CLI)
-		// ReachabilityStrategy<SootMethod, Path> analysisStrategy = new JGraphReachabilityAnalysis();
+//		ReachabilityStrategy<SootMethod, Path> analysisStrategy = new SootReachabilityStrategy(); //TODO vir como parametro (CLI)
+		 ReachabilityStrategy<SootMethod, Path> analysisStrategy = new JGraphReachabilityStrategy();
 		Set<RvsecClass> result = reachabilityAnalysis(appInfo, infoflow, mopMethods, entryPoints, analysisStrategy, gesdaFile);
 		
 		Writer writer = new CsvWriter(); //TODO vir como parametro (CLI)
