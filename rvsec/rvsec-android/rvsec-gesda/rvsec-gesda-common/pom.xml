@@ -6,17 +6,11 @@
 
 	<parent>
 		<groupId>br.unb.cic</groupId>
-		<artifactId>rvsec-android</artifactId>
+		<artifactId>rvsec-gesda</artifactId>
 		<version>0.6.0-SNAPSHOT</version>
 	</parent>
 
-	<artifactId>rvsec-gesda</artifactId>
-	<name>RVSec :: Android :: GESDA</name>
-	<packaging>pom</packaging>
-
-	<modules>
-		<module>rvsec-gesda-common</module>
-		<module>rvsec-gesda-core</module>
-	</modules>
+	<artifactId>rvsec-gesda-common</artifactId>
+	<name>RVSec :: Android :: GESDA :: Common</name>
 
 </project>
