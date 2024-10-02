@@ -4,31 +4,31 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class TransitionGraph {
-    private List<WindowNode> nodes = new ArrayList<>();
-    private List<TransitionEdge> edges = new ArrayList<>();
+	private List<WindowNode> nodes = new ArrayList<>();
+	private List<TransitionEdge> edges = new ArrayList<>();
 
-    public TransitionGraph() {
-    }
+	public TransitionGraph() {
+	}
 
-    public List<WindowNode> getNodes() {
-        return nodes;
-    }
+	public List<WindowNode> getNodes() {
+		return nodes;
+	}
 
-    public void setNodes(List<WindowNode> nodes) {
-        this.nodes = nodes;
-    }
+	public void setNodes(List<WindowNode> nodes) {
+		this.nodes = nodes;
+	}
 
-    public List<TransitionEdge> getEdges() {
-        return edges;
-    }
+	public List<TransitionEdge> getEdges() {
+		return edges;
+	}
 
-    public void setEdges(List<TransitionEdge> edges) {
-        this.edges = edges;
-    }
+	public void setEdges(List<TransitionEdge> edges) {
+		this.edges = edges;
+	}
 
 	@Override
 	public String toString() {
 		return String.format("TransitionGraph [NODES=%s, EDGES=%s]", nodes, edges);
-	}    
-    
+	}
+
 }

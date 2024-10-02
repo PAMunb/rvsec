@@ -8,6 +8,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
@@ -42,7 +43,7 @@ public class XmlParser {
 	private static final String TEXT = "text";
 	private static final Map<Integer, String> inputTypeValues = new HashMap<>();
 
-	private static Logger log = LoggerFactory.getLogger(XmlParser.class);
+	private static final Logger log = LoggerFactory.getLogger(XmlParser.class);
 
 	private final AppInfo appInfo;
 	private final String apkPath;
@@ -130,7 +131,7 @@ public class XmlParser {
 				if (StringUtil.isHexadecimal(idValue)) {
 					int id = Integer.parseInt(idValue.substring(2), 16);
 					idMap.put(id + "", nameValue);
-//					mapAppStrings.put(id+"", nameValue);
+					mapAppStrings.put(id+"", nameValue);
 				}
 			}
 		}
@@ -168,7 +169,9 @@ public class XmlParser {
 						.addListener(getListener(node))
 						.build();
 
-				log.debug("Adding widget: " + widget);
+				String logText = String.format("Adding widget: [id=%s, widgetId=%s, type=%s, name=%s]", 
+						widget.getId(), widget.getWidgetId(), widget.getType(), widget.getName());
+				log.debug(logText);
 				views.add(widget);
 			}
 		}
@@ -193,7 +196,7 @@ public class XmlParser {
 
 	private WidgetBuilder parseView(AXmlNode node, WidgetType type) {
 		Integer id = getAttributeValue("id", node);
-		String name = getNameById(id.toString());
+		String name = getNameById(Objects.requireNonNull(id).toString());
 		String contentDescription = getAttributeValueAsString("contentDescription", node);
 		String tooltipText = getAttributeValue("tooltipText", node);
 		return Widget.builder(type)
@@ -259,7 +262,9 @@ public class XmlParser {
 					List<AXmlNode> sub = itemNode.getChildrenWithTag("menu");
 					if (sub.isEmpty()) {// itemNode is MenuItem
 						Widget menuItem = newMenuItem(itemNode, curWidgetId);
-						log.debug("Adding menu item: "+menuItem);
+						String logText = String.format("Adding menu item: [id=%s, widgetId=%s, name=%s]", 
+								menuItem.getId(), menuItem.getWidgetId(), menuItem.getName());
+						log.debug(logText);
 						menuWidgets.add(menuItem);
 					} else {// itemNode is SubMenu
 						WidgetBuilder builder = WidgetBuilderFactory.newSubMenu();

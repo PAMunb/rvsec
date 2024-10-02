@@ -12,6 +12,6 @@ public enum Event {
 	KEY,
 	TEXT_CHANGE, // TODO
 	GESTURE, // TODO
-	SELECTION;
+	SELECTION
 
 }

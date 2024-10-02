@@ -14,7 +14,7 @@ import soot.jimple.infoflow.android.SetupApplication;
 import soot.options.Options;
 
 public class SootConfig {
-	private static Logger log = LoggerFactory.getLogger(SootConfig.class);
+	private static final Logger log = LoggerFactory.getLogger(SootConfig.class);
 
 	private static InfoflowAndroidConfiguration config;
 
@@ -51,9 +51,9 @@ public class SootConfig {
 		Options.v().set_allow_phantom_refs(true);
 		Options.v().set_prepend_classpath(true);
 		Options.v().set_validate(true);
-//		Options.v().set_output_format(Options.output_format_none);
+		Options.v().set_output_format(Options.output_format_none);
 
-		Options.v().set_output_format(Options.output_format_jimple);
+//		Options.v().set_output_format(Options.output_format_jimple);
 //		Options.v().set_output_dir("/home/pedro/tmp/cryptoapp_jimple");
 
 		Options.v().set_process_dir(Collections.singletonList(apk));

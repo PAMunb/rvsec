@@ -1,4 +1,4 @@
-package com.fdu.se.sootanalyze.model.out;
+package com.fdu.se.sootanalyze.writer;
 
 import java.util.List;
 import java.util.Set;
@@ -8,6 +8,11 @@ import com.fdu.se.sootanalyze.model.ActivityWindowNode;
 import com.fdu.se.sootanalyze.model.Listener;
 import com.fdu.se.sootanalyze.model.Widget;
 import com.fdu.se.sootanalyze.model.WindowNode;
+import com.fdu.se.sootanalyze.model.out.ApkInfoOut;
+import com.fdu.se.sootanalyze.model.out.ListenerInfoOut;
+import com.fdu.se.sootanalyze.model.out.MethodInfoOut;
+import com.fdu.se.sootanalyze.model.out.WidgetInfoOut;
+import com.fdu.se.sootanalyze.model.out.WindowInfoOut;
 
 import br.unb.cic.rvsec.apk.model.AppInfo;
 import soot.SootMethod;
@@ -51,7 +56,6 @@ public final class OutputFactory {
 		return info;
 	}
 	
-	
 	private static WidgetInfoOut createWidgetInfoOut(Widget widget) {
 		WidgetInfoOut info = new WidgetInfoOut();
 		
@@ -89,7 +93,7 @@ public final class OutputFactory {
 	private static ListenerInfoOut createListenerInfoOut(Listener listener) {
 		ListenerInfoOut info = new ListenerInfoOut();
 		info.setType(listener.getType());
-		info.setListernerClass(listener.getListernerClass());		
+		info.setListernerClass(listener.getListenerClass());		
 		info.setRegisteredInFile(listener.isEventRegisteredInLayoutFile());
 		info.setCallbackMethod(createMethodInfoOut(listener.getCallbackMethod()));
 		return info;

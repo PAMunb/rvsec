@@ -5,15 +5,13 @@ import java.util.List;
 public class StringUtil {
 	
     public static String convertToAct(String classStr){
-    	System.out.println("convertToAct="+classStr);
         int len = classStr.length();
         String str = classStr.substring(8, len - 2);
         return str.replace('/', '.');
     }
 
     public static String convertToLabel(String apkPath){
-    	System.out.println("convertToLabel: "+apkPath);
-        String[] nameArray = null;
+        String[] nameArray;
         if(apkPath.contains("/")){
             nameArray = apkPath.split("/");
         }else{
@@ -25,7 +23,7 @@ public class StringUtil {
     }
     
     public static String longestCommonPrefix(List<String> strs) {
-        if (strs == null || strs.size() == 0) {
+        if (strs == null || strs.isEmpty()) {
             return "";
         }
 
@@ -49,7 +47,7 @@ public class StringUtil {
         try {
             Integer.parseInt(strNum.substring(2), 16);
         } catch (NumberFormatException nfe) {
-        	System.err.println("NumberFormatException: "+nfe.getMessage());
+        	nfe.printStackTrace();
             return false;
         }
         return true;

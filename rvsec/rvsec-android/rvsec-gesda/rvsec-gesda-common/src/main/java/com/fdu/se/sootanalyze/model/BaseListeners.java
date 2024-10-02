@@ -19,7 +19,7 @@ public class BaseListeners {
 			mapByEvent.get(l.getEvent()).add(l);
 
 			mapByEventCallback.put(l.getEventCallback(), l);
-			mapByListenerMethod.put(l.getListernerMethod(), l);
+			mapByListenerMethod.put(l.getListenerMethod(), l);
 		}
 	}
 

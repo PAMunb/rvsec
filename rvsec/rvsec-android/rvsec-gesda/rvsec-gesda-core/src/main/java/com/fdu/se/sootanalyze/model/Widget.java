@@ -11,31 +11,31 @@ import soot.SootField;
 
 public class Widget {
 
-	private Long id;
-	private String widgetId;
-	private WidgetType type;
-	private String name;
-	private Set<Listener> listeners = new HashSet<>();
+	private final Long id;
+	private final String widgetId;
+	private final WidgetType type;
+	private final String name;
+	private final Set<Listener> listeners;
 	private SootField field;
 
 	private List<Widget> dWidgets = new ArrayList<>();// the dependency of this widget
 
 	// view
-	private String contentDescription;
-	private String tooltipText;
+	private final String contentDescription;
+	private final String tooltipText;
 
 	// textView (button, editText, ...)
-	private String text;
-	private String hint;
-	private String inputType;
+	private final String text;
+	private final String hint;
+	private final String inputType;
 
 	// spinner
-	private List<String> entries = new ArrayList<>();
-	private String prompt;
-	private Integer spinnerMode;
+	private final List<String> entries;
+	private final String prompt;
+	private final Integer spinnerMode;
 
 	// subMenu
-	private List<Widget> items = new ArrayList<>();
+	private final List<Widget> items = new ArrayList<>();
 
 	protected Widget(WidgetBuilder WidgetBuilder) {
 		this.id = WidgetBuilder.id;
@@ -137,20 +137,20 @@ public class Widget {
 	}
 
 	public static class WidgetBuilder {
-		private static NumberIncrementer currentId = new NumberIncrementer();// the current id of Widget
+		private static final NumberIncrementer currentId = new NumberIncrementer();// the current id of Widget
 
-		private Long id;
-		private WidgetType type;
+		private final Long id;
+		private final WidgetType type;
 		private String widgetId;
 		private String name;
-		private Set<Listener> listeners = new HashSet<>();
+		private final Set<Listener> listeners = new HashSet<>();
 		private SootField field;
 		private String contentDescription;
 		private String tooltipText;
 		private String text;
 		private String hint;
 		private String inputType;
-		private List<String> entries = new ArrayList<>();
+		private final List<String> entries = new ArrayList<>();
 		private String prompt;
 		private Integer spinnerMode;
 		private List<Widget> items = new ArrayList<>();

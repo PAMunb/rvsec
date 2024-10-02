@@ -2,8 +2,6 @@ package com.fdu.se.sootanalyze.model;
 
 import com.fdu.se.sootanalyze.model.Widget.WidgetBuilder;
 
-//TODO remover???
-@Deprecated
 public class WidgetBuilderFactory {
 
 	public static WidgetBuilder newWidget(WidgetType widgetType) {

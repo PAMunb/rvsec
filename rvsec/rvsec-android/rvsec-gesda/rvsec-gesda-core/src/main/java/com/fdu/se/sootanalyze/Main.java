@@ -12,12 +12,13 @@ import com.beust.jcommander.JCommander;
 import com.fdu.se.sootanalyze.cli.CommandLineArgs;
 import com.fdu.se.sootanalyze.model.WindowNode;
 import com.fdu.se.sootanalyze.model.out.ApkInfoOut;
-import com.fdu.se.sootanalyze.model.out.OutputFactory;
-import com.fdu.se.sootanalyze.model.out.OutputWriter;
+import com.fdu.se.sootanalyze.writer.OutputFactory;
+import com.fdu.se.sootanalyze.writer.OutputWriter;
 
 import br.unb.cic.rvsec.apk.model.AppInfo;
 
 public class Main {
+	private static final Logger log = LoggerFactory.getLogger(Main.class);
 
 	public static void main(String[] args) {
 		CommandLineArgs jArgs = new CommandLineArgs();
@@ -41,27 +42,20 @@ public class Main {
 			root.setLevel(ch.qos.logback.classic.Level.DEBUG);
 		}
 
+		log.info("Starting analysis ...");
 		SootAnalyze sootAnalyze = new SootAnalyze(androidPlatformsDir, rtJarPath);
 		try {
 			AppInfo info = sootAnalyze.init(apk);
 			List<WindowNode> nodes = sootAnalyze.analyze();
-
-			System.out.println("INFO: ");
-			info.getActivities().forEach(System.out::println);
-			System.out.println("NODES:");
-			nodes.forEach(System.out::println);
-			
-//			sootAnalyze.analyseDependencies(nodes);
+			sootAnalyze.analyseDependencies(nodes);
 //			TransitionGraph graph = sootAnalyze.generateTransitionGraph(nodes);
-//			System.out.println("Graph: " + graph);
-			
 			ApkInfoOut infoOut = OutputFactory.createApkInfoOut(info, nodes);
 			OutputWriter.write(infoOut, new File(outputFile));
 		} catch (IOException | XmlPullParserException e) {
 			e.printStackTrace();
 		}
+		log.info("Analysis completed");
 
-		System.out.println("FIM DE FESTA !!!");
 	}
 
 }

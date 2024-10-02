@@ -9,7 +9,6 @@ public class CommandLineArgs {
 	@Parameter(names = { "--android-dir", "-d" }, description = "Android platforms path (~/Android/sdk/platforms)") // , required = true)
 	private String androidDir;
 
-	// TODO ver como "embutir" o jar
 	@Parameter(names = { "--rt-jar", "-r" }, description = "rt.jar path", required = true)
 	private String rtJar;
 

@@ -7,21 +7,21 @@ import java.util.Set;
 import soot.SootMethod;
 
 public class Listener {
-	private ListenerType type;
-	private String listernerClass;
+	private final ListenerType type;
+	private String listenerClass;
 	private SootMethod callbackMethod;
-	private boolean eventRegisteredInLayoutFile = false;// whether the event of the widget is registered in the layout file
+	private boolean eventRegisteredInLayoutFile = false; // whether the event of the widget is registered in the layout file
 
 	private String callbackMethodName;
-	private Set<String> targets = new HashSet<>();
+	private final Set<String> targets = new HashSet<>();
 
 	public Listener(ListenerType listenerType) {
 		Objects.requireNonNull(listenerType);
 		this.type = listenerType;
 	}
 
-	public Listener(ListenerType listenerEnum, boolean eventRegisteredInLayoutFile) {
-		this(listenerEnum);
+	public Listener(ListenerType listenerType, boolean eventRegisteredInLayoutFile) {
+		this(listenerType);
 		this.eventRegisteredInLayoutFile = eventRegisteredInLayoutFile;
 	}
 
@@ -34,8 +34,8 @@ public class Listener {
 		return type;
 	}
 
-	public String getListernerMethod() {
-		return type.getListernerMethod();
+	public String getListenerMethod() {
+		return type.getListenerMethod();
 	}
 
 	public Event getEvent() {
@@ -46,12 +46,12 @@ public class Listener {
 		return type.getEventCallback();
 	}
 
-	public String getListernerClass() {
-		return listernerClass;
+	public String getListenerClass() {
+		return listenerClass;
 	}
 
-	public void setListernerClass(String listernerClass) {
-		this.listernerClass = listernerClass;
+	public void setListenerClass(String listenerClass) {
+		this.listenerClass = listenerClass;
 	}
 
 	public SootMethod getCallbackMethod() {
@@ -86,7 +86,7 @@ public class Listener {
 
 	@Override
 	public String toString() {
-		return String.format("Listener [listenerEnum=%s, listernerClass=%s, callbackMethod=%s, eventRegisteredInLayoutFile=%s, targets=%s]", type, listernerClass, callbackMethod, eventRegisteredInLayoutFile, targets);
+		return String.format("Listener [listenerEnum=%s, listernerClass=%s, callbackMethod=%s, eventRegisteredInLayoutFile=%s, targets=%s]", type, listenerClass, callbackMethod, eventRegisteredInLayoutFile, targets);
 	}
 
 }

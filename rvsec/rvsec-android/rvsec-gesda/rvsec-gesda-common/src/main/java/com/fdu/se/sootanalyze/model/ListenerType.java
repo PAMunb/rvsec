@@ -19,20 +19,20 @@ public enum ListenerType {
 //	TextWatcher
 //	OnGestureListener
 //	OnEditorActionListener
-//	CompoundButton.OnCheckedChangeListener: Acionado quando o estado de um CompoundButton (como um CheckBox ou RadioButton) é alterado.
+//	CompoundButton.OnCheckedChangeListener
 
-	private String listernerMethod;
+	private String listenerMethod;
 	private String eventCallback;
 	private Event event;
 
-	ListenerType(String listernerMethod, String eventCallback, Event event) {
-		this.listernerMethod = listernerMethod;
+	ListenerType(String listenerMethod, String eventCallback, Event event) {
+		this.listenerMethod = listenerMethod;
 		this.eventCallback = eventCallback;
 		this.event = event;
 	}
 
-	public String getListernerMethod() {
-		return listernerMethod;
+	public String getListenerMethod() {
+		return listenerMethod;
 	}
 
 	public String getEventCallback() {
