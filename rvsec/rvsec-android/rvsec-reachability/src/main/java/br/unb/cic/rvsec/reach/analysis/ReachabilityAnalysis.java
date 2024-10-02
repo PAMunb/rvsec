@@ -35,14 +35,10 @@ public class ReachabilityAnalysis {
 	private final Set<SootMethod> entryPoints;
 	private ReachabilityStrategy<SootMethod, Path> analysisStrategy;
 
-	@Deprecated
-	private String gesdaFile;
-
-	public ReachabilityAnalysis(AppInfo appInfo, Set<SootMethod> mopMethods, Set<SootMethod> entryPoints, @Deprecated String gesdaFile) {
+	public ReachabilityAnalysis(AppInfo appInfo, Set<SootMethod> mopMethods, Set<SootMethod> entryPoints) {
 		this.appInfo = appInfo;
 		this.mopMethods = mopMethods;
 		this.entryPoints = entryPoints;
-		this.gesdaFile = gesdaFile;
 	}
 
 	public Set<RvsecClass> reachabilityAnalysis(ReachabilityStrategy<SootMethod, Path> strategy) {
@@ -201,7 +197,7 @@ public class ReachabilityAnalysis {
 //							}
 							
 							reachableMethods.put(method, path);
-							continue;
+//							continue;
 						}
 					}
 				}

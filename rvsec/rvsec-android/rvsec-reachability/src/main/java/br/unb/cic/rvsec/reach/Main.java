@@ -11,6 +11,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.xmlpull.v1.XmlPullParserException;
 
+import com.beust.jcommander.JCommander;
 import com.fdu.se.sootanalyze.model.out.ApkInfoOut;
 
 import br.unb.cic.rvsec.apk.model.ActivityInfo;
@@ -19,13 +20,15 @@ import br.unb.cic.rvsec.apk.reader.AppReader;
 import br.unb.cic.rvsec.reach.analysis.JGraphReachabilityStrategy;
 import br.unb.cic.rvsec.reach.analysis.ReachabilityAnalysis;
 import br.unb.cic.rvsec.reach.analysis.ReachabilityStrategy;
+import br.unb.cic.rvsec.reach.cli.CommandLineArgs;
 import br.unb.cic.rvsec.reach.gesda.GesdaReader;
 import br.unb.cic.rvsec.reach.model.Path;
 import br.unb.cic.rvsec.reach.model.RvsecClass;
-import br.unb.cic.rvsec.reach.model.RvsecMethod;
 import br.unb.cic.rvsec.reach.mop.MopFacade;
 import br.unb.cic.rvsec.reach.writer.CsvWriter;
 import br.unb.cic.rvsec.reach.writer.Writer;
+import br.unb.cic.rvsec.reach.writer.WriterFactory;
+import br.unb.cic.rvsec.reach.writer.WriterType;
 import javamop.util.MOPException;
 import soot.Scene;
 import soot.SootClass;
@@ -35,7 +38,7 @@ import soot.jimple.infoflow.android.SetupApplication;
 public class Main {
 	private static final Logger log = LoggerFactory.getLogger(Main.class);
 
-	public void execute(String apkPath, String mopSpecsDir, String androidPlatformsDir, String rtJarPath, String resultsFile, String gesdaFile) throws Exception {
+	public void execute(String apkPath, String mopSpecsDir, String androidPlatformsDir, String rtJarPath, String resultsFile, String gesdaFile, Writer writer) throws Exception {
 		log.info("Executing ...");
 
 		// get some application info
@@ -59,15 +62,14 @@ public class Main {
 
 //		ReachabilityStrategy<SootMethod, Path> analysisStrategy = new TesteReachabilityStrategy();
 //		ReachabilityStrategy<SootMethod, Path> analysisStrategy = new SootReachabilityStrategy(); //TODO vir como parametro (CLI)
-		 ReachabilityStrategy<SootMethod, Path> analysisStrategy = new JGraphReachabilityStrategy();
-		Set<RvsecClass> result = reachabilityAnalysis(appInfo, infoflow, mopMethods, entryPoints, analysisStrategy, gesdaFile);
+		ReachabilityStrategy<SootMethod, Path> analysisStrategy = new JGraphReachabilityStrategy();
+		Set<RvsecClass> result = reachabilityAnalysis(appInfo,  mopMethods, entryPoints, analysisStrategy, gesdaFile);
 		
-		Writer writer = new CsvWriter(); //TODO vir como parametro (CLI)
 		writeResults(result, resultsFile, writer);
 	}
 
-	private Set<RvsecClass> reachabilityAnalysis(AppInfo appInfo, SetupApplication infoflow, Set<SootMethod> mopMethods, Set<SootMethod> entryPoints, ReachabilityStrategy<SootMethod, Path> analysisStrategy, String gesdaFile) throws IOException, XmlPullParserException {
-		ReachabilityAnalysis analysis = new ReachabilityAnalysis(appInfo, mopMethods, entryPoints, gesdaFile);
+	private Set<RvsecClass> reachabilityAnalysis(AppInfo appInfo, Set<SootMethod> mopMethods, Set<SootMethod> entryPoints, ReachabilityStrategy<SootMethod, Path> analysisStrategy, String gesdaFile) throws IOException, XmlPullParserException {
+		ReachabilityAnalysis analysis = new ReachabilityAnalysis(appInfo, mopMethods, entryPoints);
 		Set<RvsecClass> result = analysis.reachabilityAnalysis(analysisStrategy);
 		
 		ApkInfoOut apkInfo = GesdaReader.read(gesdaFile);
@@ -79,14 +81,6 @@ public class Main {
 	private void writeResults(Set<RvsecClass> result, String resultsFile, Writer writer) {
 		writer.write(result, new File(resultsFile));
 		log.info("Results saved in: "+resultsFile);
-
-		log.info("Results: "+result.size());
-		for (RvsecClass clazz : result) {
-			log.info("CLASS: "+clazz.getClassName()+", isActivity="+clazz.isActivity());
-			for (RvsecMethod method : clazz.getMethods()) {
-				log.info("   - "+method);
-			}
-		}
 	}
 
 	private Set<SootMethod> getEntrypoints(List<SootClass> activities, AppInfo appInfo) {
@@ -130,16 +124,51 @@ public class Main {
 		activities.forEach(m -> log.debug(" - " + m.getName()));
 		return activities;
 	}
-
 	
 	public static void main(String[] args) {
 		execute(args);
 	}
 
 	private static void execute(String[] args) {
-		// TODO Auto-generated method stub
-		executeTest();
-//		executeCLI();
+//		executeTest();
+		executeCLI(args);
+	}
+
+	private static void executeCLI(String[] args) {
+		CommandLineArgs jArgs = new CommandLineArgs();
+		JCommander jc = JCommander.newBuilder().addObject(jArgs).build();
+
+		if (args.length == 0) {
+			jc.usage();
+			return;
+		}
+
+		jc.parse(args);
+
+		String androidPlatformsDir = jArgs.getAndroidDir();
+		String mopSpecsDir = jArgs.getMopSpecsDir();
+		String rtJarPath = jArgs.getRtJar();
+		String apk = jArgs.getApk();
+		String outputFile = jArgs.getOutputFile();
+		String gesdaFile = jArgs.getGesdaFile();
+		boolean debug = jArgs.isDebug();
+		WriterType writerType = jArgs.getWriterType();
+		Writer writer = WriterFactory.fromType(writerType);
+
+		if (debug) {
+			ch.qos.logback.classic.Logger root = (ch.qos.logback.classic.Logger) LoggerFactory.getLogger(Logger.ROOT_LOGGER_NAME);
+			root.setLevel(ch.qos.logback.classic.Level.DEBUG);
+		}
+
+		log.info("Starting analysis ...");
+		Main main = new Main();
+		try {
+			main.execute(apk, mopSpecsDir, androidPlatformsDir, rtJarPath, outputFile, gesdaFile, writer);
+			log.info("Analysis completed");
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		
 	}
 
 	private static void executeTest() {
@@ -158,9 +187,11 @@ public class Main {
 		String outFile = "/home/pedro/tmp/teste.csv";
 		String gesdaFile = "/home/pedro/tmp/rvsec-gesda.json";
 		
+		Writer writer = new CsvWriter();
+		
 		Main main = new Main();
 		try {
-			main.execute(apk, mopSpecsDir, androidPlatformsDir, rtJarPath, outFile, gesdaFile);
+			main.execute(apk, mopSpecsDir, androidPlatformsDir, rtJarPath, outFile, gesdaFile, writer);
 		} catch (Exception e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();

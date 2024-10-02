@@ -17,7 +17,7 @@ import soot.jimple.toolkits.callgraph.CallGraph;
 import soot.jimple.toolkits.callgraph.Edge;
 
 public class JGraphReachabilityStrategy implements ReachabilityStrategy<SootMethod, Path> {
-	private static Logger log = LoggerFactory.getLogger(JGraphReachabilityStrategy.class);
+	private static final Logger log = LoggerFactory.getLogger(JGraphReachabilityStrategy.class);
 	
 	private Graph<SootMethod, DefaultEdge> graph;
 	private DijkstraShortestPath<SootMethod, DefaultEdge> dijkstra;
@@ -35,7 +35,7 @@ public class JGraphReachabilityStrategy implements ReachabilityStrategy<SootMeth
 			if (path != null) {
 				return Optional.of(new Path(path.getVertexList()));
 			}
-		} catch (Exception e) {
+		} catch (Exception ignored) {
 		}
 		return Optional.empty();
 	}
@@ -66,10 +66,7 @@ public class JGraphReachabilityStrategy implements ReachabilityStrategy<SootMeth
 	@Override
 	public boolean isValid(Edge edge, AppInfo appInfo) {
 		//AndroidUtil.isClassInApplicationPackage(edge.src().getDeclaringClass(), appInfo);
-		if(edge.src().equals(edge.tgt())) {
-			return false;
-		}
-		return true;
-	}
+        return !edge.src().equals(edge.tgt());
+    }
 	
 }

@@ -21,6 +21,7 @@ import soot.SootMethod;
 import soot.jimple.toolkits.callgraph.CallGraph;
 import soot.jimple.toolkits.callgraph.Edge;
 
+@Deprecated
 public class TesteReachabilityStrategy implements ReachabilityStrategy<SootMethod, Path> {
 	private static final Logger log = LoggerFactory.getLogger(TesteReachabilityStrategy.class);
 

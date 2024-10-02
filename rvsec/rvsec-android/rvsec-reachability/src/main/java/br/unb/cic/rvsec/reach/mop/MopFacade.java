@@ -1,7 +1,6 @@
 package br.unb.cic.rvsec.reach.mop;
 
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.Set;
 
 import org.slf4j.Logger;
@@ -21,7 +20,7 @@ import soot.jimple.InvokeExpr;
 import soot.jimple.Stmt;
 
 public class MopFacade {
-	private static Logger log = LoggerFactory.getLogger(MopFacade.class);
+	private static final Logger log = LoggerFactory.getLogger(MopFacade.class);
 	
 	public Set<SootMethod> getMopMethods(String mopSpecsDir, AppInfo apkInfo) throws MOPException {
 		log.info("Retrieving methods used  in MOP specs ...");

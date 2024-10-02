@@ -8,20 +8,17 @@ import soot.SootMethod;
 
 public class Path {
 
-	private final List<SootMethod> path;
+	private final List<String> path;
 
 	public Path(List<SootMethod> path) {
-//		if (!isValid(path)) {
-//			throw new RuntimeException("Invalid path: " + path);
-//		}
-		this.path = path;
+		this.path = path.stream().map(SootMethod::getSignature).collect(Collectors.toList());
 	}
 
 //	private boolean isValid(List<SootMethod> pathToCheck) {
 //		return pathToCheck != null && pathToCheck.size() > 1;
 //	}
 
-	public List<SootMethod> getPath() {
+	public List<String> getPath() {
 		return path;
 	}
 
@@ -42,6 +39,6 @@ public class Path {
 
 	@Override
 	public String toString() {
-		return path.stream().map(SootMethod::getSignature).collect(Collectors.joining(", "));
+		return String.join(", ", path);
 	}
 }

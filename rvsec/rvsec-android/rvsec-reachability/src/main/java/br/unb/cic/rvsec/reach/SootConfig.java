@@ -14,7 +14,7 @@ import soot.jimple.infoflow.android.SetupApplication;
 import soot.options.Options;
 
 public class SootConfig {
-	private static Logger log = LoggerFactory.getLogger(SootConfig.class);
+	private static final Logger log = LoggerFactory.getLogger(SootConfig.class);
 	
 	private static InfoflowAndroidConfiguration config;
 
