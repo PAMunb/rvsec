@@ -2,10 +2,7 @@ package br.unb.cic.rvsec.apk.reader;
 
 import java.io.File;
 import java.io.IOException;
-import java.nio.file.FileSystems;
 import java.nio.file.Files;
-import java.nio.file.Path;
-import java.util.Comparator;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -13,6 +10,7 @@ import org.xmlpull.v1.XmlPullParserException;
 
 import br.unb.cic.rvsec.apk.model.ActivityInfo;
 import br.unb.cic.rvsec.apk.model.AppInfo;
+import br.unb.cic.rvsec.apk.util.FileUtil;
 import brut.androlib.ApkDecoder;
 import brut.androlib.exceptions.AndrolibException;
 import brut.directory.DirectoryException;
@@ -73,32 +71,18 @@ public class AppReader {
 		return appInfo;
 	}	
 	
-	public static File decompileApp(AppInfo appInfo) {
+	public static File decompileApp(AppInfo appInfo) throws IOException {
 		log.info("Decompiling app: " + appInfo.getPath());
 		String appName = appInfo.getLabel();
-		//TODO receber parametro
-		File outDir = new File("apks" + FileSystems.getDefault().getSeparator() + appName);
-		// Config config = Config.getInstance();
-		// config.setDecodeAssets(Config.DECODE_ASSETS_FULL);
-		// config.setDecodeResources(Config.DECODE_RESOURCES_FULL);
-		// config.setDecodeSources(Config.DECODE_SOURCES_NONE); // does not decompile
-		// sources
-		// config.setForceDecodeManifest(Config.FORCE_DECODE_MANIFEST_FULL);
-		// ApkDecoder decoder = new ApkDecoder(config, new File(apkPath));
-
+		File outDir = Files.createTempDirectory(appName).toFile();
 		ApkDecoder decoder = new ApkDecoder(new File(appInfo.getPath()));
 		try {
-			if(outDir.exists()) {
-				Files.walk(Path.of(outDir.getAbsolutePath()))
-			      .sorted(Comparator.reverseOrder())
-			      .map(Path::toFile)
-			      .forEach(File::delete);
-			}
+			FileUtil.delete(outDir);
 			decoder.decode(outDir);
-			log.info("Decompile " + appName + " successfully");
+			log.info("Decompile '" + appName + "' successfully: "+outDir.getAbsolutePath());
 			return outDir;
 		} catch (AndrolibException | DirectoryException | IOException e) {
-			log.error("Decompile " + appName + " failed: "+e.getMessage(), e);
+			log.error("Decompile '" + appName + "' failed: "+e.getMessage(), e);
 			throw new RuntimeException("Error decompiling: "+appInfo.getPath(), e);
 		}
 	}

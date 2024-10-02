@@ -64,6 +64,9 @@ public class AppInfo {
 	}
 
 	public void addActivity(ActivityInfo activityInfo) {
+		if(activityInfo == null) {
+			return;
+		}
 		activities.add(activityInfo);
 		if (activityInfo.isMain()) {
 			this.mainActivity = activityInfo;
