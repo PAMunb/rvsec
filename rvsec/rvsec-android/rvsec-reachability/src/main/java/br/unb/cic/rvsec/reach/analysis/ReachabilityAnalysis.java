@@ -46,6 +46,9 @@ public class ReachabilityAnalysis {
 
 		this.analysisStrategy = strategy;
 		analysisStrategy.initialize(Scene.v().getCallGraph(), appInfo);
+		
+		// All reachable methods (from an entrypoint)
+		Map<SootMethod, Path> reachableMethods = getReachableMethods(entryPoints);
 
 		// for each class (in package declared in manifest)
 		for (SootClass sootClass : getApplicationClasses()) {
@@ -57,11 +60,13 @@ public class ReachabilityAnalysis {
 				RvsecMethod method = new RvsecMethod(sootMethod);
 				clazz.addMethod(method);
 
-				// analyses reachability between entrypoints and the current method
-				processReachabilityFromEndpoints(method, sootMethod, entryPoints);
+				// check if the method is reachable
+				if(reachableMethods.containsKey(sootMethod)) {
+					method.setReachable(true);
+					method.setPossiblePath(reachableMethods.get(sootMethod));
+				}
 
-				// analyses reachability between the current method and methods defined in MOP
-				// specs
+				// analyses reachability between the current method and methods defined in MOP specs
 				processReachabilityToMop(method, sootMethod, mopMethods);
 			}
 		}
@@ -76,11 +81,11 @@ public class ReachabilityAnalysis {
 		processActivityLifecycleCallbacks(result);
 	}
 
-	private void processGesdaResults(Set<RvsecClass> result, ApkInfoOut apkInfo) {
-		log.debug("Process GESDA info ...");
+	private void processGesdaResults(Set<RvsecClass> result, ApkInfoOut apkInfo) {		
 		if (apkInfo == null) {
 			return;
 		}
+		log.debug("Process GESDA info ...");
 		for (WindowInfoOut window : apkInfo.getWindows()) {
 			processGesdaWindow(result, window);
 			if(window.getOptionsMenu() != null) {
@@ -100,9 +105,6 @@ public class ReachabilityAnalysis {
 						method.setReachable(true);
 						log.debug("reachable: " + method.getMethodSignature());
 					} 
-//					else {
-//						System.out.println(">>>>>>>> INCONSISTENCIA ........................ " + callbackMethod.getSignature());
-//					}
 				}
 			}
 		}
@@ -158,22 +160,11 @@ public class ReachabilityAnalysis {
 		}
 	}
 
-	private void processReachabilityFromEndpoints(RvsecMethod method, SootMethod sootMethod, Set<SootMethod> entryPoints) {
+	private Map<SootMethod, Path> getReachableMethods(Set<SootMethod> entryPoints) {
 		// Visit each method/node of the callgraph and verifies if there is a path
 		// between an entrypoint and the method being visited.
 		// (the entrypoint reaches the method ... the method is reachable)
-		Map<SootMethod, Path> reachableMethods = getReachableMethods(entryPoints);
-
-		for (SootMethod reachableMethod : reachableMethods.keySet()) {
-			if (reachableMethod.equals(sootMethod)) {
-				method.setReachable(true);
-				method.setPossiblePath(reachableMethods.get(sootMethod));
-				break;
-			}
-		}
-	}
-
-	private Map<SootMethod, Path> getReachableMethods(Set<SootMethod> entryPoints) {
+		log.debug("Finding reachable methods ...");
 		Map<SootMethod, Path> reachableMethods = new HashMap<>();
 		for (SootClass clazz : getApplicationClasses()) {
 			for (SootMethod method : clazz.getMethods()) {
@@ -184,20 +175,8 @@ public class ReachabilityAnalysis {
 					if (!entrypoint.equals(method)) {
 						Optional<Path> pathOpt = analysisStrategy.findPath(entrypoint, method);
 						if (pathOpt.isPresent()) {
-//							System.out.println("Caminho entre: "+method.getSignature()+" >>> "+entrypoint.getSignature());
-//							System.out.println(">>>> "+path.get());
-							
 							Path path = pathOpt.get();
-//							if(reachableMethods.containsKey(method)) {
-//								if(path.getPath().size() < reachableMethods.get(method).getPath().size()) {
-//									reachableMethods.put(method, path);
-//								}
-//							}else {
-//								reachableMethods.put(method, path);
-//							}
-							
 							reachableMethods.put(method, path);
-//							continue;
 						}
 					}
 				}
@@ -207,11 +186,16 @@ public class ReachabilityAnalysis {
 	}
 
 	private ActivityInfo getActivityInfo(SootClass clazz) {
-		return appInfo.getActivities().stream().filter(info -> info.getName().equals(clazz.getName())).findFirst().orElse(null);
+		return appInfo.getActivities().stream()
+				.filter(info -> info.getName().equals(clazz.getName()))
+				.findFirst()
+				.orElse(null);
 	}
 
 	private List<SootClass> getApplicationClasses() {
-		return Scene.v().getApplicationClasses().stream().filter(clazz -> AndroidUtil.isClassInApplicationPackage(clazz, appInfo)).collect(Collectors.toList());
+		return Scene.v().getApplicationClasses().stream()
+				.filter(clazz -> AndroidUtil.isClassInApplicationPackage(clazz, appInfo))
+				.collect(Collectors.toList());
 	}
 
 }

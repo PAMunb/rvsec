@@ -6,7 +6,7 @@
 		</encoder>
 	</appender>
 
-	<logger name="br.unb.cic.rvsec.reach" level="TRACE" />
+	<logger name="br.unb.cic.rvsec.reach" level="DEBUG" />
 	<logger name="br.unb.cic" level="DEBUG" />
 	<logger name="soot" level="INFO" />
 

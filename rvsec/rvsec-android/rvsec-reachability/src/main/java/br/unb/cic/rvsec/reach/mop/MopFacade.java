@@ -31,7 +31,6 @@ public class MopFacade {
 
 		for (SootClass c : Scene.v().getApplicationClasses()) {
 			if (AndroidUtil.isClassInApplicationPackage(c, apkInfo)) {
-//				System.out.println("CLASSE: " + c.getName());
 				for (SootMethod m : c.getMethods()) {
 					UnitPatchingChain units = m.retrieveActiveBody().getUnits();
                     for (Unit unit : units) {
@@ -39,7 +38,6 @@ public class MopFacade {
                         if (stmt.containsInvokeExpr()) {
                             InvokeExpr invokeExpr = stmt.getInvokeExpr();
                             if (isMop(invokeExpr, mopMethods)) {
-//								System.out.println("MOP ********************* " + invokeExpr.getMethod().getDeclaringClass().getName() + " :: " + invokeExpr.getMethod().getSubSignature());
                                 sootMopMethods.add(invokeExpr.getMethod());
                             }
                         }
@@ -52,9 +50,10 @@ public class MopFacade {
 	}
 	
 	private boolean isMop(InvokeExpr invokeExpr, Set<MopMethod> mopMethods) {
-		for (MopMethod mopMethod : mopMethods) {
-			if (mopMethod.getClassName().equals(invokeExpr.getMethod().getDeclaringClass().getName()) 
-					&& mopMethod.getName().equals(invokeExpr.getMethod().getName())) {
+		SootMethod invokeMethod = invokeExpr.getMethod();
+		for (MopMethod mopMethod : mopMethods) {			
+			if (mopMethod.getClassName().equals(invokeMethod.getDeclaringClass().getName()) 
+					&& mopMethod.getName().equals(invokeMethod.getName())) {
 				return true;
 			}
 		}

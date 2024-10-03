@@ -17,15 +17,15 @@ import com.fdu.se.sootanalyze.model.out.ApkInfoOut;
 import br.unb.cic.rvsec.apk.model.ActivityInfo;
 import br.unb.cic.rvsec.apk.model.AppInfo;
 import br.unb.cic.rvsec.apk.reader.AppReader;
-import br.unb.cic.rvsec.reach.analysis.JGraphReachabilityStrategy;
 import br.unb.cic.rvsec.reach.analysis.ReachabilityAnalysis;
 import br.unb.cic.rvsec.reach.analysis.ReachabilityStrategy;
+import br.unb.cic.rvsec.reach.analysis.SootReachabilityStrategy;
 import br.unb.cic.rvsec.reach.cli.CommandLineArgs;
 import br.unb.cic.rvsec.reach.gesda.GesdaReader;
 import br.unb.cic.rvsec.reach.model.Path;
 import br.unb.cic.rvsec.reach.model.RvsecClass;
 import br.unb.cic.rvsec.reach.mop.MopFacade;
-import br.unb.cic.rvsec.reach.writer.CsvWriter;
+import br.unb.cic.rvsec.reach.writer.JsonWriter;
 import br.unb.cic.rvsec.reach.writer.Writer;
 import br.unb.cic.rvsec.reach.writer.WriterFactory;
 import br.unb.cic.rvsec.reach.writer.WriterType;
@@ -61,8 +61,8 @@ public class Main {
 		infoflow.constructCallgraph();
 
 //		ReachabilityStrategy<SootMethod, Path> analysisStrategy = new TesteReachabilityStrategy();
-//		ReachabilityStrategy<SootMethod, Path> analysisStrategy = new SootReachabilityStrategy(); //TODO vir como parametro (CLI)
-		ReachabilityStrategy<SootMethod, Path> analysisStrategy = new JGraphReachabilityStrategy();
+		ReachabilityStrategy<SootMethod, Path> analysisStrategy = new SootReachabilityStrategy(); //TODO vir como parametro (CLI)
+//		ReachabilityStrategy<SootMethod, Path> analysisStrategy = new JGraphReachabilityStrategy();
 		Set<RvsecClass> result = reachabilityAnalysis(appInfo,  mopMethods, entryPoints, analysisStrategy, gesdaFile);
 		
 		writeResults(result, resultsFile, writer);
@@ -130,8 +130,13 @@ public class Main {
 	}
 
 	private static void execute(String[] args) {
+		long start = System.currentTimeMillis();
+		
 //		executeTest();
 		executeCLI(args);
+		
+		long time = System.currentTimeMillis() - start;
+		System.out.println("TEMPO: "+(time/1000)+" sec.");
 	}
 
 	private static void executeCLI(String[] args) {
@@ -184,10 +189,12 @@ public class Main {
 ////		String sinksFile = "";
 //		String callbacksFile = "";
 
-		String outFile = "/home/pedro/tmp/teste.csv";
 		String gesdaFile = "/home/pedro/tmp/rvsec-gesda.json";
 		
-		Writer writer = new CsvWriter();
+//		Writer writer = new CsvWriter();
+//		String outFile = "/home/pedro/tmp/teste.csv";		
+		Writer writer = new JsonWriter();
+		String outFile = "/home/pedro/tmp/teste.json";
 		
 		Main main = new Main();
 		try {

@@ -14,7 +14,6 @@ public class CommandLineArgs {
 	@Parameter(names = { "--mop-dir", "-m" }, description = "MOP specifications path", required = true)
 	private String mopSpecsDir;
 
-	// TODO ver como "embutir" o jar
 	@Parameter(names = { "--rt-jar", "-r" }, description = "rt.jar path", required = true)
 	private String rtJar;
 
@@ -33,9 +32,7 @@ public class CommandLineArgs {
 	@Parameter(names = "-debug", description = "Debug mode")
 	private boolean debug = false;
 
-//	@Parameter(names = "--help", help = true)
-//	boolean help;
-
+	
 	public CommandLineArgs() {
 		String androidHome = System.getenv("ANDROID_HOME");
 		if (androidHome != null) {

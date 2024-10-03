@@ -60,7 +60,6 @@ public class SootReachabilityStrategy implements ReachabilityStrategy<SootMethod
 			}
 
             Iterator<Edge> edgeIterator = callGraph.edgesOutOf(currentMethod);
-
             while (edgeIterator.hasNext()) {
                 Edge edge = edgeIterator.next();
                 SootMethod targetMethod = edge.tgt();
