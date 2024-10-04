@@ -15,7 +15,9 @@
 
 	<properties>
 		<main.class>presto.android.Main</main.class>
-		<final.jar.name>rvsec-gator</final.jar.name>
+		<jar.name>rvsec-gator</jar.name>
+<!--		<final.jar.name>${jar.name}-jar-with-dependencies</final.jar.name>-->
+		<final.jar.name>rvsec-gator-jar-with-dependencies</final.jar.name>
 	</properties>
 
 	<dependencies>
@@ -47,9 +49,14 @@
 			<groupId>junit</groupId>
 			<artifactId>junit</artifactId>
 		</dependency>
+		<dependency>
+			<groupId>com.google.code.gson</groupId>
+			<artifactId>gson</artifactId>
+		</dependency>
 	</dependencies>
 
 	<build>
+		<finalName>${jar.name}</finalName>
 		<plugins>
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
@@ -63,7 +70,7 @@
 					<descriptorRefs>
 						<descriptorRef>jar-with-dependencies</descriptorRef>
 					</descriptorRefs>
-					<finalName>${final.jar.name}</finalName>
+					<finalName>${jar.name}</finalName>
 				</configuration>
 				<executions>
 					<execution>
@@ -73,6 +80,10 @@
 						</goals>
 					</execution>
 				</executions>
+			</plugin>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-resources-plugin</artifactId>
 			</plugin>
 		</plugins>
 	</build>

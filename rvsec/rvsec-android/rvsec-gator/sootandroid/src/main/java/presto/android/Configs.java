@@ -8,17 +8,22 @@
  */
 package presto.android;
 
-import com.google.common.base.Preconditions;
-import com.google.common.collect.Lists;
-import com.google.common.collect.Maps;
-import com.google.common.collect.Sets;
-import soot.options.Options;
-
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
 import java.lang.reflect.Field;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
+import com.google.common.base.Preconditions;
+import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
+import com.google.common.collect.Sets;
+
+import soot.options.Options;
 
 public class Configs {
   public static String benchmarkName;
@@ -227,7 +232,8 @@ public class Configs {
     bytecodes = project;
 
     sysProj = Configs.sdkDir + "/platforms/" + Configs.apiLevel + "/data";
-    Options.v().set_force_android_jar(Configs.android);
+    Options.v().set_force_android_jar(sysProj+"/android.jar");
+//    Options.v().set_force_android_jar(Configs.android);
     Options.v().set_src_prec(Options.src_prec_apk);
 
     // make validate() happy
@@ -260,7 +266,8 @@ public class Configs {
     Preconditions.checkNotNull(apiLevel);
     if (apiLevel.startsWith("android-")) {
       return Integer.parseInt(apiLevel.substring(8));
-    } else if (apiLevel.startsWith("google-")) {
+    }
+	if (apiLevel.startsWith("google-")) {
       return Integer.parseInt(apiLevel.substring(7));
     } else {
       return -1;

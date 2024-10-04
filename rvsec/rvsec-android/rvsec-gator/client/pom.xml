@@ -2,23 +2,55 @@
 	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
 	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
 	<modelVersion>4.0.0</modelVersion>
-	
+
 	<parent>
 		<groupId>br.unb.cic</groupId>
-		<artifactId>rvsec-android</artifactId>
+		<artifactId>rvsec-gator-parent</artifactId>
 		<version>0.6.0-SNAPSHOT</version>
 	</parent>
-	
+
 	<artifactId>rvsec-gator-client</artifactId>
-	
+
 	<name>RVSec :: Android :: GATOR :: Client</name>
-	
+
+	<properties>
+		<final.jar.name>rvsec-gator-client</final.jar.name>
+	</properties>
 
 	<dependencies>
+		<!-- TODO remover ... eh apenas para executar manualmente -->
+		<dependency>
+			<groupId>br.unb.cic</groupId>
+			<artifactId>rvsec-apk</artifactId>
+			<exclusions>
+				<exclusion>
+					<groupId>de.fraunhofer.sit.sse.flowdroid</groupId>
+					<artifactId>soot-infoflow</artifactId>
+				</exclusion>
+<!--				<exclusion>-->
+<!--					<groupId>de.fraunhofer.sit.sse.flowdroid</groupId>-->
+<!--					<artifactId>soot-infoflow-android</artifactId>-->
+<!--				</exclusion>-->
+			</exclusions>
+		</dependency>
+
 		<dependency>
 			<groupId>br.unb.cic</groupId>
 			<artifactId>rvsec-gator-sootandroid</artifactId>
 		</dependency>
+		<dependency>
+			<groupId>com.google.code.gson</groupId>
+			<artifactId>gson</artifactId>
+		</dependency>
 	</dependencies>
-	
+
+	<build>
+		<finalName>${final.jar.name}</finalName>
+		<plugins>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-resources-plugin</artifactId>
+			</plugin>
+		</plugins>
+	</build>
 </project>

@@ -2,6 +2,7 @@
 	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
 	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
 	<modelVersion>4.0.0</modelVersion>
+	
 	<parent>
 		<groupId>br.unb.cic</groupId>
 		<artifactId>rvsec-android</artifactId>
@@ -10,7 +11,7 @@
 
 	<artifactId>rvsec-gator-parent</artifactId>
 	<packaging>pom</packaging>
-	
+
 	<name>RVSec :: Android :: GATOR</name>
 
 	<properties>
@@ -19,7 +20,7 @@
 		<classindex.version>3.4</classindex.version>
 		<guava.version>27.1-jre</guava.version>
 		<slf4j.version>1.7.26</slf4j.version>
-		<soot.version>3.3.0</soot.version>
+		<gator.soot.version>3.3.0</gator.soot.version>
 		<velocity.version>1.7</velocity.version>
 		<junit.version>4.12</junit.version>
 	</properties>
@@ -35,7 +36,7 @@
 			<dependency>
 				<groupId>ca.mcgill.sable</groupId>
 				<artifactId>soot</artifactId>
-				<version>${soot.version}</version>
+				<version>${gator.soot.version}</version>
 			</dependency>
 			<dependency>
 				<groupId>org.slf4j</groupId>
@@ -64,4 +65,36 @@
 			</dependency>
 		</dependencies>
 	</dependencyManagement>
+
+	<build>
+		<pluginManagement>
+			<plugins>
+				<plugin>
+					<groupId>org.apache.maven.plugins</groupId>
+					<artifactId>maven-resources-plugin</artifactId>
+					<executions>
+						<execution>
+							<id>copy-resource-one</id>
+							<phase>install</phase>
+							<goals>
+								<goal>copy-resources</goal>
+							</goals>
+							<configuration>
+								<outputDirectory>${main.basedir}/rv-android/lib/gator</outputDirectory>
+								<overwrite>true</overwrite>
+								<resources>
+									<resource>
+										<directory>${project.build.directory}</directory>
+										<includes>
+											<include>${final.jar.name}.jar</include>
+										</includes>
+									</resource>
+								</resources>
+							</configuration>
+						</execution>
+					</executions>
+				</plugin>
+			</plugins>
+		</pluginManagement>
+	</build>
 </project>
