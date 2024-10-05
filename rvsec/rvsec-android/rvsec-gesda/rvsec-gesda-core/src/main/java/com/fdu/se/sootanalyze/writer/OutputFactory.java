@@ -93,7 +93,6 @@ public final class OutputFactory {
 	private static ListenerInfoOut createListenerInfoOut(Listener listener) {
 		ListenerInfoOut info = new ListenerInfoOut();
 		info.setType(listener.getType());
-		info.setListernerClass(listener.getListenerClass());		
 		info.setRegisteredInFile(listener.isEventRegisteredInLayoutFile());
 		info.setCallbackMethod(createMethodInfoOut(listener.getCallbackMethod()));
 		return info;

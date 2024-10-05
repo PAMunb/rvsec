@@ -4,19 +4,19 @@ import com.fdu.se.sootanalyze.model.ListenerType;
 
 public class ListenerInfoOut {
 	private ListenerType type;
-	private String listernerClass;
+//	private String listernerClass;
 	private MethodInfoOut callbackMethod;
 	private boolean registeredInFile;
 
 	public ListenerInfoOut() {
 	}
 
-	public ListenerInfoOut(ListenerType type, String listernerClass, MethodInfoOut callbackMethod, boolean registeredInFile) {
-		this.type = type;
-		this.listernerClass = listernerClass;
-		this.callbackMethod = callbackMethod;
-		this.registeredInFile = registeredInFile;
-	}
+//	public ListenerInfoOut(ListenerType type, String listernerClass, MethodInfoOut callbackMethod, boolean registeredInFile) {
+//		this.type = type;
+//		this.listernerClass = listernerClass;
+//		this.callbackMethod = callbackMethod;
+//		this.registeredInFile = registeredInFile;
+//	}
 
 	public ListenerType getType() {
 		return type;
@@ -24,14 +24,6 @@ public class ListenerInfoOut {
 
 	public void setType(ListenerType type) {
 		this.type = type;
-	}
-
-	public String getListernerClass() {
-		return listernerClass;
-	}
-
-	public void setListernerClass(String listernerClass) {
-		this.listernerClass = listernerClass;
 	}
 
 	public MethodInfoOut getCallbackMethod() {
@@ -52,7 +44,7 @@ public class ListenerInfoOut {
 
 	@Override
 	public String toString() {
-		return String.format("ListenerInfoOut [type=%s, listernerClass=%s, callbackMethod=%s, registeredInFile=%s]", type, listernerClass, callbackMethod, registeredInFile);
+		return String.format("ListenerInfoOut [type=%s, callbackMethod=%s, registeredInFile=%s]", type, callbackMethod, registeredInFile);
 	}
 
 }
