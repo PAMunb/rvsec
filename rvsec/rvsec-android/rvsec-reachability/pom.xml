@@ -14,8 +14,7 @@
 
 	<properties>
 		<main.class>br.unb.cic.rvsec.reach.Main</main.class>
-		<jar.name>rvsec-reach</jar.name>
-		<final.jar.name>${jar.name}-jar-with-dependencies</final.jar.name>
+		<final.jar.name>rvsec-reach</final.jar.name>
 	</properties>
 
 	<dependencies>
@@ -68,7 +67,6 @@
 	</dependencies>
 
 	<build>
-		<finalName>${jar.name}</finalName>
 		<plugins>
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
@@ -82,7 +80,8 @@
 					<descriptorRefs>
 						<descriptorRef>jar-with-dependencies</descriptorRef>
 					</descriptorRefs>
-					<finalName>${jar.name}</finalName>
+					<finalName>${final.jar.name}</finalName>
+					<appendAssemblyId>false</appendAssemblyId>
 				</configuration>
 				<executions>
 					<execution>

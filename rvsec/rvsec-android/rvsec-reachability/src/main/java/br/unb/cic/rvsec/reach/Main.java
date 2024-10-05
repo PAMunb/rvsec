@@ -103,7 +103,7 @@ public class Main {
 	
 	private Set<SootMethod> getMopMethods(String mopSpecsDir, AppInfo appInfo) throws MOPException {
 		MopFacade mopFacade = new MopFacade();
-		Set<SootMethod> mopMethods = mopFacade.getMopMethods(mopSpecsDir, appInfo);
+		Set<SootMethod> mopMethods = mopFacade.getMopMethodsUsedInApplicationPackage(mopSpecsDir, appInfo);
 		log.info("MOP methods: " + mopMethods.size());
 		mopMethods.forEach(m -> log.debug(" - " + m.getSignature()));
 		return mopMethods;

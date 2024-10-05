@@ -19,13 +19,13 @@
 		<module>rvsec-logger-logcat</module>
 		<module>rvsec-methods-extractor</module> <!-- deprecated ??? -->
 		<module>rvsec-gesda</module>
-		<module>rvsec-reachability</module>				
+		<module>rvsec-reachability</module>
 		<module>rvsec-gator</module>
 		<module>rvsec-taint</module> <!-- deprecated ... apenas para testes -->
 	</modules>
 
 	<properties>
-		<apktool.version>2.9.3</apktool.version>
+		<apktool.version>2.10.0</apktool.version>
 		<flowdroid.version>2.10.0</flowdroid.version>
 		<gson.version>2.10.1</gson.version>
 		<jgrapht.version>1.5.2</jgrapht.version>
@@ -38,6 +38,12 @@
 				<groupId>br.unb.cic</groupId>
 				<artifactId>rvsec-apk</artifactId>
 				<version>${project.version}</version>
+				<exclusions>
+					<exclusion>
+						<groupId>org.apktool</groupId>
+						<artifactId>apktool-cli</artifactId>
+					</exclusion>
+				</exclusions>
 			</dependency>
 			<dependency>
 				<groupId>br.unb.cic</groupId>
@@ -88,6 +94,12 @@
 				<groupId>org.apktool</groupId>
 				<artifactId>apktool-lib</artifactId>
 				<version>${apktool.version}</version>
+			</dependency>
+			<dependency>
+				<groupId>org.apktool</groupId>
+				<artifactId>apktool-cli</artifactId>
+				<version>${apktool.version}</version>
+				<optional>true</optional>
 			</dependency>
 			<dependency>
 				<groupId>org.jgrapht</groupId>

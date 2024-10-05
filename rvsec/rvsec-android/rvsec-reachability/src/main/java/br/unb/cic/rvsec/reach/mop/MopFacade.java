@@ -22,8 +22,9 @@ import soot.jimple.Stmt;
 public class MopFacade {
 	private static final Logger log = LoggerFactory.getLogger(MopFacade.class);
 	
-	public Set<SootMethod> getMopMethods(String mopSpecsDir, AppInfo apkInfo) throws MOPException {
-		log.info("Retrieving methods used  in MOP specs ...");
+	@Deprecated
+	public Set<SootMethod> getMopMethodsUsedInApplicationPackage(String mopSpecsDir, AppInfo apkInfo) throws MOPException {
+		log.info("Retrieving MOP methods used in application package ...");
 		Set<SootMethod> sootMopMethods = new HashSet<>();
 
 		JavamopFacade javamopFacade = new JavamopFacade();
@@ -44,6 +45,33 @@ public class MopFacade {
                     }
 				}
 			}
+		}
+
+		return sootMopMethods;
+	}
+	
+	public Set<SootMethod> getMopMethodsUsedInApk(String mopSpecsDir, AppInfo apkInfo) throws MOPException {
+		log.info("Retrieving MOP methods used in APK ...");
+		Set<SootMethod> sootMopMethods = new HashSet<>();
+
+		JavamopFacade javamopFacade = new JavamopFacade();
+		Set<MopMethod> mopMethods = javamopFacade.listUsedMethods(mopSpecsDir, false);
+
+		for (SootClass c : Scene.v().getApplicationClasses()) {
+//			if (AndroidUtil.isClassInApplicationPackage(c, apkInfo)) {
+				for (SootMethod m : c.getMethods()) {
+					UnitPatchingChain units = m.retrieveActiveBody().getUnits();
+                    for (Unit unit : units) {
+                        Stmt stmt = (Stmt) unit;
+                        if (stmt.containsInvokeExpr()) {
+                            InvokeExpr invokeExpr = stmt.getInvokeExpr();
+                            if (isMop(invokeExpr, mopMethods)) {
+                                sootMopMethods.add(invokeExpr.getMethod());
+                            }
+                        }
+                    }
+				}
+//			}
 		}
 
 		return sootMopMethods;
