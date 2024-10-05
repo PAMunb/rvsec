@@ -49,11 +49,12 @@ def find_best_google_api(sdk_path, api_level):
 def analyze(args, unknown):
     # jar = os.path.join(gator_dir, 'sootandroid', 'build', 'libs', 'sootandroid-1.0-SNAPSHOT-all.jar')    
     # jar = os.path.join(gator_dir, 'sootandroid', 'target', 'rvsec-gator-jar-with-dependencies.jar')
-    jar = os.path.join(gator_dir, 'rvsec-gator-jar-with-dependencies.jar')
+    jar = os.path.join(gator_dir, 'rvsec-gator.jar')
     if not os.path.exists(jar):
         print('...... please build GATOR first.')
         exit(-1)
 
+    # client ....
     if args.classpath != '':        
         jar = "{}:{}".format(jar, args.classpath)
     print("...... classpath: {}".format(jar))
@@ -82,6 +83,7 @@ def analyze(args, unknown):
            '-manifestFile', os.path.join(apktool_dir, 'AndroidManifest.xml'),
            '-project', args.apkpath,
            '-apiLevel', 'android-%s' % target_level,
+           '-outputFile', args.out_path,
            '-guiAnalysis',
            '-benchmarkName', args.apkpath.split('/')[-1]
            ]
@@ -227,6 +229,12 @@ def main():
                                 required=False,
                                 default='',
                                 help='additional classpath (jars with clients)')
+
+    parser_analyze.add_argument('--out',
+                                dest='out_path',
+                                required=True,
+                                default='',
+                                help='path to the results file')
 
     parser_analyze.add_argument('-p', '--apk',
                                 dest='apkpath',

@@ -4,7 +4,7 @@ from subprocess import call
 from .utils import make_temp_dir
 
 JAR = os.path.join(os.path.dirname(os.path.realpath(__file__)),
-                   '..', '..', 'apktool', 'apktool_2.9.3.jar')
+                   '..', '..', 'apktool', 'apktool.jar')
 
 
 def decode_res_from_apk(apk_path):
