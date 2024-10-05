@@ -1,13 +1,13 @@
-package presto.android.gui.clients.out;
+package presto.android.gui.clients.wtg.model;
 
 import java.util.Objects;
 
-public class Transicao {
+public class Transition {
 	private int sourceId;
 	private int getTargetId;
-	private Evento event;
+	private Event event;
 
-	public Transicao(int sourceId, int getTargetId, Evento event) {
+	public Transition(int sourceId, int getTargetId, Event event) {
 		this.sourceId = sourceId;
 		this.getTargetId = getTargetId;
 		this.event = event;
@@ -21,7 +21,7 @@ public class Transicao {
 		return getTargetId;
 	}
 
-	public Evento getEvent() {
+	public Event getEvent() {
 		return event;
 	}
 
@@ -36,7 +36,7 @@ public class Transicao {
 			return true;
 		if ((obj == null) || (getClass() != obj.getClass()))
 			return false;
-		Transicao other = (Transicao) obj;
+		Transition other = (Transition) obj;
 		return Objects.equals(event, other.event) && getTargetId == other.getTargetId && sourceId == other.sourceId;
 	}
 

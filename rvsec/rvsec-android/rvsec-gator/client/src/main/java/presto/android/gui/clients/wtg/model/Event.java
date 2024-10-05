@@ -1,4 +1,4 @@
-package presto.android.gui.clients.out;
+package presto.android.gui.clients.wtg.model;
 
 import java.util.Objects;
 import java.util.Set;
@@ -8,7 +8,7 @@ import presto.android.gui.graph.NObjectNode;
 import presto.android.gui.wtg.ds.WTGEdge;
 import soot.SootMethod;
 
-public class Evento {
+public class Event {
 
 	private String type;
 	private Set<String> handlers;
@@ -16,7 +16,7 @@ public class Evento {
 	private String widgetClass;
 	private String widgetName;
 
-	public Evento(WTGEdge e) {
+	public Event(WTGEdge e) {
 		this.type = e.getEventType().name();
 		this.handlers = e.getEventHandlers().stream().map(SootMethod::getSignature).collect(Collectors.toSet());
 		NObjectNode guiWidget = e.getGUIWidget();
@@ -33,40 +33,20 @@ public class Evento {
 		return type;
 	}
 
-	public void setType(String type) {
-		this.type = type;
-	}
-
 	public Set<String> getHandlers() {
 		return handlers;
-	}
-
-	public void setHandlers(Set<String> handlers) {
-		this.handlers = handlers;
 	}
 
 	public int getWidgetId() {
 		return widgetId;
 	}
 
-	public void setWidgetId(int widgetId) {
-		this.widgetId = widgetId;
-	}
-
 	public String getWidgetClass() {
 		return widgetClass;
 	}
 
-	public void setWidgetClass(String widgetClass) {
-		this.widgetClass = widgetClass;
-	}
-
 	public String getWidgetName() {
 		return widgetName;
-	}
-
-	public void setWidgetName(String widgetName) {
-		this.widgetName = widgetName;
 	}
 
 	@Override
@@ -80,7 +60,7 @@ public class Evento {
 			return true;
 		if ((obj == null) || (getClass() != obj.getClass()))
 			return false;
-		Evento other = (Evento) obj;
+		Event other = (Event) obj;
 		return Objects.equals(handlers, other.handlers) && Objects.equals(type, other.type) && Objects.equals(widgetClass, other.widgetClass) && widgetId == other.widgetId && Objects.equals(widgetName, other.widgetName);
 	}
 

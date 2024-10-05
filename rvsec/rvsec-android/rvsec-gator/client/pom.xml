@@ -19,20 +19,20 @@
 
 	<dependencies>
 		<!-- TODO remover ... eh apenas para executar manualmente -->
-		<dependency>
-			<groupId>br.unb.cic</groupId>
-			<artifactId>rvsec-apk</artifactId>
-			<exclusions>
-				<exclusion>
-					<groupId>de.fraunhofer.sit.sse.flowdroid</groupId>
-					<artifactId>soot-infoflow</artifactId>
-				</exclusion>
+<!--		<dependency>-->
+<!--			<groupId>br.unb.cic</groupId>-->
+<!--			<artifactId>rvsec-apk</artifactId>-->
+<!--			<exclusions>-->
+<!--				<exclusion>-->
+<!--					<groupId>de.fraunhofer.sit.sse.flowdroid</groupId>-->
+<!--					<artifactId>soot-infoflow</artifactId>-->
+<!--				</exclusion>-->
 <!--				<exclusion>-->
 <!--					<groupId>de.fraunhofer.sit.sse.flowdroid</groupId>-->
 <!--					<artifactId>soot-infoflow-android</artifactId>-->
 <!--				</exclusion>-->
-			</exclusions>
-		</dependency>
+<!--			</exclusions>-->
+<!--		</dependency>-->
 
 		<dependency>
 			<groupId>br.unb.cic</groupId>
