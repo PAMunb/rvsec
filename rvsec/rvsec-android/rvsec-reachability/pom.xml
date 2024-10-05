@@ -14,7 +14,8 @@
 
 	<properties>
 		<main.class>br.unb.cic.rvsec.reach.Main</main.class>
-		<final.jar.name>rvsec-reach</final.jar.name>
+		<jar.name>rvsec-reach</jar.name>
+		<final.jar.name>${jar.name}-jar-with-dependencies</final.jar.name>
 	</properties>
 
 	<dependencies>
@@ -64,9 +65,10 @@
 			<groupId>com.google.code.gson</groupId>
 			<artifactId>gson</artifactId>
 		</dependency>
-    </dependencies>
+	</dependencies>
 
 	<build>
+		<finalName>${jar.name}</finalName>
 		<plugins>
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
@@ -80,7 +82,7 @@
 					<descriptorRefs>
 						<descriptorRef>jar-with-dependencies</descriptorRef>
 					</descriptorRefs>
-					<finalName>${final.jar.name}</finalName>
+					<finalName>${jar.name}</finalName>
 				</configuration>
 				<executions>
 					<execution>
@@ -88,6 +90,31 @@
 						<goals>
 							<goal>single</goal>
 						</goals>
+					</execution>
+				</executions>
+			</plugin>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-resources-plugin</artifactId>
+				<executions>
+					<execution>
+						<id>copy-resource-one</id>
+						<phase>install</phase>
+						<goals>
+							<goal>copy-resources</goal>
+						</goals>
+						<configuration>
+							<outputDirectory>${main.basedir}/rv-android/lib/reach</outputDirectory>
+							<overwrite>true</overwrite>
+							<resources>
+								<resource>
+									<directory>${project.build.directory}</directory>
+									<includes>
+										<include>${final.jar.name}.jar</include>
+									</includes>
+								</resource>
+							</resources>
+						</configuration>
 					</execution>
 				</executions>
 			</plugin>
