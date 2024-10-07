@@ -5,7 +5,7 @@ import os
 import sys
 import time
 
-import experiment_01
+from experiment import experiment_02
 import utils
 
 available_tools = {}
@@ -48,10 +48,7 @@ $ python main.py --list-tools
 
 '''
 
-if __name__ == '__main__':
-
-    load_tools()
-
+def run_cli():
     # Start catching arguments
     parser = argparse.ArgumentParser(description=program_description, formatter_class=argparse.RawTextHelpFormatter)
 
@@ -69,6 +66,9 @@ if __name__ == '__main__':
     # Number of repetitions used in the experiment
     parser.add_argument('-r', default=1, help='Number of repetitions used in the experiment. EX: -r 10',
                         type=int)
+
+    # Number of repetitions used in the experiment
+    parser.add_argument('-c', default=1, help='Path of the execution file', type=str)
 
     parser.add_argument("--no_window", help="Starts emulator with '-no-window'", action="store_true")
 
@@ -108,12 +108,43 @@ if __name__ == '__main__':
     generate_monitors = not args.skip_monitors
     instrument = not args.skip_instrument
 
+    memory_file = args.c
+    print(">>>>>>> memory_file={}".format(memory_file))
+
+
     logging.info('############# STARTING EXPERIMENT #############')
     start = time.time()
 
-    experiment_01.execute(args.r, args.t, tools, generate_monitors, instrument, args.no_window, args.skip_experiment)
+    experiment_02.execute(args.r, args.t, tools, memory_file, generate_monitors, instrument, args.no_window, args.skip_experiment, available_tools)
 
     end = time.time()
     elapsed = end - start
     logging.info('It took {0} to complete'.format(utils.to_readable_time(elapsed)))
     logging.info('############# ENDING EXPERIMENT #############')
+
+
+def run_local():
+    logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
+    logging.getLogger("androguard").setLevel(logging.WARNING)
+    # apks_dir = "/home/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec/rv-android/apks_examples"
+    # apks = utils.get_apks(apks_dir)
+    repetitions = 3
+    timeouts = [60, 90, 120, 180, 300]
+    tools = available_tools.values()
+    # memory_file = ""
+    memory_file = "/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec/rv-android/results/20241007152220/execution_memory.json"
+    generate_monitors = False
+    instrument = False
+    no_window = True
+    skip_experiment = False
+
+    experiment_02.execute(repetitions, timeouts, tools, memory_file, generate_monitors, instrument, no_window, skip_experiment)
+
+
+if __name__ == '__main__':
+
+    load_tools()
+
+    # run_cli()
+    run_local()
+
