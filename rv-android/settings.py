@@ -10,7 +10,8 @@ WORKING_DIR = os.getcwd()
 APKS_DIR = os.path.join(WORKING_DIR, 'apks')
 #APKS_DIR = os.path.join(WORKING_DIR, 'apks_mini')
 RESULTS_DIR = os.path.join(WORKING_DIR, 'results')
-INSTRUMENTED_DIR = os.path.join(WORKING_DIR, 'out')
+INSTRUMENTED_DIR = "/home/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec/rv-android/apks_examples"
+# INSTRUMENTED_DIR = os.path.join(WORKING_DIR, 'out')
 LIB_DIR = os.path.join(WORKING_DIR, 'lib')
 
 TMP_DIR = os.path.join(WORKING_DIR, 'tmp')

@@ -18,3 +18,6 @@ class Task:
 
     def __str__(self):
         return "[id={}, apk={}, rep={}, timeout={}, tool={}]".format(self.id, self.apk, self.repetition, self.timeout, self.tool)
+
+    def __repr__(self):
+        return "[{},{},{},{},{}]".format(self.id, self.apk, self.repetition, self.timeout, self.tool)

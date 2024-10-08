@@ -40,11 +40,10 @@ class ExecutionManager:
         self.tasks = []
         self.base_results_dir = ""
         self.memory_file = ""
-        self.executed_taks = set()
+        self.executed_tasks = set()
 
     def create_memory(self, repetitions: int, timeouts: list[int], tools: list[AbstractTool], apks: list[App], memory_file: str, _sort=lambda x: (x.repetition, x.timeout, x.tool, x.apk)):
-        logging.info("Creating execution memory ...")
-        print("memory_file={}".format(memory_file))
+        logging.info(f"Creating execution memory: {memory_file}")
         if os.path.exists(memory_file):
             self.base_results_dir = os.path.dirname(memory_file)
             self.memory_file = memory_file
@@ -53,21 +52,19 @@ class ExecutionManager:
             self.base_results_dir = create_results_dir()
             self.memory_file = os.path.join(self.base_results_dir, EXECUTION_MEMORY_FILENAME)
             self.memory = self.new_memory(repetitions, timeouts, tools, apks)
-        print("*** memory={}".format(self.memory))
         self.tasks = self.memory.get_tasks(_sort)
         self.init_executed_tasks()
-        print("tasks={}".format(self.tasks))
 
     def init_executed_tasks(self):
-        self.executed_taks = set()
+        self.executed_tasks = set()
         for task in self.tasks:
             if task.executed:
-                self.executed_taks.add(task)
+                self.executed_tasks.add(task)
 
     def statistics(self):
-        pct = (len(self.executed_taks) * 100) / len(self.tasks)
+        pct = (len(self.executed_tasks) * 100) / len(self.tasks)
         data = {"tasks": len(self.tasks),
-                "completed": len(self.executed_taks),
+                "completed": len(self.executed_tasks),
                 "pct": round(pct, 2)}
         return data
 
@@ -77,9 +74,8 @@ class ExecutionManager:
     def finish_task(self, task):
         task.executed = True
         task.time = time.time() - task.start_time
-        self.executed_taks.add(task)
+        self.executed_tasks.add(task)
         self.write_memory(self.memory, self.memory_file)
-
 
     @staticmethod
     def read_memory(memory_file: str):
@@ -92,7 +88,7 @@ class ExecutionManager:
 
     @staticmethod
     def write_memory(memory: Memory, memory_file: str):
-        logging.debug("Writing memory file: {}".format(memory_file))
+        logging.info("Writing execution memory file: {}".format(memory_file))
         memory.write(memory_file)
 
     @staticmethod
@@ -100,7 +96,7 @@ class ExecutionManager:
         logging.info("Creating new execution memory=[apks={}, repetitions={}, timeouts={}, tools={}]"
                      .format(len(apks), repetitions, timeouts, list(map(lambda tool: tool.name, tools))))
         memory = Memory()
-        memory.init(repetitions, timeouts, tools, apks)
+        memory.init(apks)#repetitions, timeouts, tools, apks)
         return memory
 
 
