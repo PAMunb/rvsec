@@ -8,7 +8,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
@@ -102,36 +101,44 @@ public class XmlParser {
 	private void parseStringFile(String filePath) throws ParserConfigurationException, SAXException, IOException {
 		log.debug("Parsing strings file: " + filePath);
 		File stringsFile = new File(filePath);
-		DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
-		DocumentBuilder docBuilder = dbf.newDocumentBuilder();
-		Document strings = docBuilder.parse(stringsFile);
-		NodeList strElements = strings.getElementsByTagName("string");
-		for (int i = 0; i < strElements.getLength(); i++) {
-			Node strElement = strElements.item(i);
-			Element e = (Element) strElement;
-			String nameValue = e.getAttribute("name");
-			mapAppStrings.put(nameValue, strElement.getFirstChild().getNodeValue());
+		if (stringsFile.exists()) {
+			DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
+			DocumentBuilder docBuilder = dbf.newDocumentBuilder();
+			Document strings = docBuilder.parse(stringsFile);
+			NodeList strElements = strings.getElementsByTagName("string");
+			for (int i = 0; i < strElements.getLength(); i++) {
+				Node strElement = strElements.item(i);
+				Element e = (Element) strElement;
+				String nameValue = e.getAttribute("name");
+				Node firstChild = strElement.getFirstChild();
+				if (firstChild != null) {
+					mapAppStrings.put(nameValue, strElement.getFirstChild().getNodeValue());
+				}
+			}
 		}
 	}
 
 	private void parsePublicStringFile(String filePath) throws ParserConfigurationException, SAXException, IOException {
 		log.debug("Parsing public strings file: " + filePath);
-		final List<String> validTypes = List.of("id", "menu", "string");
-		DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
-		DocumentBuilder docBuilder = dbf.newDocumentBuilder();
-		Document resources = docBuilder.parse(new File(filePath));
-		NodeList elements = resources.getElementsByTagName("public");
-		for (int i = 0; i < elements.getLength(); i++) {
-			Node element = elements.item(i);
-			Element e = (Element) element;
-			String typeValue = e.getAttribute("type");
-			if (validTypes.contains(typeValue)) {
-				String nameValue = e.getAttribute("name");
-				String idValue = e.getAttribute("id");
-				if (StringUtil.isHexadecimal(idValue)) {
-					int id = Integer.parseInt(idValue.substring(2), 16);
-					idMap.put(id + "", nameValue);
-					mapAppStrings.put(id+"", nameValue);
+		File publicStringsFile = new File(filePath);
+		if (publicStringsFile.exists()) {
+			final List<String> validTypes = List.of("id", "menu", "string");
+			DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
+			DocumentBuilder docBuilder = dbf.newDocumentBuilder();
+			Document resources = docBuilder.parse(publicStringsFile);
+			NodeList elements = resources.getElementsByTagName("public");
+			for (int i = 0; i < elements.getLength(); i++) {
+				Node element = elements.item(i);
+				Element e = (Element) element;
+				String typeValue = e.getAttribute("type");
+				if (validTypes.contains(typeValue)) {
+					String nameValue = e.getAttribute("name");
+					String idValue = e.getAttribute("id");
+					if (StringUtil.isHexadecimal(idValue)) {
+						int id = Integer.parseInt(idValue.substring(2), 16);
+						idMap.put(id + "", nameValue);
+						mapAppStrings.put(id + "", nameValue);
+					}
 				}
 			}
 		}
@@ -149,9 +156,7 @@ public class XmlParser {
 	private List<Widget> parseTextViewWidgets(AXmlHandler aXmlHandler) {
 		List<Widget> views = new ArrayList<>();
 
-		List<WidgetType> widgetTypes = List.of(WidgetType.BUTTON, WidgetType.EDIT_TEXT, WidgetType.TEXT_VIEW, 
-				WidgetType.CHECKED_TEXT_VIEW, WidgetType.CHECKBOX, WidgetType.TOGGLE_BUTTON, 
-				WidgetType.RADIO_BUTTON, WidgetType.IMAGE_BUTTON);
+		List<WidgetType> widgetTypes = List.of(WidgetType.BUTTON, WidgetType.EDIT_TEXT, WidgetType.TEXT_VIEW, WidgetType.CHECKED_TEXT_VIEW, WidgetType.CHECKBOX, WidgetType.TOGGLE_BUTTON, WidgetType.RADIO_BUTTON, WidgetType.IMAGE_BUTTON);
 
 		for (WidgetType type : widgetTypes) {
 			List<AXmlNode> nodes = aXmlHandler.getNodesWithTag(type.getXmlTag());
@@ -164,13 +169,12 @@ public class XmlParser {
 
 				Widget widget = builder
 						.text(getAttributeValueAsString(TEXT, node))
-						.hint(getAttributeValue("hint", node))
+						.hint(getAttributeValueAsString("hint", node))
 						.inputType(inputType)
 						.addListener(getListener(node))
 						.build();
 
-				String logText = String.format("Adding widget: [id=%s, widgetId=%s, type=%s, name=%s]", 
-						widget.getId(), widget.getWidgetId(), widget.getType(), widget.getName());
+				String logText = String.format("Adding widget: [id=%s, widgetId=%s, type=%s, name=%s]", widget.getId(), widget.getWidgetId(), widget.getType(), widget.getName());
 				log.debug(logText);
 				views.add(widget);
 			}
@@ -196,14 +200,13 @@ public class XmlParser {
 
 	private WidgetBuilder parseView(AXmlNode node, WidgetType type) {
 		Integer id = getAttributeValue("id", node);
-		String name = getNameById(Objects.requireNonNull(id).toString());
+		if(id == null) {
+			id = -1;
+		}
+		String name = getNameById(id.toString());
 		String contentDescription = getAttributeValueAsString("contentDescription", node);
 		String tooltipText = getAttributeValue("tooltipText", node);
-		return Widget.builder(type)
-				.widgetId(id.toString())
-				.name(name)
-				.contentDescription(contentDescription)
-				.tooltipText(tooltipText);
+		return Widget.builder(type).widgetId(id.toString()).name(name).contentDescription(contentDescription).tooltipText(tooltipText);
 	}
 
 	// https://developer.android.com/reference/android/widget/Spinner#xml-attributes
@@ -215,7 +218,7 @@ public class XmlParser {
 			WidgetBuilder builder = parseView(node, type);
 			parseSpinnerEntries(node, builder);
 			Widget widget = builder.build();
-			log.debug("Adding spinner: " + widget); 
+			log.debug("Adding spinner: " + widget);
 			views.add(widget);
 		}
 		return views;
@@ -262,8 +265,7 @@ public class XmlParser {
 					List<AXmlNode> sub = itemNode.getChildrenWithTag("menu");
 					if (sub.isEmpty()) {// itemNode is MenuItem
 						Widget menuItem = newMenuItem(itemNode, curWidgetId);
-						String logText = String.format("Adding menu item: [id=%s, widgetId=%s, name=%s]", 
-								menuItem.getId(), menuItem.getWidgetId(), menuItem.getName());
+						String logText = String.format("Adding menu item: [id=%s, widgetId=%s, name=%s]", menuItem.getId(), menuItem.getWidgetId(), menuItem.getName());
 						log.debug(logText);
 						menuWidgets.add(menuItem);
 					} else {// itemNode is SubMenu
@@ -280,20 +282,20 @@ public class XmlParser {
 							builder.addMenuItem(newMenuItem(subItemNode, curWidgetId));
 						}
 						Widget subMenu = builder.build();
-						log.debug("Adding sub menu: "+subMenu);
+						log.debug("Adding sub menu: " + subMenu);
 						menuWidgets.add(subMenu);
 					}
 				}
 			}
 		} catch (IOException e) {
-			log.error("Error parsing menu: "+e.getMessage(), e);			
+			log.error("Error parsing menu: " + e.getMessage(), e);
 		}
 		return menuWidgets;
 	}
 
 	private Widget newMenuItem(AXmlNode node, NumberIncrementer curWidgetId) {
 		WidgetBuilder builder = WidgetBuilderFactory.newMenuItem();
-		
+
 		AXmlAttribute<Integer> idAttribute = (AXmlAttribute<Integer>) node.getAttribute("id");
 		if (idAttribute != null) {
 			String widgetId = idAttribute.getValue().toString();
@@ -301,10 +303,7 @@ public class XmlParser {
 			builder.name(getNameById(widgetId));
 		}
 
-		return builder
-				.addListener(getListener(node))
-				.text(getTitleFromMenuRes(node))
-				.build();
+		return builder.addListener(getListener(node)).text(getTitleFromMenuRes(node)).build();
 	}
 
 	private String getTitleFromMenuRes(AXmlNode node) {
@@ -342,7 +341,7 @@ public class XmlParser {
 
 	static {
 		// map inspired on res/values/attrs.xml from android.jar
-		
+
 		/* There is no content type. The text is not editable. */
 		inputTypeValues.put(Integer.parseInt("00000000", 16), "none");
 		/*

@@ -46,13 +46,12 @@ public class AppReader {
 			AXmlNode manifest = processManifest.getManifest();
 
 			String manifestPackage = getAttributeAsString(PACKAGE, manifest);
+			log.debug("Package: "+manifestPackage);
 			appInfo.setPackage(manifestPackage);
 			appInfo.setAppName(processManifest.getApplication().getName());
-			log.trace("package="+appInfo.getPackage());
-			log.trace("appName="+appInfo.getAppName());
 
 			for (BinaryManifestActivity binaryManifestActivity : processManifest.getActivities()) {
-				ActivityInfo activityInfo = readActivity(binaryManifestActivity);
+				ActivityInfo activityInfo = readActivity(binaryManifestActivity, manifestPackage);
 //				if (!activityInfo.getPackageName().startsWith(appInfo.getPackage())) {
 //					samePackage = false;
 //					appPackage.add(activityInfo.getPackageName());
@@ -87,9 +86,12 @@ public class AppReader {
 		}
 	}
 
-	private static ActivityInfo readActivity(BinaryManifestActivity binaryManifestActivity) {
+	private static ActivityInfo readActivity(BinaryManifestActivity binaryManifestActivity, String manifestPackage) {
 		AXmlNode activityNode = binaryManifestActivity.getAXmlNode();
 		String activityName = getAttributeAsString(NAME, activityNode);
+		if(activityName.startsWith(".")) {
+			activityName = manifestPackage + activityName;
+		}
 		log.debug("Reading activity: "+activityName);
 		boolean isMain = false;
 		for (AXmlNode child : activityNode.getChildren()) {

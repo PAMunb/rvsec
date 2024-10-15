@@ -242,7 +242,7 @@ public class Widget {
 				throw new NullPointerException("The property \"type\" is null.");
 			}
 			if (this.widgetId == null) {
-				throw new NullPointerException("The property \"widgetId\" is null.");
+				this.widgetId = "";//UUID.randomUUID().toString();
 			}
 
 			return new Widget(this);

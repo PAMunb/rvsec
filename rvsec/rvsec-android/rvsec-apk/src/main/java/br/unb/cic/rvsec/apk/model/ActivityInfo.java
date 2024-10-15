@@ -18,8 +18,15 @@ public class ActivityInfo {
 
 	private void setName(String name) {
 		this.name = name;
-		this.packageName = name.substring(0, name.lastIndexOf('.'));
-		this.shortName = name.substring(name.lastIndexOf('.') + 1);
+		if(name.contains(".")) {
+			this.packageName = name.substring(0, name.lastIndexOf('.'));
+			this.shortName = name.substring(name.lastIndexOf('.') + 1);
+		}else {
+			this.packageName = "";
+			this.shortName = name;
+		}
+			
+		
 	}
 
 	public String getShortName() {

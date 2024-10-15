@@ -242,7 +242,7 @@ public class SootAnalyze {
 
 	private void processDeclaredCallbacks(List<Widget> views, SootClass activity) {
 		for (Widget widget : views) {
-			if(widget.getListeners() != null) {
+			if (widget.getListeners() != null) {
 				for (Listener listener : widget.getListeners()) {
 					if (listener.isEventRegisteredInLayoutFile()) {
 						Optional<SootMethod> methodOpt = getMethodByName(listener.getCallbackMethodName(), activity);
@@ -273,9 +273,10 @@ public class SootAnalyze {
 	}
 
 	private Map<String, SootField> getAllViewsAssignments(SootMethod method) {
-		// view_name --> soot field ::: stmt_example: soot_field = findViewById(view_name)
+		// view_name --> soot field ::: stmt_example: soot_field =
+		// findViewById(view_name)
 		Map<String, SootField> views = new HashMap<>();
-
+		
 		Body body = method.retrieveActiveBody();
 		UnitGraph cfg = new BriefUnitGraph(body);
 
@@ -288,9 +289,17 @@ public class SootAnalyze {
 					VirtualInvokeExpr expr = (VirtualInvokeExpr) right;
 					String invokedMethodName = expr.getMethod().getName();
 					if (invokedMethodName.equals("findViewById")) {
-						String viewName = getStringName(expr.getArg(0).toString());
-						SootField field = findField(assignStmt.getLeftOp(), unit, cfg);
-						views.put(viewName, field);
+						String viewName = getStringName(expr.getArg(0).toString());						
+						if(viewName != null) {
+							try {
+								SootField field = findField(assignStmt.getLeftOp(), unit, cfg);
+								views.put(viewName, field);
+							} catch (Throwable e) {								
+							}
+						}
+						
+//						SootField field = findField(assignStmt.getLeftOp(), unit, cfg);
+//						views.put(viewName, field);
 					}
 				}
 			}
@@ -537,9 +546,10 @@ public class SootAnalyze {
 		if (stmt instanceof AssignStmt) {
 			AssignStmt assignStmt = (AssignStmt) stmt;
 			if (assignStmt.getLeftOp().equivTo(value)) {
-//				Value rightOp = assignStmt.getRightOp();
-//				if(rightOp instanceof InterfaceInvokeExpr)
-				return assignStmt.getInvokeExpr().getArg(0);
+				Value rightOp = assignStmt.getRightOp();
+				if (rightOp instanceof InterfaceInvokeExpr) {
+					return assignStmt.getInvokeExpr().getArg(0);
+				}
 			}
 		}
 
@@ -673,13 +683,13 @@ public class SootAnalyze {
 
 	private boolean isStartActivityMethod(SootMethod method) {
 		String signature = method.getSignature();
-        return startActivitySignatures.contains(signature);
-    }
+		return startActivitySignatures.contains(signature);
+	}
 
 	private boolean isDepMethod(SootMethod method) {
 		String name = method.getName();
-        return name.equals("isChecked");
-    }
+		return name.equals("isChecked");
+	}
 
 	private String getTargetAct(UnitGraph cfg, Stmt invokeStmt) {
 		InvokeExpr startActExpr = invokeStmt.getInvokeExpr();
@@ -761,8 +771,8 @@ public class SootAnalyze {
 		return null;
 	}
 
-
 	private SootField findField(Value value, Unit u, UnitGraph cfg, AnalysisType type) {
+//		System.out.println("findField: value="+value+", unit="+u+", type="+type);
 		List<Unit> units;
 		if (type == AnalysisType.FORWARD) {
 			units = cfg.getSuccsOf(u);
@@ -770,8 +780,9 @@ public class SootAnalyze {
 			units = cfg.getPredsOf(u);
 		}
 
-		for (Unit unit : units) {
-			Stmt stmt = (Stmt) unit;
+		for (Unit currentUnit : units) {
+			Stmt stmt = (Stmt) currentUnit;
+//			System.out.println(" - findField: value="+value+", unit="+currentUnit);
 			if (stmt instanceof AssignStmt) {
 				AssignStmt assignStmt = (AssignStmt) stmt;
 				Value left = assignStmt.getLeftOp();
@@ -780,7 +791,7 @@ public class SootAnalyze {
 				if (right instanceof JCastExpr) {
 					JCastExpr cast = (JCastExpr) right;
 					if (cast.getOp().equals(value)) {
-						return findField(left, unit, cfg, type);
+						return findField(left, currentUnit, cfg, type);
 					}
 				}
 				// TODO identificar quais os outros casos do "right" e tratar ....
@@ -791,7 +802,7 @@ public class SootAnalyze {
 					}
 				}
 			}
-			return findField(value, unit, cfg, type);
+			return findField(value, currentUnit, cfg, type);
 		}
 		return null;
 	}
@@ -846,27 +857,24 @@ public class SootAnalyze {
 //								cbMethod = methodContex.method();
 //							}
 //						}
-						if (cbMethod != null) {
+						if (cbMethod != null && cbMethod.hasActiveBody()) {
 							UnitGraph cbCfg = new BriefUnitGraph(cbMethod.retrieveActiveBody());
-                            for (Unit unit : cbCfg) {
-                                Stmt stmt = (Stmt) unit;
-                                if (isDepStmt(stmt)) {
-                                    AssignStmt assignStmt = (AssignStmt) stmt;
-                                    Value rightValue = assignStmt.getRightOp();
-                                    Value invokeObj = ((VirtualInvokeExpr) rightValue).getBase();
-                                    String d_id = findWidgetDef(invokeObj, stmt, cbMethod);
-                                    if (d_id != null && !w_ids.contains(d_id)) {
-                                        w_ids.add(d_id);
+							for (Unit unit : cbCfg) {
+								Stmt stmt = (Stmt) unit;
+								if (isDepStmt(stmt)) {
+									AssignStmt assignStmt = (AssignStmt) stmt;
+									Value rightValue = assignStmt.getRightOp();
+									Value invokeObj = ((VirtualInvokeExpr) rightValue).getBase();
+									String d_id = findWidgetDef(invokeObj, stmt, cbMethod);
+									if (d_id != null && !w_ids.contains(d_id)) {
+										w_ids.add(d_id);
 
-                                        Widget dWidget = WidgetBuilderFactory
-                                                .newWidget(WidgetType.getByWidgetClass(invokeObj.getType().toString()))
-                                                .widgetId(d_id)
-                                                .build();
+										Widget dWidget = WidgetBuilderFactory.newWidget(WidgetType.getByWidgetClass(invokeObj.getType().toString())).widgetId(d_id).build();
 
-                                        dWidgets.add(dWidget);
-                                    }
-                                }
-                            }
+										dWidgets.add(dWidget);
+									}
+								}
+							}
 						}
 					}
 
@@ -944,7 +952,7 @@ public class SootAnalyze {
 				String name = invokeMethod.getName();
 				// interface android.widget.Checkable: CheckBox, CheckedTextView,
 				// CompoundButton, RadioButton, Switch, ToggleButton
-                return name.equals("isChecked");
+				return name.equals("isChecked");
 			}
 		}
 		return false;
@@ -995,7 +1003,7 @@ public class SootAnalyze {
 					}
 				}
 
-				String listener = ""; //widget.getListenerName();
+				String listener = ""; // widget.getListenerName();
 				String eventMethod = "";// TODO w.getEventMethod();
 //				CallGraph cg = Scene.v().getCallGraph();
 //				removeDisEdges(cg); 
@@ -1090,24 +1098,24 @@ public class SootAnalyze {
 			Value refCurValue = null;
 			for (SootMethod refMethod : refClass.getMethods()) {
 				UnitGraph refCfg = new BriefUnitGraph(refMethod.retrieveActiveBody());
-                for (Unit unit : refCfg) {
-                    Stmt refStmt = (Stmt) unit;
-                    if (refStmt instanceof AssignStmt && refStmt.containsFieldRef()) {
-                        AssignStmt refAssignStmt = (AssignStmt) refStmt;
-                        Value refLeft = refAssignStmt.getLeftOp();
-                        if (refLeft.toString().contains(field.toString())) {
-                            refCurStmt = refAssignStmt;
-                            Value refRight = refAssignStmt.getRightOp();
-                            if (refRight instanceof CastExpr) {
-                                CastExpr castExpr = (CastExpr) refRight;
-                                refCurValue = castExpr.getOp();
-                            } else {
-                                refCurValue = refRight;
-                            }
-                            break;
-                        }
-                    }
-                }
+				for (Unit unit : refCfg) {
+					Stmt refStmt = (Stmt) unit;
+					if (refStmt instanceof AssignStmt && refStmt.containsFieldRef()) {
+						AssignStmt refAssignStmt = (AssignStmt) refStmt;
+						Value refLeft = refAssignStmt.getLeftOp();
+						if (refLeft.toString().contains(field.toString())) {
+							refCurStmt = refAssignStmt;
+							Value refRight = refAssignStmt.getRightOp();
+							if (refRight instanceof CastExpr) {
+								CastExpr castExpr = (CastExpr) refRight;
+								refCurValue = castExpr.getOp();
+							} else {
+								refCurValue = refRight;
+							}
+							break;
+						}
+					}
+				}
 				if (refCurStmt != null) {
 					while (!refCfg.getPredsOf(refCurStmt).isEmpty()) {
 						refCurStmt = (Stmt) refCfg.getPredsOf(refCurStmt).get(0);
@@ -1152,7 +1160,8 @@ public class SootAnalyze {
 		conf.getAnalysisFileConfig().setSourceSinkFile(sourceSinkFilePath);
 		// set multi dex flag, if set false, only analyze classes.dex
 		conf.setMergeDexFiles(true);
-		// set AccessPath length limit，the default is 5，setting a negative number means no limit
+		// set AccessPath length limit，the default is 5，setting a negative number means
+		// no limit
 		conf.getAccessPathConfiguration().setAccessPathLength(-1);
 		// set Abstraction path length limit，negative number means no limit
 		conf.getSolverConfiguration().setMaxAbstractionPathLength(-1);
@@ -1181,15 +1190,17 @@ public class SootAnalyze {
 	}
 
 	private String getLayoutFieldNameById(String layoutId) {
-		for (SootField layoutField : rLayoutClass.getFields()) {
-			if (layoutField.isFinal() && layoutField.isStatic()) {
-				String fieldName = layoutField.getName();
-				Tag fieldTag = layoutField.getTag("IntegerConstantValueTag");
-				if (fieldTag != null) {
-					String tagString = fieldTag.toString();
-					String fieldValue = tagString.split(" ")[1];
-					if (layoutId.equals(fieldValue)) {
-						return fieldName;
+		if (rLayoutClass != null) {
+			for (SootField layoutField : rLayoutClass.getFields()) {
+				if (layoutField.isFinal() && layoutField.isStatic()) {
+					String fieldName = layoutField.getName();
+					Tag fieldTag = layoutField.getTag("IntegerConstantValueTag");
+					if (fieldTag != null) {
+						String tagString = fieldTag.toString();
+						String fieldValue = tagString.split(" ")[1];
+						if (layoutId.equals(fieldValue)) {
+							return fieldName;
+						}
 					}
 				}
 			}
@@ -1276,12 +1287,20 @@ public class SootAnalyze {
 		}
 	}
 
+	private static Map<String, Throwable> problemas = new HashMap<>();
+
 	public static void main(String[] args) {
+		ch.qos.logback.classic.Logger root = (ch.qos.logback.classic.Logger) LoggerFactory.getLogger(Logger.ROOT_LOGGER_NAME);
+		root.setLevel(ch.qos.logback.classic.Level.TRACE);
+
 		String androidPlatformsDir = "/home/pedro/desenvolvimento/aplicativos/android/sdk/platforms";
 		String rtJarPath = "/home/pedro/.sdkman/candidates/java/8.0.302-open/jre/lib/rt.jar";
 
 		String baseDir = "/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec/rv-android/apks_examples/";
-		String apk = baseDir + "cryptoapp.apk";
+//		String apk = baseDir + "cryptoapp.apk";
+//		String apk = baseDir + "media.apk";
+//		String apk = baseDir + "osmtracker.apk";
+		String apk = "/home/pedro/desenvolvimento/RV_ANDROID/apks/11/com.zzzmode.appopsx_125.apk";
 
 		String sourcesAndSinksFile = "/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec/rvsec/rvsec-android/rvsec-taint/SourcesAndSinks.txt";
 //		String sinksFile = "";
@@ -1289,6 +1308,55 @@ public class SootAnalyze {
 
 		String outputFile = "/home/pedro/tmp/rvsec-gesda.json";
 
+//		run(androidPlatformsDir, rtJarPath, apk, outputFile);
+		
+//		*** /home/pedro/desenvolvimento/RV_ANDROID/apks/09/com.saverio.wordoftheday_en_15.apk=UnitThrowAnalysis StmtSwitch: type of throw argument is not a RefType!
+//		*** /home/pedro/desenvolvimento/RV_ANDROID/apks/11/com.zoffcc.applications.zanavi_257.apk=No method source set for method <com.zoffcc.applications.zanavi.Navit: void AppCrashC()>
+//		*** /home/pedro/desenvolvimento/RV_ANDROID/apks/08/com.paranoiaworks.unicus.android.sse_118.apk=UnitThrowAnalysis StmtSwitch: type of throw argument is not a RefType!
+//		*** /home/pedro/desenvolvimento/RV_ANDROID/apks/07/com.koushikdutta.superuser_1030.apk=null
+//		*** /home/pedro/desenvolvimento/RV_ANDROID/apks/06/com.hwloc.lstopo_271.apk=No method source set for method <com.hwloc.lstopo.MainActivity: int start(com.hwloc.lstopo.Lstopo,int,java.lang.String,java.util.ArrayList)>
+//		*** /home/pedro/desenvolvimento/RV_ANDROID/apks/16/idv.markkuo.ambitsync_9.apk=No method source set for method <idv.markkuo.ambitsync.MainActivity: int getBatteryPercent(long)>
+//		*** /home/pedro/desenvolvimento/RV_ANDROID/apks/06/com.jvillalba.apod.classic_11.apk=null
+//		*** /home/pedro/desenvolvimento/RV_ANDROID/apks/11/com.xabber.android_644.apk=The property "type" is null.
+//		*** /home/pedro/desenvolvimento/RV_ANDROID/apks/02/com.Bisha.TI89EmuDonation_1133.apk=No method source set for method <com.graph89.emulationcore.EmulatorActivity: void nativeCleanGraph89()>
+		
+		List<String> apksComProblemas = List.of("/home/pedro/desenvolvimento/RV_ANDROID/apks/11/com.zzzmode.appopsx_125.apk");
+		
+		for(int i=1; i< 29; i++) {
+			String idx = String.format("%02d", i);
+			System.out.println("\n\n\n**************************\n**************************\n**************************\n"+idx+"\n**************************\n**************************\n**************************");
+			printProblems();
+			System.out.println("**************************\n**************************\n**************************");
+			File apksDir = new File("/home/pedro/desenvolvimento/RV_ANDROID/apks/"+idx);
+			for (File file : apksDir.listFiles()) {
+				if(apksComProblemas.contains(file.getAbsolutePath())) {
+					continue;
+				}
+				run(androidPlatformsDir, rtJarPath, file.getAbsolutePath(), outputFile);
+			}
+		}
+
+//		File apksDir = new File("/home/pedro/desenvolvimento/RV_ANDROID/apks/03");
+//		for (File file : apksDir.listFiles()) {
+//			run(androidPlatformsDir, rtJarPath, file.getAbsolutePath(), outputFile);
+//		}
+//
+		
+		// /home/pedro/desenvolvimento/RV_ANDROID/apks/11/com.zzzmode.appopsx_125.apk
+		
+//		printProblems();
+
+		System.out.println("FIM DE FESTA !!!");
+	}
+
+	private static void printProblems() {
+		System.out.println("PROBLEMAS: "+problemas.size());
+		for (String chave : problemas.keySet()) {
+			System.out.println("*** "+chave+"="+problemas.get(chave).getMessage());
+		}
+	}
+
+	private static void run(String androidPlatformsDir, String rtJarPath, String apk, String outputFile) {
 		SootAnalyze sootAnalyze = new SootAnalyze(androidPlatformsDir, rtJarPath);
 
 		try {
@@ -1308,11 +1376,10 @@ public class SootAnalyze {
 
 			ApkInfoOut infoOut = OutputFactory.createApkInfoOut(info, nodes);
 			OutputWriter.write(infoOut, new File(outputFile));
-		} catch (IOException | XmlPullParserException e) {
-			e.printStackTrace();
+		} catch (Throwable t) {
+			t.printStackTrace();
+			problemas.put(apk, t);
 		}
-
-		System.out.println("FIM DE FESTA !!!");
 	}
 
 }
