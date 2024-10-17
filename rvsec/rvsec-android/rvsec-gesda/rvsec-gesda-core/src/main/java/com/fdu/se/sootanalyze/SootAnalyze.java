@@ -9,6 +9,7 @@ import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -193,6 +194,9 @@ public class SootAnalyze {
 
 	private void processListeners(List<Widget> views, SootClass activity) {
 		for (SootMethod method : activity.getMethods()) {
+			if(!method.hasActiveBody()) {
+				continue;
+			}
 			Body body = method.retrieveActiveBody();
 			UnitGraph cfg = new BriefUnitGraph(body);
 			UnitPatchingChain units = body.getUnits();
@@ -492,7 +496,7 @@ public class SootAnalyze {
 					}
 					if (signature.equals("<android.view.Menu: android.view.SubMenu addSubMenu(int,int,int,int)>")) {
 						WidgetBuilder builder = WidgetBuilderFactory.newSubMenu();
-						Value idValue = invokeExpr.getArg(1);
+						Value idValue = invokeExpr.getArg(0);
 						builder.widgetId(idValue.toString());
 						Value textIdValue = invokeExpr.getArg(3);
 						String textId = getStringName(textIdValue.toString());
@@ -576,13 +580,20 @@ public class SootAnalyze {
 
 	private List<Widget> getSubItems(Stmt stmt, UnitGraph cfg) {
 		List<Widget> items = new ArrayList<>();
+		Set<Stmt> visited = new HashSet<>();
 		if (stmt instanceof AssignStmt) {
 			AssignStmt assignStmt = (AssignStmt) stmt;
 			Value left = assignStmt.getLeftOp();
 			if (left.getType().toString().equals("android.view.SubMenu")) {
 				Stmt curStmt = assignStmt;
+				visited.add(curStmt);
 				while (!cfg.getSuccsOf(curStmt).isEmpty()) {
 					curStmt = (Stmt) cfg.getSuccsOf(curStmt).get(0);
+					boolean b = visited.add(curStmt);
+					if(!b) {
+						return items;
+					}
+					
 					if (curStmt.containsInvokeExpr()) {
 						InvokeExpr curInvokeExpr = curStmt.getInvokeExpr();
 						if (curInvokeExpr instanceof InterfaceInvokeExpr) {
@@ -1182,8 +1193,11 @@ public class SootAnalyze {
 			Optional<InvokeExpr> invokeExprOpt = getInvokeExprByMethodName("setContentView", method);
 			if (invokeExprOpt.isPresent()) {
 				InvokeExpr invokeExpr = invokeExprOpt.get();
-				String layoutId = invokeExpr.getArg(0).toString();
-				return getLayoutFieldNameById(layoutId);
+				Value arg = invokeExpr.getArg(0);
+				if(arg != null) {
+					String layoutId = invokeExpr.getArg(0).toString();
+					return getLayoutFieldNameById(layoutId);
+				}
 			}
 		}
 		return null;
@@ -1209,6 +1223,9 @@ public class SootAnalyze {
 	}
 
 	private Optional<InvokeExpr> getInvokeExprByMethodName(String methodName, SootMethod method) {
+//		if(!method.hasActiveBody()) {
+//			return Optional.empty();
+//		}
 		UnitPatchingChain units = method.retrieveActiveBody().getUnits();
 		for (Unit u : units) {
 			Stmt stmt = (Stmt) u;
@@ -1307,21 +1324,14 @@ public class SootAnalyze {
 		String callbacksFile = "";
 
 		String outputFile = "/home/pedro/tmp/rvsec-gesda.json";
+		
+		
 
 //		run(androidPlatformsDir, rtJarPath, apk, outputFile);
 		
-//		*** /home/pedro/desenvolvimento/RV_ANDROID/apks/09/com.saverio.wordoftheday_en_15.apk=UnitThrowAnalysis StmtSwitch: type of throw argument is not a RefType!
-//		*** /home/pedro/desenvolvimento/RV_ANDROID/apks/11/com.zoffcc.applications.zanavi_257.apk=No method source set for method <com.zoffcc.applications.zanavi.Navit: void AppCrashC()>
-//		*** /home/pedro/desenvolvimento/RV_ANDROID/apks/08/com.paranoiaworks.unicus.android.sse_118.apk=UnitThrowAnalysis StmtSwitch: type of throw argument is not a RefType!
-//		*** /home/pedro/desenvolvimento/RV_ANDROID/apks/07/com.koushikdutta.superuser_1030.apk=null
-//		*** /home/pedro/desenvolvimento/RV_ANDROID/apks/06/com.hwloc.lstopo_271.apk=No method source set for method <com.hwloc.lstopo.MainActivity: int start(com.hwloc.lstopo.Lstopo,int,java.lang.String,java.util.ArrayList)>
-//		*** /home/pedro/desenvolvimento/RV_ANDROID/apks/16/idv.markkuo.ambitsync_9.apk=No method source set for method <idv.markkuo.ambitsync.MainActivity: int getBatteryPercent(long)>
-//		*** /home/pedro/desenvolvimento/RV_ANDROID/apks/06/com.jvillalba.apod.classic_11.apk=null
-//		*** /home/pedro/desenvolvimento/RV_ANDROID/apks/11/com.xabber.android_644.apk=The property "type" is null.
-//		*** /home/pedro/desenvolvimento/RV_ANDROID/apks/02/com.Bisha.TI89EmuDonation_1133.apk=No method source set for method <com.graph89.emulationcore.EmulatorActivity: void nativeCleanGraph89()>
 		
-		List<String> apksComProblemas = List.of("/home/pedro/desenvolvimento/RV_ANDROID/apks/11/com.zzzmode.appopsx_125.apk");
-		
+//		List<String> apksComProblemas = List.of("/home/pedro/desenvolvimento/RV_ANDROID/apks/11/com.zzzmode.appopsx_125.apk");
+//		
 		for(int i=1; i< 29; i++) {
 			String idx = String.format("%02d", i);
 			System.out.println("\n\n\n**************************\n**************************\n**************************\n"+idx+"\n**************************\n**************************\n**************************");
@@ -1329,9 +1339,9 @@ public class SootAnalyze {
 			System.out.println("**************************\n**************************\n**************************");
 			File apksDir = new File("/home/pedro/desenvolvimento/RV_ANDROID/apks/"+idx);
 			for (File file : apksDir.listFiles()) {
-				if(apksComProblemas.contains(file.getAbsolutePath())) {
-					continue;
-				}
+//				if(apksComProblemas.contains(file.getAbsolutePath())) {
+//					continue;
+//				}
 				run(androidPlatformsDir, rtJarPath, file.getAbsolutePath(), outputFile);
 			}
 		}
@@ -1342,9 +1352,8 @@ public class SootAnalyze {
 //		}
 //
 		
-		// /home/pedro/desenvolvimento/RV_ANDROID/apks/11/com.zzzmode.appopsx_125.apk
 		
-//		printProblems();
+		printProblems();
 
 		System.out.println("FIM DE FESTA !!!");
 	}
