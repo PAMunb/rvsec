@@ -9,8 +9,10 @@ EXTENSION_MOP = ".mop"
 EXTENSION_RVM = ".rvm"
 
 EXTENSION_LOGCAT = ".logcat"
-EXTENSION_METHODS = ".methods"
 EXTENSION_TRACE = ".trace"
+EXTENSION_METHODS = ".methods"
+EXTENSION_GESDA = ".gesda"
+EXTENSION_GATOR = ".wtg"
 
 # COLUMNS (reports, results)
 

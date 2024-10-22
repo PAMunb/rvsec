@@ -31,16 +31,15 @@ rerun = True
 
 def execute():
     _execute(x.repetitions, x.timeouts, x.tools, x.memory_file, x.generate_monitors, x.instrument,
-             x.skip_experiment, x.no_window, x.available_tools)
+             x.skip_experiment, x.no_window, x.static_analysis)
 
 
 def _execute(repetitions: int, timeouts: list[int], tools: list[AbstractTool], memory_file="", generate_monitors=True,
-             instrument=True, skip_experiment=False, no_window=False, available_tools=[]):
+             instrument=True, static_analysis=True, skip_experiment=False, no_window=False):
     logging.info("Executing Experiment ...")
 
-    # TODO
     # generate monitors, instrument APKs and static analysis
-    # pre_process_apks(generate_monitors, instrument, base_results_dir)
+    pre_process_apks(generate_monitors, instrument, static_analysis, INSTRUMENTED_DIR)
 
     if not skip_experiment:
         run_experiment(repetitions, timeouts, tools, memory_file, no_window)
@@ -62,14 +61,14 @@ def run_experiment(repetitions, timeouts, tools, memory_file, no_window):
     # exec_order = lambda x: (x.repetition, x.apk, x.timeout, x.tool)
     exec_manager.create_memory(repetitions, timeouts, tools, apks, memory_file, exec_order)
 
-    cont = 0
+    # cont = 0
 
     logging.info(exec_manager.statistics())
     for task in exec_manager.tasks:
 
-        cont += 1
-        if (cont == 50):
-            exit(1)
+        # cont += 1
+        # if (cont == 50):
+        #     exit(1)
 
         if task.executed:
             logging.info(f"Skipping already executed task: {task}")
@@ -141,7 +140,7 @@ def init_maps(apks, tools):
         tools_map[tool.name] = tool
 
 
-def pre_process_apks(generate_monitors: bool, instrument: bool, base_results_dir: str):
+def pre_process_apks(generate_monitors: bool, instrument: bool, static_analysis: bool, base_results_dir: str):
     if generate_monitors:
         rvsec = RVSec()
         rvsec.generate_monitors()
@@ -149,6 +148,8 @@ def pre_process_apks(generate_monitors: bool, instrument: bool, base_results_dir
         rvandroid = RvAndroid()
         rvandroid.instrument_apks(results_dir=base_results_dir)
         extract_all_methods()
+    if static_analysis:
+        pass
 
 
 def post_process(base_results_dir: str):

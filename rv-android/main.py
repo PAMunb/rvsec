@@ -72,6 +72,7 @@ def run_cli():
     experiment_config.tools = tools
     experiment_config.generate_monitors = not args.skip_monitors
     experiment_config.instrument = not args.skip_instrument
+    experiment_config.static_analysis = not args.skip_static_analysis
     experiment_config.no_window = args.no_window
     experiment_config.skip_experiment = args.skip_experiment
 
@@ -120,14 +121,14 @@ def create_argument_parser():
     # Number of repetitions used in the experiment
     parser.add_argument('-r', default=1, help='Number of repetitions used in the experiment. EX: -r 10',
                         type=int)
-    # Number of repetitions used in the experiment
-    parser.add_argument('-c', default=1, help='Path of the execution file', type=str)
+    parser.add_argument('-c', default=1, help='Path of the execution memory file', type=str)
     parser.add_argument("--no_window", help="Starts emulator with '-no-window'", action="store_true")
     # Enable DEBUG mode.
     parser.add_argument('--debug', help='Run in DEBUG mode (default: false)', dest='debug', action='store_true')
     parser.add_argument("--skip_monitors", help="Skip monitors generation", action="store_true")
     parser.add_argument("--skip_instrument", help="Skip instrumentation", action="store_true")
     parser.add_argument("--skip_experiment", help="Skip experiment execution", action="store_true")
+    parser.add_argument("--skip_static_analysis", help="Skip static analysis", action="store_true")
     return parser
 
 
@@ -137,15 +138,16 @@ def run_local():
 
     experiment_config.repetitions = 3
     experiment_config.timeouts = [60, 90, 120, 180, 300]
-    experiment_config.tools = available_tools.values()
+    experiment_config.tools = available_tools.values() # selected tools
     experiment_config.available_tools = available_tools.values()
-    experiment_config.generate_monitors = False
-    experiment_config.instrument = False
+    experiment_config.generate_monitors = True
+    experiment_config.instrument = True
+    experiment_config.static_analysis = False
     experiment_config.no_window = True
-    experiment_config.skip_experiment = False
+    experiment_config.skip_experiment = True
 
     experiment_config.memory_file = ""
-    # experiment_config.memory_file = "/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec/rv-android/results/20241007165923/execution_memory.json"
+    # experiment_config.memory_file = "/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec/rv-android/results/20241009142453/execution_memory.json"
 
     experiment_02.execute()
 
@@ -155,6 +157,6 @@ def run_local():
 if __name__ == '__main__':
     load_tools()
 
-    # run_cli()
-    run_local()
+    run_cli()
+    # run_local()
 

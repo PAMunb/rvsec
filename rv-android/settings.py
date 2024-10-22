@@ -7,11 +7,11 @@ START = time.time()
 
 WORKING_DIR = os.getcwd()
 
-APKS_DIR = os.path.join(WORKING_DIR, 'apks')
-#APKS_DIR = os.path.join(WORKING_DIR, 'apks_mini')
+# APKS_DIR = os.path.join(WORKING_DIR, 'apks')
+APKS_DIR = os.path.join(WORKING_DIR, 'apks_experiment02', 'original')
 RESULTS_DIR = os.path.join(WORKING_DIR, 'results')
-INSTRUMENTED_DIR = "/home/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec/rv-android/apks_examples"
-# INSTRUMENTED_DIR = os.path.join(WORKING_DIR, 'out')
+# INSTRUMENTED_DIR = "/home/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec/rv-android/apks_examples"
+INSTRUMENTED_DIR = os.path.join(WORKING_DIR, 'out')
 LIB_DIR = os.path.join(WORKING_DIR, 'lib')
 
 TMP_DIR = os.path.join(WORKING_DIR, 'tmp')
@@ -25,10 +25,10 @@ RV_MONITOR_HOME = os.path.join(RVSEC_ROOT_DIR, 'rv-monitor')
 RV_MONITOR_BIN = os.path.join(RV_MONITOR_HOME, 'bin', 'rv-monitor')
 RVSEC_DIR = os.path.join(RVSEC_ROOT_DIR, 'rvsec')
 
-# MOP_DIR = os.path.join(RVSEC_DIR, 'rvsec-mop', 'src', 'main', 'resources')
-MOP_DIR = os.path.join(WORKING_DIR, 'mop')
+MOP_DIR = os.path.join(RVSEC_DIR, 'rvsec-mop', 'src', 'main', 'resources')
+# MOP_DIR = os.path.join(WORKING_DIR, 'mop')
 MOP_OUT_DIR = os.path.join(WORKING_DIR, 'mop_out')
-#TODO (coverage.aj)
+# TODO (coverage.aj)
 MOP_INCLUDE_DIR = os.path.join(WORKING_DIR, 'mop-include')
 
 D2J_HOME = os.path.join(LIB_DIR, 'dex2jar')
@@ -46,3 +46,6 @@ ANDROID_JAR_PATH = os.path.join(ANDROID_PLATFORM_LIB, 'android.jar')
 
 KEYSTORE_FILE = os.path.join(WORKING_DIR, 'keystore.jks')
 KEYSTORE_PASSWORD = 'password'
+
+from pathlib import Path
+RT_JAR = os.path.join(Path.home(), '.sdkman', 'candidates', 'java', '8.0.302-open', 'jre', 'lib', 'rt.jar')

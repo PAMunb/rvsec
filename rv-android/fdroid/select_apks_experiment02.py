@@ -1,7 +1,9 @@
 import csv
+import datetime
 import json
 import logging
 import os
+import shutil
 import sys
 from csv import DictReader
 
@@ -60,8 +62,9 @@ def get_app_id_from_fdroid_index(instrumented_apks: list[dict]) -> None:
 
     map_filename_to_app_id = {}
     for app_id in fdroid_index["packages"]:
-        for version in fdroid_index["packages"][app_id]["versions"]:
-            filename = fdroid_index["packages"][app_id]["versions"][version]["file"]["name"]
+        data = fdroid_index["packages"][app_id]
+        for version in data["versions"]:
+            filename = data["versions"][version]["file"]["name"]
             filename = filename[1:]
             map_filename_to_app_id[filename] = app_id
 
@@ -69,8 +72,12 @@ def get_app_id_from_fdroid_index(instrumented_apks: list[dict]) -> None:
     for apk in instrumented_apks:
         filename = apk[FILENAME]
         if filename in map_filename_to_app_id:
-            apk[APP_ID] = map_filename_to_app_id[filename]
             apk[FDROID] = True
+            app_id = map_filename_to_app_id[filename]
+            apk[APP_ID] = app_id
+            last_updated = fdroid_index["packages"][app_id]["metadata"]["lastUpdated"]
+            last_updated_date = datetime.datetime.fromtimestamp(last_updated / 1000)
+            apk["updated"] = last_updated_date.strftime("%Y-%m-%d")
         else:
             cont_not_exist += 1
     print("Apps that no longer exist on fdroid: {}".format(cont_not_exist))
@@ -106,12 +113,33 @@ def filter_apps_in_playstore(instrumented_apks: list[dict]) -> None:
 
 def save_results(apks: list[dict], out: str) -> None:
     print("Saving the results ... ")
-    headers: list[str] = [FILENAME, NAME, APP_ID, FDROID, PLAYSTORE, DOWNLOADS, SCORE, RATINGS, REVIEWS, URL]
+    headers: list[str] = [FILENAME, NAME, APP_ID, FDROID, PLAYSTORE, DOWNLOADS, SCORE, RATINGS, REVIEWS, 'updated', URL]
     with open(out, "w") as csvfile:
         writer = csv.DictWriter(csvfile, fieldnames=headers)
         writer.writeheader()
         writer.writerows(apks)
     print("Results saved in: {}".format(out))
+
+
+def copy_apks_to_folder(out_file, output_directory, base_directory):
+    with open(out_file, mode='r') as file:
+        csv_file = csv.DictReader(file)
+        for line in csv_file:
+            if eval(line["fdroid"]) and eval(line["playstore"]):
+                filename = line["filename"]
+                find_and_copy_file(filename, output_directory, base_directory)
+
+
+def find_and_copy_file(filename, output_directory, base_directory):
+    def walk_directory(directory):
+        for root, dirs, files in os.walk(directory):
+            for file in files:
+                if file == filename:
+                    full_path = os.path.join(root, file)
+                    shutil.copy2(full_path, output_directory)
+                    print(f"File {filename} found and copied to {output_directory}")
+
+    walk_directory(base_directory)
 
 
 if __name__ == "__main__":
@@ -121,8 +149,12 @@ if __name__ == "__main__":
     base_dir = "/home/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec/rv-android"
     fdroid_file = os.path.join(base_dir, "fdroid", "final_apps_to_download.csv")
     results_file = os.path.join(base_dir, "final_results_analysis_jca.json")
-    out_file = "/home/pedro/tmp/teste_playstore.csv"
+    out_file = "/home/pedro/tmp/teste_playstore_novo.csv"
 
-    execute(fdroid_file, results_file, out_file)
+    # execute(fdroid_file, results_file, out_file)
+
+    base_directory = "/home/pedro/desenvolvimento/RV_ANDROID/apks"
+    output_directory = "/home/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec/rv-android/apks_experiment02/original"
+    copy_apks_to_folder(out_file, output_directory, base_directory)
 
     print("FIM DE FESTA!!!")

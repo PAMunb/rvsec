@@ -1,23 +1,17 @@
 
 from tools.tool_spec import AbstractTool
 
+repetitions: int = 0
 
-repetitions: int
-repetitions = 0
+timeouts: list[int] = []
 
-timeouts: list[int]
-timeouts = []
+tools: list[AbstractTool] = []
 
-tools: list[AbstractTool]
-tools = []
-
-available_tools: list[AbstractTool]
-available_tools = []
+available_tools: list[AbstractTool] = []
 
 generate_monitors = True
-
 instrument = True
-
+static_analysis = True
 skip_experiment = False
 
 no_window = True

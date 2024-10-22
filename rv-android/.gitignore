@@ -171,3 +171,7 @@ cython_debug/
 #.idea/
 
 /instrumented/
+/final_results_analysis_generic.json
+/final_results_analysis_jca.json
+/merged_instrument_errors.json
+/merged_results_analysis.json
