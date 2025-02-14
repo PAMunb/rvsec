@@ -1,7 +1,5 @@
-import json
-
 import rvandroid.utils as utils
-from rvandroid.parser.classes import Classes, Clazz, Widget, Window, WindowType, WidgetType, WidgetListener
+from rvandroid.parser.classes import Classes, Widget, Window, WindowType, WidgetType, WidgetListener
 
 
 def parse_gesda_file(gesda_file: str, classes: Classes | None = None) -> dict[str, Window]:

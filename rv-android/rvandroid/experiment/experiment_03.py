@@ -15,7 +15,7 @@ from rvandroid.constants import EXTENSION_APK, EXTENSION_GESDA, EXTENSION_GATOR,
 from rvandroid.constants import EXTENSION_METHODS
 from rvandroid.experiment import config as conf
 from rvandroid.experiment.execution import ExecutionManager
-from rvandroid.experiment.task import Task, TaskExecutionTracker
+from rvandroid.experiment.task import Task
 from rvandroid.rvandroid import RvAndroid
 from rvandroid.rvsec import RVSec
 from rvandroid.tools.tool_spec import AbstractTool
@@ -76,8 +76,7 @@ def run_experiment(repetitions: int, timeouts: list[int], tools: list[AbstractTo
             run(task, exec_manager, no_window)
     logging.info(f"Execution memory file: {exec_manager.memory_file}")
 
-
-    #TODO ...rever
+    # TODO ...rever
     logging.info(f"Verifying execution status: {exec_manager.statistics()}")
     for _ in range(3):  # 3 retries
         status = exec_manager.statistics()
@@ -204,7 +203,7 @@ def run_static_analysis():
     for file in os.listdir(INSTRUMENTED_DIR):
         if file.casefold().endswith(EXTENSION_APK):
             app = App(os.path.join(APKS_DIR, file))
-            base_name_template = app.name+"{}"
+            base_name_template = app.name + "{}"
             gesda_file = os.path.join(INSTRUMENTED_DIR, base_name_template.format(EXTENSION_GESDA))
             gator_file = os.path.join(INSTRUMENTED_DIR, base_name_template.format(EXTENSION_GATOR))
             # class,is_activity,is_main_activity,method,params,reachable,reaches_mop,directly_reaches_mop,signature,mop_methods_reached

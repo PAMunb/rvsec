@@ -1,10 +1,10 @@
 import csv
-from rvandroid.constants import *
+
 from rvandroid.parser.classes import *
 
 
 def read_reachable_methods(in_file: str):
-    classes = Classes()    
+    classes = Classes()
     with open(in_file, 'r') as data:
         csv_reader = csv.reader(data, delimiter=',')
         next(csv_reader)
@@ -33,7 +33,7 @@ def __to_list(string_input) -> list[str]:
     return method_list
 
 
-#class,is_activity,is_main_activity,method,params,reachable,reaches_mop,directly_reaches_mop,signature,mop_methods_reached
+# class,is_activity,is_main_activity,method,params,reachable,reaches_mop,directly_reaches_mop,signature,mop_methods_reached
 def __to_clazz(line, classes: Classes):
     name = line[0]
     is_activity = eval(line[1].capitalize())
@@ -50,7 +50,8 @@ def __to_method(line, class_name: str):
     directly_reaches_mop = eval(line[7].capitalize())
     directly_reachable_mop = __to_list(line[9])
     print(f"directly_reachable_mop={directly_reachable_mop}")
-    return Method(class_name, name, params,signature,reachable,reaches_mop,directly_reaches_mop,directly_reachable_mop)
+    return Method(class_name, name, params, signature, reachable, reaches_mop, directly_reaches_mop,
+                  directly_reachable_mop)
 
 
 def __to_params_list(input) -> list[str]:

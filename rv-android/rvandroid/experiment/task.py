@@ -88,7 +88,8 @@ class TaskExecutionTracker:
         print(f"start tracker for task={task}")
         self.task = task
         self.app = app
-        self.classes, self.windows = static_analysis_parser.read_static_analysis_files(task.results_dir, task.apk, app.package_name)
+        self.classes, self.windows = static_analysis_parser.read_static_analysis_files(task.results_dir, task.apk,
+                                                                                       app.package_name)
         print(f"classes={self.classes}")
         for clazz_name in self.classes.classes:
             self.total_classes += 1

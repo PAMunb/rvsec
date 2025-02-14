@@ -165,7 +165,7 @@ class WindowType(Enum):
 
 class Window:
     def __init__(self, name: str):
-        self.id = "" # TODO
+        self.id = ""  # TODO
         self.name = name
         self.type: WindowType = WindowType.ACTIVITY
         self.layout_file = ""

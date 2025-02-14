@@ -1,12 +1,12 @@
 # import analysis.methods_extractor as me
 import json
 import os
+from collections import defaultdict
 from datetime import datetime
 
-from rvandroid import utils #TODO usar assim nos outros imports
+from rvandroid import utils  # TODO usar assim nos outros imports
 from rvandroid.app import App
 from rvandroid.experiment.task import Task
-from collections import defaultdict
 
 
 class Memory:
@@ -83,7 +83,7 @@ class Memory:
         return result
 
     @staticmethod
-    def __from_result(result, base_results_dir:str ):
+    def __from_result(result, base_results_dir: str):
         tasks = []
         mapa = {}
         for apk, rep_data in result.items():

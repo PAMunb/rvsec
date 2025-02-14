@@ -1,15 +1,14 @@
-import json
-
 import rvandroid.utils as utils
-from rvandroid.parser.classes import Classes, Clazz, Widget, Window, WindowType, WidgetType, WidgetListener
 from rvandroid.experiment.task import Task
+from rvandroid.parser.classes import Classes, Window
 
 
 def find_widget(widget_class, windows):
     pass
 
 
-def parse_gator_file(gator_file: str, classes: Classes | None = None, windows: dict[str, Window] | None = None, package: str | None = None, task: Task | None = None):
+def parse_gator_file(gator_file: str, classes: Classes | None = None, windows: dict[str, Window] | None = None,
+                     package: str | None = None, task: Task | None = None):
     if classes is None:  # TODO rever essa parte
         classes = Classes()
     if windows is None:
@@ -43,4 +42,3 @@ def parse_gator_file(gator_file: str, classes: Classes | None = None, windows: d
             # window = windows[widget_class]
             # if window:
             #     pass
-
