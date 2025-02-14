@@ -8,7 +8,7 @@ from datetime import datetime
 from rvandroid.app import App
 from rvandroid.constants import EXTENSION_METHODS, EXECUTION_MEMORY_FILENAME, EXTENSION_GESDA, EXTENSION_GATOR, EXTENSION_REACH
 from rvandroid.experiment.memory import Memory
-from rvandroid.experiment.task import Task, TaskStatus
+from rvandroid.experiment.task import Task, TaskStatus, TaskExecutionTracker
 from settings import *
 from rvandroid.tools.tool_spec import AbstractTool
 
@@ -65,7 +65,7 @@ class ExecutionManager:
     def start_task(self, task: Task):
         task.init(self.base_results_dir)
         utils.create_folder_if_not_exists(task.results_dir)
-        copy_methods_file(task.apk, task.results_dir)
+        copy_methods_file(task.apk, task.results_dir)        
 
     def finish_task(self, task):
         task.executed = True

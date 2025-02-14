@@ -1,4 +1,5 @@
 import hashlib
+import json
 import logging
 import os
 import shutil
@@ -202,3 +203,15 @@ def get_env_or_default(env_var: str, default_value: Union[str, int, bool, List],
             return [int(item) for item in value.split(separator)]
         else:
             return value
+
+
+def read_json(file_path: str):
+    try:
+        with open(file_path, 'r') as file:
+            return json.load(file)
+    except FileNotFoundError:
+        print(f"File not found: {file_path}")
+        return None
+    except json.JSONDecodeError:
+        print(f"Failed to parse JSON from file: {file_path}")
+        return None
