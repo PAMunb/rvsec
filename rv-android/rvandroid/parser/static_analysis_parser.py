@@ -6,34 +6,28 @@ from rvandroid.parser.classes import *
 
 
 def __read_reach_file(results_dir: str, apk: str) -> Classes:
-    print("__read_reach_file")
     reach_file = os.path.join(results_dir, apk + EXTENSION_REACH)
-    print(f"reach_file={reach_file}")
     if not os.path.exists(reach_file):
         return Classes()
     return reach_parser.read_reachable_methods(reach_file)
 
 
-def __read_gesda_file(results_dir: str, apk: str, classes: Classes) -> dict[str, Window]:
-    print("__read_gesda_file")
+def __read_gesda_file(results_dir: str, apk: str, package: str, classes: Classes, windows: Windows):
     gesda_file = os.path.join(results_dir, apk + EXTENSION_GESDA)
-    print(f"gesda_file={gesda_file}")
-    if not os.path.exists(gesda_file):
-        return {}
-    return gesda_parser.parse_gesda_file(gesda_file, classes)
+    if os.path.exists(gesda_file):
+        gesda_parser.parse_gesda_file(gesda_file, package, classes, windows)
 
 
-def __read_gator_file(results_dir: str, apk: str, package: str, classes: Classes, windows: dict[str, Window]):
-    print("__read_gator_file")
+def __read_gator_file(results_dir: str, apk: str, package: str, classes: Classes,
+                      windows: Windows) -> WindowTransitionGraph:
     gator_file = os.path.join(results_dir, apk + EXTENSION_GATOR)
-    print(f"gator_file={gator_file}")
     if os.path.exists(gator_file):
-        gator_parser.parse_gator_file(gator_file, classes, windows, package)
+        return gator_parser.parse_gator_file(gator_file, package, classes, windows)
 
 
 def read_static_analysis_files(results_dir: str, apk: str, package: str):
-    print("__read_static_analysis_files")
+    windows = Windows()
     classes = __read_reach_file(results_dir, apk)
-    windows = __read_gesda_file(results_dir, apk, classes)
-    __read_gator_file(results_dir, apk, package, classes, windows)
-    return classes, windows
+    __read_gesda_file(results_dir, apk, package, classes, windows)
+    wtg = __read_gator_file(results_dir, apk, package, classes, windows)
+    return classes, windows, wtg

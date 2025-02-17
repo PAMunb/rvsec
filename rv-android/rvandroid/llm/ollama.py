@@ -10,10 +10,11 @@ class OllamaLLM(LanguageModel):
     QWEN = "qwen2.5:3b"
     PHI = "phi3.5:3.8b"
     GRANITE = "granite3.1-dense:8b"
+    MISTRAL = "mistral:7b"
     FALCON = "falcon3:3b"
     NOMIC_EMBED_TEXT = "nomic-embed-text:latest"
 
-    MODELS = [LLAMA, DEEPSEEK, QWEN, PHI, GRANITE, FALCON]
+    MODELS = [LLAMA, DEEPSEEK, QWEN, PHI, GRANITE, MISTRAL, FALCON]
 
     def __init__(self, model_name: str, base_url="http://localhost:11434"):     
         super().__init__(model_name)        

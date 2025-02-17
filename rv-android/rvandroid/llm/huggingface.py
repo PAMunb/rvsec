@@ -57,11 +57,12 @@ class HuggingFaceLLM(LanguageModel):  # More descriptive class name
     LLAMA = "meta-llama/Meta-Llama-3.1-8B-Instruct" # needs permission
     DEEPSEEK = "deepseek-ai/DeepSeek-R1-Distill-Qwen-7B" # "deepseek-ai/deepseek-llm-7b-chat"
     QWEN = "Qwen/Qwen2.5-3B-Instruct" # "Qwen/Qwen2.5-0.5B-Instruct" # "Qwen/Qwen2.5-3B-Instruct" # "Qwen/Qwen2.5-3B" # "Qwen/Qwen2.5-VL-7B-Instruct" "Qwen/Qwen2-7B-Instruct"
-    PHI = "microsoft/Phi-3.5-mini-instruct"
+    PHI = "microsoft/Phi-3.5-mini-instruct"    
     GRANITE = "ibm-granite/granite-3.1-8b-instruct"
+    MISTRAL = "mistralai/Mistral-7B-Instruct-v0.3"
     FALCON = "tiiuae/Falcon3-3B-Instruct"
 
-    MODELS = [LLAMA, DEEPSEEK, QWEN, PHI, GRANITE, FALCON]
+    MODELS = [LLAMA, DEEPSEEK, QWEN, PHI, GRANITE, MISTRAL, FALCON]
 
     def __init__(self, model_name: str, device: str = "cuda"):
         """Initializes the HuggingFaceLLM with a model name and device."""

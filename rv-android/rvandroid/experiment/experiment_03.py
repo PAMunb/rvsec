@@ -119,7 +119,7 @@ def run_task(task: Task, no_window: bool):
             tool = tools_map[task.tool]
             task.start_time = datetime.now()  # update start_time (after emulator is up)
             task.start_tracker(app)
-            exit(-1)
+            exit(-1) # TODO remover apos os testes iniciais ....................
             tool.execute(app, task.timeout, task.log_file)
             proc.kill()
 

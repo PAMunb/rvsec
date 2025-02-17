@@ -1,4 +1,7 @@
+import logging as logging_api
 from enum import Enum
+
+import networkx as nx
 
 
 class Method:
@@ -61,6 +64,7 @@ class Clazz:
 
 class Classes:
     def __init__(self):
+        self.logging = logging_api.getLogger("rvandroid.parser.classes.Classes")
         self.classes: dict[str, Clazz] = {}
         self.methods: dict[str, Method] = {}
 
@@ -68,11 +72,13 @@ class Classes:
         return [self.classes[name] for name in self.classes.keys()]
 
     def add_clazz(self, name: str, is_activity: bool, is_main_activity: bool) -> Clazz:
+        # self.logging.debug(f"Adding class {name}")
         if name not in self.classes:
+            self.logging.debug(f"Class {name} not found, adding")
             self.classes[name] = Clazz(name, is_activity, is_main_activity)
         return self.classes[name]
 
-    def get_clazz(self, name: str):
+    def get_clazz(self, name: str) -> Clazz | None:
         if name in self.classes:
             return self.classes[name]
         return None
@@ -82,6 +88,7 @@ class Classes:
             clazz = self.get_clazz(method.class_name)
             if clazz and clazz.add_method(method):
                 self.methods[method.signature] = method
+                self.logging.debug(f"Added method {method.signature}")
                 return True
         return False
 
@@ -92,9 +99,24 @@ class Classes:
         return f"Classes=[classes={text}]"
 
 
+class WidgetEventType(Enum):
+    CLICK = 1
+    LONG_CLICK = 2
+    SCROLL = 3
+    DRAG = 4
+    HOVER = 5
+    TOUCH = 6
+    FOCUS = 7
+    KEY = 8
+    TEXT_CHANGE = 9
+    GESTURE = 10
+    SELECTION = 11
+    OTHER = 12
+
+
 class WidgetListener:
-    def __init__(self, listener_type: str, clazz: str, method: str, signature: str):
-        self.type = listener_type  # TODO
+    def __init__(self, event_type: WidgetEventType, clazz: str, method: str, signature: str):
+        self.type = event_type
         self.clazz = clazz
         self.method = method
         self.signature = signature
@@ -105,36 +127,88 @@ class WidgetListener:
     def __repr__(self):
         return f"{self.signature}"
 
+    def __eq__(self, other):
+        if isinstance(other, WidgetListener):
+            return (self.signature, self.type) == (other.signature, other.type)
+        return False
+
+    def __hash__(self):
+        return hash((self.signature, self.type))
+
 
 class WidgetType(Enum):
-    TEXT_VIEW = 1
-    BUTTON = 2
-    EDIT_TEXT = 3
-    CHECK_BOX = 4
-    RADIO_BUTTON = 5
-    SPINNER = 6
-    OTHER = 51
+    BUTTON = "android.widget.Button"
+    CHECKBOX = "android.widget.CheckBox"
+    CHECKED_TEXT_VIEW = "android.widget.CheckedTextView"
+    EDIT_TEXT = "android.widget.EditText"
+    IMAGE_BUTTON = "android.widget.ImageButton"
+    IMAGE_VIEW = "android.widget.ImageView"
+    MENU_ITEM = "android.view.MenuItem"
+    RADIO_BUTTON = "android.widget.RadioButton"
+    SPINNER = "android.widget.Spinner"
+    SUB_MENU = "android.view.SubMenu"
+    TEXT_VIEW = "android.widget.TextView"
+    TOGGLE_BUTTON = "android.widget.ToggleButton"
+    OTHER = "OTHER"
 
-    # TODO pegar os outros tipos de widgets
     @staticmethod
-    def from_string(widget_type: str):
-        if widget_type == "TEXT_VIEW":
-            return WidgetType.TEXT_VIEW
-        if widget_type == "BUTTON":
+    def from_string(type_str: str):
+        if type_str == "BUTTON":
             return WidgetType.BUTTON
-        if widget_type == "EDIT_TEXT":
+        if type_str == "CHECKBOX":
+            return WidgetType.CHECKBOX
+        if type_str == "CHECKED_TEXT_VIEW":
+            return WidgetType.CHECKED_TEXT_VIEW
+        if type_str == "EDIT_TEXT":
             return WidgetType.EDIT_TEXT
-        if widget_type == "CHECK_BOX":
-            return WidgetType.CHECK_BOX
-        if widget_type == "RADIO_BUTTON":
+        if type_str == "IMAGE_BUTTON":
+            return WidgetType.IMAGE_BUTTON
+        if type_str == "IMAGE_VIEW":
+            return WidgetType.IMAGE_VIEW
+        if type_str == "MENU_ITEM":
+            return WidgetType.MENU_ITEM
+        if type_str == "RADIO_BUTTON":
             return WidgetType.RADIO_BUTTON
-        if widget_type == "SPINNER":
+        if type_str == "SPINNER":
             return WidgetType.SPINNER
+        if type_str == "SUB_MENU":
+            return WidgetType.SUB_MENU
+        if type_str == "TEXT_VIEW":
+            return WidgetType.TEXT_VIEW
+        if type_str == "TOGGLE_BUTTON":
+            return
+
+    def from_class_name(class_name: str):
+        if class_name == "android.widget.Button":
+            return WidgetType.BUTTON
+        if class_name == "android.widget.CheckBox":
+            return WidgetType.CHECKBOX
+        if class_name == "android.widget.CheckedTextView":
+            return WidgetType.CHECKED_TEXT_VIEW
+        if class_name == "android.widget.EditText":
+            return WidgetType.EDIT_TEXT
+        if class_name == "android.widget.ImageButton":
+            return WidgetType.IMAGE_BUTTON
+        if class_name == "android.widget.ImageView":
+            return WidgetType.IMAGE_VIEW
+        if class_name == "android.view.MenuItem":
+            return WidgetType.MENU_ITEM
+        if class_name == "android.widget.RadioButton":
+            return WidgetType.RADIO_BUTTON
+        if class_name == "android.widget.Spinner":
+            return WidgetType.SPINNER
+        if class_name == "android.view.SubMenu":
+            return WidgetType.SUB_MENU
+        if class_name == "android.widget.TextView":
+            return WidgetType.TEXT_VIEW
+        if class_name == "android.widget.ToggleButton":
+            return WidgetType.TOGGLE_BUTTON
         return WidgetType.OTHER
 
 
 class Widget:
     def __init__(self, widget_id: str, name: str, widget_type: WidgetType):
+        self.logging = logging_api.getLogger("rvandroid.parser.classes.Widget")
         self.id = widget_id
         self.type = widget_type
         self.name = name
@@ -143,7 +217,15 @@ class Widget:
         self.field = ""
         self.input_type = ""
         self.entries: list[str] = []
-        self.listeners: list[WidgetListener] = []
+        self.listeners: set[WidgetListener] = set()
+
+    def add_listener(self, listener: WidgetListener):
+        if listener in self.listeners:
+            self.logging.debug(f"Listener '{listener.signature}' already exists")
+            return False
+        self.logging.debug(f">>> Adding listener '{listener.signature}': {listener}")
+        self.listeners.add(listener)
+        return True
 
     def __str__(self):
         return f"Widget=[id={self.id},type={self.type},name={self.name},text={self.text},hint={self.hint},field={self.field},input_type={self.input_type},entries={self.entries},listeners={self.listeners}]"
@@ -154,17 +236,29 @@ class Widget:
 
 class WindowType(Enum):
     ACTIVITY = 1
+    OPTIONSMENU = 2
+    CONTEXTMENU = 3
+    DIALOG = 4
+    FRAGMENT = 5
 
-    # TODO pegar os outros tipos de janelas
     @staticmethod
     def from_string(window_type: str):
         if window_type == "ACT":
             return WindowType.ACTIVITY
+        if window_type == "OPTIONS_MENU":
+            return WindowType.OPTIONSMENU
+        if window_type == "CONTEXT_MENU":
+            return WindowType.CONTEXTMENU
+        if window_type == "DIALOG":
+            return WindowType.DIALOG
+        if window_type == "FRAGMENT":
+            return WindowType.FRAGMENT
         return None
 
 
 class Window:
     def __init__(self, name: str):
+        self.logging = logging_api.getLogger("rvandroid.parser.classes.Window")
         self.id = ""  # TODO
         self.name = name
         self.type: WindowType = WindowType.ACTIVITY
@@ -173,14 +267,20 @@ class Window:
         self.fields = set()  # TODO
 
     def add_widget(self, widget: Widget):
-        if widget.id in self.widgets:
+        widget_id = str(widget.id)
+        if widget_id in self.widgets:
+            self.logging.debug(f"Widget {widget_id} already exists")
             return False
-        self.widgets[widget.id] = widget
+        self.widgets[widget_id] = widget
+        self.logging.debug(f">>> Widget {widget_id} added: {widget}")
         return True
 
     def get_widget(self, widget_id: str):
+        self.logging.debug(f"Getting widget {widget_id} from window {self.name}")
         if widget_id in self.widgets:
+            self.logging.debug(f"Widget {widget_id} found: {self.widgets[widget_id]}")
             return self.widgets[widget_id]
+        self.logging.warning(f"Widget {widget_id} not found")
         return None
 
     def __str__(self):
@@ -190,39 +290,95 @@ class Window:
         return f"{self.name}"
 
 
-class WidgetListenerType(Enum):
-    CLICK = 1
-    LONG_CLICK = 2
-    FOCUS_CHANGE = 3
-    TEXT_CHANGED = 4
-    ITEM_SELECTED = 5
-    ITEM_CLICKED = 6
-    ITEM_LONG_CLICKED = 7
-    ITEM_FOCUSED = 8
-    ITEM_PRESSED = 9
-    ITEM_SELECTED_LISTENER = 10
-    ITEM_CLICKED_LISTENER = 11
-    ITEM_LONG_CLICKED_LISTENER = 12
-    ITEM_FOCUSED_LISTENER = 13
-    ITEM_PRESSED_LISTENER = 14
-    # ITEM_SELECTED_LISTENER_2 =
-
-
-class WindowTransition:
-    def __init__(self, widget_id: str, transition_type: WidgetListenerType, widget_listener: WidgetListener):
+class WindowTransition:  # TODO
+    def __init__(self, widget_id: str, transition_type: WidgetEventType, method_signature: str):
         self.widget_id = widget_id
-        self.transition_type = transition_type
-        self.widget_listener = widget_listener
+        self.event_type = transition_type
+        self.method = method_signature
+
+    def __str__(self):
+        return f"WindowTransition=[widget_id={self.widget_id},event_type={self.event_type},method={self.method}]"
+
+    def __repr__(self):
+        return f"{self.method}"
 
 
 class WindowTransitionGraph:
     def __init__(self):
-        self.windows: dict[str, Window] = {}
-        self.transitions: list[WindowTransition] = []  # TODO set
+        self.graph = nx.DiGraph()
 
-    def add_transition(self, from_window: Window, to_window: Window, transition: WindowTransition):
-        if from_window.id not in self.windows:
-            self.windows[from_window.id] = from_window
-        if to_window.id not in self.windows:
-            self.windows[to_window.id] = to_window
-        self.transitions.append(transition)
+    def add_transition(self, from_window: Window, to_window: Window, events: list[WindowTransition]):
+        self.graph.add_edge(from_window, to_window, events=events)
+
+    def __str__(self):
+        return f"WindowTransitionGraph=[graph={self.graph.edges(data=True)}]"
+
+
+class Windows:
+    def __init__(self):
+        self.logging = logging_api.getLogger("rvandroid.parser.classes.Windows")
+        self.windows: dict[str, Window] = {}  # name --> Window
+        self.widgets: dict[str, Widget] = {}  # id --> Widget
+
+    def add_window(self, window: Window) -> bool:
+        # self.logging.debug(f"Adding window {window.name}")
+        if window.name in self.windows:
+            self.logging.debug(f"Window {window.name} already exists")
+            return False
+        self.logging.debug(f">>>>>>>>>>>>>>>>> Window {window.name} added: {window}")
+        self.windows[window.name] = window
+        for widget_id in window.widgets:
+            widget = window.widgets[widget_id]
+            self.logging.debug(f"Adding widget {widget.id}: {widget}")
+            self.widgets[widget.id] = widget
+            window.add_widget(widget)
+        return True
+
+    # def add_widget(self, widget: Widget) -> bool: # TODO adicionar na instancia de Window ......................
+    #     # self.logging.debug(f"Adding widget {widget.id}")
+    #     if widget.id in self.widgets:
+    #         self.logging.debug(f"Widget {widget.id} already exists")
+    #         return False
+    #     self.widgets[widget.id] = widget
+    #     self.logging.debug(f">>> Widget {widget.id} added: {widget}")
+    #     return True
+    def get_or_create(self, window_name: str) -> Window:
+        self.logging.debug(f"Getting or creating window {window_name}")
+        if window_name in self.windows:
+            self.logging.debug(f"Window {window_name} found: {self.windows[window_name]}")
+            return self.windows[window_name]
+        self.logging.debug(f"Window {window_name} not found, creating new window")
+        window = Window(window_name)
+        if "android.view.Menu" == window_name:
+            window.type = WindowType.OPTIONSMENU
+        self.windows[window_name] = window
+        return window
+
+    def get_window_by_id(self, window_id: str) -> Window | None:
+        self.logging.debug(f"Getting window by id {window_id}")
+        for window_name in self.windows:
+            window = self.windows[window_name]
+            print(f"ID={window.id} :: {window}")
+            print(f"window.id={type(window.id)}")
+            print(f"window_id={type(window_id)}")
+            if window.id == window_id:
+                self.logging.debug(f"Window {window.name} found: {window}")
+                return window
+        self.logging.debug(f"Window {window_id} not found")
+        return None
+
+    def get_window(self, window_name: str) -> Window | None:
+        self.logging.debug(f"Getting window {window_name}")
+        if window_name in self.windows:
+            self.logging.debug(f"Window {window_name} found: {self.windows[window_name]}")
+            return self.windows[window_name]
+        self.logging.debug(f"Window {window_name} not found")
+        return None
+
+    def get_widget(self, widget_id: str) -> Widget | None:
+        # self.logging.debug(f"Getting widget {widget_id}")
+        if widget_id in self.widgets:
+            self.logging.debug(f"Widget {widget_id}: {self.widgets[widget_id]}")
+            return self.widgets[widget_id]
+        self.logging.debug(f"Widget {widget_id} not found")
+        return None

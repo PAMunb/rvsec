@@ -1,9 +1,13 @@
 import csv
+import logging as logging_api
 
 from rvandroid.parser.classes import *
 
+logging = logging_api.getLogger(__name__)
+
 
 def read_reachable_methods(in_file: str):
+    logging.debug(f"Starting parse reachability file: {in_file}")
     classes = Classes()
     with open(in_file, 'r') as data:
         csv_reader = csv.reader(data, delimiter=',')
@@ -49,7 +53,6 @@ def __to_method(line, class_name: str):
     reaches_mop = eval(line[6].capitalize())
     directly_reaches_mop = eval(line[7].capitalize())
     directly_reachable_mop = __to_list(line[9])
-    print(f"directly_reachable_mop={directly_reachable_mop}")
     return Method(class_name, name, params, signature, reachable, reaches_mop, directly_reaches_mop,
                   directly_reachable_mop)
 
