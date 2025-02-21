@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import List, Dict
 
+
 class LanguageModel(ABC):
     def __init__(self, model_name: str):
         super().__init__()
@@ -9,7 +10,7 @@ class LanguageModel(ABC):
     @abstractmethod
     def generate(self, messages: List[Dict[str, str]], max_new_tokens: int = 800) -> str:
         """Generates text based on the given messages."""
-        pass    
+        pass
 
     @abstractmethod
     def clean(self):
@@ -18,7 +19,6 @@ class LanguageModel(ABC):
 
     @staticmethod
     @abstractmethod
-    def models(self) -> List[str]:
+    def models() -> List[str]:
         """Returns a list of available models."""
         pass
-    

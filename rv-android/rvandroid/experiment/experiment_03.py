@@ -77,9 +77,9 @@ def run_experiment(repetitions: int, timeouts: list[int], tools: list[AbstractTo
     logging.info(f"Execution memory file: {exec_manager.memory_file}")
 
     # TODO ...rever
-    logging.info(f"Verifying execution status: {exec_manager.statistics()}")
+    logging.info(f"Verifying execution status: {exec_manager.get_statistics()}")
     for _ in range(3):  # 3 retries
-        status = exec_manager.statistics()
+        status = exec_manager.get_statistics()
         if status["pct"] == 100:
             break
         for task in exec_manager.tasks:
@@ -95,12 +95,12 @@ def run(task: Task, exec_manager: ExecutionManager, no_window: bool):
         run_task(task, no_window)
         post_process_task(task)
         exec_manager.finish_task(task)
-        logging.info(f"Status: {exec_manager.statistics()}")
+        logging.info(f"Status: {exec_manager.get_statistics()}")
     except Exception as ex:
         exec_manager.task_error(task, ex)
         error_msg = f"Error while running task: {task}. {ex}"
         logging.error(error_msg)
-        traceback.print_exc()
+        logging.error(traceback.format_exc())
 
 
 def run_task(task: Task, no_window: bool):
@@ -119,7 +119,7 @@ def run_task(task: Task, no_window: bool):
             tool = tools_map[task.tool]
             task.start_time = datetime.now()  # update start_time (after emulator is up)
             task.start_tracker(app)
-            exit(-1) # TODO remover apos os testes iniciais ....................
+            # exit(-1) # TODO remover apos os testes iniciais ....................
             tool.execute(app, task.timeout, task.log_file)
             proc.kill()
 

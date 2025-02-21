@@ -1,70 +1,111 @@
+"""
+Module for parsing reachability analysis results from CSV files.
+This parser handles method reachability information for Android applications,
+including activity classes and MOP (Monitor-Oriented Programming) methods.
+"""
+
 import csv
 import logging as logging_api
+from typing import List
 
-from rvandroid.parser.classes import *
+from rvandroid.parser.classes import Classes, Method, Clazz
 
+# Configure module logger
 logging = logging_api.getLogger(__name__)
 
 
-def read_reachable_methods(in_file: str):
-    logging.debug(f"Starting parse reachability file: {in_file}")
+def read_reachable_methods(input_file: str) -> Classes:
+    """
+    Parse a reachability analysis CSV file and build a Classes object containing
+    all reachable methods and their properties.
+
+    Args:
+        input_file (str): Path to the CSV file containing reachability analysis results
+
+    Returns:
+        Classes: Object containing all parsed classes and their methods
+    """
+    logging.debug(f"Starting to parse reachability file: {input_file}")
     classes = Classes()
-    with open(in_file, 'r') as data:
+
+    with open(input_file, 'r') as data:
         csv_reader = csv.reader(data, delimiter=',')
+        # Skip header row
         next(csv_reader)
-        for line in csv_reader:
-            clazz = __to_clazz(line, classes)
-            method = __to_method(line, clazz.name)
+
+        for row in csv_reader:
+            class_obj = _parse_class(row, classes)
+            method = _parse_method(row, class_obj.name)
             classes.add_method(method)
+
     return classes
 
 
-def __to_list(string_input) -> list[str]:
+def _parse_method_list(input_str: str) -> List[str]:
     """
-    Converts a string in the format "[<method>;<method2>]" to a list of strings.
+    Parse a string representing a list of methods in the format "[method1;method2;...]"
 
     Args:
-        string_input: A string in the specified format.
+        input_str (str): String containing semicolon-separated method names
 
     Returns:
-        A list of strings, or None if the input string is not in the correct format.
+        List[str]: List of method names, empty list if no methods found
     """
-    method_list = []
-    # Remove the outer double quotes and square brackets
-    cleaned_string = string_input.strip('"[]')
-    if ";" in cleaned_string:
-        method_list = cleaned_string.split(";")
-    return method_list
+    # Remove quotes, brackets, and whitespace
+    cleaned_str = input_str.strip('"[]')
+    return cleaned_str.split(";") if ";" in cleaned_str else []
 
 
-# class,is_activity,is_main_activity,method,params,reachable,reaches_mop,directly_reaches_mop,signature,mop_methods_reached
-def __to_clazz(line, classes: Classes):
-    name = line[0]
-    is_activity = eval(line[1].capitalize())
-    is_main_activity = eval(line[2].capitalize())
+def _parse_class(row: List[str], classes: Classes) -> Clazz:
+    """
+    Parse class information from a CSV row and add it to the Classes collection.
+
+    Args:
+        row (List[str]): CSV row containing class information
+        classes (Classes): Existing Classes object to add the parsed class to
+
+    Returns:
+        Classes: The class object that was added
+    """
+    name = row[0]
+    is_activity = eval(row[1].capitalize())
+    is_main_activity = eval(row[2].capitalize())
     return classes.add_clazz(name, is_activity, is_main_activity)
 
 
-def __to_method(line, class_name: str):
-    name = line[3]
-    params = __to_params_list(line[4])
-    signature = line[8]
-    reachable = eval(line[5].capitalize())
-    reaches_mop = eval(line[6].capitalize())
-    directly_reaches_mop = eval(line[7].capitalize())
-    directly_reachable_mop = __to_list(line[9])
-    return Method(class_name, name, params, signature, reachable, reaches_mop, directly_reaches_mop,
-                  directly_reachable_mop)
+def _parse_method(row: List[str], class_name: str) -> Method:
+    """
+    Parse method information from a CSV row.
+
+    Args:
+        row (List[str]): CSV row containing method information
+        class_name (str): Name of the class this method belongs to
+
+    Returns:
+        Method: Created Method object with parsed information
+    """
+    return Method(
+        class_name=class_name,
+        name=row[3],
+        params=_parse_params_list(row[4]),
+        signature=row[8],
+        reachable=eval(row[5].capitalize()),
+        reaches_mop=eval(row[6].capitalize()),
+        directly_reaches_mop=eval(row[7].capitalize()),
+        directly_reachable_mop=_parse_method_list(row[9])
+    )
 
 
-def __to_params_list(input) -> list[str]:
-    # input examples: "[byte[];java.lang.String]", "[]"
-    # Remove the first and last characters of the string
-    input = input[1:-1]
-    # Remove leading/trailing whitespace
-    input = input.strip()
-    # If the string is empty, return an empty list
-    if input == "":
-        return []
-    # If the string is not empty, split the string into a list of strings
-    return input.split(";")
+def _parse_params_list(params_str: str) -> List[str]:
+    """
+    Parse a string representing method parameters in the format "[param1;param2;...]"
+
+    Args:
+        params_str (str): String containing parameter types
+
+    Returns:
+        List[str]: List of parameter types, empty list if no parameters
+    """
+    # Remove brackets
+    cleaned_str = params_str[1:-1].strip()
+    return cleaned_str.split(";") if cleaned_str else []

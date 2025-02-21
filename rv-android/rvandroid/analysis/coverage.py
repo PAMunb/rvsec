@@ -1,10 +1,10 @@
 import copy
 
 from rvandroid.constants import *
-from rvandroid.log.log import RvCoverage
+from rvandroid.log.log import RvCoverageLog
 
 
-def process_coverage(called_methods: dict[str, dict[str, dict[str, RvCoverage]]], all_methods: dict):
+def process_coverage(called_methods: dict[str, dict[str, dict[str, RvCoverageLog]]], all_methods: dict):
     coverage = copy.deepcopy(all_methods)
 
     coverage[SUMMARY] = {TOTAL_CLASSES: len(coverage), TOTAL_ACTIVITIES: 0, CALLED_ACTIVITIES: 0,

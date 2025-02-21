@@ -6,41 +6,36 @@ from datetime import datetime
 
 from rvandroid import utils  # TODO usar assim nos outros imports
 from rvandroid.app import App
-from rvandroid.experiment.task import Task
+from rvandroid.experiment.task import Task, TaskStatus
 
 
 class Memory:
 
     def __init__(self):
-        self.tasks = set()
-        self.tasks_map = defaultdict(dict)
+        self.__reset()
 
     def init(self, repetitions: int, timeouts: list[int], tools: list[str], apks: list[App]):
-        self.tasks_map = {}
+        self.__reset()
         for apk_app in apks:
             apk = apk_app.name
             if apk not in self.tasks_map:
                 self.tasks_map[apk] = {}
             for rep in range(repetitions):
-                repetition = rep + 1
+                repetition = str(rep + 1)
                 if repetition not in self.tasks_map[apk]:
                     self.tasks_map[apk][repetition] = {}
                 for timeout in timeouts:
+                    timeout = str(timeout)
                     if timeout not in self.tasks_map[apk][repetition]:
                         self.tasks_map[apk][repetition][timeout] = {}
                     for tool in tools:
-                        task = Task(apk, repetition, timeout, tool)
+                        task = Task(apk, int(repetition), int(timeout), tool)
                         self.tasks_map[apk][repetition][timeout][tool] = task
                         self.tasks.add(task)
-        # self.tasks_map = defaultdict(lambda: defaultdict(lambda: defaultdict(Task)))
-        # for apk_app in apks:
-        #     apk = apk_app.name
-        #     for repetition in range(1, repetitions + 1):
-        #         for timeout in timeouts:
-        #             for tool in tools:
-        #                 task = Task(apk, repetition, timeout, tool)
-        #                 self.tasks_map[apk][repetition][timeout] = task
-        #                 self.tasks.add(task)
+
+    def __reset(self):
+        self.tasks: set[Task] = set()
+        self.tasks_map: dict[str, dict[str, dict[str, dict[str, Task]]]] = {}
 
     def get_tasks(self, _sort=lambda x: (x.repetition, x.timeout, x.tool, x.apk)) -> list[Task]:
         sorted_tasks: list[Task]
@@ -97,11 +92,12 @@ class Memory:
                         mapa[apk][rep][timeout] = {}
                     for tool, data in tool_data.items():
                         task = Task(apk, int(rep), int(timeout), tool)
-                        task.init(base_results_dir)
-                        task.executed = data["executed"]
+                        task.initialize(base_results_dir)
+                        # TODO
+                        task.status = TaskStatus.EXECUTED if data["executed"] else TaskStatus.CREATED
                         task.start_time = datetime.fromtimestamp(data["start"])
                         task.finish_time = datetime.fromtimestamp(data["finish"])
-                        # task.error = data["error"]
+                        # TODO task.error = data["error"]
                         mapa[apk][rep][timeout][tool] = task
                         tasks.append(task)
         return tasks, mapa

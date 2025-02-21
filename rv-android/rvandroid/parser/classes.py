@@ -1,89 +1,117 @@
+# Part 1: Imports and Basic Classes
 import logging as logging_api
 from enum import Enum
+from typing import Optional, Set, Dict, List
 
 import networkx as nx
 
 
 class Method:
-    # signature_template = "{}.{}({})" # CLASS_NAME.METHOD_NAME(PARAMS) : br.unb.cic.cryptoapp.messagedigest.MessageDigestUtil.hash(byte[],java.lang.String)
+    """
+    Represents a method in a class with its properties and relationships.
+    Used for tracking method reachability and MOP (Method Operating Point) analysis.
+    """
 
-    def __init__(self, class_name: str, name: str, params: list[str], signature: str, reachable: bool,
-                 reaches_mop: bool, directly_reaches_mop: bool, directly_reachable_mop: list[str]):
-        self.class_name = class_name  # class full name
-        self.name = name  # method name
-        self.params = params  # method parameters
-        self.signature = signature  # soot signature
-        self.reachable = reachable  # is reachable from any entrypoint?
-        self.reaches_mop = reaches_mop  # reaches any MOP method?
-        self.directly_reaches_mop = directly_reaches_mop  # reaches any MOP method directly?
-        self.directly_reachable_mop = directly_reachable_mop  # list of methods that are directly reachable from this method
-        self.reached = False  # has been reached during exxecution?
+    def __init__(
+            self,
+            class_name: str,
+            name: str,
+            params: List[str],
+            signature: str,
+            reachable: bool,
+            reaches_mop: bool,
+            directly_reaches_mop: bool,
+            directly_reachable_mop: List[str],
+    ):
+        self.class_name = class_name
+        self.name = name
+        self.params = params
+        self.signature = signature
+        self.reachable = reachable
+        self.reaches_mop = reaches_mop
+        self.directly_reaches_mop = directly_reaches_mop
+        self.directly_reachable_mop = directly_reachable_mop
+        self.reached = False
 
-    # @property
-    # def signature(self):
-    #     return Method.signature_template.format(self.class_name, self.name, self.params)
-
-    def __eq__(self, other):
+    def __eq__(self, other: object) -> bool:
         if isinstance(other, Method):
             return self.signature == other.signature
         return False
 
-    def __hash__(self):
+    def __hash__(self) -> int:
         return hash(self.signature)
 
-    def __str__(self):
-        return f"Method=[name={self.name},signature={self.signature},reachable={self.reachable},reaches_mop={self.reaches_mop}, directly_reaches_mop={self.directly_reaches_mop}"
+    def __str__(self) -> str:
+        return (f"Method=[name={self.name}, signature={self.signature}, "
+                f"reachable={self.reachable}, reaches_mop={self.reaches_mop}, "
+                f"directly_reaches_mop={self.directly_reaches_mop}]")
 
-    def __repr__(self):
-        return f"{self.signature}"
+    def __repr__(self) -> str:
+        return self.signature
 
 
 class Clazz:
-    def __init__(self, name: str, is_activity: bool, is_main_activity: bool):
-        self.name = name  # class full name
-        self.is_activity = is_activity  # is this class an activity?
-        self.is_main_activity = is_main_activity  # is this class the main activity?
-        self.methods: set[Method] = set()  # set of methods in this class
-        self.fields = set()  # set of fields in this class
+    """
+    Represents a class in the application, tracking its activities and methods.
+    Manages the relationship between classes, methods, and fields.
+    """
 
-    def add_method(self, method: Method):
+    def __init__(self, name: str, is_activity: bool, is_main_activity: bool):
+        self.name = name
+        self.is_activity = is_activity
+        self.is_main_activity = is_main_activity
+        self.methods: Set[Method] = set()
+        self.fields: Set[str] = set()
+
+    def add_method(self, method: Method) -> bool:
+        """Adds a method to the class if it doesn't already exist."""
         if method in self.methods:
             return False
         self.methods.add(method)
         return True
 
-    def add_field(self, field: str):
+    def add_field(self, field: str) -> None:
+        """Adds a field to the class's field set."""
         self.fields.add(field)
 
-    def __str__(self):
-        return f"Clazz=[name={self.name},is_activity={self.is_activity},is_main={self.is_main_activity},method={self.methods}, fields={self.fields}]"
+    def __str__(self) -> str:
+        return (f"Clazz=[name={self.name}, is_activity={self.is_activity}, "
+                f"is_main={self.is_main_activity}, methods={self.methods}, "
+                f"fields={self.fields}]")
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"[{self.name},{self.is_activity},{self.is_main_activity}]"
 
 
+# Part 2: Classes Manager and Event Types
 class Classes:
+    """
+    Manages all classes and methods in the application.
+    Provides functionality to add and retrieve classes and methods.
+    """
+
     def __init__(self):
         self.logging = logging_api.getLogger("rvandroid.parser.classes.Classes")
-        self.classes: dict[str, Clazz] = {}
-        self.methods: dict[str, Method] = {}
+        self.classes: Dict[str, Clazz] = {}
+        self.methods: Dict[str, Method] = {}
 
-    def get_classes(self):
-        return [self.classes[name] for name in self.classes.keys()]
+    def get_classes(self) -> List[Clazz]:
+        """Returns a list of all classes."""
+        return list(self.classes.values())
 
     def add_clazz(self, name: str, is_activity: bool, is_main_activity: bool) -> Clazz:
-        # self.logging.debug(f"Adding class {name}")
+        """Adds a new class or returns existing one."""
         if name not in self.classes:
             self.logging.debug(f"Class {name} not found, adding")
             self.classes[name] = Clazz(name, is_activity, is_main_activity)
         return self.classes[name]
 
-    def get_clazz(self, name: str) -> Clazz | None:
-        if name in self.classes:
-            return self.classes[name]
-        return None
+    def get_clazz(self, name: str) -> Optional[Clazz]:
+        """Retrieves a class by name if it exists."""
+        return self.classes.get(name)
 
-    def add_method(self, method: Method):
+    def add_method(self, method: Method) -> bool:
+        """Adds a method to both the class and the method's dictionary."""
         if method.signature not in self.methods:
             clazz = self.get_clazz(method.class_name)
             if clazz and clazz.add_method(method):
@@ -91,15 +119,16 @@ class Classes:
                 self.logging.debug(f"Added method {method.signature}")
                 return True
         return False
-
-    def __str__(self):
-        text = []
-        for name in self.classes:
-            text.append(str(self.classes[name]))
-        return f"Classes=[classes={text}]"
+    
+    # def __str__(self):
+    #     text = []
+    #     for name in self.classes:
+    #         text.append(str(self.classes[name]))
+    #     return f"Classes=[classes={text}]"
 
 
 class WidgetEventType(Enum):
+    """Enumeration of possible widget event types in the application."""
     CLICK = 1
     LONG_CLICK = 2
     SCROLL = 3
@@ -114,29 +143,40 @@ class WidgetEventType(Enum):
     OTHER = 12
 
 
+# Part 3: Widget Related Classes
 class WidgetListener:
+    """
+    Represents a listener for widget events.
+    Tracks the event type and associated method information.
+    """
+
     def __init__(self, event_type: WidgetEventType, clazz: str, method: str, signature: str):
         self.type = event_type
         self.clazz = clazz
         self.method = method
         self.signature = signature
 
-    def __str__(self):
-        return f"WidgetListener=[type={self.type},clazz={self.clazz},method={self.method},signature={self.signature}]"
-
-    def __repr__(self):
-        return f"{self.signature}"
-
-    def __eq__(self, other):
+    def __eq__(self, other: object) -> bool:
         if isinstance(other, WidgetListener):
             return (self.signature, self.type) == (other.signature, other.type)
         return False
 
-    def __hash__(self):
+    def __hash__(self) -> int:
         return hash((self.signature, self.type))
+
+    def __str__(self) -> str:
+        return (f"WidgetListener=[type={self.type}, clazz={self.clazz}, "
+                f"method={self.method}, signature={self.signature}]")
+
+    def __repr__(self) -> str:
+        return f"({self.type.name},{self.signature})"
 
 
 class WidgetType(Enum):
+    """
+    Enumeration of Android widget types.
+    Includes common Android UI elements and utility methods.
+    """
     BUTTON = "android.widget.Button"
     CHECKBOX = "android.widget.CheckBox"
     CHECKED_TEXT_VIEW = "android.widget.CheckedTextView"
@@ -152,61 +192,25 @@ class WidgetType(Enum):
     OTHER = "OTHER"
 
     @staticmethod
-    def from_string(type_str: str):
-        if type_str == "BUTTON":
-            return WidgetType.BUTTON
-        if type_str == "CHECKBOX":
-            return WidgetType.CHECKBOX
-        if type_str == "CHECKED_TEXT_VIEW":
-            return WidgetType.CHECKED_TEXT_VIEW
-        if type_str == "EDIT_TEXT":
-            return WidgetType.EDIT_TEXT
-        if type_str == "IMAGE_BUTTON":
-            return WidgetType.IMAGE_BUTTON
-        if type_str == "IMAGE_VIEW":
-            return WidgetType.IMAGE_VIEW
-        if type_str == "MENU_ITEM":
-            return WidgetType.MENU_ITEM
-        if type_str == "RADIO_BUTTON":
-            return WidgetType.RADIO_BUTTON
-        if type_str == "SPINNER":
-            return WidgetType.SPINNER
-        if type_str == "SUB_MENU":
-            return WidgetType.SUB_MENU
-        if type_str == "TEXT_VIEW":
-            return WidgetType.TEXT_VIEW
-        if type_str == "TOGGLE_BUTTON":
-            return
+    def from_string(type_str: str) -> 'WidgetType':
+        """Converts a string to WidgetType enum value."""
+        try:
+            return WidgetType[type_str]
+        except KeyError:
+            return WidgetType.OTHER
 
-    def from_class_name(class_name: str):
-        if class_name == "android.widget.Button":
-            return WidgetType.BUTTON
-        if class_name == "android.widget.CheckBox":
-            return WidgetType.CHECKBOX
-        if class_name == "android.widget.CheckedTextView":
-            return WidgetType.CHECKED_TEXT_VIEW
-        if class_name == "android.widget.EditText":
-            return WidgetType.EDIT_TEXT
-        if class_name == "android.widget.ImageButton":
-            return WidgetType.IMAGE_BUTTON
-        if class_name == "android.widget.ImageView":
-            return WidgetType.IMAGE_VIEW
-        if class_name == "android.view.MenuItem":
-            return WidgetType.MENU_ITEM
-        if class_name == "android.widget.RadioButton":
-            return WidgetType.RADIO_BUTTON
-        if class_name == "android.widget.Spinner":
-            return WidgetType.SPINNER
-        if class_name == "android.view.SubMenu":
-            return WidgetType.SUB_MENU
-        if class_name == "android.widget.TextView":
-            return WidgetType.TEXT_VIEW
-        if class_name == "android.widget.ToggleButton":
-            return WidgetType.TOGGLE_BUTTON
-        return WidgetType.OTHER
+    @staticmethod
+    def from_class_name(class_name: str) -> 'WidgetType':
+        """Converts a class name to corresponding WidgetType."""
+        return next((wt for wt in WidgetType if wt.value == class_name), WidgetType.OTHER)
 
 
 class Widget:
+    """
+    Represents a UI widget in the application.
+    Manages widget properties and associated listeners.
+    """
+
     def __init__(self, widget_id: str, name: str, widget_type: WidgetType):
         self.logging = logging_api.getLogger("rvandroid.parser.classes.Widget")
         self.id = widget_id
@@ -216,10 +220,11 @@ class Widget:
         self.hint = ""
         self.field = ""
         self.input_type = ""
-        self.entries: list[str] = []
-        self.listeners: set[WidgetListener] = set()
+        self.entries: List[str] = []
+        self.listeners: Set[WidgetListener] = set()
 
-    def add_listener(self, listener: WidgetListener):
+    def add_listener(self, listener: WidgetListener) -> bool:
+        """Adds a new listener if it doesn't already exist."""
         if listener in self.listeners:
             self.logging.debug(f"Listener '{listener.signature}' already exists")
             return False
@@ -227,14 +232,24 @@ class Widget:
         self.listeners.add(listener)
         return True
 
+    def __eq__(self, value):
+        if isinstance(value, Widget):
+            return self.id == value.id
+        return False
+
+    def __hash__(self):
+        return hash(self.id)
+
     def __str__(self):
-        return f"Widget=[id={self.id},type={self.type},name={self.name},text={self.text},hint={self.hint},field={self.field},input_type={self.input_type},entries={self.entries},listeners={self.listeners}]"
+        return f"Widget=[id={self.id}, type={self.type}, name={self.name}, text={self.text}, hint={self.hint}, field={self.field}, input_type={self.input_type}, entries={self.entries}, listeners={self.listeners}]"
 
     def __repr__(self):
         return f"{self.id}"
 
 
+# Part 4: Window Management Classes
 class WindowType(Enum):
+    """Enumeration of different window types in the application."""
     ACTIVITY = 1
     OPTIONSMENU = 2
     CONTEXTMENU = 3
@@ -242,31 +257,35 @@ class WindowType(Enum):
     FRAGMENT = 5
 
     @staticmethod
-    def from_string(window_type: str):
-        if window_type == "ACT":
-            return WindowType.ACTIVITY
-        if window_type == "OPTIONS_MENU":
-            return WindowType.OPTIONSMENU
-        if window_type == "CONTEXT_MENU":
-            return WindowType.CONTEXTMENU
-        if window_type == "DIALOG":
-            return WindowType.DIALOG
-        if window_type == "FRAGMENT":
-            return WindowType.FRAGMENT
-        return None
+    def from_string(window_type: str) -> Optional['WindowType']:
+        """Converts a string representation to WindowType enum value."""
+        type_mapping = {
+            "ACT": WindowType.ACTIVITY,
+            "OPTIONS_MENU": WindowType.OPTIONSMENU,
+            "CONTEXT_MENU": WindowType.CONTEXTMENU,
+            "DIALOG": WindowType.DIALOG,
+            "FRAGMENT": WindowType.FRAGMENT
+        }
+        return type_mapping.get(window_type)
 
 
 class Window:
+    """
+    Represents a window in the application.
+    Manages window properties and associated widgets.
+    """
+
     def __init__(self, name: str):
         self.logging = logging_api.getLogger("rvandroid.parser.classes.Window")
-        self.id = ""  # TODO
+        self.id = ""
         self.name = name
         self.type: WindowType = WindowType.ACTIVITY
         self.layout_file = ""
-        self.widgets: dict[str, Widget] = {}
-        self.fields = set()  # TODO
+        self.widgets: Dict[str, Widget] = {}
+        self.fields: Set[str] = set()
 
-    def add_widget(self, widget: Widget):
+    def add_widget(self, widget: Widget) -> bool:
+        """Adds a widget to the window if it doesn't already exist."""
         widget_id = str(widget.id)
         if widget_id in self.widgets:
             self.logging.debug(f"Widget {widget_id} already exists")
@@ -275,110 +294,133 @@ class Window:
         self.logging.debug(f">>> Widget {widget_id} added: {widget}")
         return True
 
-    def get_widget(self, widget_id: str):
+    def get_widget(self, widget_id: str) -> Optional[Widget]:
+        """Retrieves a widget by ID if it exists."""
         self.logging.debug(f"Getting widget {widget_id} from window {self.name}")
-        if widget_id in self.widgets:
-            self.logging.debug(f"Widget {widget_id} found: {self.widgets[widget_id]}")
-            return self.widgets[widget_id]
+        widget = self.widgets.get(widget_id)
+        if widget:
+            self.logging.debug(f"Widget {widget_id} found: {widget}")
+            return widget
         self.logging.warning(f"Widget {widget_id} not found")
         return None
 
     def __str__(self):
-        return f"Window=[name={self.name},type={self.type},widgets={self.widgets}]"
+        return f"Window=[id={self.id}, name={self.name}, type={self.type}, layout_file={self.layout_file}]"
 
     def __repr__(self):
-        return f"{self.name}"
+        return self.name
 
 
-class WindowTransition:  # TODO
-    def __init__(self, widget_id: str, transition_type: WidgetEventType, method_signature: str):
+# Part 5: Window Transition Classes
+class WindowTransition:
+    """
+    Represents a transition between windows triggered by a widget event.
+    """
+
+    def __init__(
+            self,
+            widget_id: str,
+            transition_type: WidgetEventType,
+            method_signature: str
+    ):
         self.widget_id = widget_id
         self.event_type = transition_type
         self.method = method_signature
 
-    def __str__(self):
-        return f"WindowTransition=[widget_id={self.widget_id},event_type={self.event_type},method={self.method}]"
+    def __str__(self) -> str:
+        return (f"WindowTransition=[widget_id={self.widget_id}, "
+                f"event_type={self.event_type}, method={self.method}]")
 
-    def __repr__(self):
-        return f"{self.method}"
+    def __repr__(self) -> str:
+        return self.method
 
 
 class WindowTransitionGraph:
+    """
+    Manages the graph of transitions between windows.
+    Uses NetworkX for graph representation.
+    """
+
     def __init__(self):
         self.graph = nx.DiGraph()
 
-    def add_transition(self, from_window: Window, to_window: Window, events: list[WindowTransition]):
+    def add_transition(
+            self,
+            from_window: Window,
+            to_window: Window,
+            events: List[WindowTransition]
+    ) -> None:
+        """Adds a transition edge between windows with associated events."""
         self.graph.add_edge(from_window, to_window, events=events)
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"WindowTransitionGraph=[graph={self.graph.edges(data=True)}]"
 
 
 class Windows:
+    """
+    Manages all windows and their widgets in the application.
+    Provides functionality to add and retrieve windows and widgets.
+    """
+
     def __init__(self):
         self.logging = logging_api.getLogger("rvandroid.parser.classes.Windows")
-        self.windows: dict[str, Window] = {}  # name --> Window
-        self.widgets: dict[str, Widget] = {}  # id --> Widget
+        self.windows: Set[Window] = set()
+        self.widgets: Dict[str, Widget] = {}
 
     def add_window(self, window: Window) -> bool:
-        # self.logging.debug(f"Adding window {window.name}")
-        if window.name in self.windows:
+        """Adds a window and its widgets if they don't already exist."""
+        if window in self.windows:
             self.logging.debug(f"Window {window.name} already exists")
             return False
-        self.logging.debug(f">>>>>>>>>>>>>>>>> Window {window.name} added: {window}")
-        self.windows[window.name] = window
-        for widget_id in window.widgets:
-            widget = window.widgets[widget_id]
-            self.logging.debug(f"Adding widget {widget.id}: {widget}")
-            self.widgets[widget.id] = widget
-            window.add_widget(widget)
+        self.windows.add(window)
+        self.logging.debug(f">>> Window {window.name} added: {window}")
+        self.__update_widgets_of_window(window)        
         return True
 
-    # def add_widget(self, widget: Widget) -> bool: # TODO adicionar na instancia de Window ......................
-    #     # self.logging.debug(f"Adding widget {widget.id}")
-    #     if widget.id in self.widgets:
-    #         self.logging.debug(f"Widget {widget.id} already exists")
-    #         return False
-    #     self.widgets[widget.id] = widget
-    #     self.logging.debug(f">>> Widget {widget.id} added: {widget}")
-    #     return True
-    def get_or_create(self, window_name: str) -> Window:
-        self.logging.debug(f"Getting or creating window {window_name}")
-        if window_name in self.windows:
-            self.logging.debug(f"Window {window_name} found: {self.windows[window_name]}")
-            return self.windows[window_name]
-        self.logging.debug(f"Window {window_name} not found, creating new window")
+    def get_or_create(self, window_name: str, window_id: str = "") -> Window:
+        """Gets an existing window or creates a new one."""
+        window = self.get_window(window_name)
+        if window:
+            if window_id:
+                if window.id == window_id:
+                    return window
+                elif not window.id:
+                    window.id = window_id
+                else:
+                    window = self._create_new_window(window_name, window_id)
+            return window
+        return self._create_new_window(window_name, window_id)
+
+    def _create_new_window(self, window_name: str, window_id: str = "") -> Window:
+        """Helper method to create a new window."""
         window = Window(window_name)
-        if "android.view.Menu" == window_name:
-            window.type = WindowType.OPTIONSMENU
-        self.windows[window_name] = window
+        if window_name == "android.view.Menu":
+            window.type = WindowType.OPTIONSMENU        
+        if window_id:
+            window.id = window_id
+        self.add_window(window)
+        self.logging.debug(f"Window created: {window}")        
         return window
+    
+    def __update_widgets_of_window(self, window: Window):
+        for widget_id, widget in window.widgets.items():
+            self.logging.debug(f"Adding widget {widget.id}: {widget}")
+            self.widgets[widget.id] = widget            
 
-    def get_window_by_id(self, window_id: str) -> Window | None:
-        self.logging.debug(f"Getting window by id {window_id}")
-        for window_name in self.windows:
-            window = self.windows[window_name]
-            print(f"ID={window.id} :: {window}")
-            print(f"window.id={type(window.id)}")
-            print(f"window_id={type(window_id)}")
-            if window.id == window_id:
-                self.logging.debug(f"Window {window.name} found: {window}")
-                return window
-        self.logging.debug(f"Window {window_id} not found")
-        return None
+    def get_window_by_id(self, window_id: str) -> Optional[Window]:
+        """Retrieves a window by its ID."""
+        return next((w for w in self.windows if w.id == window_id), None)
 
-    def get_window(self, window_name: str) -> Window | None:
-        self.logging.debug(f"Getting window {window_name}")
-        if window_name in self.windows:
-            self.logging.debug(f"Window {window_name} found: {self.windows[window_name]}")
-            return self.windows[window_name]
-        self.logging.debug(f"Window {window_name} not found")
-        return None
+    def get_window(self, window_name: str) -> Optional[Window]:
+        """Retrieves a window by its name."""
+        return next((w for w in self.windows if w.name == window_name), None)
 
-    def get_widget(self, widget_id: str) -> Widget | None:
-        # self.logging.debug(f"Getting widget {widget_id}")
-        if widget_id in self.widgets:
-            self.logging.debug(f"Widget {widget_id}: {self.widgets[widget_id]}")
-            return self.widgets[widget_id]
-        self.logging.debug(f"Widget {widget_id} not found")
-        return None
+    def get_widget(self, widget_id: str) -> Optional[Widget]:
+        """Retrieves a widget by its ID."""
+        widget = self.widgets.get(widget_id)
+        if widget:
+            self.logging.debug(f"Widget {widget_id}: {widget}")
+        else:
+            self.logging.debug(f"Widget {widget_id} not found")
+        return widget

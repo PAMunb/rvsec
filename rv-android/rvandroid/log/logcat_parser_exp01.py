@@ -1,4 +1,4 @@
-from rvandroid.log.log import RvError, RvCoverage
+from rvandroid.log.log import RvErrorLog, RvCoverageLog
 
 
 def to_error(s: str):
@@ -8,10 +8,10 @@ def to_error(s: str):
         tmp = tmp[:tmp.find("(")]
         dot_idx = tmp.rfind(".")
         clazz = tmp[:dot_idx]
-        method = tmp[dot_idx+1:]
+        method = tmp[dot_idx + 1:]
         message = split[1].strip()
         spec = message.split(" ")[0]
-        return RvError(spec, spec, clazz, method, "Unknown Source:1", message)
+        return RvErrorLog(spec, spec, clazz, method, "Unknown Source:1", message)
     else:
         split = s.split(",")
         spec = split[0]
@@ -22,7 +22,7 @@ def to_error(s: str):
         error_type = split[5]
         msg_idx = find_sixth_comma(s)
         message = s[msg_idx + 1:].strip()
-        return RvError(spec, error_type, clazz, method, source, message)
+        return RvErrorLog(spec, error_type, clazz, method, source, message)
 
 
 def find_sixth_comma(text: str):
@@ -35,9 +35,9 @@ def find_sixth_comma(text: str):
 
 
 def parse_logcat_file(log_file: str):
-    called_methods: dict[str, list[RvCoverage]] = {}
-    rvsec_errors: list[RvError] = []
-    methods: list[RvCoverage] = []
+    called_methods: dict[str, list[RvCoverageLog]] = {}
+    rvsec_errors: list[RvErrorLog] = []
+    methods: list[RvCoverageLog] = []
 
     handled_errors: set[str] = set()
     tmp = {}
@@ -75,7 +75,7 @@ def __get_tag(line: str):
     if ":" in line:
         idx = line.index(":")
         tag = line[2:idx].strip()
-        text = line[idx+1:].strip()
+        text = line[idx + 1:].strip()
 
     return tag, text
 
@@ -87,4 +87,4 @@ def __cov_method_sig(text: str):
     method = sp[1].strip()
     params = sp[2].strip()
 
-    return RvCoverage(clazz, method, params)
+    return RvCoverageLog(clazz, method, params)

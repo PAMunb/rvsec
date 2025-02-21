@@ -75,9 +75,9 @@ def run_experiment(repetitions: int, timeouts: list[int], tools: list[AbstractTo
             run(task, exec_manager, no_window)
     logging.info(f"Execution memory file: {exec_manager.memory_file}")
 
-    logging.info(f"Verifying execution status: {exec_manager.statistics()}")
+    logging.info(f"Verifying execution status: {exec_manager.get_statistics()}")
     for _ in range(3):  # 3 retries
-        status = exec_manager.statistics()
+        status = exec_manager.get_statistics()
         if status["pct"] == 100:
             break
         for task in exec_manager.tasks:

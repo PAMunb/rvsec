@@ -2,8 +2,10 @@ from datetime import datetime
 
 from rvandroid import utils
 
+TAG_RVSEC = "RVSEC"
+TAG_RVSEC_COV = "RVSEC-COV"
 
-class RvError:
+class RvErrorLog:
 
     def __init__(self, spec: str, error_type: str, class_full_name: str, method: str, source: str, message: str):
         self.spec = spec
@@ -20,6 +22,7 @@ class RvError:
         self.time_occurred: datetime = datetime.now()
         self.time_since_task_start: int = 0  # in seconds
 
+    # TODO deprecat
     def to_json(self):
         return {
             'spec': self.spec,
@@ -39,7 +42,7 @@ class RvError:
         return cls(**data)
 
     def __str__(self):
-        return f"RvError(spec={self.spec}, type={self.error_type}, classFullName={self.class_full_name}, method={self.method}, message={self.message}, time_occurred={self.time_occurred}, time_since_task_start={self.time_since_task_start})"
+        return f"RvErrorLog(spec={self.spec}, type={self.error_type}, classFullName={self.class_full_name}, method={self.method}, message={self.message}, time_occurred={self.time_occurred}, time_since_task_start={self.time_since_task_start})"
 
     def __repr__(self):
         return f"{self.unique_msg}:{self.time_occurred}"
@@ -48,39 +51,32 @@ class RvError:
         return hash(self.unique_msg)
 
     def __eq__(self, other):
-        if not isinstance(other, RvError):
-            return NotImplemented
+        if not isinstance(other, RvErrorLog):
+            return False
         return self.unique_msg == other.unique_msg
 
 
-class RvCoverage:
+class RvCoverageLog:
 
-    def __init__(self, clazz: str, method: str, params: str):
+    def __init__(self, clazz: str, method: str, params: str, signature: str):
         self.clazz = clazz
         self.method = method
         self.params = params
-        #################################
-        self.unique_msg: str = "{}:::{}:::{}" \
-            .format(clazz, method, params)
+        self.signature = signature
         self.original_msg: str = ""
         self.time_occurred: datetime = datetime.now()
         self.time_since_task_start: int = 0  # in seconds
 
-    @property
-    def signature(self):
-        return "{}.{}{}" \
-            .format(self.clazz, self.method, self.params)
-
     def __str__(self):
-        return f"RvCoverage(clazz={self.clazz}, method={self.method}, params={self.params}, time_occurred={self.time_occurred}, time_since_task_start={self.time_since_task_start})"
+        return f"RvCoverageLog(clazz={self.clazz}, method={self.method}, params={self.params}, time_occurred={self.time_occurred}, time_since_task_start={self.time_since_task_start})"
 
     def __repr__(self):
-        return f"{self.unique_msg}:{self.time_occurred}"
+        return f"{self.signature}:{self.time_occurred}"
 
     def __hash__(self):
-        return hash(self.unique_msg)
+        return hash(self.signature)
 
     def __eq__(self, other):
-        if not isinstance(other, RvCoverage):
-            return NotImplemented
-        return self.unique_msg == other.unique_msg
+        if not isinstance(other, RvCoverageLog):
+            return False
+        return self.signature == other.signature

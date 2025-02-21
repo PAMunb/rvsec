@@ -1,11 +1,11 @@
-from ollama import ChatResponse, Client
 from typing import List, Dict
 
+from ollama import ChatResponse, Client
 from rvandroid.llm.llm import LanguageModel
 
 
 class OllamaLLM(LanguageModel):
-    LLAMA = "llama3.2:3b" # "llama3.2:1b"
+    LLAMA = "llama3.2:3b"  # "llama3.2:1b"
     DEEPSEEK = "deepseek-r1:1.5B"
     QWEN = "qwen2.5:3b"
     PHI = "phi3.5:3.8b"
@@ -16,10 +16,10 @@ class OllamaLLM(LanguageModel):
 
     MODELS = [LLAMA, DEEPSEEK, QWEN, PHI, GRANITE, MISTRAL, FALCON]
 
-    def __init__(self, model_name: str, base_url="http://localhost:11434"):     
-        super().__init__(model_name)        
-        self.base_url = base_url    
-        self._client: Client | None = None          
+    def __init__(self, model_name: str, base_url="http://localhost:11434"):
+        super().__init__(model_name)
+        self.base_url = base_url
+        self._client: Client | None = None
 
     @property
     def client(self):
@@ -30,20 +30,19 @@ class OllamaLLM(LanguageModel):
 
     def generate(self, messages: List[Dict[str, str]]):
         response: ChatResponse = self.client.chat(
-            model=self.model_name, 
+            model=self.model_name,
             messages=messages,
             keep_alive=True
         )
         # return response['message']['content']
         return response.message.content
-            
-    def clean(self):           
+
+    def clean(self):
         self._client = None
 
-    @staticmethod    
+    @staticmethod
     def models() -> List[str]:
         return OllamaLLM.MODELS
 
     def __str__(self):
         return f"Ollama: {self.model_name}"
-    
