@@ -33,9 +33,8 @@ def read_static_analysis_files(
     """
     windows = Windows()
     classes = _parse_reach_analysis(results_dir, apk)
-    _parse_gesda_analysis(results_dir, apk, package, classes, windows)
     wtg = _parse_gator_analysis(results_dir, apk, package, classes, windows)
-
+    _parse_gesda_analysis(results_dir, apk, package, classes, windows)    
     return classes, windows, wtg
 
 

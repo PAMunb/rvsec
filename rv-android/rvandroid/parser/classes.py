@@ -21,7 +21,7 @@ class Method:
             reachable: bool,
             reaches_mop: bool,
             directly_reaches_mop: bool,
-            directly_reachable_mop: List[str],
+            directly_reachable_mop: List[str], # TODO remover ... não sera usado ... eh uma lista dos metodos (assinaturas soot) que sao (ou podem ser) chamados diretamente no corpo deste metodo
     ):
         self.class_name = class_name
         self.name = name
@@ -32,6 +32,18 @@ class Method:
         self.directly_reaches_mop = directly_reaches_mop
         self.directly_reachable_mop = directly_reachable_mop
         self.reached = False
+    
+    def to_json(self):
+        print(f"METHOD to json: {self.signature}")
+        return {
+            "class": self.class_name,
+            "name": self.name,
+            "params": self.params,
+            "signature": self.signature,
+            "reachable": self.reachable,
+            "reaches_mop": self.reaches_mop,
+            "directly_reaches_mop": self.directly_reaches_mop
+        }
 
     def __eq__(self, other: object) -> bool:
         if isinstance(other, Method):
@@ -73,6 +85,16 @@ class Clazz:
     def add_field(self, field: str) -> None:
         """Adds a field to the class's field set."""
         self.fields.add(field)
+    
+    def to_json(self):
+        print(f"CLASS to json: {self.name}")
+        return {
+            "name": self.name,
+            "is_activity": self.is_activity,
+            "is_main_activity": self.is_main_activity,
+            "methods": [method.to_json() for method in self.methods],
+            "fields": list(self.fields)
+        }
 
     def __str__(self) -> str:
         return (f"Clazz=[name={self.name}, is_activity={self.is_activity}, "
@@ -119,6 +141,12 @@ class Classes:
                 self.logging.debug(f"Added method {method.signature}")
                 return True
         return False
+        
+    def to_json(self):
+        print("Converting classes to json")
+        return {
+            "classes": [clazz.to_json() for clazz in self.classes.values()]
+        }
     
     # def __str__(self):
     #     text = []
@@ -144,7 +172,7 @@ class WidgetEventType(Enum):
 
 
 # Part 3: Widget Related Classes
-class WidgetListener:
+class WidgetEvent:
     """
     Represents a listener for widget events.
     Tracks the event type and associated method information.
@@ -156,8 +184,14 @@ class WidgetListener:
         self.method = method
         self.signature = signature
 
+    def to_json(self):
+        return {
+            "type": self.type.name,
+            "signature": self.signature
+        }
+
     def __eq__(self, other: object) -> bool:
-        if isinstance(other, WidgetListener):
+        if isinstance(other, WidgetEvent):
             return (self.signature, self.type) == (other.signature, other.type)
         return False
 
@@ -165,7 +199,7 @@ class WidgetListener:
         return hash((self.signature, self.type))
 
     def __str__(self) -> str:
-        return (f"WidgetListener=[type={self.type}, clazz={self.clazz}, "
+        return (f"WidgetEvent=[type={self.type}, clazz={self.clazz}, "
                 f"method={self.method}, signature={self.signature}]")
 
     def __repr__(self) -> str:
@@ -221,16 +255,29 @@ class Widget:
         self.field = ""
         self.input_type = ""
         self.entries: List[str] = []
-        self.listeners: Set[WidgetListener] = set()
+        self.events: Set[WidgetEvent] = set()
 
-    def add_listener(self, listener: WidgetListener) -> bool:
-        """Adds a new listener if it doesn't already exist."""
-        if listener in self.listeners:
-            self.logging.debug(f"Listener '{listener.signature}' already exists")
+    def add_event(self, event: WidgetEvent) -> bool:
+        """Adds a new event if it doesn't already exist."""
+        if event in self.events:
+            self.logging.debug(f"Event '{event.signature}' already exists")
             return False
-        self.logging.debug(f">>> Adding listener '{listener.signature}': {listener}")
-        self.listeners.add(listener)
+        self.logging.debug(f">>> Adding event '{event.signature}': {event}")
+        self.events.add(event)
         return True
+
+    def to_json(self):
+        return {
+            "id": self.id,
+            "type": self.type.name,
+            "name": self.name,
+            "text": self.text,
+            "hint": self.hint,
+            "field": self.field,
+            "input_type": self.input_type,
+            "entries": self.entries,
+            "events": [event.to_json() for event in self.events]
+        }
 
     def __eq__(self, value):
         if isinstance(value, Widget):
@@ -241,7 +288,7 @@ class Widget:
         return hash(self.id)
 
     def __str__(self):
-        return f"Widget=[id={self.id}, type={self.type}, name={self.name}, text={self.text}, hint={self.hint}, field={self.field}, input_type={self.input_type}, entries={self.entries}, listeners={self.listeners}]"
+        return f"Widget=[id={self.id}, type={self.type}, name={self.name}, text={self.text}, hint={self.hint}, field={self.field}, input_type={self.input_type}, entries={self.entries}, events={self.events}]"
 
     def __repr__(self):
         return f"{self.id}"
@@ -304,6 +351,16 @@ class Window:
         self.logging.warning(f"Widget {widget_id} not found")
         return None
 
+    def to_json(self):
+        return {
+            "id": self.id,
+            "name": self.name,
+            "type": self.type.name,
+            "layout_file": self.layout_file,
+            "widgets": [widget.to_json() for widget in self.widgets.values()],
+            "fields": list(self.fields)
+        }
+
     def __str__(self):
         return f"Window=[id={self.id}, name={self.name}, type={self.type}, layout_file={self.layout_file}]"
 
@@ -326,6 +383,13 @@ class WindowTransition:
         self.widget_id = widget_id
         self.event_type = transition_type
         self.method = method_signature
+        
+    def to_json(self):
+        return {
+            "widget_id": self.widget_id,
+            "event_type": self.event_type.name,
+            "method": self.method
+        }
 
     def __str__(self) -> str:
         return (f"WindowTransition=[widget_id={self.widget_id}, "
@@ -353,6 +417,18 @@ class WindowTransitionGraph:
         """Adds a transition edge between windows with associated events."""
         self.graph.add_edge(from_window, to_window, events=events)
 
+    def to_json(self):
+        return {
+            "graph": [
+                {
+                    "from_window": from_window.name,
+                    "to_window": to_window.name,
+                    "events": [event.to_json() for event in events]
+                }
+                for from_window, to_window, events in self.graph.edges(data="events")
+            ]
+        }
+
     def __str__(self) -> str:
         return f"WindowTransitionGraph=[graph={self.graph.edges(data=True)}]"
 
@@ -378,21 +454,7 @@ class Windows:
         self.__update_widgets_of_window(window)        
         return True
 
-    def get_or_create(self, window_name: str, window_id: str = "") -> Window:
-        """Gets an existing window or creates a new one."""
-        window = self.get_window(window_name)
-        if window:
-            if window_id:
-                if window.id == window_id:
-                    return window
-                elif not window.id:
-                    window.id = window_id
-                else:
-                    window = self._create_new_window(window_name, window_id)
-            return window
-        return self._create_new_window(window_name, window_id)
-
-    def _create_new_window(self, window_name: str, window_id: str = "") -> Window:
+    def create_new_window(self, window_name: str, window_id: str = "") -> Window:
         """Helper method to create a new window."""
         window = Window(window_name)
         if window_name == "android.view.Menu":
@@ -416,6 +478,15 @@ class Windows:
         """Retrieves a window by its name."""
         return next((w for w in self.windows if w.name == window_name), None)
 
+    def add_widget(self, window: Window, widget: Widget) -> bool:
+        """Adds a widget to a window if it doesn't already exist."""
+        if window.add_widget(widget):
+            self.widgets[widget.id] = widget
+            self.logging.debug(f"Widget {widget.id} added: {widget}")
+            return True
+        self.logging.debug(f"Widget {widget.id} already exists")
+        return False
+
     def get_widget(self, widget_id: str) -> Optional[Widget]:
         """Retrieves a widget by its ID."""
         widget = self.widgets.get(widget_id)
@@ -424,3 +495,29 @@ class Windows:
         else:
             self.logging.debug(f"Widget {widget_id} not found")
         return widget
+    
+    def to_json(self):
+        return {
+            "windows": [window.to_json() for window in self.windows]
+        }
+    
+# def get_or_create(self, window_name: str, window_id: str = "") -> Window:
+#     """Gets an existing window or creates a new one."""
+#     self.logging.debug(f"Getting or creating window {window_name} :: ID= {window_id}")
+#     window = self.get_window(window_name)
+#     self.logging.debug(f"Window {window_name} found: {window}")
+#     if window:
+#         if window_id:
+#             if window.id == window_id:
+#                 self.logging.debugself.logging.debug(f"Window {window_name} found (by id): {window}")
+#                 return window
+#             elif not window.id:
+#                 self.logging.debug(f"Window {window_name} ... update id: {window}")
+#                 window.id = window_id
+#             else:
+#                 self.logging.debug(f"Window {window_name} ... new window: {window}")
+#                 window = self.create_new_window(window_name, window_id)
+#         self.logging.debug(f"Window {window_name} ... returning: {window}")
+#         return window
+#     self.logging.debug(f"Window {window_name} not found ... creating new window")
+#     return self.create_new_window(window_name, window_id)

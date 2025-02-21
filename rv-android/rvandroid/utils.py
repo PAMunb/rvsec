@@ -211,7 +211,7 @@ def read_json(file_path: str):
             return json.load(file)
     except FileNotFoundError:
         print(f"File not found: {file_path}")
-        return None
+        return {}
     except json.JSONDecodeError:
         print(f"Failed to parse JSON from file: {file_path}")
-        return None
+        return {}

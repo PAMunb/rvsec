@@ -14,8 +14,9 @@ from rvandroid.parser.classes import (
     Classes,
     Widget,
     WidgetEventType,
-    WidgetListener,
+    WidgetEvent,
     WidgetType,
+    Window,
     WindowTransition,
     WindowTransitionGraph,
     Windows,
@@ -63,14 +64,15 @@ def process_windows(package: str, classes: Classes, windows: Windows, gator_data
 
     for window in gator_data["windows"]:
         class_name = window["name"]
+        print("\n")
         logger.debug(f"Processing window: {class_name}")
 
         if package in class_name and class_name not in classes.classes:
             classes.add_clazz(class_name, True, False)
 
         window_id = str(window["id"])
-        screen = windows.get_or_create(class_name, window_id)
-        screen.id = window_id
+        screen = get_or_create(windows, class_name, window_id)
+        # screen.id = window_id # TODO 
 
 
 def process_transitions(windows: Windows, gator_data: dict) -> WindowTransitionGraph:
@@ -87,23 +89,25 @@ def process_transitions(windows: Windows, gator_data: dict) -> WindowTransitionG
     wtg = WindowTransitionGraph()
 
     for transition in gator_data["transitions"]:
+        print("\n")
         source_id = str(transition["sourceId"])
         target_id = str(transition["targetId"])
+        logger.debug(f"Processing transition: {source_id} -> {target_id}")
 
         source = windows.get_window_by_id(source_id)
         target = windows.get_window_by_id(target_id)
+        logger.debug(f"{source.name if source else "NULL"} -> {target.name if target else "NULL"}")
 
-        if source == target:
-            continue
-
-        events = process_transition_events(transition, windows)
-        if events:
-            wtg.add_transition(source, target, events)
+        if source is not None and target is not None:
+            events = process_transition_events(source.name, transition, windows)
+            logger.debug(f"Events: {events}")
+            if events:
+                wtg.add_transition(source, target, events)
 
     return wtg
 
 
-def process_transition_events(transition: dict, windows: Windows) -> list[WindowTransition]:
+def process_transition_events(source_class: str, transition_dict: dict, windows: Windows) -> list[WindowTransition]:
     """
     Process events associated with a window transition.
     
@@ -116,29 +120,32 @@ def process_transition_events(transition: dict, windows: Windows) -> list[Window
     """
     events = []
 
-    for event_dict in transition["events"]:
+    for event_dict in transition_dict["events"]:
         event_type = event_dict["type"]
         event = to_event(event_type)
+
+        print(f"Event: {event_dict}")
 
         if event is WidgetEventType.OTHER:
             continue
 
         handler = event_dict["handler"]
         class_name, method_name = from_signature(handler)
+        print(f"Class: {class_name}, Method: {method_name}")
 
-        window = windows.get_or_create(class_name)
+        window = get_or_create(windows, source_class)
         widget_id = str(event_dict["widgetId"])
 
         widget = windows.get_widget(widget_id)
         if widget is None:
             logging.debug(f"Creating widget {widget_id}!")
             widget = create_widget(event_dict)
-            if widget:
-                window.add_widget(widget)
+            if widget is not None:                
+                windows.add_widget(window, widget)
             else:
                 continue
 
-        widget.add_listener(WidgetListener(event, class_name, method_name, handler))
+        widget.add_event(WidgetEvent(event, class_name, method_name, handler))
         events.append(WindowTransition(widget_id, event, handler))
 
     return events
@@ -223,3 +230,24 @@ def to_event(event_str: str) -> WidgetEventType:
     }
 
     return event_map.get(event_str, WidgetEventType.OTHER)
+
+def get_or_create(windows: Windows, window_name: str, window_id: str = "") -> Window:
+        """Gets an existing window or creates a new one."""
+        logger.debug(f"Getting or creating window {window_name} :: ID= {window_id}")
+        window = windows.get_window(window_name)
+        logger.debug(f"Window {window_name} found: {window}")
+        if window:
+            if window_id:
+                if window.id == window_id:
+                    logger.debug(f"Window {window_name} found (by id): {window}")
+                    return window
+                elif not window.id:
+                    logger.debug(f"Window {window_name} ... update id: {window}")
+                    window.id = window_id
+                else:
+                    logger.debug(f"Window {window_name} ... new window: {window}")
+                    window = windows.create_new_window(window_name, window_id)
+            logger.debug(f"Window {window_name} ... returning: {window}")
+            return window
+        logger.debug(f"Window {window_name} not found ... creating new window")
+        return windows.create_new_window(window_name, window_id)
