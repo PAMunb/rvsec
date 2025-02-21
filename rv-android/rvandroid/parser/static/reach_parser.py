@@ -8,7 +8,7 @@ import csv
 import logging as logging_api
 from typing import List
 
-from rvandroid.parser.classes import Classes, Method, Clazz
+from rvandroid.model.classes import Classes, Method, Clazz
 
 # Configure module logger
 logging = logging_api.getLogger(__name__)
@@ -91,8 +91,7 @@ def _parse_method(row: List[str], class_name: str) -> Method:
         signature=row[8],
         reachable=eval(row[5].capitalize()),
         reaches_mop=eval(row[6].capitalize()),
-        directly_reaches_mop=eval(row[7].capitalize()),
-        directly_reachable_mop=_parse_method_list(row[9])
+        directly_reaches_mop=eval(row[7].capitalize())
     )
 
 

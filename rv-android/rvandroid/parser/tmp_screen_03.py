@@ -329,6 +329,6 @@ TELA_CIPHER = {"package": "br.unb.cic.cryptoapp", "visible": True, "checkable": 
 
 
 if __name__ == "__main__":
-    # execute(TELA_INICIAL)
-    execute(TELA_MESSAGE_DIGEST)
+    execute(TELA_INICIAL)
+    # execute(TELA_MESSAGE_DIGEST)
     # execute(TELA_CIPHER)

@@ -28,7 +28,7 @@ class OllamaLLM(LanguageModel):
             self._client.pull(self.model_name)
         return self._client
 
-    def generate(self, messages: List[Dict[str, str]]):
+    def generate(self, messages: List[Dict[str, str]], max_new_tokens: int = 800):
         response: ChatResponse = self.client.chat(
             model=self.model_name,
             messages=messages,

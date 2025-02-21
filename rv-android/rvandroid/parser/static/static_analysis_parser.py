@@ -8,8 +8,10 @@ import os
 from typing import Tuple, Optional
 
 from rvandroid.constants import *
-from rvandroid.parser import gesda_parser, reach_parser, gator_parser
-from rvandroid.parser.classes import Classes, Windows, WindowTransitionGraph
+from rvandroid.parser.static import gator_parser, reach_parser, gesda_parser
+from rvandroid.model.classes import Classes
+from rvandroid.model.window import Windows
+from rvandroid.model.wtg import WindowTransitionGraph
 
 
 def read_static_analysis_files(

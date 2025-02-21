@@ -1,4 +1,4 @@
-from rvandroid.parser.visitor import *
+from rvandroid.parser.droidbot.visitor import *
 
 
 class TextVisitor(Visitor):
