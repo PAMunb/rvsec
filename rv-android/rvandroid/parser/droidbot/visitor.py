@@ -83,6 +83,7 @@ class Node:
 
     def __init__(self, view: dict, children: Optional[List['Node']] = None):
         self.data = view
+        print("view:", view)
         self.children = children or []
 
         # Extract view properties

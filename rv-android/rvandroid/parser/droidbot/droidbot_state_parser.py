@@ -15,7 +15,8 @@ class TextVisitor(Visitor):
     def visit_button(self, node: Node):
         print(f"\n ***** BUTTON: {node.data}")
         actions = self.get_possible_actions(node, self.counter)
-        text = "Button {}{}{}".format(self.__with_text(node), self.__with_description(node),
+        text = "Button {}{}{}".format(self.__with_text(node), 
+                                      self.__with_description(node),
                                       self.__with_resource_id(node))
         item = ScreenItem(node.data, text, actions)
         print(item)
@@ -24,7 +25,8 @@ class TextVisitor(Visitor):
     def visit_edit_text(self, node):
         print(f"\n ***** EDIT_TEXT: {node.data}")
         actions = Visitor.get_possible_actions(node, self.counter)
-        text = "Editable text view {}{}{}".format(self.__with_text(node), self.__with_description(node),
+        text = "Editable text view {}{}{}".format(self.__with_text(node), 
+                                                  self.__with_description(node),
                                                   self.__with_resource_id(node))
         item = ScreenItem(node.data, text, actions)
         print(item)
@@ -33,7 +35,8 @@ class TextVisitor(Visitor):
     def visit_text_view(self, node):
         print(f"\n ***** TEXT_VIEW: {node.data}")
         actions = Visitor.get_possible_actions(node, self.counter)
-        text = "Text view {}{}{}".format(self.__with_text(node), self.__with_description(node),
+        text = "Text view {}{}{}".format(self.__with_text(node), 
+                                         self.__with_description(node),
                                          self.__with_resource_id(node))
         item = ScreenItem(node.data, text, actions)
         print(item)

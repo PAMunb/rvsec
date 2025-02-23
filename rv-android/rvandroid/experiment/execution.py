@@ -27,6 +27,14 @@ from settings import RESULTS_DIR, TIMESTAMP, INSTRUMENTED_DIR
 # Configure module logger
 logger = logging.getLogger(__name__)
 
+def singleton(cls):
+    instances = {}
+    def get_instance(*args, **kwargs):
+        if cls not in instances:
+            instances[cls] = cls(*args, **kwargs)
+        return instances[cls]
+    return get_instance
+
 
 @dataclass
 class ExecutionStats:
@@ -49,6 +57,7 @@ class ExecutionStats:
         return cls(total, executed, round(percentage, 2), errors)
 
 
+@singleton
 class ExecutionManager:
     """Manages the execution of tasks and maintains execution state"""
 

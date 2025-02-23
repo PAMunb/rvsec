@@ -14,34 +14,10 @@ QWEN = "Qwen/Qwen2.5-3B-Instruct"  # "Qwen/Qwen2.5-0.5B-Instruct" # "Qwen/Qwen2.
 PHI = "microsoft/Phi-3.5-mini-instruct"
 GRANITE = "ibm-granite/granite-3.1-8b-instruct"
 FALCON = "tiiuae/Falcon3-3B-Instruct"
+BERT = "google-bert/bert-base-uncased"
+GPT2 = "openai-community/gpt2"
+MISTRAL = "mistralai/Mistral-7B-Instruct-v0.3"
 
-
-# LLAMA = "meta-llama/Meta-Llama-3.1-8B-Instruct" # needs permission
-# QWEN = "Qwen/Qwen2.5-3B-Instruct" # "Qwen/Qwen2.5-0.5B-Instruct" # "Qwen/Qwen2.5-3B-Instruct" # "Qwen/Qwen2.5-3B" # "Qwen/Qwen2.5-VL-7B-Instruct" "Qwen/Qwen2-7B-Instruct"
-# QWEN_0_5B = "Qwen/Qwen2.5-0.5B-Instruct"
-# # PHI2 = "microsoft/phi-2"
-# PHI3 = "microsoft/Phi-3-mini-4k-instruct"
-# PHI3_5="microsoft/Phi-3.5-mini-instruct"
-# GEMMA2 = "google/gemma-2-2b-it" # needs permission: https://huggingface.co/google/gemma-2-2b-it
-# STARCODER2 = "bigcode/starcoder2-3b"
-# FALCON= "tiiuae/Falcon3-3B-Instruct" # tiiuae/Falcon3-7B-Instruct # https://falconllm.tii.ae/
-# GRANITE = "ibm-granite/granite-3.1-8b-instruct"
-# DEEPSEEK = "deepseek-ai/DeepSeek-R1-Distill-Qwen-7B" # "deepseek-ai/deepseek-llm-7b-chat"
-# DEEPSEEK_CHAT = "deepseek-ai/deepseek-llm-7b-chat"
-
-# MODELS = [
-#     LLAMA,
-#     QWEN,
-#     QWEN_0_5B,
-#     PHI3,
-#     PHI3_5,
-#     GEMMA2,
-#     STARCODER2,
-#     FALCON,
-#     GRANITE,
-#     DEEPSEEK,
-#     DEEPSEEK_CHAT,
-# ]
 
 class HuggingFaceLLM(LanguageModel):  # More descriptive class name
     """
