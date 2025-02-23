@@ -1,7 +1,9 @@
 from dataclasses import dataclass
 from typing import List, Dict, Optional
 
-from droidbot.input_event import *
+from rvandroid.model.widget import WidgetEventType
+
+# from droidbot.input_event import *
 
 """
 This module contains the implementation of a visitor pattern to parse Android UI elements and their associated actions.
@@ -20,7 +22,9 @@ class ItemAction:
     """Represents an action that can be performed on a UI element"""
     id: int
     text: str
-    event: InputEvent
+    event: WidgetEventType
+    reaches_mop: bool
+    directly_reaches_mop: bool
 
 
 @dataclass
@@ -46,8 +50,8 @@ class ScreenDescription:
     def __init__(self, activity: str, items: List[ScreenItem]):
         self.activity = activity
         self.items = items
-        self.events_by_id: Dict[int, InputEvent] = {
-            action.id: action.event
+        self.events_by_id: Dict[int, ItemAction] = {
+            action.id: action
             for item in items
             for action in item.actions
         }
@@ -75,6 +79,9 @@ class Counter:
     def inc(self) -> int:
         """Increments counter and returns new value"""
         self.value += 1
+        return self.value
+
+    def get(self):
         return self.value
 
 
@@ -118,6 +125,7 @@ class Node:
 
     def _handle_leaf_node(self, visitor: 'Visitor') -> None:
         """Handles visitation for leaf nodes based on their widget type"""
+        print("Leaf node:", self.view_class)
         widget_handlers = {
             "android.widget.Button": visitor.visit_button,
             "android.widget.EditText": visitor.visit_edit_text,
@@ -157,35 +165,39 @@ class Visitor:
     def get_possible_actions(node: Node, counter: Counter) -> List[ItemAction]:
         """Determines all possible actions for a given node"""
         actions = []
-
+        # id: int
+        # text: str
+        # event: WidgetEventType
+        # reaches_mop: bool
+        # directly_reaches_mop: bool
         # Handle click actions
         if node.clickable:
             actions.append(ItemAction(
                 counter.inc(),
-                "click ({})",
-                TouchEvent(view=node.data)
+                f"{WidgetEventType.CLICK.name} ({counter.get()})",
+                WidgetEventType.CLICK, False, False
             ))
 
         # Handle long click actions    
         if node.long_clickable:
             actions.append(ItemAction(
                 counter.inc(),
-                "long click ({})",
-                LongTouchEvent(view=node.data)
+                WidgetEventType.LONG_CLICK.name,
+                WidgetEventType.LONG_CLICK, False, False
             ))
 
         # Handle check/uncheck actions
         if node.checkable:
             actions.append(ItemAction(
                 counter.inc(),
-                "check ({})",
-                TouchEvent(view=node.data)
+                "check",
+                WidgetEventType.CLICK, False, False
             ))
         if node.checked:
             actions.append(ItemAction(
                 counter.inc(),
-                "uncheck ({})",
-                TouchEvent(view=node.data)
+                "uncheck",
+                WidgetEventType.CLICK, False, False
             ))
 
         # Handle scroll actions
@@ -194,7 +206,7 @@ class Visitor:
                 actions.append(ItemAction(
                     counter.inc(),
                     f"scroll {direction} ({{}})",
-                    ScrollEvent(view=node.data, direction=direction)
+                    WidgetEventType.SCROLL, False, False
                 ))
 
         # Handle text input actions
@@ -202,7 +214,7 @@ class Visitor:
             actions.append(ItemAction(
                 counter.inc(),
                 "set text ({})",
-                SetTextEvent(view=node.data, text="")
+                WidgetEventType.TEXT_CHANGE, False, False
             ))
 
         return actions

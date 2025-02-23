@@ -3,7 +3,7 @@
 from typing import Dict, List, Optional
 from rvandroid.model.classes import Classes
 from rvandroid.model.window import Window
-from rvandroid.model.widget import Widget, WidgetType
+from rvandroid.model.widget import Widget, WidgetEventType, WidgetType
 
 class ViewVisitor:
     """Visitor for processing view elements and combining with static analysis"""
@@ -43,10 +43,14 @@ class ViewVisitor:
             "description": view_data.get("content_description", ""),
             "clickable": view_data.get("clickable", False),
             "checkable": view_data.get("checkable", False),
-            "editable": view_data.get("editable", False),
+            "checked": view_data.get("checked", False),
+            "selected": view_data.get("selected", False),
+            "scrollable": view_data.get("scrollable", False),
             "is_password": view_data.get("is_password", False),
             "visible": view_data.get("visible", True),
             "enabled": view_data.get("enabled", True),
+            "focused": view_data.get("focused", False),
+            "editable": view_data.get("editable", False),
             "bounds": view_data.get("bounds", {}),
         }
         
@@ -70,14 +74,14 @@ class ViewVisitor:
         """Adds interaction-related information to the processed view"""
         interactions = []
         
-        if view_data.get("clickable"):
-            interactions.append("click")
+        if view_data.get("clickable") or view_data.get("checkable"):
+            interactions.append(WidgetEventType.CLICK.name)
         if view_data.get("long_clickable"):
-            interactions.append("long_click")
+            interactions.append(WidgetEventType.LONG_CLICK.name)
         if view_data.get("scrollable"):
-            interactions.append("scroll")
+            interactions.append(WidgetEventType.SCROLL.name)
         if view_data.get("editable"):
-            interactions.append("set_text")
+            interactions.append(WidgetEventType.TEXT_CHANGE.name)
             
         processed_view["possible_actions"] = interactions
         

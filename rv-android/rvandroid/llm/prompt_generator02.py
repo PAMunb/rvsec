@@ -88,16 +88,29 @@ Available Interactive Elements:
         
         if view["id"]:
             info += f" (id={view['id']})"
-            
+        if view["name"]:
+            info += f" (name={view['name']})"            
         if view["text"]:
             info += f" text='{view['text']}'"
+        if view["hint"]:
+            info += f" hint='{view['hint']}'"
+        if view["description"]:
+            info += f" description='{view['description']}'"
             
         info += f"\n  Actions: {', '.join(view['possible_actions'])}"
         
         if "static_info" in view:
             static = view["static_info"]
             if static["registered_events"]:
-                info += f"\n  Registered events: {', '.join(static['registered_events'])}"
+                info += "\n  Registered events: "
+                events = static["registered_events"]
+                for event in events:
+                    complement = ""
+                    if event["directly_reaches_mop"]:
+                        complement = ", IMPORTANT: directly reaches speacial method" 
+                    elif event["reaches_mop"]:
+                        complement = ", IMPORTANT: can reach speacial method" 
+                    info += f"\n    - {event["type"]}{complement} "                
                 
         return info + "\n"
 

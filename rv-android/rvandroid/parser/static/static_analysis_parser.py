@@ -14,6 +14,14 @@ from rvandroid.model.window import Windows
 from rvandroid.model.wtg import WindowTransitionGraph
 
 
+def parse(reach_file, gator_file, gesda_file, package):
+    windows = Windows()
+    classes = _parse_reach(reach_file)
+    wtg = _parse_gator(gator_file, package, classes, windows)
+    _parse_gesda(gesda_file, package, classes, windows)    
+    return classes, windows, wtg
+
+
 def read_static_analysis_files(
         results_dir: str,
         apk: str,
@@ -52,6 +60,9 @@ def _parse_reach_analysis(results_dir: str, apk: str) -> Classes:
         Classes: Parsed class information, empty if file not found
     """
     reach_file = os.path.join(results_dir, apk + EXTENSION_REACH)
+    return _parse_reach(reach_file)
+    
+def _parse_reach(reach_file):
     return (reach_parser.read_reachable_methods(reach_file)
             if os.path.exists(reach_file) else Classes())
 
@@ -74,9 +85,11 @@ def _parse_gesda_analysis(
         windows (Windows): Existing Windows object to update
     """
     gesda_file = os.path.join(results_dir, apk + EXTENSION_GESDA)
+    _parse_gesda(gesda_file, package, classes, windows) 
+
+def _parse_gesda(gesda_file, package: str, classes: Classes, windows: Windows):
     if os.path.exists(gesda_file):
         gesda_parser.parse_gesda_file(gesda_file, package, classes, windows)
-
 
 def _parse_gator_analysis(
         results_dir: str,
@@ -99,5 +112,9 @@ def _parse_gator_analysis(
         WindowTransitionGraph: Parsed transition graph, None if file not found
     """
     gator_file = os.path.join(results_dir, apk + EXTENSION_GATOR)
+    return (gator_parser.parse_gator_file(gator_file, package, classes, windows)
+            if os.path.exists(gator_file) else None)
+
+def _parse_gator(gator_file, package, classes, windows):
     return (gator_parser.parse_gator_file(gator_file, package, classes, windows)
             if os.path.exists(gator_file) else None)
