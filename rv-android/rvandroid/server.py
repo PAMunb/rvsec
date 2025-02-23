@@ -148,6 +148,16 @@ class Server:
             except Exception as e:
                 self.logger.error(f"Error in generate_actions: {e}", exc_info=True)
                 raise
+          # droidbot:   
+    #     {
+    #     "activity": state.foreground_activity,
+    #     "stack": state.activity_stack,
+    #     "screen_size": {
+    #         "width": state.width,
+    #         "height": state.height
+    #     },
+    #     "view_tree": state.view_tree
+    # }
 
     def start(self) -> bool:
         """

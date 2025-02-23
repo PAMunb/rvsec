@@ -1,13 +1,13 @@
 import logging
 import sys
 
-from rvandroid.parser import reach_parser
+from rvandroid.parser.static import reach_parser
 
 if __name__ == '__main__':
     logging.basicConfig(stream=sys.stdout, level=logging.INFO)
     logging.getLogger("androguard").setLevel(logging.WARNING)
 
-    reach_file = "/home/pedro/desenvolvimento/RV_ANDROID/teste_llm/static//cryptoapp.apk.reach"
+    reach_file = "/home/pedro/desenvolvimento/RV_ANDROID/teste_llm/static/cryptoapp.apk.reach"
     classes = reach_parser.read_reachable_methods(reach_file)
     print(classes)
 

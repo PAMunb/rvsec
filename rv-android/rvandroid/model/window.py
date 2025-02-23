@@ -60,6 +60,16 @@ class Window:
             return widget
         self.logging.warning(f"Widget {widget_id} not found")
         return None
+    
+    def get_widget_by_name(self, widget_name: str) -> Optional[Widget]:
+        """Retrieves a widget by its name if it exists."""
+        self.logging.debug(f"Getting widget '{widget_name}' from window {self.name}")
+        for widget in self.widgets.values():
+            if widget.name == widget_name:
+                self.logging.debug(f"Widget {widget_name} found: {widget}")
+                return widget
+        self.logging.warning(f"Widget {widget_name} not found")
+        return None
 
     def to_json(self):
         return {
