@@ -59,7 +59,7 @@ def process_windows(package: str, classes: Classes, windows: Windows, gator_data
 
     for window in gator_data["windows"]:
         class_name = window["name"]
-        print("\n")
+        #print("\n")
         logger.debug(f"Processing window: {class_name}")
 
         if package in class_name and class_name not in classes.classes:
@@ -84,7 +84,7 @@ def process_transitions(windows: Windows, gator_data: dict) -> WindowTransitionG
     wtg = WindowTransitionGraph()
 
     for transition in gator_data["transitions"]:
-        print("\n")
+        #print("\n")
         source_id = str(transition["sourceId"])
         target_id = str(transition["targetId"])
         logger.debug(f"Processing transition: {source_id} -> {target_id}")
@@ -119,14 +119,14 @@ def process_transition_events(source_class: str, transition_dict: dict, windows:
         event_type = event_dict["type"]
         event = to_event(event_type)
 
-        print(f"Event: {event_dict}")
+        #print(f"Event: {event_dict}")
 
         if event is WidgetEventType.OTHER:
             continue
 
         handler = event_dict["handler"]
         class_name, method_name = from_signature(handler)
-        print(f"Class: {class_name}, Method: {method_name}")
+        #print(f"Class: {class_name}, Method: {method_name}")
 
         window = get_or_create(windows, source_class)
         widget_id = str(event_dict["widgetId"])

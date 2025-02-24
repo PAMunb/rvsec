@@ -1,7 +1,12 @@
 from dataclasses import dataclass
 from typing import List, Dict, Optional
-
-from rvandroid.model.widget import WidgetEventType
+import logging as logging_api
+from rvandroid.model.static import StaticAnalysisData
+from rvandroid.model.widget import WidgetEventType, Widget
+from rvandroid.model.classes import Classes
+from rvandroid.model.window import Window
+from rvandroid.model.widget import Widget, WidgetEventType, WidgetType
+from rvandroid.model.wtg import WindowTransitionGraph
 
 # from droidbot.input_event import *
 
@@ -101,11 +106,15 @@ class Node:
         self.editable = self._get_property("editable", False)
         self.checked = self._get_property("checked", False)
         self.selected = self._get_property("selected", False)
+        self.is_password = self._get_property("is_password", False)
+        self.enabled = self._get_property("enabled", False)
+        self.focused = self._get_property("focused", False)
 
         # View identifiers
         self.content_description = self._get_property("content_description", "")
         self.view_text = self._get_property("text", "")
         self.view_class = self._get_property("class", "")
+        self.package = self._get_property("package", "")
         self.resource_id = self._get_property("resource_id", "")
 
         # Derived properties
@@ -141,7 +150,6 @@ class Node:
         handler = widget_handlers.get(self.view_class, visitor.visit_leaf_node)
         handler(self)
 
-
     def _handle_container_node(self, visitor: 'Visitor') -> None:
         """Handles visitation for container nodes"""
         if self.view_class == "android.widget.Spinner":
@@ -157,19 +165,39 @@ class Node:
 class Visitor:
     """Base visitor class for traversing UI hierarchy and collecting view information"""
 
-    def __init__(self):
+    def __init__(self, static_info: StaticAnalysisData, activity: str):
+        self.logging = logging_api.getLogger(__name__)
+        self.static_info = static_info
+        self.activity = activity
+        self.window = static_info.windows.get_window(activity)
         self.counter = Counter()
         self.items: List[ScreenItem] = []
+        self.window_info: Dict = {
+            "total_widgets": 0,
+            "matched_widgets": 0,
+            "interactive_elements": 0
+        }
+
+    def find_matching_widget(self, node: Node) -> Optional[Widget]:
+        self.logging.debug(f"Finding matching widget for node: {node.data}")
+
+        if node.resource_id:
+            resource_id = node.resource_id.split("/")[-1]
+            self.logging.debug(f"Resource ID found: {node.resource_id}")
+            if self.window is not None:
+                widget = self.window.get_widget_by_name(resource_id)
+                if widget:
+                    self.window_info["matched_widgets"] += 1
+                    self.logging.debug(f"Widget found: {widget}")
+                    return widget
+
+        return None
 
     @staticmethod
     def get_possible_actions(node: Node, counter: Counter) -> List[ItemAction]:
         """Determines all possible actions for a given node"""
         actions = []
-        # id: int
-        # text: str
-        # event: WidgetEventType
-        # reaches_mop: bool
-        # directly_reaches_mop: bool
+
         # Handle click actions
         if node.clickable:
             actions.append(ItemAction(
@@ -182,7 +210,7 @@ class Visitor:
         if node.long_clickable:
             actions.append(ItemAction(
                 counter.inc(),
-                WidgetEventType.LONG_CLICK.name,
+                f"{WidgetEventType.LONG_CLICK.name} ({counter.get()})",
                 WidgetEventType.LONG_CLICK, False, False
             ))
 
@@ -190,13 +218,13 @@ class Visitor:
         if node.checkable:
             actions.append(ItemAction(
                 counter.inc(),
-                "check",
+                "CHECK",
                 WidgetEventType.CLICK, False, False
             ))
         if node.checked:
             actions.append(ItemAction(
                 counter.inc(),
-                "uncheck",
+                "UNCHECK",
                 WidgetEventType.CLICK, False, False
             ))
 

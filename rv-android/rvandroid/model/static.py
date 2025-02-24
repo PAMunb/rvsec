@@ -1,13 +1,6 @@
-
-import logging
-import os
-import sys
-
-from rvandroid.app import App
-from rvandroid.model.wtg import WindowTransitionGraph
-from rvandroid.parser.static import gator_parser, reach_parser, gesda_parser, static_analysis_parser
 from rvandroid.model.classes import Classes
 from rvandroid.model.window import Windows
+from rvandroid.model.wtg import WindowTransitionGraph
 
 
 class StaticAnalysisData:

@@ -6,11 +6,8 @@ from rvandroid.parser.droidbot.visitor import *
 
 class TextVisitor(Visitor):
 
-    def __init__(self, classes: Classes, windows: Windows, wtg: WindowTransitionGraph):
-        super().__init__()
-        self.classes = classes
-        self.windows = windows
-        self.wtg = wtg
+    def __init__(self, static_info: StaticAnalysisData, activity: str):
+        super().__init__(static_info, activity)
 
     def visit_node(self, node):
         # print(f"\nNode: {node.data}")
@@ -23,10 +20,13 @@ class TextVisitor(Visitor):
 
     def visit_button(self, node: Node):
         print(f"\n ***** BUTTON: {node.data}")
+        widget = self.find_matching_widget(node)
+        print(f" - WIDGET: {widget}")
         actions = self.get_possible_actions(node, self.counter)
         text = "Button {}{}{}".format(self.__with_text(node), 
                                       self.__with_description(node),
                                       self.__with_resource_id(node))
+        print(text)
         item = ScreenItem(node.data, text, actions)
         print(item)
         self.items.append(item)
@@ -112,16 +112,22 @@ def create_tree_from_json(json_data: dict):
             for child_data in data["children"]:
                 children.append(create_node(child_data))
         return Node(data, children)
-
     return create_node(json_data)
 
-def parse(screen_info: dict, classes: Classes, windows: Windows, wtg: WindowTransitionGraph) -> ScreenDescription:
+
+def parse(screen_info: dict, static_data: StaticAnalysisData) -> ScreenDescription:
+    print(f"********* Parsing screen info ...")
+
+    stack = screen_info.get("stack", [])
+    new_stack = [name.replace("/", "") for name in stack]
+    screen_info["stack"] = new_stack
+    screen_info["activity"] = screen_info.get("activity", "").replace("/", "")
+
     # Criando a árvore a partir do JSON
-    tree = create_tree_from_json(screen_info)
-    print(f"tree={tree}")
+    tree = create_tree_from_json(screen_info["view_tree"])
 
     # Criando um visitante
-    visitor = TextVisitor(classes, windows, wtg)
+    visitor = TextVisitor(static_data, screen_info["activity"])
 
     # Percorrendo a árvore
     tree.accept(visitor)

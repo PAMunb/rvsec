@@ -76,7 +76,7 @@ def create_window(window_dict: dict, windows: Windows) -> Window:
     Returns:
         Window object with populated properties
     """
-    print(f"*** window_dict={window_dict}")
+    # print(f"*** window_dict={window_dict}")
     window = windows.get_window(window_dict["name"])
     if window is None:
         logger.debug(f"Creating new window: {window_dict['name']}")
@@ -128,14 +128,14 @@ def get_or_create_widget(widget_dict: dict, window: Window, windows: Windows) ->
     widget = windows.get_widget(widget_dict["widgetId"])
     if widget is None:
         widget_type = WidgetType.from_string(widget_dict["type"])
-        print(f"create_widget::type={type}")
+        #print(f"create_widget::type={type}")
         logger.debug(f"Creating new widget: {widget_dict['widgetId']}")
         widget = Widget(
             str(widget_dict["widgetId"]),
             widget_dict["name"] if "name" in widget_dict else "",
             widget_type # TODO rever tipo ...........................
         )
-        print(f"window ({type(window)})={window}")        
+        #print(f"window ({type(window)})={window}")
         windows.add_widget(window, widget)
 
     # Set optional properties
