@@ -9,3 +9,4 @@ class StaticAnalysisData:
         self.classes = classes
         self.windows = windows
         self.wtg = wtg
+        

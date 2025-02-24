@@ -20,7 +20,7 @@ def parse(reach_file, gator_file, gesda_file, package):
     classes = _parse_reach(reach_file)
     wtg = _parse_gator(gator_file, package, classes, windows)
     _parse_gesda(gesda_file, package, classes, windows)
-    return classes, windows, wtg
+    return StaticAnalysisData(classes, windows, wtg)
 
 
 def read_static_analysis_files(

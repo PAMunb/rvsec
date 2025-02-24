@@ -23,9 +23,11 @@ class TextVisitor(Visitor):
         widget = self.find_matching_widget(node)
         print(f" - WIDGET: {widget}")
         actions = self.get_possible_actions(node, self.counter)
-        text = "Button {}{}{}".format(self.__with_text(node), 
-                                      self.__with_description(node),
-                                      self.__with_resource_id(node))
+        # text = "Button {}{}{}{}".format(self.__with_text(node), 
+        #                               self.__has_focus(node),
+        #                               self.__with_description(node),
+        #                               self.__with_resource_id(node))
+        text = self.__default_message(node, "Button ")
         print(text)
         item = ScreenItem(node.data, text, actions)
         print(item)
@@ -34,7 +36,8 @@ class TextVisitor(Visitor):
     def visit_edit_text(self, node):
         print(f"\n ***** EDIT_TEXT: {node.data}")
         actions = Visitor.get_possible_actions(node, self.counter)
-        text = "Editable text view {}{}{}".format(self.__with_text(node), 
+        text = "Editable text view {}{}{}{}".format(self.__with_text(node), 
+                                                  self.__has_focus(node),
                                                   self.__with_description(node),
                                                   self.__with_resource_id(node))
         item = ScreenItem(node.data, text, actions)
@@ -52,7 +55,18 @@ class TextVisitor(Visitor):
         self.items.append(item)
 
     def visit_checkbox(self, node):
-        print(f"\n ***** CHECKBOX: {node.data}")
+        print(f"\n ***** CHECKBOX: {node.data}")        
+        actions = self.get_possible_actions(node, self.counter)
+        checked = " that is checked" if node.checked else ""
+        text = "Checkbox {}{}{}{}{}".format(checked, 
+                                            self.__with_text(node), 
+                                            self.__with_description(node),
+                                            self.__has_focus(node),
+                                            self.__with_resource_id(node))
+        print(text)
+        item = ScreenItem(node.data, text, actions)
+        print(item)
+        self.items.append(item)
 
     def visit_checked_text(self, node):
         print(f"\n ***** CHECKED_TEXT_VIEW: {node.data}")
@@ -90,8 +104,17 @@ class TextVisitor(Visitor):
     def visit_radio_group(self, node):
         print(f"\n ***** RADIO_GROUP: {node.data}")
 
+    def __default_message(self, node: Node, prefix: str):
+        return "{} {}{}{}{}".format(prefix, self.__with_text(node), 
+                                      self.__has_focus(node),
+                                      self.__with_description(node),
+                                      self.__with_resource_id(node))
+
     def __with_text(self, node: Node):
         return f"with text '{node.view_text}'" if node.view_text else "with no text"
+    
+    def __has_focus(self, node: Node):
+        return f" that is focused" if node.focused else ""
 
     def __with_description(self, node: Node):
         return f" with description '{node.content_description}'" if node.content_description else ""
@@ -102,7 +125,7 @@ class TextVisitor(Visitor):
             name = node.resource_id
             idx = name.find("/")
             result = f" with id={name[idx + 1:]}"
-        return result
+        return "" # result
 
 
 def create_tree_from_json(json_data: dict):

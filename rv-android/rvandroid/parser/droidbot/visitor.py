@@ -169,6 +169,8 @@ class Visitor:
         self.logging = logging_api.getLogger(__name__)
         self.static_info = static_info
         self.activity = activity
+        print(f"******* static_info: {static_info}")
+        print(f"******* static_info: {type(static_info)}")
         self.window = static_info.windows.get_window(activity)
         self.counter = Counter()
         self.items: List[ScreenItem] = []
@@ -197,6 +199,22 @@ class Visitor:
     def get_possible_actions(node: Node, counter: Counter) -> List[ItemAction]:
         """Determines all possible actions for a given node"""
         actions = []
+
+# widget_handlers = {
+#             "android.widget.Button": visitor.visit_button,
+#             "android.widget.EditText": visitor.visit_edit_text,
+#             "android.widget.TextView": visitor.visit_text_view,
+#             "android.widget.CheckBox": visitor.visit_checkbox,
+#             "android.widget.CheckedTextView": visitor.visit_checked_text,
+#             "android.widget.ImageButton": visitor.visit_image_button,
+#             "android.widget.ImageView": visitor.visit_image,
+#             "android.widget.ToggleButton": visitor.visit_toggle_button,
+#             "android.widget.Switch": visitor.visit_switch,
+#             "android.widget.RadioButton": visitor.visit_radio_button
+#         }
+
+        # match node.view_class:
+        #     case "android.widget.Button" | "android.widget.CheckBox" | "android.widget.ImageButton"
 
         # Handle click actions
         if node.clickable:
