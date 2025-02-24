@@ -181,46 +181,45 @@ class Visitor:
         }
 
     def find_matching_widget(self, node: Node) -> Optional[Widget]:
+        """Enhanced to use multiple strategies to find matching widgets"""
         self.logging.debug(f"Finding matching widget for node: {node.data}")
 
+        # Try by resource ID
         if node.resource_id:
-            resource_id = node.resource_id.split("/")[-1]
-            self.logging.debug(f"Resource ID found: {node.resource_id}")
+            parts = node.resource_id.split("/")
+            resource_id = parts[-1] if len(parts) > 1 else parts[0]
+            
+            self.logging.debug(f"Looking for widget by resource ID: {resource_id}")
             if self.window is not None:
                 widget = self.window.get_widget_by_name(resource_id)
                 if widget:
                     self.window_info["matched_widgets"] += 1
-                    self.logging.debug(f"Widget found: {widget}")
+                    self.logging.debug(f"Widget found by ID: {widget}")
                     return widget
-
+        
+        # Try by text content if no widget found by ID
+        if node.view_text and self.window:
+            self.logging.debug(f"Looking for widget by text: {node.view_text}")
+            for widget_id, widget in self.window.widgets.items():
+                if widget.text == node.view_text:
+                    self.window_info["matched_widgets"] += 1
+                    self.logging.debug(f"Widget found by text: {widget}")
+                    return widget
+        
+        # Could add more matching strategies here
+        
         return None
 
     @staticmethod
     def get_possible_actions(node: Node, counter: Counter) -> List[ItemAction]:
-        """Determines all possible actions for a given node"""
+        """Enhanced to provide more context-specific actions"""
         actions = []
-
-# widget_handlers = {
-#             "android.widget.Button": visitor.visit_button,
-#             "android.widget.EditText": visitor.visit_edit_text,
-#             "android.widget.TextView": visitor.visit_text_view,
-#             "android.widget.CheckBox": visitor.visit_checkbox,
-#             "android.widget.CheckedTextView": visitor.visit_checked_text,
-#             "android.widget.ImageButton": visitor.visit_image_button,
-#             "android.widget.ImageView": visitor.visit_image,
-#             "android.widget.ToggleButton": visitor.visit_toggle_button,
-#             "android.widget.Switch": visitor.visit_switch,
-#             "android.widget.RadioButton": visitor.visit_radio_button
-#         }
-
-        # match node.view_class:
-        #     case "android.widget.Button" | "android.widget.CheckBox" | "android.widget.ImageButton"
 
         # Handle click actions
         if node.clickable:
             actions.append(ItemAction(
                 counter.inc(),
-                f"{WidgetEventType.CLICK.name} ({counter.get()})",
+                f"CLICK {counter.get()}" + (f" on '{node.view_text}'" if node.view_text else ""),
                 WidgetEventType.CLICK, False, False
             ))
 
@@ -228,38 +227,46 @@ class Visitor:
         if node.long_clickable:
             actions.append(ItemAction(
                 counter.inc(),
-                f"{WidgetEventType.LONG_CLICK.name} ({counter.get()})",
+                f"LONG_CLICK {counter.get()}" + (f" on '{node.view_text}'" if node.view_text else ""),
                 WidgetEventType.LONG_CLICK, False, False
             ))
 
-        # Handle check/uncheck actions
+        # Handle check/uncheck actions with more context
         if node.checkable:
-            actions.append(ItemAction(
-                counter.inc(),
-                "CHECK",
-                WidgetEventType.CLICK, False, False
-            ))
-        if node.checked:
-            actions.append(ItemAction(
-                counter.inc(),
-                "UNCHECK",
-                WidgetEventType.CLICK, False, False
-            ))
+            if node.checked:
+                actions.append(ItemAction(
+                    counter.inc(),
+                    f"UNCHECK {counter.get()}" + (f" '{node.view_text}'" if node.view_text else ""),
+                    WidgetEventType.CLICK, False, False
+                ))
+            else:
+                actions.append(ItemAction(
+                    counter.inc(),
+                    f"CHECK {counter.get()}" + (f" '{node.view_text}'" if node.view_text else ""),
+                    WidgetEventType.CLICK, False, False
+                ))
 
-        # Handle scroll actions
+        # Handle scroll actions with better description
         if node.scrollable:
             for direction in ["UP", "DOWN", "LEFT", "RIGHT"]:
                 actions.append(ItemAction(
                     counter.inc(),
-                    f"scroll {direction} ({{}})",
+                    f"SCROLL {direction} {counter.get()}" + 
+                    (f" on '{node.view_class.split('.')[-1]}'" if node.view_class else ""),
                     WidgetEventType.SCROLL, False, False
                 ))
 
-        # Handle text input actions
+        # Handle text input actions with better hints
         if node.editable:
+            hint = ""
+            if node.view_text:
+                hint = f" (current: '{node.view_text}')"
+            elif node.content_description:
+                hint = f" (hint: '{node.content_description}')"
+                
             actions.append(ItemAction(
                 counter.inc(),
-                "set text ({})",
+                f"SET_TEXT {counter.get()}{hint}",
                 WidgetEventType.TEXT_CHANGE, False, False
             ))
 

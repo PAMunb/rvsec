@@ -1,151 +1,198 @@
+# rvandroid/llm/prompt_generator.py
+
+from typing import Dict, List
+import json
 import logging
-import os
-import sys
-
-from rvandroid.app import App
-from rvandroid.parser.static import gator_parser, reach_parser, gesda_parser, static_analysis_parser
-from rvandroid.model.classes import Classes
-from rvandroid.model.window import Windows
-from rvandroid.model.wtg import WindowTransitionGraph
-from rvandroid.parser.droidbot.visitor import ScreenDescription
-
+from rvandroid.model.static import StaticAnalysisData
+from rvandroid.parser.droidbot.droidbot_state_parser_novo import parse
 
 class PromptGenerator:
-    def __init__(self, model):
-        self.model = model
+    """
+    Generates prompts for LLMs using DroidBot state and static analysis information.
+    This class creates structured prompts to help LLMs decide the most effective
+    test actions for Android applications.
+    """
+    
+    def __init__(self, static_data: StaticAnalysisData):
+        """
+        Initialize the PromptGenerator with static analysis data.
+        
+        Args:
+            static_data: Static analysis data containing classes, windows, and transitions
+        """
+        self.static_data = static_data
+        self.logger = logging.getLogger(__name__)
+    
+    def generate_system_prompt(self) -> str:
+        """
+        Generate the system prompt that defines the LLM's role and constraints.
+        
+        Returns:
+            String containing the system prompt
+        """
+        return """You are an Android UI testing expert. Your task is to analyze the current app state and suggest the most effective testing actions.
 
-    def create_context(self, static_data: StaticAnalysisData) -> str:
-        context = []
+Focus on:
+1. Maximizing code coverage by targeting untested UI elements
+2. Exercising important methods that directly or indirectly reach security-critical operations
+3. Systematically exploring application states
+4. Testing complex UI interactions and edge cases
 
-        # Informações sobre a tela atual
-        context.append(self._format_current_window(static_data.current_window))
+For each action, provide:
+- Action type (click, long_click, scroll, set_text, key_event)
+- Target widget identifier or coordinates
+- Parameters where needed (text input, scroll direction, etc.)
+- Brief explanation of why you chose this action
 
-        # Informações sobre métodos alvo
-        context.append(self._format_target_methods(static_data.target_methods,
-                                                   static_data.method_coverage))
+Format your response as a valid JSON array of actions following this schema:
+[
+  {
+    "action_type": "click",  
+    "target": "widget_id_or_index",
+    "params": {},  
+    "explanation": "Brief explanation"
+  },
+  ...
+]
 
-        # Informações sobre transições possíveis
-        context.append(self._format_transitions(static_data.wtg,
-                                                static_data.current_window))
+DO NOT include any additional text outside of the JSON array. Your response must be valid JSON that can be parsed directly."""
 
-        return "\n".join(context)
-
-    def _format_current_window(self, window: Window) -> str:
-        widgets_info = []
-        for widget in window.widgets:
-            widget_desc = f"Widget ID: {widget.id}\n"
-            widget_desc += f"Type: {widget.type}\n"
-            widget_desc += f"Available events: {', '.join(widget.events)}\n"
-            widget_desc += f"Methods triggered: {', '.join(widget.triggered_methods)}\n"
-            widgets_info.append(widget_desc)
-
-        return f"""
-Current Window: {window.name}
-Available Widgets:
-{'\n'.join(widgets_info)}
-"""
-
-    def _format_target_methods(self,
-                               target_methods: List[str],
-                               coverage: Dict[str, float]) -> str:
-        methods_info = []
-        for method in target_methods:
-            current_coverage = coverage.get(method, 0.0)
-            methods_info.append(f"Method: {method} (Current coverage: {current_coverage}%)")
-
-        return f"""
-Target Methods to Cover:
-{'\n'.join(methods_info)}
-"""
-
-    def _format_transitions(self,
-                            wtg: List[WTGTransition],
-                            current_window: Window) -> str:
-        possible_transitions = [
-            t for t in wtg if t.source_window == current_window.name
-        ]
-
-        transitions_info = []
-        for trans in possible_transitions:
-            transitions_info.append(
-                f"To {trans.target_window} via {trans.trigger_event} "
-                f"on widget {trans.trigger_widget}"
-            )
-
-        return f"""
-Possible Navigation Paths:
-{'\n'.join(transitions_info)}
-"""
-
-    def generate_prompt(self, static_data: StaticAnalysisData) -> str:
-        context = self.create_context(static_data)
-
-        prompt_template = f"""
-Based on the following app analysis:
-
-{context}
-
-Generate a sequence of test actions that will:
-1. Effectively test the current window
-2. Maximize coverage of target methods
-3. Navigate to unexplored windows when appropriate
-
-The actions should be in the following format:
-- For clicks: click(widget_id)
-- For text input: setText(widget_id, "text")
-- For scrolling: scroll(DIRECTION)
-
-Consider:
-- Target methods that need coverage improvement
-- Available widgets and their events
-- Possible navigation paths to other windows
-- Current window state and layout
-
-Provide a sequence of actions that will effectively test the application.
-"""
-        return prompt_template
-
-
-class PromptEvaluator:
-    def evaluate_prompt(self,
-                        prompt: str,
-                        static_data: StaticAnalysisData) -> float:
-        score = 0.0
-        max_score = 5.0
-
-        # Verifica menção aos métodos alvo
-        target_methods_mentioned = sum(
-            1 for method in static_data.target_methods if method in prompt
-        ) / len(static_data.target_methods)
-        score += target_methods_mentioned
-
-        # Verifica cobertura de widgets disponíveis
-        widgets_mentioned = sum(
-            1 for widget in static_data.current_window.widgets
-            if widget.id in prompt
-        ) / len(static_data.current_window.widgets)
-        score += widgets_mentioned
-
-        # Verifica menção a transições possíveis
-        transitions_mentioned = sum(
-            1 for trans in static_data.wtg
-            if trans.source_window == static_data.current_window.name
-            and trans.trigger_widget in prompt
-        ) / len([t for t in static_data.wtg
-                 if t.source_window == static_data.current_window.name])
-        score += transitions_mentioned
-
-        # Verifica formato das ações
-        if "click(" in prompt and "setText(" in prompt:
-            score += 1
-
-        # Verifica estrutura e clareza
-        if prompt.count("\n") > 5 and len(prompt) > 200:
-            score += 1
-
-        return score / max_score
-
-
-
-def generate_prompt(classes: Classes, windows: Windows, wtg: WindowTransitionGraph, doirdbot_state: ScreenDescription):
-    pass
+    def generate_user_prompt(self, state: Dict) -> str:
+        """
+        Generate a user prompt from the current application state.
+        
+        Args:
+            state: Current DroidBot state
+            
+        Returns:
+            String containing the user prompt
+        """
+        # Parse the state to get a structured representation
+        parsed_state = parse(state, self.static_data)
+        
+        # Extract activity name
+        activity = state.get("activity", "").replace("/", "")
+        
+        # Begin building the prompt
+        prompt = f"Current Activity: {activity}\n\n"
+        
+        # Add static analysis context if available
+        prompt += self._add_static_analysis_context(activity)
+        
+        # Add UI state information
+        prompt += "Current UI Elements:\n"
+        for item in parsed_state.items:
+            view = item.view
+            widget_id = view.get("resource_id", "").split("/")[-1] if view.get("resource_id") else "unknown"
+            widget_text = view.get("text", "")
+            
+            # Check if there's static analysis information for this widget
+            static_info = self._get_widget_static_info(activity, widget_id)
+            
+            # Format the item description
+            prompt += f"- {item.base_description}\n"
+            
+            # Add actions with their IDs
+            if item.actions:
+                prompt += "  Available actions:\n"
+                for action in item.actions:
+                    reaches_mop_info = ""
+                    if action.directly_reaches_mop:
+                        reaches_mop_info = " [CRITICAL: Directly reaches security operation]"
+                    elif action.reaches_mop:
+                        reaches_mop_info = " [IMPORTANT: Can reach security operation]"
+                    prompt += f"  - {action.text}{reaches_mop_info}\n"
+            
+            # Add static info if available
+            if static_info:
+                prompt += f"  Static analysis: {static_info}\n"
+                
+        # Add action history if available
+        if "action_history" in state:
+            prompt += "\nRecent Actions:\n"
+            history = state.get("action_history", [])
+            for action in history[-5:]:  # Last 5 actions
+                prompt += f"- {action}\n"
+                
+        # Add instructions for the LLM
+        prompt += "\nSuggest 3-5 test actions that would be most effective for testing this screen, formatted as JSON according to the specified schema."
+        
+        return prompt
+    
+    def _add_static_analysis_context(self, activity: str) -> str:
+        """
+        Add static analysis context for the current activity.
+        
+        Args:
+            activity: Current activity name
+            
+        Returns:
+            String containing static analysis context
+        """
+        context = "Static Analysis Context:\n"
+        
+        # Get information about the activity class
+        activity_class = None
+        if self.static_data and self.static_data.classes:
+            activity_class = self.static_data.classes.get_clazz(activity)
+        
+        if not activity_class:
+            return context + "No static analysis data available for this activity.\n\n"
+            
+        # Count methods with different properties
+        reachable_methods = [m for m in activity_class.methods if m.reachable]
+        critical_methods = [m for m in activity_class.methods if m.reaches_mop]
+        direct_critical_methods = [m for m in activity_class.methods if m.directly_reaches_mop]
+        
+        # Add method statistics
+        context += f"- Activity contains {len(reachable_methods)} reachable methods\n"
+        context += f"- {len(critical_methods)} methods can reach security-critical operations\n"
+        context += f"- {len(direct_critical_methods)} methods directly call security-critical operations\n"
+        
+        # Add window transition information
+        if self.static_data.wtg:
+            edges = [edge for edge in self.static_data.wtg.graph.edges() 
+                    if edge[0].name == activity_class.name]
+            if edges:
+                context += f"- Can transition to {len(edges)} other windows/activities\n"
+                
+        return context + "\n"
+    
+    def _get_widget_static_info(self, activity: str, widget_id: str) -> str:
+        """
+        Get static analysis information for a specific widget.
+        
+        Args:
+            activity: Activity name
+            widget_id: Widget identifier
+            
+        Returns:
+            String containing widget static analysis information
+        """
+        if not self.static_data or not self.static_data.windows:
+            return ""
+            
+        window = self.static_data.windows.get_window(activity)
+        if not window:
+            return ""
+            
+        widget = window.get_widget_by_name(widget_id)
+        if not widget:
+            return ""
+            
+        # Gather information about widget events
+        event_info = []
+        for event in widget.events:
+            if event.signature in self.static_data.classes.methods:
+                method = self.static_data.classes.methods[event.signature]
+                event_desc = f"{event.type.name}"
+                if method.directly_reaches_mop:
+                    event_desc += " (directly reaches critical methods)"
+                elif method.reaches_mop:
+                    event_desc += " (can reach critical methods)"
+                event_info.append(event_desc)
+                
+        if not event_info:
+            return ""
+            
+        return "Registered events: " + ", ".join(event_info)
