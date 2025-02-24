@@ -45,14 +45,24 @@ def get_actions():
         logger.error(f"Error processing request: {e}", exc_info=True)
         return jsonify({"error": str(e)}), 500
 
-def init_service(app_dir: str, apk_name: str, model_name: str):
+def init_service(
+        app_dir: str, 
+        apk_name: str, 
+        model_type: str,
+        model_name: str,
+        strategy_type: str,
+        **model_kwargs
+    ):
     """
     Initialize the action service with static analysis data.
     
     Args:
         app_dir: Directory containing static analysis files
         apk_name: Name of the APK
-        model_name: Name of the LLM model to use
+        model_type: Type of model to use
+        model_name: Name of the model to use
+        strategy_type: Type of prompt strategy to use
+        **model_kwargs: Additional arguments for model initialization
     """
     global action_service
     
@@ -68,7 +78,13 @@ def init_service(app_dir: str, apk_name: str, model_name: str):
         static_data = StaticAnalysisData(classes, windows, wtg)
         
         # Initialize service
-        action_service = LLMActionService(static_data, model_name)
+        action_service = LLMActionService(
+            static_data, 
+            model_type, 
+            model_name,
+            strategy_type,
+            **model_kwargs
+        )
         
         logger.info("Service initialization complete")
         

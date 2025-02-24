@@ -17,7 +17,8 @@ from rvandroid.model.classes import Classes
 from rvandroid.model.window import Windows
 # from rvandroid.llm.prompt_generator import PromptGenerator
 from rvandroid.llm.prompt_generator02 import PromptGenerator
-from rvandroid.parser.droidbot.state_parser import StateParser
+# from rvandroid.parser.droidbot.state_parser import StateParser
+import rvandroid.parser.droidbot.droidbot_state_parser_novo as parser
 import json
 
 
@@ -41,10 +42,9 @@ if __name__ == '__main__':
     classes = Classes()
     app = App(os.path.join(static_folder, apk))
     package = app.package_name
-        
-    classes, windows, wtg = static_analysis_parser.read_static_analysis_files(static_folder, apk, package)
     
-    state_parser = StateParser(classes, windows, wtg)
-    result = state_parser.parse_state(screen_info)    
-    print(f"result={result}")
-
+        
+    static_data = static_analysis_parser.read_static_analysis_files(static_folder, apk, package)
+    
+    screen_description = parser.parse(screen_info, static_data)
+    print(f"screen_description={screen_description}")

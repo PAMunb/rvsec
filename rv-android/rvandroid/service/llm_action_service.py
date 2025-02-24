@@ -1,13 +1,13 @@
 # rvandroid/service/llm_action_service.py
-
 import json
 import logging
 from typing import Dict, List, Any, Optional
 
 from rvandroid.model.static import StaticAnalysisData
-from rvandroid.llm.prompt_generator import PromptGenerator
 from rvandroid.llm.llm import LanguageModel
-from rvandroid.llm.huggingface import HuggingFaceLLM
+from rvandroid.llm.model_factory import ModelFactory
+from rvandroid.llm.prompt_strategy import PromptStrategyFactory
+
 
 class LLMActionService:
     """
@@ -15,17 +15,31 @@ class LLMActionService:
     and returns suggested actions.
     """
     
-    def __init__(self, static_data: StaticAnalysisData, model_name: str = HuggingFaceLLM.PHI):
+    def __init__(
+            self, 
+            static_data: StaticAnalysisData, 
+            model_type: str = "huggingface",
+            model_name: str = "microsoft/Phi-3.5-mini-instruct",
+            strategy_type: str = "basic",
+            **model_kwargs
+        ):
         """
         Initialize the LLM action service.
         
         Args:
             static_data: Static analysis data for the application
-            model_name: Name of the Hugging Face model to use
+            model_type: Type of model to use ('huggingface', 'ollama', 'langchain', 'dspy')
+            model_name: Name of the model
+            strategy_type: Type of prompt strategy to use ('basic', 'langchain', 'dspy')
+            **model_kwargs: Additional arguments for the model
         """
         self.static_data = static_data
+        self.model_type = model_type
         self.model_name = model_name
-        self.prompt_generator = PromptGenerator(static_data)
+        self.model_kwargs = model_kwargs
+        self.strategy_type = strategy_type
+        
+        self.prompt_strategy = PromptStrategyFactory.create(strategy_type, static_data)
         self.llm: Optional[LanguageModel] = None
         self.logger = logging.getLogger(__name__)
         
@@ -37,10 +51,14 @@ class LLMActionService:
             LanguageModel instance
         """
         if not self.llm:
-            self.logger.info(f"Initializing LLM with model: {self.model_name}")
-            self.llm = HuggingFaceLLM(self.model_name)
+            self.logger.info(f"Initializing {self.model_type} LLM with model: {self.model_name}")
+            self.llm = ModelFactory.create(
+                self.model_type, 
+                self.model_name, 
+                **self.model_kwargs
+            )
         return self.llm
-        
+    
     def process_state(self, state: Dict) -> List[Dict[str, Any]]:
         """
         Process the current DroidBot state and return suggested actions.
@@ -53,28 +71,20 @@ class LLMActionService:
         """
         self.logger.info("Processing DroidBot state")
         
-        # Generate prompts
-        system_prompt = self.prompt_generator.generate_system_prompt()
-        user_prompt = self.prompt_generator.generate_user_prompt(state)
-        
-        self.logger.debug(f"System prompt: {system_prompt}")
-        self.logger.debug(f"User prompt: {user_prompt}")
-        
-        # Prepare messages for the LLM
-        messages = [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_prompt}
-        ]
-        
-        # Call the LLM
-        llm = self._get_llm()
-        response = llm.generate(messages)
-        
-        self.logger.debug(f"LLM response: {response}")
-        
-        # Parse the response
         try:
-            # Extract JSON from the response
+            # Generate prompts using the selected strategy
+            messages = self.prompt_strategy.generate_prompts(state)
+            
+            self.logger.debug(f"System prompt: {messages[0]['content']}")
+            self.logger.debug(f"User prompt: {messages[1]['content']}")
+            
+            # Call the LLM with the generated prompts
+            llm = self._get_llm()
+            response = llm.generate(messages)
+            
+            self.logger.debug(f"LLM response: {response}")
+            
+            # Parse the response
             json_response = self._extract_json(response)
             actions = json.loads(json_response)
             
@@ -85,9 +95,9 @@ class LLMActionService:
             return validated_actions
             
         except Exception as e:
-            self.logger.error(f"Error parsing LLM response: {e}")
+            self.logger.error(f"Error processing state: {e}", exc_info=True)
             return self._generate_fallback_actions(state)
-    
+        
     def _extract_json(self, text: str) -> str:
         """
         Extract JSON content from text that might contain other content.

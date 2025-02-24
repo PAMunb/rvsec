@@ -7,11 +7,11 @@ import os
 import sys
 
 from rvandroid.app import App
-from rvandroid.parser.static import gator_parser, reach_parser, gesda_parser, static_analysis_parser
+from rvandroid.parser.static import static_analysis_parser
 from rvandroid.model.classes import Classes
 from rvandroid.model.window import Windows
-# from rvandroid.llm.prompt_generator import PromptGenerator
-from rvandroid.llm.prompt_generator02 import PromptGenerator
+from rvandroid.llm.prompt_generator import PromptGenerator
+import rvandroid.parser.droidbot.droidbot_state_parser_novo as state_parser
 
 import json
 
@@ -36,23 +36,20 @@ if __name__ == '__main__':
     
     windows = Windows()
     classes = Classes()
-    app = App(os.path.join(static_folder, apk))
+    app = App(os.path.join(screenshot_folder, apk))
     package = app.package_name
         
-    reach_file = os.path.join(static_folder, apk+".reach")
-    classes = reach_parser.read_reachable_methods(reach_file)
+    static_data = static_analysis_parser.read_static_analysis_files(screenshot_folder, apk, package)
 
-    gator_file = os.path.join(static_folder, apk+".wtg")
-    wtg = gator_parser.parse_gator_file(gator_file, package, classes, windows)
-    
-    gesda_file = os.path.join(static_folder, apk+".gesda")
-    gesda_parser.parse_gesda_file(gesda_file, package, classes, windows)
-    # print("fim gesda")
+    screen_description = state_parser.parse(screen_info, static_data)
 
-    classes, windows, wtg = static_analysis_parser.read_static_analysis_files(static_folder, apk, package)
+    print(screen_description)
     
-    generator = PromptGenerator(classes, windows, wtg)
-    
-    text = generator.generate_prompt(screen_info)
-    print(text)
+    prompt_generator = PromptGenerator(static_data)
+
+    system_prompt = prompt_generator.generate_system_prompt()
+    user_prompt = prompt_generator.generate_user_prompt(screen_info)
+
+    print(f"System prompt: {system_prompt}")
+    print(f"\n\nUser prompt: {user_prompt}")
     
