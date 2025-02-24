@@ -7,7 +7,7 @@ from rvandroid.model.static import StaticAnalysisData
 from rvandroid.llm.llm import LanguageModel
 from rvandroid.llm.model_factory import ModelFactory
 from rvandroid.llm.prompt_strategy import PromptStrategyFactory
-
+from rvandroid.llm.llm_config import LLMConfiguration
 
 class LLMActionService:
     """
@@ -16,32 +16,45 @@ class LLMActionService:
     """
     
     def __init__(
-            self, 
-            static_data: StaticAnalysisData, 
-            model_type: str = "huggingface",
-            model_name: str = "microsoft/Phi-3.5-mini-instruct",
-            strategy_type: str = "basic",
-            **model_kwargs
-        ):
+        self, 
+        static_data: StaticAnalysisData, 
+        model_type: str = "huggingface",
+        model_name: str = "microsoft/Phi-3.5-mini-instruct",
+        strategy_type: str = "basic",
+        config: Optional[LLMConfiguration] = None,
+        **model_kwargs
+    ):
         """
         Initialize the LLM action service.
         
         Args:
             static_data: Static analysis data for the application
-            model_type: Type of model to use ('huggingface', 'ollama', 'langchain', 'dspy')
+            model_type: Type of model to use ('huggingface', 'ollama', 'langchain', 'dspy', 'frontier')
             model_name: Name of the model
-            strategy_type: Type of prompt strategy to use ('basic', 'langchain', 'dspy')
-            **model_kwargs: Additional arguments for the model
+            strategy_type: Type of prompt strategy to use ('basic', 'langchain', 'dspy', 'frontier')
+            config: LLMConfiguration instance (overrides other parameters if provided)
+            **model_kwargs: Additional arguments for the model constructor
         """
         self.static_data = static_data
-        self.model_type = model_type
-        self.model_name = model_name
-        self.model_kwargs = model_kwargs
-        self.strategy_type = strategy_type
         
-        self.prompt_strategy = PromptStrategyFactory.create(strategy_type, static_data)
+        # Use config if provided, otherwise use parameters
+        if config:
+            self.model_type = config.get_model_type()
+            self.model_name = config.get_model_name()
+            self.strategy_type = config.get_strategy_type()
+            self.model_kwargs = config.get_model_kwargs()
+        else:
+            self.model_type = model_type
+            self.model_name = model_name
+            self.strategy_type = strategy_type
+            self.model_kwargs = model_kwargs
+        
+        self.prompt_strategy = PromptStrategyFactory.create(self.strategy_type, static_data)
         self.llm: Optional[LanguageModel] = None
         self.logger = logging.getLogger(__name__)
+        
+        self.logger.info(f"Initialized LLM Action Service with model_type={self.model_type}, "
+                        f"model_name={self.model_name}, strategy_type={self.strategy_type}")
         
     def _get_llm(self) -> LanguageModel:
         """
@@ -52,11 +65,16 @@ class LLMActionService:
         """
         if not self.llm:
             self.logger.info(f"Initializing {self.model_type} LLM with model: {self.model_name}")
-            self.llm = ModelFactory.create(
-                self.model_type, 
-                self.model_name, 
-                **self.model_kwargs
-            )
+            try:
+                self.llm = ModelFactory.create(
+                    self.model_type, 
+                    self.model_name, 
+                    **self.model_kwargs
+                )
+                self.logger.info(f"Successfully initialized {self.model_type} model")
+            except Exception as e:
+                self.logger.error(f"Failed to initialize LLM: {e}", exc_info=True)
+                raise RuntimeError(f"Could not initialize {self.model_type} model: {str(e)}")
         return self.llm
     
     def process_state(self, state: Dict) -> List[Dict[str, Any]]:
@@ -75,14 +93,14 @@ class LLMActionService:
             # Generate prompts using the selected strategy
             messages = self.prompt_strategy.generate_prompts(state)
             
-            self.logger.debug(f"System prompt: {messages[0]['content']}")
-            self.logger.debug(f"User prompt: {messages[1]['content']}")
+            self.logger.debug(f"System prompt: {messages[0]['content'][:200]}...")
+            self.logger.debug(f"User prompt: {messages[1]['content'][:200]}...")
             
             # Call the LLM with the generated prompts
             llm = self._get_llm()
             response = llm.generate(messages)
             
-            self.logger.debug(f"LLM response: {response}")
+            self.logger.debug(f"LLM response: {response[:200]}...")
             
             # Parse the response
             json_response = self._extract_json(response)
@@ -113,16 +131,79 @@ class LLMActionService:
         end_idx = text.rfind(']')
         
         if start_idx != -1 and end_idx != -1 and end_idx > start_idx:
-            return text[start_idx:end_idx+1]
+            json_text = text[start_idx:end_idx+1]
+            # Validate that it can be parsed
+            try:
+                json.loads(json_text)
+                return json_text
+            except json.JSONDecodeError:
+                self.logger.warning("Found array brackets but content isn't valid JSON")
         
         # Look for JSON object
         start_idx = text.find('{')
         end_idx = text.rfind('}')
         
         if start_idx != -1 and end_idx != -1 and end_idx > start_idx:
-            return text[start_idx:end_idx+1]
+            json_text = text[start_idx:end_idx+1]
+            try:
+                json.loads(json_text)
+                return json_text
+            except json.JSONDecodeError:
+                self.logger.warning("Found object braces but content isn't valid JSON")
             
+        # If we get here, we need to do more aggressive fixing
+        # Try to fix common JSON issues
+        fixed_text = self._fix_json_text(text)
+        if fixed_text:
+            return fixed_text
+                
         raise ValueError("No valid JSON found in response")
+
+    def _fix_json_text(self, text: str) -> str:
+        """
+        Attempt to fix common JSON formatting issues.
+        
+        Args:
+            text: Text containing malformed JSON
+            
+        Returns:
+            Fixed JSON string or empty string if unfixable
+        """
+        import re
+        
+        # Look for JSON-like content
+        match = re.search(r'\[\s*\{.*\}\s*\]', text, re.DOTALL)
+        if match:
+            json_candidate = match.group(0)
+            
+            # Try to parse it
+            try:
+                json.loads(json_candidate)
+                return json_candidate
+            except json.JSONDecodeError:
+                # Still invalid, but we found something JSON-like
+                pass
+        
+        # More aggressive: extract anything between [ and ] and try to fix it
+        if '[' in text and ']' in text:
+            start = text.find('[')
+            end = text.rfind(']')
+            if start < end:
+                json_candidate = text[start:end+1]
+                
+                # Common fixes:
+                # Fix single quotes to double quotes
+                json_candidate = json_candidate.replace("'", '"')
+                # Fix unquoted keys
+                json_candidate = re.sub(r'(\w+):', r'"\1":', json_candidate)
+                
+                try:
+                    json.loads(json_candidate)
+                    return json_candidate
+                except json.JSONDecodeError:
+                    pass
+        
+        return ""
     
     def _validate_actions(self, actions: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """
@@ -136,21 +217,40 @@ class LLMActionService:
         """
         valid_actions = []
         
-        for action in actions:
+        # Ensure actions is a list
+        if not isinstance(actions, list):
+            self.logger.warning(f"Expected list of actions but got: {type(actions)}")
+            if isinstance(actions, dict):
+                # Single action as a dict - convert to list
+                actions = [actions]
+            else:
+                return valid_actions
+        
+        valid_action_types = {'click', 'long_click', 'scroll', 'set_text', 'key_event'}
+        
+        for i, action in enumerate(actions):
+            if not isinstance(action, dict):
+                self.logger.warning(f"Invalid action format at index {i}: {action}")
+                continue
+                
             # Check for required fields
             if 'action_type' not in action or 'target' not in action:
-                self.logger.warning(f"Invalid action missing required fields: {action}")
+                self.logger.warning(f"Invalid action missing required fields at index {i}: {action}")
                 continue
                 
             # Normalize action type
             action_type = action['action_type'].lower()
-            if action_type not in ['click', 'long_click', 'scroll', 'set_text', 'key_event']:
-                self.logger.warning(f"Invalid action type: {action_type}")
+            if action_type not in valid_action_types:
+                self.logger.warning(f"Invalid action type at index {i}: {action_type}")
                 continue
                 
             # Ensure params is a dictionary
             if 'params' not in action or not isinstance(action['params'], dict):
                 action['params'] = {}
+                
+            # Add explanation if missing
+            if 'explanation' not in action or not action['explanation']:
+                action['explanation'] = f"Executing {action_type} on {action['target']}"
                 
             # Add validated action
             valid_actions.append({
@@ -159,7 +259,7 @@ class LLMActionService:
                 'params': action['params'],
                 'explanation': action.get('explanation', '')
             })
-            
+                
         return valid_actions
     
     def _generate_fallback_actions(self, state: Dict) -> List[Dict[str, Any]]:

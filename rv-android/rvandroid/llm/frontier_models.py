@@ -1,44 +1,260 @@
-from typing import List, Dict
+# rvandroid/llm/frontier_models.py
+from typing import List, Dict, Optional
+import os
+import logging
 
+# Import model providers
 from anthropic import Anthropic
+import google.generativeai as genai
+import openai
+import boto3
 
 from rvandroid.llm.llm import LanguageModel
 
+# Configure logger
+logger = logging.getLogger(__name__)
 
 class FrontierModel(LanguageModel):
     """
-    Represents a language model that uses a frontier approach for generating text.
+    Represents a language model that uses frontier models like Claude, ChatGPT, Gemini, or Amazon Nova.
+    
+    Supported models:
+    - Claude (via Anthropic API)
+    - ChatGPT (via OpenAI API)
+    - Gemini (via Google AI API)
+    - Amazon Nova (via Bedrock API)
     """
+    
+    # Available frontier models
+    CLAUDE_SONNET = "claude-3-5-sonnet-20241022"
+    CLAUDE_OPUS = "claude-3-opus-20240229"
+    CLAUDE_HAIKU = "claude-3-haiku-20240307"
+    
+    GPT_4 = "gpt-4-turbo-2024-04-09"
+    GPT_3_5 = "gpt-3.5-turbo-0125"
+    
+    GEMINI_PRO = "gemini-pro"
+    GEMINI_ULTRA = "gemini-ultra"
+    
+    NOVA_ULTRA = "anthropic.claude-3-ultra-20240229"
+    NOVA_SONNET = "anthropic.claude-3-sonnet-20240229"
+    
+    # Group models by provider
+    ANTHROPIC_MODELS = [CLAUDE_SONNET, CLAUDE_OPUS, CLAUDE_HAIKU]
+    OPENAI_MODELS = [GPT_4, GPT_3_5]
+    GOOGLE_MODELS = [GEMINI_PRO, GEMINI_ULTRA]
+    AMAZON_MODELS = [NOVA_ULTRA, NOVA_SONNET]
+    
+    # All models
+    MODELS = ANTHROPIC_MODELS + OPENAI_MODELS + GOOGLE_MODELS + AMAZON_MODELS
 
-    def __init__(self, model_name: str):
+    def __init__(self, model_name: str, provider: str = None, api_key: str = None):
+        """
+        Initialize the FrontierModel with a model name and provider.
+        
+        Args:
+            model_name: Name of the model to use
+            provider: Provider name ('anthropic', 'openai', 'google', 'amazon')
+                     If None, provider will be inferred from model_name
+            api_key: API key for the service (optional, can also use environment variables)
+        """
         super().__init__(model_name)
-        self._client: Anthropic | None = None
+        
+        # Determine provider if not specified
+        if provider is None:
+            provider = self._infer_provider(model_name)
+        
+        self.provider = provider
+        self.api_key = api_key
+        self._client = None
+        self.logger = logging.getLogger(__name__)
+        
+        # Log initialization
+        self.logger.info(f"Initializing FrontierModel with {provider} provider and model {model_name}")
 
+    def _infer_provider(self, model_name: str) -> str:
+        """
+        Infer the provider from the model name.
+        
+        Args:
+            model_name: Name of the model
+            
+        Returns:
+            Provider name
+            
+        Raises:
+            ValueError: If provider can't be inferred
+        """
+        if model_name in self.ANTHROPIC_MODELS:
+            return "anthropic"
+        elif model_name in self.OPENAI_MODELS:
+            return "openai"
+        elif model_name in self.GOOGLE_MODELS:
+            return "google"
+        elif model_name in self.AMAZON_MODELS:
+            return "amazon"
+        else:
+            raise ValueError(f"Could not infer provider for model: {model_name}")
+    
     @property
     def client(self):
-        if not self._client:
-            self._client = Anthropic()
+        """
+        Get or initialize the appropriate client for the provider.
+        
+        Returns:
+            API client
+        """
+        if self._client is not None:
+            return self._client
+            
+        # Initialize client based on provider
+        if self.provider == "anthropic":
+            api_key = self.api_key or os.environ.get("ANTHROPIC_API_KEY")
+            if not api_key:
+                raise ValueError("Anthropic API key not provided")
+            self._client = Anthropic(api_key=api_key)
+            
+        elif self.provider == "openai":
+            api_key = self.api_key or os.environ.get("OPENAI_API_KEY")
+            if not api_key:
+                raise ValueError("OpenAI API key not provided")
+            self._client = openai.OpenAI(api_key=api_key)
+            
+        elif self.provider == "google":
+            api_key = self.api_key or os.environ.get("GOOGLE_API_KEY")
+            if not api_key:
+                raise ValueError("Google API key not provided")
+            genai.configure(api_key=api_key)
+            self._client = genai
+            
+        elif self.provider == "amazon":
+            self._client = boto3.client(
+                service_name='bedrock-runtime',
+                region_name=os.environ.get("AWS_REGION", "us-east-1")
+            )
+        
         return self._client
 
-    def generate(self, messages: List[Dict[str, str]], max_new_tokens: int = 800):
+    def generate(self, messages: List[Dict[str, str]], max_new_tokens: int = 800) -> str:
         """
-        Generates text based on the given prompt.
+        Generate text based on the input messages.
+        
+        Args:
+            messages: List of message dictionaries with 'role' and 'content'
+            max_new_tokens: Maximum number of tokens to generate
+            
+        Returns:
+            Generated text
+        """
+        try:
+            if self.provider == "anthropic":
+                return self._generate_anthropic(messages, max_new_tokens)
+            elif self.provider == "openai":
+                return self._generate_openai(messages, max_new_tokens)
+            elif self.provider == "google":
+                return self._generate_google(messages, max_new_tokens)
+            elif self.provider == "amazon":
+                return self._generate_amazon(messages, max_new_tokens)
+            else:
+                raise ValueError(f"Unsupported provider: {self.provider}")
+        except Exception as e:
+            self.logger.error(f"Error generating text with {self.provider}: {e}")
+            raise
+
+    def _generate_anthropic(self, messages: List[Dict[str, str]], max_new_tokens: int) -> str:
+        """
+        Generate text using Anthropic's Claude models.
         """
         message = self.client.messages.create(
-            model="claude-3-5-sonnet-20241022",
+            model=self.model_name,
             max_tokens=max_new_tokens,
-            messages=[
-                {"role": "user", "content": "Hello, Claude"}
-            ]
+            messages=messages
         )
-        return message.content
+        return message.content[0].text
+
+    def _generate_openai(self, messages: List[Dict[str, str]], max_new_tokens: int) -> str:
+        """
+        Generate text using OpenAI models.
+        """
+        response = self.client.chat.completions.create(
+            model=self.model_name,
+            messages=messages,
+            max_tokens=max_new_tokens,
+            temperature=0.7
+        )
+        return response.choices[0].message.content
+
+    def _generate_google(self, messages: List[Dict[str, str]], max_new_tokens: int) -> str:
+        """
+        Generate text using Google Gemini models.
+        """
+        # Adapt messages format for Gemini
+        gemini_messages = []
+        for msg in messages:
+            role = "user" if msg["role"] == "user" else "model"
+            gemini_messages.append({"role": role, "parts": [{"text": msg["content"]}]})
+        
+        model = self.client.GenerativeModel(self.model_name)
+        response = model.generate_content(
+            gemini_messages,
+            generation_config={"max_output_tokens": max_new_tokens}
+        )
+        return response.text
+
+    def _generate_amazon(self, messages: List[Dict[str, str]], max_new_tokens: int) -> str:
+        """
+        Generate text using Amazon Bedrock models.
+        """
+        import json
+        
+        # Format the request body according to the model provider
+        if self.model_name.startswith("anthropic"):
+            # Anthropic models in Bedrock use a different format
+            prompt = ""
+            for msg in messages:
+                if msg["role"] == "system":
+                    prompt += f"\n\nHuman: <system>{msg['content']}</system>\n\nAssistant: I'll follow your instructions."
+                elif msg["role"] == "user":
+                    prompt += f"\n\nHuman: {msg['content']}"
+                elif msg["role"] == "assistant":
+                    prompt += f"\n\nAssistant: {msg['content']}"
+            
+            # Final user message needs an assistant response
+            prompt += "\n\nAssistant:"
+            
+            body = json.dumps({
+                "anthropic_version": "bedrock-2023-05-31",
+                "max_tokens": max_new_tokens,
+                "temperature": 0.7,
+                "messages": messages
+            })
+        
+        # Invoke the model
+        response = self.client.invoke_model(
+            modelId=self.model_name,
+            body=body
+        )
+        
+        response_body = json.loads(response['body'].read().decode('utf-8'))
+        
+        # Extract the content from the response based on the model
+        if self.model_name.startswith("anthropic"):
+            return response_body.get('content', [])[0].get('text', '')
+        
+        return ""
 
     def clean(self):
+        """
+        Clean up resources by clearing client references.
+        """
         self._client = None
 
     @staticmethod
     def models() -> List[str]:
-        return ["Claude 3.5 sonnet"]
+        """
+        Returns available models.
+        """
+        return FrontierModel.MODELS
 
     def __str__(self):
-        return f"{self.model_name}"
+        return f"{self.provider.capitalize()}: {self.model_name}"
