@@ -117,7 +117,7 @@ class TextVisitor(Visitor):
         if node.view_text or actions:
             text = f"Text view {self.__with_text(node)}{self.__with_description(node)}{self.__with_resource_id(node)}"
             
-            text = text + f" :: clickable={node.clickable}, long_clickable={node.long_clickable}, checkable={node.checkable}, selected={node.selected}"
+            # text = text + f" :: clickable={node.clickable}, long_clickable={node.long_clickable}, checkable={node.checkable}, selected={node.selected}"
             
             item = ScreenItem(node.data, text, actions)
             self.items.append(item)
@@ -350,10 +350,11 @@ class TextVisitor(Visitor):
         Returns:
             Formatted resource ID description
         """
-        if node.resource_id:
-            parts = node.resource_id.split("/")
-            if len(parts) > 1:
-                return f" with id={parts[1]}"
+        # descomentar se for usar
+        # if node.resource_id:
+        #     parts = node.resource_id.split("/")
+        #     if len(parts) > 1:
+        #         return f" with id={parts[1]}"
         return ""
     
     def _check_method_reaches_mop(self, signature: str) -> bool:

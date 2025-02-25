@@ -219,7 +219,7 @@ class Visitor:
         if node.clickable:
             actions.append(ItemAction(
                 counter.inc(),
-                f"CLICK {counter.get()}" + (f" on '{node.view_text}'" if node.view_text else ""),
+                f"CLICK ({counter.get()})" + (f" on '{node.view_text}'" if node.view_text else ""),
                 WidgetEventType.CLICK, False, False
             ))
 
@@ -227,7 +227,7 @@ class Visitor:
         if node.long_clickable:
             actions.append(ItemAction(
                 counter.inc(),
-                f"LONG_CLICK {counter.get()}" + (f" on '{node.view_text}'" if node.view_text else ""),
+                f"LONG_CLICK ({counter.get()})" + (f" on '{node.view_text}'" if node.view_text else ""),
                 WidgetEventType.LONG_CLICK, False, False
             ))
 
@@ -236,13 +236,13 @@ class Visitor:
             if node.checked:
                 actions.append(ItemAction(
                     counter.inc(),
-                    f"UNCHECK {counter.get()}" + (f" '{node.view_text}'" if node.view_text else ""),
+                    f"UNCHECK ({counter.get()})" + (f" '{node.view_text}'" if node.view_text else ""),
                     WidgetEventType.CLICK, False, False
                 ))
             else:
                 actions.append(ItemAction(
                     counter.inc(),
-                    f"CHECK {counter.get()}" + (f" '{node.view_text}'" if node.view_text else ""),
+                    f"CHECK ({counter.get()})" + (f" '{node.view_text}'" if node.view_text else ""),
                     WidgetEventType.CLICK, False, False
                 ))
 
@@ -260,13 +260,13 @@ class Visitor:
         if node.editable:
             hint = ""
             if node.view_text:
-                hint = f" (current: '{node.view_text}')"
+                hint = f" [current: '{node.view_text}']"
             elif node.content_description:
-                hint = f" (hint: '{node.content_description}')"
+                hint = f" [hint: '{node.content_description}']"
                 
             actions.append(ItemAction(
                 counter.inc(),
-                f"SET_TEXT {counter.get()}{hint}",
+                f"SET_TEXT ({counter.get()}) {hint}",
                 WidgetEventType.TEXT_CHANGE, False, False
             ))
 

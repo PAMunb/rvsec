@@ -11,7 +11,7 @@ class LLMConfiguration:
     Configuration class for managing LLM settings.
     """
     
-    def __init__(self, config_file: Optional[str] = None):
+    def __init__(self, config_file: Optional[str] = None, model_type: Optional[str] = None, model_name: Optional[str] = None, strategy_type: Optional[str] = None, model_kwargs: Optional[Dict[str, Any]] = None):
         """
         Initialize the LLM configuration.
         
@@ -32,6 +32,15 @@ class LLMConfiguration:
         if config_file:
             self._load_from_file(config_file)
             
+        if model_type:
+            self.config["model_type"] = model_type
+        if model_name:
+            self.config["model_name"] = model_name
+        if strategy_type:
+            self.config["strategy_type"] = strategy_type
+        if model_kwargs:
+            self.config["model_kwargs"] = model_kwargs
+                    
         logger.info(f"Initialized LLM configuration: {self.config}")
     
     def _load_from_env(self):

@@ -2,7 +2,7 @@
 from abc import ABC, abstractmethod
 from typing import Dict, List, Any
 from rvandroid.model.static import StaticAnalysisData
-
+import logging
 
 class PromptStrategy(ABC):
     """
@@ -59,8 +59,12 @@ class PromptStrategy(ABC):
 
 class BasicPromptStrategy(PromptStrategy):
     """
-    Basic prompt strategy similar to the original PromptGenerator.
+    Basic prompt strategy.
     """
+    
+    def __init__(self, static_data):
+        super().__init__(static_data)
+        self.logger = logging.getLogger(__name__)
     
     def generate_system_prompt(self) -> str:
         """
@@ -70,7 +74,7 @@ class BasicPromptStrategy(PromptStrategy):
 
 Focus on:
 1. Maximizing code coverage by targeting untested UI elements
-2. Exercising important methods that directly or indirectly reach security-critical operations
+2. Exercising important methods that directly or indirectly affect operations of interest, defined in formal specifications
 3. Systematically exploring application states
 4. Testing complex UI interactions and edge cases
 
@@ -90,6 +94,10 @@ Format your response as a valid JSON array of actions following this schema:
   },
   ...
 ]
+
+Maintain awareness of the application state after each action. When suggesting a sequence of actions, ensure they build logically upon each other.
+
+Before responding, carefully analyze the context to avoid suggesting conflicting actions. For example: when a screen has only 2 clickable buttons (each leading to a different activity), select only one button based on the current context and action history. On subsequent executions of the same screen, reference the previous selections to determine which alternative button to choose.
 
 DO NOT include any additional text outside of the JSON array. Your response must be valid JSON that can be parsed directly."""
     
@@ -116,6 +124,10 @@ DO NOT include any additional text outside of the JSON array. Your response must
         for item in parsed_state.items:
             view = item.view
             widget_id = view.get("resource_id", "").split("/")[-1] if view.get("resource_id") else "unknown"
+            widget_text = view.get("text", "")
+            
+            # Check if there's static analysis information for this widget
+            static_info = self._get_widget_static_info(activity, widget_id)
             
             # Format the item description
             prompt += f"- {item.base_description}\n"
@@ -126,13 +138,12 @@ DO NOT include any additional text outside of the JSON array. Your response must
                 for action in item.actions:
                     reaches_mop_info = ""
                     if action.directly_reaches_mop:
-                        reaches_mop_info = " [CRITICAL: Directly reaches security operation]"
+                        reaches_mop_info = " [CRITICAL: Directly reaches special operation]"
                     elif action.reaches_mop:
-                        reaches_mop_info = " [IMPORTANT: Can reach security operation]"
+                        reaches_mop_info = " [IMPORTANT: Can reach special operation]"
                     prompt += f"  - {action.text}{reaches_mop_info}\n"
             
             # Add static info if available
-            static_info = self._get_widget_static_info(activity, widget_id)
             if static_info:
                 prompt += f"  Static analysis: {static_info}\n"
                 
@@ -144,13 +155,19 @@ DO NOT include any additional text outside of the JSON array. Your response must
                 prompt += f"- {action}\n"
                 
         # Add instructions for the LLM
-        prompt += "\nSuggest 3-5 test actions that would be most effective for testing this screen, formatted as JSON according to the specified schema."
+        prompt += "\nSuggest test actions that would be most effective for testing this screen, formatted as JSON according to the specified schema."
         
         return prompt
     
     def _add_static_analysis_context(self, activity: str) -> str:
         """
         Add static analysis context for the current activity.
+        
+        Args:
+            activity: Current activity name
+            
+        Returns:
+            String containing static analysis context
         """
         context = "Static Analysis Context:\n"
         
@@ -169,13 +186,13 @@ DO NOT include any additional text outside of the JSON array. Your response must
         
         # Add method statistics
         context += f"- Activity contains {len(reachable_methods)} reachable methods\n"
-        context += f"- {len(critical_methods)} methods can reach security-critical operations\n"
-        context += f"- {len(direct_critical_methods)} methods directly call security-critical operations\n"
+        context += f"- {len(critical_methods)} methods can reach special operations\n"
+        context += f"- {len(direct_critical_methods)} methods directly call special operations\n"
         
         # Add window transition information
         if self.static_data.wtg:
             edges = [edge for edge in self.static_data.wtg.graph.edges() 
-                     if edge[0].name == activity_class.name]
+                    if edge[0].name == activity_class.name]
             if edges:
                 context += f"- Can transition to {len(edges)} other windows/activities\n"
                 
@@ -184,15 +201,24 @@ DO NOT include any additional text outside of the JSON array. Your response must
     def _get_widget_static_info(self, activity: str, widget_id: str) -> str:
         """
         Get static analysis information for a specific widget.
+        
+        Args:
+            activity: Activity name
+            widget_id: Widget identifier
+            
+        Returns:
+            String containing widget static analysis information
         """
         if not self.static_data or not self.static_data.windows:
             return ""
             
         window = self.static_data.windows.get_window(activity)
+        self.logger.debug(f"Window for activity {activity}: {window}")
         if not window:
             return ""
             
         widget = window.get_widget_by_name(widget_id)
+        self.logger.debug(f"Widget for widget_id {widget_id}: {widget}")
         if not widget:
             return ""
             
@@ -200,6 +226,7 @@ DO NOT include any additional text outside of the JSON array. Your response must
         event_info = []
         for event in widget.events:
             if event.signature in self.static_data.classes.methods:
+                self.logger.debug(f"Event [{event}] found in methods")
                 method = self.static_data.classes.methods[event.signature]
                 event_desc = f"{event.type.name}"
                 if method.directly_reaches_mop:

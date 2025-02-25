@@ -141,6 +141,7 @@ Do not include any text outside of the JSON array. Return exactly 3-5 suggested 
         context.append(f"- {len(critical_methods)} methods can reach security-critical operations")
         context.append(f"- {len(direct_critical_methods)} methods directly call security-critical operations")
         
+        # TODO terminar .............
         # List some of the critical methods if available
         if direct_critical_methods:
             method_sampl

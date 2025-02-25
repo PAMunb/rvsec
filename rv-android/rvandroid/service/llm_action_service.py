@@ -6,7 +6,7 @@ from typing import Dict, List, Any, Optional
 from rvandroid.model.static import StaticAnalysisData
 from rvandroid.llm.llm import LanguageModel
 from rvandroid.llm.model_factory import ModelFactory
-from rvandroid.llm.prompt_strategy import PromptStrategyFactory
+from rvandroid.llm.prompt_strategy import PromptStrategy, PromptStrategyFactory
 from rvandroid.llm.llm_config import LLMConfiguration
 
 class LLMActionService:
@@ -22,6 +22,7 @@ class LLMActionService:
         model_name: str = "microsoft/Phi-3.5-mini-instruct",
         strategy_type: str = "basic",
         config: Optional[LLMConfiguration] = None,
+        prompt_strategy: Optional[PromptStrategy] = None,
         **model_kwargs
     ):
         """
@@ -49,7 +50,12 @@ class LLMActionService:
             self.strategy_type = strategy_type
             self.model_kwargs = model_kwargs
         
-        self.prompt_strategy = PromptStrategyFactory.create(self.strategy_type, static_data)
+        if prompt_strategy:
+            self.prompt_strategy = prompt_strategy
+            # TODO self.strategy_type = prompt_strategy.get_strategy_type()
+        else:
+            self.prompt_strategy = PromptStrategyFactory.create(self.strategy_type, static_data)
+            
         self.llm: Optional[LanguageModel] = None
         self.logger = logging.getLogger(__name__)
         

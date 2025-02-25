@@ -1,35 +1,24 @@
-# rvandroid/llm/prompt_generator.py
 
+
+from rvandroid.llm.prompt_strategy import PromptStrategy
 from typing import Dict, List
 import json
 import logging
 from rvandroid.model.static import StaticAnalysisData
 from rvandroid.parser.droidbot.droidbot_state_parser_novo import parse
 
-# DEPRECATED
-class PromptGenerator:
+class BasicPromptStrategy(PromptStrategy):
     """
-    Generates prompts for LLMs using DroidBot state and static analysis information.
-    This class creates structured prompts to help LLMs decide the most effective
-    test actions for Android applications.
+    Basic prompt strategy.
     """
     
-    def __init__(self, static_data: StaticAnalysisData):
-        """
-        Initialize the PromptGenerator with static analysis data.
-        
-        Args:
-            static_data: Static analysis data containing classes, windows, and transitions
-        """
-        self.static_data = static_data
+    def __init__(self, static_data):
+        super().__init__(static_data)
         self.logger = logging.getLogger(__name__)
     
     def generate_system_prompt(self) -> str:
         """
-        Generate the system prompt that defines the LLM's role and constraints.
-        
-        Returns:
-            String containing the system prompt
+        Generate a basic system prompt.
         """
         return """You are an Android UI testing expert. Your task is to analyze the current app state and suggest the most effective testing actions.
 
@@ -61,17 +50,13 @@ Maintain awareness of the application state after each action. When suggesting a
 Before responding, carefully analyze the context to avoid suggesting conflicting actions. For example: when a screen has only 2 clickable buttons (each leading to a different activity), select only one button based on the current context and action history. On subsequent executions of the same screen, reference the previous selections to determine which alternative button to choose.
 
 DO NOT include any additional text outside of the JSON array. Your response must be valid JSON that can be parsed directly."""
-
+    
     def generate_user_prompt(self, state: Dict) -> str:
         """
-        Generate a user prompt from the current application state.
-        
-        Args:
-            state: Current DroidBot state
-            
-        Returns:
-            String containing the user prompt
+        Generate a basic user prompt from the current application state.
         """
+        from rvandroid.parser.droidbot.droidbot_state_parser_novo import parse
+        
         # Parse the state to get a structured representation
         parsed_state = parse(state, self.static_data)
         
@@ -207,3 +192,4 @@ DO NOT include any additional text outside of the JSON array. Your response must
             return ""
             
         return "Registered events: " + ", ".join(event_info)
+    
