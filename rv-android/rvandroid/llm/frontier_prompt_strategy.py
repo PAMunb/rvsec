@@ -2,7 +2,7 @@
 from typing import Dict, List
 from rvandroid.llm.prompt_strategy import PromptStrategy
 from rvandroid.model.static import StaticAnalysisData
-from rvandroid.parser.droidbot.droidbot_state_parser_novo import parse
+from rvandroid.parser.droidbot.droidbot_state_parser import parse
 
 class FrontierPromptStrategy(PromptStrategy):
     """

@@ -5,7 +5,7 @@ from typing import Dict, List
 import json
 import logging
 from rvandroid.model.static import StaticAnalysisData
-from rvandroid.parser.droidbot.droidbot_state_parser_novo import parse
+from rvandroid.parser.droidbot.droidbot_state_parser import parse
 
 
 class BasicPromptStrategy(PromptStrategy):
@@ -56,7 +56,7 @@ DO NOT include any additional text outside of the JSON array. Your response must
         """
         Generate a basic user prompt from the current application state.
         """
-        from rvandroid.parser.droidbot.droidbot_state_parser_novo import parse
+        from rvandroid.parser.droidbot.droidbot_state_parser import parse
         
         # Parse the state to get a structured representation
         parsed_state = parse(state, self.static_data)

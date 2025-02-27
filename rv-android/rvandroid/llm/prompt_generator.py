@@ -4,7 +4,7 @@ from typing import Dict, List
 import json
 import logging
 from rvandroid.model.static import StaticAnalysisData
-from rvandroid.parser.droidbot.droidbot_state_parser_novo import parse
+from rvandroid.parser.droidbot.droidbot_state_parser import parse
 
 # DEPRECATED
 class PromptGenerator:

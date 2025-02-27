@@ -8,59 +8,65 @@ from rvandroid.llm.llm import LanguageModel
 from rvandroid.llm.model_factory import ModelFactory
 from rvandroid.llm.prompt_strategy import PromptStrategy, PromptStrategyFactory
 from rvandroid.llm.llm_config import LLMConfiguration
+from rvandroid.parser.parser_factory import ParserType
 
 class LLMActionService:
     """
     Service that processes DroidBot state, generates prompts, sends them to LLM,
     and returns suggested actions.
     """
-    
+
     def __init__(
-        self, 
-        static_data: StaticAnalysisData, 
-        model_type: str = "huggingface",
-        model_name: str = "microsoft/Phi-3.5-mini-instruct",
-        strategy_type: str = "basic",
-        config: Optional[LLMConfiguration] = None,
-        prompt_strategy: Optional[PromptStrategy] = None,
-        **model_kwargs
+            self,
+            static_data: StaticAnalysisData,
+            model_type: str = "huggingface",
+            model_name: str = "microsoft/Phi-3.5-mini-instruct",
+            strategy_type: str = "basic",
+            parser_type: ParserType = ParserType.DROIDBOT,
+            config: Optional[LLMConfiguration] = None,
+            prompt_strategy: Optional[PromptStrategy] = None,
+            **model_kwargs
     ):
         """
         Initialize the LLM action service.
-        
+
         Args:
             static_data: Static analysis data for the application
             model_type: Type of model to use ('huggingface', 'ollama', 'langchain', 'dspy', 'frontier')
             model_name: Name of the model
             strategy_type: Type of prompt strategy to use ('basic', 'langchain', 'dspy', 'frontier')
+            parser_type: Type of parser to use (DROIDBOT, UIAUTOMATOR)
             config: LLMConfiguration instance (overrides other parameters if provided)
             **model_kwargs: Additional arguments for the model constructor
         """
         self.static_data = static_data
-        
+
         # Use config if provided, otherwise use parameters
         if config:
             self.model_type = config.get_model_type()
             self.model_name = config.get_model_name()
             self.strategy_type = config.get_strategy_type()
+            self.parser_type = config.get_parser_type() if hasattr(config, 'get_parser_type') else parser_type
             self.model_kwargs = config.get_model_kwargs()
         else:
             self.model_type = model_type
             self.model_name = model_name
             self.strategy_type = strategy_type
+            self.parser_type = parser_type
             self.model_kwargs = model_kwargs
-        
+
         if prompt_strategy:
             self.prompt_strategy = prompt_strategy
-            # TODO self.strategy_type = prompt_strategy.get_strategy_type()
         else:
-            self.prompt_strategy = PromptStrategyFactory.create(self.strategy_type, static_data)
-            
+            self.prompt_strategy = PromptStrategyFactory.create(
+                self.strategy_type, static_data, self.parser_type)
+
         self.llm: Optional[LanguageModel] = None
         self.logger = logging.getLogger(__name__)
-        
+
         self.logger.info(f"Initialized LLM Action Service with model_type={self.model_type}, "
-                        f"model_name={self.model_name}, strategy_type={self.strategy_type}")
+                         f"model_name={self.model_name}, strategy_type={self.strategy_type}, "
+                         f"parser_type={self.parser_type}")
         
     def _get_llm(self) -> LanguageModel:
         """

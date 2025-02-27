@@ -3,6 +3,7 @@ from typing import Dict, Any, Optional
 import os
 import logging
 import json
+from rvandroid.parser.parser_factory import ParserType
 
 logger = logging.getLogger(__name__)
 
@@ -11,7 +12,7 @@ class LLMConfiguration:
     Configuration class for managing LLM settings.
     """
     
-    def __init__(self, config_file: Optional[str] = None, model_type: Optional[str] = None, model_name: Optional[str] = None, strategy_type: Optional[str] = None, model_kwargs: Optional[Dict[str, Any]] = None):
+    def __init__(self, config_file: Optional[str] = None, model_type: Optional[str] = None, model_name: Optional[str] = None, strategy_type: Optional[str] = None, parser_type: ParserType = ParserType.DROIDBOT, model_kwargs: Optional[Dict[str, Any]] = None):
         """
         Initialize the LLM configuration.
         
@@ -40,6 +41,10 @@ class LLMConfiguration:
             self.config["strategy_type"] = strategy_type
         if model_kwargs:
             self.config["model_kwargs"] = model_kwargs
+
+        # TODO
+        self.parser_type = parser_type
+        self.config["parser_type"] = parser_type
                     
         logger.info(f"Initialized LLM configuration: {self.config}")
     
@@ -89,6 +94,9 @@ class LLMConfiguration:
     def get_strategy_type(self) -> str:
         """Get the strategy type."""
         return self.config["strategy_type"]
+
+    def get_parser_type(self) -> ParserType:
+        return self.config["parser_type"]
     
     def get_model_kwargs(self) -> Dict[str, Any]:
         """Get additional model arguments."""
