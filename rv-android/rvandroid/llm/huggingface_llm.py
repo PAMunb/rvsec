@@ -78,6 +78,7 @@ class HuggingFaceLLM(LanguageModel):  # More descriptive class name
                     torch_dtype=torch_dtype
                 )
 
+                # TODO
                 # if torch.cuda.is_available():
                 #     print("GPU está disponível")
                 #     # device = torch.device("cuda")  # Define o dispositivo como GPU
@@ -97,23 +98,49 @@ class HuggingFaceLLM(LanguageModel):  # More descriptive class name
         if self._tokenizer is None:
             logger.info(f"Loading tokenizer for {self.model_name}...")
             tokenizer = AutoTokenizer.from_pretrained(self.model_name)
-            tokenizer.pad_token = tokenizer.eos_token  # Set pad token if needed
+            
+            # If it doesn't have a pad_token, define one
+            if tokenizer.pad_token is None:
+                # Try to use a common padding token if it exists in the vocabulary
+                if '<pad>' in tokenizer.get_vocab():
+                    tokenizer.pad_token = '<pad>'
+                # Otherwise, use the EOS token but ensure that attention mask is defined
+                else:
+                    tokenizer.pad_token = tokenizer.eos_token
+                    # Nothing needs to be done here as we'll handle the mask in the generate method
+            
             self._tokenizer = tokenizer
         return self._tokenizer
 
     def generate(self, messages: List[Dict[str, str]], max_new_tokens: int = 800) -> str:
         """Generates text based on the given messages."""
 
-        inputs = self.tokenizer.apply_chat_template(
+        # Apply chat template
+        encoded_input = self.tokenizer.apply_chat_template(
             messages, return_tensors="pt", add_generation_prompt=True
-        ).to(self._device)  # Use the correct device
+        )
+        
+        # Explicitly create an attention mask (all tokens are attended to)
+        attention_mask = torch.ones(encoded_input.shape, dtype=torch.long)
+        
+        # Move to the correct device
+        inputs = encoded_input.to(self._device)
+        attention_mask = attention_mask.to(self._device)
+
+        # Get the input length to identify only new tokens later
+        input_length = inputs.shape[1]
 
         with torch.no_grad():  # Important for inference
-            outputs = self.model.generate(inputs, max_new_tokens=max_new_tokens)
+            outputs = self.model.generate(
+                inputs, 
+                attention_mask=attention_mask,
+                max_new_tokens=max_new_tokens
+            )
+        
+        # Extract only the newly generated tokens
+        result = self.tokenizer.decode(outputs[0][input_length:], skip_special_tokens=True)
 
-        result = self.tokenizer.decode(outputs[0], skip_special_tokens=True)
-
-        del inputs, outputs  # Explicitly delete tensors to free memory
+        del inputs, outputs, attention_mask  # Explicitly delete tensors to free memory
         torch.cuda.empty_cache()  # Explicitly clear CUDA cache after generation
 
         return result

@@ -7,7 +7,8 @@ import logging
 from rvandroid.model.static import StaticAnalysisData
 from rvandroid.parser.droidbot.droidbot_state_parser_novo import parse
 
-class BasicPromptStrategy(PromptStrategy):
+
+class BasicPromptStrategy001(PromptStrategy):
     """
     Basic prompt strategy.
     """
@@ -45,9 +46,22 @@ Format your response as a valid JSON array of actions following this schema:
   ...
 ]
 
-Maintain awareness of the application state after each action. When suggesting a sequence of actions, ensure they build logically upon each other.
+IMPORTANT CONSTRAINTS ON ACTION SELECTION:
+1. When faced with multiple possible paths (e.g., two buttons leading to different activities), select ONLY ONE option based on:
+   - Current testing context
+   - History of previously tested paths
+   - Untested components priority
 
-Before responding, carefully analyze the context to avoid suggesting conflicting actions. For example: when a screen has only 2 clickable buttons (each leading to a different activity), select only one button based on the current context and action history. On subsequent executions of the same screen, reference the previous selections to determine which alternative button to choose.
+2. For screens you have encountered before:
+   - Reference which paths were previously selected
+   - Choose alternative paths that remain unexplored
+   - Clearly indicate in the explanation why this alternative was chosen
+
+3. Never suggest conflicting or mutually exclusive actions in the same response
+
+4. Maintain state awareness between suggested actions to ensure logical progression
+
+The response MUST be a single, valid, parseable JSON array with no additional text, comments, or explanations outside the JSON structure.
 
 DO NOT include any additional text outside of the JSON array. Your response must be valid JSON that can be parsed directly."""
     
@@ -58,7 +72,7 @@ DO NOT include any additional text outside of the JSON array. Your response must
         from rvandroid.parser.droidbot.droidbot_state_parser_novo import parse
         
         # Parse the state to get a structured representation
-        parsed_state = parse(state, self.static_data)
+        screen_description = parse(state, self.static_data)
         
         # Extract activity name
         activity = state.get("activity", "").replace("/", "")
@@ -71,7 +85,7 @@ DO NOT include any additional text outside of the JSON array. Your response must
         
         # Add UI state information
         prompt += "Current UI Elements:\n"
-        for item in parsed_state.items:
+        for item in screen_description.items:
             view = item.view
             widget_id = view.get("resource_id", "").split("/")[-1] if view.get("resource_id") else "unknown"
             widget_text = view.get("text", "")

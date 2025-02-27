@@ -11,6 +11,7 @@ import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 
 import br.unb.cic.cryptoapp.cipher.CipherActivity;
+import br.unb.cic.cryptoapp.generated.CryptographyActivity;
 import br.unb.cic.cryptoapp.messagedigest.MessageDigestActivity;
 
 public class MainActivity extends AppCompatActivity {
@@ -30,6 +31,8 @@ public class MainActivity extends AppCompatActivity {
     public void showScreenCipher(View view) {
         showScreen(CipherActivity.class);
     }
+
+    public void showGenerated(View view) { showScreen(CryptographyActivity.class); }
 
     public void showHome(MenuItem item){
         Intent intent = new Intent(this, MainActivity.class);

@@ -1,6 +1,7 @@
 # rvandroid/llm/prompt_strategy.py
 from abc import ABC, abstractmethod
 from typing import Dict, List, Any
+
 from rvandroid.model.static import StaticAnalysisData
 import logging
 
@@ -341,7 +342,7 @@ DO NOT include any text outside of the JSON array. Your output must be parseable
         
         return prompt
     
-    # Reuse the helper methods from BasicPromptStrategy
+    # Reuse the helper methods from BasicPromptStrategy001
     _add_static_analysis_context = BasicPromptStrategy._add_static_analysis_context
     _get_widget_static_info = BasicPromptStrategy._get_widget_static_info
 
@@ -434,7 +435,7 @@ Focus on these testing objectives:
         
         return "\n\n".join(sections)
     
-    # Reuse the helper methods from BasicPromptStrategy
+    # Reuse the helper methods from BasicPromptStrategy001
     _add_static_analysis_context = BasicPromptStrategy._add_static_analysis_context
     _get_widget_static_info = BasicPromptStrategy._get_widget_static_info
 
@@ -448,6 +449,7 @@ class PromptStrategyFactory:
         "basic": BasicPromptStrategy,
         "langchain": LangchainPromptStrategy,
         "dspy": DSPyPromptStrategy
+        # "basic_001": BasicPromptStrategy001,
     }
     
     @staticmethod

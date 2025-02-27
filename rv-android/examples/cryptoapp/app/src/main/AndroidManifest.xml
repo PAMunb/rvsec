@@ -10,6 +10,9 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.CryptoApp">
         <activity
+            android:name=".generated.CryptographyActivity"
+            android:exported="true" />
+        <activity
             android:name=".cipher.CipherActivity"
             android:exported="true" />
         <activity

@@ -432,8 +432,6 @@ def create_tree_from_json(json_data: dict) -> Node:
     return create_node(json_data)
 
 
-# Enhancements for rvandroid/parser/droidbot/droidbot_state_parser_novo.py
-
 def parse(screen_info: dict, static_data: StaticAnalysisData) -> ScreenDescription:
     """
     Parse screen information to create a structured description.
@@ -447,6 +445,7 @@ def parse(screen_info: dict, static_data: StaticAnalysisData) -> ScreenDescripti
     """
     logger = logging_api.getLogger(__name__)
     logger.info(f"Parsing screen info for activity: {screen_info.get('activity', 'unknown')}")
+    print("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$")
 
     # Clean up activity and stack names
     activity = screen_info.get("activity", "").replace("/", "")
@@ -481,7 +480,7 @@ def parse(screen_info: dict, static_data: StaticAnalysisData) -> ScreenDescripti
         if clazz:
             total_reachable = sum(1 for m in clazz.methods if m.reachable)
             total_mop = sum(1 for m in clazz.methods if m.reaches_mop)
-            # Add metrics to description if needed
+            #TODO  Add metrics to description if needed
             
     return description
 

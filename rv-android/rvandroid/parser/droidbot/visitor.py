@@ -35,7 +35,7 @@ class ItemAction:
 @dataclass
 class ScreenItem:
     """Represents a UI element on the screen with its description and possible actions"""
-    view: dict
+    view: dict # TODO estruturar direito ou identificar o conteudo do dict
     base_description: str
     actions: List[ItemAction]
 

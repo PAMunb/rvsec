@@ -22,4 +22,12 @@
         android:onClick="showScreenCipher"
         android:text="Cipher" />
 
+    <Button
+        android:id="@+id/buttonGenerated"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_weight="0"
+        android:onClick="showGenerated"
+        android:text="GENERATED" />
+
 </LinearLayout>
