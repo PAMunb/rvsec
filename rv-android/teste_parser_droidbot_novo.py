@@ -45,20 +45,20 @@ print(f"DroidBot screen description:\n{droidbot_screen_description}")
 # print(f"UIAutomator2 screen description:\n{uiautomator_screen_description}")
 
 # Using with LLMActionService
-from rvandroid.service.llm_action_service import LLMActionService
+# from rvandroid.service.llm_action_service import LLMActionService
 
-# Create service with DroidBot parser
-droidbot_service = LLMActionService(
-    static_data=static_data,
-    model_type="huggingface",
-    model_name=HuggingFaceLLM.QWEN,
-    strategy_type="basic",
-    parser_type=ParserType.DROIDBOT
-)
+# # Create service with DroidBot parser
+# droidbot_service = LLMActionService(
+#     static_data=static_data,
+#     model_type="huggingface",
+#     model_name=HuggingFaceLLM.QWEN,
+#     strategy_type="basic",
+#     parser_type=ParserType.DROIDBOT
+# )
 
-# Process state and get actions
-droidbot_actions = droidbot_service.process_state(droidbot_data)
-print(f"DroidBot suggested actions: {droidbot_actions}")
+# # Process state and get actions
+# droidbot_actions = droidbot_service.process_state(droidbot_data)
+# print(f"DroidBot suggested actions: {droidbot_actions}")
 
 # # Create service with UIAutomator2 parser
 # uiautomator_service = LLMActionService(

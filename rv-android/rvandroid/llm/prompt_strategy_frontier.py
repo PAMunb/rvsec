@@ -6,7 +6,6 @@ from rvandroid.llm.prompt_strategy import PromptStrategy
 from rvandroid.model.static import StaticAnalysisData
 from rvandroid.parser.parser_factory import ParserType
 
-# DEPRECATED
 
 class FrontierPromptStrategy(PromptStrategy):
     """
@@ -114,39 +113,40 @@ Do not include any text outside of the JSON array. Return exactly 3-5 suggested 
 
             if widget_text:
                 element_info.append(f"- Text: \"{widget_text}\"")
-                # Add actions with security annotations
-                if item.actions:
-                    action_info = ["- Available actions:"]
-                    for action in item.actions:
-                        security_tag = ""
-                        if action.directly_reaches_mop:
-                            security_tag = " [CRITICAL: Directly reaches security operation]"
-                        elif action.reaches_mop:
-                            security_tag = " [IMPORTANT: Can reach security operation]"
-                        action_info.append(f"  * {action.text}{security_tag}")
-                    element_info.append("\n".join(action_info))
 
-                # Add static info
-                static_info = self._get_widget_static_info(activity, widget_id)
-                if static_info:
-                    element_info.append(f"- Static analysis: {static_info}")
+            # Add actions with security annotations
+            if item.actions:
+                action_info = ["- Available actions:"]
+                for action in item.actions:
+                    security_tag = ""
+                    if action.directly_reaches_mop:
+                        security_tag = " [CRITICAL: Directly reaches security operation]"
+                    elif action.reaches_mop:
+                        security_tag = " [IMPORTANT: Can reach security operation]"
+                    action_info.append(f"  * {action.text}{security_tag}")
+                element_info.append("\n".join(action_info))
 
-                sections.append("\n".join(element_info))
+            # Add static info
+            static_info = self._get_widget_static_info(activity, widget_id)
+            if static_info:
+                element_info.append(f"- Static analysis: {static_info}")
 
-            # Action history with context
-            if "action_history" in state and state["action_history"]:
-                sections.append("# Recent Actions")
-                history = state.get("action_history", [])
-                recent_actions = history[-5:] if len(history) > 5 else history
-                for i, action in enumerate(recent_actions):
-                    sections.append(f"{i + 1}. {action}")
+            sections.append("\n".join(element_info))
 
-            # Testing objective reminder
-            sections.append("# Task")
-            sections.append(
-                "Based on the above information, provide 3-5 test actions that would be most effective "
-                "for testing this screen. Focus on exercising security-critical code paths and testing "
-                "unexplored functionality. Return your response as a valid JSON array."
-            )
+        # Action history with context
+        if "action_history" in state and state["action_history"]:
+            sections.append("# Recent Actions")
+            history = state.get("action_history", [])
+            recent_actions = history[-5:] if len(history) > 5 else history
+            for i, action in enumerate(recent_actions):
+                sections.append(f"{i + 1}. {action}")
 
-            return "\n\n".join(sections)
+        # Testing objective reminder
+        sections.append("# Task")
+        sections.append(
+            "Based on the above information, provide 3-5 test actions that would be most effective "
+            "for testing this screen. Focus on exercising security-critical code paths and testing "
+            "unexplored functionality. Return your response as a valid JSON array."
+        )
+
+        return "\n\n".join(sections)

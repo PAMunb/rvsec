@@ -1,10 +1,9 @@
 # rvandroid/parser/visitor/text_visitor.py
-from typing import List, Dict, Optional, Set
+from typing import List, Dict, Optional, Set, Any
 
 from rvandroid.model.static import StaticAnalysisData
 from rvandroid.model.widget import WidgetEventType, Widget
-from rvandroid.parser.droidbot.screen_visitor import ItemAction, ScreenItem, Node, Counter
-from rvandroid.parser.visitor.base_visitor import BaseScreenVisitor
+from rvandroid.parser.visitor.base_visitor import BaseScreenVisitor, ItemAction, ScreenItem, Node, Counter
 
 
 class EnhancedTextVisitor(BaseScreenVisitor):
@@ -14,12 +13,19 @@ class EnhancedTextVisitor(BaseScreenVisitor):
     of interactive elements like buttons, text fields, checkboxes, etc.
     """
 
-    def __init__(self, static_info: StaticAnalysisData, activity: str):
+    def __init__(self, static_info: Optional[StaticAnalysisData], activity: str):
+        """
+        Initialize the visitor.
+
+        Args:
+            static_info: Static analysis data (optional)
+            activity: Current activity name
+        """
         super().__init__(static_info, activity)
         self.processed_parents: Set[str] = set()  # Track processed parent nodes
-        self.logging.debug(f"Initialized EnhancedTextVisitor for activity: {activity}")
+        self.logger.debug(f"Initialized EnhancedTextVisitor for activity: {activity}")
 
-    def visit_node(self, node: Node):
+    def visit_node(self, node: Node) -> None:
         """
         Visit a container node in the UI hierarchy.
         Process container if it's actionable but children aren't.
@@ -27,10 +33,10 @@ class EnhancedTextVisitor(BaseScreenVisitor):
         Args:
             node: The node to visit
         """
-        self.logging.debug(f"Visiting node: {node.view_class}")
+        self.logger.debug(f"Visiting node: {node.view_class}")
 
         # Generate a unique identifier for the node
-        node_id = f"{node.view_class}_{node.resource_id}_{node.bounds if hasattr(node, 'bounds') else ''}"
+        node_id = node.get_unique_id()
 
         # Skip if already processed
         if node_id in self.processed_parents:
@@ -55,17 +61,17 @@ class EnhancedTextVisitor(BaseScreenVisitor):
                     self.window_info["interactive_elements"] += 1
                     self.processed_parents.add(node_id)
 
-    def visit_leaf_node(self, leaf_node: Node):
+    def visit_leaf_node(self, leaf_node: Node) -> None:
         """
         Visit a leaf node in the UI hierarchy that doesn't have a specific handler.
 
         Args:
             leaf_node: The leaf node to visit
         """
-        self.logging.debug(f"Visiting leaf node: {leaf_node.view_class}")
+        self.logger.debug(f"Visiting leaf node: {leaf_node.view_class}")
 
         # Generate a unique ID for the node
-        node_id = f"{leaf_node.view_class}_{leaf_node.resource_id}_{leaf_node.bounds if hasattr(leaf_node, 'bounds') else ''}"
+        node_id = leaf_node.get_unique_id()
 
         # Check if this node or its parent is actionable
         is_actionable = leaf_node.actionable
@@ -84,39 +90,46 @@ class EnhancedTextVisitor(BaseScreenVisitor):
             self.window_info["interactive_elements"] += 1
             self.processed_parents.add(node_id)
 
-    def visit_button(self, node: Node):
+    # rvandroid/parser/visitor/text_visitor.py (correção para o método visit_button)
+
+    def visit_button(self, node: Node) -> None:
         """
         Visit a button element and generate its description.
 
         Args:
             node: The button node to visit
         """
-        self.logging.debug(f"Visiting button: {node.resource_id}")
+        self.logger.debug(f"Visiting button: {node.resource_id}")
 
         widget = self.find_matching_widget(node.data)
         actions = self.get_possible_actions(node, self.counter)
 
-        # Update actions with additional information from static analysis if available
-        if widget:
-            for action in actions:
-                for event in widget.events:
-                    if event.type == action.event:
-                        action.reaches_mop = self._check_method_reaches_mop(event.signature)
-                        action.directly_reaches_mop = self._check_method_directly_reaches_mop(event.signature)
+        # Verificar se actions não é None antes de iterá-lo
+        if actions is not None:
+            # Update actions with additional information from static analysis if available
+            if widget:
+                for action in actions:
+                    for event in widget.events:
+                        if event.type == action.event:
+                            action.reaches_mop = self._check_method_reaches_mop(event.signature)
+                            action.directly_reaches_mop = self._check_method_directly_reaches_mop(event.signature)
+        else:
+            # Se actions for None, inicializar como lista vazia
+            actions = []
 
         text = self.__default_message(node, "Button ")
         item = ScreenItem(node.data, text, actions)
         self.items.append(item)
         self.window_info["interactive_elements"] += 1
 
-    def visit_edit_text(self, node: Node):
+    def visit_edit_text(self, node: Node) -> None:
         """
         Visit an editable text field and generate its description.
 
         Args:
             node: The edit text node to visit
         """
-        self.logging.debug(f"Visiting edit text: {node.resource_id}")
+        self.logger.debug(f"Visiting edit text: {node.resource_id}")
         widget = self.find_matching_widget(node.data)
         actions = self.get_possible_actions(node, self.counter)
 
@@ -127,21 +140,21 @@ class EnhancedTextVisitor(BaseScreenVisitor):
 
         text = f"Editable text field{input_type} {self.__with_text(node)}{self.__has_focus(node)}{self.__with_description(node)}{self.__with_resource_id(node)}"
 
-        if hasattr(node, 'is_password') and node.is_password:
+        if node.is_password:
             text = f"Password field {self.__with_text(node)}{self.__has_focus(node)}{self.__with_description(node)}{self.__with_resource_id(node)}"
 
         item = ScreenItem(node.data, text, actions)
         self.items.append(item)
         self.window_info["interactive_elements"] += 1
 
-    def visit_text_view(self, node: Node):
+    def visit_text_view(self, node: Node) -> None:
         """
         Visit a text view element and generate its description.
 
         Args:
             node: The text view node to visit
         """
-        self.logging.debug(f"Visiting text view: {node.resource_id}")
+        self.logger.debug(f"Visiting text view: {node.resource_id}")
 
         # Check if node is actionable itself
         is_actionable = node.clickable or node.long_clickable
@@ -162,14 +175,14 @@ class EnhancedTextVisitor(BaseScreenVisitor):
             if actions:
                 self.window_info["interactive_elements"] += 1
 
-    def visit_checkbox(self, node: Node):
+    def visit_checkbox(self, node: Node) -> None:
         """
         Visit a checkbox element and generate its description.
 
         Args:
             node: The checkbox node to visit
         """
-        self.logging.debug(f"Visiting checkbox: {node.resource_id}")
+        self.logger.debug(f"Visiting checkbox: {node.resource_id}")
         widget = self.find_matching_widget(node.data)
         actions = self.get_possible_actions(node, self.counter, prioritize_check=True)
 
@@ -180,14 +193,14 @@ class EnhancedTextVisitor(BaseScreenVisitor):
         self.items.append(item)
         self.window_info["interactive_elements"] += 1
 
-    def visit_checked_text(self, node: Node):
+    def visit_checked_text(self, node: Node) -> None:
         """
         Visit a checked text view element and generate its description.
 
         Args:
             node: The checked text view node to visit
         """
-        self.logging.debug(f"Visiting checked text view: {node.resource_id}")
+        self.logger.debug(f"Visiting checked text view: {node.resource_id}")
         actions = self.get_possible_actions(node, self.counter, prioritize_check=True)
 
         checked = " that is checked" if node.checked else " that is unchecked"
@@ -197,14 +210,14 @@ class EnhancedTextVisitor(BaseScreenVisitor):
         self.items.append(item)
         self.window_info["interactive_elements"] += 1
 
-    def visit_image_button(self, node: Node):
+    def visit_image_button(self, node: Node) -> None:
         """
         Visit an image button element and generate its description.
 
         Args:
             node: The image button node to visit
         """
-        self.logging.debug(f"Visiting image button: {node.resource_id}")
+        self.logger.debug(f"Visiting image button: {node.resource_id}")
         widget = self.find_matching_widget(node.data)
         actions = self.get_possible_actions(node, self.counter)
 
@@ -214,14 +227,14 @@ class EnhancedTextVisitor(BaseScreenVisitor):
         self.items.append(item)
         self.window_info["interactive_elements"] += 1
 
-    def visit_image(self, node: Node):
+    def visit_image(self, node: Node) -> None:
         """
         Visit an image element and generate its description.
 
         Args:
             node: The image node to visit
         """
-        self.logging.debug(f"Visiting image: {node.resource_id}")
+        self.logger.debug(f"Visiting image: {node.resource_id}")
 
         # Check if node is actionable itself
         is_actionable = node.clickable or node.long_clickable
@@ -242,14 +255,14 @@ class EnhancedTextVisitor(BaseScreenVisitor):
             if actions:
                 self.window_info["interactive_elements"] += 1
 
-    def visit_toggle_button(self, node: Node):
+    def visit_toggle_button(self, node: Node) -> None:
         """
         Visit a toggle button element and generate its description.
 
         Args:
             node: The toggle button node to visit
         """
-        self.logging.debug(f"Visiting toggle button: {node.resource_id}")
+        self.logger.debug(f"Visiting toggle button: {node.resource_id}")
         widget = self.find_matching_widget(node.data)
         actions = self.get_possible_actions(node, self.counter, prioritize_check=True)
 
@@ -260,14 +273,14 @@ class EnhancedTextVisitor(BaseScreenVisitor):
         self.items.append(item)
         self.window_info["interactive_elements"] += 1
 
-    def visit_switch(self, node: Node):
+    def visit_switch(self, node: Node) -> None:
         """
         Visit a switch element and generate its description.
 
         Args:
             node: The switch node to visit
         """
-        self.logging.debug(f"Visiting switch: {node.resource_id}")
+        self.logger.debug(f"Visiting switch: {node.resource_id}")
         widget = self.find_matching_widget(node.data)
         actions = self.get_possible_actions(node, self.counter, prioritize_check=True)
 
@@ -278,14 +291,14 @@ class EnhancedTextVisitor(BaseScreenVisitor):
         self.items.append(item)
         self.window_info["interactive_elements"] += 1
 
-    def visit_radio_button(self, node: Node):
+    def visit_radio_button(self, node: Node) -> None:
         """
         Visit a radio button element and generate its description.
 
         Args:
             node: The radio button node to visit
         """
-        self.logging.debug(f"Visiting radio button: {node.resource_id}")
+        self.logger.debug(f"Visiting radio button: {node.resource_id}")
         widget = self.find_matching_widget(node.data)
         actions = self.get_possible_actions(node, self.counter, prioritize_check=True)
 
@@ -296,14 +309,14 @@ class EnhancedTextVisitor(BaseScreenVisitor):
         self.items.append(item)
         self.window_info["interactive_elements"] += 1
 
-    def visit_spinner(self, node: Node):
+    def visit_spinner(self, node: Node) -> None:
         """
         Visit a spinner element and generate its description.
 
         Args:
             node: The spinner node to visit
         """
-        self.logging.debug(f"Visiting spinner: {node.resource_id}")
+        self.logger.debug(f"Visiting spinner: {node.resource_id}")
         widget = self.find_matching_widget(node.data)
 
         # For spinners, we want click action and a selective set of scroll actions
@@ -340,7 +353,7 @@ class EnhancedTextVisitor(BaseScreenVisitor):
         self.items.append(item)
         self.window_info["interactive_elements"] += 1
 
-    def visit_radio_group(self, node: Node):
+    def visit_radio_group(self, node: Node) -> None:
         """
         Visit a radio group element and generate its description.
         Group radio buttons together.
@@ -348,7 +361,7 @@ class EnhancedTextVisitor(BaseScreenVisitor):
         Args:
             node: The radio group node to visit
         """
-        self.logging.debug(f"Visiting radio group: {node.resource_id}")
+        self.logger.debug(f"Visiting radio group: {node.resource_id}")
 
         # Process group itself if actionable
         if node.actionable:
@@ -358,16 +371,7 @@ class EnhancedTextVisitor(BaseScreenVisitor):
             self.items.append(item)
 
         # Collect all radio buttons in this group
-        radio_buttons = []
-
-        def collect_radio_buttons(parent):
-            for child in parent.children:
-                if child.view_class == "android.widget.RadioButton":
-                    radio_buttons.append(child)
-                else:
-                    collect_radio_buttons(child)
-
-        collect_radio_buttons(node)
+        radio_buttons = node.find_children_by_class("android.widget.RadioButton")
 
         # If we found multiple radio buttons, create a single item for the group
         if len(radio_buttons) > 1:
@@ -396,27 +400,22 @@ class EnhancedTextVisitor(BaseScreenVisitor):
 
             # Mark all radio buttons as processed
             for rb in radio_buttons:
-                node_id = f"{rb.view_class}_{rb.resource_id}_{rb.bounds if hasattr(rb, 'bounds') else ''}"
-                self.processed_parents.add(node_id)
+                self.processed_parents.add(rb.get_unique_id())
         else:
             # If only one radio button, visit it normally
             for child in node.children:
                 child.accept(self)
 
-    def visit_slider(self, node: Node):
+    def visit_slider(self, node: Node) -> None:
         """
         Visit a slider (SeekBar) element and generate its description.
 
         Args:
             node: The slider node to visit
         """
-        self.logging.debug(f"Visiting slider: {node.resource_id}")
+        self.logger.debug(f"Visiting slider: {node.resource_id}")
 
         actions = []
-
-        # For sliders, we want to allow multiple positions
-        progress = getattr(node, 'progress', 0)
-        max_progress = getattr(node, 'max', 100)
 
         # Create actions for different positions on the slider
         slider_positions = [0, 25, 50, 75, 100]
@@ -429,7 +428,7 @@ class EnhancedTextVisitor(BaseScreenVisitor):
                 False
             ))
 
-        current_percent = int((progress / max_progress) * 100) if max_progress > 0 else 0
+        current_percent = int((node.progress / node.max) * 100) if node.max > 0 else 0
         text = f"Slider currently at {current_percent}% {self.__with_text(node)}{self.__with_description(node)}{self.__with_resource_id(node)}"
 
         item = ScreenItem(node.data, text, actions)
@@ -448,7 +447,7 @@ class EnhancedTextVisitor(BaseScreenVisitor):
             prioritize_check: Whether to prioritize check/uncheck over click
 
         Returns:
-            List of possible actions
+            List of possible actions (empty list if no actions are possible)
         """
         actions = []
 
@@ -457,20 +456,20 @@ class EnhancedTextVisitor(BaseScreenVisitor):
             if node.checked:
                 actions.append(ItemAction(
                     counter.inc(),
-                    f"UNCHECK ({counter.get()})" + (f" '{node.view_text}'" if node.view_text else ""),
+                    f"UNCHECK ({counter.get()})", # + (f" '{node.view_text}'" if node.view_text else ""),
                     WidgetEventType.CLICK, False, False
                 ))
             else:
                 actions.append(ItemAction(
                     counter.inc(),
-                    f"CHECK ({counter.get()})" + (f" '{node.view_text}'" if node.view_text else ""),
+                    f"CHECK ({counter.get()})", # + (f" '{node.view_text}'" if node.view_text else ""),
                     WidgetEventType.CLICK, False, False
                 ))
         # Handle click actions if not prioritizing check or not checkable
         elif (node.clickable or inherit_click) and not (prioritize_check and node.checkable):
             actions.append(ItemAction(
                 counter.inc(),
-                f"CLICK ({counter.get()})" + (f" on '{node.view_text}'" if node.view_text else ""),
+                f"CLICK ({counter.get()})", # + (f" on '{node.view_text}'" if node.view_text else ""),
                 WidgetEventType.CLICK, False, False
             ))
 
@@ -478,7 +477,7 @@ class EnhancedTextVisitor(BaseScreenVisitor):
         if node.long_clickable:
             actions.append(ItemAction(
                 counter.inc(),
-                f"LONG_CLICK ({counter.get()})" + (f" on '{node.view_text}'" if node.view_text else ""),
+                f"LONG_CLICK ({counter.get()})", # + (f" on '{node.view_text}'" if node.view_text else ""),
                 WidgetEventType.LONG_CLICK, False, False
             ))
 
@@ -487,13 +486,13 @@ class EnhancedTextVisitor(BaseScreenVisitor):
             if node.checked:
                 actions.append(ItemAction(
                     counter.inc(),
-                    f"UNCHECK ({counter.get()})" + (f" '{node.view_text}'" if node.view_text else ""),
+                    f"UNCHECK ({counter.get()})", # + (f" '{node.view_text}'" if node.view_text else ""),
                     WidgetEventType.CLICK, False, False
                 ))
             else:
                 actions.append(ItemAction(
                     counter.inc(),
-                    f"CHECK ({counter.get()})" + (f" '{node.view_text}'" if node.view_text else ""),
+                    f"CHECK ({counter.get()})", # + (f" '{node.view_text}'" if node.view_text else ""),
                     WidgetEventType.CLICK, False, False
                 ))
 
@@ -516,23 +515,23 @@ class EnhancedTextVisitor(BaseScreenVisitor):
                     WidgetEventType.SCROLL, False, False
                 ))
 
-        # Handle text input actions with better hints
-        if node.editable:
-            hint = ""
-            if node.view_text:
-                hint = f" [current: '{node.view_text}']"
-            elif node.content_description:
-                hint = f" [hint: '{node.content_description}']"
+                # Handle text input actions with better hints
+                if node.editable:
+                    hint = ""
+                    if node.view_text:
+                        hint = f" [current: '{node.view_text}']"
+                    elif node.content_description:
+                        hint = f" [hint: '{node.content_description}']"
 
-            actions.append(ItemAction(
-                counter.inc(),
-                f"SET_TEXT ({counter.get()}) {hint}",
-                WidgetEventType.TEXT_CHANGE, False, False
-            ))
+                    actions.append(ItemAction(
+                        counter.inc(),
+                        f"SET_TEXT ({counter.get()}) {hint}",
+                        WidgetEventType.TEXT_CHANGE, False, False
+                    ))
 
         return actions
 
-    def __default_message(self, node: Node, prefix: str):
+    def __default_message(self, node: Node, prefix: str) -> str:
         """
         Generate a default message for a UI element.
 
@@ -545,7 +544,7 @@ class EnhancedTextVisitor(BaseScreenVisitor):
         """
         return f"{prefix}{self.__with_text(node)}{self.__has_focus(node)}{self.__with_description(node)}{self.__with_resource_id(node)}"
 
-    def __with_text(self, node: Node):
+    def __with_text(self, node: Node) -> str:
         """
         Format node text description.
 
@@ -557,7 +556,7 @@ class EnhancedTextVisitor(BaseScreenVisitor):
         """
         return f"with text '{node.view_text}'" if node.view_text else "with no text"
 
-    def __has_focus(self, node: Node):
+    def __has_focus(self, node: Node) -> str:
         """
         Format node focus description.
 
@@ -569,7 +568,7 @@ class EnhancedTextVisitor(BaseScreenVisitor):
         """
         return " that is focused" if node.focused else ""
 
-    def __with_description(self, node: Node):
+    def __with_description(self, node: Node) -> str:
         """
         Format node content description.
 
@@ -581,7 +580,7 @@ class EnhancedTextVisitor(BaseScreenVisitor):
         """
         return f" with description '{node.content_description}'" if node.content_description else ""
 
-    def __with_resource_id(self, node: Node):
+    def __with_resource_id(self, node: Node) -> str:
         """
         Format node resource ID description.
 
@@ -591,8 +590,8 @@ class EnhancedTextVisitor(BaseScreenVisitor):
         Returns:
             Formatted resource ID description
         """
-        if node.resource_id:
-            parts = node.resource_id.split("/")
-            if len(parts) > 1:
-                return f" with id={parts[1]}"
+        # if node.resource_id:
+        #     parts = node.resource_id.split("/")
+        #     if len(parts) > 1:
+        #         return f" with id={parts[1]}"
         return ""

@@ -3,9 +3,15 @@
 from rvandroid.llm.prompt_strategy import PromptStrategy
 from typing import Dict, List
 import json
+from typing import Dict, List, Any, Optional
+import logging
+
+from rvandroid.llm.prompt_strategy import PromptStrategy
+from rvandroid.model.static import StaticAnalysisData
+from rvandroid.parser.parser_factory import ParserType
 import logging
 from rvandroid.model.static import StaticAnalysisData
-from rvandroid.parser.droidbot.droidbot_state_parser import parse
+# from rvandroid.parser.droidbot.droidbot_state_parser import parse
 
 
 class BasicPromptStrategy001(PromptStrategy):
@@ -13,8 +19,8 @@ class BasicPromptStrategy001(PromptStrategy):
     Basic prompt strategy.
     """
     
-    def __init__(self, static_data):
-        super().__init__(static_data)
+    def __init__(self, static_data: Optional[StaticAnalysisData] = None, parser_type: ParserType = ParserType.DROIDBOT):
+        super().__init__(static_data, parser_type)
         self.logger = logging.getLogger(__name__)
     
     def generate_system_prompt(self) -> str:
@@ -68,11 +74,10 @@ DO NOT include any additional text outside of the JSON array. Your response must
     def generate_user_prompt(self, state: Dict) -> str:
         """
         Generate a basic user prompt from the current application state.
-        """
-        from rvandroid.parser.droidbot.droidbot_state_parser import parse
+        """        
         
         # Parse the state to get a structured representation
-        screen_description = parse(state, self.static_data)
+        screen_description = self.parser.parse(state, self.static_data)
         
         # Extract activity name
         activity = state.get("activity", "").replace("/", "")

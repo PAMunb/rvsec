@@ -1,32 +1,42 @@
+# rvandroid/parser/droidbot/droidbot_parser.py
 import logging
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 
 from rvandroid.model.static import StaticAnalysisData
-from rvandroid.parser.abstract_parser import AbstractStateParser
+from rvandroid.parser.abstract_parser import AbstractScreenParser
 from rvandroid.parser.visitor.base_visitor import ScreenDescription, Node
 from rvandroid.parser.visitor.text_visitor import EnhancedTextVisitor
 
 
-class DroidBotParser(AbstractStateParser):
+class DroidBotParser(AbstractScreenParser):
     """
     Parser for DroidBot state data.
     Converts DroidBot state data into a ScreenDescription.
     """
 
     def __init__(self):
+        """Initialize the DroidBot parser."""
+        super().__init__()
         self.logger = logging.getLogger(__name__)
 
-    def parse(self, state_data: Dict[str, Any], static_data: StaticAnalysisData) -> ScreenDescription:
+    def parse(self, state_data: Dict[str, Any], static_data: Optional[StaticAnalysisData] = None) -> ScreenDescription:
         """
         Parse DroidBot state data into a ScreenDescription.
 
         Args:
             state_data: Dictionary containing DroidBot state
-            static_data: Static analysis data for the application
+            static_data: Static analysis data for the application (optional)
 
         Returns:
             ScreenDescription object
+
+        Raises:
+            ValueError: If state data is invalid or cannot be parsed
         """
+        # Validate state data
+        if not self.validate_state_data(state_data):
+            raise ValueError("Invalid DroidBot state data: missing required fields")
+
         self.logger.info(f"Parsing DroidBot state for activity: {self.get_activity_name(state_data)}")
 
         # Clean up activity name
@@ -67,15 +77,33 @@ class DroidBotParser(AbstractStateParser):
 
         Returns:
             Activity name
+
+        Raises:
+            ValueError: If activity name is not found
         """
         activity = state_data.get("activity", "")
+        if not activity:
+            raise ValueError("No activity name found in DroidBot state data")
 
         # Clean up activity name
         activity = activity.replace("/", "")
 
         return activity
 
-    def _create_tree_from_json(self, json_data: dict) -> Node:
+    def validate_state_data(self, state_data: Dict[str, Any]) -> bool:
+        """
+        Validate DroidBot state data.
+
+        Args:
+            state_data: Dictionary containing DroidBot state
+
+        Returns:
+            True if valid, False otherwise
+        """
+        required_fields = ["activity", "view_tree"]
+        return all(field in state_data for field in required_fields)
+
+    def _create_tree_from_json(self, json_data: Dict[str, Any]) -> Optional[Node]:
         """
         Create a Node tree from JSON representation of an Android UI hierarchy.
 
@@ -83,12 +111,25 @@ class DroidBotParser(AbstractStateParser):
             json_data: JSON dictionary containing UI hierarchy data
 
         Returns:
-            Root Node of the UI hierarchy tree
+            Root Node of the UI hierarchy tree or None if invalid data
         """
         self.logger.debug("Creating UI tree from DroidBot JSON data")
 
-        def create_node(data, parent=None):
-            """Recursive function to create nodes from JSON data"""
+        if not isinstance(json_data, dict):
+            self.logger.warning(f"Invalid JSON data format: {type(json_data)}")
+            return None
+
+        def create_node(data: Dict[str, Any], parent: Optional[Node] = None) -> Optional[Node]:
+            """
+            Recursive function to create nodes from JSON data.
+
+            Args:
+                data: Node data dictionary
+                parent: Parent node (optional)
+
+            Returns:
+                Node instance or None if invalid data
+            """
             if not isinstance(data, dict):
                 self.logger.warning(f"Invalid node data format: {data}")
                 return None
@@ -101,7 +142,11 @@ class DroidBotParser(AbstractStateParser):
                         children.append(child_node)
 
             node = Node(data, children)
-            node.parent = parent
+
+            # Set parent reference
+            for child in node.children:
+                child.parent = node
+
             return node
 
         return create_node(json_data)

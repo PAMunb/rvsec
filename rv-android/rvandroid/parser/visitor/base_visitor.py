@@ -1,32 +1,54 @@
+# rvandroid/parser/visitor/base_visitor.py
 import logging
-from dataclasses import dataclass
-from typing import List, Dict, Optional
-from typing import Set
+from dataclasses import dataclass, field
+from enum import Enum
+from typing import List, Dict, Optional, Set, Any
 
-from rvandroid.model.static import StaticAnalysisData
-from rvandroid.model.widget import Widget, WidgetEventType
+
+class ViewProperty(Enum):
+    """Enumeration of common view properties for consistency."""
+    CLICKABLE = "clickable"
+    SCROLLABLE = "scrollable"
+    CHECKABLE = "checkable"
+    LONG_CLICKABLE = "long_clickable"
+    EDITABLE = "editable"
+    CHECKED = "checked"
+    SELECTED = "selected"
+    FOCUSED = "focused"
+    PASSWORD = "is_password"
+    ENABLED = "enabled"
+
+    TEXT = "text"
+    CONTENT_DESCRIPTION = "content_description"
+    CLASS = "class"
+    PACKAGE = "package"
+    RESOURCE_ID = "resource_id"
+    BOUNDS = "bounds"
+
+    PROGRESS = "progress"
+    MAX = "max"
 
 
 @dataclass
 class ItemAction:
-    """Represents an action that can be performed on a UI element"""
+    """Represents an action that can be performed on a UI element."""
     id: int
     text: str
-    event: WidgetEventType
-    reaches_mop: bool
-    directly_reaches_mop: bool
+    event: 'WidgetEventType'  # Forward reference
+    reaches_mop: bool = False
+    directly_reaches_mop: bool = False
 
 
 @dataclass
 class ScreenItem:
-    """Represents a UI element on the screen with its description and possible actions"""
-    view: dict  # TODO estruturar direito ou identificar o conteudo do dict
+    """Represents a UI element on the screen with its description and possible actions."""
+    view: Dict[str, Any]  # Raw view data
     base_description: str
-    actions: List[ItemAction]
+    actions: List[ItemAction] = field(default_factory=list)
 
     @property
     def description(self) -> str:
-        """Generates a human-readable description of the item and its actions"""
+        """Generates a human-readable description of the item and its actions."""
         actions_desc = f". Actions: {', '.join([a.text for a in self.actions])}" if self.actions else "."
         return f"{self.base_description}{actions_desc}"
 
@@ -35,9 +57,16 @@ class ScreenItem:
 
 
 class ScreenDescription:
-    """Represents the complete description of a screen including all UI elements and their actions"""
+    """Represents the complete description of a screen including all UI elements and their actions."""
 
     def __init__(self, activity: str, items: List[ScreenItem]):
+        """
+        Initialize screen description.
+
+        Args:
+            activity: Current activity name
+            items: List of UI elements with actions
+        """
         self.activity = activity
         self.items = items
         self.events_by_id: Dict[int, ItemAction] = {
@@ -48,7 +77,7 @@ class ScreenDescription:
 
     @property
     def description(self) -> str:
-        """Generates a complete description of the screen and its elements"""
+        """Generates a complete description of the screen and its elements."""
         view_descs = [f" - {item.description}" for item in self.items]
         state_desc = (
             "The current screen has the following UI views and corresponding actions, "
@@ -61,65 +90,128 @@ class ScreenDescription:
 
 
 class Counter:
-    """Simple counter implementation for generating unique action IDs"""
+    """Simple counter implementation for generating unique action IDs."""
 
-    def __init__(self):
-        self.value: int = 0
+    def __init__(self, start_value: int = 0):
+        """
+        Initialize counter.
+
+        Args:
+            start_value: Initial counter value
+        """
+        self.value: int = start_value
 
     def inc(self) -> int:
-        """Increments counter and returns new value"""
+        """
+        Increments counter and returns new value.
+
+        Returns:
+            New counter value
+        """
         self.value += 1
         return self.value
 
-    def get(self):
+    def get(self) -> int:
+        """
+        Gets current counter value without incrementing.
+
+        Returns:
+            Current counter value
+        """
         return self.value
 
 
+from rvandroid.model.widget import WidgetEventType, Widget
+from rvandroid.model.static import StaticAnalysisData
+
+
 class Node:
-    """Represents a node in the UI hierarchy tree with its properties and children"""
+    """
+    Represents a node in the UI hierarchy tree with its properties and children.
+    Enhanced implementation with better type safety and property access.
+    """
 
-    def __init__(self, view: dict, children: Optional[List['Node']] = None):
+    def __init__(
+            self,
+            view: Dict[str, Any],
+            children: Optional[List['Node']] = None,
+            parent: Optional['Node'] = None
+    ):
+        """
+        Initialize a Node.
+
+        Args:
+            view: Dictionary of view properties
+            children: List of child nodes (optional)
+            parent: Parent node (optional)
+        """
         self.data = view
-        print("view:", view)
         self.children = children or []
+        self.parent = parent
 
-        # Extract view properties
-        self.clickable = self._get_property("clickable", False)
-        self.scrollable = self._get_property("scrollable", False)
-        self.checkable = self._get_property("checkable", False)
-        self.long_clickable = self._get_property("long_clickable", False)
-        self.editable = self._get_property("editable", False)
-        self.checked = self._get_property("checked", False)
-        self.selected = self._get_property("selected", False)
-        self.is_password = self._get_property("is_password", False)
-        self.enabled = self._get_property("enabled", False)
-        self.focused = self._get_property("focused", False)
+        # Extract common view properties
+        self.clickable = self._get_property(ViewProperty.CLICKABLE.value, False)
+        self.scrollable = self._get_property(ViewProperty.SCROLLABLE.value, False)
+        self.checkable = self._get_property(ViewProperty.CHECKABLE.value, False)
+        self.long_clickable = self._get_property(ViewProperty.LONG_CLICKABLE.value, False)
+        self.editable = self._get_property(ViewProperty.EDITABLE.value, False)
+        self.checked = self._get_property(ViewProperty.CHECKED.value, False)
+        self.selected = self._get_property(ViewProperty.SELECTED.value, False)
+        self.is_password = self._get_property(ViewProperty.PASSWORD.value, False)
+        self.enabled = self._get_property(ViewProperty.ENABLED.value, True)
+        self.focused = self._get_property(ViewProperty.FOCUSED.value, False)
 
         # View identifiers
-        self.content_description = self._get_property("content_description", "")
-        self.view_text = self._get_property("text", "")
-        self.view_class = self._get_property("class", "")
-        self.package = self._get_property("package", "")
-        self.resource_id = self._get_property("resource_id", "")
+        self.content_description = self._get_property(ViewProperty.CONTENT_DESCRIPTION.value, "")
+        self.view_text = self._get_property(ViewProperty.TEXT.value, "")
+        self.view_class = self._get_property(ViewProperty.CLASS.value, "")
+        self.package = self._get_property(ViewProperty.PACKAGE.value, "")
+        self.resource_id = self._get_property(ViewProperty.RESOURCE_ID.value, "")
+
+        # Bounds are represented as [[left, top], [right, bottom]]
+        self.bounds = self._get_property(ViewProperty.BOUNDS.value, [[0, 0], [0, 0]])
+
+        # Progress values for sliders/seekbars
+        self.progress = self._get_property(ViewProperty.PROGRESS.value, 0)
+        self.max = self._get_property(ViewProperty.MAX.value, 100)
 
         # Derived properties
         self.actionable = (self.clickable or self.scrollable or self.checkable or
                            self.long_clickable or self.editable)
 
-    def _get_property(self, key: str, default: any) -> any:
-        """Safely retrieves a property from the view dictionary"""
+    def _get_property(self, key: str, default: Any) -> Any:
+        """
+        Safely retrieves a property from the view dictionary.
+
+        Args:
+            key: Property key
+            default: Default value if key doesn't exist
+
+        Returns:
+            Property value or default
+        """
         return self.data.get(key, default)
 
-    def accept(self, visitor: 'ScreenVisitor') -> None:
-        """Implements the visitor pattern for traversing the UI hierarchy"""
+    def accept(self, visitor: 'BaseScreenVisitor') -> None:
+        """
+        Implements the visitor pattern for traversing the UI hierarchy.
+
+        Args:
+            visitor: Visitor implementation
+        """
         if not self.children:
             self._handle_leaf_node(visitor)
         else:
             self._handle_container_node(visitor)
 
-    def _handle_leaf_node(self, visitor: 'ScreenVisitor') -> None:
-        """Handles visitation for leaf nodes based on their widget type"""
-        print("Leaf node:", self.view_class)
+    def _handle_leaf_node(self, visitor: 'BaseScreenVisitor') -> None:
+        """
+        Handles visitation for leaf nodes based on their widget type.
+
+        Args:
+            visitor: Visitor implementation
+        """
+        # Map of widget classes to visitor methods
         widget_handlers = {
             "android.widget.Button": visitor.visit_button,
             "android.widget.EditText": visitor.visit_edit_text,
@@ -130,30 +222,105 @@ class Node:
             "android.widget.ImageView": visitor.visit_image,
             "android.widget.ToggleButton": visitor.visit_toggle_button,
             "android.widget.Switch": visitor.visit_switch,
-            "android.widget.RadioButton": visitor.visit_radio_button
+            "android.widget.RadioButton": visitor.visit_radio_button,
+            "android.widget.SeekBar": visitor.visit_slider
         }
+
+        # Call specific handler if available, otherwise use generic handler
         handler = widget_handlers.get(self.view_class, visitor.visit_leaf_node)
         handler(self)
 
-    def _handle_container_node(self, visitor: 'ScreenVisitor') -> None:
-        """Handles visitation for container nodes"""
+    def _handle_container_node(self, visitor: 'BaseScreenVisitor') -> None:
+        """
+        Handles visitation for container nodes.
+
+        Args:
+            visitor: Visitor implementation
+        """
         if self.view_class == "android.widget.Spinner":
             visitor.visit_spinner(self)
         elif self.view_class == "android.widget.RadioGroup":
             visitor.visit_radio_group(self)
         else:
+            # Generic container handling
             visitor.visit_node(self)
             for child in self.children:
                 child.accept(visitor)
 
+    def find_children_by_class(self, class_name: str) -> List['Node']:
+        """
+        Find all child nodes with a specific class name.
+
+        Args:
+            class_name: Class name to search for
+
+        Returns:
+            List of matching nodes
+        """
+        result = []
+
+        for child in self.children:
+            if child.view_class == class_name:
+                result.append(child)
+            # Recursively search in child's children
+            result.extend(child.find_children_by_class(class_name))
+
+        return result
+
+    def get_center_coordinates(self) -> tuple:
+        """
+        Get the center coordinates of this node's bounding box.
+
+        Returns:
+            Tuple of (x, y) coordinates
+        """
+        if not isinstance(self.bounds, list) or len(self.bounds) != 2:
+            return (0, 0)
+
+        try:
+            x1, y1 = self.bounds[0]
+            x2, y2 = self.bounds[1]
+            return ((x1 + x2) // 2, (y1 + y2) // 2)
+        except (TypeError, IndexError):
+            return (0, 0)
+
+    def get_unique_id(self) -> str:
+        """
+        Generate a unique identifier for this node based on its properties.
+
+        Returns:
+            String identifier
+        """
+        bounds_str = str(self.bounds) if hasattr(self, 'bounds') else ''
+        return f"{self.view_class}_{self.resource_id}_{bounds_str}"
+
+    def __str__(self) -> str:
+        """String representation of the node."""
+        return f"{self.view_class} - {self.resource_id or self.view_text or 'unnamed'}"
 
 class BaseScreenVisitor:
+    """
+    Base visitor implementation for processing Android UI elements.
+    Implements the visitor pattern to traverse the UI hierarchy and create descriptions.
+    """
 
-    def __init__(self, static_info: StaticAnalysisData, activity: str):
-        self.logging = logging.getLogger(__name__)
+    def __init__(self, static_info: Optional[StaticAnalysisData], activity: str):
+        """
+        Initialize the visitor.
+
+        Args:
+            static_info: Static analysis data (optional)
+            activity: Current activity name
+        """
+        self.logger = logging.getLogger(__name__)
         self.static_info = static_info
         self.activity = activity
-        self.window = static_info.windows.get_window(activity) if static_info and static_info.windows else None
+        self.window = None
+
+        # Initialize window info if static info is available
+        if static_info and static_info.windows:
+            self.window = static_info.windows.get_window(activity)
+
         self.counter = Counter()
         self.items: List[ScreenItem] = []
         self.visited_nodes: Set[str] = set()  # Track visited nodes to avoid duplicates
@@ -187,7 +354,7 @@ class BaseScreenVisitor:
         )
 
         self.items.append(back_item)
-        self.logging.info(f"Generated screen description with {len(self.items)} items")
+        self.logger.info(f"Generated screen description with {len(self.items)} items")
 
         return ScreenDescription(self.activity, self.items)
 
@@ -209,7 +376,7 @@ class BaseScreenVisitor:
         parts = resource_id.split("/")
         widget_id = parts[-1] if len(parts) > 1 else parts[0]
 
-        self.logging.debug(f"Looking for widget by resource ID: {widget_id}")
+        self.logger.debug(f"Looking for widget by resource ID: {widget_id}")
         widget = self.window.get_widget_by_name(widget_id)
         if widget:
             self.window_info["matched_widgets"] += 1
@@ -218,7 +385,7 @@ class BaseScreenVisitor:
         # Try by text content
         text = node_data.get("text", "")
         if text:
-            self.logging.debug(f"Looking for widget by text: {text}")
+            self.logger.debug(f"Looking for widget by text: {text}")
             for widget_id, widget in self.window.widgets.items():
                 if widget.text == text:
                     self.window_info["matched_widgets"] += 1
@@ -236,11 +403,11 @@ class BaseScreenVisitor:
         Returns:
             True if a parent is clickable, False otherwise
         """
-        parent = node.parent if hasattr(node, 'parent') else None
+        parent = node.parent
         while parent:
             if parent.clickable:
                 return True
-            parent = parent.parent if hasattr(parent, 'parent') else None
+            parent = parent.parent
         return False
 
     def _check_method_reaches_mop(self, signature: str) -> bool:
@@ -274,3 +441,65 @@ class BaseScreenVisitor:
             if method:
                 return method.directly_reaches_mop
         return False
+
+    # Default implementations for visit methods that should be overridden by subclasses
+
+    def visit_node(self, node: Node) -> None:
+        """Default implementation for visiting a container node."""
+        pass
+
+    def visit_leaf_node(self, node: Node) -> None:
+        """Default implementation for visiting a leaf node."""
+        pass
+
+    def visit_button(self, node: Node) -> None:
+        """Default implementation for visiting a button."""
+        self.visit_leaf_node(node)
+
+    def visit_edit_text(self, node: Node) -> None:
+        """Default implementation for visiting an edit text field."""
+        self.visit_leaf_node(node)
+
+    def visit_text_view(self, node: Node) -> None:
+        """Default implementation for visiting a text view."""
+        self.visit_leaf_node(node)
+
+    def visit_checkbox(self, node: Node) -> None:
+        """Default implementation for visiting a checkbox."""
+        self.visit_leaf_node(node)
+
+    def visit_checked_text(self, node: Node) -> None:
+        """Default implementation for visiting a checked text view."""
+        self.visit_leaf_node(node)
+
+    def visit_image_button(self, node: Node) -> None:
+        """Default implementation for visiting an image button."""
+        self.visit_leaf_node(node)
+
+    def visit_image(self, node: Node) -> None:
+        """Default implementation for visiting an image."""
+        self.visit_leaf_node(node)
+
+    def visit_toggle_button(self, node: Node) -> None:
+        """Default implementation for visiting a toggle button."""
+        self.visit_leaf_node(node)
+
+    def visit_switch(self, node: Node) -> None:
+        """Default implementation for visiting a switch."""
+        self.visit_leaf_node(node)
+
+    def visit_radio_button(self, node: Node) -> None:
+        """Default implementation for visiting a radio button."""
+        self.visit_leaf_node(node)
+
+    def visit_spinner(self, node: Node) -> None:
+        """Default implementation for visiting a spinner."""
+        self.visit_node(node)
+
+    def visit_radio_group(self, node: Node) -> None:
+        """Default implementation for visiting a radio group."""
+        self.visit_node(node)
+
+    def visit_slider(self, node: Node) -> None:
+        """Default implementation for visiting a slider."""
+        self.visit_leaf_node(node)
