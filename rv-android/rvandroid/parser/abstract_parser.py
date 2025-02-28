@@ -1,9 +1,10 @@
 # rvandroid/parser/abstract_parser.py
+
 from abc import ABC, abstractmethod
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, Type, Callable
 
 from rvandroid.model.static import StaticAnalysisData
-from rvandroid.parser.visitor.base_visitor import ScreenDescription
+from rvandroid.parser.visitor.base_visitor import ScreenDescription, BaseScreenVisitor
 
 
 class AbstractScreenParser(ABC):
@@ -12,12 +13,34 @@ class AbstractScreenParser(ABC):
     Provides a common interface for extracting structured information from different formats.
     """
 
-    def __init__(self):
-        """Initialize the parser."""
-        pass
+    def __init__(self, visitor_factory: Optional[Callable[[Optional["StaticAnalysisData"], str], BaseScreenVisitor]] = None):
+        """
+        Initialize the parser.
+        
+        Args:
+            visitor_factory: Optional factory function to create visitor instances
+        """
+        self.visitor_factory = visitor_factory
+        
+    def _create_visitor(self, static_data: Optional["StaticAnalysisData"], activity: str) -> BaseScreenVisitor:
+        """
+        Create a visitor instance using the factory if provided, otherwise use default.
+        
+        Args:
+            static_data: Static analysis data
+            activity: Current activity name
+            
+        Returns:
+            BaseScreenVisitor instance
+        """
+        if self.visitor_factory:
+            return self.visitor_factory(static_data, activity)
+        # Default implementation - should be overridden by subclasses if not using factory
+        from rvandroid.parser.visitor.text_visitor import EnhancedTextVisitor
+        return EnhancedTextVisitor(static_data, activity)
 
     @abstractmethod
-    def parse(self, state_data: Dict[str, Any], static_data: Optional[StaticAnalysisData] = None) -> ScreenDescription:
+    def parse(self, state_data: Dict[str, Any], static_data: Optional["StaticAnalysisData"] = None) -> ScreenDescription:
         """
         Parse state data into a standardized ScreenDescription.
 

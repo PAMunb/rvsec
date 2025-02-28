@@ -3,13 +3,13 @@ import json
 import logging
 from typing import Dict, List, Any, Optional
 
-from rvandroid.model.static import StaticAnalysisData
+from rvandroid.config.component_config import ComponentConfig
 from rvandroid.llm.llm import LanguageModel
-from rvandroid.llm.model_factory import ModelFactory
-from rvandroid.llm.prompt_strategy import PromptStrategy
-from rvandroid.llm.prompt_strategy_factory import PromptStrategyFactory
 from rvandroid.llm.llm_config import LLMConfiguration
-from rvandroid.parser.parser_factory import ParserType
+from rvandroid.llm.model_factory import ModelFactory
+from rvandroid.llm.prompt_strategy_factory import PromptStrategyFactory
+from rvandroid.model.static import StaticAnalysisData
+from rvandroid.parser.parser_factory import ParserType, ParserFactory
 
 logger = logging.getLogger(__name__)
 
@@ -20,23 +20,6 @@ class LLMActionService:
     and returns suggested actions.
     """
 
-    # def __init__(
-    #         self,
-    #         model_factory: Optional[ModelFactory] = None,
-    #         prompt_strategy_factory: Optional[PromptStrategyFactory] = None,
-    #         static_data: Optional[StaticAnalysisData] = None,
-    #         config: Optional[LLMConfiguration] = None,
-    #         prompt_strategy: Optional[PromptStrategy] = None,
-    # ):
-    #     """
-    #     Initialize with dependency injection.
-    #     """
-    #     self.model_factory = model_factory or ModelFactory()
-    #     self.prompt_strategy_factory = prompt_strategy_factory or PromptStrategyFactory()
-    #
-    #     # Rest of initialization
-    #     # ...
-
     def __init__(
             self,
             static_data: Optional[StaticAnalysisData] = None,
@@ -45,7 +28,7 @@ class LLMActionService:
             strategy_type: str = "basic",
             parser_type: ParserType = ParserType.DROIDBOT,
             config: Optional[LLMConfiguration] = None,
-            prompt_strategy: Optional[PromptStrategy] = None,
+            component_config: Optional[ComponentConfig] = None,
             **model_kwargs
     ):
         """
@@ -58,10 +41,11 @@ class LLMActionService:
             strategy_type: Type of prompt strategy to use
             parser_type: Type of parser to use
             config: LLMConfiguration instance (overrides other parameters if provided)
-            prompt_strategy: PromptStrategy instance (overrides strategy_type if provided)
+            component_config: ComponentConfig for customizing components (optional)
             **model_kwargs: Additional arguments for the model constructor
         """
         self.static_data = static_data
+        self.component_config = component_config
 
         # Use config if provided, otherwise use parameters
         if config:
@@ -79,12 +63,14 @@ class LLMActionService:
             self.model_kwargs = model_kwargs
             self.max_tokens = model_kwargs.pop("max_tokens", 800)
 
-        # Set up prompt strategy
-        if prompt_strategy:
-            self.prompt_strategy = prompt_strategy
-        else:
+        # Set up prompt strategy with custom component config if provided
+        if self.component_config:
             self.prompt_strategy = PromptStrategyFactory.create(
-                self.strategy_type, self.static_data, self.parser_type)
+                self.strategy_type, self.static_data, parser_type, self.component_config)
+        else:
+            parser = ParserFactory.create(parser_type)
+            self.prompt_strategy = PromptStrategyFactory.create(
+                self.strategy_type, self.static_data, parser)
 
         # Initialize logger but defer LLM initialization until needed
         self.llm: Optional[LanguageModel] = None

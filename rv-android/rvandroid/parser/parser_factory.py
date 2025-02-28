@@ -1,15 +1,16 @@
 # rvandroid/parser/parser_factory.py
 from enum import Enum
-from typing import Dict, Type, Optional
+from typing import Dict, Type, Optional, Callable
 
+from rvandroid.model.static import StaticAnalysisData
 from rvandroid.parser.abstract_parser import AbstractScreenParser
+from rvandroid.parser.visitor.base_visitor import BaseScreenVisitor
 
 
 class ParserType(Enum):
     """Enumeration of supported parser types"""
     DROIDBOT = "droidbot"
     UIAUTOMATOR = "uiautomator"
-
 
 class ParserFactory:
     """
@@ -29,13 +30,18 @@ class ParserFactory:
         cls.register_parser_type(ParserType.DROIDBOT, DroidBotParser)
         cls.register_parser_type(ParserType.UIAUTOMATOR, UIAutomator2Parser)
 
-    @staticmethod
-    def create(parser_type: ParserType) -> AbstractScreenParser:
+    @classmethod
+    def create(
+            cls, 
+            parser_type: ParserType, 
+            visitor_factory: Optional[Callable[[Optional["StaticAnalysisData"], str], BaseScreenVisitor]] = None
+    ) -> AbstractScreenParser:
         """
         Create a parser instance of the specified type.
 
         Args:
             parser_type: Type of parser to create
+            visitor_factory: Optional factory function to create visitor instances
 
         Returns:
             Parser instance
@@ -44,14 +50,14 @@ class ParserFactory:
             ValueError: If parser_type is invalid
         """
         # Register default parsers if registry is empty
-        if not ParserFactory._REGISTRY:
-            ParserFactory.register_default_parsers()
+        if not cls._REGISTRY:
+            cls.register_default_parsers()
 
-        if parser_type not in ParserFactory._REGISTRY:
+        if parser_type not in cls._REGISTRY:
             raise ValueError(f"Unknown parser type: {parser_type}")
 
-        parser_class = ParserFactory._REGISTRY[parser_type]
-        return parser_class()
+        parser_class = cls._REGISTRY[parser_type]
+        return parser_class(visitor_factory)
 
     @staticmethod
     def get_available_types() -> Dict[ParserType, Type[AbstractScreenParser]]:
@@ -83,24 +89,3 @@ class ParserFactory:
             raise TypeError(f"Parser class must be a subclass of AbstractScreenParser")
 
         ParserFactory._REGISTRY[parser_type] = parser_class
-
-    @staticmethod
-    def get_parser_by_name(name: str) -> Optional[Type[AbstractScreenParser]]:
-        """
-        Get parser implementation by name.
-
-        Args:
-            name: Parser type name
-
-        Returns:
-            Parser implementation class or None if not found
-        """
-        # Register default parsers if registry is empty
-        if not ParserFactory._REGISTRY:
-            ParserFactory.register_default_parsers()
-
-        try:
-            parser_type = ParserType(name)
-            return ParserFactory._REGISTRY.get(parser_type)
-        except ValueError:
-            return None

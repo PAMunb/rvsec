@@ -1,11 +1,11 @@
 # rvandroid/parser/droidbot/droidbot_parser.py
+
 import logging
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, Callable
 
 from rvandroid.model.static import StaticAnalysisData
 from rvandroid.parser.abstract_parser import AbstractScreenParser
-from rvandroid.parser.visitor.base_visitor import ScreenDescription, Node
-from rvandroid.parser.visitor.text_visitor import EnhancedTextVisitor
+from rvandroid.parser.visitor.base_visitor import ScreenDescription, BaseScreenVisitor, Node
 
 
 class DroidBotParser(AbstractScreenParser):
@@ -14,9 +14,14 @@ class DroidBotParser(AbstractScreenParser):
     Converts DroidBot state data into a ScreenDescription.
     """
 
-    def __init__(self):
-        """Initialize the DroidBot parser."""
-        super().__init__()
+    def __init__(self, visitor_factory: Optional[Callable[[StaticAnalysisData, str], BaseScreenVisitor]] = None):
+        """
+        Initialize the DroidBot parser.
+
+        Args:
+            visitor_factory: Optional factory function to create visitor instances
+        """
+        super().__init__(visitor_factory)
         self.logger = logging.getLogger(__name__)
 
     def parse(self, state_data: Dict[str, Any], static_data: Optional[StaticAnalysisData] = None) -> ScreenDescription:
@@ -59,7 +64,7 @@ class DroidBotParser(AbstractScreenParser):
             return ScreenDescription(activity, [])
 
         # Create visitor and traverse tree
-        visitor = EnhancedTextVisitor(static_data, activity)
+        visitor = self._create_visitor(static_data, activity)
         tree.accept(visitor)
 
         # Get and return screen description
