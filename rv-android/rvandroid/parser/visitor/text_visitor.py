@@ -436,9 +436,9 @@ class EnhancedTextVisitor(BaseScreenVisitor):
         self.window_info["interactive_elements"] += 1
 
     def get_possible_actions(self, node: Node, counter: Counter, inherit_click: bool = False,
-                             prioritize_check: bool = False) -> List[ItemAction]:
+                         prioritize_check: bool = False) -> List[ItemAction]:
         """
-        Get possible actions for a node with enhanced contextual awareness.
+        Get possible actions for a node with enhanced security awareness.
 
         Args:
             node: The node to get actions for
@@ -447,54 +447,94 @@ class EnhancedTextVisitor(BaseScreenVisitor):
             prioritize_check: Whether to prioritize check/uncheck over click
 
         Returns:
-            List of possible actions (empty list if no actions are possible)
+            List of possible actions with security information
         """
         actions = []
+
+        # Store the node data for later use in the ItemAction
+        node_data = node.data
 
         # Handle check/uncheck actions with priority if needed
         if prioritize_check and node.checkable:
             if node.checked:
-                actions.append(ItemAction(
-                    counter.inc(),
-                    f"UNCHECK ({counter.get()})", # + (f" '{node.view_text}'" if node.view_text else ""),
-                    WidgetEventType.CLICK, False, False
-                ))
+                action = ItemAction(
+                    id=counter.inc(),
+                    text=f"UNCHECK ({counter.get()})",
+                    event=WidgetEventType.CLICK,
+                    reaches_mop=False,
+                    directly_reaches_mop=False,
+                    target_view=node_data
+                )
+                # Update security information
+                self._update_action_security_info(action, node)
+                actions.append(action)
             else:
-                actions.append(ItemAction(
-                    counter.inc(),
-                    f"CHECK ({counter.get()})", # + (f" '{node.view_text}'" if node.view_text else ""),
-                    WidgetEventType.CLICK, False, False
-                ))
-        # Handle click actions if not prioritizing check or not checkable
+                action = ItemAction(
+                    id=counter.inc(),
+                    text=f"CHECK ({counter.get()})",
+                    event=WidgetEventType.CLICK,
+                    reaches_mop=False,
+                    directly_reaches_mop=False,
+                    target_view=node_data
+                )
+                # Update security information
+                self._update_action_security_info(action, node)
+                actions.append(action)
+        
+        # Handle click actions
         elif (node.clickable or inherit_click) and not (prioritize_check and node.checkable):
-            actions.append(ItemAction(
-                counter.inc(),
-                f"CLICK ({counter.get()})", # + (f" on '{node.view_text}'" if node.view_text else ""),
-                WidgetEventType.CLICK, False, False
-            ))
+            action = ItemAction(
+                id=counter.inc(),
+                text=f"CLICK ({counter.get()})",
+                event=WidgetEventType.CLICK,
+                reaches_mop=False,
+                directly_reaches_mop=False,
+                target_view=node_data
+            )
+            # Update security information
+            self._update_action_security_info(action, node)
+            actions.append(action)
 
         # Handle long click actions
         if node.long_clickable:
-            actions.append(ItemAction(
-                counter.inc(),
-                f"LONG_CLICK ({counter.get()})", # + (f" on '{node.view_text}'" if node.view_text else ""),
-                WidgetEventType.LONG_CLICK, False, False
-            ))
+            action = ItemAction(
+                id=counter.inc(),
+                text=f"LONG_CLICK ({counter.get()})",
+                event=WidgetEventType.LONG_CLICK,
+                reaches_mop=False,
+                directly_reaches_mop=False,
+                target_view=node_data
+            )
+            # Update security information
+            self._update_action_security_info(action, node)
+            actions.append(action)
 
         # Handle check/uncheck actions with normal priority
         if not prioritize_check and node.checkable:
             if node.checked:
-                actions.append(ItemAction(
-                    counter.inc(),
-                    f"UNCHECK ({counter.get()})", # + (f" '{node.view_text}'" if node.view_text else ""),
-                    WidgetEventType.CLICK, False, False
-                ))
+                action = ItemAction(
+                    id=counter.inc(),
+                    text=f"UNCHECK ({counter.get()})",
+                    event=WidgetEventType.CLICK,
+                    reaches_mop=False,
+                    directly_reaches_mop=False,
+                    target_view=node_data
+                )
+                # Update security information
+                self._update_action_security_info(action, node)
+                actions.append(action)
             else:
-                actions.append(ItemAction(
-                    counter.inc(),
-                    f"CHECK ({counter.get()})", # + (f" '{node.view_text}'" if node.view_text else ""),
-                    WidgetEventType.CLICK, False, False
-                ))
+                action = ItemAction(
+                    id=counter.inc(),
+                    text=f"CHECK ({counter.get()})",
+                    event=WidgetEventType.CLICK,
+                    reaches_mop=False,
+                    directly_reaches_mop=False,
+                    target_view=node_data
+                )
+                # Update security information
+                self._update_action_security_info(action, node)
+                actions.append(action)
 
         # Handle scroll actions with better description
         if node.scrollable:
@@ -508,28 +548,61 @@ class EnhancedTextVisitor(BaseScreenVisitor):
                 directions = ["LEFT", "RIGHT"]
 
             for direction in directions:
-                actions.append(ItemAction(
-                    counter.inc(),
-                    f"SCROLL {direction} ({counter.get()})" +
-                    (f" on '{node.view_class.split('.')[-1]}'" if node.view_class else ""),
-                    WidgetEventType.SCROLL, False, False
-                ))
+                action = ItemAction(
+                    id=counter.inc(),
+                    text=f"SCROLL {direction} ({counter.get()})",
+                    event=WidgetEventType.SCROLL,
+                    reaches_mop=False,
+                    directly_reaches_mop=False,
+                    target_view=node_data
+                )
+                # Update security information
+                self._update_action_security_info(action, node)
+                actions.append(action)
 
-                # Handle text input actions with better hints
-                if node.editable:
-                    hint = ""
-                    if node.view_text:
-                        hint = f" [current: '{node.view_text}']"
-                    elif node.content_description:
-                        hint = f" [hint: '{node.content_description}']"
+        # Handle text input actions with better hints
+        if node.editable:
+            hint = ""
+            if node.view_text:
+                hint = f" [current: '{node.view_text}']"
+            elif node.content_description:
+                hint = f" [hint: '{node.content_description}']"
 
-                    actions.append(ItemAction(
-                        counter.inc(),
-                        f"SET_TEXT ({counter.get()}) {hint}",
-                        WidgetEventType.TEXT_CHANGE, False, False
-                    ))
+            action = ItemAction(
+                id=counter.inc(),
+                text=f"SET_TEXT ({counter.get()}){hint}",
+                event=WidgetEventType.TEXT_CHANGE,
+                reaches_mop=False,
+                directly_reaches_mop=False,
+                target_view=node_data
+            )
+            # Update security information
+            self._update_action_security_info(action, node)
+            actions.append(action)
 
         return actions
+
+    def _update_action_security_info(self, action: ItemAction, node: Node) -> None:
+        """
+        Update an action with security information from static analysis.
+        
+        Args:
+            action: The action to update
+            node: The node associated with the action
+        """
+        widget = self.find_matching_widget(node.data)
+        if not widget:
+            return
+            
+        # Find matching event type
+        for event in widget.events:
+            if event.type == action.event:
+                # Check if method reaches or directly reaches MOP
+                action.reaches_mop = self._check_method_reaches_mop(event.signature)
+                action.directly_reaches_mop = self._check_method_directly_reaches_mop(event.signature)
+                if action.reaches_mop or action.directly_reaches_mop:
+                    self.logger.debug(f"Action {action.id} security info updated: reaches_mop={action.reaches_mop}, directly_reaches_mop={action.directly_reaches_mop}")
+                return
 
     def __default_message(self, node: Node, prefix: str) -> str:
         """

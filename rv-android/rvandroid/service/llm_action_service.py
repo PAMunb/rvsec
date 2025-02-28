@@ -7,6 +7,7 @@ from rvandroid.config.component_config import ComponentConfig
 from rvandroid.llm.llm import LanguageModel
 from rvandroid.llm.llm_config import LLMConfiguration
 from rvandroid.llm.model_factory import ModelFactory
+from rvandroid.llm.prompt_strategy_basic_001 import BasicPromptStrategy001
 from rvandroid.llm.prompt_strategy_factory import PromptStrategyFactory
 from rvandroid.model.static import StaticAnalysisData
 from rvandroid.parser.parser_factory import ParserType, ParserFactory
@@ -135,10 +136,15 @@ class LLMActionService:
 
             # Parse the response
             json_response = self._extract_json(response)
-            actions = json.loads(json_response)
+            action_data = json.loads(json_response)
 
-            # Validate actions
-            validated_actions = self._validate_actions(actions)
+            # Process actions based on the prompt strategy used
+            if isinstance(self.prompt_strategy, BasicPromptStrategy001):
+                # Handle action_id based format
+                validated_actions = self._process_action_id_format(action_data, state)
+            else:
+                # Handle standard action_type format
+                validated_actions = self._validate_actions(action_data)
 
             self.logger.info(f"Successfully processed state and generated {len(validated_actions)} actions")
             return validated_actions
@@ -146,6 +152,190 @@ class LLMActionService:
         except Exception as e:
             self.logger.error(f"Error processing state: {e}", exc_info=True)
             return self._generate_fallback_actions(state)
+
+    def _process_action_id_format(self, llm_actions: List[Dict[str, Any]], state: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """
+        Process actions in action_id format returned by BasicPromptStrategy001.
+        With improved error handling.
+        
+        Args:
+            llm_actions: Actions from LLM with action_id format
+            state: Current application state
+            
+        Returns:
+            List of actions in droidbot format
+        """
+        if not isinstance(llm_actions, list):
+            self.logger.warning(f"Expected list of actions but got: {type(llm_actions)}")
+            return self._generate_fallback_actions(state)
+        
+        # Safety check for empty action list
+        if not llm_actions:
+            self.logger.warning("Received empty action list from LLM")
+            return self._generate_fallback_actions(state)
+            
+        # Get screen description to access available actions
+        try:
+            screen_description = self.prompt_strategy.parser.parse(state, self.static_data)
+            available_actions = {
+                str(action.id): action 
+                for item in screen_description.items 
+                for action in item.actions
+            }
+            
+            # Safety check - if no actions available, generate fallbacks
+            if not available_actions:
+                self.logger.warning("No available actions found in screen description")
+                return self._generate_fallback_actions(state)
+                
+        except Exception as e:
+            self.logger.error(f"Error parsing state: {e}", exc_info=True)
+            return self._generate_fallback_actions(state)
+        
+        droidbot_actions = []
+        
+        for action_data in llm_actions:
+            try:
+                # Validate action data format
+                if not isinstance(action_data, dict):
+                    self.logger.warning(f"Invalid action format: {action_data}")
+                    continue
+                    
+                # Check if action_id is present, try to handle alternative formats
+                action_id = None
+                if "action_id" in action_data:
+                    action_id = str(action_data["action_id"])
+                elif "id" in action_data:
+                    # Alternative key that might be used
+                    action_id = str(action_data["id"])
+                elif "actionId" in action_data:
+                    # Alternative key that might be used
+                    action_id = str(action_data["actionId"])
+                    
+                if not action_id:
+                    self.logger.warning(f"No action_id found in: {action_data}")
+                    continue
+                    
+                params = action_data.get("params", {})
+                explanation = action_data.get("explanation", "")
+                
+                # Find corresponding ItemAction
+                if action_id not in available_actions:
+                    self.logger.warning(f"Unknown action_id: {action_id}")
+                    continue
+                    
+                item_action = available_actions[action_id]
+                
+                # Extract action type from the item_action text
+                action_type = self._extract_action_type(item_action.text)
+                
+                # Create droidbot action format
+                droidbot_action = {
+                    "action_type": action_type,
+                    "target": self._get_target(item_action, state),
+                    "params": self._process_params(action_type, params),
+                    "explanation": explanation
+                }
+                
+                droidbot_actions.append(droidbot_action)
+            except Exception as e:
+                self.logger.error(f"Error processing action data {action_data}: {e}", exc_info=True)
+                continue
+        
+        if not droidbot_actions:
+            self.logger.warning("Failed to process any actions from LLM response")
+            return self._generate_fallback_actions(state)
+            
+        return droidbot_actions
+
+    def _extract_action_type(self, action_text: str) -> str:
+        """
+        Extract the action type from the action text description.
+        
+        Args:
+            action_text: Text description of the action
+            
+        Returns:
+            Action type string for droidbot
+        """
+        if action_text.startswith("CLICK"):
+            return "click"
+        elif action_text.startswith("LONG_CLICK"):
+            return "long_click"
+        elif action_text.startswith("SCROLL"):
+            # Extract direction if present
+            if "UP" in action_text:
+                return "scroll_up"
+            elif "DOWN" in action_text:
+                return "scroll_down"
+            elif "LEFT" in action_text:
+                return "scroll_left"
+            elif "RIGHT" in action_text:
+                return "scroll_right"
+            return "scroll"
+        elif action_text.startswith("SET_TEXT"):
+            return "set_text"
+        elif action_text.startswith("CHECK") or action_text.startswith("UNCHECK"):
+            return "click"  # Checkbox actions are clicks
+        elif action_text.startswith("BACK"):
+            return "key_event"
+        return "unknown"
+
+    def _get_target(self, item_action: 'ItemAction', state: Dict[str, Any]) -> str:
+        """
+        Get the target for an action from the associated view data.
+        
+        Args:
+            item_action: The ItemAction being processed
+            state: Current application state
+            
+        Returns:
+            Target string (resource_id or coordinates)
+        """
+        # Get the view data associated with this action
+        view_data = None
+        for item in self.prompt_strategy.parser.parse(state, self.static_data).items:
+            if item_action in item.actions:
+                view_data = item.view
+                break
+        
+        if not view_data:
+            return ""
+        
+        # Try resource_id first
+        if "resource_id" in view_data:
+            return view_data["resource_id"]
+            
+        # Fall back to coordinates if bounds are available
+        if "bounds" in view_data:
+            bounds = view_data["bounds"]
+            if bounds and len(bounds) == 2:
+                x = (bounds[0][0] + bounds[1][0]) // 2
+                y = (bounds[0][1] + bounds[1][1]) // 2
+                return f"{x} {y}"
+                
+        return ""
+
+    def _process_params(self, action_type: str, params: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Process and validate parameters for an action.
+        
+        Args:
+            action_type: Type of action
+            params: Parameters from LLM
+            
+        Returns:
+            Processed parameters dictionary
+        """
+        if action_type == "set_text" and "text" not in params:
+            # Default text if not provided
+            params["text"] = "test input"
+        
+        if action_type == "key_event" and "name" not in params:
+            # Default key event name
+            params["name"] = "BACK"
+        
+        return params
 
     def _extract_json(self, text: str) -> str:
         """

@@ -37,6 +37,78 @@ class ItemAction:
     event: 'WidgetEventType'  # Forward reference
     reaches_mop: bool = False
     directly_reaches_mop: bool = False
+    
+    # Additional properties to support droidbot action creation
+    target_view: Dict[str, Any] = field(default_factory=dict)
+    
+    @property
+    def action_type(self) -> str:
+        """Extract the action type from the text description."""
+        if self.text.startswith("CLICK"):
+            return "click"
+        elif self.text.startswith("LONG_CLICK"):
+            return "long_click"
+        elif self.text.startswith("SCROLL"):
+            # Extract direction if present
+            if "UP" in self.text:
+                return "scroll_up"
+            elif "DOWN" in self.text:
+                return "scroll_down"
+            elif "LEFT" in self.text:
+                return "scroll_left"
+            elif "RIGHT" in self.text:
+                return "scroll_right"
+            return "scroll"
+        elif self.text.startswith("SET_TEXT"):
+            return "set_text"
+        elif self.text.startswith("CHECK"):
+            return "click"  # Checkbox check is actually a click
+        elif self.text.startswith("UNCHECK"):
+            return "click"  # Checkbox uncheck is also a click
+        elif self.text.startswith("BACK"):
+            return "key_event"
+        return "unknown"
+    
+    def to_droidbot_action(self, params: Dict[str, Any] = None) -> Dict[str, Any]:
+        """
+        Convert this action to a format suitable for droidbot.
+        
+        Args:
+            params: Optional parameters passed from LLM
+            
+        Returns:
+            Action dictionary for droidbot
+        """
+        action_dict = {
+            "action_type": self.action_type,
+            "target": self._get_target(),
+            "params": params or {}
+        }
+        
+        # Handle special cases
+        if self.action_type == "key_event":
+            action_dict["params"]["name"] = "BACK"
+        
+        return action_dict
+    
+    def _get_target(self) -> str:
+        """Get target identifier from the associated view."""
+        if not self.target_view:
+            return ""
+            
+        # Try resource_id first
+        if "resource_id" in self.target_view:
+            return self.target_view["resource_id"]
+            
+        # Fall back to coordinates if bounds are available
+        if "bounds" in self.target_view:
+            bounds = self.target_view["bounds"]
+            if bounds and len(bounds) == 2:
+                x = (bounds[0][0] + bounds[1][0]) // 2
+                y = (bounds[0][1] + bounds[1][1]) // 2
+                return f"{x} {y}"
+                
+        return ""
 
 
 @dataclass

@@ -75,24 +75,49 @@ class DroidBotParser(AbstractScreenParser):
 
     def get_activity_name(self, state_data: Dict[str, Any]) -> str:
         """
-        Extract activity name from DroidBot state data.
+        Extract activity name from DroidBot state data with fallback options.
 
         Args:
             state_data: Dictionary containing DroidBot state
 
         Returns:
-            Activity name
+            Activity name or fallback identifier
 
         Raises:
-            ValueError: If activity name is not found
+            ValueError: If activity name cannot be determined after fallbacks
         """
+        # Try standard activity field
         activity = state_data.get("activity", "")
+        
+        # If not found, try alternative sources
         if not activity:
-            raise ValueError("No activity name found in DroidBot state data")
-
+            # Try foreground_activity if available
+            activity = state_data.get("foreground_activity", "")
+            
+        if not activity:
+            # Try to extract from the top of the stack if available
+            stack = state_data.get("stack", [])
+            if stack and len(stack) > 0:
+                activity = stack[0]
+                
+        if not activity:
+            # Try to extract from currently focused window if available
+            windows = state_data.get("windows", [])
+            if windows and len(windows) > 0:
+                for window in windows:
+                    if window.get("focused", False):
+                        activity = window.get("activity", "")
+                        break
+        
+        if not activity:
+            self.logger.warning("Could not determine activity name from state data")
+            # Provide a fallback value instead of raising an exception
+            package_name = state_data.get("package_name", "unknown.package")
+            activity = f"{package_name}.UnknownActivity"
+            
         # Clean up activity name
         activity = activity.replace("/", "")
-
+        
         return activity
 
     def validate_state_data(self, state_data: Dict[str, Any]) -> bool:
