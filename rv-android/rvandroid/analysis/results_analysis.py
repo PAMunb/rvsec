@@ -4,7 +4,7 @@ import os
 
 import rvandroid.analysis.coverage as cov
 import rvandroid.analysis.reachable_methods_mop as reach
-import rvandroid.log.logcat_parser as parser
+import rvandroid.parser.log.logcat_parser as parser
 import rvandroid.utils as utils
 from rvandroid.constants import *
 from rvandroid.constants import EXTENSION_LOGCAT, EXTENSION_METHODS, EXECUTION_MEMORY_FILENAME

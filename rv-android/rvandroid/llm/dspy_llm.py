@@ -1,8 +1,7 @@
-# rvandroid/llm/dspy_llm.py
-from typing import List, Dict, Optional
 import logging
+from typing import List, Dict
+
 import dspy
-from dspy.teleprompt import BootstrapFewShot
 
 from rvandroid.llm.llm import LanguageModel
 

@@ -1,11 +1,9 @@
-# rvandroid/llm/prompt_strategy.py
-
 from abc import ABC, abstractmethod
-from typing import Dict, List, Any, Optional, Type, Union
+from typing import Dict, List, Any, Optional, Union
 
 from rvandroid.model.static import StaticAnalysisData
-from rvandroid.parser.abstract_parser import AbstractScreenParser
-from rvandroid.parser.parser_factory import ParserType
+from rvandroid.parser.screen.abstract_parser import AbstractScreenParser
+from rvandroid.parser.screen.parser_factory import ParserType
 
 
 class PromptStrategy(ABC):
@@ -14,8 +12,8 @@ class PromptStrategy(ABC):
     Different prompt strategies can be implemented for different models.
     """
 
-    def __init__(self, 
-                 static_data: Optional["StaticAnalysisData"] = None, 
+    def __init__(self,
+                 static_data: Optional["StaticAnalysisData"] = None,
                  parser: Union[ParserType, AbstractScreenParser, None] = None):
         """
         Initialize the prompt strategy.
@@ -26,17 +24,17 @@ class PromptStrategy(ABC):
                     or None to use the default parser type
         """
         self.static_data = static_data
-        
+
         # Handle the parser parameter
         if isinstance(parser, AbstractScreenParser):
             self.parser = parser
         elif isinstance(parser, ParserType) or parser is None:
-            from rvandroid.parser.parser_factory import ParserFactory
+            from rvandroid.parser.screen.parser_factory import ParserFactory
             parser_type = ParserType.DROIDBOT if parser is None else parser
             self.parser = ParserFactory.create(parser_type)
         else:
-            raise TypeError(f"parser must be a ParserType enum value or an AbstractScreenParser instance, got {type(parser)}")
-
+            raise TypeError(
+                f"parser must be a ParserType enum value or an AbstractScreenParser instance, got {type(parser)}")
 
     @abstractmethod
     def generate_system_prompt(self) -> str:

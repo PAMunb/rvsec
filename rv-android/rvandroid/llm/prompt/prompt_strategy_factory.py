@@ -1,15 +1,14 @@
-# rvandroid/llm/prompt_strategy_factory.py (Updated)
 import logging
 from typing import Dict, Type, Optional, Union
 
 from rvandroid.config.component_config import ComponentConfig
-from rvandroid.llm.frontier_prompt_strategy import FrontierPromptStrategy
-from rvandroid.llm.prompt_strategy import PromptStrategy
-from rvandroid.llm.prompt_strategy_basic import BasicPromptStrategy
-from rvandroid.llm.prompt_strategy_dspy import DSPyPromptStrategy
+from rvandroid.llm.prompt.prompt_strategy_frontier import FrontierPromptStrategy
+from rvandroid.llm.prompt.prompt_strategy import PromptStrategy
+from rvandroid.llm.prompt.prompt_strategy_basic import BasicPromptStrategy
+from rvandroid.llm.prompt.prompt_strategy_dspy import DSPyPromptStrategy
 from rvandroid.model.static import StaticAnalysisData
-from rvandroid.parser.abstract_parser import AbstractScreenParser
-from rvandroid.parser.parser_factory import ParserType
+from rvandroid.parser.screen.abstract_parser import AbstractScreenParser
+from rvandroid.parser.screen.parser_factory import ParserType
 
 logger = logging.getLogger(__name__)
 

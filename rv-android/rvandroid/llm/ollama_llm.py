@@ -1,6 +1,5 @@
-# rvandroid/llm/ollama_llm.py
 import logging
-from typing import List, Dict, Optional
+from typing import List, Dict
 
 from ollama import ChatResponse, Client
 

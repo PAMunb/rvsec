@@ -3,10 +3,9 @@ import logging
 from typing import Dict, Any, Optional
 
 from rvandroid.model.static import StaticAnalysisData
-from rvandroid.parser.abstract_parser import AbstractScreenParser
-from rvandroid.parser.uiautomator.uiautomator_node import UIAutomatorNode
-from rvandroid.parser.visitor.base_visitor import ScreenDescription, Node
-from rvandroid.parser.visitor.text_visitor import EnhancedTextVisitor
+from rvandroid.parser.screen.abstract_parser import AbstractScreenParser
+from rvandroid.parser.screen.visitor.base_visitor import ScreenDescription, Node
+from rvandroid.parser.screen.visitor.text_visitor import EnhancedTextVisitor
 
 
 class UIAutomator2Parser(AbstractScreenParser):

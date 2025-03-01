@@ -1,10 +1,10 @@
 # rvandroid/llm/prompt_strategy_basic.py
-from typing import Dict, List, Any, Optional
+from typing import Dict, Any, Optional
 import logging
 
-from rvandroid.llm.prompt_strategy import PromptStrategy
+from rvandroid.llm.prompt.prompt_strategy import PromptStrategy
 from rvandroid.model.static import StaticAnalysisData
-from rvandroid.parser.parser_factory import ParserType
+from rvandroid.parser.screen.parser_factory import ParserType
 
 
 class BasicPromptStrategy(PromptStrategy):

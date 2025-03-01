@@ -7,7 +7,7 @@ from typing import Optional, Set, Tuple, Dict
 from rvandroid import utils
 from rvandroid.app import App
 from rvandroid.constants import EXTENSION_LOGCAT, EXTENSION_TRACE
-from rvandroid.log.log import RvCoverageLog
+from rvandroid.model.log import RvCoverageLog
 from rvandroid.parser.static import static_analysis_parser
 
 # Constants

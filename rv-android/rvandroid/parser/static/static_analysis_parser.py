@@ -5,14 +5,14 @@ reachability analysis, GESDA analysis, and Gator analysis for Android applicatio
 """
 
 import os
-from typing import Tuple, Optional
+from typing import Optional
 
 from rvandroid.constants import *
-from rvandroid.model.static import StaticAnalysisData
-from rvandroid.parser.static import gator_parser, reach_parser, gesda_parser
 from rvandroid.model.classes import Classes
+from rvandroid.model.static import StaticAnalysisData
 from rvandroid.model.window import Windows
 from rvandroid.model.wtg import WindowTransitionGraph
+from rvandroid.parser.static import gator_parser, reach_parser, gesda_parser
 
 
 def parse(reach_file, gator_file, gesda_file, package):

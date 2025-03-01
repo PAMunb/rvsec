@@ -1,7 +1,7 @@
 # rvandroid/parser/uiautomator/uiautomator_node.py
 from typing import List, Dict, Optional, Any
 
-from rvandroid.parser.visitor.base_visitor import ViewProperty
+from rvandroid.parser.screen.visitor.base_visitor import ViewProperty
 
 
 class UIAutomatorNode:

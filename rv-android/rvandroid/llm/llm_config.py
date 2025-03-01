@@ -1,9 +1,9 @@
-# rvandroid/config/llm_config.py
-from typing import Dict, Any, Optional, Union
-import os
-import logging
 import json
-from rvandroid.parser.parser_factory import ParserType
+import logging
+import os
+from typing import Dict, Any, Optional, Union
+
+from rvandroid.parser.screen.parser_factory import ParserType
 
 logger = logging.getLogger(__name__)
 

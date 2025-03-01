@@ -1,6 +1,5 @@
-# rvandroid/llm/huggingface_llm.py
 import logging
-from typing import List, Dict, Optional
+from typing import List, Dict
 
 import torch
 from transformers import AutoTokenizer, AutoModelForCausalLM, BitsAndBytesConfig

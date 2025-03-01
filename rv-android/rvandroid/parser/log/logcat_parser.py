@@ -8,7 +8,7 @@ from datetime import datetime
 from typing import List, Set, Tuple, Dict, Any, Optional
 
 from rvandroid.constants import METHODS
-from rvandroid.log.log import RvErrorLog, RvCoverageLog, TAG_RVSEC, TAG_RVSEC_COV
+from rvandroid.model.log import RvErrorLog, RvCoverageLog, TAG_RVSEC, TAG_RVSEC_COV
 
 
 def parse_logcat_file(log_file: str) -> Tuple[List[RvErrorLog], Dict, List[RvCoverageLog]]:

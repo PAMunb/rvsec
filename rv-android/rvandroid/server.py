@@ -7,6 +7,8 @@ from typing import Optional, Dict, Any
 from werkzeug.serving import make_server
 from werkzeug.exceptions import NotFound, HTTPException
 
+from rvandroid.service.llm_action_service import LLMActionService
+
 class Server:
     """
     A resilient REST server implementation using Flask.
@@ -19,8 +21,9 @@ class Server:
     - Auto-recover from certain failure conditions
     """
 
-    def __init__(self, host: str = 'localhost', port: int = 5000,
+    def __init__(self, service: LLMActionService, host: str = 'localhost', port: int = 5000,
                  max_retries: int = 3, retry_delay: float = 5.0):
+        self.service = service
         # Basic configuration
         self.host = host
         self.port = port
@@ -101,53 +104,45 @@ class Server:
                 "status": "healthy",
                 "uptime": time.time() - self._status["start_time"] if self._status["start_time"] else 0,
                 "stats": self._status
-            })
-
-        @self.app.route('/items', methods=['GET'])
-        def get_items():
-            """Get all items endpoint"""
-            try:
-                self.logger.info("GET /items endpoint called")
-                items = [
-                    {"id": 1, "name": "Item 1"},
-                    {"id": 2, "name": "Item 2"}
-                ]
-                return jsonify(items)
-            except Exception as e:
-                self.logger.error(f"Error in get_items: {e}", exc_info=True)
-                raise
-
-        @self.app.route('/items/<int:item_id>', methods=['GET'])
-        def get_item(item_id):
-            """Get specific item endpoint"""
-            try:
-                self.logger.info(f"GET /items/{item_id} endpoint called")
-                item = {"id": item_id, "name": f"Item {item_id}"}
-                return jsonify(item)
-            except Exception as e:
-                self.logger.error(f"Error in get_item: {e}", exc_info=True)
-                raise
-
-        @self.app.route('/items', methods=['POST'])
-        def create_item():
-            """Create new item endpoint"""
-            try:
-                self.logger.info("POST /items endpoint called")
-                data = request.get_json()
-                return jsonify({"message": "Item created", "data": data}), 201
-            except Exception as e:
-                self.logger.error(f"Error in create_item: {e}", exc_info=True)
-                raise
+            })        
             
-        @self.app.route('/generate', methods=['POST'])
-        def generate_actions():            
+        @self.app.route('/api/get_actions', methods=['POST'])
+        def get_actions():
+            """
+            Endpoint to receive DroidBot state and return suggested actions.
+            """
+            print("**************************** GENERETING ACTIONS ****************************")
             try:
-                self.logger.info("POST /generate endpoint called")
-                data = request.get_json()
-                return jsonify({"message": "Hello World!!!", "data": data}), 200
+                # Get JSON data from request
+                data = request.json
+                if not data:
+                    return jsonify({"error": "No state data provided"}), 400
+
+                self.logger.info(f"Received request for app: {data.get('package_name')}")
+
+                # Add request timestamp and handling info
+                self.logger.info(f"State has activity: {data.get('activity')}")
+                self.logger.info(f"Processing request at {time.strftime('%Y-%m-%d %H:%M:%S')}")
+
+                # Ensure service is initialized
+                if not self.service:
+                    return jsonify({"error": "Service not initialized"}), 500
+
+                # Process state and get actions
+                actions = self.service.process_state(data)
+
+                # Validate actions format for DroidBot compatibility
+                validated_actions = self.validate_actions_for_droidbot(actions)
+
+                # Return response
+                return jsonify({
+                    "actions": validated_actions,
+                    "status": "success"
+                })
+
             except Exception as e:
-                self.logger.error(f"Error in generate_actions: {e}", exc_info=True)
-                raise
+                self.logger.error(f"Error processing request: {e}", exc_info=True)
+                return jsonify({"error": str(e)}), 500
           # droidbot:   
     #     {
     #     "activity": state.foreground_activity,
@@ -249,10 +244,49 @@ class Server:
         except:
             return False
         
+    def validate_actions_for_droidbot(self, actions):
+        """
+        Ensure actions are in the format expected by DroidBot
+        """
+        validated = []
+        valid_types = {"click", "long_click", "scroll_up", "scroll_down", 
+                    "scroll_left", "scroll_right", "scroll", "set_text", "key_event"}
+        
+        for action in actions:
+            # Ensure required fields
+            if "action_type" not in action or not isinstance(action["action_type"], str):
+                continue
+                
+            action_type = action["action_type"].lower()
+            
+            # Validate action type
+            if action_type not in valid_types:
+                self.logger.warning(f"Invalid action type: {action_type}")
+                continue
+                
+            # Ensure target is present for view-based actions
+            if action_type not in ["key_event"] and "target" not in action:
+                self.logger.warning(f"Missing target for action: {action_type}")
+                continue
+                
+            # Validate params
+            if "params" not in action or not isinstance(action["params"], dict):
+                action["params"] = {}
+                
+            # Add explanation if missing
+            if "explanation" not in action or not action["explanation"]:
+                action["explanation"] = f"Executing {action_type}"
+                
+            validated.append(action)
+        
+        return validated
+        
         
 # Example of how to use the Server class
 if __name__ == "__main__":
     server = Server(port=5000)
+    
+    
     
     try:
         if server.start():

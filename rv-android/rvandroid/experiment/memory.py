@@ -1,7 +1,6 @@
 # import analysis.methods_extractor as me
 import json
 import os
-from collections import defaultdict
 from datetime import datetime
 
 from rvandroid import utils  # TODO usar assim nos outros imports

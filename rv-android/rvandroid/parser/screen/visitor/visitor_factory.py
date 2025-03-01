@@ -3,8 +3,8 @@ from typing import Dict, Type, Optional
 
 from rvandroid.config.component_config import ComponentConfig
 from rvandroid.model.static import StaticAnalysisData
-from rvandroid.parser.visitor.base_visitor import BaseScreenVisitor
-from rvandroid.parser.visitor.text_visitor import EnhancedTextVisitor
+from rvandroid.parser.screen.visitor.base_visitor import BaseScreenVisitor
+from rvandroid.parser.screen.visitor.text_visitor import EnhancedTextVisitor
 
 
 class VisitorFactory:

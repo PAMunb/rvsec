@@ -1,16 +1,16 @@
-# rvandroid/parser/parser_factory.py
 from enum import Enum
 from typing import Dict, Type, Optional, Callable
 
 from rvandroid.model.static import StaticAnalysisData
-from rvandroid.parser.abstract_parser import AbstractScreenParser
-from rvandroid.parser.visitor.base_visitor import BaseScreenVisitor
+from rvandroid.parser.screen.abstract_parser import AbstractScreenParser
+from rvandroid.parser.screen.visitor.base_visitor import BaseScreenVisitor
 
 
 class ParserType(Enum):
     """Enumeration of supported parser types"""
     DROIDBOT = "droidbot"
     UIAUTOMATOR = "uiautomator"
+
 
 class ParserFactory:
     """
@@ -24,16 +24,16 @@ class ParserFactory:
     @classmethod
     def register_default_parsers(cls):
         """Register the default parser implementations."""
-        from rvandroid.parser.droidbot.droidbot_parser import DroidBotParser
-        from rvandroid.parser.uiautomator.uiautomator_parser import UIAutomator2Parser
+        from rvandroid.parser.screen.droidbot.droidbot_parser import DroidBotParser
+        from rvandroid.parser.screen.uiautomator.uiautomator_parser import UIAutomator2Parser
 
         cls.register_parser_type(ParserType.DROIDBOT, DroidBotParser)
         cls.register_parser_type(ParserType.UIAUTOMATOR, UIAutomator2Parser)
 
     @classmethod
     def create(
-            cls, 
-            parser_type: ParserType, 
+            cls,
+            parser_type: ParserType,
             visitor_factory: Optional[Callable[[Optional["StaticAnalysisData"], str], BaseScreenVisitor]] = None
     ) -> AbstractScreenParser:
         """

@@ -1,11 +1,9 @@
-# rvandroid/parser/droidbot/droidbot_parser.py
-
 import logging
 from typing import Dict, Any, Optional, Callable
 
 from rvandroid.model.static import StaticAnalysisData
-from rvandroid.parser.abstract_parser import AbstractScreenParser
-from rvandroid.parser.visitor.base_visitor import ScreenDescription, BaseScreenVisitor, Node
+from rvandroid.parser.screen.abstract_parser import AbstractScreenParser
+from rvandroid.parser.screen.visitor.base_visitor import ScreenDescription, BaseScreenVisitor, Node
 
 
 class DroidBotParser(AbstractScreenParser):
@@ -88,18 +86,18 @@ class DroidBotParser(AbstractScreenParser):
         """
         # Try standard activity field
         activity = state_data.get("activity", "")
-        
+
         # If not found, try alternative sources
         if not activity:
             # Try foreground_activity if available
             activity = state_data.get("foreground_activity", "")
-            
+
         if not activity:
             # Try to extract from the top of the stack if available
             stack = state_data.get("stack", [])
             if stack and len(stack) > 0:
                 activity = stack[0]
-                
+
         if not activity:
             # Try to extract from currently focused window if available
             windows = state_data.get("windows", [])
@@ -108,16 +106,16 @@ class DroidBotParser(AbstractScreenParser):
                     if window.get("focused", False):
                         activity = window.get("activity", "")
                         break
-        
+
         if not activity:
             self.logger.warning("Could not determine activity name from state data")
             # Provide a fallback value instead of raising an exception
             package_name = state_data.get("package_name", "unknown.package")
             activity = f"{package_name}.UnknownActivity"
-            
+
         # Clean up activity name
         activity = activity.replace("/", "")
-        
+
         return activity
 
     def validate_state_data(self, state_data: Dict[str, Any]) -> bool:

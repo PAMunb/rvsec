@@ -1,9 +1,9 @@
 # rvandroid/parser/visitor/text_visitor.py
-from typing import List, Dict, Optional, Set, Any
+from typing import List, Optional, Set
 
 from rvandroid.model.static import StaticAnalysisData
-from rvandroid.model.widget import WidgetEventType, Widget
-from rvandroid.parser.visitor.base_visitor import BaseScreenVisitor, ItemAction, ScreenItem, Node, Counter
+from rvandroid.model.widget import WidgetEventType
+from rvandroid.parser.screen.visitor.base_visitor import BaseScreenVisitor, ItemAction, ScreenItem, Node, Counter
 
 
 class EnhancedTextVisitor(BaseScreenVisitor):
@@ -436,7 +436,7 @@ class EnhancedTextVisitor(BaseScreenVisitor):
         self.window_info["interactive_elements"] += 1
 
     def get_possible_actions(self, node: Node, counter: Counter, inherit_click: bool = False,
-                         prioritize_check: bool = False) -> List[ItemAction]:
+                             prioritize_check: bool = False) -> List[ItemAction]:
         """
         Get possible actions for a node with enhanced security awareness.
 
@@ -480,7 +480,7 @@ class EnhancedTextVisitor(BaseScreenVisitor):
                 # Update security information
                 self._update_action_security_info(action, node)
                 actions.append(action)
-        
+
         # Handle click actions
         elif (node.clickable or inherit_click) and not (prioritize_check and node.checkable):
             action = ItemAction(
@@ -593,7 +593,7 @@ class EnhancedTextVisitor(BaseScreenVisitor):
         widget = self.find_matching_widget(node.data)
         if not widget:
             return
-            
+
         # Find matching event type
         for event in widget.events:
             if event.type == action.event:
@@ -601,7 +601,8 @@ class EnhancedTextVisitor(BaseScreenVisitor):
                 action.reaches_mop = self._check_method_reaches_mop(event.signature)
                 action.directly_reaches_mop = self._check_method_directly_reaches_mop(event.signature)
                 if action.reaches_mop or action.directly_reaches_mop:
-                    self.logger.debug(f"Action {action.id} security info updated: reaches_mop={action.reaches_mop}, directly_reaches_mop={action.directly_reaches_mop}")
+                    self.logger.debug(
+                        f"Action {action.id} security info updated: reaches_mop={action.reaches_mop}, directly_reaches_mop={action.directly_reaches_mop}")
                 return
 
     def __default_message(self, node: Node, prefix: str) -> str:

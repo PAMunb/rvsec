@@ -1,4 +1,4 @@
-from rvandroid.log.log import RvErrorLog, RvCoverageLog
+from rvandroid.model.log import RvErrorLog, RvCoverageLog
 
 
 def to_error(s: str):

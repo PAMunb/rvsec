@@ -1,4 +1,3 @@
-# rvandroid/parser/visitor/base_visitor.py
 import logging
 from dataclasses import dataclass, field
 from enum import Enum
@@ -37,10 +36,10 @@ class ItemAction:
     event: 'WidgetEventType'  # Forward reference
     reaches_mop: bool = False
     directly_reaches_mop: bool = False
-    
+
     # Additional properties to support droidbot action creation
     target_view: Dict[str, Any] = field(default_factory=dict)
-    
+
     @property
     def action_type(self) -> str:
         """Extract the action type from the text description."""
@@ -68,7 +67,7 @@ class ItemAction:
         elif self.text.startswith("BACK"):
             return "key_event"
         return "unknown"
-    
+
     def to_droidbot_action(self, params: Dict[str, Any] = None) -> Dict[str, Any]:
         """
         Convert this action to a format suitable for droidbot.
@@ -84,22 +83,22 @@ class ItemAction:
             "target": self._get_target(),
             "params": params or {}
         }
-        
+
         # Handle special cases
         if self.action_type == "key_event":
             action_dict["params"]["name"] = "BACK"
-        
+
         return action_dict
-    
+
     def _get_target(self) -> str:
         """Get target identifier from the associated view."""
         if not self.target_view:
             return ""
-            
+
         # Try resource_id first
         if "resource_id" in self.target_view:
             return self.target_view["resource_id"]
-            
+
         # Fall back to coordinates if bounds are available
         if "bounds" in self.target_view:
             bounds = self.target_view["bounds"]
@@ -107,7 +106,7 @@ class ItemAction:
                 x = (bounds[0][0] + bounds[1][0]) // 2
                 y = (bounds[0][1] + bounds[1][1]) // 2
                 return f"{x} {y}"
-                
+
         return ""
 
 
@@ -369,6 +368,7 @@ class Node:
     def __str__(self) -> str:
         """String representation of the node."""
         return f"{self.view_class} - {self.resource_id or self.view_text or 'unnamed'}"
+
 
 class BaseScreenVisitor:
     """
