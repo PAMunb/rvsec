@@ -1,16 +1,15 @@
 import logging as logging_api
 import os
-
 from abc import ABCMeta, abstractmethod
-
-from rvandroid.commands.command import Command
 from rvandroid.app import App
+from rvandroid.commands.command import Command
+from rvandroid.experiment.task import Task
 
 logging = logging_api.getLogger(__name__)
 
 
 class AbstractTool:
-    __metaclass__ = ABCMeta 
+    __metaclass__ = ABCMeta
     '''
     This class defines a contract that all tools should follow. 
 
@@ -19,39 +18,40 @@ class AbstractTool:
       description(str): The tool's description (such as test case generation, and so on) 
       process_pattern(str): A string with the pattern of the processes to be killed after execution
     '''
+
     def __init__(self, name: str, description: str, process_pattern: str):
         self.name = name
         self.description = description
         self.process_pattern = process_pattern
         super(AbstractTool, self).__init__()
-    
+
     @abstractmethod
-    def execute_tool_specific_logic(self, app: App, timeout: int, log_file: str):
+    def execute_tool_specific_logic(self, task: Task, app: App):
         """This is our hook method, an extention point that every tool developer
         must provide an implementation. It should only be called by the execute
         instance method.
         """
         pass
-    
-    def execute(self, app: App, timeout: int, log_file: str):
+
+    # def execute(self, app: App, timeout: int, log_file: str):
+    def execute(self, task: Task, app: App):
         """This is the operation that allows the execution of a tool. It works
         as a template method, implementing a loging that delegates to
         the abstract method of this class the actual logic.
 
         Args:
-           app (App): apk under test execution
-           timeout(int): execution timeout
-           log_file(str): the trace file
+           task (Task): task to be executed
+           app (App): app under test
         """
         logging.info("Executing tool: {}".format(self.name))
-        self.execute_tool_specific_logic(app, timeout, log_file)
+        self.execute_tool_specific_logic(task, app)
         self.kill_related_processes(self.process_pattern)
 
     def kill_related_processes(self, process_pattern: str):
         """Kills all related processes"""
         if process_pattern is None:
             return
-        
+
         get_processes_cmd = Command('adb', [
             'shell',
             'ps',

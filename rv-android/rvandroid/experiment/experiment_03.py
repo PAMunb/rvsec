@@ -15,7 +15,7 @@ from rvandroid.constants import EXTENSION_APK, EXTENSION_GESDA, EXTENSION_GATOR,
 from rvandroid.constants import EXTENSION_METHODS
 from rvandroid.experiment import config as conf
 from rvandroid.experiment.execution import ExecutionManager
-from rvandroid.experiment.task import Task
+from rvandroid.experiment.task import Task, TaskExecutor
 from rvandroid.rvandroid import RvAndroid
 from rvandroid.rvsec import RVSec
 from rvandroid.tools.tool_spec import AbstractTool
@@ -117,10 +117,7 @@ def run_task(task: Task, no_window: bool):
         with open(task.logcat_file, "wb") as log_cat:
             proc = logcat_cmd.invoke_as_deamon(stdout=log_cat)
             tool = tools_map[task.tool]
-            task.start_time = datetime.now()  # update start_time (after emulator is up)
-            task.start_tracker(app)
-            # exit(-1) # TODO remover apos os testes iniciais ....................
-            tool.execute(app, task.timeout, task.log_file)
+            TaskExecutor(task, app).execute(tool)
             proc.kill()
 
 

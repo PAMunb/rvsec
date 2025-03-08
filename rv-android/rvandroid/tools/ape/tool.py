@@ -3,7 +3,7 @@ import os
 from rvandroid.app import App
 from rvandroid.commands.command import Command
 from settings import TOOLS_DIR
-
+from rvandroid.experiment.task import Task
 from ..tool_spec import AbstractTool
 import logging as logging_api
 
@@ -24,13 +24,14 @@ class ToolSpec(AbstractTool):
                                     (http://gutianxiao.com/ape/).""",
                                        'com.android.commands.ape')
 
-    def execute_tool_specific_logic(self, app: App, timeout_in_seconds: int, log_file: str):
+    def execute_tool_specific_logic(self, task: Task, app: App):
         ape_base_dir = os.path.join(TOOLS_DIR, 'ape')
         jar_ape = os.path.join(ape_base_dir, 'ape.jar')
 
+        timeout_in_seconds = task.timeout
         timeout_in_minutes = int(timeout_in_seconds / 60)
 
-        with open(log_file, 'wb') as trace:
+        with open(task.log_file, 'wb') as trace:
             adb_push(jar_ape, "/data/local/tmp/ape.jar", trace)
 
             exec_cmd = Command('adb', [

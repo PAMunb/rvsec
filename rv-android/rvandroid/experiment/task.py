@@ -9,6 +9,7 @@ from rvandroid.app import App
 from rvandroid.constants import EXTENSION_LOGCAT, EXTENSION_TRACE
 from rvandroid.model.log import RvCoverageLog
 from rvandroid.parser.static import static_analysis_parser
+from rvandroid.tools.tool_spec import AbstractTool
 
 # Constants
 DEFAULT_DATETIME = utils.milliseconds_to_datetime(0)
@@ -19,6 +20,7 @@ class TaskStatus(Enum):
     CREATED = 1
     RUNNING = 2
     EXECUTED = 3
+    ERROR = 4
 
 
 class Task:
@@ -53,8 +55,8 @@ class Task:
         """
         Task._task_counter += 1
         self.id = Task._task_counter
-        self.tracker = TaskExecutionTracker()
         self.logger = logging.getLogger(__name__)
+        self.tracker = TaskExecutionTracker()
 
         # Task configuration
         self.apk = apk
@@ -122,6 +124,34 @@ class Task:
         return f"[{self.id},{self.apk},{self.repetition},{self.timeout},{self.tool},{self.status}]"
 
 
+class TaskExecutor:
+    def __init__(self, task: Task, app: App):
+        self.task = task
+        self.app = app
+        self.logger = logging.getLogger(__name__)
+
+    def execute(self, tool: AbstractTool) -> None:
+        """
+        Execute the task and track execution metrics.
+        """
+        self.logger.info(f"Executing task {self.task}")
+        self.task.start_time = datetime.now()  # update start_time (after emulator is up)
+        self.task.start_tracker(self.app)
+        self.task.status = TaskStatus.RUNNING
+        try:
+            tool.execute(self.task, self.app)
+            self.task.finish_time = datetime.now()
+            self.task.status = TaskStatus.EXECUTED
+        except Exception as e:
+            self.task.error = str(e)
+            self.task.finish_time = datetime.now()
+            self.task.status = TaskStatus.ERROR
+            self.logger.error(f"Error executing task {self.task}: {e}")
+        finally:
+            self.task.execution_time = self.task.finish_time - self.task.start_time
+            self.logger.info(f"Task {self.task} executed in {self.task.execution_time}")
+
+
 class TaskExecutionTracker:
     """
     Tracks and manages execution metrics for a task.
@@ -134,6 +164,7 @@ class TaskExecutionTracker:
         """Initialize a new TaskExecutionTracker instance."""
         self.logger = logging.getLogger(__name__)
         self.task: Optional[Task] = None
+        self.package_name: str = ""
 
         # Total counts
         self.total_classes = 0
@@ -152,6 +183,7 @@ class TaskExecutionTracker:
         self.visited_directly_reaches_mop: Set[str] = set()
 
         # Analysis results
+        self.static_data = None
         self.classes = None
         self.windows = None
         self.wtg = None
@@ -166,11 +198,13 @@ class TaskExecutionTracker:
         """
         self.logger.info(f"Starting tracker for task={task}")
         self.task = task
+        self.package_name = package_name
 
         # Parse static analysis files
-        self.classes, self.windows, self.wtg = static_analysis_parser.read_static_analysis_files(
-            task.results_dir, task.apk, package_name
-        )
+        self.static_data = static_analysis_parser.read_static_analysis_files(task.results_dir, task.apk, package_name)
+        self.classes = self.static_data.classes
+        self.windows = self.static_data.windows
+        self.wtg = self.static_data.wtg
 
         # Calculate initial metrics
         self._calculate_total_metrics()

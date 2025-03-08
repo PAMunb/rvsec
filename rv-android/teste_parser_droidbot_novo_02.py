@@ -1,22 +1,12 @@
-import os
-
 from rvandroid.llm.model_factory import ModelFactory
-from rvandroid.llm.prompt_strategy_factory import PromptStrategyFactory
-from rvandroid.parser.parser_factory import ParserFactory, ParserType
-from rvandroid.model.static import StaticAnalysisData
+from rvandroid.llm.prompt.prompt_strategy_factory import PromptStrategyFactory
 
-import logging
 import os
-import sys
 import json
 
 from rvandroid.app import App
-from rvandroid.model.static import StaticAnalysisData
-from rvandroid.parser.droidbot.droidbot_parser import DroidBotParser
-from rvandroid.parser.uiautomator.uiautomator_parser import UIAutomator2Parser
-from rvandroid.parser.parser_factory import ParserFactory, ParserType
+from rvandroid.parser.screen.parser_factory import ParserFactory, ParserType
 from rvandroid.parser.static import static_analysis_parser
-from rvandroid.llm.huggingface_llm import HuggingFaceLLM
 
 
 # Criar componentes individuais
