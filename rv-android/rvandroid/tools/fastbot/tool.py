@@ -2,6 +2,7 @@ import os
 
 from rvandroid.app import App
 from rvandroid.commands.command import Command
+from rvandroid.experiment.task import Task
 from settings import TOOLS_DIR
 from ..tool_spec import AbstractTool
 
@@ -18,7 +19,7 @@ class ToolSpec(AbstractTool):
         learning techniques to assist discovery in a more intelligent way. (https://github.com/bytedance/Fastbot_Android).""",
                                        "com.android.commands.fastbot")
 
-    def execute_tool_specific_logic(self, app: App, timeout_in_seconds: int, log_file: str):
+    def execute_tool_specific_logic(self, task: Task, app: App):
         fastbot_base_dir = os.path.join(TOOLS_DIR, "fastbot")
 
         jar_monkeyq = os.path.join(fastbot_base_dir, "monkeyq.jar")
@@ -31,8 +32,10 @@ class ToolSpec(AbstractTool):
         adb_push(jar_fastbot, "/sdcard/fastbot-thirdpart.jar")
         adb_push(jar_framework, "/sdcard/framework.jar")
         # adb_push(libs, "/data/local/tmp/")
-        adb_push(os.path.join(libs, "arm64-v8a", "libfastbot_native.so"), "/data/local/tmp/arm64-v8a/libfastbot_native.so")
-        adb_push(os.path.join(libs, "armeabi-v7a", "libfastbot_native.so"), "/data/local/tmp/armeabi-v7a/libfastbot_native.so")
+        adb_push(os.path.join(libs, "arm64-v8a", "libfastbot_native.so"),
+                 "/data/local/tmp/arm64-v8a/libfastbot_native.so")
+        adb_push(os.path.join(libs, "armeabi-v7a", "libfastbot_native.so"),
+                 "/data/local/tmp/armeabi-v7a/libfastbot_native.so")
         adb_push(os.path.join(libs, "x86", "libfastbot_native.so"), "/data/local/tmp/x86/libfastbot_native.so")
         adb_push(os.path.join(libs, "x86_64", "libfastbot_native.so"), "/data/local/tmp/x86_64/libfastbot_native.so")
 
@@ -42,9 +45,10 @@ class ToolSpec(AbstractTool):
         adb_push(apk_string, "/sdcard")
         os.remove(apk_string)
 
+        timeout_in_seconds = task.timeout
         timeout_in_minutes = int(timeout_in_seconds / 60)
 
-        with open(log_file, "wb") as trace:
+        with open(task.log_file, "wb") as trace:
             exec_cmd = Command("adb", [
                 "-s",
                 "emulator-5554",

@@ -117,7 +117,7 @@ def run_task(task: Task, no_window: bool):
         with open(task.logcat_file, "wb") as log_cat:
             proc = logcat_cmd.invoke_as_deamon(stdout=log_cat)
             tool = tools_map[task.tool]
-            TaskExecutor(task, app).execute(tool)
+            TaskExecutor(task, app, tool).execute()
             proc.kill()
 
 

@@ -1,16 +1,18 @@
+import os
+
 from rvandroid.app import App
 from rvandroid.commands.command import Command
-
-from ..tool_spec import AbstractTool
-import os
+from rvandroid.experiment.task import Task
 from settings import TOOLS_DIR
+from ..tool_spec import AbstractTool
 
 
 class ToolSpec(AbstractTool):
     def __init__(self):
         super(ToolSpec, self).__init__("qtesting", """ qtesting """, "main.py")
 
-    def execute_tool_specific_logic(self, app: App, timeout_in_seconds: int, log_file: str):
+    def execute_tool_specific_logic(self, task: Task, app: App):
+        timeout_in_seconds = task.timeout
         qtesting_dir = os.path.join(TOOLS_DIR, "qtesting")
         qtesting_python = os.path.join(qtesting_dir, "venv", "bin", "python")
         qtesting_entrypoint = os.path.join(qtesting_dir, "src", "main.py")
@@ -36,8 +38,7 @@ class ToolSpec(AbstractTool):
             #         TIME_LIMIT = {0}
             #         TEST_INDEX=1""".format(timeout_in_seconds))
 
-        with open(log_file, "wb") as qtesting_trace:
-
+        with open(task.log_file, "wb") as qtesting_trace:
             # exec_cmd = Command(qtesting_entrypoint, [
             #     "{}".format(qtesting_dir)
             # ], timeout_in_seconds)

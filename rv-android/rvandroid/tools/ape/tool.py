@@ -1,17 +1,16 @@
+import logging as logging_api
 import os
 
 from rvandroid.app import App
 from rvandroid.commands.command import Command
-from settings import TOOLS_DIR
 from rvandroid.experiment.task import Task
+from settings import TOOLS_DIR
 from ..tool_spec import AbstractTool
-import logging as logging_api
-
 
 logging = logging_api.getLogger(__name__)
 
 
-#TODO mover para android.py
+# TODO mover para android.py
 def adb_push(input_file, out_path, std_out):
     logging.info("ADB pushing: {} to {}".format(input_file, out_path))
     push_cmd = Command('adb', ['push', '-a', '-p', input_file, out_path])
@@ -50,4 +49,3 @@ class ToolSpec(AbstractTool):
                 'sata'
             ], timeout_in_seconds)
             exec_cmd.invoke(stdout=trace)
-

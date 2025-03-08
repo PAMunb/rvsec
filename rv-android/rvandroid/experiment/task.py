@@ -9,7 +9,6 @@ from rvandroid.app import App
 from rvandroid.constants import EXTENSION_LOGCAT, EXTENSION_TRACE
 from rvandroid.model.log import RvCoverageLog
 from rvandroid.parser.static import static_analysis_parser
-from rvandroid.tools.tool_spec import AbstractTool
 
 # Constants
 DEFAULT_DATETIME = utils.milliseconds_to_datetime(0)
@@ -125,12 +124,13 @@ class Task:
 
 
 class TaskExecutor:
-    def __init__(self, task: Task, app: App):
+    def __init__(self, task: Task, app: App, tool: 'AbstractTool'):
         self.task = task
         self.app = app
+        self.tool = tool
         self.logger = logging.getLogger(__name__)
 
-    def execute(self, tool: AbstractTool) -> None:
+    def execute(self):
         """
         Execute the task and track execution metrics.
         """
@@ -139,7 +139,7 @@ class TaskExecutor:
         self.task.start_tracker(self.app)
         self.task.status = TaskStatus.RUNNING
         try:
-            tool.execute(self.task, self.app)
+            self.tool.execute(self.task, self.app)
             self.task.finish_time = datetime.now()
             self.task.status = TaskStatus.EXECUTED
         except Exception as e:

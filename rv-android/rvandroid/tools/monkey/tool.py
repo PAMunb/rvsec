@@ -1,5 +1,6 @@
 from rvandroid.app import App
 from rvandroid.commands.command import Command
+from rvandroid.experiment.task import Task
 from ..tool_spec import AbstractTool
 
 
@@ -9,10 +10,10 @@ class ToolSpec(AbstractTool):
         or device and generates pseudo-random streams of user events such as clicks, touches, or gestures, 
         as well as a number of system-level events. (https://developer.android.com/studio/test/other-testing-tools/monkey)""",
                                        "com.android.commands.monkey")
-        
-    def execute_tool_specific_logic(self, app: App, timeout: int, log_file: str):
+
+    def execute_tool_specific_logic(self, task: Task, app: App):
         # seed = "123"
-        with open(log_file, "wb") as trace:
+        with open(task.log_file, "wb") as trace:
             exec_cmd = Command("adb", [
                 "shell",
                 "monkey",
@@ -22,7 +23,7 @@ class ToolSpec(AbstractTool):
                 # seed,
                 "--ignore-security-exceptions",
                 "-p",
-                app.package_name,   # app package
+                app.package_name,  # app package
                 str(1_000_000_000)  # events
-            ], timeout)
+            ], task.timeout)
             exec_cmd.invoke(stdout=trace)

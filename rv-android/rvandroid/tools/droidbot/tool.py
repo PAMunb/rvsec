@@ -1,6 +1,6 @@
 from rvandroid.app import App
 from rvandroid.commands.command import Command
-
+from rvandroid.experiment.task import Task
 from ..tool_spec import AbstractTool
 
 
@@ -11,8 +11,8 @@ class ToolSpec(AbstractTool):
         and generate a UI transition graph (UTG) after testing (https://github.com/honeynet/droidbot).""",
                                        "com.android.commands.droidbot")
 
-    def execute_tool_specific_logic(self, app: App, timeout: int, log_file: str):
-        with open(log_file, "wb") as trace:
+    def execute_tool_specific_logic(self, task: Task, app: App):
+        with open(task.log_file, "wb") as trace:
             exec_cmd = Command("droidbot", [
                 "-d",
                 "emulator-5554",
@@ -23,8 +23,8 @@ class ToolSpec(AbstractTool):
                 "-count",
                 "10000000000",
                 "-timeout",
-                str(timeout),
+                str(task.timeout),
                 "-ignore_ad",
                 "-is_emulator",
-            ], timeout)
+            ], task.timeout)
             exec_cmd.invoke(stdout=trace)

@@ -1,9 +1,10 @@
+import os
+
 from rvandroid.app import App
 from rvandroid.commands.command import Command
-
-from ..tool_spec import AbstractTool
-import os
+from rvandroid.experiment.task import Task
 from settings import TOOLS_DIR, INSTRUMENTED_DIR
+from ..tool_spec import AbstractTool
 
 
 class ToolSpec(AbstractTool):
@@ -12,13 +13,14 @@ class ToolSpec(AbstractTool):
                 and researchers to customize, develop and test new test generators.(https://github.com/uds-se/droidmate).""",
                                        "org.droidmate")
 
-    def execute_tool_specific_logic(self, app: App, timeout_in_seconds: int, log_file: str):
+    def execute_tool_specific_logic(self, task: Task, app: App):
         droidmate_jar = os.path.join(TOOLS_DIR, "droidmate", "droidmate-2-X.X.X-all.jar")
         output_dir = os.path.join(TOOLS_DIR, "droidmate", "temp")
 
+        timeout_in_seconds = task.timeout
         timeout_in_millis = timeout_in_seconds * 1000
 
-        with open(log_file, "wb") as droidmate_trace:
+        with open(task.log_file, "wb") as droidmate_trace:
             exec_cmd = Command("java", [
                 "-jar",
                 "{}".format(droidmate_jar),

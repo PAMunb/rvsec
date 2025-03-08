@@ -1,8 +1,8 @@
-from ... import constants, utils
 from rvandroid.app import App
 from rvandroid.commands.command import Command
-
+from rvandroid.experiment.task import Task
 from ..tool_spec import AbstractTool
+from ... import constants, utils
 
 
 # TODO run humanoid container before using this tool
@@ -17,9 +17,9 @@ class ToolSpec(AbstractTool):
                 Humanoid than sort the events such that events that will be performed by human most likely will be fired first.
                 (https://github.com/yzygitzh/Humanoid)""", "com.android.commands.humanoid")
 
-    def execute_tool_specific_logic(self, app: App, timeout: int, log_file: str):
+    def execute_tool_specific_logic(self, task: Task, app: App):
         humanoid_url = utils.get_env_or_default(constants.ENV_HUMANOID_URL, "127.0.0.1:50405")
-        with open(log_file, "wb") as trace:
+        with open(task.log_file, "wb") as trace:
             exec_cmd = Command("droidbot", [
                 "-d",
                 "emulator-5554",
@@ -30,5 +30,5 @@ class ToolSpec(AbstractTool):
                 "-policy",
                 "dfs_greedy",
                 "-is_emulator",
-            ], timeout)
+            ], task.timeout)
             exec_cmd.invoke(stdout=trace)

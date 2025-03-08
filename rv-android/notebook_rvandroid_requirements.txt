@@ -2,6 +2,7 @@ accelerate
 anthropic
 beautifulsoup4
 bitsandbytes
+boto3
 chromadb
 datasets
 dspy

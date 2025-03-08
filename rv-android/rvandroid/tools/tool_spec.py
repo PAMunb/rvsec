@@ -1,6 +1,7 @@
 import logging as logging_api
 import os
 from abc import ABCMeta, abstractmethod
+
 from rvandroid.app import App
 from rvandroid.commands.command import Command
 from rvandroid.experiment.task import Task
