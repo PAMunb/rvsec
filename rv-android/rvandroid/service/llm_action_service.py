@@ -10,6 +10,7 @@ from rvandroid.llm.prompt.prompt_strategy_basic_001 import BasicPromptStrategy00
 from rvandroid.llm.prompt.prompt_strategy_factory import PromptStrategyFactory
 from rvandroid.model.static import StaticAnalysisData
 from rvandroid.parser.screen.parser_factory import ParserType, ParserFactory
+from rvandroid.llm.huggingface_llm import HuggingFaceLLM
 
 logger = logging.getLogger(__name__)
 
@@ -23,8 +24,8 @@ class LLMActionService:
     def __init__(
             self,
             static_data: Optional[StaticAnalysisData] = None,
-            model_type: str = "huggingface",
-            model_name: str = "microsoft/Phi-3.5-mini-instruct",
+            model_type: str = HuggingFaceLLM.NAME,
+            model_name: str = HuggingFaceLLM.LLAMA,
             strategy_type: str = "basic",
             parser_type: ParserType = ParserType.DROIDBOT,
             config: Optional[LLMConfiguration] = None,
@@ -146,6 +147,10 @@ class LLMActionService:
                 validated_actions = self._validate_actions(action_data)
 
             self.logger.info(f"Successfully processed state and generated {len(validated_actions)} actions")
+
+            print(f"\n******** User prompt:\n{messages[1]['content']}...")
+            print(f"\n******** LLM response:\n{response}...")
+
             return validated_actions
 
         except Exception as e:
@@ -181,6 +186,7 @@ class LLMActionService:
                 for item in screen_description.items
                 for action in item.actions
             }
+            print(f"***** Available actions: {available_actions}")
 
             # Safety check - if no actions available, generate fallbacks
             if not available_actions:
@@ -235,6 +241,8 @@ class LLMActionService:
                     "params": self._process_params(action_type, params),
                     "explanation": explanation
                 }
+
+                print(f"***** droidbot_action={droidbot_action}")
 
                 droidbot_actions.append(droidbot_action)
             except Exception as e:

@@ -14,6 +14,7 @@ class HuggingFaceLLM(LanguageModel):
     A class for interacting with Hugging Face language models.
     Provides efficient loading and generation with quantization support.
     """
+    NAME = "huggingface"
 
     # Available model definitions
     LLAMA = "meta-llama/Meta-Llama-3.1-8B-Instruct"
