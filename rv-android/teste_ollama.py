@@ -9,7 +9,6 @@ from rvandroid.config.component_config import ComponentConfig
 from rvandroid.llm.huggingface_llm import HuggingFaceLLM
 from rvandroid.llm.ollama_llm import OllamaLLM
 from rvandroid.llm.prompt.prompt_strategy_basic_001 import BasicPromptStrategy001
-from rvandroid.llm.prompt.single_action_prompt_strategy import SingleActionPromptStrategy
 from rvandroid.parser.screen.droidbot.droidbot_parser import DroidBotParser
 from rvandroid.parser.screen.visitor.text_visitor import EnhancedTextVisitor
 from rvandroid.parser.static import static_analysis_parser
@@ -34,20 +33,21 @@ if __name__ == '__main__':
     screenshots_folder = "/home/pedro/desenvolvimento/RV_ANDROID/teste_llm/screenshots"
     apk = "cryptoapp.apk"
     app_folder = screenshots_folder + "/" + apk
+    info_file = app_folder+"/001.state"
 
     app = App(os.path.join(app_folder, apk))
     package = app.package_name
 
     static_data = static_analysis_parser.read_static_analysis_files(app_folder, apk, package)
+    screen_info = read_droidbot_state(info_file)
 
     # TODO agrupar tudo no component config
     config = ComponentConfig()
-    config.set_strategy(SingleActionPromptStrategy)
-    # config.set_strategy(BasicPromptStrategy001)
+    config.set_strategy(BasicPromptStrategy001)
     config.set_visitor(EnhancedTextVisitor)
     config.set_parser(DroidBotParser)
     model_type = OllamaLLM.NAME
-    model_name = OllamaLLM.LLAMA
+    model_name = OllamaLLM.QWEN
     ollama_url = "http://192.168.0.18:11434"
 
     service = LLMActionService(static_data,
@@ -56,15 +56,5 @@ if __name__ == '__main__':
                                component_config=config,
                                base_url=ollama_url)
 
-    server = Server(service)
-    try:
-        if server.start():
-            print("Server started successfully")
-            while True:
-                time.sleep(5)
-    except KeyboardInterrupt:
-        print("\nShutting down...")
-    finally:
-        server.stop()
-
-    print("Server started")
+    actions = service.process_state(screen_info)
+    print(f"actions={actions}")    

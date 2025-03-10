@@ -8,6 +8,7 @@ from rvandroid.llm.llm_config import LLMConfiguration
 from rvandroid.llm.model_factory import ModelFactory
 from rvandroid.llm.prompt.prompt_strategy_basic_001 import BasicPromptStrategy001
 from rvandroid.llm.prompt.prompt_strategy_factory import PromptStrategyFactory
+from rvandroid.llm.prompt.single_action_prompt_strategy import SingleActionPromptStrategy
 from rvandroid.model.static import StaticAnalysisData
 from rvandroid.parser.screen.parser_factory import ParserType, ParserFactory
 from rvandroid.llm.huggingface_llm import HuggingFaceLLM
@@ -106,6 +107,7 @@ class LLMActionService:
 
         return self.llm
 
+    # Changes to LLMActionService.process_state method
     def process_state(self, state: Dict[str, Any]) -> List[Dict[str, Any]]:
         """
         Process the current application state and return suggested actions.
@@ -122,6 +124,62 @@ class LLMActionService:
         self.logger.info("Processing application state")
 
         try:
+            # Enhance action history format if present
+            if "action_history" in state:
+                enhanced_history = []
+                for action in state.get("action_history", []):
+                    # Check if the action is already in the enhanced format
+                    if isinstance(action, str) and not action.startswith("[Action ID:"):
+                        # Convert to enhanced format
+                        if isinstance(action, dict):
+                            # If it's a dictionary, extract details
+                            action_id = action.get("action_id", "unknown")
+                            action_type = action.get("action_type", "unknown")
+                            target = action.get("target", "unknown")
+                            params = action.get("params", {})
+                            explanation = action.get("explanation", "")
+
+                            # Format parameters in a more readable way
+                            params_str = ""
+                            if params:
+                                if "text" in params:
+                                    params_str = f" with text '{params['text']}'"
+                                elif "direction" in params:
+                                    params_str = f" {params['direction']}"
+
+                            # Create enhanced description with form context
+                            if action_type == "click":
+                                # Check if this appears to be a dropdown/spinner
+                                if "spinner" in target.lower() or "dropdown" in target.lower():
+                                    enhanced_action = f"[Action ID: {action_id}] CLICKED ON DROPDOWN '{target}'{params_str} - {explanation}"
+                                # Check if this might be a submit button
+                                elif any(keyword in target.lower() for keyword in
+                                         ["submit", "login", "save", "apply", "ok", "next", "continue",
+                                          "generate", "create", "send", "search", "encrypt", "decrypt"]):
+                                    enhanced_action = f"[Action ID: {action_id}] SUBMITTED FORM by clicking '{target}'{params_str} - {explanation}"
+                                else:
+                                    enhanced_action = f"[Action ID: {action_id}] CLICKED on '{target}'{params_str} - {explanation}"
+                            elif action_type == "set_text":
+                                enhanced_action = f"[Action ID: {action_id}] FILLED text field '{target}'{params_str} - {explanation}"
+                            elif action_type == "scroll_up" or action_type == "scroll_down":
+                                if "spinner" in target.lower() or "dropdown" in target.lower():
+                                    enhanced_action = f"[Action ID: {action_id}] SCROLLED {params_str} in dropdown '{target}' - {explanation}"
+                                else:
+                                    enhanced_action = f"[Action ID: {action_id}] SCROLLED {params_str} on '{target}' - {explanation}"
+                            else:
+                                enhanced_action = f"[Action ID: {action_id}] {action_type.upper()} on '{target}'{params_str} - {explanation}"
+
+                            enhanced_history.append(enhanced_action)
+                        else:
+                            # If it's already a string but not enhanced, keep as is
+                            enhanced_history.append(action)
+                    else:
+                        # Already in enhanced format or other format, keep as is
+                        enhanced_history.append(action)
+
+                # Update the history in the state
+                state["action_history"] = enhanced_history
+
             # Generate prompts using the selected strategy
             messages = self.prompt_strategy.generate_prompts(state)
 
@@ -139,12 +197,60 @@ class LLMActionService:
             action_data = json.loads(json_response)
 
             # Process actions based on the prompt strategy used
-            if isinstance(self.prompt_strategy, BasicPromptStrategy001):
+            if isinstance(self.prompt_strategy, BasicPromptStrategy001) or isinstance(self.prompt_strategy,
+                                                                                      SingleActionPromptStrategy):
                 # Handle action_id based format
                 validated_actions = self._process_action_id_format(action_data, state)
             else:
                 # Handle standard action_type format
                 validated_actions = self._validate_actions(action_data)
+
+            # For SingleActionPromptStrategy, add the action to the enhanced history
+            if isinstance(self.prompt_strategy, SingleActionPromptStrategy) and validated_actions:
+                action = validated_actions[0]
+                action_id = action_data[0].get("action_id", "unknown") if action_data and len(
+                    action_data) > 0 else "unknown"
+                explanation = action_data[0].get("explanation", "") if action_data and len(action_data) > 0 else ""
+
+                # Create enhanced description for the history
+                action_type = action.get("action_type", "unknown")
+                target = action.get("target", "unknown")
+                params = action.get("params", {})
+
+                # Format parameters in a more readable way
+                params_str = ""
+                if params:
+                    if "text" in params:
+                        params_str = f" with text '{params['text']}'"
+                    elif "direction" in params:
+                        params_str = f" {params['direction']}"
+
+                # Create enhanced description with form context
+                if action_type == "click":
+                    # Check if this appears to be a dropdown/spinner
+                    if "spinner" in target.lower() or "dropdown" in target.lower():
+                        enhanced_action = f"[Action ID: {action_id}] CLICKED ON DROPDOWN '{target}'{params_str} - {explanation}"
+                    # Check if this might be a submit button
+                    elif any(keyword in target.lower() for keyword in
+                             ["submit", "login", "save", "apply", "ok", "next", "continue",
+                              "generate", "create", "send", "search", "encrypt", "decrypt"]):
+                        enhanced_action = f"[Action ID: {action_id}] SUBMITTED FORM by clicking '{target}'{params_str} - {explanation}"
+                    else:
+                        enhanced_action = f"[Action ID: {action_id}] CLICKED on '{target}'{params_str} - {explanation}"
+                elif action_type == "set_text":
+                    enhanced_action = f"[Action ID: {action_id}] FILLED text field '{target}'{params_str} - {explanation}"
+                elif action_type == "scroll_up" or action_type == "scroll_down":
+                    if "spinner" in target.lower() or "dropdown" in target.lower():
+                        enhanced_action = f"[Action ID: {action_id}] SCROLLED {params_str} in dropdown '{target}' - {explanation}"
+                    else:
+                        enhanced_action = f"[Action ID: {action_id}] SCROLLED {params_str} on '{target}' - {explanation}"
+                else:
+                    enhanced_action = f"[Action ID: {action_id}] {action_type.upper()} on '{target}'{params_str} - {explanation}"
+
+                # Update history in state for next iteration
+                if "action_history" not in state:
+                    state["action_history"] = []
+                state["action_history"].append(enhanced_action)
 
             self.logger.info(f"Successfully processed state and generated {len(validated_actions)} actions")
 
@@ -157,15 +263,16 @@ class LLMActionService:
             self.logger.error(f"Error processing state: {e}", exc_info=True)
             return self._generate_fallback_actions(state)
 
-    def _process_action_id_format(self, llm_actions: List[Dict[str, Any]], state: Dict[str, Any]) -> List[Dict[str, Any]]:
+    def _process_action_id_format(self, llm_actions: List[Dict[str, Any]], state: Dict[str, Any]) -> List[
+        Dict[str, Any]]:
         """
-        Process actions in action_id format returned by BasicPromptStrategy001.
+        Process actions in action_id format returned by BasicPromptStrategy001 or SingleActionPromptStrategy.
         With improved error handling.
-        
+
         Args:
             llm_actions: Actions from LLM with action_id format
             state: Current application state
-            
+
         Returns:
             List of actions in droidbot format
         """
