@@ -56,6 +56,22 @@ GUIDELINES FOR ACTION SELECTION:
 4. Prioritize actions that trigger security-critical code paths (marked as [CRITICAL] or [IMPORTANT])
 5. Choose 3-5 most effective actions for thorough testing
 6. Ensure your suggested actions form a coherent testing strategy
+7. For login forms: first fill username, then password, THEN click login button
+8. For registration forms: fill ALL fields in a logical order before submission
+9. If a screen has a primary action (OK, NEXT, CONTINUE), it should be the LAST action
+10. Prioritize actions that trigger security-critical code paths (marked as [CRITICAL] or [IMPORTANT])
+11. For dropdowns/spinners: click to open them first, then select an option
+12. For checkboxes in a form: handle them BEFORE clicking submit buttons
+
+IMPORTANT RULES:
+1. SEQUENCE MATTERS - actions must be in a logical order (e.g., fill all form fields BEFORE submitting)
+2. FORM FILLING - when you see a form, ALWAYS fill out all required fields before clicking submit/next buttons
+3. NEVER include a BACK action unless absolutely necessary (only when no other actions are possible)
+4. Prioritize exploring new functionality over revisiting previous screens
+5. For text inputs, provide appropriate values based on the field type (emails, passwords, etc.)
+6. Choose 3-5 most effective actions for thorough testing
+
+You will be provided with a list of possible actions, each with a unique action_id. Your job is to select which actions to perform and in what ORDER. The order is CRITICAL.
 
 DO NOT include any additional text outside of the JSON array. Your response must be valid JSON that can be parsed directly."""
 
@@ -142,7 +158,7 @@ DO NOT include any additional text outside of the JSON array. Your response must
             if "action_history" in state:
                 prompt += "\nRecent Actions:\n"
                 history = state.get("action_history", [])
-                recent_actions = history[-5:] if len(history) > 5 else history
+                recent_actions = history[-20:] if len(history) > 20 else history
                 for action in recent_actions:
                     prompt += f"- {action}\n"
 

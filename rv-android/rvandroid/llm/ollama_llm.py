@@ -13,6 +13,7 @@ class OllamaLLM(LanguageModel):
     Language model implementation that uses Ollama API.
     Provides access to locally running Ollama models.
     """
+    NAME = "ollama"
 
     # Available model definitions
     LLAMA = "llama3.2:3b"
@@ -35,6 +36,7 @@ class OllamaLLM(LanguageModel):
         """
         super().__init__(model_name)
         self.base_url = base_url
+        print(f"***** base_url={self.base_url}")
         self._client = None
         self.logger = logger
 
@@ -46,11 +48,13 @@ class OllamaLLM(LanguageModel):
         Returns:
             Ollama Client instance
         """
+        print(f"***** client={self.base_url}")
         if not self._client:
+            print("iniciando .....................")
             self.logger.info(f"Initializing Ollama client with base URL: {self.base_url}")
             try:
                 self._client = Client(host=self.base_url)
-
+                print(f"client iniciado ..................... {self._client}")
                 # Pull model to ensure it's available (this is non-blocking if already pulled)
                 self.logger.info(f"Ensuring model {self.model_name} is available")
                 self._client.pull(self.model_name)
