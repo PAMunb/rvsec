@@ -1,11 +1,12 @@
+# rvandroid/llm/prompt/prompt_strategy_factory.py (atualizado)
 import logging
 from typing import Dict, Type, Optional, Union
 
 from rvandroid.config.component_config import ComponentConfig
-from rvandroid.llm.prompt.prompt_strategy_frontier import FrontierPromptStrategy
 from rvandroid.llm.prompt.prompt_strategy import PromptStrategy
-from rvandroid.llm.prompt.prompt_strategy_basic import BasicPromptStrategy
+from rvandroid.llm.prompt.prompt_strategy_basic_001 import BasicPromptStrategy001
 from rvandroid.llm.prompt.prompt_strategy_dspy import DSPyPromptStrategy
+from rvandroid.llm.prompt.single_action_prompt_strategy import SingleActionPromptStrategy
 from rvandroid.model.static import StaticAnalysisData
 from rvandroid.parser.screen.abstract_parser import AbstractScreenParser
 from rvandroid.parser.screen.parser_factory import ParserType
@@ -20,9 +21,9 @@ class PromptStrategyFactory:
 
     # Registry of available strategy types
     _STRATEGIES: Dict[str, Type[PromptStrategy]] = {
-        "basic": BasicPromptStrategy,
+        "basic": BasicPromptStrategy001,
         "dspy": DSPyPromptStrategy,
-        "frontier": FrontierPromptStrategy
+        "single_action": SingleActionPromptStrategy
     }
 
     @classmethod
@@ -37,7 +38,7 @@ class PromptStrategyFactory:
         Create a prompt strategy instance.
 
         Args:
-            strategy_type: Type of strategy ('basic', 'dspy', 'frontier', etc.)
+            strategy_type: Type of strategy ('basic', 'dspy', 'single_action', etc.)
             static_data: Static analysis data (optional)
             parser: Parser type or instance to use (optional)
             config: Component configuration for advanced customization (optional)

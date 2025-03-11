@@ -1,50 +1,58 @@
+# teste_run_server.py
 import json
 import logging
 import os
 import sys
 import time
+import argparse
 
 from rvandroid.app import App
-from rvandroid.config.component_config import ComponentConfig
-from rvandroid.llm.huggingface_llm import HuggingFaceLLM
-from rvandroid.llm.ollama_llm import OllamaLLM
-from rvandroid.llm.prompt.single_action_prompt_strategy import SingleActionPromptStrategy
-from rvandroid.parser.screen.droidbot.droidbot_parser import DroidBotParser
-from rvandroid.parser.screen.visitor.text_visitor import EnhancedTextVisitor
-from rvandroid.parser.static import static_analysis_parser
 from rvandroid.server import Server
-from rvandroid.service.llm_action_service import LLMActionService
+from rvandroid.parser.static import static_analysis_parser
+from rvandroid.config.component_configurator import ComponentConfigurator
+from rvandroid.llm.huggingface_llm import HuggingFaceLLM
 
+def parse_arguments():
+    """Parse command line arguments"""
+    parser = argparse.ArgumentParser(description='RV-Android Server')
 
-def read_droidbot_state(filename):
-    with open(filename, 'r') as file:
-        return json.load(file)
+    # LLM e modelo
+    parser.add_argument('--llm', choices=['ollama', 'huggingface', 'dspy', 'langchain', 'frontier'],
+                        default='ollama', help='Tipo de LLM')
+    parser.add_argument('--model', help='Nome do modelo')
 
+    # URL do Ollama e outros parâmetros
+    parser.add_argument('--base-url', default='http://localhost:11434',
+                        help='URL base para o servidor Ollama')
 
-def get_ollama_service(config: ComponentConfig,model_type=OllamaLLM.NAME, model_name=OllamaLLM.LLAMA, ollama_url="http://127.0.0.1:11434"):
-    return LLMActionService(static_data,
-                            model_type=model_type,
-                            model_name=model_name,
-                            component_config=config,
-                            base_url=ollama_url)
+    # Estratégia, Parser e Visitor
+    parser.add_argument('--strategy', choices=['basic', 'dspy', 'single_action'],
+                        default='basic', help='Estratégia de prompt')
+    parser.add_argument('--parser', choices=['droidbot', 'uiautomator'],
+                        default='droidbot', help='Parser de tela')
+    parser.add_argument('--visitor', choices=['enhanced'],
+                        default='enhanced', help='Visitor para elementos da UI')
 
+    # Parâmetros adicionais
+    parser.add_argument('--provider', help='Provider para frontier models ou langchain/dspy')
+    parser.add_argument('--api-key', help='API key para serviços remotos')
 
-def get_hugginface_service(config: ComponentConfig, model_type=HuggingFaceLLM.NAME, model_name=HuggingFaceLLM.LLAMA):
-    return LLMActionService(static_data,
-                            model_type=model_type,
-                            model_name=model_name,
-                            component_config=config)
+    args = parser.parse_args()
+    return args
 
 
 if __name__ == '__main__':
-    logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
+    # Configuração de logging
+    logging.basicConfig(stream=sys.stdout, level=logging.INFO)
     logging.getLogger("androguard").setLevel(logging.WARNING)
     logging.getLogger("rvandroid.parser.screen.visitor.base_visitor").setLevel(logging.WARNING)
     logging.getLogger("rvandroid.parser.screen.droidbot.droidbot_parser").setLevel(logging.WARNING)
     logging.getLogger("rvandroid.model.window.Window").setLevel(logging.WARNING)
-    # rvandroid.parser.static.gesda_parser
-    logging.info("Starting...")
 
+    # Parse argumentos
+    args = parse_arguments()
+
+    # Caminhos para dados do app
     screenshots_folder = "/home/pedro/desenvolvimento/RV_ANDROID/teste_llm/screenshots"
     apk = "cryptoapp.apk"
     app_folder = screenshots_folder + "/" + apk
@@ -52,17 +60,70 @@ if __name__ == '__main__':
     app = App(os.path.join(app_folder, apk))
     package = app.package_name
 
+    # Carrega análise estática
     static_data = static_analysis_parser.read_static_analysis_files(app_folder, apk, package)
 
-    # TODO agrupar tudo no component config
-    config = ComponentConfig()
-    config.set_strategy(SingleActionPromptStrategy)
-    # config.set_strategy(BasicPromptStrategy001)
-    config.set_visitor(EnhancedTextVisitor)
-    config.set_parser(DroidBotParser)
+    # Inicializa o configurador
+    configurator = ComponentConfigurator(static_data)
 
-    service = get_hugginface_service(config)
+    # Configura componentes com base nos argumentos
+    # configurator.set_llm(
+    #     llm_type=args.llm, # "ollama", "huggingface", "dspy", "langchain", "frontier"
+    #     model=args.model,
+    #     base_url=args.base_url,
+    #     provider=args.provider,
+    #     api_key=args.api_key
+    # )
+    # configurator.set_strategy(args.strategy)  # "basic", "dspy", "single_action"
+    # configurator.set_parser(args.parser)
+    # configurator.set_visitor(args.visitor)
 
+    # # DSPY
+    configurator.set_llm(
+        llm_type="dspy",  # "ollama", "huggingface", "dspy", "langchain", "frontier"
+        model="llama3.2:3b",
+        base_url="http://localhost:11434",
+        provider="ollama",
+        api_key=args.api_key
+    )
+    configurator.set_strategy("dspy")  # "basic", "dspy", "single_action"
+    configurator.set_parser("droidbot")
+    configurator.set_visitor("enhanced")
+
+    # # OLLAMA
+    # configurator.set_llm(
+    #     llm_type="ollama",  # "ollama", "huggingface", "dspy", "langchain", "frontier"
+    #     model="llama3.2:3b",
+    #     base_url="http://localhost:11434",
+    #     provider="ollama"
+    # )
+    # configurator.set_strategy("single_action")  # "basic", "dspy", "single_action"
+    # configurator.set_parser("droidbot")
+    # configurator.set_visitor("enhanced")
+
+    # HUGGING FACE
+    # configurator.set_llm(
+    #     llm_type=HuggingFaceLLM.NAME,  # "ollama", "huggingface", "dspy", "langchain", "frontier"
+    #     model=HuggingFaceLLM.LLAMA
+    # )
+    # configurator.set_strategy("single_action")  # "basic", "dspy", "single_action"
+    # configurator.set_parser("droidbot")
+    # configurator.set_visitor("enhanced")
+
+    # Mostra a configuração
+    config = configurator.describe_configuration()
+    print("\n=== Configuração do RV-Android ===")
+    print(f"LLM: {config['llm']['type']}")
+    print(f"Modelo: {config['llm']['model']}")
+    print(f"Estratégia: {config['strategy']}")
+    print(f"Parser: {config['parser']}")
+    print(f"Visitor: {config['visitor']}")
+    print("================================\n")
+
+    # Cria o serviço
+    service = configurator.create_service()
+
+    # Inicia o servidor
     server = Server(service)
     try:
         if server.start():
@@ -74,4 +135,15 @@ if __name__ == '__main__':
     finally:
         server.stop()
 
-    print("Server started")
+
+# # Usar Ollama com modelo llama3.2:3b (padrão)
+# python teste_run_server.py
+#
+# # Usar DSPy com modelo phi3.5:3.8b e estratégia DSPy
+# python teste_run_server.py --llm dspy --model phi3.5:3.8b --strategy dspy
+#
+# # Usar Hugging Face com modelo Phi-3.5
+# python teste_run_server.py --llm huggingface --model microsoft/Phi-3.5-mini-instruct
+#
+# # Usar LangChain com Ollama como provedor
+# python teste_run_server.py --llm langchain --provider ollama --model llama3.2:3b

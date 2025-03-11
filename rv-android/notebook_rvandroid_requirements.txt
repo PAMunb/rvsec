@@ -42,3 +42,17 @@ torch
 tqdm
 transformers
 unstructured
+
+
+#dspy-ai>=2.0.0
+langchain
+langchain-community
+ollama
+torch
+torchvision
+torchaudio
+langchain-openai
+langchain-anthropic
+pydantic
+transformers
+bitsandbytes

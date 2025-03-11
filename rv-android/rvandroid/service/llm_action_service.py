@@ -263,11 +263,13 @@ class LLMActionService:
             self.logger.error(f"Error processing state: {e}", exc_info=True)
             return self._generate_fallback_actions(state)
 
+    # Método _process_action_id_format atualizado
+
     def _process_action_id_format(self, llm_actions: List[Dict[str, Any]], state: Dict[str, Any]) -> List[
         Dict[str, Any]]:
         """
         Process actions in action_id format returned by BasicPromptStrategy001 or SingleActionPromptStrategy.
-        With improved error handling and coordinate extraction.
+        Ensures coordinates are included for all actions.
 
         Args:
             llm_actions: Actions from LLM with action_id format
@@ -318,10 +320,8 @@ class LLMActionService:
                 if "action_id" in action_data:
                     action_id = str(action_data["action_id"])
                 elif "id" in action_data:
-                    # Alternative key that might be used
                     action_id = str(action_data["id"])
                 elif "actionId" in action_data:
-                    # Alternative key that might be used
                     action_id = str(action_data["actionId"])
 
                 if not action_id:
@@ -372,20 +372,16 @@ class LLMActionService:
                         coordinates = (x, y)
 
                 # Method 4: If target is a resource ID, try to find it in the view tree
-                if not coordinates and isinstance(item_action.target_view,
-                                                  dict) and "resource_id" in item_action.target_view:
-                    resource_id = item_action.target_view["resource_id"]
-                    coordinates = self._find_coordinates_for_resource_id(state.get("view_tree", {}), resource_id)
+                if not coordinates and "view_tree" in state:
+                    resource_id = None
+                    if hasattr(item_action, 'target_view') and item_action.target_view:
+                        resource_id = item_action.target_view.get("resource_id")
 
-                # Method 5: Try to extract from the target if it's in "x y" format
-                target = self._get_target(item_action, state)
-                if not coordinates and isinstance(target, str) and " " in target:
-                    parts = target.split()
-                    if len(parts) == 2 and all(part.isdigit() for part in parts):
-                        x, y = int(parts[0]), int(parts[1])
-                        coordinates = (x, y)
+                    if resource_id:
+                        coordinates = self._find_coordinates_for_resource_id(state["view_tree"], resource_id)
 
                 # Create droidbot action format
+                target = self._get_target(item_action, state)
                 droidbot_action = {
                     "action_type": action_type,
                     "target": target,
@@ -396,21 +392,20 @@ class LLMActionService:
                 # Add coordinates to the action if we found them
                 if coordinates:
                     droidbot_action["coordinates"] = coordinates
-                    self.logger.info(f"Added coordinates {coordinates} to action")
+                    self.logger.info(f"Added coordinates {coordinates} to action: {action_id}")
                 else:
-                    self.logger.warning(f"Could not find coordinates for action: {action_id}")
-                    # For UI elements without coordinates, use a fallback method
-                    if action_type != "key_event":  # Key events don't need coordinates
-                        # Try one more time with the state's view tree if available
-                        if "view_tree" in state:
-                            if isinstance(target, str) and ":" in target:  # Looks like a resource ID
-                                coordinates = self._find_coordinates_for_resource_id(state["view_tree"], target)
-                                if coordinates:
-                                    droidbot_action["coordinates"] = coordinates
-                                    self.logger.info(f"Found coordinates {coordinates} from view tree")
+                    # Last attempt to extract coordinates from target string
+                    if isinstance(target, str) and " " in target:
+                        parts = target.split()
+                        if len(parts) == 2 and all(part.isdigit() for part in parts):
+                            x, y = int(parts[0]), int(parts[1])
+                            droidbot_action["coordinates"] = (x, y)
+                            self.logger.info(f"Extracted coordinates ({x}, {y}) from target string")
+                        else:
+                            self.logger.warning(f"Could not find coordinates for action: {action_id}")
 
+                # Log the final action
                 print(f"***** droidbot_action={droidbot_action}")
-
                 droidbot_actions.append(droidbot_action)
             except Exception as e:
                 self.logger.error(f"Error processing action data {action_data}: {e}", exc_info=True)

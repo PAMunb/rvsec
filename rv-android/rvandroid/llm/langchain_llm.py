@@ -1,17 +1,44 @@
 # rvandroid/llm/langchain_llm.py
 from typing import List, Dict, Optional
 import logging
+import json
 
-from langchain.llms import BaseLLM
-from langchain.chat_models import ChatOpenAI, ChatAnthropic
-from langchain.schema import SystemMessage, HumanMessage
-from langchain.chains import LLMChain
+# Importações mais básicas que devem funcionar
+from langchain.schema import SystemMessage, HumanMessage  # Use caminho antigo
 from langchain.prompts import ChatPromptTemplate, MessagesPlaceholder
-from langchain.llms import HuggingFacePipeline, Ollama
+from langchain.memory import ConversationBufferMemory
+
+# Importe apenas o Ollama que provavelmente você já tem instalado
+from langchain.llms import Ollama
 
 from rvandroid.llm.llm import LanguageModel
 
 logger = logging.getLogger(__name__)
+
+
+class SimpleJsonParser:
+    """Parser JSON simples para uso interno."""
+
+    def parse(self, text: str) -> Dict:
+        try:
+            # Tenta encontrar o início e fim do JSON na string
+            start_idx = text.find('[')
+            end_idx = text.rfind(']') + 1
+
+            if start_idx == -1 or end_idx <= start_idx:
+                # Tenta encontrar um objeto JSON se não for um array
+                start_idx = text.find('{')
+                end_idx = text.rfind('}') + 1
+
+            if start_idx != -1 and end_idx > start_idx:
+                json_text = text[start_idx:end_idx]
+                return json.loads(json_text)
+
+            # Se não conseguir extrair, tenta parsear o texto completo
+            return json.loads(text)
+        except Exception as e:
+            logger.warning(f"JSON parsing failed: {e}")
+            return {"error": "Failed to parse JSON", "raw_text": text}
 
 
 class LangchainLLM(LanguageModel):
@@ -22,47 +49,51 @@ class LangchainLLM(LanguageModel):
 
     # Models available for LangChain
     LLAMA = "llama3.2:3b"
-    PHI = "microsoft/Phi-3.5-mini-instruct"
-    QWEN = "Qwen/Qwen2.5-3B-Instruct"
-    MISTRAL = "mistralai/Mistral-7B-Instruct-v0.3"
-    CLAUDE = "claude-3-5-sonnet-20241022"
-    GPT_4 = "gpt-4-turbo-2024-04-09"
+    PHI = "phi3.5:3.8b"
+    QWEN = "qwen2.5:3b"
+    MISTRAL = "mistral:7b"
 
-    # Group by provider
-    LOCAL_MODELS = [PHI, QWEN, MISTRAL]
-    OLLAMA_MODELS = [LLAMA]
-    OPENAI_MODELS = [GPT_4]
-    ANTHROPIC_MODELS = [CLAUDE]
-
-    # All models
-    MODELS = LOCAL_MODELS + OLLAMA_MODELS + OPENAI_MODELS + ANTHROPIC_MODELS
+    # All models - apenas os que sabemos que funcionam com Ollama
+    MODELS = [LLAMA, PHI, QWEN, MISTRAL]
 
     def __init__(
             self,
             model_name: str,
             provider: str = "ollama",
             base_url: str = "http://localhost:11434",
-            api_key: Optional[str] = None
+            api_key: Optional[str] = None,
+            use_memory: bool = False,
+            use_json_parser: bool = True
     ):
         """
         Initialize LangchainLLM with a model name and provider.
 
         Args:
             model_name: Name of the model
-            provider: Provider for the model ('ollama', 'huggingface', 'openai', 'anthropic')
+            provider: Provider for the model ('ollama' é o único suportado nesta versão)
             base_url: Base URL for API (for Ollama)
-            api_key: API key for cloud providers (for OpenAI, Anthropic)
+            api_key: API key (não utilizado nesta versão)
+            use_memory: Whether to enable conversation memory
+            use_json_parser: Whether to use JSON output parsing
         """
         super().__init__(model_name)
         self.provider = provider
         self.base_url = base_url
         self.api_key = api_key
+        self.use_memory = use_memory
+        self.use_json_parser = use_json_parser
         self._llm = None
         self._chain = None
+        self._memory = None
+        self._parser = SimpleJsonParser()  # Usar nossa implementação simples
         self.logger = logger
 
+        # Initialize components as needed
+        if self.use_memory:
+            self._memory = ConversationBufferMemory(return_messages=True)
+
     @property
-    def llm(self) -> BaseLLM:
+    def llm(self):
         """
         Returns (or initializes) the LangChain LLM instance.
 
@@ -72,77 +103,28 @@ class LangchainLLM(LanguageModel):
         if self._llm is None:
             self.logger.info(f"Initializing LangChain with provider {self.provider}")
 
-            if self.provider == "ollama":
-                self._llm = Ollama(model=self.model_name, base_url=self.base_url)
+            try:
+                if self.provider == "ollama":
+                    self._llm = Ollama(
+                        model=self.model_name,
+                        base_url=self.base_url,
+                        temperature=0.2  # Lower temperature for more focused responses
+                    )
+                else:
+                    # Para esta versão, apenas suportamos Ollama
+                    self.logger.warning(
+                        f"Provider {self.provider} not supported in this version, falling back to Ollama")
+                    self._llm = Ollama(
+                        model=self.model_name,
+                        base_url=self.base_url
+                    )
 
-            elif self.provider == "huggingface":
-                import torch
-                from transformers import pipeline, AutoTokenizer, AutoModelForCausalLM
-
-                # Load the model and tokenizer
-                tokenizer = AutoTokenizer.from_pretrained(self.model_name)
-                model = AutoModelForCausalLM.from_pretrained(
-                    self.model_name,
-                    device_map="auto",
-                    torch_dtype=torch.bfloat16
-                )
-
-                # Create the pipeline
-                hf_pipeline = pipeline(
-                    task="text-generation",
-                    model=model,
-                    tokenizer=tokenizer,
-                    max_new_tokens=800
-                )
-
-                self._llm = HuggingFacePipeline(pipeline=hf_pipeline)
-
-            elif self.provider == "openai":
-                if not self.api_key:
-                    raise ValueError("API key required for OpenAI")
-
-                self._llm = ChatOpenAI(
-                    model_name=self.model_name,
-                    openai_api_key=self.api_key,
-                    temperature=0.7
-                )
-
-            elif self.provider == "anthropic":
-                if not self.api_key:
-                    raise ValueError("API key required for Anthropic")
-
-                self._llm = ChatAnthropic(
-                    model_name=self.model_name,
-                    anthropic_api_key=self.api_key,
-                    temperature=0.7
-                )
-
-            else:
-                raise ValueError(f"Unsupported provider: {self.provider}")
-
-            self.logger.info(f"Successfully initialized LangChain LLM with {self.provider}")
+                self.logger.info(f"Successfully initialized LangChain LLM with {self.provider}")
+            except Exception as e:
+                self.logger.error(f"Error initializing LangChain LLM: {e}")
+                raise
 
         return self._llm
-
-    @property
-    def chain(self):
-        """
-        Returns (or initializes) the LangChain chain for chat completion.
-
-        Returns:
-            LangChain chain instance
-        """
-        if self._chain is None:
-            # Create a prompt template for chat
-            prompt = ChatPromptTemplate.from_messages([
-                ("system", "{system}"),
-                MessagesPlaceholder(variable_name="chat_history"),
-                ("human", "{human}")
-            ])
-
-            self._chain = LLMChain(llm=self.llm, prompt=prompt)
-
-        return self._chain
 
     def generate(self, messages: List[Dict[str, str]], max_new_tokens: int = 800) -> str:
         """
@@ -156,28 +138,26 @@ class LangchainLLM(LanguageModel):
             Generated text
         """
         try:
-            # Extract system and user messages
-            system_content = ""
-            chat_history = []
-            human_content = ""
+            # Get LLM and ensure it's initialized
+            llm = self.llm
 
-            for msg in messages:
-                if msg["role"] == "system":
-                    system_content = msg["content"]
-                elif msg["role"] == "user":
-                    human_content = msg["content"]
-                elif msg["role"] == "assistant":
-                    # Add previous turn to chat history
-                    chat_history.append(HumanMessage(content=human_content))
-                    chat_history.append(SystemMessage(content=msg["content"]))
-                    human_content = ""
+            # Extract system and user content for simplicity
+            system_content = next((m["content"] for m in messages if m["role"] == "system"), "")
+            user_content = next((m["content"] for m in messages if m["role"] == "user"), "")
 
-            # Generate response using LangChain
-            response = self.chain.run(
-                system=system_content,
-                chat_history=chat_history,
-                human=human_content
-            )
+            # Combine prompts em um formato que o Ollama entende
+            combined_prompt = f"{system_content}\n\n{user_content}"
+
+            # Generate with simple approach
+            response = llm(combined_prompt)
+
+            # Parse JSON if needed
+            if self.use_json_parser and ("[" in response or "{" in response):
+                try:
+                    parsed = self._parser.parse(response)
+                    return json.dumps(parsed)
+                except Exception as e:
+                    self.logger.warning(f"JSON parsing failed: {e}, returning raw response")
 
             return response
 
@@ -191,6 +171,7 @@ class LangchainLLM(LanguageModel):
         """
         self._llm = None
         self._chain = None
+        self._memory = None  # Limpa a memória de conversação
         self.logger.info("LangChain resources released")
 
     @staticmethod
