@@ -5,7 +5,7 @@ from rvandroid import utils
 from rvandroid.experiment import Memory
 import os
 from rvandroid.experiment.task import Task, DEFAULT_DATETIME
-import rvandroid.log.logcat_parser as parser
+import rvandroid.parser.log.logcat_parser as parser
 from rvandroid.constants import EXTENSION_LOGCAT
 
 def status(memory_file: str) -> dict:

@@ -267,7 +267,7 @@ class LLMActionService:
         Dict[str, Any]]:
         """
         Process actions in action_id format returned by BasicPromptStrategy001 or SingleActionPromptStrategy.
-        With improved error handling.
+        With improved error handling and coordinate extraction.
 
         Args:
             llm_actions: Actions from LLM with action_id format
@@ -341,13 +341,73 @@ class LLMActionService:
                 # Extract action type from the item_action text
                 action_type = self._extract_action_type(item_action.text)
 
+                # Extract view data for this action
+                view_data = None
+                for item in screen_description.items:
+                    if any(action.id == int(action_id) for action in item.actions):
+                        view_data = item.view
+                        break
+
+                # Get coordinates - try multiple methods to ensure we have them
+                coordinates = None
+
+                # Method 1: Use coordinates from ItemAction if available
+                if hasattr(item_action, 'coordinates') and item_action.coordinates:
+                    coordinates = item_action.coordinates
+
+                # Method 2: Try to extract from target_view if available
+                if not coordinates and hasattr(item_action, 'target_view') and item_action.target_view:
+                    bounds = item_action.target_view.get("bounds")
+                    if bounds and len(bounds) == 2:
+                        x = (bounds[0][0] + bounds[1][0]) // 2
+                        y = (bounds[0][1] + bounds[1][1]) // 2
+                        coordinates = (x, y)
+
+                # Method 3: Try to extract from the view_data if available
+                if not coordinates and view_data:
+                    bounds = view_data.get("bounds")
+                    if bounds and len(bounds) == 2:
+                        x = (bounds[0][0] + bounds[1][0]) // 2
+                        y = (bounds[0][1] + bounds[1][1]) // 2
+                        coordinates = (x, y)
+
+                # Method 4: If target is a resource ID, try to find it in the view tree
+                if not coordinates and isinstance(item_action.target_view,
+                                                  dict) and "resource_id" in item_action.target_view:
+                    resource_id = item_action.target_view["resource_id"]
+                    coordinates = self._find_coordinates_for_resource_id(state.get("view_tree", {}), resource_id)
+
+                # Method 5: Try to extract from the target if it's in "x y" format
+                target = self._get_target(item_action, state)
+                if not coordinates and isinstance(target, str) and " " in target:
+                    parts = target.split()
+                    if len(parts) == 2 and all(part.isdigit() for part in parts):
+                        x, y = int(parts[0]), int(parts[1])
+                        coordinates = (x, y)
+
                 # Create droidbot action format
                 droidbot_action = {
                     "action_type": action_type,
-                    "target": self._get_target(item_action, state),
+                    "target": target,
                     "params": self._process_params(action_type, params),
                     "explanation": explanation
                 }
+
+                # Add coordinates to the action if we found them
+                if coordinates:
+                    droidbot_action["coordinates"] = coordinates
+                    self.logger.info(f"Added coordinates {coordinates} to action")
+                else:
+                    self.logger.warning(f"Could not find coordinates for action: {action_id}")
+                    # For UI elements without coordinates, use a fallback method
+                    if action_type != "key_event":  # Key events don't need coordinates
+                        # Try one more time with the state's view tree if available
+                        if "view_tree" in state:
+                            if isinstance(target, str) and ":" in target:  # Looks like a resource ID
+                                coordinates = self._find_coordinates_for_resource_id(state["view_tree"], target)
+                                if coordinates:
+                                    droidbot_action["coordinates"] = coordinates
+                                    self.logger.info(f"Found coordinates {coordinates} from view tree")
 
                 print(f"***** droidbot_action={droidbot_action}")
 
@@ -361,6 +421,47 @@ class LLMActionService:
             return self._generate_fallback_actions(state)
 
         return droidbot_actions
+
+    def _find_coordinates_for_resource_id(self, view_tree: Dict[str, Any], resource_id: str) -> Optional[tuple]:
+        """
+        Recursively search the view tree for a view with the given resource_id and return its coordinates.
+
+        Args:
+            view_tree: The view tree to search
+            resource_id: The resource_id to look for
+
+        Returns:
+            Tuple of (x, y) coordinates or None if not found
+        """
+        if not view_tree:
+            return None
+
+        # Check if this is the view we're looking for
+        if view_tree.get("resource_id") == resource_id:
+            bounds = view_tree.get("bounds")
+            if bounds and len(bounds) == 2:
+                x = (bounds[0][0] + bounds[1][0]) // 2
+                y = (bounds[0][1] + bounds[1][1]) // 2
+                return (x, y)
+
+        # Also check if it has the same ID part (after :id/)
+        if ":" in resource_id and view_tree.get("resource_id", ""):
+            id_part = resource_id.split(":")[-1]
+            view_id_part = view_tree.get("resource_id", "").split(":")[-1]
+            if id_part == view_id_part:
+                bounds = view_tree.get("bounds")
+                if bounds and len(bounds) == 2:
+                    x = (bounds[0][0] + bounds[1][0]) // 2
+                    y = (bounds[0][1] + bounds[1][1]) // 2
+                    return (x, y)
+
+        # Check children
+        for child in view_tree.get("children", []):
+            coords = self._find_coordinates_for_resource_id(child, resource_id)
+            if coords:
+                return coords
+
+        return None
 
     def _extract_action_type(self, action_text: str) -> str:
         """
@@ -398,11 +499,11 @@ class LLMActionService:
     def _get_target(self, item_action: 'ItemAction', state: Dict[str, Any]) -> str:
         """
         Get the target for an action from the associated view data.
-        
+
         Args:
             item_action: The ItemAction being processed
             state: Current application state
-            
+
         Returns:
             Target string (resource_id or coordinates)
         """
@@ -416,17 +517,27 @@ class LLMActionService:
         if not view_data:
             return ""
 
-        # Try resource_id first
-        if "resource_id" in view_data:
-            return view_data["resource_id"]
-
-        # Fall back to coordinates if bounds are available
+        # Always calculate coordinates when bounds are available
+        coordinates = None
         if "bounds" in view_data:
             bounds = view_data["bounds"]
             if bounds and len(bounds) == 2:
                 x = (bounds[0][0] + bounds[1][0]) // 2
                 y = (bounds[0][1] + bounds[1][1]) // 2
-                return f"{x} {y}"
+                coordinates = (x, y)
+                item_action.coordinates = coordinates
+
+        # Set coordinates explicitly on the action
+        item_action.coordinates = coordinates
+
+        # Try resource_id first
+        if "resource_id" in view_data:
+            return view_data["resource_id"]
+
+        # Fall back to coordinates if bounds are available
+        if coordinates:
+            x, y = coordinates
+            return f"{x} {y}"
 
         return ""
 

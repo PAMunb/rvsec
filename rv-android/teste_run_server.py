@@ -8,7 +8,6 @@ from rvandroid.app import App
 from rvandroid.config.component_config import ComponentConfig
 from rvandroid.llm.huggingface_llm import HuggingFaceLLM
 from rvandroid.llm.ollama_llm import OllamaLLM
-from rvandroid.llm.prompt.prompt_strategy_basic_001 import BasicPromptStrategy001
 from rvandroid.llm.prompt.single_action_prompt_strategy import SingleActionPromptStrategy
 from rvandroid.parser.screen.droidbot.droidbot_parser import DroidBotParser
 from rvandroid.parser.screen.visitor.text_visitor import EnhancedTextVisitor
@@ -22,13 +21,28 @@ def read_droidbot_state(filename):
         return json.load(file)
 
 
+def get_ollama_service(config: ComponentConfig,model_type=OllamaLLM.NAME, model_name=OllamaLLM.LLAMA, ollama_url="http://127.0.0.1:11434"):
+    return LLMActionService(static_data,
+                            model_type=model_type,
+                            model_name=model_name,
+                            component_config=config,
+                            base_url=ollama_url)
+
+
+def get_hugginface_service(config: ComponentConfig, model_type=HuggingFaceLLM.NAME, model_name=HuggingFaceLLM.LLAMA):
+    return LLMActionService(static_data,
+                            model_type=model_type,
+                            model_name=model_name,
+                            component_config=config)
+
+
 if __name__ == '__main__':
     logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
     logging.getLogger("androguard").setLevel(logging.WARNING)
     logging.getLogger("rvandroid.parser.screen.visitor.base_visitor").setLevel(logging.WARNING)
     logging.getLogger("rvandroid.parser.screen.droidbot.droidbot_parser").setLevel(logging.WARNING)
     logging.getLogger("rvandroid.model.window.Window").setLevel(logging.WARNING)
-#rvandroid.parser.static.gesda_parser
+    # rvandroid.parser.static.gesda_parser
     logging.info("Starting...")
 
     screenshots_folder = "/home/pedro/desenvolvimento/RV_ANDROID/teste_llm/screenshots"
@@ -46,15 +60,8 @@ if __name__ == '__main__':
     # config.set_strategy(BasicPromptStrategy001)
     config.set_visitor(EnhancedTextVisitor)
     config.set_parser(DroidBotParser)
-    model_type = OllamaLLM.NAME
-    model_name = OllamaLLM.LLAMA
-    ollama_url = "http://192.168.0.18:11434"
 
-    service = LLMActionService(static_data,
-                               model_type=model_type,
-                               model_name=model_name,
-                               component_config=config,
-                               base_url=ollama_url)
+    service = get_hugginface_service(config)
 
     server = Server(service)
     try:

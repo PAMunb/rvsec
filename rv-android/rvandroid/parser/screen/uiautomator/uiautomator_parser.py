@@ -134,8 +134,8 @@ class UIAutomator2Parser(AbstractScreenParser):
                 node_data[new_key] = value
 
             # Convert bounds to standard format
-            if "bounds" in node_data:
-                bounds = node_data["bounds"]
+            if "bounds" in ui_node_data:
+                bounds = ui_node_data["bounds"]
                 if isinstance(bounds, dict) and all(k in bounds for k in ["left", "top", "right", "bottom"]):
                     node_data["bounds"] = [
                         [bounds["left"], bounds["top"]],

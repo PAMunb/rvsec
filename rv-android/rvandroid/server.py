@@ -134,11 +134,13 @@ class Server:
                 # Validate actions format for DroidBot compatibility
                 validated_actions = self.validate_actions_for_droidbot(actions)
 
-                # Return response
-                return jsonify({
+                response = jsonify({
                     "actions": validated_actions,
-                    "status": "success"
+                    "status": "success" # TODO remover .....
                 })
+                self.logger.info(f"Response: {response}")
+                # Return response
+                return response
 
             except Exception as e:
                 self.logger.error(f"Error processing request: {e}", exc_info=True)
@@ -243,42 +245,52 @@ class Server:
             return response.status_code == 200
         except:
             return False
-        
+
     def validate_actions_for_droidbot(self, actions):
         """
         Ensure actions are in the format expected by DroidBot
         """
         validated = []
-        valid_types = {"click", "long_click", "scroll_up", "scroll_down", 
-                    "scroll_left", "scroll_right", "scroll", "set_text", "key_event"}
-        
+        valid_types = {"click", "long_click", "scroll_up", "scroll_down",
+                       "scroll_left", "scroll_right", "scroll", "set_text", "key_event"}
+
         for action in actions:
             # Ensure required fields
             if "action_type" not in action or not isinstance(action["action_type"], str):
                 continue
-                
+
             action_type = action["action_type"].lower()
-            
+
             # Validate action type
             if action_type not in valid_types:
                 self.logger.warning(f"Invalid action type: {action_type}")
                 continue
-                
+
             # Ensure target is present for view-based actions
             if action_type not in ["key_event"] and "target" not in action:
                 self.logger.warning(f"Missing target for action: {action_type}")
                 continue
-                
+
             # Validate params
             if "params" not in action or not isinstance(action["params"], dict):
                 action["params"] = {}
-                
+
             # Add explanation if missing
             if "explanation" not in action or not action["explanation"]:
                 action["explanation"] = f"Executing {action_type}"
-                
+
+            # Ensure coordinates are included for UI interactions
+            if action_type not in ["key_event"] and "coordinates" not in action:
+                # Try to extract coordinates from target if possible
+                if "target" in action and isinstance(action["target"], str):
+                    target = action["target"]
+                    # Check if target is in format "x y"
+                    if " " in target and all(part.isdigit() for part in target.split()):
+                        x, y = map(int, target.split())
+                        action["coordinates"] = (x, y)
+
             validated.append(action)
-        
+
         return validated
         
         

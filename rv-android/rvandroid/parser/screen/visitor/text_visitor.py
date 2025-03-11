@@ -454,6 +454,17 @@ class EnhancedTextVisitor(BaseScreenVisitor):
         # Store the node data for later use in the ItemAction
         node_data = node.data
 
+        # Extract coordinates from node
+        coordinates = None
+        if hasattr(node, 'get_center_coordinates'):
+            coordinates = node.get_center_coordinates()
+        elif 'bounds' in node_data:
+            bounds = node_data['bounds']
+            if bounds and len(bounds) == 2:
+                x = (bounds[0][0] + bounds[1][0]) // 2
+                y = (bounds[0][1] + bounds[1][1]) // 2
+                coordinates = (x, y)
+
         # Handle check/uncheck actions with priority if needed
         if prioritize_check and node.checkable:
             if node.checked:
@@ -463,7 +474,8 @@ class EnhancedTextVisitor(BaseScreenVisitor):
                     event=WidgetEventType.CLICK,
                     reaches_mop=False,
                     directly_reaches_mop=False,
-                    target_view=node_data
+                    target_view=node_data,
+                    coordinates=coordinates
                 )
                 # Update security information
                 self._update_action_security_info(action, node)
@@ -475,7 +487,8 @@ class EnhancedTextVisitor(BaseScreenVisitor):
                     event=WidgetEventType.CLICK,
                     reaches_mop=False,
                     directly_reaches_mop=False,
-                    target_view=node_data
+                    target_view=node_data,
+                    coordinates=coordinates
                 )
                 # Update security information
                 self._update_action_security_info(action, node)
@@ -489,7 +502,8 @@ class EnhancedTextVisitor(BaseScreenVisitor):
                 event=WidgetEventType.CLICK,
                 reaches_mop=False,
                 directly_reaches_mop=False,
-                target_view=node_data
+                target_view=node_data,
+                coordinates=coordinates
             )
             # Update security information
             self._update_action_security_info(action, node)
@@ -503,7 +517,8 @@ class EnhancedTextVisitor(BaseScreenVisitor):
                 event=WidgetEventType.LONG_CLICK,
                 reaches_mop=False,
                 directly_reaches_mop=False,
-                target_view=node_data
+                target_view=node_data,
+                coordinates=coordinates
             )
             # Update security information
             self._update_action_security_info(action, node)
@@ -518,7 +533,8 @@ class EnhancedTextVisitor(BaseScreenVisitor):
                     event=WidgetEventType.CLICK,
                     reaches_mop=False,
                     directly_reaches_mop=False,
-                    target_view=node_data
+                    target_view=node_data,
+                    coordinates=coordinates
                 )
                 # Update security information
                 self._update_action_security_info(action, node)
@@ -530,7 +546,8 @@ class EnhancedTextVisitor(BaseScreenVisitor):
                     event=WidgetEventType.CLICK,
                     reaches_mop=False,
                     directly_reaches_mop=False,
-                    target_view=node_data
+                    target_view=node_data,
+                    coordinates=coordinates
                 )
                 # Update security information
                 self._update_action_security_info(action, node)
@@ -554,7 +571,8 @@ class EnhancedTextVisitor(BaseScreenVisitor):
                     event=WidgetEventType.SCROLL,
                     reaches_mop=False,
                     directly_reaches_mop=False,
-                    target_view=node_data
+                    target_view=node_data,
+                    coordinates=coordinates
                 )
                 # Update security information
                 self._update_action_security_info(action, node)
@@ -574,7 +592,8 @@ class EnhancedTextVisitor(BaseScreenVisitor):
                 event=WidgetEventType.TEXT_CHANGE,
                 reaches_mop=False,
                 directly_reaches_mop=False,
-                target_view=node_data
+                target_view=node_data,
+                coordinates=coordinates
             )
             # Update security information
             self._update_action_security_info(action, node)

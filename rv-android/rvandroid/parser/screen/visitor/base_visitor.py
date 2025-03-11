@@ -40,6 +40,9 @@ class ItemAction:
     # Additional properties to support droidbot action creation
     target_view: Dict[str, Any] = field(default_factory=dict)
 
+    # Store the coordinates explicitly
+    coordinates: Optional[tuple] = None
+
     @property
     def action_type(self) -> str:
         """Extract the action type from the text description."""
@@ -71,16 +74,21 @@ class ItemAction:
     def to_droidbot_action(self, params: Dict[str, Any] = None) -> Dict[str, Any]:
         """
         Convert this action to a format suitable for droidbot.
-        
+
         Args:
             params: Optional parameters passed from LLM
-            
+
         Returns:
             Action dictionary for droidbot
         """
+        # Get both target identifier and coordinates
+        target = self._get_target()
+        coords = self._get_coordinates()
+
         action_dict = {
             "action_type": self.action_type,
-            "target": self._get_target(),
+            "target": target,
+            "coordinates": coords,  # Add coordinates explicitly
             "params": params or {}
         }
 
@@ -107,7 +115,34 @@ class ItemAction:
                 y = (bounds[0][1] + bounds[1][1]) // 2
                 return f"{x} {y}"
 
+        # Use stored coordinates if available
+        if self.coordinates:
+            x, y = self.coordinates
+            return f"{x} {y}"
+
         return ""
+
+    def _get_coordinates(self) -> Optional[tuple]:
+        """
+        Get the coordinates for this action. Will use stored coordinates first,
+        then try to extract from bounds.
+
+        Returns:
+            Tuple of (x, y) coordinates or None if not available
+        """
+        # Use stored coordinates if available
+        if self.coordinates:
+            return self.coordinates
+
+        # Extract from bounds if available
+        if self.target_view and "bounds" in self.target_view:
+            bounds = self.target_view["bounds"]
+            if bounds and len(bounds) == 2:
+                x = (bounds[0][0] + bounds[1][0]) // 2
+                y = (bounds[0][1] + bounds[1][1]) // 2
+                return (x, y)
+
+        return None
 
 
 @dataclass
