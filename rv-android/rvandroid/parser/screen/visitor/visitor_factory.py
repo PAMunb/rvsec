@@ -64,7 +64,7 @@ class VisitorFactory:
             visitor_class: Visitor implementation class
 
         Raises:
-            TypeError: If visitor_class is not a subclass of BaseScreenVisitor
+            TypeError: If visitor is not a subclass of BaseScreenVisitor
         """
         if not issubclass(visitor_class, BaseScreenVisitor):
             raise TypeError(f"Visitor class must be a subclass of BaseScreenVisitor")

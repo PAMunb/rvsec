@@ -14,6 +14,7 @@ from rvandroid.server import Server
 from rvandroid.parser.static import static_analysis_parser
 from rvandroid.config.component_configurator import ComponentConfigurator
 from rvandroid.llm.huggingface_llm import HuggingFaceLLM
+from rvandroid.service.llm_action_service import LLMActionService
 
 
 def parse_arguments():
@@ -284,7 +285,8 @@ if __name__ == '__main__':
     print("================================\n")
 
     # Cria o serviço
-    service = configurator.create_service()
+    # service = configurator.create_service()
+    service = LLMActionService(static_data, configurator)
 
     # Inicia o servidor
     server = Server(service)

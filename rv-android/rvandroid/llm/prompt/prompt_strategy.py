@@ -16,7 +16,7 @@ class PromptStrategy(ABC):
                  static_data: Optional["StaticAnalysisData"] = None,
                  parser: Union[ParserType, AbstractScreenParser, None] = None):
         """
-        Initialize the prompt strategy.
+        Initialize the prompt strategy_class.
 
         Args:
             static_data: Static analysis data (optional)

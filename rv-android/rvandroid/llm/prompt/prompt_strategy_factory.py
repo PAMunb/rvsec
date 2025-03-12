@@ -21,7 +21,7 @@ class PromptStrategyFactory:
 
     # Mapping of strategy types to their implementation classes
     STRATEGIES = {
-        "basic": BasicPromptStrategy001,  # Adicione esta linha para incluir a estratégia "basic"
+        "basic": BasicPromptStrategy001,
         "single_action": SingleActionPromptStrategy,
         "dspy": DSPyPromptStrategy,
         "frontier": FrontierPromptStrategy,
@@ -33,8 +33,7 @@ class PromptStrategyFactory:
     def create(cls,
                strategy_type: str,
                static_data: Optional[StaticAnalysisData] = None,
-               parser: Union[ParserType, AbstractScreenParser, None] = None,
-               component_config: Optional[ComponentConfig] = None) -> BasePromptStrategy:
+               parser: Union[ParserType, AbstractScreenParser, None] = None) -> BasePromptStrategy:
         """
         Create a prompt strategy instance of the specified type.
 
@@ -42,7 +41,6 @@ class PromptStrategyFactory:
             strategy_type: Type of strategy to create
             static_data: Static analysis data (optional)
             parser: Parser instance or parser type (optional)
-            component_config: Component configuration (optional)
 
         Returns:
             BasePromptStrategy instance

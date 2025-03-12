@@ -3,17 +3,16 @@ import logging
 import time
 from typing import Dict, List, Any, Optional
 
-from rvandroid.config.component_config import ComponentConfig
-from rvandroid.llm.huggingface_llm import HuggingFaceLLM
+from rvandroid.config.component_configurator import ComponentConfigurator
 from rvandroid.llm.llm import LanguageModel
-from rvandroid.llm.llm_config import LLMConfiguration
 from rvandroid.llm.model_factory import ModelFactory
 from rvandroid.llm.prompt.dspy_single_action_prompt_strategy import DSPySingleActionPromptStrategy
 from rvandroid.llm.prompt.prompt_strategy_basic_001 import BasicPromptStrategy001
 from rvandroid.llm.prompt.prompt_strategy_factory import PromptStrategyFactory
 from rvandroid.llm.prompt.single_action_prompt_strategy import SingleActionPromptStrategy
+from rvandroid.model.dynamic_wtg import DynamicTransitionGraph
 from rvandroid.model.static import StaticAnalysisData
-from rvandroid.parser.screen.parser_factory import ParserType, ParserFactory
+from rvandroid.parser.screen.parser_factory import ParserFactory
 
 logger = logging.getLogger(__name__)
 
@@ -22,6 +21,8 @@ class LLMActionService:
     """
     Service that processes application state, generates prompts, sends them to LLM,
     and returns suggested actions.
+
+    Tracks dynamic screen transitions and uses this information to improve test coverage.
 
     Expected LLM Response Format:
     -----------------------------
@@ -53,15 +54,28 @@ class LLMActionService:
     The service will convert these actions to the format required by DroidBot.
     """
 
+    # def __init__(
+    #         self,
+    #         static_data: Optional[StaticAnalysisData] = None,
+    #         model_type: str = HuggingFaceLLM.NAME,
+    #         model_name: str = HuggingFaceLLM.LLAMA,
+    #         strategy_type: str = "basic",
+    #         parser_type: ParserType = ParserType.DROIDBOT,
+    #         config: Optional[LLMConfiguration] = None,
+    #         component_config: Optional[ComponentConfig] = None,
+    #         dynamic_wtg_file: str = "dynamic_wtg.json",
+    #         **model_kwargs
+    # ):
     def __init__(
             self,
             static_data: Optional[StaticAnalysisData] = None,
-            model_type: str = HuggingFaceLLM.NAME,
-            model_name: str = HuggingFaceLLM.LLAMA,
-            strategy_type: str = "basic",
-            parser_type: ParserType = ParserType.DROIDBOT,
-            config: Optional[LLMConfiguration] = None,
-            component_config: Optional[ComponentConfig] = None,
+            config: Optional[ComponentConfigurator] = None,
+            # model_type: str = HuggingFaceLLM.NAME,
+            # model_name: str = HuggingFaceLLM.LLAMA,
+            # strategy_type: str = "basic",
+            # parser_type: ParserType = ParserType.DROIDBOT,
+            # config: Optional[LLMConfiguration] = None,
+            dynamic_wtg_file: str = "dynamic_wtg.json",
             **model_kwargs
     ):
         """
@@ -75,48 +89,58 @@ class LLMActionService:
             parser_type: Type of parser to use
             config: LLMConfiguration instance (overrides other parameters if provided)
             component_config: ComponentConfig for customizing components (optional)
+            dynamic_wtg_file: File to store/load dynamic transition graph
             **model_kwargs: Additional arguments for the model constructor
         """
         self.static_data = static_data
-        self.component_config = component_config
+        self.config = config
+        self.dynamic_wtg_file = dynamic_wtg_file
 
-        # Use config if provided, otherwise use parameters
-        if config:
-            self.model_type = config.get_model_type()
-            self.model_name = config.get_model_name()
-            self.strategy_type = config.get_strategy_type()
-            self.parser_type = config.get_parser_type()
-            self.model_kwargs = config.get_model_kwargs()
-            self.max_tokens = config.get_max_tokens()
-        # if component_config: # TODO unificar a configuracao
-        #     self.model_type = component_config.llm_config["type"]
-        #     self.model_name = component_config.llm_config["model"]
-        #     self.strategy_type = component_config.component_config.get_strategy_type()
-        #     self.parser_type = component_config.component_config.get_parser_type()
-        else:
-            self.model_type = model_type
-            self.model_name = model_name
-            self.strategy_type = strategy_type
-            self.parser_type = parser_type
-            self.model_kwargs = model_kwargs
-            self.max_tokens = model_kwargs.pop("max_tokens", 800)
+        # # Use config if provided, otherwise use parameters
+        # if config:
+        #     self.model_type = config.get_model_type()
+        #     self.model_name = config.get_model_name()
+        #     self.strategy_type = config.get_strategy_type()
+        #     self.parser_type = config.get_parser_type()
+        #     self.model_kwargs = config.get_model_kwargs()
+        #     self.max_tokens = config.get_max_tokens()
+        # # if component_config: # TODO unificar a configuracao
+        # #     self.model_type = component_config.llm_config["type"]
+        # #     self.model_name = component_config.llm_config["model"]
+        # #     self.strategy_type = component_config.component_config.get_strategy_type()
+        # #     self.parser_type = component_config.component_config.get_parser_type()
+        # else:
+        #     self.model_type = model_type
+        #     self.model_name = model_name
+        #     self.strategy_type = strategy_type
+        #     self.parser_type = parser_type
+        self.model_type = config.llm_config["type"]
+        self.model_name = config.llm_config["model"]
+        self.model_kwargs = model_kwargs
+        self.max_tokens = model_kwargs.pop("max_tokens", 800)
 
-        # Set up prompt strategy with custom component config if provided
-        if self.component_config:
-            self.prompt_strategy = PromptStrategyFactory.create(
-                self.strategy_type, self.static_data, parser_type, self.component_config)
-        else:
-            parser = ParserFactory.create(parser_type)
-            self.prompt_strategy = PromptStrategyFactory.create(
-                self.strategy_type, self.static_data, parser)
+        # Set up prompt strategy
+        self.prompt_strategy = config.create_strategy(static_data)
+        # if self.config.strategy_class:
+        #     self.prompt_strategy = config.create_strategy(static_data)
+            # self.prompt_strategy = PromptStrategyFactory.create(
+            #     self.config.strategy, self.static_data, parser_type)
+        # else:
+        #     parser = ParserFactory.create(parser_type)
+        #     self.prompt_strategy = PromptStrategyFactory.create(
+        #         self.strategy_type, self.static_data, parser)
 
         # Initialize logger but defer LLM initialization until needed
         self.llm: Optional[LanguageModel] = None
         self.logger = logger
 
-        self.logger.info(f"Initialized LLM Action Service with model_type={self.model_type}, "
-                         f"model_name={self.model_name}, strategy_type={self.strategy_type}, "
-                         f"parser_type={self.parser_type}")
+        # Initialize dynamic transition graph or load from file
+        saved_graph = DynamicTransitionGraph.load_from_file(dynamic_wtg_file)
+        self.dynamic_wtg = saved_graph if saved_graph else DynamicTransitionGraph()
+
+        self.logger.info(f"Initialized LLM Action Service with model_type={self.config.llm_config["type"]}, "
+                         f"model_name={self.config.llm_config["model"]}, strategy={self.config.strategy_class}, "
+                         f"parser_type={self.config.parser_class}, visitor={self.config.visitor_class}")
 
     def _get_llm(self) -> LanguageModel:
         """
@@ -131,11 +155,7 @@ class LLMActionService:
         if not self.llm:
             self.logger.info(f"Initializing {self.model_type} LLM with model: {self.model_name}")
             try:
-                self.llm = ModelFactory.create(
-                    self.model_type,
-                    self.model_name,
-                    **self.model_kwargs
-                )
+                self.llm = self.config.create_llm()
                 self.logger.info(f"Successfully initialized {self.model_type} model")
             except Exception as e:
                 self.logger.error(f"Failed to initialize LLM: {e}", exc_info=True)
@@ -166,7 +186,6 @@ class LLMActionService:
         # Return just the first action in a list for consistency
         return [actions[0]]
 
-    # Changes to LLMActionService.process_state method
     def process_state(self, state: Dict[str, Any]) -> List[Dict[str, Any]]:
         """
         Process the current application state and return suggested actions.
@@ -186,6 +205,15 @@ class LLMActionService:
         app_package = state.get("package_name", "unknown")
         app_activity = state.get("activity", "unknown")
         self.logger.debug(f"Processing state for app: {app_package}, activity: {app_activity}")
+
+        # Update dynamic transition graph
+        self.update_dynamic_transitions(state)
+
+        # Get transition guidance
+        transition_guidance = self.get_transition_guidance(app_activity)
+
+        # Add guidance to state for use in prompts
+        state["transition_guidance"] = transition_guidance
 
         try:
             # Log action history length if available
@@ -253,6 +281,9 @@ class LLMActionService:
                 state["action_history"] = enhanced_history
                 self.logger.debug(f"Enhanced action history now has {len(enhanced_history)} entries")
 
+            # Add action-specific history information
+            self._add_action_specific_history(state)
+
             # Generate prompts using the selected strategy
             self.logger.debug(f"Generating prompts using {self.prompt_strategy.__class__.__name__}")
             messages = self.prompt_strategy.generate_prompts(state)
@@ -287,19 +318,35 @@ class LLMActionService:
 
             # Process actions based on the prompt strategy used
             self.logger.debug(f"Processing actions with strategy: {self.prompt_strategy.__class__.__name__}")
-            if isinstance(self.prompt_strategy, BasicPromptStrategy001):
-                # Handle action_id based format - multiple actions allowed
-                self.logger.debug("Using action_id format processing")
-                validated_actions = self._process_action_id_format(action_data, state)
-            elif isinstance(self.prompt_strategy, SingleActionPromptStrategy) or isinstance(self.prompt_strategy,
-                                                                                            DSPySingleActionPromptStrategy):
+            if isinstance(self.prompt_strategy, (SingleActionPromptStrategy, DSPySingleActionPromptStrategy)):
                 # Handle single action format - strictly enforce one action
                 self.logger.debug("Using single action format processing")
                 validated_actions = self._process_action_id_format(self._extract_single_action(action_data), state)
+            elif isinstance(self.prompt_strategy, BasicPromptStrategy001):
+                # Handle action_id based format - multiple actions allowed
+                self.logger.debug("Using action_id format processing")
+                validated_actions = self._process_action_id_format(action_data, state)
             else:
                 # Handle standard action_type format
                 self.logger.debug("Using standard action_type format processing")
                 validated_actions = self._validate_actions(action_data)
+
+            # Update the dynamic transition graph with the chosen actions
+            self._update_graph_with_actions(state, validated_actions)
+
+            # Track the current activity for the next state
+            try:
+                current_activity = self.prompt_strategy.parser.get_activity_name(state)
+                # Add metadata to all actions
+                for action in validated_actions:
+                    if "meta" not in action:
+                        action["meta"] = {}
+                    action["meta"]["previous_activity"] = current_activity
+            except Exception as e:
+                self.logger.warning(f"Could not add current activity to metadata: {e}")
+
+            # Save the dynamic transition graph periodically
+            # self.save_dynamic_transition_graph()
 
             self.logger.info(f"Successfully processed state and generated {len(validated_actions)} actions")
             self.logger.debug(f"Final actions: {validated_actions}")
@@ -310,6 +357,78 @@ class LLMActionService:
             self.logger.error(f"Error processing state: {e}", exc_info=True)
             self.logger.info("Generating fallback actions")
             return self._generate_fallback_actions(state)
+
+    def _add_action_specific_history(self, state: Dict[str, Any]) -> None:
+        """
+        Add action-specific history information to the state.
+        This helps the LLM understand the history of each possible action.
+
+        Args:
+            state: State dictionary to augment with action history
+        """
+        try:
+            # Parse screen to get available actions
+            screen_description = self.prompt_strategy.parser.parse(state, self.static_data)
+
+            # Get current activity
+            activity = self.prompt_strategy.parser.get_activity_name(state)
+
+            # Get all action IDs
+            action_ids = set()
+            for item in screen_description.items:
+                for action in item.actions:
+                    action_ids.add(str(action.id))
+
+            # Get action history
+            action_history = state.get("action_history", [])
+
+            # Create action-specific history
+            action_specific_history = {}
+
+            for action_id in action_ids:
+                # Filter history entries that reference this action ID
+                specific_history = [
+                    entry for entry in action_history
+                    if isinstance(entry, str) and f"[Action ID: {action_id}]" in entry
+                ]
+
+                # Store in the dictionary
+                action_specific_history[action_id] = specific_history
+
+                # Check if this action has been tested yet
+                is_tested = len(specific_history) > 0
+
+                # Update the dynamic WTG if the action has been tested
+                if is_tested:
+                    self.dynamic_wtg.record_action(activity, action_id)
+
+            # Add to state
+            state["action_specific_history"] = action_specific_history
+
+        except Exception as e:
+            self.logger.error(f"Error adding action-specific history: {e}", exc_info=True)
+
+    def _update_graph_with_actions(self, state: Dict[str, Any], actions: List[Dict[str, Any]]) -> None:
+        """
+        Update the dynamic transition graph with information about chosen actions.
+
+        Args:
+            state: Current application state
+            actions: List of selected actions
+        """
+        try:
+            activity = self.prompt_strategy.parser.get_activity_name(state)
+
+            for action in actions:
+                action_id = action.get("action_id", None)
+                if action_id:
+                    # Record that this action was chosen for this activity
+                    self.dynamic_wtg.record_action(activity, action_id)
+
+        except Exception as e:
+            self.logger.error(f"Error updating graph with actions: {e}", exc_info=True)
+
+    # rvandroid/service/llm_action_service.py - _process_action_id_format method update
 
     def _process_action_id_format(self, llm_actions: List[Dict[str, Any]], state: Dict[str, Any]) -> List[
         Dict[str, Any]]:
@@ -365,7 +484,8 @@ class LLMActionService:
         droidbot_actions = []
 
         # For single action strategies, ALWAYS limit to the first action only
-        if isinstance(self.prompt_strategy, SingleActionPromptStrategy) or isinstance(self.prompt_strategy, DSPySingleActionPromptStrategy):
+        if isinstance(self.prompt_strategy, SingleActionPromptStrategy) or isinstance(self.prompt_strategy,
+                                                                                      DSPySingleActionPromptStrategy):
             if len(llm_actions) > 1:
                 self.logger.warning(
                     f"Single action strategy detected with {len(llm_actions)} actions. Strictly limiting to first action only.")
@@ -962,10 +1082,22 @@ class LLMActionService:
                 break
             self._extract_clickable_elements(child, actions, max_elements)
 
+    def save_dynamic_transition_graph(self) -> bool:
+        """
+        Save the dynamic transition graph to file.
+
+        Returns:
+            True if successful, False otherwise
+        """
+        return self.dynamic_wtg.save_to_file(self.dynamic_wtg_file)
+
     def cleanup(self):
         """
         Clean up resources used by the service.
         """
+        # Save dynamic transition graph before cleanup
+        self.save_dynamic_transition_graph()
+
         if self.llm:
             try:
                 self.llm.clean()
@@ -973,3 +1105,106 @@ class LLMActionService:
                 self.logger.info("Cleaned up LLM resources")
             except Exception as e:
                 self.logger.warning(f"Error cleaning up LLM: {e}")
+
+    # rvandroid/service/llm_action_service.py - Add the following methods
+
+    def update_dynamic_transitions(self, state: Dict[str, Any], executed_action: Dict[str, Any] = None) -> None:
+        """
+        Update dynamic transition graph with information about the current state.
+
+        Args:
+            state: Current application state
+            executed_action: The action that was executed to reach this state (if known)
+        """
+        try:
+            # Get current activity
+            current_activity = self.prompt_strategy.parser.get_activity_name(state)
+
+            # Record visit to this activity
+            self.dynamic_wtg.record_visit(current_activity)
+
+            # If we have an executed action and we're tracking transitions
+            if executed_action and 'previous_activity' in state:
+                previous_activity = state['previous_activity']
+                action_id = executed_action.get('action_id', 'unknown')
+                action_type = executed_action.get('action_type', 'unknown')
+
+                # Record transition
+                self.dynamic_wtg.record_transition(
+                    previous_activity,
+                    current_activity,
+                    action_id,
+                    action_type
+                )
+
+                self.logger.info(
+                    f"Recorded transition: {previous_activity} -> {current_activity} via action {action_id}")
+
+        except Exception as e:
+            self.logger.error(f"Error updating dynamic transitions: {e}", exc_info=True)
+
+    def get_transition_guidance(self, activity: str) -> Dict[str, Any]:
+        """
+        Get guidance information based on dynamic transitions for the current activity.
+
+        Args:
+            activity: Current activity name
+
+        Returns:
+            Dictionary with transition guidance information
+        """
+        guidance = {
+            "current_activity": activity,
+            "visit_count": 0,
+            "suggested_targets": [],
+            "unexplored_elements": [],
+            "visited_activities": [],
+            "least_visited_activities": []
+        }
+
+        try:
+            # Normalize activity name by removing the '/' character if present
+            normalized_activity = activity.replace("/", ".")
+            if normalized_activity.endswith(".."):
+                normalized_activity = normalized_activity[:-1]
+
+            # Get activity node
+            activity_node = self.dynamic_wtg.activities.get(normalized_activity)
+            if activity_node:
+                guidance["visit_count"] = activity_node.visit_count
+                guidance["unexplored_elements"] = list(activity_node.ui_elements_tested)
+
+            # Get visited activities
+            guidance["visited_activities"] = [
+                {"name": name, "visits": node.visit_count}
+                for name, node in self.dynamic_wtg.activities.items()
+            ]
+
+            # Get suggested target activities - use normalized activity name for lookup
+            if normalized_activity in self.dynamic_wtg.graph:
+                neighbors = list(self.dynamic_wtg.graph.neighbors(normalized_activity))
+                least_visited = []
+
+                if neighbors:
+                    # Sort neighbors by visit count
+                    neighbor_visits = [
+                        {"name": n, "visits": self.dynamic_wtg.activities[n].visit_count}
+                        for n in neighbors
+                    ]
+                    neighbor_visits.sort(key=lambda x: x["visits"])
+                    guidance["suggested_targets"] = neighbor_visits[:3]
+            else:
+                # If the activity is not in the graph yet, add it
+                self.dynamic_wtg.add_activity(normalized_activity)
+                guidance["suggested_targets"] = []
+
+            # Get overall least visited activities
+            least_visited_tuples = self.dynamic_wtg.get_least_visited_activities(5)
+            guidance["least_visited_activities"] = [
+                {"name": name, "visits": count} for name, count in least_visited_tuples
+            ]
+
+        except Exception as e:
+            self.logger.error(f"Error getting transition guidance: {e}", exc_info=True)
+
+        return guidance

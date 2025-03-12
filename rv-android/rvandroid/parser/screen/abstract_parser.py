@@ -17,13 +17,13 @@ class AbstractScreenParser(ABC):
         Initialize the parser.
         
         Args:
-            visitor_factory: Optional factory function to create visitor instances
+            visitor_factory: Optional factory function to create visitor_class instances
         """
         self.visitor_factory = visitor_factory
 
     def _create_visitor(self, static_data: Optional["StaticAnalysisData"], activity: str) -> BaseScreenVisitor:
         """
-        Create a visitor instance using the factory if provided, otherwise use default.
+        Create a visitor_class instance using the factory if provided, otherwise use default.
         
         Args:
             static_data: Static analysis data

@@ -8,6 +8,7 @@ from rvandroid.parser.screen.droidbot.droidbot_parser import DroidBotParser
 from rvandroid.parser.screen.visitor.base_visitor import BaseScreenVisitor
 from rvandroid.parser.screen.visitor.text_visitor import EnhancedTextVisitor
 
+# TODO DEPRECATED
 
 class ComponentConfig:
     """

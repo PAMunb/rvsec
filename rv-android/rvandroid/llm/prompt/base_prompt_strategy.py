@@ -1,9 +1,10 @@
 # rvandroid/llm/prompt/base_prompt_strategy.py
 import logging
-from typing import Dict, List, Any, Optional
+from typing import Dict, List, Any, Optional, Union
 
 from rvandroid.llm.prompt.prompt_strategy import PromptStrategy
 from rvandroid.model.static import StaticAnalysisData
+from rvandroid.parser.screen.abstract_parser import AbstractScreenParser
 from rvandroid.parser.screen.parser_factory import ParserType
 
 
@@ -13,7 +14,7 @@ class BasePromptStrategy(PromptStrategy):
     Contains shared system prompts, utility methods, and basic structure.
     """
 
-    def __init__(self, static_data: Optional[StaticAnalysisData] = None, parser_type: ParserType = ParserType.DROIDBOT):
+    def __init__(self, static_data: Optional[StaticAnalysisData] = None, parser_type: Union[ParserType, AbstractScreenParser, None] = ParserType.DROIDBOT):
         super().__init__(static_data, parser_type)
         self.logger = logging.getLogger(__name__)
 

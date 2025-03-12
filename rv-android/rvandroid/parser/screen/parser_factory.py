@@ -83,7 +83,7 @@ class ParserFactory:
             parser_class: Parser implementation class
 
         Raises:
-            TypeError: If parser_class is not a subclass of AbstractScreenParser
+            TypeError: If parser is not a subclass of AbstractScreenParser
         """
         if not issubclass(parser_class, AbstractScreenParser):
             raise TypeError(f"Parser class must be a subclass of AbstractScreenParser")

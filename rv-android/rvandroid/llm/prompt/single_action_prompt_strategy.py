@@ -1,20 +1,23 @@
 # rvandroid/llm/prompt/single_action_prompt_strategy.py
-from typing import Dict, Optional
+from typing import Dict, Optional, Any, Union
 
 from rvandroid.llm.prompt.base_prompt_strategy import BasePromptStrategy
 from rvandroid.model.static import StaticAnalysisData
+from rvandroid.parser.screen.abstract_parser import AbstractScreenParser
 from rvandroid.parser.screen.parser_factory import ParserType
 
 
 class SingleActionPromptStrategy(BasePromptStrategy):
     """
-    Prompt strategy that generates a single action at a time based on detailed action history.
-    This strategy encourages the LLM to build upon previous actions by providing a rich history context.
+    Prompt strategy_class that generates a single action at a time based on detailed action history.
+    This strategy_class encourages the LLM to build upon previous actions by providing a rich history context.
     """
 
-    def __init__(self, static_data: Optional[StaticAnalysisData] = None, parser_type: ParserType = ParserType.DROIDBOT):
+    def __init__(self, static_data: Optional[StaticAnalysisData] = None, parser_type: Union[ParserType, AbstractScreenParser, None] = ParserType.DROIDBOT):
         super().__init__(static_data, parser_type)
         self.logger.info("Using SingleActionPromptStrategy for action generation")
+
+    # rvandroid/llm/prompt/single_action_prompt_strategy.py
 
     def generate_system_prompt(self) -> str:
         """
@@ -95,6 +98,11 @@ DO NOT include any additional text outside of the JSON array. Your response must
             # Begin building the prompt
             prompt = f"Current Activity: {activity}\n\n"
 
+            # Add transition guidance if available
+            transition_guidance = state.get("transition_guidance")
+            if transition_guidance:
+                prompt += self._add_transition_guidance(transition_guidance)
+
             # Add static analysis context if available
             static_context = self._add_static_analysis_context(activity)
             prompt += static_context
@@ -124,8 +132,15 @@ DO NOT include any additional text outside of the JSON array. Your response must
                             elif action.reaches_mop:
                                 importance_tag = " [IMPORTANT: Can reach operation of interest]"
 
+                            # Add usage history context
+                            history_tag = ""
+                            action_specific_history = state.get("action_specific_history", {}).get(str(action.id), [])
+                            if action_specific_history:
+                                count = len(action_specific_history)
+                                history_tag = f" [Previously used {count} times]"
+
                             # Create detailed action description
-                            action_desc = f"  - {action.text} (action_id: \"{action.id}\"){importance_tag}"
+                            action_desc = f"  - {action.text} (action_id: \"{action.id}\"){importance_tag}{history_tag}"
 
                             # Check for transitions based on this action
                             transitions = self._get_transitions_for_action(activity, widget_id, action)
@@ -134,123 +149,128 @@ DO NOT include any additional text outside of the JSON array. Your response must
 
                             prompt += action_desc + "\n"
 
-                    # Add guidance for parameterized actions
-                    has_text_action = any(a.text.startswith("SET_TEXT") for a in item.actions)
-                    if has_text_action:
-                        hint = ""
-                        if "hint" in view and view["hint"]:
-                            hint = f" (hint: {view['hint']})"
-                        elif "content_description" in view and view["content_description"]:
-                            hint = f" (description: {view['content_description']})"
-                        elif widget_text:
-                            hint = f" (current text: {widget_text})"
+                            # Add most recent usage of this action if available
+                            if action_specific_history and len(action_specific_history) > 0:
+                                last_usage = action_specific_history[-1]
+                                prompt += f"    Last usage: {last_usage}\n"
 
-                        input_type = self._infer_input_type(view, widget_id)
-                        if input_type:
-                            prompt += f"  Input type appears to be: {input_type}{hint}\n"
+                        # Add guidance for parameterized actions
+                        has_text_action = any(a.text.startswith("SET_TEXT") for a in item.actions)
+                        if has_text_action:
+                            hint = ""
+                            if "hint" in view and view["hint"]:
+                                hint = f" (hint: {view['hint']})"
+                            elif "content_description" in view and view["content_description"]:
+                                hint = f" (description: {view['content_description']})"
+                            elif widget_text:
+                                hint = f" (current text: {widget_text})"
 
-                    # Add static info if available
-                    static_info = self._get_widget_static_info(activity, widget_id)
-                    if static_info:
-                        prompt += f"  Static analysis: {static_info}\n"
+                            input_type = self._infer_input_type(view, widget_id)
+                            if input_type:
+                                prompt += f"  Input type appears to be: {input_type}{hint}\n"
 
-            # Get action history if available
-            action_history = state.get("action_history", []) if "action_history" in state else []
+                        # Add static info if available
+                        static_info = self._get_widget_static_info(activity, widget_id)
+                        if static_info:
+                            prompt += f"  Static analysis: {static_info}\n"
 
-            # Add workflow guidance based on detected UI elements and action history
-            workflow_guidance = self._add_workflow_guidance(screen_description, action_history)
-            prompt += workflow_guidance
+                # Get action history if available
+                action_history = state.get("action_history", []) if "action_history" in state else []
 
-            # Add enhanced action history
-            if action_history:
-                prompt += "\nACTION HISTORY (most recent actions last):\n"
-                recent_actions = action_history[-30:] if len(action_history) > 30 else action_history
+                # Add workflow guidance based on detected UI elements and action history
+                workflow_guidance = self._add_workflow_guidance(screen_description, action_history)
+                prompt += workflow_guidance
 
-                for i, action in enumerate(recent_actions):
-                    prompt += f"{i + 1}. {action}\n"
+                # Add enhanced action history
+                if action_history:
+                    prompt += "\nACTION HISTORY (most recent actions last):\n"
+                    recent_actions = action_history[-30:] if len(action_history) > 30 else action_history
 
-            # Add instructions with balanced emphasis on workflow completion
-            prompt += f"\nSUMMARY: You are testing the {activity} screen. Based on the action history and current state, SELECT ONE ACTION from the available options above that would be the most logical next step in testing this screen."
+                    for i, action in enumerate(recent_actions):
+                        prompt += f"{i + 1}. {action}\n"
 
-            # Detect if there are unselected dropdowns
-            has_dropdowns = any(
-                "Dropdown spinner" in item.base_description for item in screen_description.items)
-            dropdown_clicked = False
-            for action in action_history:
-                if isinstance(action, str) and "click" in action.lower() and any(
-                        spinner_term in action.lower() for spinner_term in ["spinner", "dropdown"]):
-                    dropdown_clicked = True
-                    break
+                # Add instructions with balanced emphasis on workflow completion
+                prompt += f"\nSUMMARY: You are testing the {activity} screen. Based on the action history and current state, SELECT ONE ACTION from the available options above that would be the most logical next step in testing this screen."
 
-            # Analyze if form fields have been filled
-            inputs_filled = any(isinstance(action, str) and "set_text" in action.lower() for action in
-                                action_history) if action_history else False
+                # Detect if there are unselected dropdowns
+                has_dropdowns = any(
+                    "Dropdown spinner" in item.base_description for item in screen_description.items)
+                dropdown_clicked = False
+                for action in action_history:
+                    if isinstance(action, str) and "click" in action.lower() and any(
+                            spinner_term in action.lower() for spinner_term in ["spinner", "dropdown"]):
+                        dropdown_clicked = True
+                        break
 
-            # Detect action buttons
-            action_buttons = []
-            for item in screen_description.items:
-                if "Button" in item.base_description:
-                    view_text = item.view.get("text", "").lower() if item.view.get("text") else ""
-                    if view_text and any(keyword in view_text for keyword in
-                                         ["submit", "login", "save", "apply", "ok", "next", "continue",
-                                          "generate", "create", "send", "search", "encrypt", "decrypt"]):
-                        action_buttons.append(item)
+                # Analyze if form fields have been filled
+                inputs_filled = any(isinstance(action, str) and "set_text" in action.lower() for action in
+                                    action_history) if action_history else False
 
-            # Check for repetitive actions
-            repeated_button_clicks = 0
-            if action_history and len(action_history) >= 3:
-                # Check the last few actions
-                for i in range(min(5, len(action_history))):
-                    action = action_history[-(i + 1)]
-                    if isinstance(action, str) and "click" in action.lower():
-                        if action_buttons:
-                            button_text = action_buttons[0].view.get("text", "").lower()
-                            if button_text in action.lower():
-                                repeated_button_clicks += 1
-
-            # Add specific guidance based on form state
-            if repeated_button_clicks >= 3:
-                # Find back button action ID
-                back_action_id = None
+                # Detect action buttons
+                action_buttons = []
                 for item in screen_description.items:
-                    if "System back button" in item.base_description:
-                        for action in item.actions:
-                            if "BACK" in action.text:
-                                back_action_id = action.id
-                                break
+                    if "Button" in item.base_description:
+                        view_text = item.view.get("text", "").lower() if item.view.get("text") else ""
+                        if view_text and any(keyword in view_text for keyword in
+                                             ["submit", "login", "save", "apply", "ok", "next", "continue",
+                                              "generate", "create", "send", "search", "encrypt", "decrypt"]):
+                            action_buttons.append(item)
 
-                if back_action_id:
-                    prompt += f"\n\nIMPORTANT: You have repeatedly clicked the same button multiple times. Consider using the BACK button (action_id: \"{back_action_id}\") to explore other parts of the application."
-                else:
-                    prompt += "\n\nIMPORTANT: You have repeatedly clicked the same button multiple times. Consider navigating back to explore other parts of the application."
-            elif has_dropdowns and not dropdown_clicked:
-                spinner_action_id = None
-                # Find the dropdown spinner's click action ID
-                for item in screen_description.items:
-                    if "Dropdown spinner" in item.base_description:
-                        for action in item.actions:
-                            if "CLICK" in action.text:
-                                spinner_action_id = action.id
-                                break
+                # Check for repetitive actions
+                repeated_button_clicks = 0
+                if action_history and len(action_history) >= 3:
+                    # Check the last few actions
+                    for i in range(min(5, len(action_history))):
+                        action = action_history[-(i + 1)]
+                        if isinstance(action, str) and "click" in action.lower():
+                            if action_buttons:
+                                button_text = action_buttons[0].view.get("text", "").lower()
+                                if button_text in action.lower():
+                                    repeated_button_clicks += 1
 
-                if spinner_action_id:
-                    prompt += f"\n\nCRITICAL: You must CLICK the dropdown first (action_id: \"{spinner_action_id}\") to open it before you can select from it."
-                else:
-                    prompt += "\n\nCRITICAL: You must CLICK the dropdown first to open it before you can select from it."
-            elif inputs_filled and action_buttons and (not has_dropdowns or dropdown_clicked):
-                if repeated_button_clicks < 3:
-                    button_text = action_buttons[0].view.get("text", "action")
-                    prompt += f"\n\nIMPORTANT: Input fields have been filled based on previous actions. Consider clicking the {button_text} button to complete the workflow."
-            elif action_buttons and not inputs_filled and (not has_dropdowns or dropdown_clicked):
-                prompt += "\n\nREMINDER: For forms, fill all required fields before clicking action buttons."
+                # Add specific guidance based on form state
+                if repeated_button_clicks >= 3:
+                    # Find back button action ID
+                    back_action_id = None
+                    for item in screen_description.items:
+                        if "System back button" in item.base_description:
+                            for action in item.actions:
+                                if "BACK" in action.text:
+                                    back_action_id = action.id
+                                    break
 
-            # Add special instructions for screen transitions
-            if "can_transition_to" in static_context:
-                prompt += "\n\nNOTE: If you decide to test a screen transition, consider whether it's the right time to navigate away from the current screen based on what has been tested so far."
+                    if back_action_id:
+                        prompt += f"\n\nIMPORTANT: You have repeatedly clicked the same button multiple times. Consider using the BACK button (action_id: \"{back_action_id}\") to explore other parts of the application."
+                    else:
+                        prompt += "\n\nIMPORTANT: You have repeatedly clicked the same button multiple times. Consider navigating back to explore other parts of the application."
+                elif has_dropdowns and not dropdown_clicked:
+                    spinner_action_id = None
+                    # Find the dropdown spinner's click action ID
+                    for item in screen_description.items:
+                        if "Dropdown spinner" in item.base_description:
+                            for action in item.actions:
+                                if "CLICK" in action.text:
+                                    spinner_action_id = action.id
+                                    break
 
-            prompt += "\n\n⚠️ CRITICAL INSTRUCTION: You MUST return EXACTLY ONE action. Do not suggest multiple actions, even if you think more than one action would be useful. Your response should be a JSON array containing EXACTLY ONE object with 'action_id', 'params', and 'explanation' fields."
+                    if spinner_action_id:
+                        prompt += f"\n\nCRITICAL: You must CLICK the dropdown first (action_id: \"{spinner_action_id}\") to open it before you can select from it."
+                    else:
+                        prompt += "\n\nCRITICAL: You must CLICK the dropdown first to open it before you can select from it."
+                elif inputs_filled and action_buttons and (not has_dropdowns or dropdown_clicked):
+                    if repeated_button_clicks < 3:
+                        button_text = action_buttons[0].view.get("text", "action")
+                        prompt += f"\n\nIMPORTANT: Input fields have been filled based on previous actions. Consider clicking the {button_text} button to complete the workflow."
+                elif action_buttons and not inputs_filled and (not has_dropdowns or dropdown_clicked):
+                    prompt += "\n\nREMINDER: For forms, fill all required fields before clicking action buttons."
 
-            return prompt
+                # Add special instructions for screen transitions
+                if "can_transition_to" in static_context:
+                    prompt += "\n\nNOTE: If you decide to test a screen transition, consider whether it's the right time to navigate away from the current screen based on what has been tested so far."
+
+                prompt += "\n\n⚠️ CRITICAL INSTRUCTION: You MUST return EXACTLY ONE action. Do not suggest multiple actions, even if you think more than one action would be useful. Your response should be a JSON array containing EXACTLY ONE object with 'action_id', 'params', and 'explanation' fields."
+
+                return prompt
 
         except Exception as e:
             # Handle any errors during prompt generation
@@ -263,3 +283,45 @@ DO NOT include any additional text outside of the JSON array. Your response must
                 "[{\"action_id\": \"1\", \"params\": {}, \"explanation\": \"Basic test action\"}]"
             )
             return simple_prompt
+
+    def _add_transition_guidance(self, guidance: Dict[str, Any]) -> str:
+        """
+        Add transition guidance information to the prompt.
+
+        Args:
+            guidance: Transition guidance dictionary
+
+        Returns:
+            Formatted transition guidance string
+        """
+        output = "Screen Transition Analysis:\n"
+
+        # Add current activity visit information
+        output += f"- Current activity has been visited {guidance['visit_count']} time(s)\n"
+
+        # Add information about visited activities
+        visited_activities = guidance.get('visited_activities', [])
+        if visited_activities:
+            output += f"- Total of {len(visited_activities)} activities visited during testing\n"
+
+        # Add information about least visited activities
+        least_visited = guidance.get('least_visited_activities', [])
+        if least_visited:
+            output += "- Least visited activities:\n"
+            for activity in least_visited[:3]:  # Top 3
+                output += f"  * {activity['name']} ({activity['visits']} visit(s))\n"
+
+        # Add information about suggested targets
+        suggested_targets = guidance.get('suggested_targets', [])
+        if suggested_targets:
+            output += "- Suggested target activities for exploration:\n"
+            for target in suggested_targets:
+                output += f"  * {target['name']} ({target['visits']} visit(s))\n"
+
+        # Add unexplored elements information
+        unexplored_elements = guidance.get('unexplored_elements', [])
+        if unexplored_elements:
+            remaining = len(unexplored_elements)
+            output += f"- {remaining} UI elements on this screen have not yet been tested\n"
+
+        return output + "\n"

@@ -3,6 +3,7 @@ import logging
 from typing import Dict, Any, Type, Optional, List, Union
 
 from rvandroid.llm.llm import LanguageModel
+from rvandroid.llm.model_factory import ModelFactory
 from rvandroid.llm.ollama_llm import OllamaLLM
 from rvandroid.llm.huggingface_llm import HuggingFaceLLM
 from rvandroid.llm.dspy_llm import DSPyLLM
@@ -17,12 +18,13 @@ from rvandroid.llm.prompt.single_action_prompt_strategy import SingleActionPromp
 
 from rvandroid.parser.screen.abstract_parser import AbstractScreenParser
 from rvandroid.parser.screen.droidbot.droidbot_parser import DroidBotParser
+from rvandroid.parser.screen.parser_factory import ParserType
 from rvandroid.parser.screen.uiautomator.uiautomator_parser import UIAutomator2Parser
 
 from rvandroid.parser.screen.visitor.base_visitor import BaseScreenVisitor
 from rvandroid.parser.screen.visitor.text_visitor import EnhancedTextVisitor
 
-from rvandroid.service.llm_action_service import LLMActionService
+# from rvandroid.service.llm_action_service import LLMActionService
 from rvandroid.model.static import StaticAnalysisData
 from rvandroid.config.component_config import ComponentConfig
 
@@ -77,7 +79,7 @@ class ComponentConfigurator:
             static_data: Dados de análise estática
         """
         self.static_data = static_data
-        self.component_config = ComponentConfig()
+        # self.component_config = ComponentConfig()
         self.llm_config = {
             "type": "ollama",
             "model": OllamaLLM.LLAMA,
@@ -88,9 +90,12 @@ class ComponentConfigurator:
         }
 
         # Configuração inicial padrão
-        self.component_config.set_strategy(BasicPromptStrategy001)
-        self.component_config.set_visitor(EnhancedTextVisitor)
-        self.component_config.set_parser(DroidBotParser)
+        self.parser_class: Optional[Type[AbstractScreenParser]] = DroidBotParser
+        self.visitor_class: Optional[Type[BaseScreenVisitor]] = EnhancedTextVisitor
+        self.strategy_class: Optional[Type[PromptStrategy]] = BasicPromptStrategy001
+        self.parser_kwargs: Dict[str, Any] = {}
+        self.visitor_kwargs: Dict[str, Any] = {}
+        self.strategy_kwargs: Dict[str, Any] = {}
 
         self.logger = logger
 
@@ -130,7 +135,7 @@ class ComponentConfigurator:
 
         return self
 
-    def set_strategy(self, strategy_type: str) -> 'ComponentConfigurator':
+    def set_strategy(self, strategy_type: str, **kwargs) -> 'ComponentConfigurator':
         """
         Define a estratégia de prompt a ser usada.
 
@@ -144,10 +149,11 @@ class ComponentConfigurator:
             raise ValueError(
                 f"Tipo de estratégia desconhecido: {strategy_type}. Opções: {list(self.STRATEGY_TYPES.keys())}")
 
-        self.component_config.set_strategy(self.STRATEGY_TYPES[strategy_type])
+        self.strategy_class = self.STRATEGY_TYPES[strategy_type]
+        self.strategy_kwargs = kwargs
         return self
 
-    def set_parser(self, parser_type: str) -> 'ComponentConfigurator':
+    def set_parser(self, parser_type: str, **kwargs) -> 'ComponentConfigurator':
         """
         Define o parser a ser usado.
 
@@ -160,10 +166,11 @@ class ComponentConfigurator:
         if parser_type not in self.PARSER_TYPES:
             raise ValueError(f"Tipo de parser desconhecido: {parser_type}. Opções: {list(self.PARSER_TYPES.keys())}")
 
-        self.component_config.set_parser(self.PARSER_TYPES[parser_type])
+        self.parser_class = self.PARSER_TYPES[parser_type]
+        self.parser_kwargs = kwargs
         return self
 
-    def set_visitor(self, visitor_type: str) -> 'ComponentConfigurator':
+    def set_visitor(self, visitor_type: str, **kwargs) -> 'ComponentConfigurator':
         """
         Define o visitor a ser usado.
 
@@ -176,43 +183,45 @@ class ComponentConfigurator:
         if visitor_type not in self.VISITOR_TYPES:
             raise ValueError(f"Tipo de visitor desconhecido: {visitor_type}. Opções: {list(self.VISITOR_TYPES.keys())}")
 
-        self.component_config.set_visitor(self.VISITOR_TYPES[visitor_type])
+        self.visitor_class = self.VISITOR_TYPES[visitor_type]
+        self.visitor_kwargs = kwargs
         return self
 
-    def create_service(self) -> LLMActionService:
-        """
-        Cria e retorna um LLMActionService configurado.
 
-        Returns:
-            LLMActionService configurado
-        """
-        # Prepara os parâmetros para o serviço
-        llm_type = self.llm_config["type"]
-        model_name = self.llm_config["model"]
-
-        # Prepara os parâmetros específicos para o tipo de LLM
-        kwargs = self.llm_config["extra_params"].copy()
-
-        if llm_type in ["ollama", "dspy", "langchain"]:
-            kwargs["base_url"] = self.llm_config["base_url"]
-
-        if llm_type in ["dspy", "langchain", "frontier"]:
-            if self.llm_config["provider"]:
-                kwargs["provider"] = self.llm_config["provider"]
-
-        if llm_type in ["frontier"] and self.llm_config["api_key"]:
-            kwargs["api_key"] = self.llm_config["api_key"]
-
-        # Cria o serviço
-        service = LLMActionService(
-            static_data=self.static_data,
-            model_type=llm_type,
-            model_name=model_name,
-            component_config=self.component_config,
-            **kwargs
-        )
-
-        return service
+    # def create_service(self) -> LLMActionService:
+    #     """
+    #     Cria e retorna um LLMActionService configurado.
+    #
+    #     Returns:
+    #         LLMActionService configurado
+    #     """
+    #     # Prepara os parâmetros para o serviço
+    #     llm_type = self.llm_config["type"]
+    #     model_name = self.llm_config["model"]
+    #
+    #     # Prepara os parâmetros específicos para o tipo de LLM
+    #     kwargs = self.llm_config["extra_params"].copy()
+    #
+    #     if llm_type in ["ollama", "dspy", "langchain"]:
+    #         kwargs["base_url"] = self.llm_config["base_url"]
+    #
+    #     if llm_type in ["dspy", "langchain", "frontier"]:
+    #         if self.llm_config["provider"]:
+    #             kwargs["provider"] = self.llm_config["provider"]
+    #
+    #     if llm_type in ["frontier"] and self.llm_config["api_key"]:
+    #         kwargs["api_key"] = self.llm_config["api_key"]
+    #
+    #     # Cria o serviço
+    #     service = LLMActionService(
+    #         static_data=self.static_data,
+    #         # model_type=llm_type,
+    #         # model_name=model_name,
+    #         config=self,
+    #         **kwargs
+    #     )
+    #
+    #     return service
 
     def get_available_llm_types(self) -> List[str]:
         """Retorna os tipos de LLM disponíveis"""
@@ -244,6 +253,43 @@ class ComponentConfigurator:
             return []
         return self.LLM_MODELS[llm_type]
 
+    def create_parser(self) -> AbstractScreenParser:
+        """Create an instance of the configured parser."""
+        if not self.parser_class:
+            raise ValueError("Parser class not configured")
+        return self.parser_class(**self.parser_kwargs)
+
+    def create_visitor(self, static_data: Optional["StaticAnalysisData"], activity: str) -> BaseScreenVisitor:
+        """Create an instance of the configured visitor."""
+        if not self.visitor_class:
+            raise ValueError("Visitor class not configured")
+        kwargs = self.visitor_kwargs.copy()
+        return self.visitor_class(static_data, activity, **kwargs)
+
+    def create_strategy(self, static_data: Optional["StaticAnalysisData"] = None) -> PromptStrategy:
+        """Create an instance of the configured prompt strategy."""
+        if not self.strategy_class:
+            raise ValueError("Strategy class not configured")
+        kwargs = self.strategy_kwargs.copy()
+        return self.strategy_class(static_data, self.create_parser(), **kwargs)
+
+    def create_llm(self):
+        if not self.llm_config:
+            raise ValueError("LLM not configured")
+        kwargs = self.llm_config["extra_params"].copy()
+        if self.llm_config["type"] in ["ollama", "dspy", "langchain"]:
+            kwargs["base_url"] = self.llm_config["base_url"]
+        if self.llm_config["type"] in ["dspy", "langchain", "frontier"]:
+            if self.llm_config["provider"]:
+                kwargs["provider"] = self.llm_config["provider"]
+        if self.llm_config["api_key"]:
+            kwargs["api_key"] = self.llm_config["api_key"]
+        return ModelFactory.create(
+            self.llm_config["type"],
+            self.llm_config["model"],
+            **kwargs
+        )
+
     def describe_configuration(self) -> Dict[str, Any]:
         """
         Retorna uma descrição detalhada da configuração atual.
@@ -251,9 +297,9 @@ class ComponentConfigurator:
         Returns:
             Dicionário com a configuração
         """
-        strategy_class = self.component_config.strategy_class
-        parser_class = self.component_config.parser_class
-        visitor_class = self.component_config.visitor_class
+        strategy_class = self.strategy_class
+        parser_class = self.parser_class
+        visitor_class = self.visitor_class
 
         return {
             "llm": {
