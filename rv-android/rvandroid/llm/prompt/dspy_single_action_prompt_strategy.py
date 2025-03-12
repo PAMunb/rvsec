@@ -1,5 +1,5 @@
 # rvandroid/llm/prompt/dspy_single_action_prompt_strategy.py
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, Optional
 
 import dspy
 
@@ -30,12 +30,14 @@ class DSPySingleActionPromptStrategy(BasePromptStrategy):
 Focus on:
 1. Systematically exploring ALL parts of the application, not just the current screen
 2. Maximizing code coverage by targeting untested UI elements
-3. Prioritizing testing of security-critical methods that directly or indirectly affect operations of interest
+3. Prioritizing testing of methods of interest that directly or indirectly affect operations defined in formal specifications
 4. Testing complete workflows from start to finish
 
 IMPORTANT: You will be provided with a list of possible actions, each with a unique action_id. Your job is to select EXACTLY ONE action that would be most appropriate as the next step in the testing sequence.
 
-Your response MUST contain ONLY ONE JSON object in an array following this schema:
+YOUR RESPONSE MUST CONTAIN EXACTLY ONE ACTION. DO NOT SUGGEST MULTIPLE ACTIONS OR A SEQUENCE OF ACTIONS.
+
+Your response MUST follow this schema - a JSON array with EXACTLY ONE object inside:
 [
   {
     "action_id": "5",  
@@ -44,7 +46,7 @@ Your response MUST contain ONLY ONE JSON object in an array following this schem
   }
 ]
 
-DO NOT RETURN MULTIPLE ACTIONS. Select only the single most important action to take next.
+Failure to provide just one action will make your response unusable. The system only supports executing one action at a time in this mode.
 
 For actions that require parameters (like SET_TEXT), you must include appropriate values:
 [
@@ -73,8 +75,9 @@ FORM TESTING WORKFLOW:
 4. When a form appears to be completely filled, CLICK THE ACTION BUTTON to complete the workflow
 5. COMPLETE WORKFLOWS - After filling all required inputs, proceed to action buttons to test the functionality
 
-DO NOT include any additional text outside of the JSON array. Your response must be valid JSON that can be parsed directly with EXACTLY ONE action."""
+REMEMBER: You MUST suggest only ONE action - the single most important next action to take.
 
+DO NOT include any additional text outside of the JSON array. Your response must be valid JSON that can be parsed directly with EXACTLY ONE action."""
     def generate_user_prompt(self, state: Dict[str, Any]) -> str:
         """
         Generate an enhanced user prompt with structured DSPy approach but focused on single action selection.
@@ -171,13 +174,13 @@ DO NOT include any additional text outside of the JSON array. Your response must
                         if item.actions:
                             element_desc.append("  **Available actions:**")
                             for action in item.actions:
-                                security_tag = ""
+                                importance_tag = ""
                                 if action.directly_reaches_mop:
-                                    security_tag = "🔴 [CRITICAL SECURITY OPERATION]"
+                                    importance_tag = "🔴 [CRITICAL OPERATION OF INTEREST]"
                                 elif action.reaches_mop:
-                                    security_tag = "🟠 [SECURITY SENSITIVE]"
+                                    importance_tag = "🟠 [OPERATION OF INTEREST]"
 
-                                action_desc = f"    - `{action.text}` (action_id: \"{action.id}\") {security_tag}"
+                                action_desc = f"    - `{action.text}` (action_id: \"{action.id}\") {importance_tag}"
                                 element_desc.append(action_desc)
 
                                 # If it's a text field, suggest appropriate input
@@ -215,13 +218,23 @@ Based on the current state and action history, determine the SINGLE MOST EFFECTI
 Return EXACTLY ONE action in valid JSON format. Remember to include the action_id.
 
 Your response should be a JSON array with ONLY ONE object like this:
-[{"action_id": "X", "params": {}, "explanation": "Detailed explanation of why this is the best next action"}]
+[{"action_id": "5", "params": {}, "explanation": "Detailed explanation of why this is the best next action"}]
+
+For SET_TEXT actions, include the text parameter like this:
+[{"action_id": "6", "params": {"text": "example@email.com"}, "explanation": "Entering an email address"}]
 
 Prioritize actions that:
 1. Continue logical workflows
 2. Explore untested elements
-3. Test security-critical operations
+3. Test operations of interest
 4. Maximize testing coverage""")
+            sections.append("""## CRITICAL INSTRUCTION
+            You MUST return EXACTLY ONE action. Do not suggest multiple actions, even if more than one action would be useful.
+
+            Your response should be a JSON array containing EXACTLY ONE object, like this:
+            [{"action_id": "5", "params": {}, "explanation": "Detailed explanation"}]
+
+            Failure to follow this format will make your response unusable.""")
 
             # Join all sections with double newlines for clarity
             return "\n\n".join(sections)
@@ -277,7 +290,8 @@ Suggest exactly ONE testing action in valid JSON format with an action_id.
                     dspy.InputField("action_history", description="Previous testing actions")
                 ],
                 outputs=[
-                    dspy.OutputField("actions", description="JSON array with a single action with action_id field", schema=action_schema)
+                    dspy.OutputField("actions", description="JSON array with a single action with action_id field",
+                                     schema=action_schema)
                 ]
             )
 
@@ -290,6 +304,7 @@ Suggest exactly ONE testing action in valid JSON format with an action_id.
         Returns:
             Dictionary with DSPy module
         """
+
         # Define module for single action prediction with action_id
         class SingleActionPredictor(dspy.Module):
             def __init__(self):

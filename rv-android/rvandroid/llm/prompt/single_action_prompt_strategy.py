@@ -26,12 +26,14 @@ class SingleActionPromptStrategy(BasePromptStrategy):
 Focus on:
 1. Systematically exploring ALL parts of the application, not just the current screen
 2. Maximizing code coverage by targeting untested UI elements
-3. Prioritizing testing of security-critical methods that directly or indirectly affect operations of interest
+3. Prioritizing testing of methods of interest that directly or indirectly affect operations defined in formal specifications
 4. Testing complete workflows from start to finish
 
 IMPORTANT: You will be provided with a list of possible actions, each with a unique action_id. Your job is to select EXACTLY ONE action that would be most appropriate as the next step in the testing sequence.
 
-Your response MUST contain ONLY ONE JSON object in an array following this schema:
+YOUR RESPONSE MUST CONTAIN EXACTLY ONE ACTION. DO NOT SUGGEST MULTIPLE ACTIONS OR A SEQUENCE OF ACTIONS.
+
+Your response MUST follow this schema - a JSON array with EXACTLY ONE object inside:
 [
   {
     "action_id": "5",  
@@ -40,7 +42,7 @@ Your response MUST contain ONLY ONE JSON object in an array following this schem
   }
 ]
 
-DO NOT RETURN MULTIPLE ACTIONS. Select only the single most important action to take next.
+Failure to provide just one action will make your response unusable. The system only supports executing one action at a time in this mode.
 
 For actions that require parameters (like SET_TEXT), you must include appropriate values:
 [
@@ -69,15 +71,7 @@ FORM TESTING WORKFLOW:
 4. When a form appears to be completely filled, CLICK THE ACTION BUTTON to complete the workflow
 5. COMPLETE WORKFLOWS - After filling all required inputs, proceed to action buttons to test the functionality
 
-GENERAL ACTION SEQUENCE GUIDELINES:
-- If there are dropdowns that haven't been clicked yet, click them FIRST
-- If the action history shows you've clicked a button multiple times, use BACK to explore other screens
-- If there are still unfilled input fields visible on the screen, fill those first
-- If you've already changed field values multiple times, click action buttons to test results
-- If a security-critical button is available (marked as [IMPORTANT] or [CRITICAL]) and inputs are filled, click it
-- After completing one workflow, move on to explore untested UI elements
-
-REVIEW the action history carefully to understand what has already been tested and choose the most logical next action.
+REMEMBER: You MUST suggest only ONE action - the single most important next action to take.
 
 DO NOT include any additional text outside of the JSON array. Your response must be valid JSON that can be parsed directly with EXACTLY ONE action."""
 
@@ -123,15 +117,15 @@ DO NOT include any additional text outside of the JSON array. Your response must
                     if item.actions:
                         prompt += "  Available actions:\n"
                         for action in item.actions:
-                            # Add security indicators
-                            security_tag = ""
+                            # Add indicators for operations of interest
+                            importance_tag = ""
                             if action.directly_reaches_mop:
-                                security_tag = " [CRITICAL: Directly reaches security-critical operation]"
+                                importance_tag = " [CRITICAL: Directly reaches operation of interest]"
                             elif action.reaches_mop:
-                                security_tag = " [IMPORTANT: Can reach security-critical operation]"
+                                importance_tag = " [IMPORTANT: Can reach operation of interest]"
 
                             # Create detailed action description
-                            action_desc = f"  - {action.text} (action_id: \"{action.id}\"){security_tag}"
+                            action_desc = f"  - {action.text} (action_id: \"{action.id}\"){importance_tag}"
 
                             # Check for transitions based on this action
                             transitions = self._get_transitions_for_action(activity, widget_id, action)
@@ -253,6 +247,8 @@ DO NOT include any additional text outside of the JSON array. Your response must
             # Add special instructions for screen transitions
             if "can_transition_to" in static_context:
                 prompt += "\n\nNOTE: If you decide to test a screen transition, consider whether it's the right time to navigate away from the current screen based on what has been tested so far."
+
+            prompt += "\n\n⚠️ CRITICAL INSTRUCTION: You MUST return EXACTLY ONE action. Do not suggest multiple actions, even if you think more than one action would be useful. Your response should be a JSON array containing EXACTLY ONE object with 'action_id', 'params', and 'explanation' fields."
 
             return prompt
 

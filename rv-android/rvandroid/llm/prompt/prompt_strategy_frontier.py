@@ -44,7 +44,7 @@ class FrontierPromptStrategy(BasePromptStrategy):
         # Current activity
         sections.append(f"# Current Activity: {activity}")
 
-        # Static analysis context
+        # Static analysis
         sections.append("# Static Analysis")
         sections.append(self._add_static_analysis_context(activity))
 
@@ -82,16 +82,16 @@ class FrontierPromptStrategy(BasePromptStrategy):
             if widget_text:
                 element_info.append(f"- Text: \"{widget_text}\"")
 
-            # Add actions with security annotations
+            # Add actions with annotations
             if item.actions:
                 action_info = ["- Available actions:"]
                 for action in item.actions:
-                    security_tag = ""
+                    importance_tag = ""
                     if action.directly_reaches_mop:
-                        security_tag = " [CRITICAL: Directly reaches security operation]"
+                        importance_tag = " [CRITICAL: Directly reaches operation of interest]"
                     elif action.reaches_mop:
-                        security_tag = " [IMPORTANT: Can reach security operation]"
-                    action_info.append(f"  * {action.text}{security_tag}")
+                        importance_tag = " [IMPORTANT: Can reach operation of interest]"
+                    action_info.append(f"  * {action.text}{importance_tag}")
                 element_info.append("\n".join(action_info))
 
             # Add static info
@@ -113,8 +113,17 @@ class FrontierPromptStrategy(BasePromptStrategy):
         sections.append("# Task")
         sections.append(
             "Based on the above information, provide 3-5 test actions that would be most effective "
-            "for testing this screen. Focus on exercising security-critical code paths and testing "
-            "unexplored functionality. Return your response as a valid JSON array."
+            "for testing this screen. Focus on exercising code paths that call operations of interest and testing "
+            "unexplored functionality. Return your response as a valid JSON array with the following structure for each action:\n"
+            "[\n"
+            "  {\n"
+            "    \"action_id\": \"5\",\n"
+            "    \"params\": {},\n"
+            "    \"explanation\": \"Detailed explanation of why this action was chosen\"\n"
+            "  },\n"
+            "  ...\n"
+            "]\n"
+            "Make sure to include the action_id as specified in the UI elements section."
         )
 
         return "\n\n".join(sections)

@@ -1,5 +1,6 @@
 import json
 import logging
+import time
 from typing import Dict, List, Any, Optional
 
 from rvandroid.config.component_config import ComponentConfig
@@ -7,6 +8,7 @@ from rvandroid.llm.huggingface_llm import HuggingFaceLLM
 from rvandroid.llm.llm import LanguageModel
 from rvandroid.llm.llm_config import LLMConfiguration
 from rvandroid.llm.model_factory import ModelFactory
+from rvandroid.llm.prompt.dspy_single_action_prompt_strategy import DSPySingleActionPromptStrategy
 from rvandroid.llm.prompt.prompt_strategy_basic_001 import BasicPromptStrategy001
 from rvandroid.llm.prompt.prompt_strategy_factory import PromptStrategyFactory
 from rvandroid.llm.prompt.single_action_prompt_strategy import SingleActionPromptStrategy
@@ -20,6 +22,35 @@ class LLMActionService:
     """
     Service that processes application state, generates prompts, sends them to LLM,
     and returns suggested actions.
+
+    Expected LLM Response Format:
+    -----------------------------
+    The LLM should return a JSON array of actions with the following structure:
+
+    ```json
+    [
+      {
+        "action_id": "5",
+        "params": {},
+        "explanation": "Detailed explanation of why this action was chosen"
+      }
+    ]
+    ```
+
+    For actions requiring parameters (e.g., SET_TEXT), the params field should include
+    the necessary values:
+
+    ```json
+    [
+      {
+        "action_id": "6",
+        "params": {"text": "example@email.com"},
+        "explanation": "Entering an email address in the field"
+      }
+    ]
+    ```
+
+    The service will convert these actions to the format required by DroidBot.
     """
 
     def __init__(
@@ -112,6 +143,29 @@ class LLMActionService:
 
         return self.llm
 
+    def _extract_single_action(self, actions: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """
+        Ensure only a single action is returned for single action strategies.
+        If the LLM ignored instructions and returned multiple actions,
+        this method ensures only the first (likely most important) action is kept.
+
+        Args:
+            actions: List of actions from LLM
+
+        Returns:
+            List containing just the first action
+        """
+        if not actions or len(actions) == 0:
+            self.logger.warning("No actions found to extract single action from")
+            return []
+
+        if len(actions) > 1:
+            self.logger.warning(
+                f"LLM returned {len(actions)} actions despite single action requirement. Using only the first.")
+
+        # Return just the first action in a list for consistency
+        return [actions[0]]
+
     # Changes to LLMActionService.process_state method
     def process_state(self, state: Dict[str, Any]) -> List[Dict[str, Any]]:
         """
@@ -128,9 +182,22 @@ class LLMActionService:
         """
         self.logger.info("Processing application state")
 
+        # Add timestamp and application info for debugging
+        app_package = state.get("package_name", "unknown")
+        app_activity = state.get("activity", "unknown")
+        self.logger.debug(f"Processing state for app: {app_package}, activity: {app_activity}")
+
         try:
+            # Log action history length if available
+            if "action_history" in state:
+                action_history = state.get("action_history", [])
+                self.logger.debug(f"Action history has {len(action_history)} entries")
+                if action_history and len(action_history) > 0:
+                    self.logger.debug(f"Last action: {action_history[-1]}")
+
             # Enhance action history format if present
             if "action_history" in state:
+                self.logger.debug("Processing action history for enhanced format")
                 enhanced_history = []
                 for action in state.get("action_history", []):
                     # Check if the action is already in the enhanced format
@@ -184,90 +251,65 @@ class LLMActionService:
 
                 # Update the history in the state
                 state["action_history"] = enhanced_history
+                self.logger.debug(f"Enhanced action history now has {len(enhanced_history)} entries")
 
             # Generate prompts using the selected strategy
+            self.logger.debug(f"Generating prompts using {self.prompt_strategy.__class__.__name__}")
             messages = self.prompt_strategy.generate_prompts(state)
 
-            self.logger.debug(f"System prompt: {messages[0]['content'][:200]}...")
-            self.logger.debug(f"User prompt: {messages[1]['content'][:200]}...")
+            self.logger.debug(f"System prompt length: {len(messages[0]['content'])}")
+            self.logger.debug(f"User prompt length: {len(messages[1]['content'])}")
+            self.logger.debug(f"System prompt first 100 chars: {messages[0]['content'][:100]}...")
+            self.logger.debug(f"User prompt first 100 chars: {messages[1]['content'][:100]}...")
 
             # Call the LLM with the generated prompts
+            self.logger.info(f"Calling LLM model: {self.model_type}/{self.model_name}")
             llm = self._get_llm()
-            response = llm.generate(messages, max_new_tokens=self.max_tokens)
 
-            self.logger.debug(f"LLM response: {response[:200]}...")
+            start_time = time.time()
+            response = llm.generate(messages, max_new_tokens=self.max_tokens)
+            elapsed_time = time.time() - start_time
+
+            self.logger.info(f"LLM response received in {elapsed_time:.2f} seconds")
+            self.logger.debug(f"LLM response length: {len(response)}")
+            self.logger.debug(f"LLM response first 100 chars: {response[:100]}...")
 
             # Parse the response
+            self.logger.debug("Extracting JSON from LLM response")
             json_response = self._extract_json(response)
             action_data = json.loads(json_response)
+            self.logger.info(f"Extracted {len(action_data)} actions from LLM response")
+
+            # Log action_ids for debugging
+            if action_data and len(action_data) > 0:
+                action_ids = [action.get("action_id", "unknown") for action in action_data if isinstance(action, dict)]
+                self.logger.debug(f"Received action_ids: {action_ids}")
 
             # Process actions based on the prompt strategy used
-            if isinstance(self.prompt_strategy, BasicPromptStrategy001) or isinstance(self.prompt_strategy,
-                                                                                      SingleActionPromptStrategy):
-                # Handle action_id based format
+            self.logger.debug(f"Processing actions with strategy: {self.prompt_strategy.__class__.__name__}")
+            if isinstance(self.prompt_strategy, BasicPromptStrategy001):
+                # Handle action_id based format - multiple actions allowed
+                self.logger.debug("Using action_id format processing")
                 validated_actions = self._process_action_id_format(action_data, state)
+            elif isinstance(self.prompt_strategy, SingleActionPromptStrategy) or isinstance(self.prompt_strategy,
+                                                                                            DSPySingleActionPromptStrategy):
+                # Handle single action format - strictly enforce one action
+                self.logger.debug("Using single action format processing")
+                validated_actions = self._process_action_id_format(self._extract_single_action(action_data), state)
             else:
                 # Handle standard action_type format
+                self.logger.debug("Using standard action_type format processing")
                 validated_actions = self._validate_actions(action_data)
 
-            # For SingleActionPromptStrategy, add the action to the enhanced history
-            if isinstance(self.prompt_strategy, SingleActionPromptStrategy) and validated_actions:
-                action = validated_actions[0]
-                action_id = action_data[0].get("action_id", "unknown") if action_data and len(
-                    action_data) > 0 else "unknown"
-                explanation = action_data[0].get("explanation", "") if action_data and len(action_data) > 0 else ""
-
-                # Create enhanced description for the history
-                action_type = action.get("action_type", "unknown")
-                target = action.get("target", "unknown")
-                params = action.get("params", {})
-
-                # Format parameters in a more readable way
-                params_str = ""
-                if params:
-                    if "text" in params:
-                        params_str = f" with text '{params['text']}'"
-                    elif "direction" in params:
-                        params_str = f" {params['direction']}"
-
-                # Create enhanced description with form context
-                if action_type == "click":
-                    # Check if this appears to be a dropdown/spinner
-                    if target and ("spinner" in target.lower() or "dropdown" in target.lower()):
-                        enhanced_action = f"[Action ID: {action_id}] CLICKED ON DROPDOWN '{target}'{params_str} - {explanation}"
-                    elif target and any(keyword in target.lower() for keyword in
-                                        ["submit", "login", "save", "apply", "ok", "next", "continue",
-                                         "generate", "create", "send", "search", "encrypt", "decrypt"]):
-                        enhanced_action = f"[Action ID: {action_id}] SUBMITTED FORM by clicking '{target}'{params_str} - {explanation}"
-                    else:
-                        enhanced_action = f"[Action ID: {action_id}] CLICKED on '{target}'{params_str} - {explanation}"
-                elif action_type == "set_text":
-                    enhanced_action = f"[Action ID: {action_id}] FILLED text field '{target}'{params_str} - {explanation}"
-                elif action_type == "scroll_up" or action_type == "scroll_down":
-                    if "spinner" in target.lower() or "dropdown" in target.lower():
-                        enhanced_action = f"[Action ID: {action_id}] SCROLLED {params_str} in dropdown '{target}' - {explanation}"
-                    else:
-                        enhanced_action = f"[Action ID: {action_id}] SCROLLED {params_str} on '{target}' - {explanation}"
-                else:
-                    enhanced_action = f"[Action ID: {action_id}] {action_type.upper()} on '{target}'{params_str} - {explanation}"
-
-                # Update history in state for next iteration
-                if "action_history" not in state:
-                    state["action_history"] = []
-                state["action_history"].append(enhanced_action)
-
             self.logger.info(f"Successfully processed state and generated {len(validated_actions)} actions")
-
-            print(f"\n******** User prompt:\n{messages[1]['content']}...")
-            print(f"\n******** LLM response:\n{response}...")
+            self.logger.debug(f"Final actions: {validated_actions}")
 
             return validated_actions
 
         except Exception as e:
             self.logger.error(f"Error processing state: {e}", exc_info=True)
+            self.logger.info("Generating fallback actions")
             return self._generate_fallback_actions(state)
-
-    # Método _process_action_id_format atualizado
 
     def _process_action_id_format(self, llm_actions: List[Dict[str, Any]], state: Dict[str, Any]) -> List[
         Dict[str, Any]]:
@@ -282,6 +324,10 @@ class LLMActionService:
         Returns:
             List of actions in droidbot format
         """
+        self.logger.debug(
+            f"Processing {len(llm_actions) if isinstance(llm_actions, list) else 'non-list'} actions from LLM")
+
+        # Validate input format
         if not isinstance(llm_actions, list):
             self.logger.warning(f"Expected list of actions but got: {type(llm_actions)}")
             return self._generate_fallback_actions(state)
@@ -293,13 +339,19 @@ class LLMActionService:
 
         # Get screen description to access available actions
         try:
+            self.logger.debug("Parsing screen description to access available actions")
             screen_description = self.prompt_strategy.parser.parse(state, self.static_data)
             available_actions = {
                 str(action.id): action
                 for item in screen_description.items
                 for action in item.actions
             }
-            print(f"***** Available actions: {available_actions}")
+            self.logger.debug(f"Found {len(available_actions)} available actions")
+
+            # Log available action IDs for debugging
+            if available_actions:
+                action_ids = list(available_actions.keys())
+                self.logger.debug(f"Available action_ids: {action_ids[:10]}{'...' if len(action_ids) > 10 else ''}")
 
             # Safety check - if no actions available, generate fallbacks
             if not available_actions:
@@ -312,14 +364,17 @@ class LLMActionService:
 
         droidbot_actions = []
 
-        # For SingleActionPromptStrategy, process only the first action
-        if isinstance(self.prompt_strategy, SingleActionPromptStrategy) and len(llm_actions) > 1:
-            self.logger.info(
-                "SingleActionPromptStrategy detected with multiple actions. Processing only the first action.")
-            llm_actions = llm_actions[:1]
+        # For single action strategies, ALWAYS limit to the first action only
+        if isinstance(self.prompt_strategy, SingleActionPromptStrategy) or isinstance(self.prompt_strategy, DSPySingleActionPromptStrategy):
+            if len(llm_actions) > 1:
+                self.logger.warning(
+                    f"Single action strategy detected with {len(llm_actions)} actions. Strictly limiting to first action only.")
+                llm_actions = llm_actions[:1]
 
-        for action_data in llm_actions:
+        for i, action_data in enumerate(llm_actions):
             try:
+                self.logger.debug(f"Processing action {i + 1}/{len(llm_actions)}: {action_data}")
+
                 # Validate action data format
                 if not isinstance(action_data, dict):
                     self.logger.warning(f"Invalid action format: {action_data}")
@@ -331,8 +386,10 @@ class LLMActionService:
                     action_id = str(action_data["action_id"])
                 elif "id" in action_data:
                     action_id = str(action_data["id"])
+                    self.logger.debug(f"Using 'id' field instead of 'action_id': {action_id}")
                 elif "actionId" in action_data:
                     action_id = str(action_data["actionId"])
+                    self.logger.debug(f"Using 'actionId' field instead of 'action_id': {action_id}")
 
                 if not action_id:
                     self.logger.warning(f"No action_id found in: {action_data}")
@@ -343,13 +400,17 @@ class LLMActionService:
 
                 # Find corresponding ItemAction
                 if action_id not in available_actions:
-                    self.logger.warning(f"Unknown action_id: {action_id}")
+                    self.logger.warning(f"Unknown action_id: {action_id} (not in available actions)")
+                    # Log available actions for debugging
+                    self.logger.debug(f"Available action_ids: {list(available_actions.keys())}")
                     continue
 
                 item_action = available_actions[action_id]
+                self.logger.debug(f"Found corresponding ItemAction: {item_action.text}")
 
                 # Extract action type from the item_action text
                 action_type = self._extract_action_type(item_action.text)
+                self.logger.debug(f"Extracted action_type: {action_type}")
 
                 # Extract view data for this action
                 view_data = None
@@ -358,37 +419,8 @@ class LLMActionService:
                         view_data = item.view
                         break
 
-                # Get coordinates - try multiple methods to ensure we have them
-                coordinates = None
-
-                # Method 1: Use coordinates from ItemAction if available
-                if hasattr(item_action, 'coordinates') and item_action.coordinates:
-                    coordinates = item_action.coordinates
-
-                # Method 2: Try to extract from target_view if available
-                if not coordinates and hasattr(item_action, 'target_view') and item_action.target_view:
-                    bounds = item_action.target_view.get("bounds")
-                    if bounds and len(bounds) == 2:
-                        x = (bounds[0][0] + bounds[1][0]) // 2
-                        y = (bounds[0][1] + bounds[1][1]) // 2
-                        coordinates = (x, y)
-
-                # Method 3: Try to extract from the view_data if available
-                if not coordinates and view_data:
-                    bounds = view_data.get("bounds")
-                    if bounds and len(bounds) == 2:
-                        x = (bounds[0][0] + bounds[1][0]) // 2
-                        y = (bounds[0][1] + bounds[1][1]) // 2
-                        coordinates = (x, y)
-
-                # Method 4: If target is a resource ID, try to find it in the view tree
-                if not coordinates and "view_tree" in state:
-                    resource_id = None
-                    if hasattr(item_action, 'target_view') and item_action.target_view:
-                        resource_id = item_action.target_view.get("resource_id")
-
-                    if resource_id:
-                        coordinates = self._find_coordinates_for_resource_id(state["view_tree"], resource_id)
+                # Get coordinates with enhanced logging
+                coordinates = self._resolve_coordinates(item_action, view_data, state, action_id)
 
                 # Create droidbot action format
                 target = self._get_target(item_action, state)
@@ -404,18 +436,9 @@ class LLMActionService:
                     droidbot_action["coordinates"] = coordinates
                     self.logger.info(f"Added coordinates {coordinates} to action: {action_id}")
                 else:
-                    # Last attempt to extract coordinates from target string
-                    if isinstance(target, str) and " " in target:
-                        parts = target.split()
-                        if len(parts) == 2 and all(part.isdigit() for part in parts):
-                            x, y = int(parts[0]), int(parts[1])
-                            droidbot_action["coordinates"] = (x, y)
-                            self.logger.info(f"Extracted coordinates ({x}, {y}) from target string")
-                        else:
-                            self.logger.warning(f"Could not find coordinates for action: {action_id}")
+                    self.logger.warning(f"No coordinates found for action: {action_id}")
 
-                # Log the final action
-                print(f"***** droidbot_action={droidbot_action}")
+                self.logger.debug(f"Created droidbot action: {droidbot_action}")
                 droidbot_actions.append(droidbot_action)
             except Exception as e:
                 self.logger.error(f"Error processing action data {action_data}: {e}", exc_info=True)
@@ -425,7 +448,77 @@ class LLMActionService:
             self.logger.warning("Failed to process any actions from LLM response")
             return self._generate_fallback_actions(state)
 
+        self.logger.info(f"Successfully processed {len(droidbot_actions)} actions")
         return droidbot_actions
+
+    def _resolve_coordinates(self, item_action, view_data, state, action_id) -> Optional[tuple]:
+        """
+        Resolve coordinates for an action using multiple strategies.
+
+        Args:
+            item_action: The ItemAction object
+            view_data: View data for the action
+            state: Current application state
+            action_id: Action ID for logging
+
+        Returns:
+            Tuple of (x, y) coordinates or None if not found
+        """
+        self.logger.debug(f"Resolving coordinates for action_id: {action_id}")
+        coordinates = None
+
+        # Method 1: Use coordinates from ItemAction if available
+        if hasattr(item_action, 'coordinates') and item_action.coordinates:
+            coordinates = item_action.coordinates
+            self.logger.debug(f"Found coordinates from ItemAction: {coordinates}")
+            return coordinates
+
+        # Method 2: Try to extract from target_view if available
+        if not coordinates and hasattr(item_action, 'target_view') and item_action.target_view:
+            bounds = item_action.target_view.get("bounds")
+            if bounds and len(bounds) == 2:
+                x = (bounds[0][0] + bounds[1][0]) // 2
+                y = (bounds[0][1] + bounds[1][1]) // 2
+                coordinates = (x, y)
+                self.logger.debug(f"Extracted coordinates from target_view bounds: {coordinates}")
+                return coordinates
+
+        # Method 3: Try to extract from the view_data if available
+        if not coordinates and view_data:
+            bounds = view_data.get("bounds")
+            if bounds and len(bounds) == 2:
+                x = (bounds[0][0] + bounds[1][0]) // 2
+                y = (bounds[0][1] + bounds[1][1]) // 2
+                coordinates = (x, y)
+                self.logger.debug(f"Extracted coordinates from view_data bounds: {coordinates}")
+                return coordinates
+
+        # Method 4: If target is a resource ID, try to find it in the view tree
+        if not coordinates and "view_tree" in state:
+            resource_id = None
+            if hasattr(item_action, 'target_view') and item_action.target_view:
+                resource_id = item_action.target_view.get("resource_id")
+
+            if resource_id:
+                self.logger.debug(f"Searching for coordinates by resource_id: {resource_id}")
+                coordinates = self._find_coordinates_for_resource_id(state["view_tree"], resource_id)
+                if coordinates:
+                    self.logger.debug(f"Found coordinates by resource_id search: {coordinates}")
+                    return coordinates
+
+        # Method 5: Try to extract from target string
+        if not coordinates:
+            target = self._get_target(item_action, state)
+            if isinstance(target, str) and " " in target:
+                parts = target.split()
+                if len(parts) == 2 and all(part.isdigit() for part in parts):
+                    x, y = int(parts[0]), int(parts[1])
+                    coordinates = (x, y)
+                    self.logger.debug(f"Extracted coordinates from target string: {coordinates}")
+                    return coordinates
+
+        self.logger.warning(f"Failed to resolve coordinates for action_id: {action_id}")
+        return None
 
     def _find_coordinates_for_resource_id(self, view_tree: Dict[str, Any], resource_id: str) -> Optional[tuple]:
         """
@@ -549,23 +642,45 @@ class LLMActionService:
     def _process_params(self, action_type: str, params: Dict[str, Any]) -> Dict[str, Any]:
         """
         Process and validate parameters for an action.
-        
+        Ensures required parameters are present for specific action types.
+
         Args:
             action_type: Type of action
             params: Parameters from LLM
-            
+
         Returns:
-            Processed parameters dictionary
+            Processed and validated parameters dictionary
         """
-        if action_type == "set_text" and "text" not in params:
-            # Default text if not provided
-            params["text"] = "test input"
+        # Create a copy to avoid modifying the original
+        processed_params = params.copy() if params else {}
 
-        if action_type == "key_event" and "name" not in params:
-            # Default key event name
-            params["name"] = "BACK"
+        # Handle SET_TEXT action type
+        if action_type == "set_text":
+            if "text" not in processed_params or not processed_params["text"]:
+                self.logger.warning("SET_TEXT action missing 'text' parameter, using default value")
+                # Provide appropriate default text based on context
+                processed_params["text"] = "test input"
 
-        return params
+                # Log the issue
+                self.logger.debug(f"Added default text parameter to SET_TEXT action: {processed_params}")
+
+        # Handle KEY_EVENT action type
+        elif action_type == "key_event":
+            if "name" not in processed_params:
+                # Default key event name
+                processed_params["name"] = "BACK"
+                self.logger.debug("Added default BACK key event parameter")
+
+        # Handle SCROLL action types
+        elif action_type in ["scroll_up", "scroll_down", "scroll_left", "scroll_right"]:
+            if "direction" not in processed_params:
+                # Extract direction from action type
+                direction = action_type.split('_')[1].upper()
+                processed_params["direction"] = direction
+                self.logger.debug(f"Added direction parameter '{direction}' to scroll action")
+
+        self.logger.debug(f"Processed parameters for {action_type}: {processed_params}")
+        return processed_params
 
     def _extract_json(self, text: str) -> str:
         """
@@ -584,27 +699,45 @@ class LLMActionService:
         import re
         import json
 
-        # First attempt: Look for JSON array using regex
+        self.logger.debug(f"Attempting to extract JSON from response of length {len(text)}")
+
+        # First attempt: Look for JSON array pattern with action_id
+        array_pattern = r'\[\s*\{\s*"action_id"\s*:.*?\}\s*\]'
+        array_match = re.search(array_pattern, text, re.DOTALL)
+        if array_match:
+            json_text = array_match.group(0)
+            try:
+                parsed = json.loads(json_text)
+                self.logger.debug(f"Successfully extracted JSON array with action_id: {json_text[:100]}...")
+                return json_text
+            except json.JSONDecodeError:
+                self.logger.warning("Found array with action_id but content isn't valid JSON")
+
+        # Second attempt: Look for any JSON array
         array_match = re.search(r'\[\s*\{.*?\}\s*\]', text, re.DOTALL)
         if array_match:
             json_text = array_match.group(0)
             try:
-                json.loads(json_text)
+                parsed = json.loads(json_text)
+                self.logger.debug(f"Successfully extracted general JSON array: {json_text[:100]}...")
                 return json_text
             except json.JSONDecodeError:
                 self.logger.warning("Found array brackets but content isn't valid JSON")
 
-        # Second attempt: Look for JSON object using regex
+        # Third attempt: Look for JSON object pattern
         object_match = re.search(r'\{\s*".*?"\s*:.*?\}', text, re.DOTALL)
         if object_match:
             json_text = object_match.group(0)
             try:
-                json.loads(json_text)
-                return json_text
+                parsed = json.loads(json_text)
+                # Wrap single object in an array for consistency
+                self.logger.debug(f"Found JSON object, wrapping in array: {json_text[:100]}...")
+                return f"[{json_text}]"
             except json.JSONDecodeError:
                 self.logger.warning("Found object braces but content isn't valid JSON")
 
-        # Third attempt: Try to perform common JSON fixes on array content
+        # Fourth attempt: Try to perform common JSON fixes on array content
+        self.logger.debug("Attempting to fix and extract JSON array")
         start_idx = text.find('[')
         end_idx = text.rfind(']')
 
@@ -614,33 +747,21 @@ class LLMActionService:
             fixed_json = self._fix_json_text(json_text)
             if fixed_json:
                 try:
-                    json.loads(fixed_json)
+                    parsed = json.loads(fixed_json)
+                    self.logger.debug(f"Successfully repaired JSON array: {fixed_json[:100]}...")
                     return fixed_json
                 except json.JSONDecodeError:
                     self.logger.warning("Failed to parse fixed JSON array")
 
-        # Fourth attempt: Try to perform common JSON fixes on object content
-        start_idx = text.find('{')
-        end_idx = text.rfind('}')
-
-        if start_idx != -1 and end_idx != -1 and end_idx > start_idx:
-            json_text = text[start_idx:end_idx + 1]
-            # Fix common JSON issues
-            fixed_json = self._fix_json_text(json_text)
-            if fixed_json:
-                try:
-                    json.loads(fixed_json)
-                    return fixed_json
-                except json.JSONDecodeError:
-                    self.logger.warning("Failed to parse fixed JSON object")
-
-        # Last resort: Extract all JSON-like structures and try to fix them
-        self.logger.warning("Attempting more aggressive JSON extraction")
-        # Try to find and construct a valid action array from the text
+        # Fifth attempt: Extract action_id values and construct a valid array
+        self.logger.warning("Attempting to reconstruct JSON from fragments")
         fallback_actions = self._extract_fallback_json(text)
         if fallback_actions:
+            self.logger.debug(f"Reconstructed JSON array from fragments: {fallback_actions[:100]}...")
             return fallback_actions
 
+        # Log the problematic response
+        self.logger.error(f"Failed to extract JSON. Response text sample: {text[:200]}...")
         # If all attempts fail, raise the exception
         raise ValueError("No valid JSON found in response")
 

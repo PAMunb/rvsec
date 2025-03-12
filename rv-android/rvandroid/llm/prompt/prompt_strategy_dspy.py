@@ -129,13 +129,13 @@ class DSPyPromptStrategy(BasePromptStrategy):
                         if item.actions:
                             element_desc.append("  **Available actions:**")
                             for action in item.actions:
-                                security_tag = ""
+                                importance_tag = ""
                                 if action.directly_reaches_mop:
-                                    security_tag = "🔴 [CRITICAL SECURITY OPERATION]"
+                                    importance_tag = "🔴 [CRITICAL OPERATION OF INTEREST]"
                                 elif action.reaches_mop:
-                                    security_tag = "🟠 [SECURITY SENSITIVE]"
+                                    importance_tag = "🟠 [OPERATION OF INTEREST]"
 
-                                action_desc = f"    - `{action.text}` {security_tag}"
+                                action_desc = f"    - `{action.text}` {importance_tag}"
                                 element_desc.append(action_desc)
 
                                 # If it's a text field, suggest appropriate input
@@ -203,7 +203,7 @@ Return EXACTLY 3 actions in valid JSON format.
 Prioritize actions that:
 1. Continue logical workflows
 2. Explore untested elements
-3. Test security-critical operations
+3. Test operations of interest
 4. Maximize testing coverage""")
 
             # Join all sections with double newlines for clarity
@@ -231,18 +231,13 @@ Suggest basic testing actions in valid JSON format.
             DSPy Signature for action generation
         """
         if self._signature is None:
-            # Define a schema for Android testing actions
+            # Define a schema for Android testing actions with action_id
             action_schema = {
                 "type": "array",
                 "items": {
                     "type": "object",
                     "properties": {
-                        "action_type": {
-                            "type": "string",
-                            "enum": ["click", "long_click", "scroll_up", "scroll_down", "scroll_left", "scroll_right",
-                                     "set_text", "key_event"]
-                        },
-                        "target": {
+                        "action_id": {
                             "type": "string"
                         },
                         "params": {
@@ -252,7 +247,7 @@ Suggest basic testing actions in valid JSON format.
                             "type": "string"
                         }
                     },
-                    "required": ["action_type", "target", "params", "explanation"]
+                    "required": ["action_id", "params", "explanation"]
                 }
             }
 
@@ -264,7 +259,8 @@ Suggest basic testing actions in valid JSON format.
                     dspy.InputField("action_history", description="Previous testing actions")
                 ],
                 outputs=[
-                    dspy.OutputField("actions", description="JSON array of testing actions", schema=action_schema)
+                    dspy.OutputField("actions", description="JSON array of testing actions with action_id field",
+                                     schema=action_schema)
                 ]
             )
 
@@ -332,7 +328,7 @@ Suggest basic testing actions in valid JSON format.
             "has_text_fields": False,
             "has_buttons": False,
             "has_dropdowns": False,
-            "has_security_actions": False,
+            "has_operations_of_interest": False,
             "form_elements_count": 0,
             "interactive_elements_count": 0
         }
@@ -345,10 +341,10 @@ Suggest basic testing actions in valid JSON format.
             if item.actions:
                 context["interactive_elements_count"] += 1
 
-                # Check for security-related actions
+                # Check for operations of interest
                 for action in item.actions:
                     if action.reaches_mop or action.directly_reaches_mop:
-                        context["has_security_actions"] = True
+                        context["has_operations_of_interest"] = True
 
             # Detect form elements
             if "text field" in desc or "edittext" in desc:

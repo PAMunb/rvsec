@@ -24,7 +24,7 @@ class BasicPromptStrategy001(PromptStrategy):
 
 Focus on:
 1. Maximizing code coverage by targeting untested UI elements
-2. Prioritizing testing of security-critical methods that directly or indirectly affect operations of interest
+2. Prioritizing testing of methods of interest that directly or indirectly affect operations defined in formal specifications
 3. Systematically exploring all application states in a logical sequence
 4. Testing complex UI interactions and edge cases
 
@@ -53,13 +53,13 @@ GUIDELINES FOR ACTION SELECTION:
 1. ORDERING MATTERS - arrange actions in a logical testing sequence (e.g., fill a form before submitting it)
 2. If an action leads to a screen transition, it should typically be the last action in your sequence
 3. For text inputs, generate contextually appropriate values based on the field type (email, password, etc.)
-4. Prioritize actions that trigger security-critical code paths (marked as [CRITICAL] or [IMPORTANT])
+4. Prioritize actions that trigger operations of interest (marked as [CRITICAL] or [IMPORTANT])
 5. Choose 3-5 most effective actions for thorough testing
 6. Ensure your suggested actions form a coherent testing strategy
 7. For login forms: first fill username, then password, THEN click login button
 8. For registration forms: fill ALL fields in a logical order before submission
 9. If a screen has a primary action (OK, NEXT, CONTINUE), it should be the LAST action
-10. Prioritize actions that trigger security-critical code paths (marked as [CRITICAL] or [IMPORTANT])
+10. Prioritize actions that trigger operations of interest (marked as [CRITICAL] or [IMPORTANT])
 11. For dropdowns/spinners: click to open them first, then select an option
 12. For checkboxes in a form: handle them BEFORE clicking submit buttons
 
@@ -117,15 +117,15 @@ DO NOT include any additional text outside of the JSON array. Your response must
                     if item.actions:
                         prompt += "  Available actions:\n"
                         for action in item.actions:
-                            # Add security indicators
-                            security_tag = ""
+                            # Add importance indicators
+                            importance_tag = ""
                             if action.directly_reaches_mop:
-                                security_tag = " [CRITICAL: Directly reaches security-critical operation]"
+                                importance_tag = " [CRITICAL: Directly reaches operation of interest]"
                             elif action.reaches_mop:
-                                security_tag = " [IMPORTANT: Can reach security-critical operation]"
+                                importance_tag = " [IMPORTANT: Can reach operation of interest]"
 
                             # Create detailed action description
-                            action_desc = f"  - {action.text} (action_id: \"{action.id}\"){security_tag}"
+                            action_desc = f"  - {action.text} (action_id: \"{action.id}\"){importance_tag}"
 
                             # Check for transitions based on this action
                             transitions = self._get_transitions_for_action(activity, widget_id, action)
@@ -186,10 +186,10 @@ DO NOT include any additional text outside of the JSON array. Your response must
     def _add_static_analysis_context(self, activity: str) -> str:
         """
         Enhanced static analysis context that includes clearer transition information.
-        
+
         Args:
             activity: Current activity name
-            
+
         Returns:
             String containing static analysis context
         """
@@ -210,8 +210,8 @@ DO NOT include any additional text outside of the JSON array. Your response must
 
         # Add method statistics
         context += f"- Activity contains {len(reachable_methods)} reachable methods\n"
-        context += f"- {len(critical_methods)} methods can reach security-critical operations\n"
-        context += f"- {len(direct_critical_methods)} methods directly call security-critical operations\n"
+        context += f"- {len(critical_methods)} methods can reach operations of interest\n"
+        context += f"- {len(direct_critical_methods)} methods directly call operations of interest\n"
 
         # Add enhanced window transition information with actions
         if self.static_data and self.static_data.wtg:
@@ -225,7 +225,7 @@ DO NOT include any additional text outside of the JSON array. Your response must
                     to_activity = edge[1].name
                     events = edge[2].get('events', [])
 
-                    # Find corresponding actions if possible                    
+                    # Find corresponding actions if possible
                     action_ids = []  # TODO ........
                     for event in events:
                         widget_id = event.widget_id
@@ -246,12 +246,12 @@ DO NOT include any additional text outside of the JSON array. Your response must
     def _get_transitions_for_action(self, activity: str, widget_id: str, action) -> List[str]:
         """
         Find possible screen transitions for a given action.
-        
+
         Args:
             activity: Current activity name
             widget_id: Widget identifier
             action: ItemAction being checked
-            
+
         Returns:
             List of target activity names this action might transition to
         """
@@ -286,11 +286,11 @@ DO NOT include any additional text outside of the JSON array. Your response must
     def _infer_input_type(self, view: Dict, widget_id: str) -> str:
         """
         Infer the input type for a text field based on properties and static analysis.
-        
+
         Args:
             view: View data dictionary
             widget_id: Widget identifier
-            
+
         Returns:
             Inferred input type as string
         """

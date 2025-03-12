@@ -305,8 +305,8 @@ DO NOT include any additional text outside of the JSON array. Your response must
 
         # Add method statistics
         context += f"- Activity contains {len(reachable_methods)} reachable methods\n"
-        context += f"- {len(critical_methods)} methods can reach security-critical operations\n"
-        context += f"- {len(direct_critical_methods)} methods directly call security-critical operations\n"
+        context += f"- {len(critical_methods)} methods can reach operations of interest\n"
+        context += f"- {len(direct_critical_methods)} methods directly call operations of interest\n"
 
         # Add enhanced window transition information with actions
         if self.static_data and self.static_data.wtg:
@@ -364,9 +364,9 @@ DO NOT include any additional text outside of the JSON array. Your response must
                 method = self.static_data.classes.methods[event.signature]
                 event_desc = f"{event.type.name}"
                 if method.directly_reaches_mop:
-                    event_desc += " (directly reaches critical methods)"
+                    event_desc += " (directly reaches operations of interest)"
                 elif method.reaches_mop:
-                    event_desc += " (can reach critical methods)"
+                    event_desc += " (can reach operations of interest)"
                 event_info.append(event_desc)
 
         if not event_info:
