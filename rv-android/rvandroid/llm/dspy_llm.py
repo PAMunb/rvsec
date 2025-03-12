@@ -4,7 +4,7 @@ from typing import List, Dict, Any, Optional
 import json
 import os
 
-# Importação básica do DSPy
+# Basic DSPy import
 import dspy
 
 from rvandroid.llm.llm import LanguageModel
@@ -36,7 +36,7 @@ class DSPyLLM(LanguageModel):
             model_name: Name of the model
             provider: Provider for the model ('ollama', 'huggingface', 'openai', 'anthropic')
             base_url: Base URL for API (for Ollama)
-            use_cot: Whether to use Chain of Thought reasoning (ignored in simplification)
+            use_cot: Whether to use Chain of Thought reasoning
         """
         super().__init__(model_name)
         self.provider = provider
@@ -58,39 +58,55 @@ class DSPyLLM(LanguageModel):
 
             try:
                 if self.provider == "ollama":
-                    # Tenta diferentes abordagens para acessar o Ollama
+                    # Set environment variable for Ollama
+                    os.environ["OLLAMA_BASE_URL"] = self.base_url
+
+                    # Create properly formatted model name for LiteLLM
+                    formatted_model = f"ollama/{self.model_name}"
+
+                    # Try different approaches based on DSPy version
                     try:
-                        # Tenta importar o Ollama da forma mais atual
-                        from dspy.retrieve.ollama import Ollama
-                        self._lm = Ollama(model=self.model_name, base_url=self.base_url)
-                    except ImportError:
+                        # For newer DSPy versions
+                        self._lm = dspy.LM(model=formatted_model)
+                    except (ImportError, AttributeError, TypeError):
                         try:
-                            # Tenta a abordagem alternativa
-                            if hasattr(dspy, 'OllamaLocal'):
+                            # For older DSPy versions with OllamaAPI
+                            if hasattr(dspy, 'OllamaAPI'):
+                                self._lm = dspy.OllamaAPI(model=self.model_name)
+                            # Use local Ollama approach
+                            elif hasattr(dspy, 'OllamaLocal'):
                                 self._lm = dspy.OllamaLocal(model=self.model_name, base_url=self.base_url)
                             else:
-                                # Uso genérico via LM interface
-                                self._lm = dspy.LM(model=self.model_name, provider="ollama", base_url=self.base_url)
-                        except (ImportError, AttributeError):
-                            # Última tentativa usando configuração manual
-                            self.logger.warning("Using manual Ollama configuration via OLLAMA_BASE_URL")
-                            # Set environment variable for Ollama
-                            os.environ["OLLAMA_BASE_URL"] = self.base_url
-                            self._lm = dspy.OllamaAPI(model=self.model_name)
+                                # Generic usage via LM interface with provider specified
+                                self._lm = dspy.LM(model=self.model_name, provider="ollama")
+                        except Exception as e:
+                            self.logger.warning(f"Falling back to direct LiteLLM usage: {e}")
+                            # Direct LiteLLM usage
+                            import litellm
+                            self._lm = dspy.LM(model=formatted_model)
                 else:
-                    self.logger.warning(f"Provider {self.provider} may not be supported")
-                    # Tenta uma abordagem genérica
-                    self._lm = dspy.LM(provider=self.provider, model=self.model_name)
+                    # For other providers, format the model name appropriately
+                    if self.provider == "huggingface":
+                        formatted_model = f"huggingface/{self.model_name}"
+                    elif self.provider == "openai":
+                        formatted_model = self.model_name  # OpenAI models are already properly formatted
+                    elif self.provider == "anthropic":
+                        formatted_model = self.model_name  # Anthropic models are already properly formatted
+                    else:
+                        # For unknown providers, try direct naming
+                        formatted_model = f"{self.provider}/{self.model_name}"
 
-                # Configure DSPy to use this language model - tenta diferentes métodos
+                    self._lm = dspy.LM(model=formatted_model)
+
+                # Configure DSPy to use this language model - try different methods
                 try:
-                    # Nova forma
+                    # New approach
                     dspy.configure(lm=self._lm)
                 except AttributeError:
-                    # Forma antiga
+                    # Old approach
                     if hasattr(dspy.settings, 'configure'):
                         dspy.settings.configure(lm=self._lm)
-                    # Se nada funcionar, o lm já configurado deve ser suficiente
+                    # If nothing works, the configured lm should be sufficient
 
                 self.logger.info(f"Successfully initialized DSPy with {self.provider}")
             except Exception as e:
@@ -118,21 +134,41 @@ class DSPyLLM(LanguageModel):
             system_prompt = next((m["content"] for m in messages if m["role"] == "system"), "")
             user_prompt = next((m["content"] for m in messages if m["role"] == "user"), "")
 
-            # Combine prompts para um formato simples
+            # Combine prompts into a simple format
             combined_prompt = f"{system_prompt}\n\n{user_prompt}"
 
-            # Use a API básica do DSPy para gerar resposta
-            if hasattr(self._lm, 'complete'):
-                # Usa a API de completion
-                response = self._lm.complete(combined_prompt, max_tokens=max_new_tokens)
-            elif hasattr(self._lm, 'generate'):
-                # Usa a API de generate
-                response = self._lm.generate(combined_prompt, max_tokens=max_new_tokens)
-            else:
-                # Fallback - tenta chamar o lm como função
-                response = self._lm(combined_prompt)
+            # Use basic DSPy API to generate response
+            try:
+                # Try using the preferred complete method
+                if hasattr(self._lm, 'complete'):
+                    response = self._lm.complete(combined_prompt, max_tokens=max_new_tokens)
+                # Fall back to generate method if complete is not available
+                elif hasattr(self._lm, 'generate'):
+                    response = self._lm.generate(combined_prompt, max_tokens=max_new_tokens)
+                # Last resort: call the LM object directly
+                else:
+                    response = self._lm(combined_prompt)
+            except Exception as e:
+                self.logger.warning(f"Error in first generation attempt: {e}")
 
-            # Converte para string se necessário
+                # Try direct LiteLLM usage as fallback
+                try:
+                    import litellm
+                    formatted_model = f"ollama/{self.model_name}"
+                    response = litellm.completion(
+                        model=formatted_model,
+                        messages=[
+                            {"role": "system", "content": system_prompt},
+                            {"role": "user", "content": user_prompt}
+                        ],
+                        max_tokens=max_new_tokens
+                    )
+                    return response.choices[0].message.content
+                except Exception as nested_e:
+                    self.logger.error(f"LiteLLM fallback also failed: {nested_e}")
+                    raise e  # Re-raise the original exception
+
+            # Convert to string if necessary
             if hasattr(response, 'text'):
                 response_text = response.text
             elif isinstance(response, str):
@@ -140,18 +176,18 @@ class DSPyLLM(LanguageModel):
             else:
                 response_text = str(response)
 
-            # Tenta extrair JSON válido da resposta
+            # Try to extract valid JSON from the response
             try:
                 import re
                 json_match = re.search(r'\[\s*{.*}\s*\]', response_text, re.DOTALL)
                 if json_match:
                     json_text = json_match.group(0)
-                    json.loads(json_text)  # Valida se é JSON
+                    json.loads(json_text)  # Validate as JSON
                     return json_text
             except:
                 pass
 
-            # Retorna resposta original
+            # Return original response
             return response_text
 
         except Exception as e:

@@ -1,15 +1,14 @@
-# rvandroid/llm/prompt_strategy_frontier.py
+# rvandroid/llm/prompt/prompt_strategy_frontier.py
 from typing import Dict, Any, Optional
-import logging
 
-from rvandroid.llm.prompt.prompt_strategy import PromptStrategy
+from rvandroid.llm.prompt.base_prompt_strategy import BasePromptStrategy
 from rvandroid.model.static import StaticAnalysisData
 from rvandroid.parser.screen.parser_factory import ParserType
 
 
-class FrontierPromptStrategy(PromptStrategy):
+class FrontierPromptStrategy(BasePromptStrategy):
     """
-    Base prompt strategy for frontier models like Claude, GPT, Gemini, etc.
+    Prompt strategy for frontier models like Claude, GPT, Gemini, etc.
     These models typically have better understanding of complex instructions
     and can handle more nuanced prompts.
     """
@@ -23,39 +22,7 @@ class FrontierPromptStrategy(PromptStrategy):
             parser_type: Type of parser to use
         """
         super().__init__(static_data, parser_type)
-        self.logger = logging.getLogger(__name__)
-
-    def generate_system_prompt(self) -> str:
-        """
-        Generate system prompt optimized for frontier models.
-
-        Returns:
-            System prompt string
-        """
-        return """You are an expert Android application tester. Your task is to analyze the current app state and suggest the most effective testing actions to maximize code coverage and find potential issues.
-
-Focus on these objectives, in order of priority:
-1. Exercise security-critical code paths that directly interact with sensitive operations
-2. Explore previously untested UI elements and app features
-3. Test complex interaction patterns and edge cases
-4. Systematically explore all application states
-
-For each suggested action, provide:
-- action_type: The type of action (click, long_click, scroll, set_text, key_event)
-- target: The widget ID, resource ID, or coordinates to act upon
-- params: Any additional parameters required for the action
-- explanation: A brief justification for why this action was selected
-
-Your response must be a valid JSON array of action objects. Each object should follow this schema:
-{
-  "action_type": "click",
-  "target": "widget_id_or_index",
-  "params": {},
-  "explanation": "Brief explanation"
-}
-
-Do not include any text outside of the JSON array. Return exactly 3-5 suggested actions that would be most effective for testing the current screen.
-"""
+        self.logger.info("Using FrontierPromptStrategy for action generation")
 
     def generate_user_prompt(self, state: Dict[str, Any]) -> str:
         """
@@ -80,6 +47,7 @@ Do not include any text outside of the JSON array. Return exactly 3-5 suggested 
         # Static analysis context
         sections.append("# Static Analysis")
         sections.append(self._add_static_analysis_context(activity))
+
         # UI Elements with rich information
         sections.append("# UI Elements")
         for item in screen_description.items:

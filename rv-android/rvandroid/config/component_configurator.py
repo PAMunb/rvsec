@@ -8,6 +8,7 @@ from rvandroid.llm.huggingface_llm import HuggingFaceLLM
 from rvandroid.llm.dspy_llm import DSPyLLM
 from rvandroid.llm.langchain_llm import LangchainLLM
 from rvandroid.llm.frontier_models import FrontierModel
+from rvandroid.llm.prompt.dspy_single_action_prompt_strategy import DSPySingleActionPromptStrategy
 
 from rvandroid.llm.prompt.prompt_strategy import PromptStrategy
 from rvandroid.llm.prompt.prompt_strategy_basic_001 import BasicPromptStrategy001
@@ -46,7 +47,8 @@ class ComponentConfigurator:
     STRATEGY_TYPES = {
         "basic": BasicPromptStrategy001,
         "dspy": DSPyPromptStrategy,
-        "single_action": SingleActionPromptStrategy
+        "single_action": SingleActionPromptStrategy,
+        "dspy_single_action": DSPySingleActionPromptStrategy
     }
 
     PARSER_TYPES = {

@@ -1,16 +1,14 @@
 # rvandroid/llm/prompt/prompt_strategy_dspy.py
-import logging
 from typing import Dict, Any, Optional, List
 
 import dspy
-from dspy import Signature, InputField, OutputField
 
-from rvandroid.llm.prompt.prompt_strategy import PromptStrategy
+from rvandroid.llm.prompt.base_prompt_strategy import BasePromptStrategy
 from rvandroid.model.static import StaticAnalysisData
 from rvandroid.parser.screen.parser_factory import ParserType
 
 
-class DSPyPromptStrategy(PromptStrategy):
+class DSPyPromptStrategy(BasePromptStrategy):
     """
     Specialized prompt strategy for DSPy models.
     Takes advantage of DSPy's programmatic approach to prompt engineering.
@@ -25,61 +23,9 @@ class DSPyPromptStrategy(PromptStrategy):
             parser_type: Type of parser to use
         """
         super().__init__(static_data, parser_type)
-        self.logger = logging.getLogger(__name__)
         self._signature = None
         self._action_schema = None
-
-    def generate_system_prompt(self) -> str:
-        """
-        Generate system prompt optimized for DSPy models.
-
-        Returns:
-            System prompt string
-        """
-        return """You are an Android UI testing expert. Your task is to analyze the current app state and suggest the MOST EFFECTIVE NEXT ACTIONS to take for testing the application thoroughly.
-
-Focus on:
-1. Systematically exploring all parts of the application
-2. Maximizing code coverage by targeting untested UI elements
-3. Prioritizing testing of security-critical methods
-4. Testing complete workflows from beginning to end
-
-You will receive information about:
-- The current activity screen
-- UI elements and their available actions
-- Static analysis information about security-critical operations
-- Action history showing what has already been tested
-
-Your response must be a valid JSON array of actions with this structure:
-[
-  {
-    "action_type": "click", 
-    "target": "resource_id or coordinates", 
-    "params": {}, 
-    "explanation": "Why this action was chosen"
-  }
-]
-
-Valid action types:
-- click: Tap on a UI element
-- long_click: Long press on a UI element
-- scroll_up/scroll_down/scroll_left/scroll_right: Scroll in a direction
-- set_text: Enter text into a field (include "text" in params)
-- key_event: Use system keys like BACK, HOME (include "name" in params)
-
-FORM FILLING GUIDELINES:
-- Fill forms in a logical sequence (inputs first, then submit)
-- Use appropriate values for different field types
-- Interact with dropdowns by clicking first, then scrolling
-- Test edge cases with invalid inputs
-
-WORKFLOW TESTING GUIDELINES:
-- Complete one interaction sequence before starting another
-- Prioritize unexplored elements over previously tested ones
-- Use BACK to navigate when workflows are complete
-- Test security-critical elements thoroughly
-
-Your response must be valid JSON without any additional text."""
+        self.logger.info("Using DSPyPromptStrategy for action generation")
 
     def generate_user_prompt(self, state: Dict[str, Any]) -> str:
         """
@@ -311,27 +257,25 @@ Suggest basic testing actions in valid JSON format.
             }
 
             # Create a DSPy signature for structured output
-            self._signature = Signature(
+            self._signature = dspy.Signature(
                 inputs=[
-                    InputField("activity", description="Current Android activity"),
-                    InputField("ui_elements", description="Available UI elements and actions"),
-                    InputField("action_history", description="Previous testing actions")
+                    dspy.InputField("activity", description="Current Android activity"),
+                    dspy.InputField("ui_elements", description="Available UI elements and actions"),
+                    dspy.InputField("action_history", description="Previous testing actions")
                 ],
                 outputs=[
-                    OutputField("actions", description="JSON array of testing actions", schema=action_schema)
+                    dspy.OutputField("actions", description="JSON array of testing actions", schema=action_schema)
                 ]
             )
 
         return self._signature
 
-    # Métodos adicionais para a classe DSPyPromptStrategy
-
     def define_dspy_signatures(self):
         """
-        Define DSPy signatures para diferentes tipos de tarefas de teste.
-        Retorna um dicionário de assinaturas que podem ser usadas com base no contexto.
+        Define DSPy signatures for different types of testing tasks.
+        Returns a dictionary of signatures that can be used based on context.
         """
-        # Definir signature para previsão baseada em action_id
+        # Define signature for action_id based prediction
         action_id_signature = dspy.Signature(
             inputs=[
                 dspy.InputField("activity", description="Current Android activity"),
@@ -343,7 +287,7 @@ Suggest basic testing actions in valid JSON format.
             ]
         )
 
-        # Definir signature para previsão baseada em coordenadas
+        # Define signature for coordinate-based prediction
         coordinate_signature = dspy.Signature(
             inputs=[
                 dspy.InputField("activity", description="Current Android activity"),
@@ -355,7 +299,7 @@ Suggest basic testing actions in valid JSON format.
             ]
         )
 
-        # Definir signature para previsão de uma única ação
+        # Define signature for single action prediction
         single_action_signature = dspy.Signature(
             inputs=[
                 dspy.InputField("activity", description="Current Android activity"),
@@ -375,13 +319,13 @@ Suggest basic testing actions in valid JSON format.
 
     def analyze_screen_context(self, screen_description) -> Dict[str, Any]:
         """
-        Analisa o contexto da tela para determinar a melhor estratégia de prompt.
+        Analyze the screen context to determine the best prompt strategy.
 
         Args:
-            screen_description: Descrição da tela atual
+            screen_description: Current screen description
 
         Returns:
-            Dicionário com análise do contexto
+            Dictionary with context analysis
         """
         context = {
             "is_form": False,
@@ -393,20 +337,20 @@ Suggest basic testing actions in valid JSON format.
             "interactive_elements_count": 0
         }
 
-        # Analisa os elementos da tela
+        # Analyze screen elements
         for item in screen_description.items:
             desc = item.base_description.lower()
 
-            # Conta elementos interativos
+            # Count interactive elements
             if item.actions:
                 context["interactive_elements_count"] += 1
 
-                # Verifica ações relacionadas à segurança
+                # Check for security-related actions
                 for action in item.actions:
                     if action.reaches_mop or action.directly_reaches_mop:
                         context["has_security_actions"] = True
 
-            # Detecta elementos de formulário
+            # Detect form elements
             if "text field" in desc or "edittext" in desc:
                 context["has_text_fields"] = True
                 context["form_elements_count"] += 1
@@ -420,7 +364,7 @@ Suggest basic testing actions in valid JSON format.
             elif "checkbox" in desc or "radio" in desc:
                 context["form_elements_count"] += 1
 
-        # Determina se é um formulário
+        # Determine if this is a form
         context["is_form"] = (context["has_text_fields"] and context["has_buttons"]) or context[
             "form_elements_count"] >= 2
 
@@ -428,13 +372,13 @@ Suggest basic testing actions in valid JSON format.
 
     def _get_dspy_modules(self):
         """
-        Cria módulos DSPy específicos para diferentes cenários de teste.
+        Create DSPy modules for different testing scenarios.
 
         Returns:
-            Dicionário com diferentes módulos DSPy
+            Dictionary with different DSPy modules
         """
 
-        # Define módulo para previsão de ações baseadas em action_id
+        # Define module for action_id based prediction
         class ActionIDPredictor(dspy.Module):
             def __init__(self):
                 super().__init__()
@@ -447,7 +391,7 @@ Suggest basic testing actions in valid JSON format.
                     action_history=action_history
                 )
 
-        # Define módulo para previsão de ações baseadas em coordenadas
+        # Define module for coordinate-based prediction
         class CoordinateActionPredictor(dspy.Module):
             def __init__(self):
                 super().__init__()
@@ -460,7 +404,7 @@ Suggest basic testing actions in valid JSON format.
                     action_history=action_history
                 )
 
-        # Define módulo para previsão de uma única ação
+        # Define module for single action prediction
         class SingleActionPredictor(dspy.Module):
             def __init__(self):
                 super().__init__()

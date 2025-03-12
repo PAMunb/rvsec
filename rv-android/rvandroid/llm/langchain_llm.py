@@ -3,12 +3,12 @@ from typing import List, Dict, Optional
 import logging
 import json
 
-# Importações mais básicas que devem funcionar
-from langchain.schema import SystemMessage, HumanMessage  # Use caminho antigo
+# Basic imports that should work
+from langchain.schema import SystemMessage, HumanMessage  # Use old path
 from langchain.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain.memory import ConversationBufferMemory
 
-# Importe apenas o Ollama que provavelmente você já tem instalado
+# Import only Ollama which is likely already installed
 from langchain.llms import Ollama
 
 from rvandroid.llm.llm import LanguageModel
@@ -17,16 +17,16 @@ logger = logging.getLogger(__name__)
 
 
 class SimpleJsonParser:
-    """Parser JSON simples para uso interno."""
+    """Simple JSON parser for internal use."""
 
     def parse(self, text: str) -> Dict:
         try:
-            # Tenta encontrar o início e fim do JSON na string
+            # Try to find the start and end of JSON in the string
             start_idx = text.find('[')
             end_idx = text.rfind(']') + 1
 
             if start_idx == -1 or end_idx <= start_idx:
-                # Tenta encontrar um objeto JSON se não for um array
+                # Try to find a JSON object if it's not an array
                 start_idx = text.find('{')
                 end_idx = text.rfind('}') + 1
 
@@ -34,7 +34,7 @@ class SimpleJsonParser:
                 json_text = text[start_idx:end_idx]
                 return json.loads(json_text)
 
-            # Se não conseguir extrair, tenta parsear o texto completo
+            # If extraction fails, try to parse the complete text
             return json.loads(text)
         except Exception as e:
             logger.warning(f"JSON parsing failed: {e}")
@@ -53,7 +53,7 @@ class LangchainLLM(LanguageModel):
     QWEN = "qwen2.5:3b"
     MISTRAL = "mistral:7b"
 
-    # All models - apenas os que sabemos que funcionam com Ollama
+    # All models - only ones known to work with Ollama
     MODELS = [LLAMA, PHI, QWEN, MISTRAL]
 
     def __init__(
@@ -70,9 +70,9 @@ class LangchainLLM(LanguageModel):
 
         Args:
             model_name: Name of the model
-            provider: Provider for the model ('ollama' é o único suportado nesta versão)
+            provider: Provider for the model ('ollama' is the only supported one in this version)
             base_url: Base URL for API (for Ollama)
-            api_key: API key (não utilizado nesta versão)
+            api_key: API key (not used in this version)
             use_memory: Whether to enable conversation memory
             use_json_parser: Whether to use JSON output parsing
         """
@@ -85,7 +85,7 @@ class LangchainLLM(LanguageModel):
         self._llm = None
         self._chain = None
         self._memory = None
-        self._parser = SimpleJsonParser()  # Usar nossa implementação simples
+        self._parser = SimpleJsonParser()  # Use our simple implementation
         self.logger = logger
 
         # Initialize components as needed
@@ -111,7 +111,7 @@ class LangchainLLM(LanguageModel):
                         temperature=0.2  # Lower temperature for more focused responses
                     )
                 else:
-                    # Para esta versão, apenas suportamos Ollama
+                    # For this version, we only support Ollama
                     self.logger.warning(
                         f"Provider {self.provider} not supported in this version, falling back to Ollama")
                     self._llm = Ollama(
@@ -145,7 +145,7 @@ class LangchainLLM(LanguageModel):
             system_content = next((m["content"] for m in messages if m["role"] == "system"), "")
             user_content = next((m["content"] for m in messages if m["role"] == "user"), "")
 
-            # Combine prompts em um formato que o Ollama entende
+            # Combine prompts in a format that Ollama understands
             combined_prompt = f"{system_content}\n\n{user_content}"
 
             # Generate with simple approach
@@ -171,7 +171,7 @@ class LangchainLLM(LanguageModel):
         """
         self._llm = None
         self._chain = None
-        self._memory = None  # Limpa a memória de conversação
+        self._memory = None  # Clear conversation memory
         self.logger.info("LangChain resources released")
 
     @staticmethod

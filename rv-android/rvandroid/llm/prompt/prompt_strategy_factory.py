@@ -1,91 +1,89 @@
-# rvandroid/llm/prompt/prompt_strategy_factory.py (atualizado)
-import logging
-from typing import Dict, Type, Optional, Union
+# rvandroid/llm/prompt/prompt_strategy_factory.py
+from typing import Optional, Union
 
-from rvandroid.config.component_config import ComponentConfig
-from rvandroid.llm.prompt.prompt_strategy import PromptStrategy
-from rvandroid.llm.prompt.prompt_strategy_basic_001 import BasicPromptStrategy001
+from rvandroid.llm.prompt.base_prompt_strategy import BasePromptStrategy
+from rvandroid.llm.prompt.prompt_strategy_basic_001 import BasicPromptStrategy001  # Adicione esta linha
 from rvandroid.llm.prompt.prompt_strategy_dspy import DSPyPromptStrategy
+from rvandroid.llm.prompt.prompt_strategy_frontier import FrontierPromptStrategy
 from rvandroid.llm.prompt.single_action_prompt_strategy import SingleActionPromptStrategy
+from rvandroid.llm.prompt.dspy_single_action_prompt_strategy import DSPySingleActionPromptStrategy
 from rvandroid.model.static import StaticAnalysisData
 from rvandroid.parser.screen.abstract_parser import AbstractScreenParser
-from rvandroid.parser.screen.parser_factory import ParserType
-
-logger = logging.getLogger(__name__)
+from rvandroid.parser.screen.parser_factory import ParserType, ParserFactory
+from rvandroid.config.component_config import ComponentConfig
 
 
 class PromptStrategyFactory:
     """
-    Factory for creating prompt strategies.
+    Factory class for creating prompt strategy instances.
+    Maps strategy names to their implementations.
     """
 
-    # Registry of available strategy types
-    _STRATEGIES: Dict[str, Type[PromptStrategy]] = {
-        "basic": BasicPromptStrategy001,
+    # Mapping of strategy types to their implementation classes
+    STRATEGIES = {
+        "basic": BasicPromptStrategy001,  # Adicione esta linha para incluir a estratégia "basic"
+        "single_action": SingleActionPromptStrategy,
         "dspy": DSPyPromptStrategy,
-        "single_action": SingleActionPromptStrategy
+        "frontier": FrontierPromptStrategy,
+        "dspy_single_action": DSPySingleActionPromptStrategy,
+        # Add more strategies as needed
     }
 
     @classmethod
-    def create(
-            cls,
-            strategy_type: str,
-            static_data: Optional[StaticAnalysisData] = None,
-            parser: Union[ParserType, AbstractScreenParser, None] = ParserType.DROIDBOT,
-            config: Optional[ComponentConfig] = None
-    ) -> PromptStrategy:
+    def create(cls,
+               strategy_type: str,
+               static_data: Optional[StaticAnalysisData] = None,
+               parser: Union[ParserType, AbstractScreenParser, None] = None,
+               component_config: Optional[ComponentConfig] = None) -> BasePromptStrategy:
         """
-        Create a prompt strategy instance.
+        Create a prompt strategy instance of the specified type.
 
         Args:
-            strategy_type: Type of strategy ('basic', 'dspy', 'single_action', etc.)
+            strategy_type: Type of strategy to create
             static_data: Static analysis data (optional)
-            parser: Parser type or instance to use (optional)
-            config: Component configuration for advanced customization (optional)
+            parser: Parser instance or parser type (optional)
+            component_config: Component configuration (optional)
 
         Returns:
-            PromptStrategy instance
+            BasePromptStrategy instance
 
         Raises:
-            ValueError: If strategy_type is invalid
+            ValueError: If strategy_type is unknown
         """
-        if strategy_type not in cls._STRATEGIES:
-            logger.warning(f"Unknown prompt strategy type: {strategy_type}, using 'basic'")
-            strategy_type = "basic"
+        # Default to single_action if not specified
+        if not strategy_type:
+            strategy_type = "single_action"
 
-        # If a component config is provided, use it to create the strategy
-        if config and config.strategy_class:
-            logger.info(f"Creating prompt strategy using custom component configuration")
-            return config.create_strategy(static_data)
+        # Convert parser type to parser instance if needed
+        parser_instance = parser
+        if isinstance(parser, ParserType) or parser is None:
+            parser_type = ParserType.DROIDBOT if parser is None else parser
+            parser_instance = ParserFactory.create(parser_type)
 
-        # Otherwise use the standard approach
-        strategy_class = cls._STRATEGIES[strategy_type]
-        return strategy_class(static_data, parser)
+        # Get strategy class
+        strategy_class = cls.STRATEGIES.get(strategy_type.lower())
+        if not strategy_class:
+            raise ValueError(f"Unknown prompt strategy type: {strategy_type}")
 
-    @staticmethod
-    def register_strategy(name: str, strategy_class: Type[PromptStrategy]) -> None:
+        # Create and return strategy instance
+        return strategy_class(static_data, parser_instance)
+
+    @classmethod
+    def available_strategies(cls) -> list:
         """
-        Register a new prompt strategy.
-
-        Args:
-            name: Name of the strategy
-            strategy_class: Strategy class
-
-        Raises:
-            TypeError: If strategy_class is not a subclass of PromptStrategy
-        """
-        if not issubclass(strategy_class, PromptStrategy):
-            raise TypeError(f"Strategy class must be a subclass of PromptStrategy")
-
-        PromptStrategyFactory._STRATEGIES[name] = strategy_class
-        logger.info(f"Registered new prompt strategy: {name}")
-
-    @staticmethod
-    def get_available_strategies() -> Dict[str, Type[PromptStrategy]]:
-        """
-        Get all available strategy types.
+        Returns a list of available strategy types.
 
         Returns:
-            Dictionary of strategy types and their classes
+            List of strategy type names
         """
-        return PromptStrategyFactory._STRATEGIES.copy()
+        return list(cls.STRATEGIES.keys())
+
+    @classmethod
+    def get_default_strategy(cls) -> str:
+        """
+        Returns the default strategy type.
+
+        Returns:
+            Default strategy type name
+        """
+        return "single_action"

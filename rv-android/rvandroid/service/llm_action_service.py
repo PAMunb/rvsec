@@ -3,6 +3,7 @@ import logging
 from typing import Dict, List, Any, Optional
 
 from rvandroid.config.component_config import ComponentConfig
+from rvandroid.llm.huggingface_llm import HuggingFaceLLM
 from rvandroid.llm.llm import LanguageModel
 from rvandroid.llm.llm_config import LLMConfiguration
 from rvandroid.llm.model_factory import ModelFactory
@@ -11,7 +12,6 @@ from rvandroid.llm.prompt.prompt_strategy_factory import PromptStrategyFactory
 from rvandroid.llm.prompt.single_action_prompt_strategy import SingleActionPromptStrategy
 from rvandroid.model.static import StaticAnalysisData
 from rvandroid.parser.screen.parser_factory import ParserType, ParserFactory
-from rvandroid.llm.huggingface_llm import HuggingFaceLLM
 
 logger = logging.getLogger(__name__)
 
@@ -57,6 +57,11 @@ class LLMActionService:
             self.parser_type = config.get_parser_type()
             self.model_kwargs = config.get_model_kwargs()
             self.max_tokens = config.get_max_tokens()
+        # if component_config: # TODO unificar a configuracao
+        #     self.model_type = component_config.llm_config["type"]
+        #     self.model_name = component_config.llm_config["model"]
+        #     self.strategy_type = component_config.component_config.get_strategy_type()
+        #     self.parser_type = component_config.component_config.get_parser_type()
         else:
             self.model_type = model_type
             self.model_name = model_name
@@ -228,12 +233,11 @@ class LLMActionService:
                 # Create enhanced description with form context
                 if action_type == "click":
                     # Check if this appears to be a dropdown/spinner
-                    if "spinner" in target.lower() or "dropdown" in target.lower():
+                    if target and ("spinner" in target.lower() or "dropdown" in target.lower()):
                         enhanced_action = f"[Action ID: {action_id}] CLICKED ON DROPDOWN '{target}'{params_str} - {explanation}"
-                    # Check if this might be a submit button
-                    elif any(keyword in target.lower() for keyword in
-                             ["submit", "login", "save", "apply", "ok", "next", "continue",
-                              "generate", "create", "send", "search", "encrypt", "decrypt"]):
+                    elif target and any(keyword in target.lower() for keyword in
+                                        ["submit", "login", "save", "apply", "ok", "next", "continue",
+                                         "generate", "create", "send", "search", "encrypt", "decrypt"]):
                         enhanced_action = f"[Action ID: {action_id}] SUBMITTED FORM by clicking '{target}'{params_str} - {explanation}"
                     else:
                         enhanced_action = f"[Action ID: {action_id}] CLICKED on '{target}'{params_str} - {explanation}"
@@ -307,6 +311,12 @@ class LLMActionService:
             return self._generate_fallback_actions(state)
 
         droidbot_actions = []
+
+        # For SingleActionPromptStrategy, process only the first action
+        if isinstance(self.prompt_strategy, SingleActionPromptStrategy) and len(llm_actions) > 1:
+            self.logger.info(
+                "SingleActionPromptStrategy detected with multiple actions. Processing only the first action.")
+            llm_actions = llm_actions[:1]
 
         for action_data in llm_actions:
             try:
@@ -560,6 +570,7 @@ class LLMActionService:
     def _extract_json(self, text: str) -> str:
         """
         Extract JSON content from text that might contain other content.
+        Enhanced version with more robust extraction and repair capabilities.
 
         Args:
             text: Text potentially containing JSON
@@ -570,83 +581,67 @@ class LLMActionService:
         Raises:
             ValueError: If no valid JSON can be extracted
         """
-        # Look for JSON array
-        start_idx = text.find('[')
-        end_idx = text.rfind(']')
+        import re
+        import json
 
-        if start_idx != -1 and end_idx != -1 and end_idx > start_idx:
-            json_text = text[start_idx:end_idx + 1]
-            # Validate that it can be parsed
+        # First attempt: Look for JSON array using regex
+        array_match = re.search(r'\[\s*\{.*?\}\s*\]', text, re.DOTALL)
+        if array_match:
+            json_text = array_match.group(0)
             try:
                 json.loads(json_text)
                 return json_text
             except json.JSONDecodeError:
                 self.logger.warning("Found array brackets but content isn't valid JSON")
 
-        # Look for JSON object
-        start_idx = text.find('{')
-        end_idx = text.rfind('}')
-
-        if start_idx != -1 and end_idx != -1 and end_idx > start_idx:
-            json_text = text[start_idx:end_idx + 1]
+        # Second attempt: Look for JSON object using regex
+        object_match = re.search(r'\{\s*".*?"\s*:.*?\}', text, re.DOTALL)
+        if object_match:
+            json_text = object_match.group(0)
             try:
                 json.loads(json_text)
                 return json_text
             except json.JSONDecodeError:
                 self.logger.warning("Found object braces but content isn't valid JSON")
 
-        # If we get here, we need to do more aggressive fixing
-        # Try to fix common JSON issues
-        fixed_text = self._fix_json_text(text)
-        if fixed_text:
-            return fixed_text
-
-        raise ValueError("No valid JSON found in response")
-
-    def _extract_json(self, text: str) -> str:
-        """
-        Extract JSON content from text that might contain other content.
-
-        Args:
-            text: Text potentially containing JSON
-
-        Returns:
-            Extracted JSON string
-
-        Raises:
-            ValueError: If no valid JSON can be extracted
-        """
-        # Look for JSON array
+        # Third attempt: Try to perform common JSON fixes on array content
         start_idx = text.find('[')
         end_idx = text.rfind(']')
 
         if start_idx != -1 and end_idx != -1 and end_idx > start_idx:
             json_text = text[start_idx:end_idx + 1]
-            # Validate that it can be parsed
-            try:
-                json.loads(json_text)
-                return json_text
-            except json.JSONDecodeError:
-                self.logger.warning("Found array brackets but content isn't valid JSON")
+            # Fix common JSON issues
+            fixed_json = self._fix_json_text(json_text)
+            if fixed_json:
+                try:
+                    json.loads(fixed_json)
+                    return fixed_json
+                except json.JSONDecodeError:
+                    self.logger.warning("Failed to parse fixed JSON array")
 
-        # Look for JSON object
+        # Fourth attempt: Try to perform common JSON fixes on object content
         start_idx = text.find('{')
         end_idx = text.rfind('}')
 
         if start_idx != -1 and end_idx != -1 and end_idx > start_idx:
             json_text = text[start_idx:end_idx + 1]
-            try:
-                json.loads(json_text)
-                return json_text
-            except json.JSONDecodeError:
-                self.logger.warning("Found object braces but content isn't valid JSON")
+            # Fix common JSON issues
+            fixed_json = self._fix_json_text(json_text)
+            if fixed_json:
+                try:
+                    json.loads(fixed_json)
+                    return fixed_json
+                except json.JSONDecodeError:
+                    self.logger.warning("Failed to parse fixed JSON object")
 
-        # If we get here, we need to do more aggressive fixing
-        # Try to fix common JSON issues
-        fixed_text = self._fix_json_text(text)
-        if fixed_text:
-            return fixed_text
+        # Last resort: Extract all JSON-like structures and try to fix them
+        self.logger.warning("Attempting more aggressive JSON extraction")
+        # Try to find and construct a valid action array from the text
+        fallback_actions = self._extract_fallback_json(text)
+        if fallback_actions:
+            return fallback_actions
 
+        # If all attempts fail, raise the exception
         raise ValueError("No valid JSON found in response")
 
     def _fix_json_text(self, text: str) -> str:
@@ -661,37 +656,66 @@ class LLMActionService:
         """
         import re
 
-        # Look for JSON-like content
-        match = re.search(r'\[\s*\{.*\}\s*\]', text, re.DOTALL)
-        if match:
-            json_candidate = match.group(0)
+        # Replace single quotes with double quotes
+        text = re.sub(r"'([^']*)'", r'"\1"', text)
 
-            # Try to parse it
-            try:
-                json.loads(json_candidate)
-                return json_candidate
-            except json.JSONDecodeError:
-                # Still invalid, but we found something JSON-like
-                pass
+        # Fix unquoted property names
+        text = re.sub(r'(\w+):', r'"\1":', text)
 
-        # More aggressive: extract anything between [ and ] and try to fix it
-        if '[' in text and ']' in text:
-            start = text.find('[')
-            end = text.rfind(']')
-            if start < end:
-                json_candidate = text[start:end + 1]
+        # Fix trailing commas in arrays and objects
+        text = re.sub(r',\s*\}', '}', text)
+        text = re.sub(r',\s*\]', ']', text)
 
-                # Common fixes:
-                # Fix single quotes to double quotes
-                json_candidate = json_candidate.replace("'", '"')
-                # Fix unquoted keys
-                json_candidate = re.sub(r'(\w+):', r'"\1":', json_candidate)
+        # Fix missing quotes around string values
+        text = re.sub(r':\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*([,\}])', r': "\1"\2', text)
 
-                try:
-                    json.loads(json_candidate)
-                    return json_candidate
-                except json.JSONDecodeError:
-                    pass
+        # Fix boolean values
+        text = re.sub(r':\s*True\s*([,\}])', r': true\1', text)
+        text = re.sub(r':\s*False\s*([,\}])', r': false\1', text)
+
+        # Fix double-quoted strings inside single-quoted strings
+        text = re.sub(r'\'([^\']*)"([^\']*)"([^\']*)\'', r'"\1\"\2\"\3"', text)
+
+        return text
+
+    def _extract_fallback_json(self, text: str) -> str:
+        """
+        Extract action data from text and construct a valid JSON array.
+        This is a last-resort method for when normal JSON parsing fails.
+
+        Args:
+            text: Text containing potential action data
+
+        Returns:
+            Valid JSON array string or empty string if extraction fails
+        """
+        import json
+        import re
+
+        # Try to extract action_id values
+        action_ids = re.findall(r'action_id["\s:]+([0-9]+)', text)
+
+        # Try to extract explanation values - match text between explanation and the next property
+        explanations = re.findall(r'explanation["\s:]+"([^"]+)"', text)
+
+        # Check if we found any action IDs
+        if action_ids:
+            # Create fallback actions
+            actions = []
+
+            for i, action_id in enumerate(action_ids):
+                explanation = explanations[i] if i < len(explanations) else "Extracted action"
+
+                action = {
+                    "action_id": action_id,
+                    "params": {},
+                    "explanation": explanation
+                }
+
+                actions.append(action)
+
+            if actions:
+                return json.dumps(actions)
 
         return ""
 
