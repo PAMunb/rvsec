@@ -33,14 +33,14 @@ class PromptStrategyFactory:
     def create(cls,
                strategy_type: str,
                static_data: Optional[StaticAnalysisData] = None,
-               parser: Union[ParserType, AbstractScreenParser, None] = None) -> BasePromptStrategy:
+               parser: Optional[AbstractScreenParser] = None) -> BasePromptStrategy:
         """
         Create a prompt strategy instance of the specified type.
 
         Args:
             strategy_type: Type of strategy to create
             static_data: Static analysis data (optional)
-            parser: Parser instance or parser type (optional)
+            parser: Parser instance (optional)
 
         Returns:
             BasePromptStrategy instance
@@ -52,11 +52,11 @@ class PromptStrategyFactory:
         if not strategy_type:
             strategy_type = "single_action"
 
-        # Convert parser type to parser instance if needed
-        parser_instance = parser
-        if isinstance(parser, ParserType) or parser is None:
-            parser_type = ParserType.DROIDBOT if parser is None else parser
-            parser_instance = ParserFactory.create(parser_type)
+        # Get parser instance if none provided
+        if parser is None:
+            # Use default DroidBot parser
+            from rvandroid.parser.screen.parser_factory import ParserFactory, ParserType
+            parser = ParserFactory.create(ParserType.DROIDBOT)
 
         # Get strategy class
         strategy_class = cls.STRATEGIES.get(strategy_type.lower())
@@ -64,7 +64,7 @@ class PromptStrategyFactory:
             raise ValueError(f"Unknown prompt strategy type: {strategy_type}")
 
         # Create and return strategy instance
-        return strategy_class(static_data, parser_instance)
+        return strategy_class(static_data, parser)
 
     @classmethod
     def available_strategies(cls) -> list:

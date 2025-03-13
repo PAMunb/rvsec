@@ -19,13 +19,14 @@ class HuggingFaceLLM(LanguageModel):
     # Available model definitions
     LLAMA = "meta-llama/Meta-Llama-3.1-8B-Instruct"
     DEEPSEEK = "deepseek-ai/DeepSeek-R1-Distill-Qwen-7B"
+    GEMMA = "google/gemma-3-4b-it"
     QWEN = "Qwen/Qwen2.5-3B-Instruct"
     PHI = "microsoft/Phi-3.5-mini-instruct"
     GRANITE = "ibm-granite/granite-3.1-8b-instruct"
     FALCON = "tiiuae/Falcon3-3B-Instruct"
     MISTRAL = "mistralai/Mistral-7B-Instruct-v0.3"
 
-    MODELS = [LLAMA, DEEPSEEK, QWEN, PHI, GRANITE, FALCON, MISTRAL]
+    MODELS = [LLAMA, DEEPSEEK, GEMMA, QWEN, PHI, GRANITE, FALCON, MISTRAL]
 
     def __init__(self, model_name: str, device: str = "cuda"):
         """

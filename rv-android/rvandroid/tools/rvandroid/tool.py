@@ -22,7 +22,7 @@ class ToolSpec(AbstractTool):
         rvandroid_url = RVANDROID_URL
 
         # TODO arrumar a configuracao
-        config = ComponentConfig()
+        config = ComponentConfigurator()
         config.set_strategy(BasicPromptStrategy001)
         config.set_visitor(EnhancedTextVisitor)
 

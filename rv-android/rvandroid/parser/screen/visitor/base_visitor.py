@@ -1,4 +1,7 @@
+# rvandroid/parser/screen/visitor/base_visitor.py
+
 import logging
+from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import List, Dict, Optional, Set, Any
@@ -405,9 +408,9 @@ class Node:
         return f"{self.view_class} - {self.resource_id or self.view_text or 'unnamed'}"
 
 
-class BaseScreenVisitor:
+class BaseScreenVisitor(ABC):
     """
-    Base visitor implementation for processing Android UI elements.
+    Abstract base visitor implementation for processing Android UI elements.
     Implements the visitor pattern to traverse the UI hierarchy and create descriptions.
     """
 
@@ -437,33 +440,15 @@ class BaseScreenVisitor:
             "interactive_elements": 0
         }
 
+    @abstractmethod
     def get_screen_description(self) -> ScreenDescription:
         """
-        Create and return a complete screen description with a BACK action added.
+        Create and return a complete screen description.
 
         Returns:
             ScreenDescription object containing all parsed items
         """
-        # Add a default BACK action to the screen description
-        back_action = ItemAction(
-            self.counter.inc(),
-            f"BACK ({self.counter.get()})",
-            WidgetEventType.KEY,
-            False,
-            False
-        )
-
-        # Create a back button item
-        back_item = ScreenItem(
-            {"special": "back_button"},  # dummy data
-            "System back button",
-            [back_action]
-        )
-
-        self.items.append(back_item)
-        self.logger.info(f"Generated screen description with {len(self.items)} items")
-
-        return ScreenDescription(self.activity, self.items)
+        pass
 
     def find_matching_widget(self, node_data: Dict) -> Optional[Widget]:
         """
@@ -549,64 +534,78 @@ class BaseScreenVisitor:
                 return method.directly_reaches_mop
         return False
 
-    # Default implementations for visit methods that should be overridden by subclasses
-
+    # Abstract methods that must be implemented by subclasses
+    @abstractmethod
     def visit_node(self, node: Node) -> None:
-        """Default implementation for visiting a container node."""
+        """Visit a container node."""
         pass
 
+    @abstractmethod
     def visit_leaf_node(self, node: Node) -> None:
-        """Default implementation for visiting a leaf node."""
+        """Visit a leaf node without a specific handler."""
         pass
 
+    @abstractmethod
     def visit_button(self, node: Node) -> None:
-        """Default implementation for visiting a button."""
-        self.visit_leaf_node(node)
+        """Visit a button."""
+        pass
 
+    @abstractmethod
     def visit_edit_text(self, node: Node) -> None:
-        """Default implementation for visiting an edit text field."""
-        self.visit_leaf_node(node)
+        """Visit an edit text field."""
+        pass
 
+    @abstractmethod
     def visit_text_view(self, node: Node) -> None:
-        """Default implementation for visiting a text view."""
-        self.visit_leaf_node(node)
+        """Visit a text view."""
+        pass
 
+    @abstractmethod
     def visit_checkbox(self, node: Node) -> None:
-        """Default implementation for visiting a checkbox."""
-        self.visit_leaf_node(node)
+        """Visit a checkbox."""
+        pass
 
+    @abstractmethod
     def visit_checked_text(self, node: Node) -> None:
-        """Default implementation for visiting a checked text view."""
-        self.visit_leaf_node(node)
+        """Visit a checked text view."""
+        pass
 
+    @abstractmethod
     def visit_image_button(self, node: Node) -> None:
-        """Default implementation for visiting an image button."""
-        self.visit_leaf_node(node)
+        """Visit an image button."""
+        pass
 
+    @abstractmethod
     def visit_image(self, node: Node) -> None:
-        """Default implementation for visiting an image."""
-        self.visit_leaf_node(node)
+        """Visit an image."""
+        pass
 
+    @abstractmethod
     def visit_toggle_button(self, node: Node) -> None:
-        """Default implementation for visiting a toggle button."""
-        self.visit_leaf_node(node)
+        """Visit a toggle button."""
+        pass
 
+    @abstractmethod
     def visit_switch(self, node: Node) -> None:
-        """Default implementation for visiting a switch."""
-        self.visit_leaf_node(node)
+        """Visit a switch."""
+        pass
 
+    @abstractmethod
     def visit_radio_button(self, node: Node) -> None:
-        """Default implementation for visiting a radio button."""
-        self.visit_leaf_node(node)
+        """Visit a radio button."""
+        pass
 
+    @abstractmethod
     def visit_spinner(self, node: Node) -> None:
-        """Default implementation for visiting a spinner."""
-        self.visit_node(node)
+        """Visit a spinner."""
+        pass
 
+    @abstractmethod
     def visit_radio_group(self, node: Node) -> None:
-        """Default implementation for visiting a radio group."""
-        self.visit_node(node)
+        """Visit a radio group."""
+        pass
 
+    @abstractmethod
     def visit_slider(self, node: Node) -> None:
-        """Default implementation for visiting a slider."""
-        self.visit_leaf_node(node)
+        """Visit a slider."""
+        pass

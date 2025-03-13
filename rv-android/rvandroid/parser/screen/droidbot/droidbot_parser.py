@@ -1,5 +1,6 @@
+# rvandroid/parser/screen/droidbot/droidbot_parser.py
 import logging
-from typing import Dict, Any, Optional, Callable
+from typing import Dict, Any, Optional, Type
 
 from rvandroid.model.static import StaticAnalysisData
 from rvandroid.parser.screen.abstract_parser import AbstractScreenParser
@@ -12,14 +13,14 @@ class DroidBotParser(AbstractScreenParser):
     Converts DroidBot state data into a ScreenDescription.
     """
 
-    def __init__(self, visitor_factory: Optional[Callable[[StaticAnalysisData, str], BaseScreenVisitor]] = None):
+    def __init__(self, visitor_class: Optional[Type[BaseScreenVisitor]] = None):
         """
         Initialize the DroidBot parser.
 
         Args:
-            visitor_factory: Optional factory function to create visitor instances
+            visitor_class: Optional visitor class to use for parsing
         """
-        super().__init__(visitor_factory)
+        super().__init__(visitor_class)
         self.logger = logging.getLogger(__name__)
 
     def parse(self, state_data: Dict[str, Any], static_data: Optional[StaticAnalysisData] = None) -> ScreenDescription:
@@ -52,17 +53,13 @@ class DroidBotParser(AbstractScreenParser):
             state_data["stack"] = new_stack
 
         # Create UI hierarchy tree
-        if "view_tree" not in state_data:
-            self.logger.error("No view_tree found in DroidBot state")
-            return ScreenDescription(activity, [])
-
-        tree = self._create_tree_from_json(state_data["view_tree"])
+        tree = self.create_node_tree(state_data)
         if not tree:
             self.logger.error("Failed to create UI tree from view_tree data")
             return ScreenDescription(activity, [])
 
         # Create visitor and traverse tree
-        visitor = self._create_visitor(static_data, activity)
+        visitor = self.create_visitor(static_data, activity)
         tree.accept(visitor)
 
         # Get and return screen description
@@ -128,23 +125,27 @@ class DroidBotParser(AbstractScreenParser):
         Returns:
             True if valid, False otherwise
         """
-        required_fields = ["activity", "view_tree"]
-        return all(field in state_data for field in required_fields)
+        return "view_tree" in state_data
 
-    def _create_tree_from_json(self, json_data: Dict[str, Any]) -> Optional[Node]:
+    def create_node_tree(self, state_data: Dict[str, Any]) -> Optional[Node]:
         """
-        Create a Node tree from JSON representation of an Android UI hierarchy.
+        Create a Node tree from the DroidBot state data.
 
         Args:
-            json_data: JSON dictionary containing UI hierarchy data
+            state_data: Dictionary containing DroidBot state data
 
         Returns:
-            Root Node of the UI hierarchy tree or None if invalid data
+            Root Node of the UI hierarchy or None if invalid data
         """
         self.logger.debug("Creating UI tree from DroidBot JSON data")
 
-        if not isinstance(json_data, dict):
-            self.logger.warning(f"Invalid JSON data format: {type(json_data)}")
+        if "view_tree" not in state_data:
+            self.logger.error("No view_tree found in DroidBot state")
+            return None
+
+        view_tree = state_data["view_tree"]
+        if not isinstance(view_tree, dict):
+            self.logger.warning(f"Invalid JSON data format: {type(view_tree)}")
             return None
 
         def create_node(data: Dict[str, Any], parent: Optional[Node] = None) -> Optional[Node]:
@@ -177,4 +178,4 @@ class DroidBotParser(AbstractScreenParser):
 
             return node
 
-        return create_node(json_data)
+        return create_node(view_tree)

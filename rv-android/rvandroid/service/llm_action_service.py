@@ -54,27 +54,10 @@ class LLMActionService:
     The service will convert these actions to the format required by DroidBot.
     """
 
-    # def __init__(
-    #         self,
-    #         static_data: Optional[StaticAnalysisData] = None,
-    #         model_type: str = HuggingFaceLLM.NAME,
-    #         model_name: str = HuggingFaceLLM.LLAMA,
-    #         strategy_type: str = "basic",
-    #         parser_type: ParserType = ParserType.DROIDBOT,
-    #         config: Optional[LLMConfiguration] = None,
-    #         component_config: Optional[ComponentConfig] = None,
-    #         dynamic_wtg_file: str = "dynamic_wtg.json",
-    #         **model_kwargs
-    # ):
     def __init__(
             self,
             static_data: Optional[StaticAnalysisData] = None,
             config: Optional[ComponentConfigurator] = None,
-            # model_type: str = HuggingFaceLLM.NAME,
-            # model_name: str = HuggingFaceLLM.LLAMA,
-            # strategy_type: str = "basic",
-            # parser_type: ParserType = ParserType.DROIDBOT,
-            # config: Optional[LLMConfiguration] = None,
             dynamic_wtg_file: str = "dynamic_wtg.json",
             **model_kwargs
     ):
@@ -83,12 +66,7 @@ class LLMActionService:
 
         Args:
             static_data: Static analysis data for the application (optional)
-            model_type: Type of model to use
-            model_name: Name of the model
-            strategy_type: Type of prompt strategy to use
-            parser_type: Type of parser to use
-            config: LLMConfiguration instance (overrides other parameters if provided)
-            component_config: ComponentConfig for customizing components (optional)
+            config: ComponentConfigurator instance
             dynamic_wtg_file: File to store/load dynamic transition graph
             **model_kwargs: Additional arguments for the model constructor
         """
@@ -96,24 +74,6 @@ class LLMActionService:
         self.config = config
         self.dynamic_wtg_file = dynamic_wtg_file
 
-        # # Use config if provided, otherwise use parameters
-        # if config:
-        #     self.model_type = config.get_model_type()
-        #     self.model_name = config.get_model_name()
-        #     self.strategy_type = config.get_strategy_type()
-        #     self.parser_type = config.get_parser_type()
-        #     self.model_kwargs = config.get_model_kwargs()
-        #     self.max_tokens = config.get_max_tokens()
-        # # if component_config: # TODO unificar a configuracao
-        # #     self.model_type = component_config.llm_config["type"]
-        # #     self.model_name = component_config.llm_config["model"]
-        # #     self.strategy_type = component_config.component_config.get_strategy_type()
-        # #     self.parser_type = component_config.component_config.get_parser_type()
-        # else:
-        #     self.model_type = model_type
-        #     self.model_name = model_name
-        #     self.strategy_type = strategy_type
-        #     self.parser_type = parser_type
         self.model_type = config.llm_config["type"]
         self.model_name = config.llm_config["model"]
         self.model_kwargs = model_kwargs
@@ -121,14 +81,6 @@ class LLMActionService:
 
         # Set up prompt strategy
         self.prompt_strategy = config.create_strategy(static_data)
-        # if self.config.strategy_class:
-        #     self.prompt_strategy = config.create_strategy(static_data)
-            # self.prompt_strategy = PromptStrategyFactory.create(
-            #     self.config.strategy, self.static_data, parser_type)
-        # else:
-        #     parser = ParserFactory.create(parser_type)
-        #     self.prompt_strategy = PromptStrategyFactory.create(
-        #         self.strategy_type, self.static_data, parser)
 
         # Initialize logger but defer LLM initialization until needed
         self.llm: Optional[LanguageModel] = None
@@ -138,8 +90,8 @@ class LLMActionService:
         saved_graph = DynamicTransitionGraph.load_from_file(dynamic_wtg_file)
         self.dynamic_wtg = saved_graph if saved_graph else DynamicTransitionGraph()
 
-        self.logger.info(f"Initialized LLM Action Service with model_type={self.config.llm_config["type"]}, "
-                         f"model_name={self.config.llm_config["model"]}, strategy={self.config.strategy_class}, "
+        self.logger.info(f"Initialized LLM Action Service with model_type={self.config.llm_config['type']}, "
+                         f"model_name={self.config.llm_config['model']}, strategy={self.config.strategy_class}, "
                          f"parser_type={self.config.parser_class}, visitor={self.config.visitor_class}")
 
     def _get_llm(self) -> LanguageModel:

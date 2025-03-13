@@ -1,11 +1,10 @@
-# rvandroid/parser/uiautomator/uiautomator_parser.py
+# rvandroid/parser/screen/uiautomator/uiautomator_parser.py
 import logging
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, Type
 
 from rvandroid.model.static import StaticAnalysisData
 from rvandroid.parser.screen.abstract_parser import AbstractScreenParser
-from rvandroid.parser.screen.visitor.base_visitor import ScreenDescription, Node
-from rvandroid.parser.screen.visitor.text_visitor import EnhancedTextVisitor
+from rvandroid.parser.screen.visitor.base_visitor import ScreenDescription, Node, BaseScreenVisitor, ViewProperty
 
 
 class UIAutomator2Parser(AbstractScreenParser):
@@ -14,9 +13,14 @@ class UIAutomator2Parser(AbstractScreenParser):
     Converts UIAutomator2 XML/JSON data into a ScreenDescription.
     """
 
-    def __init__(self):
-        """Initialize the UIAutomator2 parser."""
-        super().__init__()
+    def __init__(self, visitor_class: Optional[Type[BaseScreenVisitor]] = None):
+        """
+        Initialize the UIAutomator2 parser.
+
+        Args:
+            visitor_class: Optional visitor class to use for parsing
+        """
+        super().__init__(visitor_class)
         self.logger = logging.getLogger(__name__)
 
     def parse(self, state_data: Dict[str, Any], static_data: Optional[StaticAnalysisData] = None) -> ScreenDescription:
@@ -43,20 +47,14 @@ class UIAutomator2Parser(AbstractScreenParser):
         activity_name = self.get_activity_name(state_data)
 
         # Create tree from hierarchy
-        ui_hierarchy = state_data.get("hierarchy", {})
-        if not ui_hierarchy:
-            self.logger.error("No hierarchy data found in UIAutomator2 state")
-            return ScreenDescription(activity_name, [])
-
-        # Convert UIAutomatorNode to standard Node
-        root_node = self._convert_to_node_tree(ui_hierarchy)
+        root_node = self.create_node_tree(state_data)
 
         if not root_node:
             self.logger.error("Failed to create UI tree from UIAutomator2 data")
             return ScreenDescription(activity_name, [])
 
         # Create visitor and traverse tree
-        visitor = EnhancedTextVisitor(static_data, activity_name)
+        visitor = self.create_visitor(static_data, activity_name)
         root_node.accept(visitor)
 
         # Get and return screen description
@@ -105,26 +103,40 @@ class UIAutomator2Parser(AbstractScreenParser):
 
         return has_activity and has_hierarchy
 
-    def _convert_to_node_tree(self, data: Dict[str, Any]) -> Optional[Node]:
+    def create_node_tree(self, state_data: Dict[str, Any]) -> Optional[Node]:
         """
-        Convert UIAutomator2 hierarchy data to standard Node tree.
+        Create a Node tree from UIAutomator2 hierarchy data.
 
         Args:
-            data: UIAutomator2 hierarchy data
+            state_data: Dictionary containing UIAutomator2 state
 
         Returns:
             Root Node or None if invalid data
         """
+        ui_hierarchy = state_data.get("hierarchy", {})
+        if not ui_hierarchy:
+            self.logger.error("No hierarchy data found in UIAutomator2 state")
+            return None
 
         def map_properties(ui_node_data: Dict[str, Any]) -> Dict[str, Any]:
             """Map UIAutomator property names to standard names."""
             property_mapping = {
-                "className": "class",
-                "resourceId": "resource_id",
-                "contentDescription": "content_description",
-                "longClickable": "long_clickable",
-                "packageName": "package",
-                "password": "is_password"
+                "className": ViewProperty.CLASS.value,
+                "resourceId": ViewProperty.RESOURCE_ID.value,
+                "contentDescription": ViewProperty.CONTENT_DESCRIPTION.value,
+                "text": ViewProperty.TEXT.value,
+                "packageName": ViewProperty.PACKAGE.value,
+                "longClickable": ViewProperty.LONG_CLICKABLE.value,
+                "clickable": ViewProperty.CLICKABLE.value,
+                "scrollable": ViewProperty.SCROLLABLE.value,
+                "checkable": ViewProperty.CHECKABLE.value,
+                "password": ViewProperty.PASSWORD.value,
+                "enabled": ViewProperty.ENABLED.value,
+                "focused": ViewProperty.FOCUSED.value,
+                "selected": ViewProperty.SELECTED.value,
+                "checked": ViewProperty.CHECKED.value,
+                "progress": ViewProperty.PROGRESS.value,
+                "max": ViewProperty.MAX.value
             }
 
             # Create new dict with mapped property names
@@ -137,7 +149,7 @@ class UIAutomator2Parser(AbstractScreenParser):
             if "bounds" in ui_node_data:
                 bounds = ui_node_data["bounds"]
                 if isinstance(bounds, dict) and all(k in bounds for k in ["left", "top", "right", "bottom"]):
-                    node_data["bounds"] = [
+                    node_data[ViewProperty.BOUNDS.value] = [
                         [bounds["left"], bounds["top"]],
                         [bounds["right"], bounds["bottom"]]
                     ]
@@ -153,8 +165,7 @@ class UIAutomator2Parser(AbstractScreenParser):
             mapped_data = map_properties(node_data)
 
             # Extract children
-            children_data = node_data.pop("children", [])
-            mapped_data.pop("children", None)  # Remove children from mapped data
+            children_data = node_data.get("children", [])
 
             # Create node
             node = Node(mapped_data, [], parent)
@@ -167,4 +178,4 @@ class UIAutomator2Parser(AbstractScreenParser):
 
             return node
 
-        return create_node(data)
+        return create_node(ui_hierarchy)

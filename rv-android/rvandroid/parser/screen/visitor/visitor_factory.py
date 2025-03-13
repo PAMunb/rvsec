@@ -1,10 +1,11 @@
-# rvandroid/parser/visitor/visitor_factory.py
+# rvandroid/parser/screen/visitor/visitor_factory.py
 from typing import Dict, Type, Optional
 
-from rvandroid.config.component_config import ComponentConfig
 from rvandroid.model.static import StaticAnalysisData
 from rvandroid.parser.screen.visitor.base_visitor import BaseScreenVisitor
 from rvandroid.parser.screen.visitor.text_visitor import EnhancedTextVisitor
+from rvandroid.parser.screen.visitor.basic_visitor import BasicTextVisitor
+from rvandroid.parser.screen.visitor.enhanced_visitor import NewEnhancedTextVisitor
 
 
 class VisitorFactory:
@@ -16,6 +17,8 @@ class VisitorFactory:
     # Registry of visitor types and their implementations
     _REGISTRY: Dict[str, Type[BaseScreenVisitor]] = {
         "enhanced_text": EnhancedTextVisitor,
+        "basic_text": BasicTextVisitor,
+        "detailed_text": NewEnhancedTextVisitor,
         # Add other visitor implementations as needed
     }
 
@@ -25,7 +28,6 @@ class VisitorFactory:
             visitor_type: str = "enhanced_text",
             static_data: Optional[StaticAnalysisData] = None,
             activity: str = "",
-            config: Optional[ComponentConfig] = None,
             **kwargs
     ) -> BaseScreenVisitor:
         """
@@ -35,7 +37,6 @@ class VisitorFactory:
             visitor_type: Type of visitor to create
             static_data: Static analysis data (optional)
             activity: Current activity name
-            config: Component configuration for advanced customization (optional)
             **kwargs: Additional arguments to pass to the visitor constructor
 
         Returns:
@@ -44,15 +45,30 @@ class VisitorFactory:
         Raises:
             ValueError: If visitor_type is invalid
         """
-        # If a component config is provided, use it to create the visitor
-        if config and config.visitor_class:
-            return config.create_visitor(static_data, activity)
-
         if visitor_type not in cls._REGISTRY:
-            raise ValueError(f"Unknown visitor type: {visitor_type}")
+            raise ValueError(f"Unknown visitor type: {visitor_type}. Options: {list(cls._REGISTRY.keys())}")
 
         visitor_class = cls._REGISTRY[visitor_type]
         return visitor_class(static_data, activity, **kwargs)
+
+    @classmethod
+    def get_visitor_class(cls, visitor_type: str = "enhanced_text") -> Type[BaseScreenVisitor]:
+        """
+        Get the visitor class for a specified type.
+
+        Args:
+            visitor_type: Type of visitor
+
+        Returns:
+            Visitor class
+
+        Raises:
+            ValueError: If visitor_type is invalid
+        """
+        if visitor_type not in cls._REGISTRY:
+            raise ValueError(f"Unknown visitor type: {visitor_type}. Options: {list(cls._REGISTRY.keys())}")
+
+        return cls._REGISTRY[visitor_type]
 
     @staticmethod
     def register_visitor_type(name: str, visitor_class: Type[BaseScreenVisitor]) -> None:

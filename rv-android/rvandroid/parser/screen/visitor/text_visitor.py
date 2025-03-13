@@ -3,7 +3,8 @@ from typing import List, Optional, Set
 
 from rvandroid.model.static import StaticAnalysisData
 from rvandroid.model.widget import WidgetEventType
-from rvandroid.parser.screen.visitor.base_visitor import BaseScreenVisitor, ItemAction, ScreenItem, Node, Counter
+from rvandroid.parser.screen.visitor.base_visitor import BaseScreenVisitor, ItemAction, ScreenItem, Node, Counter, \
+    ScreenDescription
 
 
 class EnhancedTextVisitor(BaseScreenVisitor):
@@ -24,6 +25,34 @@ class EnhancedTextVisitor(BaseScreenVisitor):
         super().__init__(static_info, activity)
         self.processed_parents: Set[str] = set()  # Track processed parent nodes
         self.logger.debug(f"Initialized EnhancedTextVisitor for activity: {activity}")
+
+    def get_screen_description(self) -> ScreenDescription:
+        """
+        Create and return a complete screen description with a BACK action added.
+
+        Returns:
+            ScreenDescription object containing all parsed items
+        """
+        # Add a default BACK action to the screen description
+        back_action = ItemAction(
+            self.counter.inc(),
+            f"BACK ({self.counter.get()})",
+            WidgetEventType.KEY,
+            False,
+            False
+        )
+
+        # Create a back button item
+        back_item = ScreenItem(
+            {"special": "back_button"},  # dummy data
+            "System back button",
+            [back_action]
+        )
+
+        self.items.append(back_item)
+        self.logger.info(f"Generated screen description with {len(self.items)} items")
+
+        return ScreenDescription(self.activity, self.items)
 
     def visit_node(self, node: Node) -> None:
         """

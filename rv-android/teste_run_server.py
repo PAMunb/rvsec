@@ -221,23 +221,23 @@ if __name__ == '__main__':
         # configurator.set_visitor("enhanced")
 
         # # OLLAMA
-        # configurator.set_llm(
-        #     llm_type=OllamaLLM.NAME,
-        #     model=OllamaLLM.LLAMA,
-        #     base_url="http://localhost:11434"
-        # )
-        # configurator.set_strategy("single_action")
-        # configurator.set_parser("droidbot")
-        # configurator.set_visitor("enhanced")
-
-        # # HUGGING FACE
         configurator.set_llm(
-            llm_type=HuggingFaceLLM.NAME,
-            model=HuggingFaceLLM.LLAMA
+            llm_type=OllamaLLM.NAME,
+            model=OllamaLLM.GEMMA,
+            base_url="http://localhost:11434"
         )
         configurator.set_strategy("single_action")
         configurator.set_parser("droidbot")
         configurator.set_visitor("enhanced")
+
+        # # HUGGING FACE
+        # configurator.set_llm(
+        #     llm_type=HuggingFaceLLM.NAME,
+        #     model=HuggingFaceLLM.GEMMA
+        # )
+        # configurator.set_strategy("single_action")
+        # configurator.set_parser("droidbot")
+        # configurator.set_visitor("enhanced")
 
         # # LANGCHAIN
         # configurator.set_llm(

@@ -1,7 +1,7 @@
+# rvandroid/parser/screen/parser_factory.py
 from enum import Enum
-from typing import Dict, Type, Optional, Callable
+from typing import Dict, Type, Optional
 
-from rvandroid.model.static import StaticAnalysisData
 from rvandroid.parser.screen.abstract_parser import AbstractScreenParser
 from rvandroid.parser.screen.visitor.base_visitor import BaseScreenVisitor
 
@@ -34,14 +34,14 @@ class ParserFactory:
     def create(
             cls,
             parser_type: ParserType,
-            visitor_factory: Optional[Callable[[Optional["StaticAnalysisData"], str], BaseScreenVisitor]] = None
+            visitor_class: Optional[Type[BaseScreenVisitor]] = None
     ) -> AbstractScreenParser:
         """
         Create a parser instance of the specified type.
 
         Args:
             parser_type: Type of parser to create
-            visitor_factory: Optional factory function to create visitor instances
+            visitor_class: Optional visitor class to use for parsing
 
         Returns:
             Parser instance
@@ -57,7 +57,7 @@ class ParserFactory:
             raise ValueError(f"Unknown parser type: {parser_type}")
 
         parser_class = cls._REGISTRY[parser_type]
-        return parser_class(visitor_factory)
+        return parser_class(visitor_class)
 
     @staticmethod
     def get_available_types() -> Dict[ParserType, Type[AbstractScreenParser]]:

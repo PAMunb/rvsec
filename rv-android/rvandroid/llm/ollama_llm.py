@@ -18,13 +18,14 @@ class OllamaLLM(LanguageModel):
     # Available model definitions
     LLAMA = "llama3.2:3b"
     DEEPSEEK = "deepseek-r1:1.5B"
+    GEMMA = "gemma3:4b"
     QWEN = "qwen2.5:3b"
     PHI = "phi3.5:3.8b"
     GRANITE = "granite3.1-dense:8b"
     MISTRAL = "mistral:7b"
     FALCON = "falcon3:3b"
 
-    MODELS = [LLAMA, DEEPSEEK, QWEN, PHI, GRANITE, MISTRAL, FALCON]
+    MODELS = [LLAMA, DEEPSEEK, GEMMA, QWEN, PHI, GRANITE, MISTRAL, FALCON]
 
     def __init__(self, model_name: str, base_url: str = "http://localhost:11434"):
         """

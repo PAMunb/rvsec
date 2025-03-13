@@ -1,8 +1,9 @@
+# rvandroid/parser/screen/abstract_parser.py
 from abc import ABC, abstractmethod
-from typing import Dict, Any, Optional, Callable
+from typing import Dict, Any, Optional, Type, Union
 
 from rvandroid.model.static import StaticAnalysisData
-from rvandroid.parser.screen.visitor.base_visitor import ScreenDescription, BaseScreenVisitor
+from rvandroid.parser.screen.visitor.base_visitor import ScreenDescription, BaseScreenVisitor, Node
 
 
 class AbstractScreenParser(ABC):
@@ -11,36 +12,36 @@ class AbstractScreenParser(ABC):
     Provides a common interface for extracting structured information from different formats.
     """
 
-    def __init__(self,
-                 visitor_factory: Optional[Callable[[Optional["StaticAnalysisData"], str], BaseScreenVisitor]] = None):
+    def __init__(self, visitor_class: Optional[Type[BaseScreenVisitor]] = None):
         """
         Initialize the parser.
-        
-        Args:
-            visitor_factory: Optional factory function to create visitor_class instances
-        """
-        self.visitor_factory = visitor_factory
 
-    def _create_visitor(self, static_data: Optional["StaticAnalysisData"], activity: str) -> BaseScreenVisitor:
+        Args:
+            visitor_class: Optional visitor class to use for parsing (defaults to EnhancedTextVisitor)
         """
-        Create a visitor_class instance using the factory if provided, otherwise use default.
-        
+        self.visitor_class = visitor_class
+
+        # If no visitor_class is provided, use default visitor
+        if self.visitor_class is None:
+            from rvandroid.parser.screen.visitor.text_visitor import EnhancedTextVisitor
+            self.visitor_class = EnhancedTextVisitor
+
+    def create_visitor(self, static_data: Optional[StaticAnalysisData], activity: str) -> BaseScreenVisitor:
+        """
+        Create a visitor instance based on configured visitor class.
+
         Args:
             static_data: Static analysis data
             activity: Current activity name
-            
+
         Returns:
             BaseScreenVisitor instance
         """
-        if self.visitor_factory:
-            return self.visitor_factory(static_data, activity)
-        # Default implementation - should be overridden by subclasses if not using factory
-        from rvandroid.parser.screen.visitor.text_visitor import EnhancedTextVisitor
-        return EnhancedTextVisitor(static_data, activity)
+        return self.visitor_class(static_data, activity)
 
     @abstractmethod
     def parse(self, state_data: Dict[str, Any],
-              static_data: Optional["StaticAnalysisData"] = None) -> ScreenDescription:
+              static_data: Optional[StaticAnalysisData] = None) -> ScreenDescription:
         """
         Parse state data into a standardized ScreenDescription.
 
@@ -72,6 +73,22 @@ class AbstractScreenParser(ABC):
         """
         pass
 
+    @abstractmethod
+    def create_node_tree(self, state_data: Dict[str, Any]) -> Optional[Node]:
+        """
+        Create a Node tree from the state data.
+
+        Args:
+            state_data: Dictionary containing UI state information
+
+        Returns:
+            Root Node of the UI hierarchy or None if invalid data
+
+        Raises:
+            ValueError: If node tree cannot be created from the state data
+        """
+        pass
+
     def get_package_name(self, state_data: Dict[str, Any]) -> Optional[str]:
         """
         Extract the package name from the state data.
@@ -94,6 +111,5 @@ class AbstractScreenParser(ABC):
         Returns:
             True if valid, False otherwise
         """
-        # Basic validation, can be overridden by subclasses
-        required_fields = ["activity"]
-        return all(field in state_data for field in required_fields)
+        # Subclasses should override this method to provide source-specific validation
+        return True
