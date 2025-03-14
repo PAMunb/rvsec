@@ -1,6 +1,8 @@
 import json
 import logging
+import os
 import time
+from datetime import datetime
 from typing import Dict, List, Any, Optional
 
 from rvandroid.config.component_configurator import ComponentConfigurator
@@ -101,6 +103,10 @@ class LLMActionService:
         # Initialize response parser
         self.response_parser = ResponseParser()
 
+        # Initialize session recording
+        self.record_session = False  # Set to False to disable recording
+        self.session_actions = []
+
         # Initialize logger but defer LLM initialization until needed
         self.llm: Optional[LanguageModel] = None
         self.logger = logger
@@ -157,8 +163,6 @@ class LLMActionService:
         # Return just the first action in a list for consistency
         return [actions[0]]
 
-        # rvandroid/service/llm_action_service.py (Part 2: Update the process_state method)
-
     def process_state(self, state: Dict[str, Any]) -> List[Dict[str, Any]]:
         """
         Process the current application state and return suggested actions.
@@ -172,119 +176,227 @@ class LLMActionService:
         Raises:
             Exception: If processing fails
         """
-        self.logger.info("Processing application state")
+        # Get logging and performance monitoring
+        from rvandroid.util.logging_manager import LoggingManager
+        from rvandroid.util.performance_monitor import PerformanceMonitor
+
+        logger = LoggingManager.get_instance().get_logger(
+            "service.llm_action_service",
+            {"component": "LLMActionService"}
+        )
+        performance_monitor = PerformanceMonitor.get_instance()
 
         # Add timestamp and application info for debugging
         app_package = state.get("package_name", "unknown")
         app_activity = state.get("activity", "unknown")
-        self.logger.debug(f"Processing state for app: {app_package}, activity: {app_activity}")
 
-        # Update dynamic transition graph
-        self.update_dynamic_transitions(state)
+        context = {
+            "package_name": app_package,
+            "activity": app_activity
+        }
 
-        # Get transition guidance
-        transition_guidance = self.get_transition_guidance(app_activity)
+        logger.info(f"Processing state for app: {app_package}, activity: {app_activity}")
 
-        # Add guidance to state for use in prompts
-        state["transition_guidance"] = transition_guidance
+        # Measure total processing time
+        with performance_monitor.measure_time("state_processing_total", context):
+            try:
+                # Update dynamic transition graph
+                with performance_monitor.measure_time("update_transitions", context):
+                    self.update_dynamic_transitions(state)
 
-        try:
-            # Enhance action history format if present
-            if "action_history" in state:
-                self._enhance_action_history(state)
+                # Get transition guidance
+                with performance_monitor.measure_time("get_transition_guidance", context):
+                    transition_guidance = self.get_transition_guidance(app_activity)
+                    # Add guidance to state for use in prompts
+                    state["transition_guidance"] = transition_guidance
 
-            # Add action-specific history information
-            self._add_action_specific_history(state)
+                # Enhance action history if present
+                if "action_history" in state:
+                    with performance_monitor.measure_time("enhance_action_history", context):
+                        self._enhance_action_history(state)
 
-            # Generate prompts using the selected strategy
-            self.logger.debug(f"Generating prompts using {self.prompt_strategy.__class__.__name__}")
-            messages = self.prompt_strategy.generate_prompts(state)
+                # Add action-specific history information
+                with performance_monitor.measure_time("add_action_specific_history", context):
+                    self._add_action_specific_history(state)
 
-            self.logger.debug(f"System prompt length: {len(messages[0]['content'])}")
-            self.logger.debug(f"User prompt length: {len(messages[1]['content'])}")
+                # Generate prompts using the selected strategy
+                with performance_monitor.measure_time("prompt_generation", context):
+                    logger.debug(f"Generating prompts using {self.prompt_strategy.__class__.__name__}")
+                    messages = self.prompt_strategy.generate_prompts(state)
+                    logger.debug(f"System prompt length: {len(messages[0]['content'])}")
+                    logger.debug(f"User prompt length: {len(messages[1]['content'])}")
 
-            # Call the LLM with the generated prompts
-            self.logger.info(f"Calling LLM model: {self.model_type}/{self.model_name}")
-            llm = self._get_llm()
+                    # Record prompt length metrics
+                    performance_monitor.record_metric(
+                        name="prompt_length_system",
+                        value=len(messages[0]['content']),
+                        unit="chars",
+                        context=context
+                    )
+                    performance_monitor.record_metric(
+                        name="prompt_length_user",
+                        value=len(messages[1]['content']),
+                        unit="chars",
+                        context=context
+                    )
 
-            start_time = time.time()
-            response = llm.generate(messages, max_new_tokens=self.max_tokens)
-            elapsed_time = time.time() - start_time
+                # Call the LLM with the generated prompts
+                with performance_monitor.measure_time("llm_call", context):
+                    logger.info(f"Calling LLM model: {self.model_type}/{self.model_name}")
+                    llm = self._get_llm()
+                    start_time = time.time()
+                    response = llm.generate(messages, max_new_tokens=self.max_tokens)
+                    elapsed_time = time.time() - start_time
 
-            self.logger.info(f"LLM response received in {elapsed_time:.2f} seconds")
-            self.logger.debug(f"LLM response length: {len(response)}")
-            self.logger.debug(f"LLM response first 100 chars: {response[:100]}...")
+                    logger.info(f"LLM response received in {elapsed_time:.2f} seconds")
+                    logger.debug(f"LLM response length: {len(response)}")
 
-            # Parse the response using the improved response parser
-            self.logger.debug("Parsing LLM response")
+                    # Record response metrics
+                    performance_monitor.record_metric(
+                        name="llm_response_time",
+                        value=elapsed_time,
+                        unit="s",
+                        context=context
+                    )
+                    performance_monitor.record_metric(
+                        name="llm_response_length",
+                        value=len(response),
+                        unit="chars",
+                        context=context
+                    )
 
-            # Get available action IDs for validation
-            screen_description = self.prompt_strategy.parser.parse(state, self.static_data)
-            available_action_ids = [
-                str(action.id) for item in screen_description.items
-                for action in item.actions
-            ]
+                # Parse the response and get available action IDs
+                with performance_monitor.measure_time("response_parsing", context):
+                    # Get available action IDs for validation
+                    screen_description = self.prompt_strategy.parser.parse(state, self.static_data)
+                    available_action_ids = [
+                        str(action.id) for item in screen_description.items
+                        for action in item.actions
+                    ]
 
-            # Determine single action mode based on strategy type
-            single_action_mode = isinstance(self.prompt_strategy,
-                                            (SingleActionPromptStrategy, DSPySingleActionPromptStrategy))
+                    # Determine single action mode based on strategy type
+                    single_action_mode = isinstance(self.prompt_strategy,
+                                                    (SingleActionPromptStrategy, DSPySingleActionPromptStrategy))
 
-            # Parse the response
-            actions, errors = self.response_parser.parse_actions(
-                response,
-                available_action_ids=available_action_ids,
-                single_action_mode=single_action_mode
-            )
+                    # Parse the response
+                    actions, errors = self.response_parser.parse_actions(
+                        response,
+                        available_action_ids=available_action_ids,
+                        single_action_mode=single_action_mode
+                    )
 
-            # Log any parsing errors
-            for error in errors:
-                self.logger.warning(f"Response parsing issue: {error}")
+                    # Log any parsing errors
+                    for error in errors:
+                        logger.warning(f"Response parsing issue: {error}")
 
-            # Fall back to secondary parsing if primary fails
-            if not actions and errors:
-                self.logger.warning("Primary parsing failed, attempting to repair response")
-                repaired_json = self.response_parser.try_repair_response(response)
-                if repaired_json:
-                    try:
-                        actions = json.loads(repaired_json)
-                        self.logger.info("Successfully recovered actions from repaired response")
-                    except Exception as e:
-                        self.logger.error(f"Error parsing repaired JSON: {e}")
+                    # Record parsing metrics
+                    performance_monitor.record_metric(
+                        name="response_parsing_errors",
+                        value=len(errors),
+                        context=context
+                    )
 
-            # Fall back to default actions if all parsing failed
-            if not actions:
-                self.logger.warning("Failed to extract valid actions from LLM response")
+                # Fall back to secondary parsing if primary fails
+                if not actions and errors:
+                    with performance_monitor.measure_time("response_repair", context):
+                        logger.warning("Primary parsing failed, attempting to repair response")
+                        repaired_json = self.response_parser.try_repair_response(response)
+                        if repaired_json:
+                            try:
+                                actions = json.loads(repaired_json)
+                                logger.info("Successfully recovered actions from repaired response")
+                            except Exception as e:
+                                logger.error(f"Error parsing repaired JSON: {e}")
+
+                # Fall back to default actions if all parsing failed
+                if not actions:
+                    with performance_monitor.measure_time("fallback_actions", context):
+                        logger.warning("Failed to extract valid actions from LLM response")
+                        return self._generate_fallback_actions(state)
+
+                logger.info(f"Successfully parsed {len(actions)} actions from LLM response")
+
+                # Convert to DroidBot format
+                with performance_monitor.measure_time("convert_to_droidbot", context):
+                    droidbot_actions = self._convert_to_droidbot_format(actions, state, screen_description)
+
+                # Record actions if enabled
+                if self.record_session:
+                    app_package = state.get("package_name", "unknown")
+                    app_activity = state.get("activity", "unknown")
+                    timestamp = datetime.now().isoformat()
+
+                    for action in droidbot_actions:
+                        # Add metadata for recording
+                        recorded_action = action.copy()
+                        recorded_action.update({
+                            "timestamp": timestamp,
+                            "package": app_package,
+                            "activity": app_activity
+                        })
+                        self.session_actions.append(recorded_action)
+
+                    # Save session periodically (every 20 actions)
+                    if len(self.session_actions) % 20 == 0:
+                        self._save_session()
+
+                # Update the dynamic transition graph with the chosen actions
+                with performance_monitor.measure_time("update_graph_with_actions", context):
+                    self._update_graph_with_actions(state, droidbot_actions)
+
+                # Save the dynamic transition graph periodically
+                with performance_monitor.measure_time("save_graph", context):
+                    self.save_dynamic_transition_graph()
+
+                logger.info(f"Successfully processed state and generated {len(droidbot_actions)} actions")
+
+                # Record success metrics
+                performance_monitor.record_metric(
+                    name="actions_generated",
+                    value=len(droidbot_actions),
+                    context=context
+                )
+
+                return droidbot_actions
+
+            except Exception as e:
+                logger.error(f"Error processing state: {e}", exc_info=True)
+
+                # Record error metrics
+                performance_monitor.record_metric(
+                    name="state_processing_error",
+                    value=1,
+                    context={**context, "error": str(e)}
+                )
+
+                logger.info("Generating fallback actions")
                 return self._generate_fallback_actions(state)
 
-            self.logger.info(f"Successfully parsed {len(actions)} actions from LLM response")
+    def _save_session(self):
+        """Save the current session to a file."""
+        if not self.session_actions:
+            return
 
-            # Convert to DroidBot format
-            droidbot_actions = self._convert_to_droidbot_format(actions, state, screen_description)
+        try:
+            from rvandroid.util.session_replay import ActionReplay
 
-            # Update the dynamic transition graph with the chosen actions
-            self._update_graph_with_actions(state, droidbot_actions)
+            # Create session directory if needed
+            session_dir = os.path.join(os.path.dirname(self.dynamic_wtg_file), "sessions")
+            os.makedirs(session_dir, exist_ok=True)
 
-            # Track the current activity for the next state
-            try:
-                current_activity = self.prompt_strategy.parser.get_activity_name(state)
-                # Add metadata to all actions
-                for action in droidbot_actions:
-                    if "meta" not in action:
-                        action["meta"] = {}
-                    action["meta"]["previous_activity"] = current_activity
-            except Exception as e:
-                self.logger.warning(f"Could not add current activity to metadata: {e}")
+            # Generate session filename
+            timestamp = time.strftime("%Y%m%d-%H%M%S")
+            package_name = self.session_actions[0].get("package", "unknown")
+            session_file = os.path.join(session_dir, f"session_{package_name}_{timestamp}.json")
 
-            # Save the dynamic transition graph periodically
-            self.save_dynamic_transition_graph()
+            # Save session
+            replayer = ActionReplay()
+            replayer.save_session(self.session_actions, session_file)
 
-            self.logger.info(f"Successfully processed state and generated {len(droidbot_actions)} actions")
-            return droidbot_actions
+            self.logger.info(f"Session saved to {session_file}")
 
         except Exception as e:
-            self.logger.error(f"Error processing state: {e}", exc_info=True)
-            self.logger.info("Generating fallback actions")
-            return self._generate_fallback_actions(state)
+            self.logger.error(f"Error saving session: {e}")
 
     def _convert_to_droidbot_format(self, actions: List[Dict[str, Any]],
                                     state: Dict[str, Any],
@@ -1113,6 +1225,11 @@ class LLMActionService:
         # Save dynamic transition graph before cleanup
         self.save_dynamic_transition_graph()
 
+        # Save final session if recording is enabled
+        if self.record_session and self.session_actions:
+            self._save_session()
+            self.session_actions = []
+
         if self.llm:
             try:
                 self.llm.clean()
@@ -1120,8 +1237,6 @@ class LLMActionService:
                 self.logger.info("Cleaned up LLM resources")
             except Exception as e:
                 self.logger.warning(f"Error cleaning up LLM: {e}")
-
-    # rvandroid/service/llm_action_service.py - Add the following methods
 
     def update_dynamic_transitions(self, state: Dict[str, Any], executed_action: Dict[str, Any] = None) -> None:
         """

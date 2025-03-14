@@ -44,6 +44,17 @@ class TaskExecutor:
         Returns:
             True if execution was successful, False otherwise
         """
+        # Get performance monitor
+        from rvandroid.util.performance_monitor import PerformanceMonitor
+        performance_monitor = PerformanceMonitor.get_instance()
+        task_context = {
+            "task_id": self.task.id,
+            "apk_name": self.task.config.apk_name,
+            "tool_name": self.task.config.tool_name,
+            "repetition": self.task.config.repetition,
+            "timeout": self.task.config.timeout
+        }
+
         self.logger.info(f"Starting execution of task {self.task}")
 
         if not self.task.app:
@@ -58,20 +69,35 @@ class TaskExecutor:
             self.task.mark_started()
             self._publish_event(EventType.TASK_STARTED)
 
-            # Initialize and start Android environment
-            self._setup_environment()
+            # Measure the total execution time
+            with performance_monitor.measure_time("task_execution_total", task_context):
+                # Initialize and start Android environment
+                with performance_monitor.measure_time("environment_setup", task_context):
+                    self._setup_environment()
 
-            # Start logcat capture
-            self._start_logcat_capture()
+                # Start logcat capture
+                with performance_monitor.measure_time("logcat_capture_setup", task_context):
+                    self._start_logcat_capture()
 
-            # Execute the tool
-            self._execute_tool()
+                # Execute the tool
+                with performance_monitor.measure_time("tool_execution", task_context):
+                    self._execute_tool()
 
-            # Cleanup
-            self._cleanup_environment()
+                # Cleanup
+                with performance_monitor.measure_time("environment_cleanup", task_context):
+                    self._cleanup_environment()
 
             # Mark task as completed
             self.task.mark_completed()
+
+            # Record metrics about the task
+            performance_monitor.record_metric(
+                name="task_duration",
+                value=(self.task.result.end_time - self.task.result.start_time).total_seconds(),
+                unit="s",
+                context=task_context
+            )
+
             self._publish_event(EventType.TASK_COMPLETED)
             self.logger.info(f"Task {self.task.id} executed successfully")
             return True
@@ -81,13 +107,26 @@ class TaskExecutor:
             self.logger.error(f"Error executing task {self.task.id}: {error_message}")
             self.logger.error(traceback.format_exc())
             self.task.mark_error(error_message)
+
+            # Record error metric
+            performance_monitor.record_metric(
+                name="task_error",
+                value=1,
+                context={**task_context, "error": error_message}
+            )
+
             self._publish_event(EventType.TASK_FAILED, {
                 "error": error_message,
                 "traceback": traceback.format_exc()
             })
 
             # Try to clean up even after error
-            self._cleanup_environment()
+            try:
+                with performance_monitor.measure_time("error_cleanup", task_context):
+                    self._cleanup_environment()
+            except Exception as cleanup_error:
+                self.logger.warning(f"Error during cleanup after task failure: {cleanup_error}")
+
             return False
 
     def _setup_environment(self) -> None:

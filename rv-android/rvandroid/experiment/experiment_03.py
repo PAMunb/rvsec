@@ -42,13 +42,24 @@ class Experiment03:
 
     def __init__(self):
         """Initialize the experiment"""
-        self.logger = logging.getLogger(__name__)
         self.event_bus = EventBus.get_instance()
+        from rvandroid.util.logging_manager import LoggingManager
+        logging_manager = LoggingManager.get_instance()
+        self.experiment_id = f"experiment_{TIMESTAMP}"
+        self.logger = logging_manager.get_logger('experiment.experiment_03', {
+            'experiment_id': self.experiment_id,
+            'component': 'Experiment03'
+        })
 
         # Create experiment directory
-        self.experiment_id = f"experiment_{TIMESTAMP}"
         self.results_dir = os.path.join(RESULTS_DIR, self.experiment_id)
         os.makedirs(self.results_dir, exist_ok=True)
+
+        # Set up file logging for this experiment
+        logging_manager.setup_file_logging(
+            log_dir=os.path.join(self.results_dir, "logs"),
+            experiment_id=self.experiment_id
+        )
 
         # Create task storage
         storage_file = os.path.join(self.results_dir, "tasks.json")
@@ -59,6 +70,9 @@ class Experiment03:
 
         # Register event handlers
         self._setup_event_handlers()
+
+        # Log experiment initialization
+        self.logger.experiment_start(f"Experiment {self.experiment_id} initialized")
 
     def _setup_event_handlers(self):
         """Set up event handlers for the experiment"""
@@ -252,9 +266,38 @@ class Experiment03:
         return apks
 
     def _post_process(self):
-        """Process results after experiment execution"""
+        """Process results after experiment execution and generate diagnostics"""
         self.logger.info("Processing results...")
-        res.process_results(self.results_dir)
+
+        # Process analysis results
+        import rvandroid.analysis.results_analysis as res
+        results = res.process_results(self.results_dir)
+
+        # Generate performance metrics dashboard
+        try:
+            from rvandroid.util.performance_visualizer import PerformanceVisualizer
+            visualizer = PerformanceVisualizer()
+            dashboard_dir = visualizer.generate_performance_dashboard(self.results_dir)
+            self.logger.info(f"Performance dashboard generated at {dashboard_dir}")
+
+            # Log dashboard URL for easy access
+            dashboard_index = os.path.join(dashboard_dir, "index.html")
+            if os.path.exists(dashboard_index):
+                self.logger.info(f"Dashboard available at: file://{os.path.abspath(dashboard_index)}")
+        except Exception as e:
+            self.logger.error(f"Error generating performance dashboard: {e}", exc_info=True)
+
+        # Generate diagnostic report
+        try:
+            from rvandroid.util.diagnostics import DiagnosticTool
+            diagnostic_tool = DiagnosticTool()
+            report = diagnostic_tool.generate_report()
+            report_path = os.path.join(self.results_dir, "diagnostic_report.json")
+            report.save_to_file(report_path)
+            self.logger.info(f"Diagnostic report saved to {report_path}")
+        except Exception as e:
+            self.logger.error(f"Error generating diagnostic report: {e}", exc_info=True)
+
         self.logger.info("Results processing completed")
 
 

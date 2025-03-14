@@ -209,9 +209,9 @@ def run_local():
     # experiment_config.tools = __get_tools(["ape", "ares", "droidmate", "fastbot", "monkey"])
     experiment_config.tools = __get_tools(["ape"])
 
-    experiment_config.generate_monitors = False
-    experiment_config.instrument = False
-    experiment_config.static_analysis = False
+    experiment_config.generate_monitors = True
+    experiment_config.instrument = True
+    experiment_config.static_analysis = True
     experiment_config.no_window = True
     experiment_config.skip_experiment = False
 
