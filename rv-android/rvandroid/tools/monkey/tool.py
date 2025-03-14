@@ -1,6 +1,7 @@
+# rvandroid/tools/monkey/tool.py
 from rvandroid.app import App
 from rvandroid.commands.command import Command
-from rvandroid.experiment.task import Task
+from rvandroid.experiment.task_model import Task  # Updated import
 from ..tool_spec import AbstractTool
 
 
@@ -13,7 +14,7 @@ class ToolSpec(AbstractTool):
 
     def execute_tool_specific_logic(self, task: Task, app: App):
         # seed = "123"
-        with open(task.log_file, "wb") as trace:
+        with open(task.result.trace_file, "wb") as trace:
             exec_cmd = Command("adb", [
                 "shell",
                 "monkey",
@@ -25,5 +26,5 @@ class ToolSpec(AbstractTool):
                 "-p",
                 app.package_name,  # app package
                 str(1_000_000_000)  # events
-            ], task.timeout)
+            ], task.config.timeout)
             exec_cmd.invoke(stdout=trace)

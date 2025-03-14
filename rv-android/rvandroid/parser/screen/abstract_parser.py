@@ -17,14 +17,14 @@ class AbstractScreenParser(ABC):
         Initialize the parser.
 
         Args:
-            visitor_class: Optional visitor class to use for parsing (defaults to EnhancedTextVisitor)
+            visitor_class: Optional visitor class to use for parsing
         """
         self.visitor_class = visitor_class
 
         # If no visitor_class is provided, use default visitor
         if self.visitor_class is None:
-            from rvandroid.parser.screen.visitor.text_visitor import EnhancedTextVisitor
-            self.visitor_class = EnhancedTextVisitor
+            from rvandroid.parser.screen.visitor.generic_visitor import GenericScreenVisitor
+            self.visitor_class = GenericScreenVisitor
 
     def create_visitor(self, static_data: Optional[StaticAnalysisData], activity: str) -> BaseScreenVisitor:
         """

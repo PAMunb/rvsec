@@ -13,6 +13,22 @@ from rvandroid.llm.prompt.single_action_prompt_strategy import SingleActionPromp
 from rvandroid.model.dynamic_wtg import DynamicTransitionGraph
 from rvandroid.model.static import StaticAnalysisData
 from rvandroid.parser.screen.parser_factory import ParserFactory
+import json
+import logging
+import time
+from typing import Dict, List, Any, Optional
+
+from rvandroid.config.component_configurator import ComponentConfigurator
+from rvandroid.llm.llm import LanguageModel
+from rvandroid.llm.model_factory import ModelFactory
+from rvandroid.llm.prompt.dspy_single_action_prompt_strategy import DSPySingleActionPromptStrategy
+from rvandroid.llm.prompt.prompt_strategy_basic_001 import BasicPromptStrategy001
+from rvandroid.llm.prompt.prompt_strategy_factory import PromptStrategyFactory
+from rvandroid.llm.prompt.single_action_prompt_strategy import SingleActionPromptStrategy
+from rvandroid.llm.response_parser import ResponseParser
+from rvandroid.model.dynamic_wtg import DynamicTransitionGraph
+from rvandroid.model.static import StaticAnalysisData
+from rvandroid.parser.screen.parser_factory import ParserFactory
 
 logger = logging.getLogger(__name__)
 
@@ -82,6 +98,9 @@ class LLMActionService:
         # Set up prompt strategy
         self.prompt_strategy = config.create_strategy(static_data)
 
+        # Initialize response parser
+        self.response_parser = ResponseParser()
+
         # Initialize logger but defer LLM initialization until needed
         self.llm: Optional[LanguageModel] = None
         self.logger = logger
@@ -138,6 +157,8 @@ class LLMActionService:
         # Return just the first action in a list for consistency
         return [actions[0]]
 
+        # rvandroid/service/llm_action_service.py (Part 2: Update the process_state method)
+
     def process_state(self, state: Dict[str, Any]) -> List[Dict[str, Any]]:
         """
         Process the current application state and return suggested actions.
@@ -168,70 +189,9 @@ class LLMActionService:
         state["transition_guidance"] = transition_guidance
 
         try:
-            # Log action history length if available
-            if "action_history" in state:
-                action_history = state.get("action_history", [])
-                self.logger.debug(f"Action history has {len(action_history)} entries")
-                if action_history and len(action_history) > 0:
-                    self.logger.debug(f"Last action: {action_history[-1]}")
-
             # Enhance action history format if present
             if "action_history" in state:
-                self.logger.debug("Processing action history for enhanced format")
-                enhanced_history = []
-                for action in state.get("action_history", []):
-                    # Check if the action is already in the enhanced format
-                    if isinstance(action, str) and not action.startswith("[Action ID:"):
-                        # Convert to enhanced format
-                        if isinstance(action, dict):
-                            # If it's a dictionary, extract details
-                            action_id = action.get("action_id", "unknown")
-                            action_type = action.get("action_type", "unknown")
-                            target = action.get("target", "unknown")
-                            params = action.get("params", {})
-                            explanation = action.get("explanation", "")
-
-                            # Format parameters in a more readable way
-                            params_str = ""
-                            if params:
-                                if "text" in params:
-                                    params_str = f" with text '{params['text']}'"
-                                elif "direction" in params:
-                                    params_str = f" {params['direction']}"
-
-                            # Create enhanced description with form context
-                            if action_type == "click":
-                                # Check if this appears to be a dropdown/spinner
-                                if "spinner" in target.lower() or "dropdown" in target.lower():
-                                    enhanced_action = f"[Action ID: {action_id}] CLICKED ON DROPDOWN '{target}'{params_str} - {explanation}"
-                                # Check if this might be a submit button
-                                elif any(keyword in target.lower() for keyword in
-                                         ["submit", "login", "save", "apply", "ok", "next", "continue",
-                                          "generate", "create", "send", "search", "encrypt", "decrypt"]):
-                                    enhanced_action = f"[Action ID: {action_id}] SUBMITTED FORM by clicking '{target}'{params_str} - {explanation}"
-                                else:
-                                    enhanced_action = f"[Action ID: {action_id}] CLICKED on '{target}'{params_str} - {explanation}"
-                            elif action_type == "set_text":
-                                enhanced_action = f"[Action ID: {action_id}] FILLED text field '{target}'{params_str} - {explanation}"
-                            elif action_type == "scroll_up" or action_type == "scroll_down":
-                                if "spinner" in target.lower() or "dropdown" in target.lower():
-                                    enhanced_action = f"[Action ID: {action_id}] SCROLLED {params_str} in dropdown '{target}' - {explanation}"
-                                else:
-                                    enhanced_action = f"[Action ID: {action_id}] SCROLLED {params_str} on '{target}' - {explanation}"
-                            else:
-                                enhanced_action = f"[Action ID: {action_id}] {action_type.upper()} on '{target}'{params_str} - {explanation}"
-
-                            enhanced_history.append(enhanced_action)
-                        else:
-                            # If it's already a string but not enhanced, keep as is
-                            enhanced_history.append(action)
-                    else:
-                        # Already in enhanced format or other format, keep as is
-                        enhanced_history.append(action)
-
-                # Update the history in the state
-                state["action_history"] = enhanced_history
-                self.logger.debug(f"Enhanced action history now has {len(enhanced_history)} entries")
+                self._enhance_action_history(state)
 
             # Add action-specific history information
             self._add_action_specific_history(state)
@@ -242,8 +202,6 @@ class LLMActionService:
 
             self.logger.debug(f"System prompt length: {len(messages[0]['content'])}")
             self.logger.debug(f"User prompt length: {len(messages[1]['content'])}")
-            self.logger.debug(f"System prompt first 100 chars: {messages[0]['content'][:100]}...")
-            self.logger.debug(f"User prompt first 100 chars: {messages[1]['content'][:100]}...")
 
             # Call the LLM with the generated prompts
             self.logger.info(f"Calling LLM model: {self.model_type}/{self.model_name}")
@@ -257,40 +215,60 @@ class LLMActionService:
             self.logger.debug(f"LLM response length: {len(response)}")
             self.logger.debug(f"LLM response first 100 chars: {response[:100]}...")
 
+            # Parse the response using the improved response parser
+            self.logger.debug("Parsing LLM response")
+
+            # Get available action IDs for validation
+            screen_description = self.prompt_strategy.parser.parse(state, self.static_data)
+            available_action_ids = [
+                str(action.id) for item in screen_description.items
+                for action in item.actions
+            ]
+
+            # Determine single action mode based on strategy type
+            single_action_mode = isinstance(self.prompt_strategy,
+                                            (SingleActionPromptStrategy, DSPySingleActionPromptStrategy))
+
             # Parse the response
-            self.logger.debug("Extracting JSON from LLM response")
-            json_response = self._extract_json(response)
-            action_data = json.loads(json_response)
-            self.logger.info(f"Extracted {len(action_data)} actions from LLM response")
+            actions, errors = self.response_parser.parse_actions(
+                response,
+                available_action_ids=available_action_ids,
+                single_action_mode=single_action_mode
+            )
 
-            # Log action_ids for debugging
-            if action_data and len(action_data) > 0:
-                action_ids = [action.get("action_id", "unknown") for action in action_data if isinstance(action, dict)]
-                self.logger.debug(f"Received action_ids: {action_ids}")
+            # Log any parsing errors
+            for error in errors:
+                self.logger.warning(f"Response parsing issue: {error}")
 
-            # Process actions based on the prompt strategy used
-            self.logger.debug(f"Processing actions with strategy: {self.prompt_strategy.__class__.__name__}")
-            if isinstance(self.prompt_strategy, (SingleActionPromptStrategy, DSPySingleActionPromptStrategy)):
-                # Handle single action format - strictly enforce one action
-                self.logger.debug("Using single action format processing")
-                validated_actions = self._process_action_id_format(self._extract_single_action(action_data), state)
-            elif isinstance(self.prompt_strategy, BasicPromptStrategy001):
-                # Handle action_id based format - multiple actions allowed
-                self.logger.debug("Using action_id format processing")
-                validated_actions = self._process_action_id_format(action_data, state)
-            else:
-                # Handle standard action_type format
-                self.logger.debug("Using standard action_type format processing")
-                validated_actions = self._validate_actions(action_data)
+            # Fall back to secondary parsing if primary fails
+            if not actions and errors:
+                self.logger.warning("Primary parsing failed, attempting to repair response")
+                repaired_json = self.response_parser.try_repair_response(response)
+                if repaired_json:
+                    try:
+                        actions = json.loads(repaired_json)
+                        self.logger.info("Successfully recovered actions from repaired response")
+                    except Exception as e:
+                        self.logger.error(f"Error parsing repaired JSON: {e}")
+
+            # Fall back to default actions if all parsing failed
+            if not actions:
+                self.logger.warning("Failed to extract valid actions from LLM response")
+                return self._generate_fallback_actions(state)
+
+            self.logger.info(f"Successfully parsed {len(actions)} actions from LLM response")
+
+            # Convert to DroidBot format
+            droidbot_actions = self._convert_to_droidbot_format(actions, state, screen_description)
 
             # Update the dynamic transition graph with the chosen actions
-            self._update_graph_with_actions(state, validated_actions)
+            self._update_graph_with_actions(state, droidbot_actions)
 
             # Track the current activity for the next state
             try:
                 current_activity = self.prompt_strategy.parser.get_activity_name(state)
                 # Add metadata to all actions
-                for action in validated_actions:
+                for action in droidbot_actions:
                     if "meta" not in action:
                         action["meta"] = {}
                     action["meta"]["previous_activity"] = current_activity
@@ -298,17 +276,136 @@ class LLMActionService:
                 self.logger.warning(f"Could not add current activity to metadata: {e}")
 
             # Save the dynamic transition graph periodically
-            # self.save_dynamic_transition_graph()
+            self.save_dynamic_transition_graph()
 
-            self.logger.info(f"Successfully processed state and generated {len(validated_actions)} actions")
-            self.logger.debug(f"Final actions: {validated_actions}")
-
-            return validated_actions
+            self.logger.info(f"Successfully processed state and generated {len(droidbot_actions)} actions")
+            return droidbot_actions
 
         except Exception as e:
             self.logger.error(f"Error processing state: {e}", exc_info=True)
             self.logger.info("Generating fallback actions")
             return self._generate_fallback_actions(state)
+
+    def _convert_to_droidbot_format(self, actions: List[Dict[str, Any]],
+                                    state: Dict[str, Any],
+                                    screen_description) -> List[Dict[str, Any]]:
+        """
+        Convert action_id format actions to DroidBot format.
+
+        Args:
+            actions: List of action dictionaries with action_id format
+            state: Current application state
+            screen_description: Parsed screen description
+
+        Returns:
+            List of actions in DroidBot format
+        """
+        droidbot_actions = []
+
+        # Create a mapping of action IDs to ItemAction objects for quick lookup
+        action_map = {}
+        for item in screen_description.items:
+            for action in item.actions:
+                action_map[str(action.id)] = (action, item.view)
+
+        for action_data in actions:
+            try:
+                action_id = str(action_data["action_id"])
+                params = action_data.get("params", {})
+                explanation = action_data.get("explanation", "")
+
+                # Find the corresponding ItemAction and view
+                if action_id not in action_map:
+                    self.logger.warning(f"Action ID {action_id} not found in available actions")
+                    continue
+
+                item_action, view_data = action_map[action_id]
+
+                # Extract action type
+                action_type = self._extract_action_type(item_action.text)
+
+                # Get coordinates
+                coordinates = self._resolve_coordinates(item_action, view_data, state, action_id)
+
+                # Create DroidBot action
+                droidbot_action = {
+                    "action_type": action_type,
+                    "target": self._get_target(item_action, state),
+                    "params": self._process_params(action_type, params),
+                    "explanation": explanation
+                }
+
+                # Add coordinates if available
+                if coordinates:
+                    droidbot_action["coordinates"] = coordinates
+
+                droidbot_actions.append(droidbot_action)
+
+            except Exception as e:
+                self.logger.error(f"Error converting action {action_data}: {e}", exc_info=True)
+
+        return droidbot_actions
+
+    def _enhance_action_history(self, state: Dict[str, Any]) -> None:
+        """
+        Enhance action history with better formatting and context.
+
+        Args:
+            state: State dictionary to enhance
+        """
+        if "action_history" not in state:
+            return
+
+        self.logger.debug("Processing action history for enhanced format")
+        enhanced_history = []
+
+        for action in state.get("action_history", []):
+            # Skip if already in enhanced format
+            if isinstance(action, str) and action.startswith("[Action ID:"):
+                enhanced_history.append(action)
+                continue
+
+            # Convert dictionary actions to enhanced format
+            if isinstance(action, dict):
+                action_id = action.get("action_id", "unknown")
+                action_type = action.get("action_type", "unknown")
+                target = action.get("target", "unknown")
+                params = action.get("params", {})
+                explanation = action.get("explanation", "")
+
+                # Format parameters
+                params_str = ""
+                if params:
+                    if "text" in params:
+                        params_str = f" with text '{params['text']}'"
+                    elif "direction" in params:
+                        params_str = f" {params['direction']}"
+
+                # Create context-sensitive description
+                if action_type == "click":
+                    if "spinner" in target.lower() or "dropdown" in target.lower():
+                        description = f"CLICKED ON DROPDOWN '{target}'{params_str}"
+                    elif any(keyword in target.lower() for keyword in
+                             ["submit", "login", "save", "apply", "ok", "next"]):
+                        description = f"SUBMITTED FORM by clicking '{target}'{params_str}"
+                    else:
+                        description = f"CLICKED on '{target}'{params_str}"
+                elif action_type == "set_text":
+                    description = f"FILLED text field '{target}'{params_str}"
+                elif action_type in ["scroll_up", "scroll_down"]:
+                    description = f"SCROLLED {action_type.split('_')[1]} on '{target}'{params_str}"
+                else:
+                    description = f"{action_type.upper()} on '{target}'{params_str}"
+
+                enhanced_action = f"[Action ID: {action_id}] {description} - {explanation}"
+                enhanced_history.append(enhanced_action)
+            else:
+                # Keep string actions as is
+                enhanced_history.append(action)
+
+        # Update the state
+        state["action_history"] = enhanced_history
+        self.logger.debug(f"Enhanced action history now has {len(enhanced_history)} entries")
 
     def _add_action_specific_history(self, state: Dict[str, Any]) -> None:
         """
@@ -537,57 +634,45 @@ class LLMActionService:
             Tuple of (x, y) coordinates or None if not found
         """
         self.logger.debug(f"Resolving coordinates for action_id: {action_id}")
-        coordinates = None
 
         # Method 1: Use coordinates from ItemAction if available
         if hasattr(item_action, 'coordinates') and item_action.coordinates:
-            coordinates = item_action.coordinates
-            self.logger.debug(f"Found coordinates from ItemAction: {coordinates}")
-            return coordinates
+            return item_action.coordinates
 
         # Method 2: Try to extract from target_view if available
-        if not coordinates and hasattr(item_action, 'target_view') and item_action.target_view:
+        if hasattr(item_action, 'target_view') and item_action.target_view:
             bounds = item_action.target_view.get("bounds")
             if bounds and len(bounds) == 2:
                 x = (bounds[0][0] + bounds[1][0]) // 2
                 y = (bounds[0][1] + bounds[1][1]) // 2
-                coordinates = (x, y)
-                self.logger.debug(f"Extracted coordinates from target_view bounds: {coordinates}")
-                return coordinates
+                return (x, y)
 
         # Method 3: Try to extract from the view_data if available
-        if not coordinates and view_data:
+        if view_data:
             bounds = view_data.get("bounds")
             if bounds and len(bounds) == 2:
                 x = (bounds[0][0] + bounds[1][0]) // 2
                 y = (bounds[0][1] + bounds[1][1]) // 2
-                coordinates = (x, y)
-                self.logger.debug(f"Extracted coordinates from view_data bounds: {coordinates}")
-                return coordinates
+                return (x, y)
 
         # Method 4: If target is a resource ID, try to find it in the view tree
-        if not coordinates and "view_tree" in state:
+        if "view_tree" in state:
             resource_id = None
             if hasattr(item_action, 'target_view') and item_action.target_view:
                 resource_id = item_action.target_view.get("resource_id")
 
             if resource_id:
-                self.logger.debug(f"Searching for coordinates by resource_id: {resource_id}")
                 coordinates = self._find_coordinates_for_resource_id(state["view_tree"], resource_id)
                 if coordinates:
-                    self.logger.debug(f"Found coordinates by resource_id search: {coordinates}")
                     return coordinates
 
         # Method 5: Try to extract from target string
-        if not coordinates:
-            target = self._get_target(item_action, state)
-            if isinstance(target, str) and " " in target:
-                parts = target.split()
-                if len(parts) == 2 and all(part.isdigit() for part in parts):
-                    x, y = int(parts[0]), int(parts[1])
-                    coordinates = (x, y)
-                    self.logger.debug(f"Extracted coordinates from target string: {coordinates}")
-                    return coordinates
+        target = self._get_target(item_action, state)
+        if isinstance(target, str) and " " in target:
+            parts = target.split()
+            if len(parts) == 2 and all(part.isdigit() for part in parts):
+                x, y = int(parts[0]), int(parts[1])
+                return (x, y)
 
         self.logger.warning(f"Failed to resolve coordinates for action_id: {action_id}")
         return None
@@ -636,12 +721,12 @@ class LLMActionService:
     def _extract_action_type(self, action_text: str) -> str:
         """
         Extract the action type from the action text description.
-        
+
         Args:
             action_text: Text description of the action
-            
+
         Returns:
-            Action type string for droidbot
+            Action type string for DroidBot
         """
         if action_text.startswith("CLICK"):
             return "click"
@@ -666,92 +751,70 @@ class LLMActionService:
             return "key_event"
         return "unknown"
 
-    def _get_target(self, item_action: 'ItemAction', state: Dict[str, Any]) -> str:
+    def _get_target(self, item_action, state: Dict[str, Any]) -> str:
         """
         Get the target for an action from the associated view data.
 
         Args:
-            item_action: The ItemAction being processed
+            item_action: The ItemAction object
             state: Current application state
 
         Returns:
             Target string (resource_id or coordinates)
         """
-        # Get the view data associated with this action
-        view_data = None
-        for item in self.prompt_strategy.parser.parse(state, self.static_data).items:
-            if item_action in item.actions:
-                view_data = item.view
-                break
+        # Try to get resource_id from target_view
+        if hasattr(item_action, 'target_view') and item_action.target_view:
+            if "resource_id" in item_action.target_view:
+                return item_action.target_view["resource_id"]
 
-        if not view_data:
-            return ""
+            # Fall back to coordinates if bounds are available
+            if "bounds" in item_action.target_view:
+                bounds = item_action.target_view["bounds"]
+                if bounds and len(bounds) == 2:
+                    x = (bounds[0][0] + bounds[1][0]) // 2
+                    y = (bounds[0][1] + bounds[1][1]) // 2
+                    return f"{x} {y}"
 
-        # Always calculate coordinates when bounds are available
-        coordinates = None
-        if "bounds" in view_data:
-            bounds = view_data["bounds"]
-            if bounds and len(bounds) == 2:
-                x = (bounds[0][0] + bounds[1][0]) // 2
-                y = (bounds[0][1] + bounds[1][1]) // 2
-                coordinates = (x, y)
-                item_action.coordinates = coordinates
-
-        # Set coordinates explicitly on the action
-        item_action.coordinates = coordinates
-
-        # Try resource_id first
-        if "resource_id" in view_data:
-            return view_data["resource_id"]
-
-        # Fall back to coordinates if bounds are available
-        if coordinates:
-            x, y = coordinates
+        # If we have coordinates, use them
+        if hasattr(item_action, 'coordinates') and item_action.coordinates:
+            x, y = item_action.coordinates
             return f"{x} {y}"
 
-        return ""
+        # Last resort, return the action text
+        return item_action.text
 
     def _process_params(self, action_type: str, params: Dict[str, Any]) -> Dict[str, Any]:
         """
         Process and validate parameters for an action.
-        Ensures required parameters are present for specific action types.
 
         Args:
             action_type: Type of action
             params: Parameters from LLM
 
         Returns:
-            Processed and validated parameters dictionary
+            Processed parameters dictionary
         """
-        # Create a copy to avoid modifying the original
         processed_params = params.copy() if params else {}
 
         # Handle SET_TEXT action type
         if action_type == "set_text":
             if "text" not in processed_params or not processed_params["text"]:
-                self.logger.warning("SET_TEXT action missing 'text' parameter, using default value")
-                # Provide appropriate default text based on context
                 processed_params["text"] = "test input"
-
-                # Log the issue
-                self.logger.debug(f"Added default text parameter to SET_TEXT action: {processed_params}")
+                self.logger.debug(f"Added default text parameter to SET_TEXT action")
 
         # Handle KEY_EVENT action type
         elif action_type == "key_event":
             if "name" not in processed_params:
-                # Default key event name
                 processed_params["name"] = "BACK"
                 self.logger.debug("Added default BACK key event parameter")
 
         # Handle SCROLL action types
         elif action_type in ["scroll_up", "scroll_down", "scroll_left", "scroll_right"]:
             if "direction" not in processed_params:
-                # Extract direction from action type
                 direction = action_type.split('_')[1].upper()
                 processed_params["direction"] = direction
                 self.logger.debug(f"Added direction parameter '{direction}' to scroll action")
 
-        self.logger.debug(f"Processed parameters for {action_type}: {processed_params}")
         return processed_params
 
     def _extract_json(self, text: str) -> str:

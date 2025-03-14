@@ -9,7 +9,7 @@ import os
 import re
 from typing import Tuple
 
-import rvandroid.utils as utils
+import rvandroid.util.utils as utils
 from rvandroid.model.classes import (
     Classes,
 )

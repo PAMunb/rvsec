@@ -2,7 +2,6 @@
 import logging
 from typing import Dict, Any, Type, Optional, List, Union
 
-from rvandroid.config.component_config import ComponentConfig
 from rvandroid.llm.dspy_llm import DSPyLLM
 from rvandroid.llm.frontier_models import FrontierModel
 from rvandroid.llm.huggingface_llm import HuggingFaceLLM
@@ -10,6 +9,8 @@ from rvandroid.llm.langchain_llm import LangchainLLM
 from rvandroid.llm.llm import LanguageModel
 from rvandroid.llm.model_factory import ModelFactory
 from rvandroid.llm.ollama_llm import OllamaLLM
+from rvandroid.llm.prompt.composable_prompt_strategy import ComposablePromptStrategy
+from rvandroid.llm.prompt.composable_single_action_strategy import ComposableSingleActionStrategy
 from rvandroid.llm.prompt.dspy_single_action_prompt_strategy import DSPySingleActionPromptStrategy
 from rvandroid.llm.prompt.prompt_strategy import PromptStrategy
 from rvandroid.llm.prompt.prompt_strategy_basic_001 import BasicPromptStrategy001
@@ -47,7 +48,9 @@ class ComponentConfigurator:
         "basic": BasicPromptStrategy001,
         "dspy": DSPyPromptStrategy,
         "single_action": SingleActionPromptStrategy,
-        "dspy_single_action": DSPySingleActionPromptStrategy
+        "dspy_single_action": DSPySingleActionPromptStrategy,
+        "composable": ComposablePromptStrategy,
+        "composable_single_action": ComposableSingleActionStrategy
     }
 
     PARSER_TYPES = {

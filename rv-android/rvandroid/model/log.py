@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from rvandroid import utils
+from rvandroid.util import utils
 
 TAG_RVSEC = "RVSEC"
 TAG_RVSEC_COV = "RVSEC-COV"

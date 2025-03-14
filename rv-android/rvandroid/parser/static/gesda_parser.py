@@ -8,7 +8,7 @@ import logging
 import os
 from typing import List, Set
 
-import rvandroid.utils as utils
+import rvandroid.util.utils as utils
 from rvandroid.model.classes import (
     Classes
 )

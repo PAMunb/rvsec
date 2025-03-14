@@ -1,8 +1,9 @@
+# rvandroid/tools/fastbot/tool.py
 import os
 
 from rvandroid.app import App
 from rvandroid.commands.command import Command
-from rvandroid.experiment.task import Task
+from rvandroid.experiment.task_model import Task  # Updated import
 from settings import TOOLS_DIR
 from ..tool_spec import AbstractTool
 
@@ -45,10 +46,10 @@ class ToolSpec(AbstractTool):
         adb_push(apk_string, "/sdcard")
         os.remove(apk_string)
 
-        timeout_in_seconds = task.timeout
+        timeout_in_seconds = task.config.timeout
         timeout_in_minutes = int(timeout_in_seconds / 60)
 
-        with open(task.log_file, "wb") as trace:
+        with open(task.result.trace_file, "wb") as trace:
             exec_cmd = Command("adb", [
                 "-s",
                 "emulator-5554",

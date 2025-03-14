@@ -1,8 +1,10 @@
+# rvandroid/tools/humanoid/tool.py
 from rvandroid.app import App
 from rvandroid.commands.command import Command
-from rvandroid.experiment.task import Task
+from rvandroid.experiment.task_model import Task  # Updated import
 from ..tool_spec import AbstractTool
-from ... import constants, utils
+from ... import constants
+from ...util import utils
 
 
 # TODO run humanoid container before using this tool
@@ -19,7 +21,7 @@ class ToolSpec(AbstractTool):
 
     def execute_tool_specific_logic(self, task: Task, app: App):
         humanoid_url = utils.get_env_or_default(constants.ENV_HUMANOID_URL, "127.0.0.1:50405")
-        with open(task.log_file, "wb") as trace:
+        with open(task.result.trace_file, "wb") as trace:
             exec_cmd = Command("droidbot", [
                 "-d",
                 "emulator-5554",
@@ -30,5 +32,5 @@ class ToolSpec(AbstractTool):
                 "-policy",
                 "dfs_greedy",
                 "-is_emulator",
-            ], task.timeout)
+            ], task.config.timeout)
             exec_cmd.invoke(stdout=trace)

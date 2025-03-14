@@ -4,7 +4,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Optional, Set, Tuple, Dict
 
-from rvandroid import utils
+from rvandroid.util import utils
 from rvandroid.app import App
 from rvandroid.constants import EXTENSION_LOGCAT, EXTENSION_TRACE
 from rvandroid.model.log import RvCoverageLog

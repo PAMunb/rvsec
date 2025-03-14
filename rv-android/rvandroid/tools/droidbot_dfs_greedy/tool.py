@@ -1,6 +1,7 @@
+# rvandroid/tools/droidbot_dfs_greedy/tool.py
 from rvandroid.app import App
 from rvandroid.commands.command import Command
-from rvandroid.experiment.task import Task
+from rvandroid.experiment.task_model import Task  # Updated import
 from rvandroid.tools.tool_spec import AbstractTool
 
 
@@ -12,7 +13,7 @@ class ToolSpec(AbstractTool):
                                        'com.android.commands.droidbot')
 
     def execute_tool_specific_logic(self, task: Task, app: App):
-        with open(task.log_file, 'wb') as trace:
+        with open(task.result.trace_file, 'wb') as trace:
             exec_cmd = Command('droidbot', [
                 '-d',
                 'emulator-5554',
@@ -23,8 +24,9 @@ class ToolSpec(AbstractTool):
                 "-count",
                 "10000000000",
                 "-timeout",
-                str(task.timeout),
+                str(task.config.timeout),
                 "-ignore_ad",
                 '-is_emulator',
-            ], task.timeout)
+            ], task.config.timeout)
             exec_cmd.invoke(stdout=trace)
+            

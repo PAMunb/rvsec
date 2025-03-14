@@ -2,7 +2,7 @@ import os
 import time
 from pathlib import Path
 
-from rvandroid import utils
+from rvandroid.util import utils
 from rvandroid.constants import ENV_JCA_SPEC, ENV_RT_JAR, ENV_RVANDROID_URL
 
 TIMESTAMP = time.strftime("%Y%m%d%H%M%S", time.localtime())

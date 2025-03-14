@@ -4,7 +4,7 @@ from typing import Dict, Any, Optional, Type
 
 from rvandroid.model.static import StaticAnalysisData
 from rvandroid.parser.screen.abstract_parser import AbstractScreenParser
-from rvandroid.parser.screen.visitor.base_visitor import ScreenDescription, Node, BaseScreenVisitor, ViewProperty
+from rvandroid.parser.screen.visitor.base_visitor import ScreenDescription, Node, BaseScreenVisitor
 
 
 class UIAutomator2Parser(AbstractScreenParser):
@@ -121,22 +121,23 @@ class UIAutomator2Parser(AbstractScreenParser):
         def map_properties(ui_node_data: Dict[str, Any]) -> Dict[str, Any]:
             """Map UIAutomator property names to standard names."""
             property_mapping = {
-                "className": ViewProperty.CLASS.value,
-                "resourceId": ViewProperty.RESOURCE_ID.value,
-                "contentDescription": ViewProperty.CONTENT_DESCRIPTION.value,
-                "text": ViewProperty.TEXT.value,
-                "packageName": ViewProperty.PACKAGE.value,
-                "longClickable": ViewProperty.LONG_CLICKABLE.value,
-                "clickable": ViewProperty.CLICKABLE.value,
-                "scrollable": ViewProperty.SCROLLABLE.value,
-                "checkable": ViewProperty.CHECKABLE.value,
-                "password": ViewProperty.PASSWORD.value,
-                "enabled": ViewProperty.ENABLED.value,
-                "focused": ViewProperty.FOCUSED.value,
-                "selected": ViewProperty.SELECTED.value,
-                "checked": ViewProperty.CHECKED.value,
-                "progress": ViewProperty.PROGRESS.value,
-                "max": ViewProperty.MAX.value
+                # TODO ................................................................ no encontra ViewProperty
+                # "className": ViewProperty.CLASS.value,
+                # "resourceId": ViewProperty.RESOURCE_ID.value,
+                # "contentDescription": ViewProperty.CONTENT_DESCRIPTION.value,
+                # "text": ViewProperty.TEXT.value,
+                # "packageName": ViewProperty.PACKAGE.value,
+                # "longClickable": ViewProperty.LONG_CLICKABLE.value,
+                # "clickable": ViewProperty.CLICKABLE.value,
+                # "scrollable": ViewProperty.SCROLLABLE.value,
+                # "checkable": ViewProperty.CHECKABLE.value,
+                # "password": ViewProperty.PASSWORD.value,
+                # "enabled": ViewProperty.ENABLED.value,
+                # "focused": ViewProperty.FOCUSED.value,
+                # "selected": ViewProperty.SELECTED.value,
+                # "checked": ViewProperty.CHECKED.value,
+                # "progress": ViewProperty.PROGRESS.value,
+                # "max": ViewProperty.MAX.value
             }
 
             # Create new dict with mapped property names
@@ -148,11 +149,12 @@ class UIAutomator2Parser(AbstractScreenParser):
             # Convert bounds to standard format
             if "bounds" in ui_node_data:
                 bounds = ui_node_data["bounds"]
-                if isinstance(bounds, dict) and all(k in bounds for k in ["left", "top", "right", "bottom"]):
-                    node_data[ViewProperty.BOUNDS.value] = [
-                        [bounds["left"], bounds["top"]],
-                        [bounds["right"], bounds["bottom"]]
-                    ]
+                # TODO ................................................................ no encontra ViewProperty
+                # if isinstance(bounds, dict) and all(k in bounds for k in ["left", "top", "right", "bottom"]):
+                #     node_data[ViewProperty.BOUNDS.value] = [
+                #         [bounds["left"], bounds["top"]],
+                #         [bounds["right"], bounds["bottom"]]
+                #     ]
 
             return node_data
 

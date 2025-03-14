@@ -3,7 +3,7 @@ import os
 import time
 from contextlib import contextmanager
 
-from rvandroid import utils
+from rvandroid.util import utils
 from rvandroid.app import App
 from rvandroid.commands.command import Command
 from settings import ANDROID_PLATFORMS_DIR

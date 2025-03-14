@@ -3,7 +3,7 @@ import json
 import os
 from datetime import datetime
 
-from rvandroid import utils  # TODO usar assim nos outros imports
+from rvandroid.util import utils
 from rvandroid.app import App
 from rvandroid.experiment.task import Task, TaskStatus
 

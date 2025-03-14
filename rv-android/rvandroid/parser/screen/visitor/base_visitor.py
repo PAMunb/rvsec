@@ -1,34 +1,12 @@
 # rvandroid/parser/screen/visitor/base_visitor.py
-
 import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import List, Dict, Optional, Set, Any
 
-
-class ViewProperty(Enum):
-    """Enumeration of common view properties for consistency."""
-    CLICKABLE = "clickable"
-    SCROLLABLE = "scrollable"
-    CHECKABLE = "checkable"
-    LONG_CLICKABLE = "long_clickable"
-    EDITABLE = "editable"
-    CHECKED = "checked"
-    SELECTED = "selected"
-    FOCUSED = "focused"
-    PASSWORD = "is_password"
-    ENABLED = "enabled"
-
-    TEXT = "text"
-    CONTENT_DESCRIPTION = "content_description"
-    CLASS = "class"
-    PACKAGE = "package"
-    RESOURCE_ID = "resource_id"
-    BOUNDS = "bounds"
-
-    PROGRESS = "progress"
-    MAX = "max"
+from rvandroid.model.static import StaticAnalysisData
+from rvandroid.model.widget import WidgetEventType, Widget
 
 
 @dataclass
@@ -36,14 +14,10 @@ class ItemAction:
     """Represents an action that can be performed on a UI element."""
     id: int
     text: str
-    event: 'WidgetEventType'  # Forward reference
+    event: WidgetEventType
     reaches_mop: bool = False
     directly_reaches_mop: bool = False
-
-    # Additional properties to support droidbot action creation
     target_view: Dict[str, Any] = field(default_factory=dict)
-
-    # Store the coordinates explicitly
     coordinates: Optional[tuple] = None
 
     @property
@@ -66,10 +40,8 @@ class ItemAction:
             return "scroll"
         elif self.text.startswith("SET_TEXT"):
             return "set_text"
-        elif self.text.startswith("CHECK"):
-            return "click"  # Checkbox check is actually a click
-        elif self.text.startswith("UNCHECK"):
-            return "click"  # Checkbox uncheck is also a click
+        elif self.text.startswith("CHECK") or self.text.startswith("UNCHECK"):
+            return "click"  # Checkbox actions are clicks
         elif self.text.startswith("BACK"):
             return "key_event"
         return "unknown"
@@ -91,7 +63,7 @@ class ItemAction:
         action_dict = {
             "action_type": self.action_type,
             "target": target,
-            "coordinates": coords,  # Add coordinates explicitly
+            "coordinates": coords,
             "params": params or {}
         }
 
@@ -230,8 +202,38 @@ class Counter:
         return self.value
 
 
-from rvandroid.model.widget import WidgetEventType, Widget
-from rvandroid.model.static import StaticAnalysisData
+class UiElementType(Enum):
+    """Enumeration of UI element types for more generic processing."""
+    CONTAINER = "container"
+    BUTTON = "button"
+    TEXT_FIELD = "text_field"
+    TEXT_VIEW = "text_view"
+    CHECKBOX = "checkbox"
+    TOGGLE = "toggle"
+    RADIO_BUTTON = "radio_button"
+    SPINNER = "spinner"
+    SLIDER = "slider"
+    IMAGE = "image"
+    UNKNOWN = "unknown"
+
+    @staticmethod
+    def from_class_name(class_name: str) -> 'UiElementType':
+        """Maps Android class names to element types."""
+        mapping = {
+            "android.widget.Button": UiElementType.BUTTON,
+            "android.widget.ImageButton": UiElementType.BUTTON,
+            "android.widget.EditText": UiElementType.TEXT_FIELD,
+            "android.widget.TextView": UiElementType.TEXT_VIEW,
+            "android.widget.CheckBox": UiElementType.CHECKBOX,
+            "android.widget.CheckedTextView": UiElementType.CHECKBOX,
+            "android.widget.ToggleButton": UiElementType.TOGGLE,
+            "android.widget.Switch": UiElementType.TOGGLE,
+            "android.widget.RadioButton": UiElementType.RADIO_BUTTON,
+            "android.widget.Spinner": UiElementType.SPINNER,
+            "android.widget.SeekBar": UiElementType.SLIDER,
+            "android.widget.ImageView": UiElementType.IMAGE,
+        }
+        return mapping.get(class_name, UiElementType.UNKNOWN)
 
 
 class Node:
@@ -259,34 +261,38 @@ class Node:
         self.parent = parent
 
         # Extract common view properties
-        self.clickable = self._get_property(ViewProperty.CLICKABLE.value, False)
-        self.scrollable = self._get_property(ViewProperty.SCROLLABLE.value, False)
-        self.checkable = self._get_property(ViewProperty.CHECKABLE.value, False)
-        self.long_clickable = self._get_property(ViewProperty.LONG_CLICKABLE.value, False)
-        self.editable = self._get_property(ViewProperty.EDITABLE.value, False)
-        self.checked = self._get_property(ViewProperty.CHECKED.value, False)
-        self.selected = self._get_property(ViewProperty.SELECTED.value, False)
-        self.is_password = self._get_property(ViewProperty.PASSWORD.value, False)
-        self.enabled = self._get_property(ViewProperty.ENABLED.value, True)
-        self.focused = self._get_property(ViewProperty.FOCUSED.value, False)
+        self.clickable = self._get_property("clickable", False)
+        self.scrollable = self._get_property("scrollable", False)
+        self.checkable = self._get_property("checkable", False)
+        self.long_clickable = self._get_property("long_clickable", False)
+        self.editable = self._get_property("editable", False)
+        self.checked = self._get_property("checked", False)
+        self.selected = self._get_property("selected", False)
+        self.is_password = self._get_property("is_password", False)
+        self.enabled = self._get_property("enabled", True)
+        self.focused = self._get_property("focused", False)
 
         # View identifiers
-        self.content_description = self._get_property(ViewProperty.CONTENT_DESCRIPTION.value, "")
-        self.view_text = self._get_property(ViewProperty.TEXT.value, "")
-        self.view_class = self._get_property(ViewProperty.CLASS.value, "")
-        self.package = self._get_property(ViewProperty.PACKAGE.value, "")
-        self.resource_id = self._get_property(ViewProperty.RESOURCE_ID.value, "")
+        self.content_description = self._get_property("content_description", "")
+        self.view_text = self._get_property("text", "")
+        self.view_class = self._get_property("class", "")
+        self.package = self._get_property("package", "")
+        self.resource_id = self._get_property("resource_id", "")
+        self.hint = self._get_property("hint", "")
 
         # Bounds are represented as [[left, top], [right, bottom]]
-        self.bounds = self._get_property(ViewProperty.BOUNDS.value, [[0, 0], [0, 0]])
+        self.bounds = self._get_property("bounds", [[0, 0], [0, 0]])
 
         # Progress values for sliders/seekbars
-        self.progress = self._get_property(ViewProperty.PROGRESS.value, 0)
-        self.max = self._get_property(ViewProperty.MAX.value, 100)
+        self.progress = self._get_property("progress", 0)
+        self.max = self._get_property("max", 100)
 
         # Derived properties
         self.actionable = (self.clickable or self.scrollable or self.checkable or
                            self.long_clickable or self.editable)
+
+        # Element type
+        self.element_type = UiElementType.from_class_name(self.view_class)
 
     def _get_property(self, key: str, default: Any) -> Any:
         """
@@ -308,53 +314,9 @@ class Node:
         Args:
             visitor: Visitor implementation
         """
-        if not self.children:
-            self._handle_leaf_node(visitor)
-        else:
-            self._handle_container_node(visitor)
-
-    def _handle_leaf_node(self, visitor: 'BaseScreenVisitor') -> None:
-        """
-        Handles visitation for leaf nodes based on their widget type.
-
-        Args:
-            visitor: Visitor implementation
-        """
-        # Map of widget classes to visitor methods
-        widget_handlers = {
-            "android.widget.Button": visitor.visit_button,
-            "android.widget.EditText": visitor.visit_edit_text,
-            "android.widget.TextView": visitor.visit_text_view,
-            "android.widget.CheckBox": visitor.visit_checkbox,
-            "android.widget.CheckedTextView": visitor.visit_checked_text,
-            "android.widget.ImageButton": visitor.visit_image_button,
-            "android.widget.ImageView": visitor.visit_image,
-            "android.widget.ToggleButton": visitor.visit_toggle_button,
-            "android.widget.Switch": visitor.visit_switch,
-            "android.widget.RadioButton": visitor.visit_radio_button,
-            "android.widget.SeekBar": visitor.visit_slider
-        }
-
-        # Call specific handler if available, otherwise use generic handler
-        handler = widget_handlers.get(self.view_class, visitor.visit_leaf_node)
-        handler(self)
-
-    def _handle_container_node(self, visitor: 'BaseScreenVisitor') -> None:
-        """
-        Handles visitation for container nodes.
-
-        Args:
-            visitor: Visitor implementation
-        """
-        if self.view_class == "android.widget.Spinner":
-            visitor.visit_spinner(self)
-        elif self.view_class == "android.widget.RadioGroup":
-            visitor.visit_radio_group(self)
-        else:
-            # Generic container handling
-            visitor.visit_node(self)
-            for child in self.children:
-                child.accept(visitor)
+        visitor.visit(self)
+        for child in self.children:
+            child.accept(visitor)
 
     def find_children_by_class(self, class_name: str) -> List['Node']:
         """
@@ -408,10 +370,25 @@ class Node:
         return f"{self.view_class} - {self.resource_id or self.view_text or 'unnamed'}"
 
 
+class ElementHandler:
+    """Handler for a specific type of UI element."""
+
+    def __init__(self, element_type: UiElementType):
+        self.element_type = element_type
+
+    def can_handle(self, node: Node) -> bool:
+        """Check if this handler can process the given node."""
+        return node.element_type == self.element_type
+
+    def handle(self, node: Node, visitor: 'BaseScreenVisitor') -> Optional[ScreenItem]:
+        """Process a node and generate a ScreenItem."""
+        return None
+
+
 class BaseScreenVisitor(ABC):
     """
-    Abstract base visitor implementation for processing Android UI elements.
-    Implements the visitor pattern to traverse the UI hierarchy and create descriptions.
+    Simplified abstract base visitor implementation for processing Android UI elements.
+    Uses a more generic approach with registered handlers for different element types.
     """
 
     def __init__(self, static_info: Optional[StaticAnalysisData], activity: str):
@@ -440,6 +417,18 @@ class BaseScreenVisitor(ABC):
             "interactive_elements": 0
         }
 
+        # Initialize element handlers
+        self.handlers: Dict[UiElementType, ElementHandler] = {}
+        self._register_default_handlers()
+
+    def _register_default_handlers(self) -> None:
+        """Register default element handlers."""
+        pass
+
+    def register_handler(self, handler: ElementHandler) -> None:
+        """Register a custom element handler."""
+        self.handlers[handler.element_type] = handler
+
     @abstractmethod
     def get_screen_description(self) -> ScreenDescription:
         """
@@ -449,6 +438,43 @@ class BaseScreenVisitor(ABC):
             ScreenDescription object containing all parsed items
         """
         pass
+
+    def visit(self, node: Node) -> None:
+        """
+        Visit a node in the UI hierarchy - simplified generic method.
+        Finds the appropriate handler for the node type and processes it.
+
+        Args:
+            node: Node to process
+        """
+        # Skip already visited nodes
+        node_id = node.get_unique_id()
+        if node_id in self.visited_nodes:
+            return
+
+        # Find handler for this element type
+        handler = self.handlers.get(node.element_type)
+
+        # Use generic processing if no specific handler
+        if handler and handler.can_handle(node):
+            item = handler.handle(node, self)
+            if item:
+                self.items.append(item)
+                self.visited_nodes.add(node_id)
+                self.window_info["interactive_elements"] += 1
+        elif node.actionable:
+            # Generic handling for actionable elements
+            self._process_actionable_node(node)
+
+    def _process_actionable_node(self, node: Node) -> None:
+        """Process a generic actionable node."""
+        actions = self.get_possible_actions(node, self.counter)
+        if actions:
+            description = f"{node.element_type.value.capitalize()} {node.view_class}"
+            item = ScreenItem(node.data, description, actions)
+            self.items.append(item)
+            self.visited_nodes.add(node.get_unique_id())
+            self.window_info["interactive_elements"] += 1
 
     def find_matching_widget(self, node_data: Dict) -> Optional[Widget]:
         """
@@ -534,78 +560,128 @@ class BaseScreenVisitor(ABC):
                 return method.directly_reaches_mop
         return False
 
-    # Abstract methods that must be implemented by subclasses
-    @abstractmethod
-    def visit_node(self, node: Node) -> None:
-        """Visit a container node."""
-        pass
+    def get_possible_actions(self, node: Node, counter: Counter, inherit_click: bool = False,
+                             prioritize_check: bool = False) -> List[ItemAction]:
+        """
+        Get possible actions for a node.
 
-    @abstractmethod
-    def visit_leaf_node(self, node: Node) -> None:
-        """Visit a leaf node without a specific handler."""
-        pass
+        Args:
+            node: The node to get actions for
+            counter: Counter for generating unique IDs
+            inherit_click: Whether to add click action from parent
+            prioritize_check: Whether to prioritize check/uncheck over click
 
-    @abstractmethod
-    def visit_button(self, node: Node) -> None:
-        """Visit a button."""
-        pass
+        Returns:
+            List of possible actions
+        """
+        actions = []
+        node_data = node.data
+        coordinates = node.get_center_coordinates()
 
-    @abstractmethod
-    def visit_edit_text(self, node: Node) -> None:
-        """Visit an edit text field."""
-        pass
+        # Handle check/uncheck actions with priority if needed
+        if prioritize_check and node.checkable:
+            if node.checked:
+                action = ItemAction(
+                    id=counter.inc(),
+                    text=f"UNCHECK ({counter.get()})",
+                    event=WidgetEventType.CLICK,
+                    reaches_mop=False,
+                    directly_reaches_mop=False,
+                    target_view=node_data,
+                    coordinates=coordinates
+                )
+                # Update security information
+                self._update_action_security_info(action, node)
+                actions.append(action)
+            else:
+                action = ItemAction(
+                    id=counter.inc(),
+                    text=f"CHECK ({counter.get()})",
+                    event=WidgetEventType.CLICK,
+                    reaches_mop=False,
+                    directly_reaches_mop=False,
+                    target_view=node_data,
+                    coordinates=coordinates
+                )
+                # Update security information
+                self._update_action_security_info(action, node)
+                actions.append(action)
+            return actions
 
-    @abstractmethod
-    def visit_text_view(self, node: Node) -> None:
-        """Visit a text view."""
-        pass
+        # Handle click actions
+        if node.clickable or inherit_click:
+            actions.append(ItemAction(
+                id=counter.inc(),
+                text=f"CLICK ({counter.get()})",
+                event=WidgetEventType.CLICK,
+                reaches_mop=False,
+                directly_reaches_mop=False,
+                target_view=node_data,
+                coordinates=coordinates
+            ))
 
-    @abstractmethod
-    def visit_checkbox(self, node: Node) -> None:
-        """Visit a checkbox."""
-        pass
+        # Handle long click actions
+        if node.long_clickable:
+            actions.append(ItemAction(
+                id=counter.inc(),
+                text=f"LONG_CLICK ({counter.get()})",
+                event=WidgetEventType.LONG_CLICK,
+                reaches_mop=False,
+                directly_reaches_mop=False,
+                target_view=node_data,
+                coordinates=coordinates
+            ))
 
-    @abstractmethod
-    def visit_checked_text(self, node: Node) -> None:
-        """Visit a checked text view."""
-        pass
+        # Handle scroll actions
+        if node.scrollable:
+            for direction in ["UP", "DOWN", "LEFT", "RIGHT"]:
+                actions.append(ItemAction(
+                    id=counter.inc(),
+                    text=f"SCROLL {direction} ({counter.get()})",
+                    event=WidgetEventType.SCROLL,
+                    reaches_mop=False,
+                    directly_reaches_mop=False,
+                    target_view=node_data,
+                    coordinates=coordinates
+                ))
 
-    @abstractmethod
-    def visit_image_button(self, node: Node) -> None:
-        """Visit an image button."""
-        pass
+        # Handle text input actions
+        if node.editable:
+            actions.append(ItemAction(
+                id=counter.inc(),
+                text=f"SET_TEXT ({counter.get()})",
+                event=WidgetEventType.TEXT_CHANGE,
+                reaches_mop=False,
+                directly_reaches_mop=False,
+                target_view=node_data,
+                coordinates=coordinates
+            ))
 
-    @abstractmethod
-    def visit_image(self, node: Node) -> None:
-        """Visit an image."""
-        pass
+        # Update security info for all actions
+        for action in actions:
+            self._update_action_security_info(action, node)
 
-    @abstractmethod
-    def visit_toggle_button(self, node: Node) -> None:
-        """Visit a toggle button."""
-        pass
+        return actions
 
-    @abstractmethod
-    def visit_switch(self, node: Node) -> None:
-        """Visit a switch."""
-        pass
+    def _update_action_security_info(self, action: ItemAction, node: Node) -> None:
+        """
+        Update an action with security information from static analysis.
 
-    @abstractmethod
-    def visit_radio_button(self, node: Node) -> None:
-        """Visit a radio button."""
-        pass
+        Args:
+            action: The action to update
+            node: The node associated with the action
+        """
+        widget = self.find_matching_widget(node.data)
+        if not widget:
+            return
 
-    @abstractmethod
-    def visit_spinner(self, node: Node) -> None:
-        """Visit a spinner."""
-        pass
-
-    @abstractmethod
-    def visit_radio_group(self, node: Node) -> None:
-        """Visit a radio group."""
-        pass
-
-    @abstractmethod
-    def visit_slider(self, node: Node) -> None:
-        """Visit a slider."""
-        pass
+        # Find matching event type
+        for event in widget.events:
+            if event.type == action.event:
+                # Check if method reaches or directly reaches MOP
+                action.reaches_mop = self._check_method_reaches_mop(event.signature)
+                action.directly_reaches_mop = self._check_method_directly_reaches_mop(event.signature)
+                if action.reaches_mop or action.directly_reaches_mop:
+                    self.logger.debug(
+                        f"Action {action.id} security info updated: reaches_mop={action.reaches_mop}, directly_reaches_mop={action.directly_reaches_mop}")
+                return

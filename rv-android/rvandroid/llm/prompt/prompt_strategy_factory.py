@@ -2,7 +2,9 @@
 from typing import Optional, Union
 
 from rvandroid.llm.prompt.base_prompt_strategy import BasePromptStrategy
-from rvandroid.llm.prompt.prompt_strategy_basic_001 import BasicPromptStrategy001  # Adicione esta linha
+from rvandroid.llm.prompt.composable_prompt_strategy import ComposablePromptStrategy
+from rvandroid.llm.prompt.composable_single_action_strategy import ComposableSingleActionStrategy
+from rvandroid.llm.prompt.prompt_strategy_basic_001 import BasicPromptStrategy001
 from rvandroid.llm.prompt.prompt_strategy_dspy import DSPyPromptStrategy
 from rvandroid.llm.prompt.prompt_strategy_frontier import FrontierPromptStrategy
 from rvandroid.llm.prompt.single_action_prompt_strategy import SingleActionPromptStrategy
@@ -10,7 +12,6 @@ from rvandroid.llm.prompt.dspy_single_action_prompt_strategy import DSPySingleAc
 from rvandroid.model.static import StaticAnalysisData
 from rvandroid.parser.screen.abstract_parser import AbstractScreenParser
 from rvandroid.parser.screen.parser_factory import ParserType, ParserFactory
-from rvandroid.config.component_config import ComponentConfig
 
 
 class PromptStrategyFactory:
@@ -26,7 +27,8 @@ class PromptStrategyFactory:
         "dspy": DSPyPromptStrategy,
         "frontier": FrontierPromptStrategy,
         "dspy_single_action": DSPySingleActionPromptStrategy,
-        # Add more strategies as needed
+        "composable": ComposablePromptStrategy,
+        "composable_single_action": ComposableSingleActionStrategy
     }
 
     @classmethod
@@ -54,14 +56,12 @@ class PromptStrategyFactory:
 
         # Get parser instance if none provided
         if parser is None:
-            # Use default DroidBot parser
-            from rvandroid.parser.screen.parser_factory import ParserFactory, ParserType
             parser = ParserFactory.create(ParserType.DROIDBOT)
 
         # Get strategy class
         strategy_class = cls.STRATEGIES.get(strategy_type.lower())
         if not strategy_class:
-            raise ValueError(f"Unknown prompt strategy type: {strategy_type}")
+            raise ValueError(f"Unknown prompt strategy type: {strategy_type}. Options: {list(cls.STRATEGIES.keys())}")
 
         # Create and return strategy instance
         return strategy_class(static_data, parser)
@@ -84,4 +84,4 @@ class PromptStrategyFactory:
         Returns:
             Default strategy type name
         """
-        return "single_action"
+        return "composable_single_action"  # Updated default to use the new composable strategy

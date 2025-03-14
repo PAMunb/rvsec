@@ -6,7 +6,7 @@ import sys
 import time
 from argparse import Namespace
 
-from rvandroid import utils
+from rvandroid.util import utils
 from rvandroid.constants import *
 from rvandroid.experiment import config as experiment_config
 from rvandroid.experiment import experiment_03
@@ -207,12 +207,12 @@ def run_local():
     experiment_config.repetitions = 1
     experiment_config.timeouts = [60]
     # experiment_config.tools = __get_tools(["ape", "ares", "droidmate", "fastbot", "monkey"])
-    experiment_config.tools = __get_tools(["monkey"])
+    experiment_config.tools = __get_tools(["ape"])
 
     experiment_config.generate_monitors = False
     experiment_config.instrument = False
     experiment_config.static_analysis = False
-    experiment_config.no_window = False
+    experiment_config.no_window = True
     experiment_config.skip_experiment = False
 
     experiment_config.memory_file = ""

@@ -1,9 +1,10 @@
+# rvandroid/tools/rvandroid/tool.py
 import logging as logging_api
 
 from rvandroid.app import App
 from rvandroid.commands.command import Command
-from rvandroid.config.component_config import ComponentConfig
-from rvandroid.experiment.task import Task
+from rvandroid.experiment.task_model import Task  # Updated import
+from rvandroid.config.component_configurator import ComponentConfigurator
 from rvandroid.llm.prompt.prompt_strategy_basic_001 import BasicPromptStrategy001
 from rvandroid.parser.screen.visitor.text_visitor import EnhancedTextVisitor
 from rvandroid.server import Server
@@ -23,16 +24,16 @@ class ToolSpec(AbstractTool):
 
         # TODO arrumar a configuracao
         config = ComponentConfigurator()
-        config.set_strategy(BasicPromptStrategy001)
-        config.set_visitor(EnhancedTextVisitor)
+        config.set_strategy("basic")
+        config.set_visitor("enhanced")
 
-        service = LLMActionService(task.tracker.static_data, component_config=config)
+        service = LLMActionService(task.static_data, config=config)
 
         server = Server(service, port=5000)
         try:
             if server.start():
                 logging.info("Server started successfully")
-                with open(task.log_file, "wb") as trace:
+                with open(task.result.trace_file, "wb") as trace:
                     exec_cmd = Command("droidbot", [
                         "-d",
                         "emulator-5554",
@@ -43,7 +44,7 @@ class ToolSpec(AbstractTool):
                         "-policy",
                         "rvandroid",
                         "-is_emulator",
-                    ], task.timeout)
+                    ], task.config.timeout)
                     exec_cmd.invoke(stdout=trace)
             else:
                 logging.error("Server failed to start")
