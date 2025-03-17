@@ -6,15 +6,18 @@ Provides dependency injection and event-based execution coordination.
 
 import logging
 import os
+import shutil
 from datetime import datetime
 from typing import List, Dict, Any, Optional
 
 from rvandroid.app import App
+from rvandroid.constants import EXTENSION_REACH, EXTENSION_GATOR, EXTENSION_GESDA, EXTENSION_METHODS
 from rvandroid.experiment.event_system import EventBus, EventType
 from rvandroid.experiment.task_executor import TaskExecutor
 from rvandroid.experiment.task_model import Task, TaskConfiguration, TaskStatus
 from rvandroid.experiment.task_storage import TaskStorage
 from rvandroid.tools.tool_spec import AbstractTool
+from settings import INSTRUMENTED_DIR
 
 
 class ExecutionManager:
@@ -193,6 +196,7 @@ class ExecutionManager:
 
         # Ensure app is set
         task.set_app(app)
+        self.copy_static_analysis_files(task.app.name, task.results_dir)
 
         try:
             # Execute task
@@ -208,6 +212,24 @@ class ExecutionManager:
             task.mark_error(str(e))
             self.storage.update_task(task)
             return False
+
+    def copy_static_analysis_files(self, apk: str, app_results_dir: str) -> None:
+        """
+        Copies static analysis files for an app to results directory
+
+        Args:
+            apk: App identifier
+            app_results_dir: Target directory for files
+        """
+        print(f"************ Copying static analysis files for {apk} to {app_results_dir}")
+        extensions = [EXTENSION_METHODS, EXTENSION_GESDA, EXTENSION_GATOR, EXTENSION_REACH]
+        for extension in extensions:
+            file_name = f"{apk}{extension}"
+            file_path = os.path.join(INSTRUMENTED_DIR, file_name)
+            print(f"file_path={file_path} .... exite? {os.path.exists(file_path)}")
+            if os.path.exists(file_path):
+                print(f"Copying {file_path} to {app_results_dir}")
+                shutil.copy(file_path, app_results_dir)
 
     def get_statistics(self) -> Dict[str, Any]:
         """
@@ -240,6 +262,81 @@ class ExecutionManager:
             "running": self.is_running,
             "elapsed": elapsed_str
         }
+
+    def get_coverage_report(self) -> Dict[str, Any]:
+        """
+        Generate a coverage report for all executed tasks.
+
+        Returns:
+            Dictionary with coverage report data
+        """
+        report = {
+            "tasks": {},
+            "summary": {
+                "total_tasks": 0,
+                "completed_tasks": 0,
+                "avg_method_coverage": 0,
+                "avg_activities_coverage": 0,
+                "avg_mop_coverage": 0,
+                "total_errors": 0
+            }
+        }
+
+        # Get completed tasks
+        completed_tasks = [t for t in self.storage.get_tasks() if t.result.status == TaskStatus.EXECUTED]
+
+        if not completed_tasks:
+            return report
+
+        # Update summary counts
+        report["summary"]["total_tasks"] = len(self.storage.get_tasks())
+        report["summary"]["completed_tasks"] = len(completed_tasks)
+
+        # Calculate totals for averages
+        total_method_coverage = 0
+        total_activities_coverage = 0
+        total_mop_coverage = 0
+        total_errors = 0
+
+        # Process each task
+        for task in completed_tasks:
+            # Get metrics
+            metrics = task.result.coverage_metrics
+
+            # Skip if no metrics
+            if not metrics:
+                continue
+
+            # Add to task report
+            key = f"{task.config.apk_name}_{task.config.tool_name}_{task.config.repetition}_{task.config.timeout}"
+            report["tasks"][key] = {
+                "apk_name": task.config.apk_name,
+                "tool_name": task.config.tool_name,
+                "repetition": task.config.repetition,
+                "timeout": task.config.timeout,
+                "method_coverage": metrics.get("method_coverage", 0),
+                "activities_coverage": metrics.get("activities_coverage", 0),
+                "mop_coverage": metrics.get("methods_jca_reachable_coverage", 0),
+                "errors": metrics.get("total_errors", 0),
+                "method_calls": metrics.get("total_method_calls", 0),
+                "execution_time": task.result.execution_time_seconds
+            }
+
+            # Update totals
+            total_method_coverage += metrics.get("method_coverage", 0)
+            total_activities_coverage += metrics.get("activities_coverage", 0)
+            total_mop_coverage += metrics.get("methods_jca_reachable_coverage", 0)
+            total_errors += metrics.get("total_errors", 0)
+
+        # Calculate averages
+        task_count = len(report["tasks"])
+        if task_count > 0:
+            report["summary"]["avg_method_coverage"] = total_method_coverage / task_count
+            report["summary"]["avg_activities_coverage"] = total_activities_coverage / task_count
+            report["summary"]["avg_mop_coverage"] = total_mop_coverage / task_count
+            report["summary"]["total_errors"] = total_errors
+
+        return report
 
     @staticmethod
     def _format_time(seconds: int) -> str:

@@ -47,6 +47,14 @@ def read_static_analysis_files(
     wtg = _parse_gator_analysis(results_dir, apk, package, classes, windows)
     _parse_gesda_analysis(results_dir, apk, package, classes, windows)
     data = StaticAnalysisData(classes, windows, wtg)
+
+    print("STATIC ANALYSIS DATA:")
+    print("Classes: {}".format(classes))
+    for clazz in classes.classes:
+        print(" --- Class: {}".format(clazz))
+    print("Windows: {}".format(windows))
+    print("WTG: {}".format(wtg))
+
     return data
 
 
@@ -62,6 +70,7 @@ def _parse_reach_analysis(results_dir: str, apk: str) -> Classes:
         Classes: Parsed class information, empty if file not found
     """
     reach_file = os.path.join(results_dir, apk + EXTENSION_REACH)
+    print(f"reach_file={reach_file} .... existe? {os.path.exists(reach_file)}")
     return _parse_reach(reach_file)
 
 

@@ -3,12 +3,10 @@
 Main experiment implementation for rv-android.
 Coordinates the entire experiment lifecycle using the new architecture.
 """
-
-import logging
+import json
 import os
 from typing import List
 
-import rvandroid.analysis.results_analysis as res
 import rvandroid.analysis.static_analysis as static
 from rvandroid.app import App
 from rvandroid.constants import EXTENSION_APK, EXTENSION_GESDA, EXTENSION_GATOR, EXTENSION_REACH
@@ -19,21 +17,7 @@ from rvandroid.rvandroid import RvAndroid
 from rvandroid.rvsec import RVSec
 from rvandroid.tools.tool_spec import AbstractTool
 from settings import TIMESTAMP, RESULTS_DIR, INSTRUMENTED_DIR
-import logging
-import os
-from typing import List
 
-import rvandroid.analysis.results_analysis as res
-import rvandroid.analysis.static_analysis as static
-from rvandroid.app import App
-from rvandroid.constants import EXTENSION_APK, EXTENSION_GESDA, EXTENSION_GATOR, EXTENSION_REACH
-from rvandroid.experiment.event_system import EventBus, EventType
-from rvandroid.experiment.execution_manager import ExecutionManager
-from rvandroid.experiment.task_storage import TaskStorage
-from rvandroid.rvandroid import RvAndroid
-from rvandroid.rvsec import RVSec
-from rvandroid.tools.tool_spec import AbstractTool
-from settings import TIMESTAMP, RESULTS_DIR, INSTRUMENTED_DIR
 
 class Experiment03:
     """
@@ -269,6 +253,16 @@ class Experiment03:
         """Process results after experiment execution and generate diagnostics"""
         self.logger.info("Processing results...")
 
+        # Generate coverage report
+        coverage_report = self.execution_manager.get_coverage_report()
+        report_path = os.path.join(self.results_dir, "coverage_report.json")
+
+        # Save coverage report
+        with open(report_path, 'w') as f:
+            json.dump(coverage_report, f, indent=2)
+
+        self.logger.info(f"Coverage report saved to {report_path}")
+
         # Process analysis results
         import rvandroid.analysis.results_analysis as res
         results = res.process_results(self.results_dir)
@@ -277,6 +271,14 @@ class Experiment03:
         try:
             from rvandroid.util.performance_visualizer import PerformanceVisualizer
             visualizer = PerformanceVisualizer()
+
+            # Generate coverage comparison chart
+            visualizer.generate_coverage_comparison_chart(
+                coverage_report=coverage_report,
+                output_dir=os.path.join(self.results_dir, "charts")
+            )
+
+            # Generate complete dashboard
             dashboard_dir = visualizer.generate_performance_dashboard(self.results_dir)
             self.logger.info(f"Performance dashboard generated at {dashboard_dir}")
 

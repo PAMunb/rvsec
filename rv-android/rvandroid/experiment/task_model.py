@@ -12,6 +12,7 @@ from enum import Enum
 from typing import Dict, List, Any, Optional
 
 from rvandroid.app import App
+from rvandroid.model.log import RvCoverageLog, RvErrorLog
 
 
 class TaskStatus(Enum):
@@ -106,6 +107,143 @@ class Task:
         self.app: Optional[App] = None
         self.results_dir: str = ""
         self.static_data = None
+
+        # Coverage data
+        self.coverage: Dict = {}
+        self.class_methods: Dict[str, List[RvCoverageLog]] = {}
+        self.called_methods: Dict[str, Dict[str, Dict[str, RvCoverageLog]]] = {}
+        self.errors: List[RvErrorLog] = []
+
+    def add_error(self, error: RvErrorLog) -> None:
+        """Add an error to the task's error list."""
+        self.errors.append(error)
+
+    def add_method_call(self, coverage_log: RvCoverageLog) -> None:
+        """Add a method call to the task's coverage tracking."""
+        if coverage_log.clazz not in self.class_methods:
+            self.class_methods[coverage_log.clazz] = []
+
+        self.class_methods[coverage_log.clazz].append(coverage_log)
+
+        # Update the compatibility structure
+        if coverage_log.clazz not in self.called_methods:
+            self.called_methods[coverage_log.clazz] = {"methods": {}}
+
+        self.called_methods[coverage_log.clazz]["methods"][coverage_log.signature] = coverage_log
+
+    def update_coverage(self) -> None:
+        """
+        Update coverage metrics based on called methods and static data.
+
+        This method processes the recorded method calls and compares them against
+        the static analysis data to calculate various coverage metrics including:
+        - Method coverage: Percentage of all methods that were called
+        - Activity coverage: Percentage of activities that were called
+        - JCA methods coverage: Percentage of methods related to JCA specifications that were called
+
+        The method also updates the task's result metrics for reporting.
+        """
+        if not self.static_data or not hasattr(self.static_data, "classes"):
+            self.logger.warning("Cannot update coverage: No static data available")
+            return
+
+        from rvandroid.analysis.coverage import process_coverage
+
+        # Get all methods from static data
+        all_methods = {}
+        method_count = 0
+        for class_name, class_info in self.static_data.classes.classes.items():
+            all_methods[class_name] = {
+                "is_activity": class_info.is_activity,  # Flag indicating if the class is an Activity
+                "methods": {}
+            }
+
+            for method in class_info.methods:
+                all_methods[class_name]["methods"][method.signature] = {
+                    "reachable": method.reachable,  # Flag indicating if method can be reached through execution
+                    "reaches_mop": method.reaches_mop,  # Flag indicating if method can reach a MOP specification point
+                    "directly_reaches_mop": method.directly_reaches_mop,
+                    # Flag indicating if method directly uses a MOP specification
+                    "called": False  # Will be set to True if method was called during execution
+                }
+                method_count += 1
+
+        # Log the static data for debugging
+        self.logger.debug(f"Static data contains {len(all_methods)} classes and {method_count} methods")
+
+        # Check if we have covered methods
+        called_methods_count = sum(len(methods) for methods in self.class_methods.values())
+        if called_methods_count == 0:
+            self.logger.warning("No covered methods found, coverage will be 0%")
+        else:
+            self.logger.debug(f"Found {called_methods_count} covered methods")
+
+        # If we have a directly populated coverage from CoverageTracker, use it
+        if self.coverage and "SUMMARY" in self.coverage:
+            self.logger.debug("Using pre-computed coverage")
+        else:
+            # If we already have formatted called_methods, use it directly
+            if self.called_methods and any(cls.get("methods") for cls in self.called_methods.values()):
+                self.logger.debug("Using existing formatted called_methods")
+            else:
+                # Update called_methods from class_methods for backward compatibility
+                self.called_methods = {}
+                for class_name, method_logs in self.class_methods.items():
+                    if class_name not in self.called_methods:
+                        self.called_methods[class_name] = {"methods": {}}
+
+                    for log in method_logs:
+                        self.called_methods[class_name]["methods"][log.signature] = log
+
+            # Process coverage
+            self.logger.debug(f"Processing coverage with {len(self.called_methods)} classes")
+            self.coverage = process_coverage(self.called_methods, all_methods)
+
+        # Update result metrics from coverage summary
+        summary = self.coverage.get("SUMMARY", {})
+
+        # Log detailed summary for debugging
+        self.logger.debug(f"Coverage summary: {summary}")
+
+        # Extract metrics and add to task result with explanations
+        self.result.coverage_metrics.update({
+            # Method coverage: Percentage of all application methods that were called during execution
+            # Higher is better - indicates more code paths were exercised
+            "method_coverage": summary.get("method_coverage", 0),
+
+            # Activities coverage: Percentage of Android Activity classes that were called
+            # Higher is better - indicates more screens in the app were tested
+            "activities_coverage": summary.get("activities_coverage", 0),
+
+            # Activities coverage total: Percentage of Activity classes called relative to all classes
+            # This normalizes activity coverage against the total codebase
+            "activities_coverage_total": summary.get("activities_coverage_total", 0),
+
+            # JCA reachable methods coverage: Percentage of methods that can reach JCA operations that were called
+            # Higher is better - indicates more code paths that could affect security properties were tested
+            "methods_jca_reachable_coverage": summary.get("methods_jca_reachable_coverage", 0),
+
+            # JCA reachable methods coverage total: Percentage of JCA-related methods called relative to all methods
+            # This normalizes JCA method coverage against the total codebase
+            "methods_jca_reachable_coverage_total": summary.get("methods_jca_reachable_coverage_total", 0),
+
+            # Total method calls: Raw count of unique method calls recorded during execution
+            # Higher is better - more method executions generally indicate more thorough testing
+            "total_method_calls": sum(len(cls.get("methods", {})) for cls in self.called_methods.values()),
+
+            # Total errors: Number of specification violations detected during execution
+            # Lower is better - each error represents a potential security or functional issue
+            "total_errors": len(self.errors)
+        })
+
+        # Log summary of coverage metrics for quick reference
+        self.logger.info(f"Coverage updated for task {self.id}:")
+        self.logger.info(f"- Method coverage: {self.result.coverage_metrics['method_coverage']:.2f}%")
+        self.logger.info(f"- Activities coverage: {self.result.coverage_metrics['activities_coverage']:.2f}%")
+        self.logger.info(
+            f"- JCA methods coverage: {self.result.coverage_metrics['methods_jca_reachable_coverage']:.2f}%")
+        self.logger.info(f"- Total methods called: {self.result.coverage_metrics['total_method_calls']}")
+        self.logger.info(f"- Errors detected: {self.result.coverage_metrics['total_errors']}")
 
     def initialize(self, base_results_dir: str) -> None:
         """

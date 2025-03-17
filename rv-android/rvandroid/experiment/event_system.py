@@ -30,6 +30,8 @@ class EventType(Enum):
 
     # Analysis events
     COVERAGE_UPDATED = auto()
+    COVERAGE_TRACKING_STARTED = auto()
+    COVERAGE_TRACKING_STOPPED = auto()
     ERROR_DETECTED = auto()
     STATIC_ANALYSIS_COMPLETED = auto()
 

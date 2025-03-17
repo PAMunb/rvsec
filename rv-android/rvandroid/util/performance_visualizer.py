@@ -519,3 +519,168 @@ class PerformanceVisualizer:
         self.logger.info(f"Dashboard index generated at {index_path}")
         return index_path
 
+    def generate_coverage_comparison_chart(self, coverage_report: Dict, output_dir: str,
+                                           file_prefix: str = "coverage_comparison"):
+        """
+        Generate a comparative chart for coverage metrics across tools and apps.
+
+        Args:
+            coverage_report: Coverage report from ExecutionManager.get_coverage_report()
+            output_dir: Directory to save the chart
+            file_prefix: Prefix for the output file
+
+        Returns:
+            Path to the generated chart
+        """
+        if not coverage_report or "tasks" not in coverage_report:
+            self.logger.warning("No coverage report data available for visualization")
+            return None
+
+        # Create output directory if it doesn't exist
+        os.makedirs(output_dir, exist_ok=True)
+
+        # Group data by app and tool
+        app_tool_data = {}
+        for task_key, task_data in coverage_report["tasks"].items():
+            app_name = task_data["apk_name"]
+            tool_name = task_data["tool_name"]
+
+            if app_name not in app_tool_data:
+                app_tool_data[app_name] = {}
+
+            if tool_name not in app_tool_data[app_name]:
+                app_tool_data[app_name][tool_name] = []
+
+            app_tool_data[app_name][tool_name].append(task_data)
+
+        # Calculate averages for each app/tool combination
+        avg_data = []
+        for app_name, tools in app_tool_data.items():
+            for tool_name, tasks in tools.items():
+                if not tasks:
+                    continue
+
+                avg_method = sum(t["method_coverage"] for t in tasks) / len(tasks)
+                avg_activity = sum(t["activities_coverage"] for t in tasks) / len(tasks)
+                avg_mop = sum(t["mop_coverage"] for t in tasks) / len(tasks)
+                total_errors = sum(t["errors"] for t in tasks)
+
+                avg_data.append({
+                    "app_name": app_name,
+                    "tool_name": tool_name,
+                    "avg_method_coverage": avg_method,
+                    "avg_activities_coverage": avg_activity,
+                    "avg_mop_coverage": avg_mop,
+                    "total_errors": total_errors
+                })
+
+        if not avg_data:
+            self.logger.warning("No data available to visualize")
+            return None
+
+        # Create figure with subplots
+        fig, axes = plt.subplots(2, 2, figsize=(15, 12))
+        axes = axes.flatten()
+
+        # List of tools and apps for grouping
+        all_tools = sorted(set(d["tool_name"] for d in avg_data))
+        all_apps = sorted(set(d["app_name"] for d in avg_data))
+
+        # Colors for tools
+        tool_colors = plt.cm.tab10(np.linspace(0, 1, len(all_tools)))
+
+        # 1. Method coverage by tool for each app
+        ax = axes[0]
+        x = np.arange(len(all_apps))
+        width = 0.8 / len(all_tools)
+
+        for i, tool in enumerate(all_tools):
+            tool_data = [d for d in avg_data if d["tool_name"] == tool]
+            # Map to ensure all apps are represented
+            values = []
+            for app in all_apps:
+                app_data = next((d for d in tool_data if d["app_name"] == app), None)
+                values.append(app_data["avg_method_coverage"] if app_data else 0)
+
+            ax.bar(x + i * width - width * len(all_tools) / 2 + width / 2, values, width,
+                   label=tool, color=tool_colors[i], alpha=0.7)
+
+        ax.set_ylabel("Method Coverage (%)")
+        ax.set_title("Method Coverage by Tool")
+        ax.set_xticks(x)
+        ax.set_xticklabels([name[:15] + '...' if len(name) > 15 else name for name in all_apps], rotation=45,
+                           ha='right')
+        ax.legend(title="Tool")
+        ax.grid(axis='y', linestyle='--', alpha=0.7)
+
+        # 2. Activity coverage by tool for each app
+        ax = axes[1]
+        for i, tool in enumerate(all_tools):
+            tool_data = [d for d in avg_data if d["tool_name"] == tool]
+            values = []
+            for app in all_apps:
+                app_data = next((d for d in tool_data if d["app_name"] == app), None)
+                values.append(app_data["avg_activities_coverage"] if app_data else 0)
+
+            ax.bar(x + i * width - width * len(all_tools) / 2 + width / 2, values, width,
+                   label=tool, color=tool_colors[i], alpha=0.7)
+
+        ax.set_ylabel("Activity Coverage (%)")
+        ax.set_title("Activity Coverage by Tool")
+        ax.set_xticks(x)
+        ax.set_xticklabels([name[:15] + '...' if len(name) > 15 else name for name in all_apps], rotation=45,
+                           ha='right')
+        ax.legend(title="Tool")
+        ax.grid(axis='y', linestyle='--', alpha=0.7)
+
+        # 3. MOP methods coverage by tool for each app
+        ax = axes[2]
+        for i, tool in enumerate(all_tools):
+            tool_data = [d for d in avg_data if d["tool_name"] == tool]
+            values = []
+            for app in all_apps:
+                app_data = next((d for d in tool_data if d["app_name"] == app), None)
+                values.append(app_data["avg_mop_coverage"] if app_data else 0)
+
+            ax.bar(x + i * width - width * len(all_tools) / 2 + width / 2, values, width,
+                   label=tool, color=tool_colors[i], alpha=0.7)
+
+        ax.set_ylabel("MOP Methods Coverage (%)")
+        ax.set_title("MOP Methods Coverage by Tool")
+        ax.set_xticks(x)
+        ax.set_xticklabels([name[:15] + '...' if len(name) > 15 else name for name in all_apps], rotation=45,
+                           ha='right')
+        ax.legend(title="Tool")
+        ax.grid(axis='y', linestyle='--', alpha=0.7)
+
+        # 4. Total errors detected by tool for each app
+        ax = axes[3]
+        for i, tool in enumerate(all_tools):
+            tool_data = [d for d in avg_data if d["tool_name"] == tool]
+            values = []
+            for app in all_apps:
+                app_data = next((d for d in tool_data if d["app_name"] == app), None)
+                values.append(app_data["total_errors"] if app_data else 0)
+
+            ax.bar(x + i * width - width * len(all_tools) / 2 + width / 2, values, width,
+                   label=tool, color=tool_colors[i], alpha=0.7)
+
+        ax.set_ylabel("Total Errors Detected")
+        ax.set_title("Errors Detected by Tool")
+        ax.set_xticks(x)
+        ax.set_xticklabels([name[:15] + '...' if len(name) > 15 else name for name in all_apps], rotation=45,
+                           ha='right')
+        ax.legend(title="Tool")
+        ax.grid(axis='y', linestyle='--', alpha=0.7)
+
+        # Tight layout
+        plt.tight_layout()
+
+        # Save figure
+        timestamp = time.strftime("%Y%m%d-%H%M%S")
+        output_file = os.path.join(output_dir, f"{file_prefix}_{timestamp}.png")
+        plt.savefig(output_file, dpi=100)
+        plt.close(fig)
+
+        self.logger.info(f"Coverage comparison chart saved to {output_file}")
+        return output_file
