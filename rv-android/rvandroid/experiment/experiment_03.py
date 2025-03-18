@@ -7,9 +7,8 @@ import json
 import os
 from typing import List
 
-import rvandroid.analysis.static_analysis as static
 from rvandroid.app import App
-from rvandroid.constants import EXTENSION_APK, EXTENSION_GESDA, EXTENSION_GATOR, EXTENSION_REACH
+from rvandroid.constants import EXTENSION_APK, EXTENSION_REACH, EXTENSION_GATOR, EXTENSION_GESDA
 from rvandroid.experiment.event_system import EventBus, EventType
 from rvandroid.experiment.execution_manager import ExecutionManager
 from rvandroid.experiment.task_storage import TaskStorage
@@ -29,19 +28,28 @@ class Experiment03:
     - Designed to support multiple tools (e.g., Monkey, DroidBot) in a modular way.
     - Implements configurable execution parameters (timeouts, repetitions, etc.).
     - Ensures reproducibility by logging execution states and results.
+    - Uses an event-based system for communication between components.
 
     ### Role in the System:
     - Acts as the primary orchestrator for automated testing experiments.
     - Interacts with Android emulators, test tools, and instrumentation modules.
     - Collects and processes experimental data for analysis and reporting.
+    - Coordinates the execution flow across all experiment phases.
     """
 
     def __init__(self):
-        """Initialize the experiment"""
+        """Initialize the experiment with event bus and logging setup"""
+        # Get the event bus instance
         self.event_bus = EventBus.get_instance()
+
+        # Configure logging
         from rvandroid.util.logging_manager import LoggingManager
         logging_manager = LoggingManager.get_instance()
+
+        # Set up experiment identifier
         self.experiment_id = f"experiment_{TIMESTAMP}"
+
+        # Initialize logger with experiment context
         self.logger = logging_manager.get_logger('experiment.experiment_03', {
             'experiment_id': self.experiment_id,
             'component': 'Experiment03'
@@ -71,20 +79,29 @@ class Experiment03:
         self.logger.experiment_start(f"Experiment {self.experiment_id} initialized")
 
     def _setup_event_handlers(self):
-        """Set up event handlers for the experiment"""
+        """
+        Set up event handlers for the experiment.
+
+        Registers callback functions for various event types that may occur during
+        experiment execution, ensuring proper logging and coordination.
+        """
 
         def on_experiment_started(event):
+            """Handle experiment start events"""
             self.logger.info(f"Experiment started: {event.experiment_id}")
 
         def on_experiment_completed(event):
+            """Handle experiment completion events"""
             self.logger.info(f"Experiment completed: {event.experiment_id}")
 
         def on_task_started(event):
+            """Handle task start events"""
             self.logger.info(f"Task {event.task_id} started: "
                              f"{event.task_config.get('apk_name')}, "
                              f"{event.task_config.get('tool_name')}")
 
         def on_task_failed(event):
+            """Handle task failure events"""
             self.logger.error(f"Task {event.task_id} failed: {event.details.get('error', 'Unknown error')}")
 
         # Register handlers directly instead of using decorators
@@ -93,13 +110,16 @@ class Experiment03:
         self.event_bus.subscribe(EventType.TASK_STARTED, on_task_started)
         self.event_bus.subscribe(EventType.TASK_FAILED, on_task_failed)
 
-    """
+    def execute(self, repetitions: int, timeouts: List[int], tools: List[AbstractTool],
+                memory_file: str = "", generate_monitors: bool = True, instrument: bool = True,
+                static_analysis: bool = True, skip_experiment: bool = False, no_window: bool = False):
+        """
         Execute the entire experiment workflow with configurable pre-processing, execution, and post-processing steps.
-    
+
         Manages the full experiment lifecycle including optional monitor generation, APK instrumentation,
         static analysis, and experiment execution. Supports resuming from a previous state via memory file
         and provides flexible configuration for experiment parameters.
-    
+
         Args:
             repetitions: Number of times each task should be repeated
             timeouts: List of timeout durations to apply during experiment
@@ -110,28 +130,11 @@ class Experiment03:
             static_analysis: Flag to enable static code analysis
             skip_experiment: Flag to bypass experiment execution
             no_window: Flag to run emulator in headless mode without visual display
-    
+
         Note:
             - If a memory file is provided, the experiment will attempt to resume from that state
             - Pre-processing steps are conditionally executed based on input flags
             - Experiment can be fully or partially skipped using configuration parameters
-        """
-    def execute(self, repetitions: int, timeouts: List[int], tools: List[AbstractTool],
-                memory_file: str = "", generate_monitors: bool = True, instrument: bool = True,
-                static_analysis: bool = True, skip_experiment: bool = False, no_window: bool = False):
-        """
-        Execute the experiment.
-
-        Args:
-            repetitions: Number of repetitions for each task
-            timeouts: List of timeouts to test
-            tools: List of testing tools to use
-            memory_file: Optional file path to load previous execution state
-            generate_monitors: Whether to generate monitors
-            instrument: Whether to instrument APKs
-            static_analysis: Whether to perform static analysis
-            skip_experiment: Whether to skip the experiment execution
-            no_window: Whether to run emulator without window
         """
         self.logger.info("Executing Experiment...")
 
@@ -181,6 +184,9 @@ class Experiment03:
         """
         Pre-process APKs before experiment execution.
 
+        Prepares the system for experiments by generating monitors, instrumenting APKs,
+        and performing static analysis as requested.
+
         Args:
             generate_monitors: Whether to generate monitors
             instrument: Whether to instrument APKs
@@ -208,7 +214,14 @@ class Experiment03:
         self.logger.info("Pre-processing completed")
 
     def _run_static_analysis(self):
-        """Run static analysis on all instrumented APKs"""
+        """
+        Run static analysis on all instrumented APKs.
+
+        Analyzes each APK to generate static analysis files that will be used for
+        coverage tracking and other analyses during experiments.
+        """
+        import rvandroid.analysis.static_analysis as static
+
         for file in os.listdir(INSTRUMENTED_DIR):
             if file.casefold().endswith(EXTENSION_APK):
                 app = App(os.path.join(INSTRUMENTED_DIR, file))
@@ -230,6 +243,9 @@ class Experiment03:
     def _run_experiment(self, repetitions: int, timeouts: List[int], tools: List[AbstractTool], no_window: bool):
         """
         Run the experiment with all tasks.
+
+        Executes all experiment tasks for each combination of apps, tools, timeouts, and repetitions.
+        Manages the creation, scheduling, and execution of tasks through the ExecutionManager.
 
         Args:
             repetitions: Number of repetitions for each task
@@ -272,7 +288,14 @@ class Experiment03:
         self.logger.info(f"Experiment execution statistics: {stats}")
 
     def _get_instrumented_apks(self) -> List[App]:
-        """Get all instrumented APKs"""
+        """
+        Get all instrumented APKs.
+
+        Scans the instrumented directory for APK files and creates App objects for each one.
+
+        Returns:
+            List of App objects representing the instrumented APKs
+        """
         apks = []
         for file in os.listdir(INSTRUMENTED_DIR):
             if file.casefold().endswith(EXTENSION_APK):
@@ -285,7 +308,12 @@ class Experiment03:
         return apks
 
     def _post_process(self):
-        """Process results after experiment execution and generate diagnostics"""
+        """
+        Process results after experiment execution and generate diagnostics.
+
+        Generates coverage reports, analyzes experiment results, creates visualizations,
+        and produces diagnostic information to help interpret the experiment outcome.
+        """
         self.logger.info("Processing results...")
 
         # Generate coverage report

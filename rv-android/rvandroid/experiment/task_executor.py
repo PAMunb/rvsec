@@ -1,4 +1,4 @@
-# rvandroid/experiment/task_executor.py - Modified to include coverage tracking
+# rvandroid/experiment/task_executor.py
 """
 Task executor implementation for running individual tasks.
 Handles the execution of a single task and collects results.
@@ -48,9 +48,10 @@ class TaskExecutor:
         self.task = task
         self.tool = tool
         self.logger = logging.getLogger(__name__)
-        self.android: Optional[Android] = None
-        self.logcat_process = None
         self.event_bus = event_bus or EventBus.get_instance()
+        self.android = None
+        self.logcat_process = None
+        self.logcat_file_handle = None
         self.coverage_tracker = None
 
     def execute(self) -> bool:
@@ -102,7 +103,10 @@ class TaskExecutor:
 
                 # Initialize coverage tracker
                 with performance_monitor.measure_time("initialize_coverage_tracker", task_context):
-                    self._initialize_coverage_tracker()
+                    self.coverage_tracker = CoverageTracker(
+                        logcat_file=self.task.result.logcat_file,
+                        static_data=self.task.static_data
+                    )
 
                 # Initialize and start Android environment
                 with performance_monitor.measure_time("environment_setup", task_context):
@@ -111,6 +115,8 @@ class TaskExecutor:
                 # Start logcat capture
                 with performance_monitor.measure_time("logcat_capture_setup", task_context):
                     self._start_logcat_capture()
+                    # Start the coverage tracker after logcat capture is set up
+                    self.coverage_tracker.start()
 
                 # Execute the tool
                 with performance_monitor.measure_time("tool_execution", task_context):
@@ -177,19 +183,11 @@ class TaskExecutor:
                 self.task.config.apk_name,
                 self.task.app.package_name
             )
-            print(f"self.task.static_data={self.task.static_data}")
+
             if self.task.static_data:
                 self.logger.info("Static analysis data loaded successfully")
             else:
                 self.logger.warning("No static analysis data found, coverage tracking will be limited")
-
-    def _initialize_coverage_tracker(self):
-        """Initialize the coverage tracker."""
-        self.logger.info("Initializing coverage tracker")
-        self.coverage_tracker = CoverageTracker(
-            logcat_file=self.task.result.logcat_file,
-            static_data=self.task.static_data
-        )
 
     def _setup_environment(self) -> None:
         """Set up the Android environment for task execution"""
@@ -237,9 +235,6 @@ class TaskExecutor:
                 # Store the log file handle for later cleanup
                 self.logcat_file_handle = log_file
 
-                # Start coverage tracker
-                self.coverage_tracker.start()
-
                 # Publish event for logcat started
                 self._publish_event(EventType.COVERAGE_TRACKING_STARTED, {
                     "logcat_file": self.task.result.logcat_file
@@ -263,41 +258,7 @@ class TaskExecutor:
                 except Exception:
                     pass
 
-            if hasattr(self, 'coverage_tracker') and self.coverage_tracker:
-                try:
-                    self.coverage_tracker.stop()
-                except Exception:
-                    pass
-
             raise
-
-    def _cleanup_logcat_capture(self) -> None:
-        """Clean up logcat capture resources."""
-        # Stop coverage tracker
-        if hasattr(self, 'coverage_tracker') and self.coverage_tracker:
-            try:
-                self.logger.debug("Stopping coverage tracker")
-                self.coverage_tracker.stop()
-            except Exception as e:
-                self.logger.warning(f"Error stopping coverage tracker: {e}")
-
-        # Kill logcat process
-        if hasattr(self, 'logcat_process') and self.logcat_process:
-            try:
-                self.logger.debug("Stopping logcat process")
-                self.logcat_process.kill()
-                self.logcat_process = None
-            except Exception as e:
-                self.logger.warning(f"Error stopping logcat process: {e}")
-
-        # Close logcat file handle
-        if hasattr(self, 'logcat_file_handle') and self.logcat_file_handle:
-            try:
-                self.logger.debug("Closing logcat file")
-                self.logcat_file_handle.close()
-                self.logcat_file_handle = None
-            except Exception as e:
-                self.logger.warning(f"Error closing logcat file: {e}")
 
     def _execute_tool(self) -> None:
         """Execute the tool implementation"""
@@ -309,10 +270,9 @@ class TaskExecutor:
 
         self._publish_event(EventType.TOOL_STOPPED, {"tool_name": self.tool.name})
 
-    # In TaskExecutor._process_coverage_data:
     def _process_coverage_data(self) -> None:
         """Process coverage data after task execution."""
-        if not self.coverage_tracker:
+        if not hasattr(self, 'coverage_tracker') or not self.coverage_tracker:
             self.logger.warning("No coverage tracker available to process coverage data")
             return
 
@@ -361,14 +321,37 @@ class TaskExecutor:
         """Clean up the environment after execution with improved resource management."""
         self.logger.debug("Cleaning up environment")
 
-        # Clean up logcat resources
-        self._cleanup_logcat_capture()
+        # Stop coverage tracker if it's running
+        if hasattr(self, 'coverage_tracker') and self.coverage_tracker:
+            try:
+                self.logger.debug("Stopping coverage tracker")
+                self.coverage_tracker.stop()
+            except Exception as e:
+                self.logger.warning(f"Error stopping coverage tracker: {e}")
+
+        # Kill logcat process
+        if hasattr(self, 'logcat_process') and self.logcat_process:
+            try:
+                self.logger.debug("Stopping logcat process")
+                self.logcat_process.kill()
+                self.logcat_process = None
+            except Exception as e:
+                self.logger.warning(f"Error stopping logcat process: {e}")
+
+        # Close logcat file handle
+        if hasattr(self, 'logcat_file_handle') and self.logcat_file_handle:
+            try:
+                self.logger.debug("Closing logcat file")
+                self.logcat_file_handle.close()
+                self.logcat_file_handle = None
+            except Exception as e:
+                self.logger.warning(f"Error closing logcat file: {e}")
 
         # Kill the emulator if needed
         if self.android:
             self.logger.debug("Stopping emulator")
             try:
-                self.android.kill_emulator(self.task.config.device_id)
+                self.android.kill_emulator("RVSec")
                 self._publish_event(EventType.EMULATOR_STOPPED, {"device_id": self.task.config.device_id})
             except Exception as e:
                 self.logger.warning(f"Error stopping emulator: {e}")
@@ -384,58 +367,28 @@ class TaskExecutor:
             details: Optional event details
         """
         if self.event_bus:
-            self.event_bus.publish_task_event(
-                event_type=event_type,
-                task_id=self.task.id,
-                task_config={
-                    "apk_name": self.task.config.apk_name,
-                    "repetition": self.task.config.repetition,
-                    "timeout": self.task.config.timeout,
-                    "tool_name": self.task.config.tool_name
-                },
-                details=details or {},
-                source="TaskExecutor"
-            )
-
-    @contextmanager
-    def _capture_logcat(self, logcat_file: str, clean_buffer: bool = True):
-        """
-        Context manager for capturing logcat output.
-        Ensures proper cleanup of resources.
-
-        Args:
-            logcat_file: File to write logcat output to
-            clean_buffer: Whether to clear logcat buffer before starting
-
-        Yields:
-            Reference to the logcat process
-        """
-        process = None
-        try:
-            # Clear logcat buffer if requested
-            if clean_buffer:
-                clear_cmd = Command("adb", ["logcat", "-c"])
-                clear_cmd.invoke()
-                self.logger.debug("Cleared logcat buffer")
-
-            # Start logcat capture
-            self.logger.debug(f"Starting logcat capture to {logcat_file}")
-            logcat_cmd = Command("adb", ["logcat", "-v", "threadtime", "-s", "RVSEC", "RVSEC-COV"])
-
-            with open(logcat_file, "wb") as log_file:
-                process = logcat_cmd.invoke_as_deamon(stdout=log_file)
-                self.logger.info("Logcat capture started")
-                yield process
-
-        except Exception as e:
-            self.logger.error(f"Error during logcat capture: {e}")
-            raise
-
-        finally:
-            # Ensure logcat process is always terminated
-            if process:
-                try:
-                    self.logger.debug("Stopping logcat process")
-                    process.kill()
-                except Exception as cleanup_error:
-                    self.logger.warning(f"Error stopping logcat process: {cleanup_error}")
+            if event_type in [EventType.TASK_STARTED, EventType.TASK_COMPLETED, EventType.TASK_FAILED,
+                              EventType.EMULATOR_STARTED, EventType.EMULATOR_STOPPED,
+                              EventType.APP_INSTALLED, EventType.TOOL_STARTED, EventType.TOOL_STOPPED]:
+                # For task-related events
+                self.event_bus.publish_task_event(
+                    event_type=event_type,
+                    task_id=self.task.id,
+                    task_config={
+                        "apk_name": self.task.config.apk_name,
+                        "repetition": self.task.config.repetition,
+                        "timeout": self.task.config.timeout,
+                        "tool_name": self.task.config.tool_name
+                    },
+                    details=details or {},
+                    source="TaskExecutor"
+                )
+            elif event_type in [EventType.COVERAGE_TRACKING_STARTED, EventType.COVERAGE_TRACKING_STOPPED,
+                                EventType.COVERAGE_UPDATED]:
+                # For analysis-related events
+                self.event_bus.publish_analysis_event(
+                    event_type=event_type,
+                    data=details or {},
+                    related_task_id=self.task.id,
+                    source="TaskExecutor"
+                )

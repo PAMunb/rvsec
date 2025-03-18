@@ -282,6 +282,65 @@ class EventBus:
 
         return count
 
+    # Add this method to the EventBus class
+    def publish_event(self, event_type: EventType, details: Optional[Dict[str, Any]] = None, source: str = None) -> int:
+        """
+        Generic method to publish an event of any type.
+        Determines the appropriate event class based on the event type.
+
+        Args:
+            event_type: Type of event to publish
+            details: Optional details for the event
+            source: Optional source of the event
+
+        Returns:
+            Number of handlers that processed the event
+        """
+        # Task-related events
+        if event_type in [
+            EventType.TASK_CREATED, EventType.TASK_CONFIGURED,
+            EventType.TASK_STARTED, EventType.TASK_COMPLETED,
+            EventType.TASK_FAILED, EventType.EMULATOR_STARTED,
+            EventType.EMULATOR_STOPPED, EventType.APP_INSTALLED,
+            EventType.TOOL_STARTED, EventType.TOOL_STOPPED
+        ]:
+            return self.publish_task_event(
+                event_type=event_type,
+                task_id=details.get("task_id", 0),
+                details=details or {},
+                source=source
+            )
+
+        # Experiment-related events
+        elif event_type in [
+            EventType.EXPERIMENT_STARTED, EventType.EXPERIMENT_COMPLETED,
+            EventType.EXPERIMENT_FAILED, EventType.EXPERIMENT_PAUSED,
+            EventType.EXPERIMENT_RESUMED
+        ]:
+            return self.publish_experiment_event(
+                event_type=event_type,
+                experiment_id=details.get("experiment_id", "unknown"),
+                message=details.get("message", ""),
+                source=source
+            )
+
+        # Analysis-related events
+        elif event_type in [
+            EventType.COVERAGE_UPDATED, EventType.COVERAGE_TRACKING_STARTED,
+            EventType.COVERAGE_TRACKING_STOPPED, EventType.ERROR_DETECTED,
+            EventType.STATIC_ANALYSIS_COMPLETED
+        ]:
+            return self.publish_analysis_event(
+                event_type=event_type,
+                data=details or {},
+                source=source
+            )
+
+        # Configuration events and default case
+        else:
+            event = Event(type=event_type, source=source)
+            return self.publish(event)
+
     def get_history(self,
                     event_type: Optional[EventType] = None,
                     since: Optional[datetime] = None,
