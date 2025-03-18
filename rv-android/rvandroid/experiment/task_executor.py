@@ -5,7 +5,9 @@ Handles the execution of a single task and collects results.
 """
 
 import logging
+import os
 import traceback
+from contextlib import contextmanager
 from typing import Optional, Dict, Any
 
 from rvandroid.analysis.coverage_tracker import CoverageTracker
@@ -188,27 +190,94 @@ class TaskExecutor:
             self._publish_event(EventType.APP_INSTALLED, {"app_name": self.task.app.name})
 
     def _start_logcat_capture(self) -> None:
-        """Start capturing logcat output and initialize coverage tracking."""
+        """Start capturing logcat output with improved resource management."""
         self.logger.debug("Starting logcat capture")
 
-        # Clear logcat buffer if requested
-        if self.task.config.clean_logcat:
-            clear_cmd = Command("adb", ["logcat", "-c"])
-            clear_cmd.invoke()
+        try:
+            # Clear logcat buffer if requested
+            if self.task.config.clean_logcat:
+                clear_cmd = Command("adb", ["logcat", "-c"])
+                clear_cmd.invoke()
+                self.logger.debug("Cleared logcat buffer")
 
-        # Start logcat capture process
-        logcat_cmd = Command("adb", ["logcat", "-v", "threadtime", "-s", "RVSEC", "RVSEC-COV"])
+            # Create output directory if it doesn't exist
+            logcat_dir = os.path.dirname(self.task.result.logcat_file)
+            if not os.path.exists(logcat_dir):
+                os.makedirs(logcat_dir, exist_ok=True)
 
-        with open(self.task.result.logcat_file, "wb") as log_file:
-            self.logcat_process = logcat_cmd.invoke_as_deamon(stdout=log_file)
+            # Start logcat capture process
+            logcat_cmd = Command("adb", ["logcat", "-v", "threadtime", "-s", "RVSEC", "RVSEC-COV"])
 
-        # Start coverage tracker
-        self.coverage_tracker.start()
+            # Open the file with proper context management
+            log_file = open(self.task.result.logcat_file, "wb")
 
-        # Publish event for logcat started
-        self._publish_event(EventType.COVERAGE_TRACKING_STARTED, {
-            "logcat_file": self.task.result.logcat_file
-        })
+            try:
+                self.logcat_process = logcat_cmd.invoke_as_deamon(stdout=log_file)
+
+                # Store the log file handle for later cleanup
+                self.logcat_file_handle = log_file
+
+                # Start coverage tracker
+                self.coverage_tracker.start()
+
+                # Publish event for logcat started
+                self._publish_event(EventType.COVERAGE_TRACKING_STARTED, {
+                    "logcat_file": self.task.result.logcat_file
+                })
+
+                self.logger.info(f"Logcat capture started to {self.task.result.logcat_file}")
+
+            except Exception:
+                # Close the file handle if the command fails
+                log_file.close()
+                raise
+
+        except Exception as e:
+            self.logger.error(f"Failed to start logcat capture: {e}")
+
+            # Clean up any resources if initialization fails
+            if hasattr(self, 'logcat_process') and self.logcat_process:
+                try:
+                    self.logcat_process.kill()
+                    self.logcat_process = None
+                except Exception:
+                    pass
+
+            if hasattr(self, 'coverage_tracker') and self.coverage_tracker:
+                try:
+                    self.coverage_tracker.stop()
+                except Exception:
+                    pass
+
+            raise
+
+    def _cleanup_logcat_capture(self) -> None:
+        """Clean up logcat capture resources."""
+        # Stop coverage tracker
+        if hasattr(self, 'coverage_tracker') and self.coverage_tracker:
+            try:
+                self.logger.debug("Stopping coverage tracker")
+                self.coverage_tracker.stop()
+            except Exception as e:
+                self.logger.warning(f"Error stopping coverage tracker: {e}")
+
+        # Kill logcat process
+        if hasattr(self, 'logcat_process') and self.logcat_process:
+            try:
+                self.logger.debug("Stopping logcat process")
+                self.logcat_process.kill()
+                self.logcat_process = None
+            except Exception as e:
+                self.logger.warning(f"Error stopping logcat process: {e}")
+
+        # Close logcat file handle
+        if hasattr(self, 'logcat_file_handle') and self.logcat_file_handle:
+            try:
+                self.logger.debug("Closing logcat file")
+                self.logcat_file_handle.close()
+                self.logcat_file_handle = None
+            except Exception as e:
+                self.logger.warning(f"Error closing logcat file: {e}")
 
     def _execute_tool(self) -> None:
         """Execute the tool implementation"""
@@ -269,20 +338,11 @@ class TaskExecutor:
         })
 
     def _cleanup_environment(self) -> None:
-        """Clean up the environment after execution"""
+        """Clean up the environment after execution with improved resource management."""
         self.logger.debug("Cleaning up environment")
 
-        # Stop coverage tracker if it's still running
-        if self.coverage_tracker and self.coverage_tracker.is_running:
-            self.coverage_tracker.stop()
-
-        # Stop logcat process
-        if self.logcat_process:
-            self.logger.debug("Stopping logcat process")
-            try:
-                self.logcat_process.kill()
-            except Exception as e:
-                self.logger.warning(f"Error stopping logcat: {e}")
+        # Clean up logcat resources
+        self._cleanup_logcat_capture()
 
         # Kill the emulator if needed
         if self.android:
@@ -316,3 +376,46 @@ class TaskExecutor:
                 details=details or {},
                 source="TaskExecutor"
             )
+
+    @contextmanager
+    def _capture_logcat(self, logcat_file: str, clean_buffer: bool = True):
+        """
+        Context manager for capturing logcat output.
+        Ensures proper cleanup of resources.
+
+        Args:
+            logcat_file: File to write logcat output to
+            clean_buffer: Whether to clear logcat buffer before starting
+
+        Yields:
+            Reference to the logcat process
+        """
+        process = None
+        try:
+            # Clear logcat buffer if requested
+            if clean_buffer:
+                clear_cmd = Command("adb", ["logcat", "-c"])
+                clear_cmd.invoke()
+                self.logger.debug("Cleared logcat buffer")
+
+            # Start logcat capture
+            self.logger.debug(f"Starting logcat capture to {logcat_file}")
+            logcat_cmd = Command("adb", ["logcat", "-v", "threadtime", "-s", "RVSEC", "RVSEC-COV"])
+
+            with open(logcat_file, "wb") as log_file:
+                process = logcat_cmd.invoke_as_deamon(stdout=log_file)
+                self.logger.info("Logcat capture started")
+                yield process
+
+        except Exception as e:
+            self.logger.error(f"Error during logcat capture: {e}")
+            raise
+
+        finally:
+            # Ensure logcat process is always terminated
+            if process:
+                try:
+                    self.logger.debug("Stopping logcat process")
+                    process.kill()
+                except Exception as cleanup_error:
+                    self.logger.warning(f"Error stopping logcat process: {cleanup_error}")

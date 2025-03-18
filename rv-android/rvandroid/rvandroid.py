@@ -8,7 +8,7 @@ from rvandroid.commands.command import Command
 from rvandroid.commands.command_exception import CommandException
 from settings import *
 
-#TODO rever o q eh usado nesse modulo ... talvez jogar tudo em constants.py
+# TODO rever o q eh usado nesse modulo ... talvez jogar tudo em constants.py
 EXTENSION_AJ = ".aj"
 EXTENSION_DEX = ".dex"
 EXTENSION_JAVA = ".java"
@@ -69,27 +69,54 @@ class RvAndroid(object):
         utils.create_folder_if_not_exists(results_dir)
 
     def instrument(self, app: App, result_dir=INSTRUMENTED_DIR, force_instrumentation=False):
+        """
+        Instrument an APK with improved resource management.
+
+        Args:
+            app: App to instrument
+            result_dir: Directory to store the instrumented APK
+            force_instrumentation: Whether to re-instrument if already instrumented
+        """
         # check if the APK exists in 'out' dir and whether it is to be instrumented
         instrumented_apk = os.path.join(result_dir, app.name)
         if os.path.exists(instrumented_apk):
             if force_instrumentation:
-                logging.info("Deleting APK: {}".format(instrumented_apk))
+                logging.info(f"Deleting previously instrumented APK: {instrumented_apk}")
                 os.remove(instrumented_apk)
             else:
-                logging.info("Skipping APK already instrumented: {}".format(app.name))
+                logging.info(f"Skipping APK already instrumented: {app.name}")
                 return
 
         start = time.time()
-        logging.info("Instrumenting: {}".format(app.name))
-        self.__decompile_apk(app)
-        self.__include_generated_monitors()
-        self.__weave_monitors(app)
-        signed_apk = self.__create_apk(app)
-        assert os.path.exists(signed_apk)
-        end = time.time()
-        elapsed = end - start
-        logging.info('APK instrumented in {0}'.format(utils.to_readable_time(elapsed)))
-        logging.debug("APK instrumented: {}".format(signed_apk))
+        logging.info(f"Instrumenting: {app.name}")
+
+        # Use a try-finally block to ensure cleanup happens
+        try:
+            # Create temporary directories if needed
+            for directory in [TMP_DIR, RVM_TMP_DIR]:
+                if not os.path.exists(directory):
+                    os.makedirs(directory)
+
+            self.__decompile_apk(app)
+            self.__include_generated_monitors()
+            self.__weave_monitors(app)
+            signed_apk = self.__create_apk(app)
+
+            if not os.path.exists(signed_apk):
+                raise Exception(f"Failed to create signed APK: {signed_apk}")
+
+            end = time.time()
+            elapsed = end - start
+            logging.info(f'APK instrumented in {utils.to_readable_time(elapsed)}')
+            logging.debug(f"APK instrumented: {signed_apk}")
+
+        except Exception as e:
+            logging.error(f"Error instrumenting {app.name}: {e}")
+            raise
+
+        finally:
+            # Clean up temporary directories
+            self.clear([TMP_DIR, RVM_TMP_DIR])
 
     def __decompile_apk(self, app: App):
         logging.info("Decompiling: {}".format(app.name))

@@ -213,23 +213,45 @@ class ExecutionManager:
             self.storage.update_task(task)
             return False
 
-    def copy_static_analysis_files(self, apk: str, app_results_dir: str) -> None:
+    def copy_static_analysis_files(self, apk: str, app_results_dir: str) -> bool:
         """
-        Copies static analysis files for an app to results directory
+        Copies static analysis files for an app to results directory.
 
         Args:
             apk: App identifier
             app_results_dir: Target directory for files
+
+        Returns:
+            True if at least one file was copied, False otherwise
         """
-        print(f"************ Copying static analysis files for {apk} to {app_results_dir}")
+        self.logger.info(f"Copying static analysis files for {apk} to {app_results_dir}")
         extensions = [EXTENSION_METHODS, EXTENSION_GESDA, EXTENSION_GATOR, EXTENSION_REACH]
-        for extension in extensions:
-            file_name = f"{apk}{extension}"
-            file_path = os.path.join(INSTRUMENTED_DIR, file_name)
-            print(f"file_path={file_path} .... exite? {os.path.exists(file_path)}")
-            if os.path.exists(file_path):
-                print(f"Copying {file_path} to {app_results_dir}")
-                shutil.copy(file_path, app_results_dir)
+        copied_files = 0
+
+        try:
+            # Ensure the target directory exists
+            os.makedirs(app_results_dir, exist_ok=True)
+
+            for extension in extensions:
+                file_name = f"{apk}{extension}"
+                file_path = os.path.join(INSTRUMENTED_DIR, file_name)
+                self.logger.debug(f"Checking file: {file_path}")
+
+                if os.path.exists(file_path):
+                    self.logger.debug(f"Copying {file_path} to {app_results_dir}")
+                    shutil.copy(file_path, app_results_dir)
+                    copied_files += 1
+
+            if copied_files == 0:
+                self.logger.warning(f"No static analysis files found for {apk}")
+                return False
+
+            self.logger.info(f"Successfully copied {copied_files} static analysis files for {apk}")
+            return True
+
+        except Exception as e:
+            self.logger.error(f"Error copying static analysis files for {apk}: {e}")
+            return False
 
     def get_statistics(self) -> Dict[str, Any]:
         """

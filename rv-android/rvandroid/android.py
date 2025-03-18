@@ -16,13 +16,35 @@ class Android:
     @classmethod
     @contextmanager
     def create_emulator(cls, avd_name, no_window=False):
-        # Code to acquire resource, e.g.:
-        emulator = cls.start_emulator(avd_name, no_window)
+        """
+        Context manager for creating and managing an Android emulator.
+        Ensures proper cleanup even in case of errors.
+
+        Args:
+            avd_name: Name of the Android Virtual Device
+            no_window: Whether to run the emulator without a window
+
+        Yields:
+            Reference to the emulator
+        """
+        emulator = None
         try:
+            # Start the emulator
+            logging.info(f'Starting emulator {avd_name}')
+            emulator = cls.start_emulator(avd_name, no_window)
             yield emulator
+        except Exception as e:
+            logging.error(f"Error while using emulator: {e}")
+            raise
         finally:
-            # Code to release resource, e.g.:
-            cls.kill_emulator(avd_name)
+            # Ensure emulator is always killed, even if an exception occurs
+            if emulator:
+                logging.info(f'Cleaning up emulator {avd_name}')
+                try:
+                    cls.kill_emulator(avd_name)
+                except Exception as cleanup_error:
+                    logging.error(f"Error during emulator cleanup: {cleanup_error}")
+                    # Don't re-raise cleanup errors, as they might mask the original exception
 
     @classmethod
     def start_emulator(cls, avd_name: str, no_window: bool):

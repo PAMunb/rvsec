@@ -1,144 +1,160 @@
 import os
 import sys
 from threading import Timer
-
 from subprocess import PIPE, Popen
 import signal
 import psutil
+import logging as logging_api
 
-# Only use this when the program is running on Python 3.3+
+# Import TimeoutExpired for Python 3.3+
 if sys.version_info.major == 3 and sys.version_info.minor >= 3:
     from subprocess import TimeoutExpired
 
 from .command_not_found_error import CommandNotFoundError
 from .command_result import CommandResult
-import logging as logging_api
 
+
+# Configure logging
 logging = logging_api.getLogger(__name__)
 
-
-def kill_process_tree(pid):
-    # print(f"kill_process_tree={pid}")
+def kill_process_tree(pid: int):
+    """
+    Recursively kill a process and all its children.
+    
+    Args:
+        pid (int): Process ID of the parent process to kill
+    """
     parent = psutil.Process(pid)
-    # print(f"parent={parent}")
+    
+    # Kill all child processes
     for child in parent.children(recursive=True):
-        # child.kill()
-        # print(f">>> Matando processo filho: {child.pid}")
         os.kill(child.pid, signal.SIGKILL)
-    # print(f">>> Matando processo  {parent.pid}")
-    # parent.kill()
-    # os.kill(parent.pid, signal.SIGINT)
-    # os.kill(parent.pid, signal.SIGTERM)
-    # print("mandou SIGINT")
+    
+    # Kill the parent process
     os.kill(parent.pid, signal.SIGKILL)
-    # parent.kill()
-    # print("mandou SIGKILL")
-    # cont = 0
-    # while cont < 5 and parent.is_running():
-    #     print(f"cont={cont}")
-    #     os.kill(parent.pid, signal.SIGKILL)
-    #     os.kill(parent.pid, signal.SIGINT)
-    #     cont += 1
-    # print(f"nao matou? {parent.is_running()}")
-    # if parent.parent():
-    #     print("possui parent ...")
-    #     kill_process_tree(parent.parent().pid)
-
-
-
+    
 class Command:
-
-    def __init__(self, command, args=[], timeout=None):
+    """
+    Class for executing system commands with timeout support.
+    Provides functionality to run commands synchronously or as a daemon.
+    """
+    def __init__(self, command: str, args: list = None, timeout: float = None):
+        """
+        Initialize Command with execution parameters.
+        
+        Args:
+            command (str): The command to execute
+            args (list): List of command arguments
+            timeout (float): Timeout in seconds for command execution
+        """
         self._command = command
-        self._args = args
+        self._args = args or []
         self._timeout = timeout
 
     @property
-    def command(self):
+    def command(self) -> str:
+        """Return the command string"""
         return self._command
 
     @command.setter
-    def command(self, value):
-        self.command = value
+    def command(self, value: str):
+        """Set the command string"""
+        self._command = value
 
     @property
-    def args(self):
+    def args(self) -> list:
+        """Return the command arguments"""
         return self._args
 
     @args.setter
-    def args(self, value):
-        self.args = value
+    def args(self, value: list):
+        """Set the command arguments"""
+        self._args = value
 
     @property
-    def timeout(self):
-        return self.timeout
+    def timeout(self) -> float:
+        """Return the command timeout"""
+        return self._timeout
 
     @timeout.setter
-    def timeout(self, value):
+    def timeout(self, value: float):
+        """Set the command timeout"""
         self._timeout = value
-
-    def invoke(self, stdout=PIPE, stderr=PIPE, stdin=None):
-        cmd_args = []
-
-        # Add command
-        cmd_args.append(self._command)
-
-        # Add arguments
-        cmd_args.extend(self._args)
-
+        
+    def invoke(self, stdout=PIPE, stderr=PIPE, stdin=None) -> CommandResult:
+        """
+        Execute the command and wait for completion.
+        
+        Args:
+            stdout: Where to redirect standard output (default: PIPE)
+            stderr: Where to redirect standard error (default: PIPE)
+            stdin: Input to pass to the command (default: None)
+        
+        Returns:
+            CommandResult: Object containing execution results
+            
+        Raises:
+            CommandNotFoundError: If the command is not found
+            TimeoutExpired: If the command exceeds timeout
+        """
+        cmd_args = [self._command, *self._args]
         logging.debug('Command executed: {0}'.format(' '.join(cmd_args)))
 
-        # Only use this when the program is running on Python 3.3+
         if sys.version_info.major == 3 and sys.version_info.minor >= 3:
             try:
                 proc = Popen(cmd_args, stderr=stderr, stdout=stdout)
-                if self._timeout is not None:
-                    (stdout, stderr) = proc.communicate(stdin, timeout=self._timeout)
-                else:
-                    (stdout, stderr) = proc.communicate(stdin)
+                stdout, stderr = proc.communicate(stdin, timeout=self._timeout)
+                return CommandResult(proc.returncode, stdout, stderr)
             except TimeoutExpired:
                 self.kill_process(proc)
-                (stdout, stderr) = proc.communicate(stdin)
+                stdout, stderr = proc.communicate(stdin)
+                return CommandResult(proc.returncode, stdout, stderr)
             except OSError:
-                raise CommandNotFoundError("The command {0} was not found".format(self._command))
-            code = proc.returncode
+                raise CommandNotFoundError(f"The command {self._command} was not found")
         else:
+            # Legacy Python support
             try:
                 proc = Popen(cmd_args, stderr=PIPE, stdout=PIPE)
                 if self._timeout is not None:
                     timer = Timer(self._timeout, self.kill_process, [proc])
                     timer.start()
 
-                (stdout, stderr) = proc.communicate(stdin)
-                code = proc.returncode
-
+                stdout, stderr = proc.communicate(stdin)
                 if self._timeout is not None:
                     timer.cancel()
+                return CommandResult(proc.returncode, stdout, stderr)
             except OSError:
-                raise CommandNotFoundError("The command {0} was not found".format(self._command))
-
-        logging.debug('Command (stdout): {0}'.format(stdout))
-        logging.debug('Command (stderr): {0}'.format(stderr))
-        return CommandResult(code, stdout, stderr)
+                raise CommandNotFoundError(f"The command {self._command} was not found")
 
     def kill_process(self, p):
-        logging.info("The command has timeout after {0} seconds".format(self._timeout))
-        # p.kill()
-        # os.kill(p.pid, signal.SIGKILL)
+        """
+        Kill a process when timeout occurs.
+        
+        Args:
+            p: Process object to kill
+        """
+        logging.info(f"The command has timeout after {self._timeout} seconds")
         kill_process_tree(p.pid)
 
     def invoke_as_deamon(self, stdout=PIPE, stderr=PIPE):
-        cmd_args = []
-
-        # Add command
-        cmd_args.append(self._command)
-
-        # Add arguments
-        cmd_args.extend(self._args)
-
+        """
+        Execute the command as a daemon process.
+        
+        Args:
+            stdout: Where to redirect standard output (default: PIPE)
+            stderr: Where to redirect standard error (default: PIPE)
+        
+        Returns:
+            Process: The created process object
+            
+        Raises:
+            CommandNotFoundError: If the command is not found
+        """
+        cmd_args = [self._command, *self._args]
         logging.debug('Command executed: {0}'.format(' '.join(cmd_args)))
+        
         try:
-            proc = Popen(cmd_args, stderr=PIPE, stdout=stdout)
+            return Popen(cmd_args, stderr=stderr, stdout=stdout)
         except OSError:
-            raise CommandNotFoundError("The command {0} was not found".format(self._command))
-        return proc
+            raise CommandNotFoundError(f"The command {self._command} was not found")
+        

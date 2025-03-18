@@ -3,10 +3,10 @@
 Task storage system for persisting task information.
 Provides a more robust storage mechanism for task state and results.
 """
-
 import json
 import logging
 import os
+import shutil
 from datetime import datetime
 from typing import Dict, List, Optional, Any
 
@@ -71,11 +71,14 @@ class TaskStorage:
 
     def save(self) -> bool:
         """
-        Save tasks to storage file.
+        Save tasks to storage file with improved error handling.
+        Uses atomic file operations to prevent data corruption.
 
         Returns:
             True if saving succeeded, False otherwise
         """
+        temp_file = None
+
         try:
             # Ensure directory exists
             os.makedirs(os.path.dirname(self.storage_file), exist_ok=True)
@@ -87,15 +90,33 @@ class TaskStorage:
                 "tasks": [self._serialize_task(task) for task in self.tasks.values()]
             }
 
-            # Write to file
-            with open(self.storage_file, 'w') as f:
+            # Create a temporary file in the same directory
+            temp_file = f"{self.storage_file}.tmp"
+
+            # Write to the temporary file first
+            with open(temp_file, 'w') as f:
                 json.dump(data, f, indent=2)
+
+                # Ensure data is written to disk
+                f.flush()
+                os.fsync(f.fileno())
+
+            # Atomic rename to avoid partial writes
+            shutil.move(temp_file, self.storage_file)
 
             self.logger.info(f"Saved {len(self.tasks)} tasks to {self.storage_file}")
             return True
 
         except Exception as e:
             self.logger.error(f"Error saving tasks: {e}")
+
+            # Clean up temporary file if it exists
+            if temp_file and os.path.exists(temp_file):
+                try:
+                    os.remove(temp_file)
+                except Exception as cleanup_error:
+                    self.logger.warning(f"Failed to remove temporary file: {cleanup_error}")
+
             return False
 
     def add_task(self, task: Task) -> None:
@@ -233,4 +254,3 @@ class TaskStorage:
         except Exception as e:
             self.logger.error(f"Error deserializing task: {e}")
             return None
-       

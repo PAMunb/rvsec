@@ -3,11 +3,11 @@
 Real-time coverage tracking for task execution.
 Monitors logcat file for RVSEC and RVSEC-COV entries and updates coverage metrics.
 """
-
 import logging
 import os
 import threading
 import time
+from contextlib import contextmanager
 from datetime import datetime
 from typing import Dict, List, Optional, Set
 
@@ -54,6 +54,10 @@ class CoverageTracker:
         # Running state
         self.is_running = False
         self.thread: Optional[threading.Thread] = None
+        self._stop_event = threading.Event()
+
+        # Add a reader lock to prevent concurrent file access
+        self._reader_lock = threading.RLock()
         self._stop_event = threading.Event()
 
         # Tracking sets for unique entries
@@ -132,63 +136,81 @@ class CoverageTracker:
             self.logger.error(f"Error initializing from static data: {e}", exc_info=True)
 
     def start(self):
-        """Start tracking coverage in a separate thread."""
+        """Start tracking coverage in a separate thread with improved resource management."""
         if self.is_running:
             self.logger.warning("Coverage tracker is already running")
             return
 
         # Make sure the logcat file exists
-        if not os.path.exists(self.logcat_file):
+        try:
             parent_dir = os.path.dirname(self.logcat_file)
             if not os.path.exists(parent_dir):
                 os.makedirs(parent_dir, exist_ok=True)
 
-            # Create empty logcat file
-            with open(self.logcat_file, 'w'):
-                pass
+            # Create empty logcat file if it doesn't exist
+            if not os.path.exists(self.logcat_file):
+                with open(self.logcat_file, 'w'):
+                    pass
 
-        # Reset tracking state
-        self._stop_event.clear()
-        self.is_running = True
+            # Reset tracking state
+            self._stop_event.clear()
+            self.is_running = True
 
-        # Start tracking thread
-        self.thread = threading.Thread(target=self._track_coverage, daemon=True)
-        self.thread.start()
+            # Start tracking thread
+            self.thread = threading.Thread(target=self._track_coverage, daemon=True)
+            self.thread.start()
 
-        self.logger.info(f"Coverage tracker started for {self.logcat_file}")
+            self.logger.info(f"Coverage tracker started for {self.logcat_file}")
+
+        except Exception as e:
+            self.is_running = False
+            self.logger.error(f"Failed to start coverage tracker: {e}")
+            raise
 
     def stop(self):
-        """Stop tracking coverage."""
+        """Stop tracking coverage with proper resource cleanup."""
         if not self.is_running:
             return
 
-        self._stop_event.set()
-        if self.thread:
-            self.thread.join(timeout=5.0)
+        try:
+            self._stop_event.set()
 
-        self.is_running = False
-        self.logger.info("Coverage tracker stopped")
+            if self.thread:
+                # Give the thread a chance to terminate gracefully
+                self.thread.join(timeout=5.0)
+
+                # Check if thread is still alive
+                if self.thread.is_alive():
+                    self.logger.warning("Coverage tracker thread did not terminate gracefully")
+
+            self.is_running = False
+            self.logger.info("Coverage tracker stopped")
+
+        except Exception as e:
+            self.logger.error(f"Error stopping coverage tracker: {e}")
+            self.is_running = False
 
     def _track_coverage(self):
-        """
-        Track coverage by monitoring the logcat file.
-        This method runs in a separate thread.
-        """
+        """Track coverage with improved file handling and error handling."""
+        file_handle = None
+
         try:
             # Open the logcat file for reading
             with open(self.logcat_file, 'r') as f:
-                self.process_lines(f.readlines())
-                
+                file_handle = f
+
+                # Process existing lines
+                with self._reader_lock:
+                    self.process_lines(f.readlines())
+
                 # Move to the end of the file
                 f.seek(0, os.SEEK_END)
 
-                # print(f"self._stop_event={self._stop_event.is_set()}")
                 # Keep reading until stopped
                 while not self._stop_event.is_set():
-                    # print("entrou ..............")
-                    # Read any new lines
-                    new_lines = f.readlines()
-                    # print(f"new_lines={new_lines}")
+                    # Read any new lines with proper locking
+                    with self._reader_lock:
+                        new_lines = f.readlines()
 
                     # Process new lines
                     if new_lines:
@@ -204,7 +226,31 @@ class CoverageTracker:
 
         except Exception as e:
             self.logger.error(f"Error tracking coverage: {e}", exc_info=True)
+
+        finally:
             self.is_running = False
+
+            # Properly close the file handle if we opened it directly
+            if file_handle and not file_handle.closed:
+                try:
+                    file_handle.close()
+                except Exception:
+                    pass
+
+    @contextmanager
+    def track_coverage(self):
+        """
+        Context manager for tracking coverage.
+        Ensures the tracker is properly stopped even if an error occurs.
+
+        Yields:
+            Self for use within the context
+        """
+        self.start()
+        try:
+            yield self
+        finally:
+            self.stop()
 
     def process_lines(self, lines: List[str]):
         """
