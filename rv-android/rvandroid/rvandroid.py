@@ -20,6 +20,20 @@ logging = logging_api.getLogger(__name__)
 
 
 class RvAndroid(object):
+    """
+    The RvAndroid class is responsible for instrumenting Android APKs, injecting
+    runtime monitoring components into applications to enable security and behavior analysis.
+
+    ### Architectural Decisions:
+    - Uses Dex-to-Jar (d2j) tools to decompile APKs and insert monitoring code.
+    - Applies AspectJ for weaving runtime verification aspects.
+    - Ensures that instrumented applications remain functional while capturing security-relevant events.
+
+    ### Role in the System:
+    - Central to the instrumentation phase of experiments, modifying APKs for analysis.
+    - Supports automated security assessments by injecting monitoring capabilities.
+    - Ensures seamless integration with the runtime verification modules of the system.
+    """
 
     def __init__(self):
         pass

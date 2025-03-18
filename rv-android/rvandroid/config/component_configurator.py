@@ -31,11 +31,23 @@ logger = logging.getLogger(__name__)
 
 class ComponentConfigurator:
     """
-    Classe centralizadora para configurar e alternar facilmente entre diferentes
-    componentes do sistema RV-Android.
+    The ComponentConfigurator class is responsible for managing the configuration
+    of system components within the rvandroid framework. It provides a centralized
+    mechanism for initializing and applying configurations dynamically.
+
+    ### Architectural Decisions:
+    - Uses a modular approach to allow flexible configuration of different components.
+    - Supports environment-based and runtime configuration overrides.
+    - Ensures consistency by validating and applying settings before execution.
+
+    ### Role in the System:
+    - Centralizes component configuration to avoid hardcoded settings in individual modules.
+    - Enables dynamic adjustments to experimental parameters and tool integrations.
+    - Supports extensibility, allowing new configurations to be easily incorporated.
+    - Plays a crucial role in ensuring that experiments, analysis tools, and LLM integrations
+      are properly configured before execution.
     """
 
-    # Dicionários com os tipos disponíveis para cada componente
     LLM_TYPES = {
         "ollama": OllamaLLM,
         "huggingface": HuggingFaceLLM,

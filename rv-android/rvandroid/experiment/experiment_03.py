@@ -3,7 +3,7 @@
 Main experiment implementation for rv-android.
 Coordinates the entire experiment lifecycle using the new architecture.
 """
-
+import json
 import os
 from typing import List
 
@@ -21,7 +21,19 @@ from settings import TIMESTAMP, RESULTS_DIR, INSTRUMENTED_DIR
 
 class Experiment03:
     """
-    Implements the experiment workflow using the new refactored architecture.
+    The Experiment03 class defines the execution logic for a predefined testing experiment.
+    It coordinates the initialization, execution, and termination of automated experiments
+    involving Android applications.
+
+    ### Architectural Decisions:
+    - Designed to support multiple tools (e.g., Monkey, DroidBot) in a modular way.
+    - Implements configurable execution parameters (timeouts, repetitions, etc.).
+    - Ensures reproducibility by logging execution states and results.
+
+    ### Role in the System:
+    - Acts as the primary orchestrator for automated testing experiments.
+    - Interacts with Android emulators, test tools, and instrumentation modules.
+    - Collects and processes experimental data for analysis and reporting.
     """
 
     def __init__(self):

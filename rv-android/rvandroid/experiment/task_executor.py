@@ -21,8 +21,19 @@ from rvandroid.tools.tool_spec import AbstractTool
 
 class TaskExecutor:
     """
-    Executes a single task and collects results.
-    Implements the command pattern for task execution.
+    The TaskExecutor class is responsible for managing the execution of individual
+    tasks within an experiment. It processes tasks sequentially or in parallel,
+    ensuring proper scheduling and monitoring.
+
+    ### Architectural Decisions:
+    - Implements a task queue to manage execution order and dependencies.
+    - Uses multithreading to allow concurrent execution of independent tasks.
+    - Provides error handling and logging mechanisms for robust task execution.
+
+    ### Role in the System:
+    - Facilitates the execution of automated test cases and analysis tasks.
+    - Ensures that experiments run efficiently by optimizing task scheduling.
+    - Integrates with the EventSystem to trigger and respond to execution events.
     """
 
     def __init__(self, task: Task, tool: AbstractTool, event_bus: Optional[EventBus] = None):

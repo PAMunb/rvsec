@@ -46,7 +46,21 @@ class TaskConfiguration:
 
 @dataclass
 class TaskResult:
-    """Results from a task execution"""
+    """
+    The TaskResult class encapsulates the outcome of a task execution within
+    an experiment. It stores execution metadata, success/failure status, and
+    any relevant output or error messages.
+
+    ### Architectural Decisions:
+    - Provides a structured format for capturing task execution results.
+    - Supports serialization for logging and post-execution analysis.
+    - Designed to be lightweight and easy to integrate with other components.
+
+    ### Role in the System:
+    - Acts as a data container for storing execution details of experiment tasks.
+    - Facilitates debugging and performance tracking by logging execution results.
+    - Ensures consistency in reporting task statuses across different experiments.
+    """
     status: TaskStatus = TaskStatus.CREATED
     start_time: Optional[datetime] = None
     end_time: Optional[datetime] = None
@@ -84,8 +98,20 @@ class TaskResult:
 
 class Task:
     """
-    Represents a test execution task with clear separation of configuration, execution, and results.
+    The Task class represents an individual unit of execution within an experiment.
+    It defines the necessary attributes for task scheduling, execution, and tracking.
+
+    ### Architectural Decisions:
+    - Implements an object-oriented representation of tasks for better organization.
+    - Supports dependency management, ensuring that tasks execute in the correct order.
+    - Can be extended to include additional execution parameters if needed.
+
+    ### Role in the System:
+    - Serves as the fundamental building block for experiment workflows.
+    - Enables flexible task execution, whether sequential or parallel.
+    - Works alongside TaskExecutor and ExecutionManager to ensure smooth execution.
     """
+
     # Class-level counter for task IDs
     _next_id = 1
 

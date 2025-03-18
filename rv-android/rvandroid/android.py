@@ -12,6 +12,21 @@ logging = logging_api.getLogger(__name__)
 
 
 class Android:
+    """
+    The Android class is responsible for managing the lifecycle of Android emulators
+    and handling APK installation/uninstallation. It provides utilities to start,
+    stop, and interact with an emulator using ADB (Android Debug Bridge).
+
+    ### Architectural Decisions:
+    - Uses ADB commands to communicate with the emulator.
+    - Implements a context manager to ensure proper cleanup of emulator instances.
+    - Provides automation capabilities for APK installation and permission management.
+
+    ### Role in the System:
+    - Supports automated testing by launching and managing Android virtual devices.
+    - Enables APK installation and interaction during security and coverage experiments.
+    - Ensures that the emulator environment is properly reset before each experiment.
+    """
 
     @classmethod
     @contextmanager

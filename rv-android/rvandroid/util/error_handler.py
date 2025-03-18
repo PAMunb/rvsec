@@ -4,15 +4,27 @@ import time
 from functools import wraps
 from typing import Dict, List, Callable, Any, Type
 
-from rvandroid.util.exceptions import RVAndroidError, ADBError, EmulatorError, TimeoutError
+from rvandroid.util.exceptions import RVAndroidError, ADBError, EmulatorError, RvTimeoutError
 from rvandroid.util.logging_manager import LoggingManager
 
 
 class ErrorHandler:
     """
-    Centralized error handling system for RV-Android.
+    The ErrorHandler class provides a centralized mechanism for handling exceptions
+    and errors within the rvandroid framework. It ensures that errors are logged,
+    tracked, and managed efficiently to prevent unexpected failures.
 
-    Provides error tracking, recovery mechanisms, and retry capabilities.
+    ### Architectural Decisions:
+    - Implements a structured error-handling approach to improve system resilience.
+    - Supports logging of error details for debugging and post-mortem analysis.
+    - Provides categorization of errors to differentiate between critical failures
+      and recoverable exceptions.
+
+    ### Role in the System:
+    - Acts as a global error-handling utility, reducing redundant exception handling across modules.
+    - Improves system stability by preventing unhandled exceptions from causing crashes.
+    - Enhances debugging and troubleshooting by maintaining detailed error logs.
+    - Supports potential integrations with external monitoring or alerting systems.
     """
 
     _instance = None
@@ -50,7 +62,7 @@ class ErrorHandler:
         self.register_handler(EmulatorError, self._handle_emulator_error)
 
         # Timeout error handling
-        self.register_handler(TimeoutError, self._handle_timeout_error)
+        self.register_handler(RvTimeoutError, self._handle_timeout_error)
 
     def register_handler(self, error_type: Type[Exception], handler: Callable[[Exception], None]):
         """
@@ -189,7 +201,7 @@ class ErrorHandler:
         self._logger.warning("Emulator error recovery not yet implemented")
         return False
 
-    def _handle_timeout_error(self, error: TimeoutError) -> bool:
+    def _handle_timeout_error(self, error: RvTimeoutError) -> bool:
         """
         Handle timeout errors.
 

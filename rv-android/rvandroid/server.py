@@ -19,6 +19,20 @@ class Server:
     - Provide detailed status information
     - Handle errors without affecting the main system
     - Auto-recover from certain failure conditions
+
+    The Server class implements a RESTful API using Flask, providing an interface
+    for external components to interact with the system. It enables communication
+    between the Android test framework and LLM-based action generation.
+
+    ### Architectural Decisions:
+    - Runs as a separate thread to ensure non-blocking execution.
+    - Uses Flask's built-in error handling for resilience and stability.
+    - Implements a retry mechanism to handle transient failures and ensure reliability.
+
+    ### Role in the System:
+    - Exposes endpoints for receiving state information and returning AI-driven actions.
+    - Provides a health check API to monitor system stability.
+    - Acts as the main entry point for LLM integration, allowing automation of test interactions.
     """
 
     def __init__(self, service: LLMActionService, host: str = 'localhost', port: int = 5000,

@@ -1,10 +1,11 @@
-import os
-import sys
-from threading import Timer
-from subprocess import PIPE, Popen
-import signal
-import psutil
 import logging as logging_api
+import os
+import signal
+import sys
+from subprocess import PIPE, Popen
+from threading import Timer
+
+import psutil
 
 # Import TimeoutExpired for Python 3.3+
 if sys.version_info.major == 3 and sys.version_info.minor >= 3:
@@ -13,9 +14,9 @@ if sys.version_info.major == 3 and sys.version_info.minor >= 3:
 from .command_not_found_error import CommandNotFoundError
 from .command_result import CommandResult
 
-
 # Configure logging
 logging = logging_api.getLogger(__name__)
+
 
 def kill_process_tree(pid: int):
     """
@@ -25,19 +26,33 @@ def kill_process_tree(pid: int):
         pid (int): Process ID of the parent process to kill
     """
     parent = psutil.Process(pid)
-    
+
     # Kill all child processes
     for child in parent.children(recursive=True):
         os.kill(child.pid, signal.SIGKILL)
-    
+
     # Kill the parent process
     os.kill(parent.pid, signal.SIGKILL)
-    
+
+
 class Command:
     """
-    Class for executing system commands with timeout support.
-    Provides functionality to run commands synchronously or as a daemon.
+    The Command class provides an abstraction for executing system commands
+    within the rvandroid framework. It is designed to standardize command execution,
+    handling output, errors, and timeouts in a controlled manner.
+
+    ### Architectural Decisions:
+    - Uses subprocess calls to execute system commands securely.
+    - Implements output capturing to facilitate debugging and logging.
+    - Supports timeout enforcement to prevent long-running or stuck processes.
+
+    ### Role in the System:
+    - Acts as a utility for executing ADB, emulator, and analysis-related commands.
+    - Ensures consistent handling of command execution across different modules.
+    - Provides error reporting mechanisms to detect failures and log execution results.
+    - Facilitates automation by integrating with experiment workflows and instrumentation tools.
     """
+
     def __init__(self, command: str, args: list = None, timeout: float = None):
         """
         Initialize Command with execution parameters.
@@ -80,7 +95,7 @@ class Command:
     def timeout(self, value: float):
         """Set the command timeout"""
         self._timeout = value
-        
+
     def invoke(self, stdout=PIPE, stderr=PIPE, stdin=None) -> CommandResult:
         """
         Execute the command and wait for completion.
@@ -152,9 +167,8 @@ class Command:
         """
         cmd_args = [self._command, *self._args]
         logging.debug('Command executed: {0}'.format(' '.join(cmd_args)))
-        
+
         try:
             return Popen(cmd_args, stderr=stderr, stdout=stdout)
         except OSError:
             raise CommandNotFoundError(f"The command {self._command} was not found")
-        

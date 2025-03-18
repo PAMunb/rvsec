@@ -9,8 +9,21 @@ logging = logging_api.getLogger(__name__)
 
 class RVSec(object):
     """
-    this class encapsulates some actions using rvsec
+    The RVSec class encapsulates runtime verification (RV) techniques, integrating
+    JavaMOP and RV-Monitor to analyze application behavior. It automates the process
+    of generating and applying monitoring specifications to instrumented Android apps.
+
+    ### Architectural Decisions:
+    - Uses JavaMOP to generate runtime monitoring specifications.
+    - Integrates RV-Monitor to enforce verification at runtime.
+    - Ensures that all monitored behaviors are logged for analysis.
+
+    ### Role in the System:
+    - Enhances security testing by verifying runtime properties of Android applications.
+    - Automates the instrumentation process, allowing real-time validation of app behavior.
+    - Plays a crucial role in detecting policy violations in running applications.
     """
+
 
     def __init__(self):
         pass

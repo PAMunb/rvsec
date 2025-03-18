@@ -22,9 +22,22 @@ from settings import INSTRUMENTED_DIR
 
 class ExecutionManager:
     """
-    Manages the execution of task batches with dependency injection.
-    No longer uses singleton pattern to improve testability.
+    The ExecutionManager class is responsible for orchestrating the execution of
+    experiments, ensuring proper coordination between task scheduling, monitoring,
+    and reporting.
+
+    ### Architectural Decisions:
+    - Implements a centralized execution control to manage the lifecycle of experiments.
+    - Integrates with the TaskExecutor to handle concurrent and sequential task execution.
+    - Provides error handling and logging mechanisms to ensure reliable execution.
+
+    ### Role in the System:
+    - Acts as the core experiment controller, managing the execution flow.
+    - Ensures that execution parameters (timeouts, repetitions, etc.) are properly applied.
+    - Collects and processes execution results, feeding them into analysis modules.
+    - Coordinates interactions between experiment tasks, logging, and runtime monitoring.
     """
+
 
     def __init__(self, storage: TaskStorage, event_bus: Optional[EventBus] = None):
         """

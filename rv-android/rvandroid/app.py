@@ -5,8 +5,20 @@ from androguard.core.bytecodes.apk import APK
 
 class App(object):
     """
-    this class describes an app
+    The App class represents an Android application, extracting metadata such as
+    package name, permissions, and SDK version using Androguard.
+
+    ### Architectural Decisions:
+    - Uses Androguard to statically analyze APKs without requiring execution.
+    - Maintains an object-oriented representation of app attributes for easy access.
+    - Supports retrieval of security-relevant properties for runtime monitoring.
+
+    ### Role in the System:
+    - Serves as the primary interface for working with Android apps in experiments.
+    - Facilitates security and behavior analysis by providing structured metadata.
+    - Enables automated decision-making regarding instrumentation and test execution.
     """
+
 
     def __init__(self, app_path):
         """
