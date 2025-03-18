@@ -71,6 +71,13 @@ class ExecutionManager:
                         **kwargs) -> None:
         """
         Set up tasks for execution.
+        Generate tasks for each combination of app, repetition, timeout, and tool.
+
+        For each app, this method creates tasks with different configurations
+        by iterating through repetitions, timeouts, and tools. Each task is
+        initialized with a specific configuration, added to storage, and tracked.
+        After creating all tasks, they are saved to storage and a log message
+        is generated with the total number of tasks created.
 
         Args:
             apks: List of apps to test
@@ -118,10 +125,16 @@ class ExecutionManager:
 
     def run_all_tasks(self) -> bool:
         """
-        Run all pending tasks.
+        Execute all pending tasks in the experiment, tracking overall experiment status.
+
+        Manages task execution lifecycle, including:
+        - Preventing concurrent executions
+        - Publishing experiment start and completion events
+        - Tracking task execution errors
+        - Logging execution progress
 
         Returns:
-            True if execution completes without errors, False otherwise
+            bool: True if all tasks complete without errors, False otherwise
         """
         if self.is_running:
             self.logger.warning("Execution already in progress")
@@ -165,15 +178,34 @@ class ExecutionManager:
             self.is_running = False
             self.current_task = None
 
+    """
+        Execute a single task by resolving its tool and app, copying static analysis files, and running the task.
+    
+        Attempts to retrieve the specified tool and app for the task. If either is not found,
+        the task is marked with an error and not executed. If both are found, the task is set up
+        with the app, static analysis files are copied, and the task is executed via a TaskExecutor.
+    
+        Args:
+            task (Task): The task to be executed.
+    
+        Returns:
+            bool: True if the task was executed successfully, False if the task failed due to
+                  missing tool/app or encountered an error during execution.
+        """
     def run_task(self, task: Task) -> bool:
         """
-        Run a single task.
+        Execute a single task by resolving its tool and app, copying static analysis files, and running the task.
+
+        Attempts to retrieve the specified tool and app for the task. If either is not found,
+        the task is marked with an error and not executed. If both are found, the task is set up
+        with the app, static analysis files are copied, and the task is executed via a TaskExecutor.
 
         Args:
-            task: Task to run
+            task (Task): The task to be executed.
 
         Returns:
-            True if task executed successfully, False otherwise
+            bool: True if the task was executed successfully, False if the task failed due to
+                  missing tool/app or encountered an error during execution.
         """
         self.logger.info(f"Running task {task.id}: {task.config}")
         self.current_task = task

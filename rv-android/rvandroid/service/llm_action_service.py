@@ -165,16 +165,26 @@ class LLMActionService:
 
     def process_state(self, state: Dict[str, Any]) -> List[Dict[str, Any]]:
         """
-        Process the current application state and return suggested actions.
+        Process the current application state to generate AI-driven actions.
+
+        This method performs a comprehensive workflow to analyze the current application state,
+        generate prompts, call a language model, parse its response, and convert actions to a
+        compatible format. It includes performance monitoring, error handling, and optional
+        session recording.
 
         Args:
-            state: Application state dictionary
+            state (Dict[str, Any]): A dictionary representing the current application state,
+                                    containing information about the app's package, activity,
+                                    and other relevant context.
 
         Returns:
-            List of action dictionaries
+            List[Dict[str, Any]]: A list of action dictionaries that can be executed by
+                                   the test automation system, representing suggested
+                                   interactions with the application.
 
         Raises:
-            Exception: If processing fails
+            Exception: If any critical error occurs during state processing, with fallback
+                       to generating default actions.
         """
         # Get logging and performance monitoring
         from rvandroid.util.logging_manager import LoggingManager

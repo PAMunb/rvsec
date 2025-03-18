@@ -81,6 +81,29 @@ class Experiment03:
         self.event_bus.subscribe(EventType.TASK_STARTED, on_task_started)
         self.event_bus.subscribe(EventType.TASK_FAILED, on_task_failed)
 
+    """
+        Execute the entire experiment workflow with configurable pre-processing, execution, and post-processing steps.
+    
+        Manages the full experiment lifecycle including optional monitor generation, APK instrumentation,
+        static analysis, and experiment execution. Supports resuming from a previous state via memory file
+        and provides flexible configuration for experiment parameters.
+    
+        Args:
+            repetitions: Number of times each task should be repeated
+            timeouts: List of timeout durations to apply during experiment
+            tools: Collection of testing tools to be used in the experiment
+            memory_file: Path to a previous execution state file for resuming an experiment
+            generate_monitors: Flag to enable automatic monitor generation
+            instrument: Flag to enable APK instrumentation
+            static_analysis: Flag to enable static code analysis
+            skip_experiment: Flag to bypass experiment execution
+            no_window: Flag to run emulator in headless mode without visual display
+    
+        Note:
+            - If a memory file is provided, the experiment will attempt to resume from that state
+            - Pre-processing steps are conditionally executed based on input flags
+            - Experiment can be fully or partially skipped using configuration parameters
+        """
     def execute(self, repetitions: int, timeouts: List[int], tools: List[AbstractTool],
                 memory_file: str = "", generate_monitors: bool = True, instrument: bool = True,
                 static_analysis: bool = True, skip_experiment: bool = False, no_window: bool = False):

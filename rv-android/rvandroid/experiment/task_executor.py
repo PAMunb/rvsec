@@ -44,10 +44,19 @@ class TaskExecutor:
 
     def execute(self) -> bool:
         """
-        Execute the task and collect results.
+        Execute the task through a comprehensive workflow, including performance monitoring,
+        environment setup, tool execution, and error handling.
+
+        Performs the following key steps:
+        - Validates task configuration
+        - Sets up Android environment
+        - Initializes coverage tracking
+        - Executes specified tool
+        - Processes coverage data
+        - Handles cleanup and error scenarios
 
         Returns:
-            True if execution was successful, False otherwise
+            bool: True if task execution was successful, False otherwise
         """
         # Get performance monitor
         from rvandroid.util.performance_monitor import PerformanceMonitor

@@ -111,13 +111,16 @@ class EventHandler(Generic[T]):
 
     def handle(self, event: T) -> bool:
         """
-        Handle an event if it passes the filter.
+        Process an event by applying an optional filter and invoking the handler's callback.
+
+        Checks if the event passes the optional filter function. If no filter is set or the event
+        passes the filter, the handler's callback is executed.
 
         Args:
-            event: Event to handle
+            event: The event to be processed and potentially handled.
 
         Returns:
-            True if event was handled, False otherwise
+            A boolean indicating whether the event was successfully handled.
         """
         if self.filter_fn is None or self.filter_fn(event):
             self.callback(event)
@@ -127,8 +130,10 @@ class EventHandler(Generic[T]):
 
 class EventBus:
     """
-    Central event bus for publishing and subscribing to events.
-    Implements the observer pattern for decoupled communication.
+    Central event bus for managing event subscriptions and publishing.
+    Implements a publish-subscribe (pub/sub) pattern to enable decoupled communication
+    between different components of the system. Provides a thread-safe mechanism for
+    registering event handlers, filtering events, and broadcasting events across the application.
     """
 
     _instance = None
