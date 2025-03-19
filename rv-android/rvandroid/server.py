@@ -11,28 +11,41 @@ from rvandroid.service.llm_action_service import LLMActionService
 
 class Server:
     """
-    A resilient REST server implementation using Flask.
-    
-    This server runs in a separate thread and is designed to:
-    - Be highly resilient to failures
-    - Support graceful shutdown
-    - Provide detailed status information
-    - Handle errors without affecting the main system
-    - Auto-recover from certain failure conditions
-
-    The Server class implements a RESTful API using Flask, providing an interface
-    for external components to interact with the system. It enables communication
-    between the Android test framework and LLM-based action generation.
+    A resilient and flexible REST server implementation designed for integrating AI-driven test automation.
 
     ### Architectural Decisions:
-    - Runs as a separate thread to ensure non-blocking execution.
-    - Uses Flask's built-in error handling for resilience and stability.
-    - Implements a retry mechanism to handle transient failures and ensure reliability.
+    - Implements a robust, thread-safe REST server using Flask
+    - Provides a non-blocking, event-driven server architecture
+    - Supports graceful startup, shutdown, and error recovery mechanisms
+    - Enables dynamic service configuration and endpoint management
 
     ### Role in the System:
-    - Exposes endpoints for receiving state information and returning AI-driven actions.
-    - Provides a health check API to monitor system stability.
-    - Acts as the main entry point for LLM integration, allowing automation of test interactions.
+    - Acts as the primary communication interface for AI-driven test automation
+    - Provides endpoints for receiving application state and returning suggested actions
+    - Manages the lifecycle of AI service interactions
+    - Supports real-time communication between testing tools and AI action generation
+    - Enables centralized coordination of test automation workflows
+
+    ### Key Considerations:
+    - Implements comprehensive error handling and recovery strategies
+    - Supports configurable server parameters (host, port, retry mechanisms)
+    - Provides health check and status monitoring capabilities
+    - Manages server thread lifecycle with thread-safe mechanisms
+    - Ensures reliable communication between testing components
+
+    ### Integration Strategy:
+    - Deeply integrated with LLM action service and testing frameworks
+    - Compatible with various testing tools and automation platforms
+    - Supports dynamic endpoint configuration
+    - Enables flexible service initialization and shutdown
+    - Provides standardized communication protocols for test automation
+
+    ### Performance and Scalability:
+    - Designed for low-latency, high-throughput service interactions
+    - Implements automatic retry and recovery mechanisms
+    - Supports concurrent request handling
+    - Minimizes resource overhead during server operations
+    - Adaptable to different testing complexity and scale requirements
     """
 
     def __init__(self, service: LLMActionService, host: str = 'localhost', port: int = 5000,

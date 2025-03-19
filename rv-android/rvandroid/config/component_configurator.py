@@ -17,22 +17,41 @@ from rvandroid.parser.screen.visitor.base_visitor import BaseScreenVisitor
 
 class ComponentConfigurator:
     """
-    The ComponentConfigurator class is responsible for managing the configuration
-    of system components within the rvandroid framework. It provides a centralized
-    mechanism for initializing and applying configurations dynamically.
+    A sophisticated configuration management system for dynamically configuring and composing experimental components.
 
     ### Architectural Decisions:
-    - Uses a modular approach to allow flexible configuration of different components.
-    - Supports environment-based and runtime configuration overrides.
-    - Ensures consistency by validating and applying settings before execution.
-    - Integrates with the centralized Configuration system.
+    - Implements a flexible, modular approach to component configuration
+    - Supports dynamic composition of language models, strategies, and parsing components
+    - Provides a centralized mechanism for configuring experimental components
+    - Enables runtime configuration and component selection
 
     ### Role in the System:
-    - Centralizes component configuration to avoid hardcoded settings in individual modules.
-    - Enables dynamic adjustments to experimental parameters and tool integrations.
-    - Supports extensibility, allowing new configurations to be easily incorporated.
-    - Plays a crucial role in ensuring that experiments, analysis tools, and LLM integrations
-      are properly configured before execution.
+    - Acts as a central configuration factory for experiment components
+    - Manages the creation and configuration of language models, parsers, and strategies
+    - Provides a flexible mechanism for swapping and configuring experiment components
+    - Supports complex configuration scenarios across different experimental workflows
+    - Enables runtime customization of AI-driven testing components
+
+    ### Key Considerations:
+    - Supports multiple language model providers and strategies
+    - Handles complex configuration scenarios with type-safe mechanisms
+    - Provides dynamic component creation and configuration
+    - Enables flexible parsing and visitor strategy selection
+    - Supports comprehensive configuration introspection and management
+
+    ### Integration Strategy:
+    - Deeply integrated with the RV-Android experimental framework
+    - Compatible with multiple language models, parsing strategies, and visitor implementations
+    - Supports configuration loading from files and environment variables
+    - Provides a uniform interface for component configuration
+    - Enables dependency injection and component composition
+
+    ### Performance and Scalability:
+    - Designed for lightweight and efficient component configuration
+    - Minimizes overhead in component creation and configuration
+    - Supports dynamic component swapping with minimal performance impact
+    - Adaptable to different experimental complexity levels
+    - Enables efficient runtime configuration management
     """
 
     # Component type registries
@@ -186,6 +205,7 @@ class ComponentConfigurator:
         self.llm_config.strategy_type = strategy_type
 
         # Import the strategy class dynamically
+        # TODO remover
         strategy_class_name = self.STRATEGY_TYPES[strategy_type]
 
         # Import different strategies based on type

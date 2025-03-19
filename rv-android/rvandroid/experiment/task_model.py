@@ -98,18 +98,37 @@ class TaskResult:
 
 class Task:
     """
-    The Task class represents an individual unit of execution within an experiment.
-    It defines the necessary attributes for task scheduling, execution, and tracking.
+    A comprehensive model representing a single task within an experiment workflow.
 
     ### Architectural Decisions:
-    - Implements an object-oriented representation of tasks for better organization.
-    - Supports dependency management, ensuring that tasks execute in the correct order.
-    - Can be extended to include additional execution parameters if needed.
+    - Implements a stateful task representation with rich metadata
+    - Supports detailed task lifecycle tracking
+    - Provides flexible configuration and result management
+    - Enables comprehensive task execution and reporting
 
     ### Role in the System:
-    - Serves as the fundamental building block for experiment workflows.
-    - Enables flexible task execution, whether sequential or parallel.
-    - Works alongside TaskExecutor and ExecutionManager to ensure smooth execution.
+    - Represents a discrete unit of experiment execution
+    - Tracks task configuration, execution status, and results
+    - Manages coverage and error tracking for individual tasks
+    - Supports detailed post-execution analysis
+
+    ### Key Considerations:
+    - Handles complex task state transitions
+    - Supports multiple execution parameters
+    - Provides rich metadata and result tracking
+    - Enables detailed performance and coverage reporting
+
+    ### Integration Strategy:
+    - Compatible with various testing tools and experiment configurations
+    - Supports flexible task scheduling and execution
+    - Integrates with coverage and error tracking systems
+    - Provides standardized task representation
+
+    ### Performance and Scalability:
+    - Lightweight task representation with minimal overhead
+    - Supports large-scale experiment execution
+    - Enables efficient task tracking and reporting
+    - Adaptable to different experiment complexity levels
     """
 
     # Class-level counter for task IDs

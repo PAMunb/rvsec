@@ -22,10 +22,37 @@ from rvandroid.parser.log.logcat_parser import (
 
 class CoverageTracker:
     """
-    Tracks code coverage in real-time by monitoring the logcat file.
+    A real-time coverage tracking system for monitoring method execution during testing.
 
-    This class monitors the logcat file for RVSEC and RVSEC-COV entries during
-    task execution and updates coverage metrics accordingly.
+    ### Architectural Decisions:
+    - Implements thread-safe, event-driven coverage tracking
+    - Uses efficient parsing and storage mechanisms
+    - Supports real-time and post-execution coverage analysis
+    - Provides standardized coverage metric calculation
+
+    ### Role in the System:
+    - Captures and processes runtime method execution data
+    - Tracks code coverage during Android application testing
+    - Generates comprehensive coverage metrics
+    - Supports both live and retrospective coverage analysis
+
+    ### Key Considerations:
+    - Handles complex logcat parsing and method tracking
+    - Supports various static analysis data sources
+    - Implements efficient memory management for large test suites
+    - Provides detailed method execution tracking
+
+    ### Integration Strategy:
+    - Compatible with multiple logging and parsing mechanisms
+    - Integrates with static analysis data
+    - Supports various experiment and task execution workflows
+    - Provides standardized coverage reporting interfaces
+
+    ### Performance and Scalability:
+    - Designed for minimal runtime performance impact
+    - Supports large-scale test execution scenarios
+    - Efficient memory management for long-running tests
+    - Adaptable to different testing tool configurations
     """
 
     def __init__(self, logcat_file: str, static_data: Optional[StaticAnalysisData] = None):

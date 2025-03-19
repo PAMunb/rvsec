@@ -11,14 +11,43 @@ logging = logging_api.getLogger(__name__)
 
 class AbstractTool:
     __metaclass__ = ABCMeta
-    '''
-    This class defines a contract that all tools should follow. 
+    """
+    An abstract base class defining the core contract for test automation tools in the RV-Android framework.
 
-    Args:
-      name(str): The name of the tool 
-      description(str): The tool's description (such as test case generation, and so on) 
-      process_pattern(str): A string with the pattern of the processes to be killed after execution
-    '''
+    ### Architectural Decisions:
+    - Implements a standardized interface for test automation tool integration
+    - Defines a template method pattern for tool execution
+    - Provides a consistent mechanism for tool-specific logic implementation
+    - Supports flexible extension and customization of testing tools
+
+    ### Role in the System:
+    - Serves as the foundational abstraction for all testing tools
+    - Defines a uniform execution workflow for different testing approaches
+    - Enables seamless integration of diverse testing strategies
+    - Provides a standardized mechanism for process management and cleanup
+    - Acts as a critical component in experiment tool orchestration
+
+    ### Key Considerations:
+    - Enforces a consistent execution contract for all tool implementations
+    - Manages tool-specific process termination
+    - Supports flexible tool initialization and configuration
+    - Provides a template for implementing tool-specific execution logic
+    - Ensures proper resource management and process cleanup
+
+    ### Integration Strategy:
+    - Compatible with multiple testing tool implementations
+    - Supports dynamic tool registration and execution
+    - Enables dependency injection and tool composition
+    - Provides a clear extension point for new testing tools
+    - Facilitates tool-agnostic experiment design
+
+    ### Performance and Scalability:
+    - Designed for lightweight tool abstraction
+    - Minimizes overhead in tool execution and management
+    - Supports diverse testing tool implementations
+    - Enables efficient process termination and resource cleanup
+    - Adaptable to different testing complexity and scale requirements
+    """
 
     def __init__(self, name: str, description: str, process_pattern: str):
         self.name = name

@@ -107,17 +107,37 @@ class ConfigValue(Generic[T]):
 
 class Configuration:
     """
-    Centralized configuration management for rv-android.
+    A centralized, type-safe configuration management system for the RV-Android framework.
 
     ### Architectural Decisions:
     - Implements a singleton pattern for global configuration access
-    - Loads configuration from multiple sources with priority ordering
-    - Provides type conversion and validation for configuration values
+    - Uses type-safe configuration value management
+    - Supports multiple configuration sources (environment, files)
+    - Provides comprehensive validation and type conversion
 
     ### Role in the System:
     - Acts as the central source of truth for all configuration parameters
-    - Normalizes access to environment variables, command-line arguments, and defaults
-    - Provides validation to ensure configuration values meet requirements
+    - Normalizes access to environment variables and defaults
+    - Provides validation to ensure configuration integrity
+    - Supports dynamic configuration updates and schema management
+
+    ### Key Considerations:
+    - Handles complex configuration scenarios with robust type handling
+    - Supports environment variable overrides
+    - Provides detailed schema information and validation
+    - Enables flexible configuration loading and saving
+
+    ### Integration Strategy:
+    - Configurable across different components of the RV-Android framework
+    - Supports JSON-based configuration files
+    - Compatible with runtime and static configuration updates
+    - Provides comprehensive configuration introspection
+
+    ### Performance and Scalability:
+    - Lightweight configuration management with minimal overhead
+    - Efficient type conversion and validation mechanisms
+    - Supports large-scale configuration scenarios
+    - Designed for extensibility and future configuration needs
     """
 
     _instance = None

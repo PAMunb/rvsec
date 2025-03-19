@@ -18,10 +18,37 @@ logger = logging.getLogger(__name__)
 
 class LLMActionService:
     """
-    Service that processes application state, generates prompts, sends them to LLM,
-    and returns suggested actions.
+    A sophisticated service that processes application states and generates AI-driven test actions using language models.
 
-    Tracks dynamic screen transitions and uses this information to improve test coverage.
+    ### Architectural Decisions:
+    - Implements a modular, flexible approach to AI-driven test action generation
+    - Uses dependency injection for component configuration
+    - Supports multiple language models and parsing strategies
+    - Implements a dynamic transition graph for tracking application navigation
+
+    ### Role in the System:
+    - Acts as the central intelligence for generating test actions in automated Android testing
+    - Bridges language models with test automation frameworks
+    - Tracks and learns from application navigation patterns
+    - Provides adaptive and intelligent test exploration strategies
+
+    ### Key Considerations:
+    - Handles complex state parsing and action generation
+    - Manages fallback and error recovery mechanisms
+    - Supports session recording and dynamic graph learning
+    - Ensures compatibility with multiple testing tools and frameworks
+
+    ### Integration Strategy:
+    - Configurable through ComponentConfigurator for flexible model and strategy selection
+    - Interacts with parsers, prompt strategies, and language models
+    - Compatible with DroidBot and other Android test automation tools
+    - Uses dynamic transition graph for cross-session learning
+
+    ### Performance and Scalability:
+    - Designed for real-time action generation with minimal overhead
+    - Supports various language model backends
+    - Implements caching and efficient graph-based navigation tracking
+    - Scales dynamically with different app complexities and testing scenarios
 
     Expected LLM Response Format:
     -----------------------------

@@ -99,7 +99,6 @@ class Clazz:
         return f"[{self.name},{self.is_activity},{self.is_main_activity}]"
 
 
-# Part 2: Classes Manager and Event Types
 class Classes:
     """
     Manages all classes and methods in the application.

@@ -22,20 +22,41 @@ from settings import INSTRUMENTED_DIR
 
 class ExecutionManager:
     """
-    The ExecutionManager class is responsible for orchestrating the execution of
-    experiments, ensuring proper coordination between task scheduling, monitoring,
-    and reporting.
+    A sophisticated orchestration system for managing and coordinating the execution of complex experimental tasks.
 
     ### Architectural Decisions:
-    - Implements a centralized execution control to manage the lifecycle of experiments.
-    - Integrates with the TaskExecutor to handle concurrent and sequential task execution.
-    - Provides error handling and logging mechanisms to ensure reliable execution.
+    - Implements a centralized task management and execution control mechanism
+    - Supports flexible task scheduling and tracking
+    - Provides comprehensive state management for experimental tasks
+    - Enables dynamic task registration and execution strategies
 
     ### Role in the System:
-    - Acts as the core experiment controller, managing the execution flow.
-    - Ensures that execution parameters (timeouts, repetitions, etc.) are properly applied.
-    - Collects and processes execution results, feeding them into analysis modules.
-    - Coordinates interactions between experiment tasks, logging, and runtime monitoring.
+    - Acts as the primary controller for experiment task lifecycle management
+    - Coordinates the execution flow of multiple tasks across different applications and tools
+    - Manages task storage, retrieval, and state tracking
+    - Generates comprehensive coverage and performance reports
+    - Supports experiment resumption and stateful execution
+
+    ### Key Considerations:
+    - Handles complex task configuration and execution scenarios
+    - Provides robust error handling and task state management
+    - Supports parallel and sequential task execution strategies
+    - Enables detailed performance and coverage metrics collection
+    - Manages task dependencies and execution constraints
+
+    ### Integration Strategy:
+    - Seamlessly integrates with task storage, event systems, and reporting mechanisms
+    - Compatible with multiple testing tools and experimental configurations
+    - Supports dynamic tool and application registration
+    - Provides flexible configuration through dependency injection
+    - Enables comprehensive experiment state tracking
+
+    ### Performance and Scalability:
+    - Designed for efficient task management across diverse experimental scenarios
+    - Supports large-scale experiment execution with minimal overhead
+    - Implements optimized task tracking and reporting mechanisms
+    - Adaptable to different complexity levels of experimental workflows
+    - Provides granular performance metrics and execution insights
     """
 
     def __init__(self, storage: TaskStorage, event_bus: Optional[EventBus] = None):

@@ -20,21 +20,39 @@ from settings import TIMESTAMP, RESULTS_DIR, INSTRUMENTED_DIR
 
 class Experiment03:
     """
-    The Experiment03 class defines the execution logic for a predefined testing experiment.
-    It coordinates the initialization, execution, and termination of automated experiments
-    involving Android applications.
+    A sophisticated experiment orchestration system for comprehensive Android application testing and runtime verification.
 
     ### Architectural Decisions:
-    - Designed to support multiple tools (e.g., Monkey, DroidBot) in a modular way.
-    - Implements configurable execution parameters (timeouts, repetitions, etc.).
-    - Ensures reproducibility by logging execution states and results.
-    - Uses an event-based system for communication between components.
+    - Implements a modular, event-driven approach to experiment execution
+    - Supports configurable pre-processing, execution, and post-processing stages
+    - Enables flexible tool integration and multi-stage experiment workflow
+    - Provides robust error handling and logging mechanisms
 
     ### Role in the System:
-    - Acts as the primary orchestrator for automated testing experiments.
-    - Interacts with Android emulators, test tools, and instrumentation modules.
-    - Collects and processes experimental data for analysis and reporting.
-    - Coordinates the execution flow across all experiment phases.
+    - Acts as the primary experiment coordinator for automated Android testing
+    - Manages the entire lifecycle of a testing experiment
+    - Coordinates interactions between tools, emulators, and analysis modules
+    - Enables reproducible and configurable testing scenarios
+
+    ### Key Considerations:
+    - Supports dynamic configuration of experiment parameters
+    - Handles complex pre-processing tasks like monitor generation and APK instrumentation
+    - Manages task scheduling, execution, and result collection
+    - Provides comprehensive logging and performance tracking
+    - Supports resuming experiments from previous execution states
+
+    ### Integration Strategy:
+    - Compatible with multiple testing tools and runtime verification approaches
+    - Integrates with Android emulation, instrumentation, and analysis systems
+    - Uses dependency injection for tool and configuration management
+    - Supports event-based communication between experiment components
+
+    ### Performance and Scalability:
+    - Designed for efficient execution across diverse experiment configurations
+    - Minimizes overhead through modular and event-driven architecture
+    - Supports parallel and sequential task execution
+    - Adaptable to different app complexities and testing requirements
+    - Enables comprehensive performance and coverage reporting
     """
 
     def __init__(self):

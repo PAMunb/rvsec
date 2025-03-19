@@ -21,18 +21,41 @@ logging = logging_api.getLogger(__name__)
 
 class RvAndroid(object):
     """
-    The RvAndroid class is responsible for instrumenting Android APKs, injecting
-    runtime monitoring components into applications to enable security and behavior analysis.
+    A specialized system for instrumenting and preparing Android APKs for runtime verification and security analysis.
 
     ### Architectural Decisions:
-    - Uses Dex-to-Jar (d2j) tools to decompile APKs and insert monitoring code.
-    - Applies AspectJ for weaving runtime verification aspects.
-    - Ensures that instrumented applications remain functional while capturing security-relevant events.
+    - Implements a comprehensive APK instrumentation pipeline
+    - Uses advanced decompilation and recompilation techniques
+    - Integrates multiple tools for static and dynamic code modification
+    - Provides a robust mechanism for injecting monitoring capabilities
 
     ### Role in the System:
-    - Central to the instrumentation phase of experiments, modifying APKs for analysis.
-    - Supports automated security assessments by injecting monitoring capabilities.
-    - Ensures seamless integration with the runtime verification modules of the system.
+    - Serves as the core instrumentation engine for Android application analysis
+    - Transforms standard APKs into instrumentable test artifacts
+    - Enables runtime verification by injecting monitoring components
+    - Supports automated security and behavior analysis workflows
+    - Provides a critical preprocessing step for experimental testing
+
+    ### Key Considerations:
+    - Handles complex APK decompilation and recompilation processes
+    - Manages library and dependency integration
+    - Supports multiple instrumentation strategies
+    - Implements comprehensive error handling for instrumentation workflows
+    - Ensures minimal disruption to original application behavior
+
+    ### Integration Strategy:
+    - Deeply integrated with runtime verification and testing frameworks
+    - Compatible with various Android development and testing tools
+    - Supports flexible instrumentation configuration
+    - Enables seamless injection of monitoring and analysis components
+    - Provides standardized instrumentation workflows
+
+    ### Performance and Scalability:
+    - Designed for efficient APK transformation
+    - Minimizes performance overhead during instrumentation
+    - Supports batch processing of multiple APKs
+    - Adaptable to different application complexities
+    - Provides robust error recovery and reporting mechanisms
     """
 
     def __init__(self):

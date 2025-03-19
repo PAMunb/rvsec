@@ -20,20 +20,37 @@ from rvandroid.util.performance_monitor import PerformanceMonitor
 
 class TaskExecutor:
     """
-    The TaskExecutor class is responsible for managing the execution of individual
-    tasks within an experiment. It processes tasks sequentially or in parallel,
-    ensuring proper scheduling and monitoring.
+    Manages the execution of individual tasks within an experiment workflow.
 
     ### Architectural Decisions:
-    - Delegates specific responsibilities to specialized components
-    - Uses context managers for proper resource management
-    - Provides comprehensive error handling and event notification
-    - Monitors performance metrics during execution
+    - Implements a robust, context-managed approach to task execution
+    - Uses dependency injection for component management
+    - Supports comprehensive error handling and performance tracking
+    - Provides flexible task lifecycle management
 
     ### Role in the System:
-    - Coordinates the execution flow for individual tasks
-    - Integrates with EventSystem to report execution status
-    - Manages coverage tracking and result collection
+    - Coordinates the detailed execution flow of individual experiment tasks
+    - Manages emulator interactions, app installation, and tool execution
+    - Tracks and collects coverage data during task execution
+    - Ensures proper resource management and cleanup
+
+    ### Key Considerations:
+    - Handles complex task configuration and runtime scenarios
+    - Supports multiple testing tools and execution strategies
+    - Implements comprehensive logging and performance monitoring
+    - Manages intricate task state transitions
+
+    ### Integration Strategy:
+    - Interacts with emulator management, logcat tracking, and coverage systems
+    - Compatible with various testing tools and experiment configurations
+    - Uses event-driven architecture for communication
+    - Supports dynamic task configuration
+
+    ### Performance and Scalability:
+    - Designed for efficient, parallel task execution
+    - Minimizes resource overhead during task processing
+    - Supports adaptable performance monitoring
+    - Scales across different experiment configurations and complexities
     """
 
     def __init__(self, task: Task, tool: AbstractTool, event_bus: Optional[EventBus] = None):

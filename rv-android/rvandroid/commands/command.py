@@ -37,20 +37,41 @@ def kill_process_tree(pid: int):
 
 class Command:
     """
-    The Command class provides an abstraction for executing system commands
-    within the rvandroid framework. It is designed to standardize command execution,
-    handling output, errors, and timeouts in a controlled manner.
+    A robust system command execution utility with comprehensive process management and error handling capabilities.
 
     ### Architectural Decisions:
-    - Uses subprocess calls to execute system commands securely.
-    - Implements output capturing to facilitate debugging and logging.
-    - Supports timeout enforcement to prevent long-running or stuck processes.
+    - Implements a flexible and secure approach to system command execution
+    - Provides standardized handling of command invocation and result processing
+    - Supports timeout enforcement and process tree management
+    - Ensures consistent output and error capturing across different command scenarios
 
     ### Role in the System:
-    - Acts as a utility for executing ADB, emulator, and analysis-related commands.
-    - Ensures consistent handling of command execution across different modules.
-    - Provides error reporting mechanisms to detect failures and log execution results.
-    - Facilitates automation by integrating with experiment workflows and instrumentation tools.
+    - Acts as a critical utility for executing system commands across the RV-Android framework
+    - Abstracts low-level command execution complexities
+    - Provides a uniform interface for invoking shell commands, ADB operations, and tool interactions
+    - Manages process lifecycle, including timeout handling and clean termination
+    - Enables reliable and predictable command execution in testing and automation workflows
+
+    ### Key Considerations:
+    - Handles cross-platform command execution challenges
+    - Implements robust process management and termination strategies
+    - Supports multiple execution modes (synchronous and daemon)
+    - Provides comprehensive error handling and reporting
+    - Ensures secure and controlled command invocation
+
+    ### Integration Strategy:
+    - Deeply integrated with Android testing and instrumentation tools
+    - Compatible with various system command scenarios
+    - Supports flexible timeout and process management configurations
+    - Enables seamless command execution across different modules
+    - Provides standardized result object for consistent processing
+
+    ### Performance and Scalability:
+    - Designed for efficient and lightweight command execution
+    - Minimizes resource overhead during command processing
+    - Supports timeout mechanisms to prevent long-running commands
+    - Implements recursive process tree termination for comprehensive cleanup
+    - Adaptable to different command complexity and system environments
     """
 
     def __init__(self, command: str, args: list = None, timeout: float = None):

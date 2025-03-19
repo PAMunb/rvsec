@@ -134,6 +134,43 @@ class EventBus:
     Implements a publish-subscribe (pub/sub) pattern to enable decoupled communication
     between different components of the system. Provides a thread-safe mechanism for
     registering event handlers, filtering events, and broadcasting events across the application.
+
+    A robust, thread-safe publish-subscribe event management system for decoupled communication across the rvandroid framework.
+
+    ### Architectural Decisions:
+    - Implements a sophisticated pub/sub pattern with high flexibility
+    - Provides thread-safe event handling and subscription management
+    - Supports multiple event types and granular filtering
+    - Enables dynamic event registration and unregistration
+    - Maintains a configurable event history for traceability
+
+    ### Role in the System:
+    - Serves as the central communication backbone for the experimental framework
+    - Facilitates loose coupling between different system components
+    - Enables real-time event tracking and notification
+    - Supports complex event-driven workflows across experiment lifecycle
+    - Provides a standardized mechanism for inter-component communication
+
+    ### Key Considerations:
+    - Manages multiple event types with type-safe handling
+    - Supports sophisticated event filtering and routing
+    - Implements efficient event dispatch mechanisms
+    - Provides comprehensive event tracking and historical analysis
+    - Ensures minimal performance overhead during event processing
+
+    ### Integration Strategy:
+    - Compatible with all experimental framework components
+    - Supports dynamic event handler registration
+    - Allows fine-grained event subscription and filtering
+    - Provides methods for event history retrieval and analysis
+    - Enables cross-component communication without direct dependencies
+
+    ### Performance and Scalability:
+    - Designed for high-performance, low-latency event dispatching
+    - Supports concurrent event processing with thread-safe mechanisms
+    - Configurable event history size for memory management
+    - Scales efficiently across complex experimental workflows
+    - Minimizes computational overhead through optimized event handling
     """
 
     _instance = None
