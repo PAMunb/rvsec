@@ -56,13 +56,6 @@ class CoverageTracker:
     """
 
     def __init__(self, logcat_file: str, static_data: Optional[StaticAnalysisData] = None):
-        """
-        Initialize the coverage tracker.
-
-        Args:
-            logcat_file: Path to the logcat file
-            static_data: Static analysis data for the app
-        """
         self.logger = logging.getLogger(__name__)
         self.logcat_file = logcat_file
         self.static_data = static_data
@@ -97,8 +90,6 @@ class CoverageTracker:
         self.total_method_calls = 0
 
         # Initialize all_methods from static_data if available
-        print(f"static_data={static_data}")
-        print(f"static_data.classes={static_data.classes}")
         if static_data and static_data.classes:
             self._initialize_from_static_data()
 
@@ -109,13 +100,9 @@ class CoverageTracker:
 
             # Initialize classes and methods from static data
             classes = self.static_data.classes
-            print(f"******* classes={classes}")
-            for clazz in classes.classes:
-                print(f"CLASS={clazz}")
 
             self.all_methods = {}
             for class_name, class_info in classes.classes.items():
-                print(f"CLASS={class_name}")
                 self.all_methods[class_name] = {
                     "is_activity": class_info.is_activity,
                     "methods": {}
@@ -126,7 +113,6 @@ class CoverageTracker:
 
                 # Add methods from class
                 for method in class_info.methods:
-                    print(f"  --- {method.signature}")
                     self.all_methods[class_name]["methods"][method.signature] = {
                         "reachable": method.reachable,
                         "reaches_mop": method.reaches_mop,
@@ -134,14 +120,14 @@ class CoverageTracker:
                         "called": False
                     }
 
-                    # Also add to the repository
+                    # Also add to the repository - standardized model
                     class_data = self.repository.get_class(class_name)
                     if not class_data:
                         from rvandroid.model.coverage import ClassCoverageData
                         class_data = ClassCoverageData(
                             name=class_name,
                             is_activity=class_info.is_activity,
-                            is_main_activity=class_info.is_main_activity
+                            is_main_activity=getattr(class_info, "is_main_activity", False)
                         )
                         self.repository.add_class(class_data)
 
@@ -150,7 +136,7 @@ class CoverageTracker:
                         class_name=class_name,
                         method_name=method.name,
                         signature=method.signature,
-                        parameters=method.params,
+                        parameters=getattr(method, "params", []),
                         reachable=method.reachable,
                         reaches_mop=method.reaches_mop,
                         directly_reaches_mop=method.directly_reaches_mop
@@ -307,32 +293,6 @@ class CoverageTracker:
             except Exception as e:
                 self.logger.error(f"Error processing line: {e}", exc_info=True)
 
-    def _handle_error_log(self, error: RvErrorLog):
-        """
-        Handle an RVSEC log entry.
-
-        Args:
-            error: Parsed error log entry
-        """
-        try:
-            # Skip if we've already seen this error
-            if error.unique_msg in self.seen_errors:
-                return
-
-            # Add to seen errors and tracked errors
-            self.seen_errors.add(error.unique_msg)
-            self.errors.append(error)
-            self.total_errors += 1
-
-            # Add to the repository
-            self.repository.register_error(error)
-
-            # Log that we found an error
-            self.logger.debug(f"Tracked error in {error.class_full_name}.{error.method}: {error.message}")
-
-        except Exception as e:
-            self.logger.error(f"Error handling RVSEC log: {e}", exc_info=True)
-
     def _handle_coverage_log(self, coverage: RvCoverageLog):
         """
         Handle an RVSEC-COV log entry.
@@ -341,12 +301,10 @@ class CoverageTracker:
             coverage: Parsed coverage log entry
         """
         try:
-            # print(f"self.class_methods={self.class_methods}")
-            # print(f"coverage.clazz={coverage.clazz}")
             # Initialize tracking structures if needed
             if coverage.clazz not in self.class_methods:
                 self.class_methods[coverage.clazz] = []
-                self.seen_method_calls[coverage.clazz] = set()
+                self.seen_method_calls[coverage.clazz] = set()  # Use the attribute we fixed
 
             # Skip if we've already seen this method signature
             if coverage.signature in self.seen_method_calls[coverage.clazz]:
@@ -374,6 +332,32 @@ class CoverageTracker:
 
         except Exception as e:
             self.logger.error(f"Error handling RVSEC-COV log: {e}", exc_info=True)
+
+    def _handle_error_log(self, error: RvErrorLog):
+        """
+        Handle an RVSEC log entry, prioritizing repository updates.
+
+        Args:
+            error: Parsed error log entry
+        """
+        try:
+            # IMPORTANT: First update the repository (primary data model)
+            self.repository.register_error(error)
+
+            # Skip if we've already seen this error (using in-memory set for efficiency)
+            if error.unique_msg in self.seen_errors:
+                return
+
+            # Update legacy structures for backward compatibility
+            self.seen_errors.add(error.unique_msg)
+            self.errors.append(error)
+            self.total_errors += 1
+
+            # Log that we found an error
+            self.logger.debug(f"Tracked error in {error.class_full_name}.{error.method}: {error.message}")
+
+        except Exception as e:
+            self.logger.error(f"Error handling RVSEC log: {e}", exc_info=True)
 
     def _update_coverage_metrics(self):
         """Update coverage metrics based on current tracking data."""
@@ -430,17 +414,42 @@ class CoverageTracker:
         Returns:
             Dictionary of coverage metrics
         """
-        metrics_dict = self.repository.calculate_metrics().to_dict()
+        # First try to get metrics from the repository (standardized model)
+        try:
+            metrics_dict = self.repository.calculate_metrics().to_dict()
 
-        # For backward compatibility
-        summary = self.coverage.get("SUMMARY", {})
+            # For backward compatibility
+            summary = self.coverage.get("SUMMARY", {})
 
-        return {
-            "method_coverage": metrics_dict["method_coverage"],
-            "activities_coverage": metrics_dict["activity_coverage"],
-            "activities_coverage_total": summary.get("activities_coverage_total", 0),
-            "methods_jca_reachable_coverage": metrics_dict["mop_method_coverage"],
-            "methods_jca_reachable_coverage_total": summary.get("methods_jca_reachable_coverage_total", 0),
-            "total_errors": self.total_errors,
-            "total_method_calls": self.total_method_calls
-        }
+            return {
+                # Prefer repository metrics when available
+                "method_coverage": metrics_dict.get("method_coverage",
+                                                    summary.get("method_coverage", 0)),
+                "activities_coverage": metrics_dict.get("activity_coverage",
+                                                        summary.get("activities_coverage", 0)),
+                "methods_jca_reachable_coverage": metrics_dict.get("mop_method_coverage",
+                                                                   summary.get("methods_jca_reachable_coverage", 0)),
+
+                # TODO remove legacy code
+                # Include legacy metrics for compatibility
+                "activities_coverage_total": summary.get("activities_coverage_total", 0),
+                "methods_jca_reachable_coverage_total": summary.get("methods_jca_reachable_coverage_total", 0),
+
+                # Use direct counters for simple metrics
+                "total_errors": self.total_errors,
+                "total_method_calls": self.total_method_calls
+            }
+        except Exception as e:
+            self.logger.warning(f"Error getting metrics from repository: {e}, falling back to legacy metrics")
+
+            # Fall back to legacy metrics if there's an error
+            summary = self.coverage.get("SUMMARY", {})
+            return {
+                "method_coverage": summary.get("method_coverage", 0),
+                "activities_coverage": summary.get("activities_coverage", 0),
+                "activities_coverage_total": summary.get("activities_coverage_total", 0),
+                "methods_jca_reachable_coverage": summary.get("methods_jca_reachable_coverage", 0),
+                "methods_jca_reachable_coverage_total": summary.get("methods_jca_reachable_coverage_total", 0),
+                "total_errors": self.total_errors,
+                "total_method_calls": self.total_method_calls
+            }

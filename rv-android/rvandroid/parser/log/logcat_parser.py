@@ -59,13 +59,13 @@ def parse_logcat_file(log_file: str) -> Tuple[
         - Dictionary of called methods organized by class
         - Chronologically ordered list of coverage logs
     """
-    # Use a simpler structure: {class_name: [method_logs]}
-    # This avoids using method names as keys
+    # Use standardized data structures
     class_methods: Dict[str, List[RvCoverageLog]] = {}
     methods: List[RvCoverageLog] = []
     rvsec_error_msgs: Set[str] = set()
     errors: List[RvErrorLog] = []
 
+    # Process log file line by line for memory efficiency
     for entry in _parse_logcat_entries(log_file):
         message = entry["message"]
         date = _convert_to_datetime(entry["date"], entry["time"])

@@ -39,13 +39,18 @@ class CoverageAnalyzer:
         """
         self.logger = logging.getLogger(__name__)
         self.static_data = static_data
+
+        # Primary model: standardized repository
         self.repository = CoverageRepository()
+
+        # Legacy structures for backward compatibility
         self.class_methods = {}
         self.errors = []
 
     def process_logcat_file(self, logcat_file: str) -> Dict:
         """
         Process a logcat file to extract coverage and error information.
+        Uses standardized parsing and data models.
 
         Args:
             logcat_file: Path to the logcat file
@@ -55,24 +60,41 @@ class CoverageAnalyzer:
         """
         from rvandroid.parser.log.logcat_parser import parse_logcat_file
 
-        errors, called_methods, _ = parse_logcat_file(logcat_file)
-        self.errors = errors
-        self.class_methods = called_methods
+        # Parse logcat file using standardized parser
+        errors, called_methods, sorted_methods = parse_logcat_file(logcat_file)
 
-        # Calculate coverage
+        # Store parsed data in both repository and legacy structures
+        self.errors = errors
+        self.class_methods = {
+            class_name: [
+                method for method in methods.values()
+            ] for class_name, methods in {
+                class_name: class_data["methods"]
+                for class_name, class_data in called_methods.items()
+            }.items()
+        }
+
+        # Register all errors and method calls in the repository
+        for error in errors:
+            self.repository.register_error(error)
+
+        for method in sorted_methods:
+            self.repository.register_method_call(method)
+
+        # Calculate coverage using the repository
         return self.calculate_coverage()
 
     def add_method_call(self, coverage_log: RvCoverageLog) -> None:
         """
-        Add a method call to the analyzer's data.
+        Add a method call to the analyzer's data using standardized model.
 
         Args:
             coverage_log: Coverage log entry to add
         """
-        # Add to repository
+        # First update repository (primary model)
         self.repository.register_method_call(coverage_log)
 
-        # Add to class_methods for backward compatibility
+        # Then update legacy structures for backward compatibility
         if coverage_log.clazz not in self.class_methods:
             self.class_methods[coverage_log.clazz] = []
 
@@ -80,25 +102,55 @@ class CoverageAnalyzer:
 
     def add_error(self, error_log: RvErrorLog) -> None:
         """
-        Add an error to the analyzer's data.
+        Add an error to the analyzer's data using standardized model.
 
         Args:
             error_log: Error log entry to add
         """
+        # First update repository (primary model)
         self.repository.register_error(error_log)
+
+        # Then update legacy structures for backward compatibility
         self.errors.append(error_log)
 
     def calculate_coverage(self) -> Dict:
         """
         Calculate coverage metrics based on collected data.
+        Prefers repository-based metrics when available.
 
         Returns:
             Dictionary with coverage results
         """
-        if not self.static_data or not hasattr(self.static_data, "classes"):
-            self.logger.warning("No static data available for coverage calculation")
-            return {"SUMMARY": {}}
+        # First get metrics from repository
+        repository_metrics = self.repository.calculate_metrics().to_dict()
 
+        # For backward compatibility, also calculate using legacy approach
+        if self.static_data and hasattr(self.static_data, "classes"):
+            legacy_coverage = self._calculate_legacy_coverage()
+
+            # Merge metrics, preferring repository metrics where available
+            result = legacy_coverage
+
+            # Update summary with repository metrics
+            if "SUMMARY" in result:
+                result["SUMMARY"].update({
+                    "method_coverage": repository_metrics["method_coverage"],
+                    "activity_coverage": repository_metrics["activity_coverage"],
+                    "mop_method_coverage": repository_metrics["mop_method_coverage"]
+                })
+
+            return result
+        else:
+            # If static data not available, just return repository metrics
+            return {"SUMMARY": repository_metrics}
+
+    def _calculate_legacy_coverage(self) -> Dict:
+        """
+        Calculate coverage using legacy approach for backward compatibility.
+
+        Returns:
+            Dictionary with coverage results in legacy format
+        """
         # Convert class_methods to compatible format
         formatted_methods = {}
         for class_name, methods in self.class_methods.items():
@@ -122,20 +174,20 @@ class CoverageAnalyzer:
                     "called": False
                 }
 
-        # Process coverage
+        # Process coverage using legacy function
         return process_coverage(formatted_methods, all_methods)
 
     def get_metrics(self) -> Dict:
         """
-        Get coverage metrics from repository.
+        Get coverage metrics, preferring repository-based metrics.
 
         Returns:
             Dictionary with metrics
         """
+        # Get metrics from repository (primary model)
         metrics = self.repository.calculate_metrics().to_dict()
 
         # For backward compatibility
-        # TODO rever uso a linha abaixo para poder remover
         summary = self.calculate_coverage().get("SUMMARY", {})
 
         return {

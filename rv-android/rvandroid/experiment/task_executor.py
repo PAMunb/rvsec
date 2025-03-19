@@ -224,7 +224,10 @@ class TaskExecutor:
         self._publish_event(EventType.TOOL_STOPPED, {"tool_name": self.tool.name})
 
     def _process_coverage_data(self) -> None:
-        """Process coverage data after task execution."""
+        """
+        Process coverage data after task execution.
+        Enhances the task with unified model-based coverage data.
+        """
         if not self.coverage_tracker:
             self.logger.warning("No coverage tracker available to process coverage data")
             return
@@ -247,16 +250,32 @@ class TaskExecutor:
         # Update coverage metrics one final time
         self.coverage_tracker._update_coverage_metrics()
 
-        # Copy coverage data to task
-        self.task.class_methods = self.coverage_tracker.class_methods
-        self.task.errors = self.coverage_tracker.errors
-        self.task.coverage = self.coverage_tracker.coverage
+        # Use repository as the primary data source when available
+        if hasattr(self.coverage_tracker, 'repository'):
+            # Get metrics from repository
+            metrics = self.coverage_tracker.repository.calculate_metrics().to_dict()
 
-        # Additional explicit copy of formatted methods
-        self.task.called_methods = self.coverage_tracker.formatted_methods
+            # Update task metrics with repository data
+            self.task.result.coverage_metrics.update({
+                "method_coverage": metrics["method_coverage"],
+                "activities_coverage": metrics["activity_coverage"],
+                "methods_jca_reachable_coverage": metrics["mop_method_coverage"],
+                "total_errors": len(self.coverage_tracker.errors),
+                "total_method_calls": sum(len(methods) for methods in self.coverage_tracker.class_methods.values())
+            })
 
-        # Explicitly update task coverage
-        self.task.update_coverage()
+        # Otherwise fall back to legacy data
+        else:
+            # Copy coverage data to task (legacy approach)
+            self.task.class_methods = self.coverage_tracker.class_methods
+            self.task.errors = self.coverage_tracker.errors
+            self.task.coverage = self.coverage_tracker.coverage
+
+            # Additional explicit copy of formatted methods
+            self.task.called_methods = self.coverage_tracker.formatted_methods
+
+            # Explicitly update task coverage
+            self.task.update_coverage()
 
         # Log coverage summary
         metrics = self.task.result.coverage_metrics
