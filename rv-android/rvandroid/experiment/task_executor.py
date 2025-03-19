@@ -225,8 +225,7 @@ class TaskExecutor:
 
     def _process_coverage_data(self) -> None:
         """
-        Process coverage data after task execution.
-        Enhances the task with unified model-based coverage data.
+        Process coverage data after task execution using standardized models.
         """
         if not self.coverage_tracker:
             self.logger.warning("No coverage tracker available to process coverage data")
@@ -239,43 +238,26 @@ class TaskExecutor:
         self.logcat_manager.stop_capture()
 
         # Log the raw counts for debugging
-        class_count = len(self.coverage_tracker.class_methods)
-        method_count = sum(len(methods) for methods in self.coverage_tracker.class_methods.values())
-        self.logger.info(f"Processing coverage data: {class_count} classes, {method_count} methods")
+        self.logger.info("Processing coverage data from repository")
 
-        # Make sure we have static data
-        if not self.task.static_data:
-            self.logger.warning("No static data available in task for coverage calculation")
+        # Get repository from coverage tracker
+        repository = self.coverage_tracker.repository
 
-        # Update coverage metrics one final time
-        self.coverage_tracker._update_coverage_metrics()
+        # Calculate metrics using the repository
+        metrics = repository.calculate_metrics()
+        metrics_dict = metrics.to_dict()
 
-        # Use repository as the primary data source when available
-        if hasattr(self.coverage_tracker, 'repository'):
-            # Get metrics from repository
-            metrics = self.coverage_tracker.repository.calculate_metrics().to_dict()
+        # Update task result with metrics from repository
+        self.task.result.coverage_metrics.update({
+            "method_coverage": metrics_dict["method_coverage"],
+            "activities_coverage": metrics_dict["activity_coverage"],
+            "methods_jca_reachable_coverage": metrics_dict["mop_method_coverage"],
+            "total_errors": metrics_dict["unique_errors"],
+            "total_method_calls": metrics.called_methods
+        })
 
-            # Update task metrics with repository data
-            self.task.result.coverage_metrics.update({
-                "method_coverage": metrics["method_coverage"],
-                "activities_coverage": metrics["activity_coverage"],
-                "methods_jca_reachable_coverage": metrics["mop_method_coverage"],
-                "total_errors": len(self.coverage_tracker.errors),
-                "total_method_calls": sum(len(methods) for methods in self.coverage_tracker.class_methods.values())
-            })
-
-        # Otherwise fall back to legacy data
-        else:
-            # Copy coverage data to task (legacy approach)
-            self.task.class_methods = self.coverage_tracker.class_methods
-            self.task.errors = self.coverage_tracker.errors
-            self.task.coverage = self.coverage_tracker.coverage
-
-            # Additional explicit copy of formatted methods
-            self.task.called_methods = self.coverage_tracker.formatted_methods
-
-            # Explicitly update task coverage
-            self.task.update_coverage()
+        # Transfer the repository to the task for later use
+        self.task.repository = repository
 
         # Log coverage summary
         metrics = self.task.result.coverage_metrics

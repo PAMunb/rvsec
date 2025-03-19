@@ -327,13 +327,11 @@ class Experiment03:
     def _post_process(self):
         """
         Process results after experiment execution and generate diagnostics.
-
-        Generates coverage reports, analyzes experiment results, creates visualizations,
-        and produces diagnostic information to help interpret the experiment outcome.
+        Uses standardized models for result processing.
         """
         self.logger.info("Processing results...")
 
-        # Generate coverage report
+        # Generate coverage report using standardized models
         coverage_report = self.execution_manager.get_coverage_report()
         report_path = os.path.join(self.results_dir, "coverage_report.json")
 
@@ -343,9 +341,9 @@ class Experiment03:
 
         self.logger.info(f"Coverage report saved to {report_path}")
 
-        # Process analysis results
-        import rvandroid.analysis.results_analysis as res
-        results = res.process_results(self.results_dir)
+        # Process analysis results using standardized models
+        from rvandroid.analysis.results_analysis import process_results
+        results = process_results(self.results_dir)
 
         # Generate performance metrics dashboard
         try:

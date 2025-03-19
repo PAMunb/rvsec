@@ -48,7 +48,7 @@ def parse_logcat_file(log_file: str) -> Tuple[
     List[RvErrorLog], Dict[str, Dict[str, Dict[str, RvCoverageLog]]], List[RvCoverageLog]]:
     """
     Parse a logcat file and extract runtime verification logs.
-    This version uses a generator-based approach for better memory efficiency.
+    Returns primarily standardized models, with legacy structures for compatibility.
 
     Args:
         log_file (str): Path to the logcat file
@@ -56,14 +56,13 @@ def parse_logcat_file(log_file: str) -> Tuple[
     Returns:
         Tuple containing:
         - List of error logs
-        - Dictionary of called methods organized by class
+        - Dictionary of called methods organized by class (legacy format)
         - Chronologically ordered list of coverage logs
     """
-    # Use standardized data structures
-    class_methods: Dict[str, List[RvCoverageLog]] = {}
+    # Initialize data structures
+    errors: List[RvErrorLog] = []
     methods: List[RvCoverageLog] = []
     rvsec_error_msgs: Set[str] = set()
-    errors: List[RvErrorLog] = []
 
     # Process log file line by line for memory efficiency
     for entry in _parse_logcat_entries(log_file):
@@ -83,29 +82,19 @@ def parse_logcat_file(log_file: str) -> Tuple[
             coverage = _parse_coverage_message(message)
             coverage.time_occurred = date
             coverage.original_msg = entry["original"]
-
-            # Initialize the class list if it doesn't exist
-            if coverage.clazz not in class_methods:
-                class_methods[coverage.clazz] = []
-
-            # Add to the class's method list
-            class_methods[coverage.clazz].append(coverage)
             methods.append(coverage)
 
     # Sort methods by timestamp
     sorted_methods = sorted(methods, key=lambda x: x.time_occurred)
 
-    # Convert the structure to match expected format for backwards compatibility
-    formatted_methods = {}
-    for class_name, method_logs in class_methods.items():
-        formatted_methods[class_name] = {
-            "methods": {
-                # Use signature as key instead of just method name
-                log.signature: log for log in method_logs
-            }
-        }
+    # For backward compatibility, also construct the legacy format
+    legacy_format = {}
+    for method in sorted_methods:
+        if method.clazz not in legacy_format:
+            legacy_format[method.clazz] = {"methods": {}}
+        legacy_format[method.clazz]["methods"][method.signature] = method
 
-    return errors, formatted_methods, sorted_methods
+    return errors, legacy_format, sorted_methods
 
 
 def stream_logcat_entries(log_file: str) -> Generator[Dict[str, Any], None, None]:

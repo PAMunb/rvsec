@@ -7,7 +7,6 @@ Acts as a facade for different analysis functionalities.
 import logging
 from typing import Dict
 
-from rvandroid.analysis.coverage import process_coverage
 from rvandroid.model.coverage import CoverageRepository
 from rvandroid.model.log import RvCoverageLog, RvErrorLog
 
@@ -43,10 +42,6 @@ class CoverageAnalyzer:
         # Primary model: standardized repository
         self.repository = CoverageRepository()
 
-        # Legacy structures for backward compatibility
-        self.class_methods = {}
-        self.errors = []
-
     def process_logcat_file(self, logcat_file: str) -> Dict:
         """
         Process a logcat file to extract coverage and error information.
@@ -60,19 +55,8 @@ class CoverageAnalyzer:
         """
         from rvandroid.parser.log.logcat_parser import parse_logcat_file
 
-        # Parse logcat file using standardized parser
-        errors, called_methods, sorted_methods = parse_logcat_file(logcat_file)
-
-        # Store parsed data in both repository and legacy structures
-        self.errors = errors
-        self.class_methods = {
-            class_name: [
-                method for method in methods.values()
-            ] for class_name, methods in {
-                class_name: class_data["methods"]
-                for class_name, class_data in called_methods.items()
-            }.items()
-        }
+        # Parse logcat file
+        errors, _, sorted_methods = parse_logcat_file(logcat_file)
 
         # Register all errors and method calls in the repository
         for error in errors:
@@ -81,8 +65,8 @@ class CoverageAnalyzer:
         for method in sorted_methods:
             self.repository.register_method_call(method)
 
-        # Calculate coverage using the repository
-        return self.calculate_coverage()
+        # Calculate and return coverage
+        return self.get_coverage_metrics()
 
     def add_method_call(self, coverage_log: RvCoverageLog) -> None:
         """
@@ -91,14 +75,7 @@ class CoverageAnalyzer:
         Args:
             coverage_log: Coverage log entry to add
         """
-        # First update repository (primary model)
         self.repository.register_method_call(coverage_log)
-
-        # Then update legacy structures for backward compatibility
-        if coverage_log.clazz not in self.class_methods:
-            self.class_methods[coverage_log.clazz] = []
-
-        self.class_methods[coverage_log.clazz].append(coverage_log)
 
     def add_error(self, error_log: RvErrorLog) -> None:
         """
@@ -107,93 +84,22 @@ class CoverageAnalyzer:
         Args:
             error_log: Error log entry to add
         """
-        # First update repository (primary model)
         self.repository.register_error(error_log)
 
-        # Then update legacy structures for backward compatibility
-        self.errors.append(error_log)
-
-    def calculate_coverage(self) -> Dict:
+    def get_coverage_metrics(self) -> Dict:
         """
-        Calculate coverage metrics based on collected data.
-        Prefers repository-based metrics when available.
-
-        Returns:
-            Dictionary with coverage results
-        """
-        # First get metrics from repository
-        repository_metrics = self.repository.calculate_metrics().to_dict()
-
-        # For backward compatibility, also calculate using legacy approach
-        if self.static_data and hasattr(self.static_data, "classes"):
-            legacy_coverage = self._calculate_legacy_coverage()
-
-            # Merge metrics, preferring repository metrics where available
-            result = legacy_coverage
-
-            # Update summary with repository metrics
-            if "SUMMARY" in result:
-                result["SUMMARY"].update({
-                    "method_coverage": repository_metrics["method_coverage"],
-                    "activity_coverage": repository_metrics["activity_coverage"],
-                    "mop_method_coverage": repository_metrics["mop_method_coverage"]
-                })
-
-            return result
-        else:
-            # If static data not available, just return repository metrics
-            return {"SUMMARY": repository_metrics}
-
-    def _calculate_legacy_coverage(self) -> Dict:
-        """
-        Calculate coverage using legacy approach for backward compatibility.
-
-        Returns:
-            Dictionary with coverage results in legacy format
-        """
-        # Convert class_methods to compatible format
-        formatted_methods = {}
-        for class_name, methods in self.class_methods.items():
-            formatted_methods[class_name] = {"methods": {}}
-            for method in methods:
-                formatted_methods[class_name]["methods"][method.signature] = method
-
-        # Create all_methods from static data
-        all_methods = {}
-        for class_name, class_info in self.static_data.classes.classes.items():
-            all_methods[class_name] = {
-                "is_activity": class_info.is_activity,
-                "methods": {}
-            }
-
-            for method in class_info.methods:
-                all_methods[class_name]["methods"][method.signature] = {
-                    "reachable": method.reachable,
-                    "reaches_mop": method.reaches_mop,
-                    "directly_reaches_mop": method.directly_reaches_mop,
-                    "called": False
-                }
-
-        # Process coverage using legacy function
-        return process_coverage(formatted_methods, all_methods)
-
-    def get_metrics(self) -> Dict:
-        """
-        Get coverage metrics, preferring repository-based metrics.
+        Get coverage metrics from repository.
 
         Returns:
             Dictionary with metrics
         """
-        # Get metrics from repository (primary model)
         metrics = self.repository.calculate_metrics().to_dict()
 
-        # For backward compatibility
-        summary = self.calculate_coverage().get("SUMMARY", {})
-
         return {
+            "SUMMARY": metrics,
             "method_coverage": metrics["method_coverage"],
             "activities_coverage": metrics["activity_coverage"],
             "methods_jca_reachable_coverage": metrics["mop_method_coverage"],
-            "total_errors": len(self.errors),
-            "total_method_calls": sum(len(methods) for methods in self.class_methods.values())
+            "total_errors": metrics["unique_errors"],
+            "total_method_calls": metrics["called_methods"]
         }

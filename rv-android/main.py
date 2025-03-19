@@ -32,8 +32,25 @@ def run_cli():
     args: Namespace = parser.parse_args()
 
     # Logging configuration
+    # log_debug = utils.get_env_or_default(ENV_DEBUG, args.debug, bool)
+    # logging.basicConfig(stream=sys.stdout, level=logging.DEBUG if log_debug else logging.INFO)
+    # logging.getLogger("androguard").setLevel(logging.ERROR)
+    # Get log level from arguments or environment
     log_debug = utils.get_env_or_default(ENV_DEBUG, args.debug, bool)
-    logging.basicConfig(stream=sys.stdout, level=logging.DEBUG if log_debug else logging.INFO)
+
+    # Use LoggingManager to configure logging
+    from rvandroid.util.logging_manager import LoggingManager
+    logging_manager = LoggingManager.get_instance()
+
+    # Configure root logger through standard logging
+    # This will be detected by LoggingManager and it won't add duplicate handlers
+    logging.basicConfig(
+        stream=sys.stdout,
+        level=logging.DEBUG if log_debug else logging.INFO,
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    )
+
+    # Silence specific noisy loggers
     logging.getLogger("androguard").setLevel(logging.ERROR)
 
     if args.list_tools:
@@ -163,7 +180,22 @@ def run_local():
     Logs are output to stdout with DEBUG level, and Androguard logs are set to ERROR level.
     Prints an experiment summary and a completion message after execution.
     """
-    logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
+    # Get log level from arguments or environment
+    log_debug = True
+
+    # Use LoggingManager to configure logging
+    from rvandroid.util.logging_manager import LoggingManager
+    logging_manager = LoggingManager.get_instance()
+
+    # Configure root logger through standard logging
+    # This will be detected by LoggingManager and it won't add duplicate handlers
+    logging.basicConfig(
+        stream=sys.stdout,
+        level=logging.DEBUG if log_debug else logging.INFO,
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    )
+
+    # Silence specific noisy loggers
     logging.getLogger("androguard").setLevel(logging.ERROR)
 
     # Get configuration instance
@@ -172,11 +204,11 @@ def run_local():
     # Set configuration values
     config.set("repetitions", 1)
     config.set("timeouts", [60])
-    config.set("no_window", True)
     config.set("generate_monitors", False)
     config.set("instrument", False)
     config.set("static_analysis", False)
     config.set("skip_experiment", False)
+    config.set("no_window", True)
     config.set("memory_file", "")
 
     # Get selected tools first as objects

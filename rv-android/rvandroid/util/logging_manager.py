@@ -85,12 +85,17 @@ class LoggingManager:
 
     def __init__(self):
         self.root_logger = logging.getLogger('rvandroid')
-        self.root_logger.setLevel(logging.DEBUG)
         self.log_path = None
-        self.setup_default_logging()
+
+        # Check if root logger already has handlers (set up by basicConfig)
+        # If it does, we don't need to add our own to avoid duplication
+        root_has_handlers = len(logging.getLogger().handlers) > 0
+
+        if not root_has_handlers and len(self.root_logger.handlers) == 0:
+            self.setup_default_logging()
 
     def setup_default_logging(self):
-        """Configure default logging to console."""
+        """Configure default logging to console, only if no handlers exist."""
         # Clear existing handlers
         self.root_logger.handlers = []
 
@@ -104,6 +109,10 @@ class LoggingManager:
 
         # Add handler to root logger
         self.root_logger.addHandler(console_handler)
+
+        # Prevent propagation to the root logger to avoid duplicate logs
+        # Only do this if we've added our own handlers
+        self.root_logger.propagate = False
 
     def setup_file_logging(self, log_dir: str, experiment_id: str, json_format: bool = False):
         """

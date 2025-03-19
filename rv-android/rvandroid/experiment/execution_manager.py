@@ -340,7 +340,7 @@ class ExecutionManager:
 
     def get_coverage_report(self) -> Dict[str, Any]:
         """
-        Generate a coverage report for all executed tasks.
+        Generate a coverage report for all executed tasks using standardized models.
 
         Returns:
             Dictionary with coverage report data
@@ -375,12 +375,8 @@ class ExecutionManager:
 
         # Process each task
         for task in completed_tasks:
-            # Get metrics
+            # Get metrics from task result
             metrics = task.result.coverage_metrics
-
-            # Skip if no metrics
-            if not metrics:
-                continue
 
             # Add to task report
             key = f"{task.config.apk_name}_{task.config.tool_name}_{task.config.repetition}_{task.config.timeout}"
