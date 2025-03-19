@@ -38,7 +38,6 @@ class ExecutionManager:
     - Coordinates interactions between experiment tasks, logging, and runtime monitoring.
     """
 
-
     def __init__(self, storage: TaskStorage, event_bus: Optional[EventBus] = None):
         """
         Initialize with storage.
@@ -191,20 +190,7 @@ class ExecutionManager:
             self.is_running = False
             self.current_task = None
 
-    """
-        Execute a single task by resolving its tool and app, copying static analysis files, and running the task.
-    
-        Attempts to retrieve the specified tool and app for the task. If either is not found,
-        the task is marked with an error and not executed. If both are found, the task is set up
-        with the app, static analysis files are copied, and the task is executed via a TaskExecutor.
-    
-        Args:
-            task (Task): The task to be executed.
-    
-        Returns:
-            bool: True if the task was executed successfully, False if the task failed due to
-                  missing tool/app or encountered an error during execution.
-        """
+
     def run_task(self, task: Task) -> bool:
         """
         Execute a single task by resolving its tool and app, copying static analysis files, and running the task.
@@ -241,6 +227,8 @@ class ExecutionManager:
 
         # Ensure app is set
         task.set_app(app)
+
+        # Copy static analysis files
         self.copy_static_analysis_files(task.app.name, task.results_dir)
 
         try:

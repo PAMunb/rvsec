@@ -260,7 +260,6 @@ class Experiment03:
         if not apks:
             self.logger.error("No instrumented APKs found")
             return
-
         self.logger.info(f"Found {len(apks)} instrumented APKs")
 
         # Register apps and tools
@@ -366,13 +365,50 @@ class Experiment03:
         self.logger.info("Results processing completed")
 
 
-# Module-level functions for backward compatibility
-def execute():
-    """Execute experiment with configuration from the config module"""
-    from rvandroid.experiment import config as conf
+def execute(tools=None):
+    """
+    Execute experiment with configuration from the Configuration singleton
 
-    _execute(conf.repetitions, conf.timeouts, conf.tools, conf.memory_file, conf.generate_monitors,
-             conf.instrument, conf.static_analysis, conf.skip_experiment, conf.no_window)
+    Args:
+        tools: Optional list of tool objects to use (if None, gets tools from configuration)
+    """
+    from rvandroid.config.configuration import Configuration
+    from rvandroid.tools.registry import ToolRegistry
+
+    # Get configuration instance
+    config = Configuration.get_instance()
+
+    # Get experiment configuration
+    repetitions = config.get_int("repetitions", 1)
+    timeouts = config.get_list("timeouts", [60])
+    memory_file = config.get_str("memory_file", "")
+    generate_monitors = config.get_bool("generate_monitors", True)
+    instrument = config.get_bool("instrument", True)
+    static_analysis = config.get_bool("static_analysis", True)
+    skip_experiment = config.get_bool("skip_experiment", False)
+    no_window = config.get_bool("no_window", True)
+
+    # If tools not provided, get tool names from config and look them up
+    if tools is None:
+        tool_names = config.get_list("tools", ["monkey"])
+        # Get the tool registry
+        registry = ToolRegistry.get_instance()
+        # Get tools by name
+        tools = registry.get_tools(tool_names)
+
+    # Create experiment instance and execute
+    experiment = Experiment03()
+    experiment.execute(
+        repetitions=repetitions,
+        timeouts=timeouts,
+        tools=tools,
+        memory_file=memory_file,
+        generate_monitors=generate_monitors,
+        instrument=instrument,
+        static_analysis=static_analysis,
+        skip_experiment=skip_experiment,
+        no_window=no_window
+    )
 
 
 def _execute(repetitions: int, timeouts: List[int], tools: List[AbstractTool], memory_file="",

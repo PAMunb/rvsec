@@ -1,15 +1,12 @@
-# rvandroid/tools/rvandroid/tool.py
 import logging as logging_api
 
 from rvandroid.app import App
 from rvandroid.commands.command import Command
-from rvandroid.experiment.task_model import Task  # Updated import
+from rvandroid.config.configuration import Configuration
 from rvandroid.config.component_configurator import ComponentConfigurator
-from rvandroid.llm.prompt.prompt_strategy_basic_001 import BasicPromptStrategy001
-from rvandroid.parser.screen.visitor.text_visitor import EnhancedTextVisitor
+from rvandroid.experiment.task_model import Task
 from rvandroid.server import Server
 from rvandroid.service.llm_action_service import LLMActionService
-from settings import RVANDROID_URL
 from ..tool_spec import AbstractTool
 
 logging = logging_api.getLogger(__name__)
@@ -20,15 +17,19 @@ class ToolSpec(AbstractTool):
         super(ToolSpec, self).__init__("rvandroid", """rv-android""", "br.unb.cic.rvsec")
 
     def execute_tool_specific_logic(self, task: Task, app: App):
-        rvandroid_url = RVANDROID_URL
+        # Get configuration
+        config = Configuration.get_instance()
+        rvandroid_url = config.get_str("rvandroid_url", "http://127.0.0.1:5000")
 
-        # TODO arrumar a configuracao
-        config = ComponentConfigurator()
-        config.set_strategy("basic")
-        config.set_visitor("enhanced")
+        # Create component configurator
+        component_config = ComponentConfigurator(task.static_data)
+        component_config.set_strategy("basic")
+        component_config.set_visitor("enhanced")
 
-        service = LLMActionService(task.static_data, config=config)
+        # Create service
+        service = LLMActionService(task.static_data, config=component_config)
 
+        # Start server and run experiment
         server = Server(service, port=5000)
         try:
             if server.start():
