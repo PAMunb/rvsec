@@ -1,9 +1,9 @@
 # rvandroid/parser/screen/visitor/new_enhanced_visitor.py
-from typing import List, Optional, Set, Dict, Any
 import logging
+from typing import List, Optional, Set, Dict, Any
 
 from rvandroid.model.static import StaticAnalysisData
-from rvandroid.model.widget import WidgetEventType, WidgetEvent
+from rvandroid.model.widget import WidgetEventType
 from rvandroid.parser.screen.visitor.base_visitor import BaseScreenVisitor, ItemAction, ScreenItem, Node, Counter, \
     ScreenDescription
 

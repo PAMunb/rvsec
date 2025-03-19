@@ -2,8 +2,8 @@ import logging as logging_api
 
 from rvandroid.app import App
 from rvandroid.commands.command import Command
-from rvandroid.config.configuration import Configuration
 from rvandroid.config.component_configurator import ComponentConfigurator
+from rvandroid.config.configuration import Configuration
 from rvandroid.experiment.task_model import Task
 from rvandroid.server import Server
 from rvandroid.service.llm_action_service import LLMActionService

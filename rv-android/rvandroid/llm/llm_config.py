@@ -1,5 +1,5 @@
 # rvandroid/llm/llm_config.py
-from typing import Dict, Any, Optional
+from typing import Dict, Any
 
 from rvandroid.parser.screen.parser_factory import ParserType
 

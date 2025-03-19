@@ -1,15 +1,12 @@
 # rvandroid/llm/langchain_llm.py
-from typing import List, Dict, Optional
-import logging
 import json
-
-# Basic imports that should work
-from langchain.schema import SystemMessage, HumanMessage  # Use old path
-from langchain.prompts import ChatPromptTemplate, MessagesPlaceholder
-from langchain.memory import ConversationBufferMemory
+import logging
+from typing import List, Dict, Optional
 
 # Import only Ollama which is likely already installed
 from langchain.llms import Ollama
+# Basic imports that should work
+from langchain.memory import ConversationBufferMemory
 
 from rvandroid.llm.llm import LanguageModel
 

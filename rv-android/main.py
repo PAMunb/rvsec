@@ -10,9 +10,9 @@ from rvandroid.config.configuration import Configuration
 from rvandroid.config.configuration_manager import ConfigurationManager
 from rvandroid.constants import *
 from rvandroid.experiment import experiment_03
+from rvandroid.tools.registry import ToolRegistry
 from rvandroid.tools.tool_spec import AbstractTool
 from rvandroid.util import utils
-from rvandroid.tools.registry import ToolRegistry
 
 available_tools: dict[str, AbstractTool] = {}
 
@@ -154,8 +154,14 @@ def create_argument_parser():
 
 def run_local():
     """
-    Run experiment with local configuration settings.
-    This demonstrates using the new Configuration system directly.
+    Runs a local experiment with predefined configuration settings.
+
+    Configures logging, sets up experiment parameters, selects tools, and executes the experiment
+    using the Configuration system. Specifically sets up an experiment with the 'ape' tool,
+    configures various experiment settings, and runs the experiment.
+
+    Logs are output to stdout with DEBUG level, and Androguard logs are set to ERROR level.
+    Prints an experiment summary and a completion message after execution.
     """
     logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
     logging.getLogger("androguard").setLevel(logging.ERROR)

@@ -301,4 +301,3 @@ class DiagnosticTool:
 
         self.logger.info("Diagnostic report generated")
         return report
-   

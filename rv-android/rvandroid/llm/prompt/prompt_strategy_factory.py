@@ -1,14 +1,14 @@
 # rvandroid/llm/prompt/prompt_strategy_factory.py
-from typing import Optional, Union
+from typing import Optional
 
 from rvandroid.llm.prompt.base_prompt_strategy import BasePromptStrategy
 from rvandroid.llm.prompt.composable_prompt_strategy import ComposablePromptStrategy
 from rvandroid.llm.prompt.composable_single_action_strategy import ComposableSingleActionStrategy
+from rvandroid.llm.prompt.dspy_single_action_prompt_strategy import DSPySingleActionPromptStrategy
 from rvandroid.llm.prompt.prompt_strategy_basic_001 import BasicPromptStrategy001
 from rvandroid.llm.prompt.prompt_strategy_dspy import DSPyPromptStrategy
 from rvandroid.llm.prompt.prompt_strategy_frontier import FrontierPromptStrategy
 from rvandroid.llm.prompt.single_action_prompt_strategy import SingleActionPromptStrategy
-from rvandroid.llm.prompt.dspy_single_action_prompt_strategy import DSPySingleActionPromptStrategy
 from rvandroid.model.static import StaticAnalysisData
 from rvandroid.parser.screen.abstract_parser import AbstractScreenParser
 from rvandroid.parser.screen.parser_factory import ParserType, ParserFactory

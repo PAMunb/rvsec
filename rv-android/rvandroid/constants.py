@@ -1,4 +1,3 @@
-
 EXTENSION_AJ = ".aj"
 EXTENSION_APK = ".apk"
 EXTENSION_CSV = ".csv"

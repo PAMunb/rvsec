@@ -5,7 +5,7 @@ This module defines consistent data structures for tracking coverage and errors.
 """
 
 from datetime import datetime
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any
 
 from rvandroid.util import utils
 

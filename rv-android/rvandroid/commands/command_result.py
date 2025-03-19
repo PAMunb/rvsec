@@ -16,7 +16,7 @@ class CommandResult:
     @property
     def stdout(self):
         return self._stdout
-    
+
     @stdout.setter
     def stdout(self, value):
         self._stdout = value

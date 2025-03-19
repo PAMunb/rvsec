@@ -184,7 +184,8 @@ def milliseconds_to_datetime(timestamp: float) -> datetime:
     return datetime.fromtimestamp(timestamp)
 
 
-def get_env_or_default(env_var: str, default_value: Union[str, int, bool, List], value_type: type = str, separator: str = " ") -> Union[str, int, bool, List]:
+def get_env_or_default(env_var: str, default_value: Union[str, int, bool, List], value_type: type = str,
+                       separator: str = " ") -> Union[str, int, bool, List]:
     value = os.getenv(env_var)
     if value is None:
         return default_value

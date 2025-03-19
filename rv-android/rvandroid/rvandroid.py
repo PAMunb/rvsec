@@ -62,6 +62,20 @@ class RvAndroid(object):
         pass
 
     def instrument_apks(self, results_dir: str, force_instrumentation=False, apks_dir=APKS_DIR):
+        """
+        Batch instruments multiple APKs with error tracking and optional force instrumentation.
+
+        Processes all APKs in a specified directory, attempting to instrument each one while
+        capturing and logging any instrumentation errors. Supports optional force re-instrumentation.
+
+        Args:
+            results_dir (str): Directory where instrumented APKs and error logs will be saved
+            force_instrumentation (bool, optional): If True, re-instruments APKs even if already processed. Defaults to False.
+            apks_dir (str, optional): Directory containing APKs to instrument. Defaults to APKS_DIR.
+
+        Returns:
+            dict: A dictionary of instrumentation errors, keyed by APK name, with error details
+        """
         errors = {}
 
         # clean directories, copy libraries and create INSTRUMENTED_DIR (if not exists)
@@ -156,6 +170,15 @@ class RvAndroid(object):
             self.clear([TMP_DIR, RVM_TMP_DIR])
 
     def __decompile_apk(self, app: App):
+        """
+        Decompile an Android APK into its constituent Java classes.
+
+        This method converts the APK's DEX file to a JAR file, verifies its structure,
+        and extracts the classes into a temporary directory for further processing.
+
+        Args:
+            app (App): The Android application to be decompiled.
+        """
         logging.info("Decompiling: {}".format(app.name))
         utils.reset_folder(TMP_DIR)
         no_monitor_jar_name = "no_monitor_{}.jar".format(app.name)
@@ -212,6 +235,16 @@ class RvAndroid(object):
         utils.copy_files(MOP_OUT_DIR, TMP_DIR)
 
     def __weave_monitors(self, app: App):
+        """
+        Weave AspectJ monitors into the application's compiled classes.
+
+        This method uses the AspectJ compiler (ajc) to integrate generated monitor aspects
+        into the application's compiled classes. It prepares the classpath, executes the
+        AspectJ weaving process, and then cleans up temporary source files.
+
+        Args:
+            app (App): The application being instrumented with monitors.
+        """
         logging.info("Weaving monitors")
         classpath = self.__get_classpath(app)
         logging.debug("CLASSPATH={}".format(':'.join(classpath)))
@@ -266,6 +299,20 @@ class RvAndroid(object):
         shutil.rmtree(RVM_TMP_DIR)
 
     def __d8(self, app: App, monitored_jar: str):
+        """
+        Compile the monitored JAR to DEX format and create an unsigned APK.
+
+        Converts the instrumented JAR to DEX bytecode, copies the original APK,
+        replaces the original classes.dex with the new instrumented classes.dex,
+        and performs a basic verification of the APK.
+
+        Args:
+            app (App): The Android application being processed
+            monitored_jar (str): Path to the JAR file containing instrumented classes
+
+        Returns:
+            str: Path to the unsigned APK with instrumented classes
+        """
         logging.info("Compiling to DEX")
 
         # TODO setar --min-api com os dados do app???
@@ -301,6 +348,7 @@ class RvAndroid(object):
         logging.debug("APK: {}".format(unsigned_apk))
         # Sign debug Jar with final key
         signed_apk = os.path.join(INSTRUMENTED_DIR, app.name)
+        # TODO
         self.__d2j_apk_sign(signed_apk, unsigned_apk)
         os.remove(unsigned_apk)
         assert os.path.exists(signed_apk)
@@ -356,6 +404,7 @@ class RvAndroid(object):
     def check_if_instrumented(app: App):
         # checks if the apk was actually instrumented, in case __execute_command() is not capturing all errors
         # and ends up returning the original apk as being instrumented
+        # TODO resolver problema com tipos
         hash_original = utils.file_hash(os.path.join(app.path))
         hash_instrumented = utils.file_hash(os.path.join(INSTRUMENTED_DIR, app.name))
         if hash_original == hash_instrumented:

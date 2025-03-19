@@ -1,4 +1,12 @@
-import os, shutil, xml, xml.dom.minidom, re, collections, configparser, sys
+import collections
+import configparser
+import os
+import re
+import shutil
+import sys
+import xml
+import xml.dom.minidom
+
 APP_SOURCE_FILE = ''
 APK_NAME = ''
 Benchmark = ''

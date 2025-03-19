@@ -4,13 +4,13 @@ Generic visitor implementation for handling UI elements.
 This module implements a generic visitor that uses element handlers.
 """
 
-from typing import Optional, Dict, List
+from typing import Optional, Dict
 
 from rvandroid.model.static import StaticAnalysisData
 from rvandroid.model.widget import WidgetEventType
 from rvandroid.parser.screen.visitor.base_visitor import (
     BaseScreenVisitor, ScreenItem, ScreenDescription, Node,
-    UiElementType, ElementHandler, ItemAction
+    ItemAction
 )
 from rvandroid.parser.screen.visitor.element_handlers import (
     ButtonHandler, TextFieldHandler, CheckboxHandler, SpinnerHandler

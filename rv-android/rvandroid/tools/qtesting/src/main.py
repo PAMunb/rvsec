@@ -1,7 +1,14 @@
 #!/bin/env python3
-import os, sys, shutil, subprocess, re, time, socket, configparser, packaging, packaging.version, packaging.specifiers, packaging.requirements
+import configparser
+import os
+import re
+import shutil
+import subprocess
+import sys
+
 from qlearning_final_coverage_multi import QLearning
 from util.coverage_curve_util import calculate_coverage
+
 TEST_INDEX = 1
 APK_NAME = ''
 APP_SOURCE_PATH = ''

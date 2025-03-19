@@ -13,9 +13,9 @@ import rvandroid.util.utils as utils
 from rvandroid.model.classes import (
     Classes,
 )
+from rvandroid.model.widget import WidgetEventType, WidgetEvent, WidgetType, Widget
 from rvandroid.model.window import Window, Windows
 from rvandroid.model.wtg import WindowTransition, WindowTransitionGraph
-from rvandroid.model.widget import WidgetEventType, WidgetEvent, WidgetType, Widget
 
 logger = logging.getLogger(__name__)
 
@@ -59,7 +59,7 @@ def process_windows(package: str, classes: Classes, windows: Windows, gator_data
 
     for window in gator_data["windows"]:
         class_name = window["name"]
-        #print("\n")
+        # print("\n")
         logger.debug(f"Processing window: {class_name}")
 
         if package in class_name and class_name not in classes.classes:
@@ -84,7 +84,7 @@ def process_transitions(windows: Windows, gator_data: dict) -> WindowTransitionG
     wtg = WindowTransitionGraph()
 
     for transition in gator_data["transitions"]:
-        #print("\n")
+        # print("\n")
         source_id = str(transition["sourceId"])
         target_id = str(transition["targetId"])
         logger.debug(f"Processing transition: {source_id} -> {target_id}")
@@ -119,14 +119,14 @@ def process_transition_events(source_class: str, transition_dict: dict, windows:
         event_type = event_dict["type"]
         event = to_event(event_type)
 
-        #print(f"Event: {event_dict}")
+        # print(f"Event: {event_dict}")
 
         if event is WidgetEventType.OTHER:
             continue
 
         handler = event_dict["handler"]
         class_name, method_name = from_signature(handler)
-        #print(f"Class: {class_name}, Method: {method_name}")
+        # print(f"Class: {class_name}, Method: {method_name}")
 
         window = get_or_create(windows, source_class)
         widget_id = str(event_dict["widgetId"])
@@ -135,7 +135,7 @@ def process_transition_events(source_class: str, transition_dict: dict, windows:
         if widget is None:
             logging.debug(f"Creating widget {widget_id}!")
             widget = create_widget(event_dict)
-            if widget is not None:                
+            if widget is not None:
                 windows.add_widget(window, widget)
             else:
                 continue
@@ -226,23 +226,24 @@ def to_event(event_str: str) -> WidgetEventType:
 
     return event_map.get(event_str, WidgetEventType.OTHER)
 
+
 def get_or_create(windows: Windows, window_name: str, window_id: str = "") -> Window:
-        """Gets an existing window or creates a new one."""
-        logger.debug(f"Getting or creating window {window_name} :: ID= {window_id}")
-        window = windows.get_window(window_name)
-        logger.debug(f"Window {window_name} found: {window}")
-        if window:
-            if window_id:
-                if window.id == window_id:
-                    logger.debug(f"Window {window_name} found (by id): {window}")
-                    return window
-                elif not window.id:
-                    logger.debug(f"Window {window_name} ... update id: {window}")
-                    window.id = window_id
-                else:
-                    logger.debug(f"Window {window_name} ... new window: {window}")
-                    window = windows.create_new_window(window_name, window_id)
-            logger.debug(f"Window {window_name} ... returning: {window}")
-            return window
-        logger.debug(f"Window {window_name} not found ... creating new window")
-        return windows.create_new_window(window_name, window_id)
+    """Gets an existing window or creates a new one."""
+    logger.debug(f"Getting or creating window {window_name} :: ID= {window_id}")
+    window = windows.get_window(window_name)
+    logger.debug(f"Window {window_name} found: {window}")
+    if window:
+        if window_id:
+            if window.id == window_id:
+                logger.debug(f"Window {window_name} found (by id): {window}")
+                return window
+            elif not window.id:
+                logger.debug(f"Window {window_name} ... update id: {window}")
+                window.id = window_id
+            else:
+                logger.debug(f"Window {window_name} ... new window: {window}")
+                window = windows.create_new_window(window_name, window_id)
+        logger.debug(f"Window {window_name} ... returning: {window}")
+        return window
+    logger.debug(f"Window {window_name} not found ... creating new window")
+    return windows.create_new_window(window_name, window_id)

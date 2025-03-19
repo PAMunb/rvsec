@@ -1,8 +1,10 @@
-import re
+from tensorflow.keras import backend as K
+import itertools
+
 from tensorflow.keras import backend as K
 from tensorflow.keras.layers import Layer
 from tensorflow.keras.preprocessing.sequence import pad_sequences
-import numpy as np, itertools
+
 max_length = 0
 
 def string_to_vector(df):

@@ -1,6 +1,6 @@
 # rvandroid/llm/prompt_strategy_basic.py
-from typing import Dict, Any, Optional
 import logging
+from typing import Dict, Any, Optional
 
 from rvandroid.llm.prompt.prompt_strategy import PromptStrategy
 from rvandroid.model.static import StaticAnalysisData

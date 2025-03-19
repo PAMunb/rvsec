@@ -12,8 +12,8 @@ import rvandroid.util.utils as utils
 from rvandroid.model.classes import (
     Classes
 )
-from rvandroid.model.window import WindowType, Window, Windows
 from rvandroid.model.widget import WidgetEventType, WidgetEvent, WidgetType, Widget
+from rvandroid.model.window import WindowType, Window, Windows
 
 logger = logging.getLogger(__name__)
 
@@ -81,7 +81,7 @@ def create_window(window_dict: dict, windows: Windows) -> Window:
     if window is None:
         logger.debug(f"Creating new window: {window_dict['name']}")
         window = Window(window_dict["name"])
-    
+
     window.type = WindowType.from_string(window_dict["type"])
 
     if "layoutFileName" in window_dict:
@@ -108,7 +108,7 @@ def parse_widgets(widgets_list: List[dict], window: Window, windows: Windows) ->
         if "listeners" in widget_dict:
             events = parse_listeners(widget_dict["listeners"])
             for event in events:
-                widget.add_event(event)            
+                widget.add_event(event)
 
         widgets.append(widget)
 
@@ -128,14 +128,14 @@ def get_or_create_widget(widget_dict: dict, window: Window, windows: Windows) ->
     widget = windows.get_widget(widget_dict["widgetId"])
     if widget is None:
         widget_type = WidgetType.from_string(widget_dict["type"])
-        #print(f"create_widget::type={type}")
+        # print(f"create_widget::type={type}")
         logger.debug(f"Creating new widget: {widget_dict['widgetId']}")
         widget = Widget(
             str(widget_dict["widgetId"]),
             widget_dict["name"] if "name" in widget_dict else "",
-            widget_type # TODO rever tipo ...........................
+            widget_type  # TODO rever tipo ...........................
         )
-        #print(f"window ({type(window)})={window}")
+        # print(f"window ({type(window)})={window}")
         windows.add_widget(window, widget)
 
     # Set optional properties

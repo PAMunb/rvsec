@@ -1,10 +1,12 @@
-import xml.etree.ElementTree
 from UILayoutObject import UILayoutObject
-from UIExecutableObject import UIExecutableObject
+import importlib
+import sys
+
 from Action import Action
 from ActionConstValue import ActionConstValue
-import os, sys
-import importlib
+from UIExecutableObject import UIExecutableObject
+from UILayoutObject import UILayoutObject
+
 importlib.reload(sys)
 #sys.setdefaultencoding('utf-8')
 

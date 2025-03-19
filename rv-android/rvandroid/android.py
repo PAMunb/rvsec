@@ -3,9 +3,9 @@ import os
 import time
 from contextlib import contextmanager
 
-from rvandroid.util import utils
 from rvandroid.app import App
 from rvandroid.commands.command import Command
+from rvandroid.util import utils
 from settings import ANDROID_PLATFORMS_DIR
 
 logging = logging_api.getLogger(__name__)
@@ -63,17 +63,36 @@ class Android:
 
     @classmethod
     def start_emulator(cls, avd_name: str, no_window: bool):
+        """
+        Start an Android emulator with specific configuration parameters.
+
+        Args:
+            avd_name (str): Name of the Android Virtual Device to launch (RVSec)
+            no_window (bool): Flag to determine whether to run emulator without a graphical window
+
+        Returns:
+            The emulator process that was started as a daemon
+
+        Notes:
+            Configures emulator with optimized settings for testing:
+            - Writable system image
+            - Wiped user data
+            - Disabled boot animation
+            - No audio
+            - No snapshot saving
+            - Delayed ADB communication
+        """
         logging.info('Starting emulator')
 
         args = ['-avd', avd_name,
-                '-writable-system',   # make system & vendor image writable after 'adb remount'
-                '-wipe-data',         # reset the user data image (copy it from initdata)
-                '-no-boot-anim',      # disable animation for faster boot
-                '-noaudio',           # disable audio support
+                '-writable-system',  # make system & vendor image writable after 'adb remount'
+                '-wipe-data',  # reset the user data image (copy it from initdata)
+                '-no-boot-anim',  # disable animation for faster boot
+                '-noaudio',  # disable audio support
                 '-no-snapshot-save',  # do not auto-save to snapshot on exit: abandon changed state
-                '-delay-adb']         # delay adb communication till boot completes
+                '-delay-adb']  # delay adb communication till boot completes
         if no_window:
-            args.append('-no-window') # disable graphical window display
+            args.append('-no-window')  # disable graphical window display
 
         start_emulator_cmd = Command('emulator', args)
         emulator_proc = start_emulator_cmd.invoke_as_deamon()
@@ -82,6 +101,19 @@ class Android:
 
     @classmethod
     def kill_emulator(cls, avd_name):
+        """
+        Forcefully terminate an Android emulator and clean up associated resources.
+
+        Args:
+            avd_name (str): The name of the Android Virtual Device (AVD) to be killed.
+
+        Notes:
+            This method performs the following actions:
+            - Sends a kill command to the running emulator
+            - Stops the ADB server
+            - Removes lock files associated with the specified AVD
+            - Introduces a 10-second delay to ensure complete termination
+        """
         logging.info("Killing emulator ...")
         kill_emulator_cmd = Command('adb', ['-s', 'emulator-5554', 'emu', 'kill'])
         kill_emulator_cmd.invoke()
@@ -94,7 +126,19 @@ class Android:
 
     @staticmethod
     def _wait_for_boot():
-        timeout = 90  # seconds
+        """
+        Wait for an Android emulator to fully boot and become ready.
+
+        This method performs a series of checks to ensure the emulator has completely booted:
+        - Waits for the boot animation to stop
+        - Checks for system boot completion
+        - Establishes root access
+        - Remounts the filesystem
+
+        Logs the total boot time and emits informational messages during the boot process.
+        Timeout is set to 120 seconds to prevent indefinite waiting.
+        """
+        timeout = 120  # seconds
         start = time.time()
         logging.info('Waiting for emulator to boot')
         check_emulator_cmd = Command('adb', ['-s', 'emulator-5554', 'shell', 'getprop', 'init.svc.bootanim'], timeout)
@@ -104,7 +148,8 @@ class Android:
             logging.info('Waiting for emulator to boot')
             check_result = check_emulator_cmd.invoke()
         wait_emulator_cmd = Command('adb', ['wait-for-device', 'shell',
-                                            "'while [[ -z $(getprop sys.boot_completed) ]]; do sleep 1; done;'"], timeout)
+                                            "'while [[ -z $(getprop sys.boot_completed) ]]; do sleep 1; done;'"],
+                                    timeout)
         wait_emulator_cmd.invoke()
 
         root_cmd = Command('adb', ['wait-for-device', 'root'], timeout)
@@ -122,6 +167,12 @@ class Android:
 
     @classmethod
     def simulate_reboot(cls):
+        """
+        Simulate a device reboot for an Android emulator.
+
+        Broadcasts a boot completed intent and waits for the emulator to fully boot.
+        Useful for testing scenarios that require a device reboot simulation.
+        """
         logging.info('Starting reboot simulation')
         sim_reboot_cmd = Command('adb', ['shell', 'am', 'broadcast', '-a', 'android.intent.action.BOOT_COMPLETED'], 15)
         sim_reboot_cmd.invoke()

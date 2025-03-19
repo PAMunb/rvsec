@@ -1,17 +1,24 @@
-import os
 from uiautomator import Device
-from shutil import copyfile
-import socket, time, re, subprocess, random
-from util.python_util import *
-from event_extractor import EventExtractor
-import xml.dom.minidom, xml.etree.ElementTree, os.path, numpy as np, sys, tensorflow as tf
-from tensorflow.python.keras.models import Model, Sequential
-from tensorflow.keras.initializers import Orthogonal
-from tensorflow.keras.utils import get_custom_objects
-from util.preprocess import *
-from util.neural_network_util import ManDist
-from util.preprocess import Preprocess
+import time, re, random
 import configparser
+import numpy as np
+import os.path
+import random
+import re
+import tensorflow as tf
+import time
+import xml.dom.minidom
+import xml.etree.ElementTree
+
+from tensorflow.python.keras.models import Sequential
+from uiautomator import Device
+
+from event_extractor import EventExtractor
+from util.neural_network_util import ManDist
+from util.preprocess import *
+from util.preprocess import Preprocess
+from util.python_util import *
+
 ALPHA = 0.1
 GAMMA = 0.99
 EPSILON = 0.9

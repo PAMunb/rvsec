@@ -211,7 +211,6 @@ class ExecutionManager:
             self.is_running = False
             self.current_task = None
 
-
     def run_task(self, task: Task) -> bool:
         """
         Execute a single task by resolving its tool and app, copying static analysis files, and running the task.

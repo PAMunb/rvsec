@@ -1,13 +1,15 @@
-from flask import Flask, request, jsonify
-from threading import Thread, Lock
-import requests
 import logging
 import time
+from threading import Thread, Lock
 from typing import Optional, Dict, Any
-from werkzeug.serving import make_server
+
+import requests
+from flask import Flask, request, jsonify
 from werkzeug.exceptions import NotFound, HTTPException
+from werkzeug.serving import make_server
 
 from rvandroid.service.llm_action_service import LLMActionService
+
 
 class Server:
     """
@@ -59,21 +61,21 @@ class Server:
 
         # Initialize Flask app
         self.app = Flask(__name__)
-        
+
         # Server state management
         self._server_thread: Optional[Thread] = None
         self._server_instance = None
         self._is_running = False
         self._should_stop = False
         self._lock = Lock()
-        
+
         # Setup logging
         self._setup_logging()
-        
+
         # Initialize routes and error handlers
         self._setup_error_handlers()
         self._setup_routes()
-        
+
         # Error stats
         self._error_count = 0
         self._last_error_time = None
@@ -90,13 +92,13 @@ class Server:
             format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
         )
         self.logger = logging.getLogger(__name__)
-         # Silence Werkzeug logs
+        # Silence Werkzeug logs
         werkzeug_logger = logging.getLogger('werkzeug')
         werkzeug_logger.setLevel(logging.ERROR)  # ou logging.WARNING
 
     def _setup_error_handlers(self) -> None:
         """Configure error handlers"""
-        
+
         @self.app.errorhandler(NotFound)
         def handle_404(error):
             """Handle 404 errors separately"""
@@ -114,7 +116,7 @@ class Server:
             """Handle all other exceptions"""
             if isinstance(error, HTTPException):
                 return handle_http_error(error)
-            
+
             self._error_count += 1
             self._last_error_time = time.time()
             self._status["last_error"] = str(error)
@@ -131,8 +133,8 @@ class Server:
                 "status": "healthy",
                 "uptime": time.time() - self._status["start_time"] if self._status["start_time"] else 0,
                 "stats": self._status
-            })        
-            
+            })
+
         @self.app.route('/api/get_actions', methods=['POST'])
         def get_actions():
             """
@@ -163,7 +165,7 @@ class Server:
 
                 response = jsonify({
                     "actions": validated_actions,
-                    "status": "success" # TODO remover .....
+                    "status": "success"  # TODO remover .....
                 })
                 self.logger.info(f"Response: {response}")
                 # Return response
@@ -172,7 +174,8 @@ class Server:
             except Exception as e:
                 self.logger.error(f"Error processing request: {e}", exc_info=True)
                 return jsonify({"error": str(e)}), 500
-          # droidbot:   
+        # droidbot:
+
     #     {
     #     "activity": state.foreground_activity,
     #     "stack": state.activity_stack,
@@ -215,7 +218,7 @@ class Server:
         Implements retry logic and graceful error handling.
         """
         retry_count = 0
-        
+
         while not self._should_stop and retry_count < self.max_retries:
             try:
                 self._server_instance = make_server(self.host, self.port, self.app)
@@ -224,7 +227,7 @@ class Server:
                 retry_count += 1
                 self._status["restart_count"] += 1
                 self.logger.error(f"Server error (attempt {retry_count}/{self.max_retries}): {e}", exc_info=True)
-                
+
                 if retry_count < self.max_retries and not self._should_stop:
                     self.logger.info(f"Attempting restart in {self.retry_delay} seconds...")
                     time.sleep(self.retry_delay)
@@ -319,14 +322,12 @@ class Server:
             validated.append(action)
 
         return validated
-        
-        
+
+
 # Example of how to use the Server class
 if __name__ == "__main__":
     server = Server(port=5000)
-    
-    
-    
+
     try:
         if server.start():
             print("Server started successfully")
@@ -335,4 +336,4 @@ if __name__ == "__main__":
     except KeyboardInterrupt:
         print("\nShutting down...")
     finally:
-        server.stop()   
+        server.stop()

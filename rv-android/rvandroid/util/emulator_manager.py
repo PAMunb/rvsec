@@ -1,9 +1,7 @@
 # rvandroid/util/emulator_manager.py
 import logging
-import os
-import time
 from contextlib import contextmanager
-from typing import Optional, Dict, Any
+from typing import Optional
 
 from rvandroid.android import Android
 from rvandroid.commands.command import Command
@@ -106,4 +104,3 @@ class EmulatorManager:
         except Exception as e:
             self.logger.error(f"Failed to install app {app.name}: {e}")
             return False
-       

@@ -1,6 +1,11 @@
+import logging
+import os
+import subprocess
+import sys
 from hashlib import md5
-import logging, os, sys, xml.dom.minidom, xml.etree.ElementTree, subprocess
+
 from tensorflow.keras.preprocessing.sequence import pad_sequences
+
 logging.basicConfig(format='%(asctime)s : %(filename)s[line:%(lineno)d] : %(levelname)s : %(message)s', level=logging.INFO)
 bundle_dir = getattr(sys, '_MEIPASS', os.path.abspath(os.path.dirname(__file__)))
 WIDGET_CLASS_FILE_PATH = os.path.abspath(os.path.join(bundle_dir, 'widget_classes.txt'))

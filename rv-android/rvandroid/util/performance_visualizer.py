@@ -1,13 +1,12 @@
-import os
 import json
+import os
 import time
-from typing import Dict, List, Any, Optional
-import matplotlib.pyplot as plt
-import matplotlib.dates as mdates
 from datetime import datetime
+from typing import Dict
+
+import matplotlib.dates as mdates
+import matplotlib.pyplot as plt
 import numpy as np
-from matplotlib.figure import Figure
-from matplotlib.axes import Axes
 
 
 class PerformanceVisualizer:

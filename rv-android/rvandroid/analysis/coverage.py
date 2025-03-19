@@ -1,11 +1,6 @@
-import copy
-
-from rvandroid.constants import *
-from rvandroid.model.log import RvCoverageLog
 from typing import Dict, Any
 
-from rvandroid.constants import *
-from rvandroid.model.coverage import CoverageRepository, process_coverage_data
+from rvandroid.model.coverage import process_coverage_data
 from rvandroid.model.log import RvCoverageLog
 
 

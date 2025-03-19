@@ -1,6 +1,6 @@
 # rvandroid/parser/screen/abstract_parser.py
 from abc import ABC, abstractmethod
-from typing import Dict, Any, Optional, Type, Union
+from typing import Dict, Any, Optional, Type
 
 from rvandroid.model.static import StaticAnalysisData
 from rvandroid.parser.screen.visitor.base_visitor import ScreenDescription, BaseScreenVisitor, Node

@@ -27,7 +27,6 @@ def parse(methods_file: str):
             classes[clazz][method] = {COLUMN_REACHABLE: split[2], COLUMN_USE_JCA: split[3]}
     return classes
 
-
 # def parse_soot_result(soot_result: str) -> dict[str, set[str]]:
 #     classes = {}
 #     first_line = True

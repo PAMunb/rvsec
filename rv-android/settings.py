@@ -2,8 +2,8 @@ import os
 import time
 from pathlib import Path
 
-from rvandroid.util import utils
 from rvandroid.constants import ENV_JCA_SPEC, ENV_RT_JAR, ENV_RVANDROID_URL
+from rvandroid.util import utils
 
 TIMESTAMP = time.strftime("%Y%m%d%H%M%S", time.localtime())
 
@@ -57,6 +57,8 @@ ANDROID_JAR_PATH = os.path.join(ANDROID_PLATFORM_LIB, "android.jar")
 KEYSTORE_FILE = os.path.join(WORKING_DIR, "keystore.jks")
 KEYSTORE_PASSWORD = "password"
 
-#RT_JAR = os.path.join(Path.home(), ".sdkman", "candidates", "java", "8.0.302-open", "jre", "lib", "rt.jar")
-RT_JAR = utils.get_env_or_default(ENV_RT_JAR, os.path.join(Path.home(), ".sdkman", "candidates", "java", "8.0.302-open", "jre", "lib", "rt.jar"), str)
+# RT_JAR = os.path.join(Path.home(), ".sdkman", "candidates", "java", "8.0.302-open", "jre", "lib", "rt.jar")
+RT_JAR = utils.get_env_or_default(ENV_RT_JAR,
+                                  os.path.join(Path.home(), ".sdkman", "candidates", "java", "8.0.302-open", "jre",
+                                               "lib", "rt.jar"), str)
 RVANDROID_URL = utils.get_env_or_default(ENV_RVANDROID_URL, "http://127.0.0.1:5000", str)

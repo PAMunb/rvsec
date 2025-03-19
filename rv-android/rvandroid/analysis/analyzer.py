@@ -5,7 +5,7 @@ Acts as a facade for different analysis functionalities.
 """
 
 import logging
-from typing import Dict, List, Optional, Union
+from typing import Dict
 
 from rvandroid.analysis.coverage import process_coverage
 from rvandroid.model.coverage import CoverageRepository
@@ -135,6 +135,7 @@ class CoverageAnalyzer:
         metrics = self.repository.calculate_metrics().to_dict()
 
         # For backward compatibility
+        # TODO rever uso a linha abaixo para poder remover
         summary = self.calculate_coverage().get("SUMMARY", {})
 
         return {

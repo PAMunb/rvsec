@@ -24,11 +24,17 @@ class RVSec(object):
     - Plays a crucial role in detecting policy violations in running applications.
     """
 
-
     def __init__(self):
         pass
 
     def generate_monitors(self):
+        """
+        Generates runtime verification monitors by executing JavaMOP and RV-Monitor.
+
+        This method prepares the output directory, then invokes JavaMOP and RV-Monitor
+        to create monitoring specifications for runtime verification of Android applications.
+        It logs the process and resets the monitor output directory before generation.
+        """
         logging.info("Generating Monitors ...")
         logging.debug("Recreating {}".format(MOP_OUT_DIR))
         utils.reset_folder(MOP_OUT_DIR)

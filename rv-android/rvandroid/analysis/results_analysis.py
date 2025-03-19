@@ -2,13 +2,14 @@ import json
 import logging as logging_api
 import os
 
+from rvandroid.experiment.memory import Memory
+
 import rvandroid.analysis.coverage as cov
 import rvandroid.analysis.reachable_methods_mop as reach
 import rvandroid.parser.log.logcat_parser as parser
 import rvandroid.util.utils as utils
 from rvandroid.constants import *
 from rvandroid.constants import EXTENSION_LOGCAT, EXTENSION_METHODS, EXECUTION_MEMORY_FILENAME
-from rvandroid.experiment.memory import Memory
 
 logging = logging_api.getLogger(__name__)
 
@@ -141,7 +142,8 @@ def initialize_results(results_dir: str, memory: Memory):
                             # - o conjunto de erros (crypto misuse) encontrados
                             # - um mapa contendo os métodos chamados durante a execução (não conta a quantidade de vezes que foi chamado, apenas se foi chamado)
                             #   as chaves são os nomes das classes e o valor é o conjunto dos métodos chamados
-                            rvsec_errors, called_methods, _ = parser.parse_logcat_file(os.path.join(apk_folder_path, file))
+                            rvsec_errors, called_methods, _ = parser.parse_logcat_file(
+                                os.path.join(apk_folder_path, file))
                             task = memory.get_task(apk, rep, timeout, tool)
                             # print(f"task={task}")
                             rvsec_error_msgs = set()
@@ -160,7 +162,8 @@ def initialize_results(results_dir: str, memory: Memory):
                             results[apk][SUMMARY][TOTAL_CLASSES] = coverage[SUMMARY][TOTAL_CLASSES]
                             results[apk][SUMMARY][TOTAL_ACTIVITIES] = coverage[SUMMARY][TOTAL_ACTIVITIES]
                             results[apk][SUMMARY][TOTAL_METHODS] = coverage[SUMMARY][TOTAL_METHODS]
-                            results[apk][SUMMARY][TOTAL_METHODS_JCA_REACHABLE] = coverage[SUMMARY][TOTAL_METHODS_JCA_REACHABLE]
+                            results[apk][SUMMARY][TOTAL_METHODS_JCA_REACHABLE] = coverage[SUMMARY][
+                                TOTAL_METHODS_JCA_REACHABLE]
 
                             summary = {CALLED_ACTIVITIES: coverage[SUMMARY][CALLED_ACTIVITIES],
                                        CALLED_METHODS: coverage[SUMMARY][CALLED_METHODS],

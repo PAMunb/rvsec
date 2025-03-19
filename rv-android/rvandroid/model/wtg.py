@@ -2,8 +2,8 @@ from typing import List
 
 import networkx as nx
 
-from rvandroid.model.window import Window
 from rvandroid.model.widget import WidgetEventType
+from rvandroid.model.window import Window
 
 
 class WindowTransition:

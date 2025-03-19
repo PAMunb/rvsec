@@ -4,6 +4,7 @@ import os.path
 
 from rvandroid.constants import *
 
+
 def merge(base_dir, out_dir):
     merged_results_file = os.path.join(out_dir, "merged_results_analysis.json")
     merged_instrument_errors = os.path.join(out_dir, "merged_instrument_errors.json")
@@ -91,9 +92,10 @@ def merge_files(source_path, target_path, out_file):
                 timeout_summary[ACTIVITIES_COVERAGE_AVG] = media(timeout_atv_soma, qtde_tools)
                 timeout_summary[METHOD_COVERAGE_AVG] = media(timeout_method_soma, qtde_tools)
                 timeout_summary[METHODS_JCA_COVERAGE_AVG] = media(timeout_jca_soma, qtde_tools)
-                timeout_summary[RVSEC_ERRORS_COUNT] = timeout_erros_cont #TODO decidir ... len(timeout_erros_unicos)
+                timeout_summary[RVSEC_ERRORS_COUNT] = timeout_erros_cont  # TODO decidir ... len(timeout_erros_unicos)
                 target[apk][REPETITIONS][rep][TIMEOUTS][timeout][RVSEC_ERRORS] = list(timeout_erros_unicos)
-                target[apk][REPETITIONS][rep][TIMEOUTS][timeout][RVSEC_METHODS_CALLED] = list(timeout_rvsec_methods_called)
+                target[apk][REPETITIONS][rep][TIMEOUTS][timeout][RVSEC_METHODS_CALLED] = list(
+                    timeout_rvsec_methods_called)
 
                 tmp = "\t\ttimeout={}: atv={}, method={}, jca={}, e_cont={}, e_unico={}, rv_method={}"
                 print(tmp.format(timeout,
@@ -108,7 +110,8 @@ def merge_files(source_path, target_path, out_file):
                 rep_atv_soma = rep_atv_soma + timeout_summary[ACTIVITIES_COVERAGE_AVG]
                 rep_method_soma = rep_method_soma + timeout_summary[METHOD_COVERAGE_AVG]
                 rep_jca_soma = rep_jca_soma + timeout_summary[METHODS_JCA_COVERAGE_AVG]
-                rep_erros_cont = rep_erros_cont + timeout_summary[RVSEC_ERRORS_COUNT] #len(target[apk][REPETITIONS][rep][TIMEOUTS][timeout][RVSEC_ERRORS])
+                rep_erros_cont = rep_erros_cont + timeout_summary[
+                    RVSEC_ERRORS_COUNT]  # len(target[apk][REPETITIONS][rep][TIMEOUTS][timeout][RVSEC_ERRORS])
                 rep_erros_unicos.update(timeout_erros_unicos)
                 rep_rvsec_methods_called.update(timeout_rvsec_methods_called)
 
@@ -157,7 +160,7 @@ def merge_files(source_path, target_path, out_file):
                          len(target[apk][RVSEC_ERRORS]),
                          len(target[apk][RVSEC_METHODS_CALLED])
                          ))
-    #salvar o resultado
+    # salvar o resultado
     save(out_file, target)
     print("Arquivo salvo: {}".format(out_file))
 

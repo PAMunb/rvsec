@@ -1,8 +1,8 @@
 # rvandroid/llm/dspy_llm.py
-import logging
-from typing import List, Dict, Any, Optional
 import json
+import logging
 import os
+from typing import List, Dict
 
 # Basic DSPy import
 import dspy

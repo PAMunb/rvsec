@@ -19,7 +19,6 @@ class App(object):
     - Enables automated decision-making regarding instrumentation and test execution.
     """
 
-
     def __init__(self, app_path):
         """
         create an App instance

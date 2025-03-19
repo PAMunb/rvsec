@@ -1,5 +1,5 @@
 # rvandroid/llm/prompt/prompt_strategy_dspy.py
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, Optional
 
 import dspy
 

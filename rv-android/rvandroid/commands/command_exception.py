@@ -3,6 +3,7 @@ class CommandException(Exception):
     Exception raised when command execution fails.
     Contains information about the tool, exit code, and error message.
     """
+
     def __init__(self, tool: str, code, message: str):
         """
         Initialize CommandException with execution details.

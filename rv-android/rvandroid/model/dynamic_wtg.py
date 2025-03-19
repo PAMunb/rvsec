@@ -2,10 +2,10 @@
 import json
 import logging
 import os
+from datetime import datetime
+from typing import Dict, List, Optional, Set, Tuple
 
 import networkx as nx
-from typing import Dict, List, Optional, Set, Tuple
-from datetime import datetime
 
 
 class DynamicTransition:

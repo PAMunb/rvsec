@@ -133,4 +133,3 @@ class SpinnerHandler(ElementHandler):
         description = f"Dropdown spinner{options_text}"
         item = ScreenItem(node.data, description, actions)
         return item
-   

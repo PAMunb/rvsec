@@ -1,5 +1,6 @@
-from ui_automator_core import Device
 import sys
+
+from ui_automator_core import Device
 
 # get the target device
 d = Device(sys.argv[1])

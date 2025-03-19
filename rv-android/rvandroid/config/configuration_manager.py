@@ -193,7 +193,6 @@ class ConfigurationManager:
 
         return "\n".join(summary)
 
-
     def get_tools(self, tool_names: List[str]) -> List[AbstractTool]:
         """
         Get tools by name from the available tools.

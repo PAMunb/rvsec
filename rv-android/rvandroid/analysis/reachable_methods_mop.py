@@ -11,10 +11,10 @@ from androguard.misc import AnalyzeAPK
 from networkx import MultiDiGraph
 
 from rvandroid.commands.command import Command
-from settings import LIB_DIR, WORKING_DIR
-
-from settings import MOP_DIR
 from rvandroid.constants import *
+from settings import LIB_DIR, WORKING_DIR
+from settings import MOP_DIR
+
 
 # DEPRECATED: uses androguard ... new version uses a custom implementation using soot
 
@@ -71,7 +71,8 @@ def write_reachable_methods(reachable: dict, out_file: str):
         f.write("class,is_activity,method,reachable,use_jca\n")
         for clazz in reachable:
             for method in reachable[clazz][METHODS]:
-                f.write("{},{},{},{},{}\n".format(clazz, reachable[clazz][IS_ACTIVITY], method, reachable[clazz][METHODS][method][REACHABLE],
+                f.write("{},{},{},{},{}\n".format(clazz, reachable[clazz][IS_ACTIVITY], method,
+                                                  reachable[clazz][METHODS][method][REACHABLE],
                                                   reachable[clazz][METHODS][method][USE_JCA]))
 
 
@@ -172,13 +173,14 @@ def get_methods_used_in_specs(cg: MultiDiGraph, jca_methods: dict):
 def get_reachable_methods(cg: MultiDiGraph, apk: APK, entrypoints: set[MethodAnalysis]):
     reachable_methods = set[MethodAnalysis]()
     # reachable_methods.update(entrypoints)
-    package = apk.get_package()#.replace(".", "/")
+    package = apk.get_package()  # .replace(".", "/")
 
     node: MethodAnalysis
     for node in cg.nodes:
         clazz = get_class_name(node)
 
-        if (package in clazz) and (node not in entrypoints):  # and not node.is_external() and not node.is_android_api():
+        if (package in clazz) and (
+                node not in entrypoints):  # and not node.is_external() and not node.is_android_api():
             for e in entrypoints:
                 if nx.has_path(cg, e, node):
                     reachable_methods.add(node)
