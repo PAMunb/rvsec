@@ -1,45 +1,33 @@
 name: CI Pipeline
-
-on:
+'on':
   push:
     branches:
       - develop
   pull_request:
     branches:
       - develop
-
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-
       - name: Setup JDK 21
         uses: actions/setup-java@v3
         with:
-          distribution: 'temurin'
+          distribution: temurin
           java-version: '21'
-          cache: 'maven'
-
+          cache: maven
       - name: Build Maven project
         run: mvn clean install -DskipTests -DskipMopAgent
-
-#      - name: Run Maven project tests
-#        run: mvn test
-
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-
       - name: Install Python dependencies
         run: |
           pip install -r requirements.txt
         working-directory: rv-android
-
       - name: Run Python tests
         run: pytest
         working-directory: rv-android
-		
