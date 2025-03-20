@@ -1,5 +1,9 @@
 # RVSec
 
+
+![CI Pipeline](https://github.com/PAMunb/rvsec/actions/workflows/ci.yml/badge.svg?branch=develop)
+
+
 RVSec implements a runtime verification infrastructure 
 for identifying crypto API misuses via dynamic analyses. 
 The main components in this repository are:
