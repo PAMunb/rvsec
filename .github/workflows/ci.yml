@@ -29,5 +29,6 @@ jobs:
           pip install -r requirements.txt
         working-directory: rv-android
       - name: Run Python tests
-        run: pytest
+        run: |
+          PYTHONPATH=. pytest
         working-directory: rv-android
