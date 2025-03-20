@@ -2,6 +2,11 @@
 
 
 ![CI Pipeline](https://github.com/PAMunb/rvsec/actions/workflows/ci.yml/badge.svg?branch=develop)
+![Test Coverage](https://img.shields.io/badge/coverage-ver%20relatório-brightgreen)
+![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)
+![Security: bandit](https://img.shields.io/badge/security-bandit-yellow.svg)
+![Quality: flake8/pylint](https://img.shields.io/badge/quality-flake8%2Fpylint-blue)
+![Type checking: mypy](https://img.shields.io/badge/type%20checking-mypy-blue)
 
 
 RVSec implements a runtime verification infrastructure 
