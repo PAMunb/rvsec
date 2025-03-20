@@ -38,6 +38,7 @@ class TaskConfiguration:
     clean_logcat: bool = True
     skip_installation: bool = False
     device_id: str = "emulator-5554"
+    export_to_csv: bool = True  # New option to control CSV export
 
     def __str__(self) -> str:
         return (f"TaskConfiguration(apk={self.apk_name}, rep={self.repetition}, "
@@ -154,13 +155,13 @@ class Task:
         self.results_dir: str = ""
         self.static_data = None
 
-        # Primary data model - standardized repository
-        from rvandroid.model.coverage import CoverageRepository
-        self.repository = CoverageRepository()
+        # Standard repository for coverage and error data
+        from rvandroid.model.coverage import LogcatRepository
+        self.repository = LogcatRepository()
 
     def add_error(self, error: RvErrorLog) -> None:
         """
-        Add an error to the task's error tracking.
+        Add an error to the task's repository.
 
         Args:
             error: Error log to add
@@ -169,7 +170,7 @@ class Task:
 
     def add_method_call(self, coverage_log: RvCoverageLog) -> None:
         """
-        Add a method call to the task's coverage tracking.
+        Add a method call to the task's repository.
 
         Args:
             coverage_log: Coverage log to add
@@ -180,8 +181,8 @@ class Task:
         """
         Update coverage metrics based on repository data.
         """
-        if not self.static_data or not hasattr(self.static_data, "classes"):
-            self.logger.warning("Cannot update coverage: No static data available")
+        if not self.repository or not self.static_data:
+            self.logger.warning("Cannot update coverage: No repository or static data available")
             return
 
         # Calculate metrics from repository

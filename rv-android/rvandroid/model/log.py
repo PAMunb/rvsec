@@ -17,7 +17,24 @@ TAG_RVSEC_COV = "RVSEC-COV"
 class RvErrorLog:
     """
     Represents an error detected during runtime verification.
-    Provides a standardized structure for error data.
+    Provides a standardized structure for formal property violation data.
+
+    IMPORTANT: This class should ONLY be used for runtime verification errors,
+    meaning violations of properties defined in formal specifications.
+    Do NOT use this class for general system errors, exceptions, or other
+    non-property-related failures. For those cases, use regular exceptions
+    or the error handling mechanisms provided in util.exceptions.
+
+    Examples of appropriate use:
+    - A security property violation detected by a monitor
+    - A temporal logic constraint violation
+    - A protocol state machine entering an error state
+
+    Examples of inappropriate use:
+    - File not found errors
+    - Network connection failures
+    - Configuration errors
+    - General system exceptions
     """
 
     def __init__(self, spec: str, error_type: str, class_full_name: str, method: str, source: str, message: str):

@@ -5,17 +5,20 @@ Handles the execution of a single task and collects results.
 """
 
 import logging
+import os
 import traceback
 from typing import Optional, Dict, Any
 
 from rvandroid.analysis.coverage_tracker import CoverageTracker
 from rvandroid.experiment.event_system import EventBus, EventType
 from rvandroid.experiment.task_model import Task
+from rvandroid.model.coverage import LogcatRepository
 from rvandroid.parser.static import static_analysis_parser
 from rvandroid.tools.tool_spec import AbstractTool
 from rvandroid.util.emulator_manager import EmulatorManager
 from rvandroid.util.logcat_manager import LogcatManager
 from rvandroid.util.performance_monitor import PerformanceMonitor
+from rvandroid.util.spreadsheet_exporter import ExportContext, SpreadsheetExporter
 
 
 class TaskExecutor:
@@ -226,6 +229,7 @@ class TaskExecutor:
     def _process_coverage_data(self) -> None:
         """
         Process coverage data after task execution using standardized models.
+        Also exports data to CSV files if configured.
         """
         if not self.coverage_tracker:
             self.logger.warning("No coverage tracker available to process coverage data")
@@ -236,9 +240,6 @@ class TaskExecutor:
 
         # Stop logcat capture
         self.logcat_manager.stop_capture()
-
-        # Log the raw counts for debugging
-        self.logger.info("Processing coverage data from repository")
 
         # Get repository from coverage tracker
         repository = self.coverage_tracker.repository
@@ -259,6 +260,9 @@ class TaskExecutor:
         # Transfer the repository to the task for later use
         self.task.repository = repository
 
+        # Export data to CSV files
+        self._export_repository_data(repository)
+
         # Log coverage summary
         metrics = self.task.result.coverage_metrics
         self.logger.info(
@@ -273,6 +277,47 @@ class TaskExecutor:
             "coverage_metrics": metrics,
             "error_count": metrics.get('total_errors', 0)
         })
+
+    def _export_repository_data(self, repository: LogcatRepository) -> None:
+        """
+        Export repository data to CSV files.
+
+        Args:
+            repository: The repository with data to export
+        """
+        try:
+            # Check if export is enabled
+            export_enabled = getattr(self.task.config, "export_to_csv", True)
+            if not export_enabled:
+                self.logger.debug("CSV export is disabled for this task")
+                return
+
+            # Create export context from task
+            context = ExportContext.from_task(self.task)
+
+            # Determine export files
+            experiment_dir = os.path.dirname(os.path.dirname(self.task.results_dir))
+            coverage_file = os.path.join(experiment_dir, "coverage_data.csv")
+            error_file = os.path.join(experiment_dir, "error_data.csv")
+
+            # Export data
+            exporter = SpreadsheetExporter()
+
+            # Append to existing files or create new ones
+            if os.path.exists(coverage_file):
+                exporter.append_to_coverage_sheet(repository, context, coverage_file)
+            else:
+                exporter.export_coverage_data(repository, context, coverage_file)
+
+            if os.path.exists(error_file):
+                exporter.append_to_error_sheet(repository, context, error_file)
+            else:
+                exporter.export_error_data(repository, context, error_file)
+
+            self.logger.info(f"Exported task data to CSV files")
+
+        except Exception as e:
+            self.logger.error(f"Error exporting repository data: {e}", exc_info=True)
 
     def _cleanup_resources(self) -> None:
         """Clean up resources in case of error."""

@@ -1,4 +1,4 @@
-# rvandroid/analysis/analyzer.py
+# rvandroid/analysis/analyzer.py - Complete rewrite to use repository
 """
 Unified analyzer module for processing coverage data.
 Acts as a facade for different analysis functionalities.
@@ -7,7 +7,7 @@ Acts as a facade for different analysis functionalities.
 import logging
 from typing import Dict
 
-from rvandroid.model.coverage import CoverageRepository
+from rvandroid.model.coverage import LogcatRepository
 from rvandroid.model.log import RvCoverageLog, RvErrorLog
 
 
@@ -40,7 +40,7 @@ class CoverageAnalyzer:
         self.static_data = static_data
 
         # Primary model: standardized repository
-        self.repository = CoverageRepository()
+        self.repository = LogcatRepository()
 
     def process_logcat_file(self, logcat_file: str) -> Dict:
         """

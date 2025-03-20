@@ -232,7 +232,7 @@ class CoverageMetrics:
         return (part / total * 100) if total > 0 else 0.0
 
 
-class CoverageRepository:
+class LogcatRepository:
     """
     Central repository for coverage data.
     Provides a unified API for storing and retrieving coverage information.
@@ -291,10 +291,14 @@ class CoverageRepository:
 
     def register_error(self, error_log: RvErrorLog) -> None:
         """
-        Register an error log entry.
+        Register a formal property violation detected during runtime verification.
+
+        IMPORTANT: This method is ONLY for registering formal property violations
+        detected by runtime verification monitors, not for general system errors
+        or exceptions.
 
         Args:
-            error_log: Error log entry
+            error_log: Runtime verification error log entry
         """
         self.errors.append(error_log)
         self.unique_errors.add(error_log.unique_msg)
@@ -345,73 +349,73 @@ class CoverageRepository:
         }
 
 
-def process_coverage_data(
-        called_methods: Dict[str, Dict[str, Dict[str, RvCoverageLog]]],
-        all_methods: Dict[str, Dict[str, Any]]
-) -> Dict[str, Any]:
-    """
-    Process coverage data using the new unified model.
-    This is a compatibility function to ease transition to the new model.
-
-    Args:
-        called_methods: Old format dictionary of called methods
-        all_methods: Old format dictionary of all methods
-
-    Returns:
-        Dictionary with coverage results in the old format for compatibility
-    """
-    # Create a repository
-    repository = CoverageRepository()
-
-    # First add all methods from static analysis
-    for class_name, class_info in all_methods.items():
-        class_data = ClassCoverageData(
-            name=class_name,
-            is_activity=class_info.get("is_activity", False)
-        )
-
-        for signature, method_info in class_info.get("methods", {}).items():
-            method_data = MethodCoverageData(
-                class_name=class_name,
-                method_name=signature.split("(")[0] if "(" in signature else signature,
-                signature=signature,
-                parameters=[],  # We don't have this info in the old format
-                reachable=method_info.get("reachable", False),
-                reaches_mop=method_info.get("reaches_mop", False),
-                directly_reaches_mop=method_info.get("directly_reaches_mop", False),
-                called=method_info.get("called", False)
-            )
-            class_data.add_method(method_data)
-
-        repository.add_class(class_data)
-
-    # Now add called methods
-    for class_name, class_info in called_methods.items():
-        class_data = repository.get_class(class_name)
-        if not class_data:
-            class_data = ClassCoverageData(name=class_name)
-            repository.add_class(class_data)
-
-        for signature, method_log in class_info.get("methods", {}).items():
-            if isinstance(method_log, RvCoverageLog):
-                if signature in class_data.methods:
-                    class_data.register_method_call(signature, method_log.time_occurred)
-                else:
-                    method_data = MethodCoverageData.from_coverage_log(method_log)
-                    class_data.add_method(method_data)
-
-    # Calculate metrics
-    metrics = repository.calculate_metrics()
-
-    # Convert to old format for compatibility
-    result = all_methods.copy()
-    result["SUMMARY"] = metrics.to_dict()
-
-    # Mark called methods
-    for class_name, class_info in called_methods.items():
-        if class_name in result:
-            for signature in class_info.get("methods", {}):
-                if signature in result[class_name]["methods"]:
-                    result[class_name]["methods"][signature]["called"] = True
-
-    return result
+# def process_coverage_data(
+#         called_methods: Dict[str, Dict[str, Dict[str, RvCoverageLog]]],
+#         all_methods: Dict[str, Dict[str, Any]]
+# ) -> Dict[str, Any]:
+#     """
+#     Process coverage data using the new unified model.
+#     This is a compatibility function to ease transition to the new model.
+#
+#     Args:
+#         called_methods: Old format dictionary of called methods
+#         all_methods: Old format dictionary of all methods
+#
+#     Returns:
+#         Dictionary with coverage results in the old format for compatibility
+#     """
+#     # Create a repository
+#     repository = LogcatRepository()
+#
+#     # First add all methods from static analysis
+#     for class_name, class_info in all_methods.items():
+#         class_data = ClassCoverageData(
+#             name=class_name,
+#             is_activity=class_info.get("is_activity", False)
+#         )
+#
+#         for signature, method_info in class_info.get("methods", {}).items():
+#             method_data = MethodCoverageData(
+#                 class_name=class_name,
+#                 method_name=signature.split("(")[0] if "(" in signature else signature,
+#                 signature=signature,
+#                 parameters=[],  # We don't have this info in the old format
+#                 reachable=method_info.get("reachable", False),
+#                 reaches_mop=method_info.get("reaches_mop", False),
+#                 directly_reaches_mop=method_info.get("directly_reaches_mop", False),
+#                 called=method_info.get("called", False)
+#             )
+#             class_data.add_method(method_data)
+#
+#         repository.add_class(class_data)
+#
+#     # Now add called methods
+#     for class_name, class_info in called_methods.items():
+#         class_data = repository.get_class(class_name)
+#         if not class_data:
+#             class_data = ClassCoverageData(name=class_name)
+#             repository.add_class(class_data)
+#
+#         for signature, method_log in class_info.get("methods", {}).items():
+#             if isinstance(method_log, RvCoverageLog):
+#                 if signature in class_data.methods:
+#                     class_data.register_method_call(signature, method_log.time_occurred)
+#                 else:
+#                     method_data = MethodCoverageData.from_coverage_log(method_log)
+#                     class_data.add_method(method_data)
+#
+#     # Calculate metrics
+#     metrics = repository.calculate_metrics()
+#
+#     # Convert to old format for compatibility
+#     result = all_methods.copy()
+#     result["SUMMARY"] = metrics.to_dict()
+#
+#     # Mark called methods
+#     for class_name, class_info in called_methods.items():
+#         if class_name in result:
+#             for signature in class_info.get("methods", {}):
+#                 if signature in result[class_name]["methods"]:
+#                     result[class_name]["methods"][signature]["called"] = True
+#
+#     return result

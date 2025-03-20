@@ -7,62 +7,29 @@ A comprehensive log parsing module for extracting runtime verification and cover
 - Provides flexible and extensible log parsing mechanisms
 - Supports multiple parsing approaches for different log formats
 - Enables detailed extraction of runtime verification events
-
-### Role in the System:
-- Serves as the primary log parsing utility for runtime verification analysis
-- Extracts critical runtime information from Android logcat streams
-- Supports comprehensive error and coverage log processing
-- Enables detailed tracking of method executions and specification violations
-- Provides a standardized interface for log data extraction
-
-### Key Considerations:
-- Handles complex and varied logcat entry formats
-- Implements advanced regex-based parsing techniques
-- Supports multiple log entry types (coverage, error, event logs)
-- Provides intelligent timestamp handling across different scenarios
-- Ensures robust parsing with extensive error handling
-
-### Integration Strategy:
-- Deeply integrated with RV-Android's runtime verification infrastructure
-- Compatible with various logging and monitoring components
-- Supports streaming and batch log processing
-- Enables flexible log source integration
-- Provides standardized log entry representation
-
-### Performance and Scalability:
-- Designed for efficient log parsing with minimal computational overhead
-- Supports processing of large and complex logcat files
-- Implements memory-efficient parsing strategies
-- Adaptable to different log entry complexities
-- Enables real-time and retrospective log analysis
 """
 
 import re
 from datetime import datetime
-from typing import List, Set, Tuple, Dict, Any, Optional, Generator
+from typing import Dict, Any, Optional, Generator
 
+from rvandroid.model.coverage import LogcatRepository
 from rvandroid.model.log import RvErrorLog, RvCoverageLog, TAG_RVSEC, TAG_RVSEC_COV
 
 
-def parse_logcat_file(log_file: str) -> Tuple[
-    List[RvErrorLog], Dict[str, Dict[str, Dict[str, RvCoverageLog]]], List[RvCoverageLog]]:
+def parse_logcat_file(log_file: str) -> LogcatRepository:
     """
     Parse a logcat file and extract runtime verification logs.
-    Returns primarily standardized models, with legacy structures for compatibility.
+    Returns a standardized LogcatRepository.
 
     Args:
         log_file (str): Path to the logcat file
 
     Returns:
-        Tuple containing:
-        - List of error logs
-        - Dictionary of called methods organized by class (legacy format)
-        - Chronologically ordered list of coverage logs
+        LogcatRepository containing the parsed coverage data
     """
-    # Initialize data structures
-    errors: List[RvErrorLog] = []
-    methods: List[RvCoverageLog] = []
-    rvsec_error_msgs: Set[str] = set()
+    # Initialize the repository
+    repository = LogcatRepository()
 
     # Process log file line by line for memory efficiency
     for entry in _parse_logcat_entries(log_file):
@@ -74,27 +41,18 @@ def parse_logcat_file(log_file: str) -> Tuple[
             error.time_occurred = date
             error.original_msg = entry["original"]
 
-            if error.unique_msg not in rvsec_error_msgs:
-                rvsec_error_msgs.add(error.unique_msg)
-                errors.append(error)
+            # Add to repository
+            repository.register_error(error)
 
         elif entry["tag"] == TAG_RVSEC_COV:
             coverage = _parse_coverage_message(message)
             coverage.time_occurred = date
             coverage.original_msg = entry["original"]
-            methods.append(coverage)
 
-    # Sort methods by timestamp
-    sorted_methods = sorted(methods, key=lambda x: x.time_occurred)
+            # Add to repository
+            repository.register_method_call(coverage)
 
-    # For backward compatibility, also construct the legacy format
-    legacy_format = {}
-    for method in sorted_methods:
-        if method.clazz not in legacy_format:
-            legacy_format[method.clazz] = {"methods": {}}
-        legacy_format[method.clazz]["methods"][method.signature] = method
-
-    return errors, legacy_format, sorted_methods
+    return repository
 
 
 def stream_logcat_entries(log_file: str) -> Generator[Dict[str, Any], None, None]:
@@ -153,7 +111,7 @@ def _parse_logcat_line(line: str) -> Optional[Dict[str, Any]]:
     }
 
 
-def parse_logcat_line(line: str) -> Tuple[Optional[RvErrorLog], Optional[RvCoverageLog]]:
+def parse_logcat_line(line: str) -> tuple[Optional[RvErrorLog], Optional[RvCoverageLog]]:
     """
     Parse a single logcat line for RVSEC or RVSEC-COV entries.
 

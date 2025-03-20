@@ -240,6 +240,24 @@ class Configuration:
                 value_type=str,
                 description="URL for RV-Android service",
                 env_var=ENV_RVANDROID_URL
+            ),
+            "export_to_csv": ConfigValue(
+                key="export_to_csv",
+                default=True,
+                value_type=bool,
+                description="Whether to export data to CSV files"
+            ),
+            "csv_coverage_file": ConfigValue(
+                key="csv_coverage_file",
+                default="coverage_data.csv",
+                value_type=str,
+                description="Name of the CSV file for coverage data"
+            ),
+            "csv_error_file": ConfigValue(
+                key="csv_error_file",
+                default="error_data.csv",
+                value_type=str,
+                description="Name of the CSV file for error data"
             )
         }
 

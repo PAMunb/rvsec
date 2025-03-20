@@ -2,7 +2,7 @@ import json
 import os
 import time
 from datetime import datetime
-from typing import Dict
+from typing import Dict, Any
 
 import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
@@ -349,52 +349,295 @@ class PerformanceVisualizer:
         self.logger.info(f"Errors report chart saved to {output_file}")
         return output_file
 
-    def generate_performance_dashboard(self, results_dir: str):
+    def generate_performance_dashboard(self, results_dir: str) -> str:
         """
-        Generate a complete performance dashboard with multiple charts.
+        Generate a complete performance dashboard for the experiment.
 
         Args:
-            results_dir: Path to results directory
+            results_dir: Directory containing experiment results
 
         Returns:
             Path to dashboard directory
         """
-        # Create dashboard directory
-        dashboard_dir = os.path.join(results_dir, "dashboard")
-        os.makedirs(dashboard_dir, exist_ok=True)
-
-        # Generate performance metrics charts
-        self.generate_timing_summary(dashboard_dir)
-        self.generate_llm_performance_chart(dashboard_dir)
-
-        # Load results data if available
-        results_file = os.path.join(results_dir, "results_analysis.json")
-        if os.path.exists(results_file):
-            try:
-                with open(results_file, 'r') as f:
-                    results_data = json.load(f)
-
-                # Generate coverage and errors reports
-                self.generate_coverage_report(results_data, dashboard_dir)
-                self.generate_errors_report(results_data, dashboard_dir)
-            except Exception as e:
-                self.logger.error(f"Error loading or processing results data: {e}")
-
-        # Generate diagnostic report
         try:
-            from rvandroid.util.diagnostics import DiagnosticTool
-            diagnostic_tool = DiagnosticTool()
-            report = diagnostic_tool.generate_report()
-            report_path = os.path.join(dashboard_dir, "diagnostic_report.json")
-            report.save_to_file(report_path)
-            self.logger.info(f"Diagnostic report saved to {report_path}")
+            # Create dashboard directory
+            dashboard_dir = os.path.join(results_dir, "dashboard")
+            os.makedirs(dashboard_dir, exist_ok=True)
+
+            # Load coverage report
+            coverage_report_path = os.path.join(results_dir, "coverage_report.json")
+            coverage_report = {}
+
+            if os.path.exists(coverage_report_path):
+                with open(coverage_report_path, 'r') as f:
+                    coverage_report = json.load(f)
+
+            # Generate charts
+            self.generate_coverage_comparison_chart(
+                coverage_report,
+                os.path.join(dashboard_dir, "charts")
+            )
+
+            # Generate method coverage by app chart
+            self._generate_app_coverage_chart(coverage_report, dashboard_dir)
+
+            # Generate execution time chart
+            self._generate_execution_time_chart(coverage_report, dashboard_dir)
+
+            # Generate HTML dashboard
+            self._generate_html_dashboard(coverage_report, dashboard_dir)
+
+            self.logger.info(f"Performance dashboard generated at {dashboard_dir}")
+
+            return dashboard_dir
+
         except Exception as e:
-            self.logger.error(f"Error generating diagnostic report: {e}")
+            self.logger.error(f"Error generating performance dashboard: {e}", exc_info=True)
+            return ""
 
-        # Generate HTML index
-        self.generate_dashboard_index(dashboard_dir)
+    def _generate_app_coverage_chart(self, coverage_report: Dict[str, Any], dashboard_dir: str):
+        """
+        Generate a chart showing method coverage by app.
 
-        return dashboard_dir
+        Args:
+            coverage_report: Dictionary with coverage report data
+            dashboard_dir: Directory to save the chart
+        """
+        try:
+            # Ensure charts directory exists
+            charts_dir = os.path.join(dashboard_dir, "charts")
+            os.makedirs(charts_dir, exist_ok=True)
+
+            # Extract data by app
+            apps = {}
+
+            for task_key, task_data in coverage_report.get("tasks", {}).items():
+                app_name = task_data.get("apk_name", "unknown")
+
+                if app_name not in apps:
+                    apps[app_name] = {
+                        "method_coverage": [],
+                        "activities_coverage": [],
+                        "mop_coverage": []
+                    }
+
+                apps[app_name]["method_coverage"].append(task_data.get("method_coverage", 0))
+                apps[app_name]["activities_coverage"].append(task_data.get("activities_coverage", 0))
+                apps[app_name]["mop_coverage"].append(task_data.get("mop_coverage", 0))
+
+            # Calculate averages
+            app_names = []
+            method_avgs = []
+            activity_avgs = []
+            mop_avgs = []
+
+            for app_name, app_data in apps.items():
+                app_names.append(app_name)
+                method_avgs.append(np.mean(app_data["method_coverage"]))
+                activity_avgs.append(np.mean(app_data["activities_coverage"]))
+                mop_avgs.append(np.mean(app_data["mop_coverage"]))
+
+            # Create chart
+            fig, ax = plt.subplots(figsize=(14, 8))
+
+            x = np.arange(len(app_names))
+            width = 0.25
+
+            ax.bar(x - width, method_avgs, width, label='Method Coverage')
+            ax.bar(x, activity_avgs, width, label='Activity Coverage')
+            ax.bar(x + width, mop_avgs, width, label='MOP Method Coverage')
+
+            ax.set_title('Coverage Metrics by Application')
+            ax.set_ylabel('Coverage Percentage')
+            ax.set_xticks(x)
+            ax.set_xticklabels(app_names, rotation=45, ha='right')
+            ax.legend()
+
+            plt.tight_layout()
+
+            # Save chart
+            chart_path = os.path.join(charts_dir, "app_coverage.png")
+            plt.savefig(chart_path)
+            plt.close()
+
+            self.logger.info(f"App coverage chart saved to {chart_path}")
+
+            return chart_path
+
+        except Exception as e:
+            self.logger.error(f"Error generating app coverage chart: {e}", exc_info=True)
+            return None
+
+    def _generate_execution_time_chart(self, coverage_report: Dict[str, Any], dashboard_dir: str):
+        """
+        Generate a chart showing execution time by tool.
+
+        Args:
+            coverage_report: Dictionary with coverage report data
+            dashboard_dir: Directory to save the chart
+        """
+        try:
+            # Ensure charts directory exists
+            charts_dir = os.path.join(dashboard_dir, "charts")
+            os.makedirs(charts_dir, exist_ok=True)
+
+            # Extract data by tool
+            tools = {}
+
+            for task_key, task_data in coverage_report.get("tasks", {}).items():
+                tool_name = task_data.get("tool_name", "unknown")
+                execution_time = task_data.get("execution_time", 0)
+
+                if tool_name not in tools:
+                    tools[tool_name] = []
+
+                tools[tool_name].append(execution_time)
+
+            # Calculate averages
+            tool_names = []
+            avg_times = []
+
+            for tool_name, times in tools.items():
+                tool_names.append(tool_name)
+                avg_times.append(np.mean(times))
+
+            # Create chart
+            fig, ax = plt.subplots(figsize=(10, 6))
+
+            ax.bar(tool_names, avg_times)
+
+            ax.set_title('Average Execution Time by Tool')
+            ax.set_ylabel('Execution Time (seconds)')
+            ax.set_xlabel('Tool')
+
+            plt.tight_layout()
+
+            # Save chart
+            chart_path = os.path.join(charts_dir, "execution_time.png")
+            plt.savefig(chart_path)
+            plt.close()
+
+            self.logger.info(f"Execution time chart saved to {chart_path}")
+
+            return chart_path
+
+        except Exception as e:
+            self.logger.error(f"Error generating execution time chart: {e}", exc_info=True)
+            return None
+
+    def _generate_html_dashboard(self, coverage_report: Dict[str, Any], dashboard_dir: str):
+        """
+        Generate an HTML dashboard with all charts and metrics.
+
+        Args:
+            coverage_report: Dictionary with coverage report data
+            dashboard_dir: Directory to save the dashboard
+        """
+        try:
+            # Import datetime for current timestamp
+            from datetime import datetime
+
+            # Create HTML content - Escape chaves literais usando chaves duplas {{ }}
+            html_content = """
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <title>Experiment Performance Dashboard</title>
+                <style>
+                    body {{ font-family: Arial, sans-serif; margin: 0; padding: 20px; }}
+                    .container {{ max-width: 1200px; margin: 0 auto; }}
+                    .header {{ text-align: center; margin-bottom: 30px; }}
+                    .section {{ margin-bottom: 40px; }}
+                    .chart-container {{ margin-bottom: 30px; }}
+                    .metrics-table {{ width: 100%; border-collapse: collapse; }}
+                    .metrics-table th, .metrics-table td {{ 
+                        border: 1px solid #ddd; padding: 8px; text-align: left; 
+                    }}
+                    .metrics-table th {{ background-color: #f2f2f2; }}
+                    .metrics-table tr:nth-child(even) {{ background-color: #f9f9f9; }}
+                </style>
+            </head>
+            <body>
+                <div class="container">
+                    <div class="header">
+                        <h1>Experiment Performance Dashboard</h1>
+                        <p>Generated on {date}</p>
+                    </div>
+
+                    <div class="section">
+                        <h2>Summary Metrics</h2>
+                        <table class="metrics-table">
+                            <tr>
+                                <th>Metric</th>
+                                <th>Value</th>
+                            </tr>
+                            <tr>
+                                <td>Total Tasks</td>
+                                <td>{total_tasks}</td>
+                            </tr>
+                            <tr>
+                                <td>Completed Tasks</td>
+                                <td>{completed_tasks}</td>
+                            </tr>
+                            <tr>
+                                <td>Average Method Coverage</td>
+                                <td>{avg_method_coverage:.2f}%</td>
+                            </tr>
+                            <tr>
+                                <td>Average Activity Coverage</td>
+                                <td>{avg_activities_coverage:.2f}%</td>
+                            </tr>
+                            <tr>
+                                <td>Average MOP Method Coverage</td>
+                                <td>{avg_mop_coverage:.2f}%</td>
+                            </tr>
+                        </table>
+                    </div>
+
+                    <div class="section">
+                        <h2>Coverage Comparison by Tool</h2>
+                        <div class="chart-container">
+                            <img src="charts/coverage_comparison.png" alt="Coverage Comparison" style="max-width: 100%;">
+                        </div>
+                    </div>
+
+                    <div class="section">
+                        <h2>Coverage by Application</h2>
+                        <div class="chart-container">
+                            <img src="charts/app_coverage.png" alt="App Coverage" style="max-width: 100%;">
+                        </div>
+                    </div>
+
+                    <div class="section">
+                        <h2>Execution Time by Tool</h2>
+                        <div class="chart-container">
+                            <img src="charts/execution_time.png" alt="Execution Time" style="max-width: 100%;">
+                        </div>
+                    </div>
+                </div>
+            </body>
+            </html>
+            """.format(
+                date=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                total_tasks=coverage_report.get("summary", {}).get("total_tasks", 0),
+                completed_tasks=coverage_report.get("summary", {}).get("completed_tasks", 0),
+                avg_method_coverage=coverage_report.get("summary", {}).get("avg_method_coverage", 0),
+                avg_activities_coverage=coverage_report.get("summary", {}).get("avg_activities_coverage", 0),
+                avg_mop_coverage=coverage_report.get("summary", {}).get("avg_mop_coverage", 0)
+            )
+
+            # Save HTML file
+            index_path = os.path.join(dashboard_dir, "index.html")
+            with open(index_path, 'w') as f:
+                f.write(html_content)
+
+            self.logger.info(f"HTML dashboard saved to {index_path}")
+
+            return index_path
+
+        except Exception as e:
+            self.logger.error(f"Error generating HTML dashboard: {e}", exc_info=True)
+            return None
 
     def generate_dashboard_index(self, dashboard_dir: str):
         """
@@ -518,168 +761,75 @@ class PerformanceVisualizer:
         self.logger.info(f"Dashboard index generated at {index_path}")
         return index_path
 
-    def generate_coverage_comparison_chart(self, coverage_report: Dict, output_dir: str,
-                                           file_prefix: str = "coverage_comparison"):
+    def generate_coverage_comparison_chart(self, coverage_report: Dict[str, Any], output_dir: str):
         """
-        Generate a comparative chart for coverage metrics across tools and apps.
+        Generate a chart comparing coverage metrics across tools.
 
         Args:
-            coverage_report: Coverage report from ExecutionManager.get_coverage_report()
+            coverage_report: Dictionary with coverage report data
             output_dir: Directory to save the chart
-            file_prefix: Prefix for the output file
-
-        Returns:
-            Path to the generated chart
         """
-        if not coverage_report or "tasks" not in coverage_report:
-            self.logger.warning("No coverage report data available for visualization")
+        try:
+            # Ensure output directory exists
+            os.makedirs(output_dir, exist_ok=True)
+
+            # Extract data from coverage report
+            tools = {}
+
+            # Group by tool
+            for task_key, task_data in coverage_report.get("tasks", {}).items():
+                tool_name = task_data.get("tool_name", "unknown")
+
+                if tool_name not in tools:
+                    tools[tool_name] = {
+                        "method_coverage": [],
+                        "activities_coverage": [],
+                        "mop_coverage": []
+                    }
+
+                tools[tool_name]["method_coverage"].append(task_data.get("method_coverage", 0))
+                tools[tool_name]["activities_coverage"].append(task_data.get("activities_coverage", 0))
+                tools[tool_name]["mop_coverage"].append(task_data.get("mop_coverage", 0))
+
+            # Calculate averages
+            tool_names = []
+            method_avgs = []
+            activity_avgs = []
+            mop_avgs = []
+
+            for tool_name, tool_data in tools.items():
+                tool_names.append(tool_name)
+                method_avgs.append(np.mean(tool_data["method_coverage"]))
+                activity_avgs.append(np.mean(tool_data["activities_coverage"]))
+                mop_avgs.append(np.mean(tool_data["mop_coverage"]))
+
+            # Create chart
+            fig, ax = plt.subplots(figsize=(12, 8))
+
+            x = np.arange(len(tool_names))
+            width = 0.25
+
+            ax.bar(x - width, method_avgs, width, label='Method Coverage')
+            ax.bar(x, activity_avgs, width, label='Activity Coverage')
+            ax.bar(x + width, mop_avgs, width, label='MOP Method Coverage')
+
+            ax.set_title('Coverage Metrics by Tool')
+            ax.set_ylabel('Coverage Percentage')
+            ax.set_xticks(x)
+            ax.set_xticklabels(tool_names)
+            ax.legend()
+
+            plt.tight_layout()
+
+            # Save chart
+            chart_path = os.path.join(output_dir, "coverage_comparison.png")
+            plt.savefig(chart_path)
+            plt.close()
+
+            self.logger.info(f"Coverage comparison chart saved to {chart_path}")
+
+            return chart_path
+
+        except Exception as e:
+            self.logger.error(f"Error generating coverage comparison chart: {e}", exc_info=True)
             return None
-
-        # Create output directory if it doesn't exist
-        os.makedirs(output_dir, exist_ok=True)
-
-        # Group data by app and tool
-        app_tool_data = {}
-        for task_key, task_data in coverage_report["tasks"].items():
-            app_name = task_data["apk_name"]
-            tool_name = task_data["tool_name"]
-
-            if app_name not in app_tool_data:
-                app_tool_data[app_name] = {}
-
-            if tool_name not in app_tool_data[app_name]:
-                app_tool_data[app_name][tool_name] = []
-
-            app_tool_data[app_name][tool_name].append(task_data)
-
-        # Calculate averages for each app/tool combination
-        avg_data = []
-        for app_name, tools in app_tool_data.items():
-            for tool_name, tasks in tools.items():
-                if not tasks:
-                    continue
-
-                avg_method = sum(t["method_coverage"] for t in tasks) / len(tasks)
-                avg_activity = sum(t["activities_coverage"] for t in tasks) / len(tasks)
-                avg_mop = sum(t["mop_coverage"] for t in tasks) / len(tasks)
-                total_errors = sum(t["errors"] for t in tasks)
-
-                avg_data.append({
-                    "app_name": app_name,
-                    "tool_name": tool_name,
-                    "avg_method_coverage": avg_method,
-                    "avg_activities_coverage": avg_activity,
-                    "avg_mop_coverage": avg_mop,
-                    "total_errors": total_errors
-                })
-
-        if not avg_data:
-            self.logger.warning("No data available to visualize")
-            return None
-
-        # Create figure with subplots
-        fig, axes = plt.subplots(2, 2, figsize=(15, 12))
-        axes = axes.flatten()
-
-        # List of tools and apps for grouping
-        all_tools = sorted(set(d["tool_name"] for d in avg_data))
-        all_apps = sorted(set(d["app_name"] for d in avg_data))
-
-        # Colors for tools
-        tool_colors = plt.cm.tab10(np.linspace(0, 1, len(all_tools)))
-
-        # 1. Method coverage by tool for each app
-        ax = axes[0]
-        x = np.arange(len(all_apps))
-        width = 0.8 / len(all_tools)
-
-        for i, tool in enumerate(all_tools):
-            tool_data = [d for d in avg_data if d["tool_name"] == tool]
-            # Map to ensure all apps are represented
-            values = []
-            for app in all_apps:
-                app_data = next((d for d in tool_data if d["app_name"] == app), None)
-                values.append(app_data["avg_method_coverage"] if app_data else 0)
-
-            ax.bar(x + i * width - width * len(all_tools) / 2 + width / 2, values, width,
-                   label=tool, color=tool_colors[i], alpha=0.7)
-
-        ax.set_ylabel("Method Coverage (%)")
-        ax.set_title("Method Coverage by Tool")
-        ax.set_xticks(x)
-        ax.set_xticklabels([name[:15] + '...' if len(name) > 15 else name for name in all_apps], rotation=45,
-                           ha='right')
-        ax.legend(title="Tool")
-        ax.grid(axis='y', linestyle='--', alpha=0.7)
-
-        # 2. Activity coverage by tool for each app
-        ax = axes[1]
-        for i, tool in enumerate(all_tools):
-            tool_data = [d for d in avg_data if d["tool_name"] == tool]
-            values = []
-            for app in all_apps:
-                app_data = next((d for d in tool_data if d["app_name"] == app), None)
-                values.append(app_data["avg_activities_coverage"] if app_data else 0)
-
-            ax.bar(x + i * width - width * len(all_tools) / 2 + width / 2, values, width,
-                   label=tool, color=tool_colors[i], alpha=0.7)
-
-        ax.set_ylabel("Activity Coverage (%)")
-        ax.set_title("Activity Coverage by Tool")
-        ax.set_xticks(x)
-        ax.set_xticklabels([name[:15] + '...' if len(name) > 15 else name for name in all_apps], rotation=45,
-                           ha='right')
-        ax.legend(title="Tool")
-        ax.grid(axis='y', linestyle='--', alpha=0.7)
-
-        # 3. MOP methods coverage by tool for each app
-        ax = axes[2]
-        for i, tool in enumerate(all_tools):
-            tool_data = [d for d in avg_data if d["tool_name"] == tool]
-            values = []
-            for app in all_apps:
-                app_data = next((d for d in tool_data if d["app_name"] == app), None)
-                values.append(app_data["avg_mop_coverage"] if app_data else 0)
-
-            ax.bar(x + i * width - width * len(all_tools) / 2 + width / 2, values, width,
-                   label=tool, color=tool_colors[i], alpha=0.7)
-
-        ax.set_ylabel("MOP Methods Coverage (%)")
-        ax.set_title("MOP Methods Coverage by Tool")
-        ax.set_xticks(x)
-        ax.set_xticklabels([name[:15] + '...' if len(name) > 15 else name for name in all_apps], rotation=45,
-                           ha='right')
-        ax.legend(title="Tool")
-        ax.grid(axis='y', linestyle='--', alpha=0.7)
-
-        # 4. Total errors detected by tool for each app
-        ax = axes[3]
-        for i, tool in enumerate(all_tools):
-            tool_data = [d for d in avg_data if d["tool_name"] == tool]
-            values = []
-            for app in all_apps:
-                app_data = next((d for d in tool_data if d["app_name"] == app), None)
-                values.append(app_data["total_errors"] if app_data else 0)
-
-            ax.bar(x + i * width - width * len(all_tools) / 2 + width / 2, values, width,
-                   label=tool, color=tool_colors[i], alpha=0.7)
-
-        ax.set_ylabel("Total Errors Detected")
-        ax.set_title("Errors Detected by Tool")
-        ax.set_xticks(x)
-        ax.set_xticklabels([name[:15] + '...' if len(name) > 15 else name for name in all_apps], rotation=45,
-                           ha='right')
-        ax.legend(title="Tool")
-        ax.grid(axis='y', linestyle='--', alpha=0.7)
-
-        # Tight layout
-        plt.tight_layout()
-
-        # Save figure
-        timestamp = time.strftime("%Y%m%d-%H%M%S")
-        output_file = os.path.join(output_dir, f"{file_prefix}_{timestamp}.png")
-        plt.savefig(output_file, dpi=100)
-        plt.close(fig)
-
-        self.logger.info(f"Coverage comparison chart saved to {output_file}")
-        return output_file
