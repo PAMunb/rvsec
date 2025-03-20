@@ -13,32 +13,32 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout do código
+      - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Configurar JDK 21
+      - name: Setup JDK 21
         uses: actions/setup-java@v3
         with:
           distribution: 'temurin'
           java-version: '21'
           cache: 'maven'
 
-      - name: Build do projeto Maven
+      - name: Build Maven project
         run: mvn clean install -DskipTests -DskipMopAgent
 
-#      - name: Executar testes do projeto Maven
+#      - name: Run Maven project tests
 #        run: mvn test
-#
-#      - name: Configurar Python
-#        uses: actions/setup-python@v5
-#        with:
-#          python-version: '3.x'  # Substitua por uma versão específica, se necessário
-#
-#      - name: Instalar dependências do Python
-#        run: |
-#          pip install -r requirements.txt
-#        working-directory: caminho/do/modulo/python # Ajuste para o caminho correto
-#
-#      - name: Executar testes Python
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Python dependencies
+        run: |
+          pip install -r requirements.txt
+        working-directory: rv-android # Adjust to the correct path
+
+#      - name: Run Python tests
 #        run: pytest
-#        working-directory: caminho/do/modulo/python # Ajuste para o caminho correto
+#        working-directory: rv-android # Adjust to the correct path
