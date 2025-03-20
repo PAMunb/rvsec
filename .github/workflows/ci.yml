@@ -37,8 +37,9 @@ jobs:
       - name: Install Python dependencies
         run: |
           pip install -r requirements.txt
-        working-directory: rv-android # Adjust to the correct path
+        working-directory: rv-android
 
-#      - name: Run Python tests
-#        run: pytest
-#        working-directory: rv-android # Adjust to the correct path
+      - name: Run Python tests
+        run: pytest
+        working-directory: rv-android
+		
