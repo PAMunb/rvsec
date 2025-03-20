@@ -191,12 +191,14 @@ def run_local():
     # This will be detected by LoggingManager and it won't add duplicate handlers
     logging.basicConfig(
         stream=sys.stdout,
-        level=logging.DEBUG if log_debug else logging.INFO,
+        level=logging.DEBUG,
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
     )
 
     # Silence specific noisy loggers
     logging.getLogger("androguard").setLevel(logging.ERROR)
+    logging.getLogger("matplotlib").setLevel(logging.ERROR)
+    logging.getLogger("PIL").setLevel(logging.ERROR)
 
     # Get configuration instance
     config = Configuration.get_instance()
@@ -204,9 +206,9 @@ def run_local():
     # Set configuration values
     config.set("repetitions", 1)
     config.set("timeouts", [60])
-    config.set("generate_monitors", True)
-    config.set("instrument", True)
-    config.set("static_analysis", True)
+    config.set("generate_monitors", False)
+    config.set("instrument", False)
+    config.set("static_analysis", False)
     config.set("skip_experiment", False)
     config.set("no_window", True)
     config.set("memory_file", "")

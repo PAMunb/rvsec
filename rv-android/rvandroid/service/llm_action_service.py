@@ -100,8 +100,8 @@ class LLMActionService:
         self.config = config
         self.dynamic_wtg_file = dynamic_wtg_file
 
-        self.model_type = config.llm_config["type"]
-        self.model_name = config.llm_config["model"]
+        self.model_type = config.llm_config.get_model_type()
+        self.model_name = config.llm_config.get_model_name()
         self.model_kwargs = model_kwargs
         self.max_tokens = model_kwargs.pop("max_tokens", 800)
 
@@ -112,6 +112,7 @@ class LLMActionService:
         self.response_parser = ResponseParser()
 
         # Initialize session recording
+        # TODO remover funcionalidade de gravação de sessão
         self.record_session = False  # Set to False to disable recording
         self.session_actions = []
 
@@ -123,8 +124,8 @@ class LLMActionService:
         saved_graph = DynamicTransitionGraph.load_from_file(dynamic_wtg_file)
         self.dynamic_wtg = saved_graph if saved_graph else DynamicTransitionGraph()
 
-        self.logger.info(f"Initialized LLM Action Service with model_type={self.config.llm_config['type']}, "
-                         f"model_name={self.config.llm_config['model']}, strategy={self.config.strategy_class}, "
+        self.logger.info(f"Initialized LLM Action Service with model_type={self.config.llm_config.get_model_type()}, "
+                         f"model_name={self.config.llm_config.get_model_name()}, strategy={self.config.strategy_class}, "
                          f"parser_type={self.config.parser_class}, visitor={self.config.visitor_class}")
 
     def _get_llm(self) -> LanguageModel:

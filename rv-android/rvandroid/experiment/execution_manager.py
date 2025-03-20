@@ -340,7 +340,11 @@ class ExecutionManager:
 
     def get_coverage_report(self) -> Dict[str, Any]:
         """
-        Generate a coverage report for all executed tasks using standardized models.
+        Generate a coverage report for all executed tasks using standardized repository model.
+
+        This method generates a comprehensive coverage report based on the
+        LogcatRepository data stored in each task, ensuring consistent
+        data representation across the system.
 
         Returns:
             Dictionary with coverage report data
@@ -375,7 +379,21 @@ class ExecutionManager:
 
         # Process each task
         for task in completed_tasks:
-            # Get metrics from task result
+            # Get standardized metrics from task's repository if available
+            if hasattr(task, 'repository') and task.repository:
+                # Get metrics directly from the repository - source of truth
+                metrics = task.repository.calculate_metrics().to_dict()
+
+                # Use these metrics instead of potentially inconsistent ones in result
+                task.result.coverage_metrics.update({
+                    "method_coverage": metrics["method_coverage"],
+                    "activities_coverage": metrics["activity_coverage"],
+                    "mop_coverage": metrics["mop_method_coverage"],
+                    "total_errors": metrics["unique_errors"],
+                    "total_method_calls": metrics["called_methods"]
+                })
+
+            # Use metrics from task.result
             metrics = task.result.coverage_metrics
 
             # Add to task report

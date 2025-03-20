@@ -9,9 +9,11 @@ A comprehensive log parsing module for extracting runtime verification and cover
 - Enables detailed extraction of runtime verification events
 """
 
+import logging
 import re
 from datetime import datetime
 from typing import Dict, Any, Optional, Generator
+from typing import Tuple
 
 from rvandroid.model.coverage import LogcatRepository
 from rvandroid.model.log import RvErrorLog, RvCoverageLog, TAG_RVSEC, TAG_RVSEC_COV
@@ -30,27 +32,20 @@ def parse_logcat_file(log_file: str) -> LogcatRepository:
     """
     # Initialize the repository
     repository = LogcatRepository()
+    logger = logging.getLogger(__name__)
 
     # Process log file line by line for memory efficiency
-    for entry in _parse_logcat_entries(log_file):
-        message = entry["message"]
-        date = _convert_to_datetime(entry["date"], entry["time"])
+    try:
+        with open(log_file, 'r') as f:
+            for line in f:
+                error_log, coverage_log = parse_logcat_line(line)
 
-        if entry["tag"] == TAG_RVSEC:
-            error = _parse_error_message(message)
-            error.time_occurred = date
-            error.original_msg = entry["original"]
-
-            # Add to repository
-            repository.register_error(error)
-
-        elif entry["tag"] == TAG_RVSEC_COV:
-            coverage = _parse_coverage_message(message)
-            coverage.time_occurred = date
-            coverage.original_msg = entry["original"]
-
-            # Add to repository
-            repository.register_method_call(coverage)
+                if error_log:
+                    repository.register_error(error_log)
+                elif coverage_log:
+                    repository.register_method_call(coverage_log)
+    except Exception as e:
+        logger.error(f"Error parsing logcat file {log_file}: {e}", exc_info=True)
 
     return repository
 
@@ -64,7 +59,7 @@ def stream_logcat_entries(log_file: str) -> Generator[Dict[str, Any], None, None
         log_file (str): Path to the logcat file
 
     Yields:
-        Dictionary with parsed log entry fields
+        Dictionary with parsed log entry fields or None if no new entries
     """
     with open(log_file, 'r') as f:
         # Move to the end of the file to start processing from there
@@ -81,6 +76,40 @@ def stream_logcat_entries(log_file: str) -> Generator[Dict[str, Any], None, None
             entry = _parse_logcat_line(line)
             if entry:
                 yield entry
+
+
+def parse_logcat_line(line: str) -> Tuple[Optional[RvErrorLog], Optional[RvCoverageLog]]:
+    """
+    Parse a single logcat line for RVSEC or RVSEC-COV entries.
+
+    Args:
+        line: Logcat line to parse
+
+    Returns:
+        Tuple of (error_log, coverage_log) - only one will be non-None
+    """
+    entry = _parse_logcat_line(line)
+    if not entry:
+        return None, None
+
+    tag = entry["tag"]
+    message = entry["message"]
+
+    # Parse based on the tag
+    if tag == TAG_RVSEC:
+        error = _parse_error_message(message)
+        if error:
+            error.original_msg = entry["original"]
+            error.time_occurred = _convert_to_datetime(entry["date"], entry["time"])
+            return error, None
+    elif tag == TAG_RVSEC_COV:
+        coverage = _parse_coverage_message(message)
+        if coverage:
+            coverage.original_msg = entry["original"]
+            coverage.time_occurred = _convert_to_datetime(entry["date"], entry["time"])
+            return None, coverage
+
+    return None, None
 
 
 def _parse_logcat_line(line: str) -> Optional[Dict[str, Any]]:
@@ -111,90 +140,7 @@ def _parse_logcat_line(line: str) -> Optional[Dict[str, Any]]:
     }
 
 
-def parse_logcat_line(line: str) -> tuple[Optional[RvErrorLog], Optional[RvCoverageLog]]:
-    """
-    Parse a single logcat line for RVSEC or RVSEC-COV entries.
-
-    Args:
-        line: Logcat line to parse
-
-    Returns:
-        Tuple of (error_log, coverage_log) - only one will be non-None
-    """
-    entry = _parse_logcat_line(line)
-    if not entry:
-        return None, None
-
-    tag = entry["tag"]
-    message = entry["message"]
-
-    # Parse based on the tag
-    if tag == TAG_RVSEC:
-        error = _parse_error_message(message)
-        error.original_msg = entry["original"]
-        error.time_occurred = _convert_to_datetime(entry["date"], entry["time"])
-        return error, None
-    elif tag == TAG_RVSEC_COV:
-        coverage = _parse_coverage_message(message)
-        coverage.original_msg = entry["original"]
-        coverage.time_occurred = _convert_to_datetime(entry["date"], entry["time"])
-        return None, coverage
-
-    return None, None
-
-
-def _parse_logcat_entries(log_file: str) -> Generator[Dict[str, Any], None, None]:
-    """
-    Parse individual logcat entries using regex pattern matching.
-    Uses generator to process large files efficiently.
-
-    Args:
-        log_file (str): Path to the logcat file
-
-    Yields:
-        Dictionary containing parsed log entry fields
-    """
-    pattern = r"(\d{2}-\d{2}) (\d{2}:\d{2}:\d{2}\.\d{3})\s+(\d+)\s+(\d+)\s+(\w)\s+(\S+)\s*:\s*(.*)"
-
-    with open(log_file, 'r') as f:
-        for line in f:
-            match = re.match(pattern, line)
-            if match:
-                date, time, pid, tid, level, tag, message = match.groups()
-                yield {
-                    "date": date,
-                    "time": time,
-                    "pid": pid,
-                    "tid": tid,
-                    "level": level,
-                    "tag": tag,
-                    "message": message,
-                    "original": line.strip()
-                }
-
-
-def _parse_coverage_message(signature: str) -> RvCoverageLog:
-    """
-    Parse a coverage log message to extract class, method and parameter information.
-
-    Args:
-        signature (str): Method signature from the log
-
-    Returns:
-        RvCoverageLog instance containing parsed information
-
-    Raises:
-        ValueError: If signature format is invalid
-    """
-    match = re.match(r"<([^:]+):\s+([^ ]+)\s+([^:(]+)\(([^)]*)\)>", signature)
-    if not match:
-        raise ValueError(f"Invalid signature format: {signature}")
-
-    class_name, _, method_name, parameters = match.groups()
-    return RvCoverageLog(class_name, method_name, parameters, signature)
-
-
-def _parse_error_message(message: str) -> RvErrorLog:
+def _parse_error_message(message: str) -> Optional[RvErrorLog]:
     """
     Parse an error log message to extract error details.
     Enhanced version with better handling of different error formats.
@@ -203,7 +149,7 @@ def _parse_error_message(message: str) -> RvErrorLog:
         message: Error message from the log
 
     Returns:
-        RvErrorLog instance containing parsed error information
+        RvErrorLog instance containing parsed error information or None if parsing fails
     """
     # First check if this is a generic "went into an error state" message
     if message.endswith("went into an error state."):
@@ -232,15 +178,23 @@ def _parse_error_message(message: str) -> RvErrorLog:
             ",".join(parts[6:]) if len(parts) > 6 else "No additional message"  # message
         )
 
-    # Fallback for malformed messages
-    return RvErrorLog(
-        "unknown",  # spec
-        "unknown",  # error_type
-        "unknown",  # class
-        "unknown",  # method
-        "unknown",  # source
-        message  # use the whole message
-    )
+    # Alternative format with ::: separator (FSM format)
+    if ":::" in message:
+        split = message.split(":::")
+        if len(split) >= 2:
+            tmp = split[0]
+            tmp = tmp[:tmp.find("(") if "(" in tmp else len(tmp)]
+            dot_idx = tmp.rfind(".")
+            if dot_idx != -1:
+                clazz = tmp[:dot_idx]
+                method = tmp[dot_idx + 1:]
+                message_text = split[1].strip()
+                spec = message_text.split(" ")[0]
+                return RvErrorLog(spec, spec, clazz, method, "Unknown Source:1", message_text)
+
+    # Fallback for malformed messages - log warning instead of creating malformed data
+    logging.getLogger(__name__).warning(f"Failed to parse error message: {message}")
+    return None
 
 
 def _parse_generic_spec_error(log_line: str) -> Optional[Dict[str, Any]]:
@@ -266,6 +220,35 @@ def _parse_generic_spec_error(log_line: str) -> Optional[Dict[str, Any]]:
             "spec": spec,
             "message": f"{spec} went into an error state."
         }
+    return None
+
+
+def _parse_coverage_message(message: str) -> Optional[RvCoverageLog]:
+    """
+    Parse a coverage log message to extract class, method and parameter information.
+
+    Args:
+        message (str): Method signature from the log
+
+    Returns:
+        RvCoverageLog instance containing parsed information or None if parsing fails
+    """
+    # First try the modern format with angle brackets
+    match = re.match(r"<([^:]+):\s+([^ ]+)\s+([^:(]+)\(([^)]*)\)>", message)
+    if match:
+        class_name, _, method_name, parameters = match.groups()
+        return RvCoverageLog(class_name, method_name, parameters, message)
+
+    # Try the legacy format with ::: separators
+    parts = message.split(":::")
+    if len(parts) >= 2:
+        class_name = parts[0].strip()
+        method_name = parts[1].strip()
+        params = parts[2].strip() if len(parts) > 2 else ""
+        return RvCoverageLog(class_name, method_name, params, message)
+
+    # Fallback for malformed messages - log warning instead of creating malformed data
+    logging.getLogger(__name__).warning(f"Failed to parse coverage message: {message}")
     return None
 
 

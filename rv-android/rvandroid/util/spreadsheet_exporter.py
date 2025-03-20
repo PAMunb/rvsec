@@ -6,7 +6,7 @@ import os
 from datetime import datetime
 
 from rvandroid.experiment.task_model import Task
-from rvandroid.model.coverage import CoverageRepository
+from rvandroid.model.coverage import LogcatRepository
 
 
 class ExportContext:
@@ -61,7 +61,7 @@ class SpreadsheetExporter:
     Exports data from the repository to spreadsheet files.
 
     This class is responsible for exporting coverage and error data
-    from a CoverageRepository to CSV files for further analysis.
+    from a LogcatRepository to CSV files for further analysis.
     """
 
     def __init__(self):
@@ -69,7 +69,7 @@ class SpreadsheetExporter:
         self.logger = logging.getLogger(__name__)
 
     def export_coverage_data(self,
-                             repository: CoverageRepository,
+                             repository: LogcatRepository,
                              context: ExportContext,
                              output_file: str) -> bool:
         """
@@ -141,7 +141,7 @@ class SpreadsheetExporter:
             return False
 
     def export_error_data(self,
-                          repository: CoverageRepository,
+                          repository: LogcatRepository,
                           context: ExportContext,
                           output_file: str) -> bool:
         """
@@ -203,7 +203,7 @@ class SpreadsheetExporter:
             return False
 
     def append_to_coverage_sheet(self,
-                                 repository: CoverageRepository,
+                                 repository: LogcatRepository,
                                  context: ExportContext,
                                  output_file: str) -> bool:
         """
@@ -271,7 +271,7 @@ class SpreadsheetExporter:
             return False
 
     def append_to_error_sheet(self,
-                              repository: CoverageRepository,
+                              repository: LogcatRepository,
                               context: ExportContext,
                               output_file: str) -> bool:
         """

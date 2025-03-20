@@ -12,6 +12,7 @@ from enum import Enum
 from typing import Dict, List, Any, Optional
 
 from rvandroid.app import App
+from rvandroid.model.coverage import LogcatRepository
 from rvandroid.model.log import RvCoverageLog, RvErrorLog
 
 
@@ -166,6 +167,12 @@ class Task:
         Args:
             error: Error log to add
         """
+        # Ensure repository exists
+        if not hasattr(self, 'repository') or self.repository is None:
+            from rvandroid.model.coverage import LogcatRepository
+            self.repository = LogcatRepository()
+
+        # Add to repository
         self.repository.register_error(error)
 
     def add_method_call(self, coverage_log: RvCoverageLog) -> None:
@@ -175,37 +182,66 @@ class Task:
         Args:
             coverage_log: Coverage log to add
         """
+        # Ensure repository exists
+        if not hasattr(self, 'repository') or self.repository is None:
+            from rvandroid.model.coverage import LogcatRepository
+            self.repository = LogcatRepository()
+
+        # Add to repository
         self.repository.register_method_call(coverage_log)
 
     def update_coverage(self) -> None:
         """
         Update coverage metrics based on repository data.
         """
-        if not self.repository or not self.static_data:
+        if not hasattr(self, 'repository') or not self.repository or not self.static_data:
             self.logger.warning("Cannot update coverage: No repository or static data available")
             return
 
-        # Calculate metrics from repository
+        # Calculate metrics directly from repository
         metrics = self.repository.calculate_metrics()
         metrics_dict = metrics.to_dict()
 
-        # Update result metrics from repository
+        # Update result metrics from repository using standardized keys
         self.result.coverage_metrics.update({
             "method_coverage": metrics_dict["method_coverage"],
             "activities_coverage": metrics_dict["activity_coverage"],
             "methods_jca_reachable_coverage": metrics_dict["mop_method_coverage"],
             "total_errors": metrics_dict["unique_errors"],
-            "total_method_calls": metrics.called_methods
+            "total_method_calls": metrics_dict["called_methods"]
         })
+
+        # Store metrics for easy access
+        self.coverage_metrics = metrics
 
         # Log summary of coverage metrics for quick reference
         self.logger.info(f"Coverage updated for task {self.id}:")
-        self.logger.info(f"- Method coverage: {self.result.coverage_metrics['method_coverage']:.2f}%")
-        self.logger.info(f"- Activities coverage: {self.result.coverage_metrics['activities_coverage']:.2f}%")
-        self.logger.info(
-            f"- JCA methods coverage: {self.result.coverage_metrics['methods_jca_reachable_coverage']:.2f}%")
-        self.logger.info(f"- Total methods called: {self.result.coverage_metrics['total_method_calls']}")
-        self.logger.info(f"- Errors detected: {self.result.coverage_metrics['total_errors']}")
+        self.logger.info(f"- Method coverage: {metrics_dict['method_coverage']:.2f}%")
+        self.logger.info(f"- Activities coverage: {metrics_dict['activity_coverage']:.2f}%")
+        self.logger.info(f"- MOP methods coverage: {metrics_dict['mop_method_coverage']:.2f}%")
+        self.logger.info(f"- Methods called: {metrics_dict['called_methods']}")
+        self.logger.info(f"- Errors detected: {metrics_dict['unique_errors']}")
+
+    def get_repository(self) -> LogcatRepository:
+        """
+        Get the task's coverage repository, creating one if it doesn't exist.
+
+        Returns:
+            The task's LogcatRepository
+        """
+        if not hasattr(self, 'repository') or self.repository is None:
+            from rvandroid.model.coverage import LogcatRepository
+            self.repository = LogcatRepository()
+
+            # If logcat file exists, parse it and populate the repository
+            if hasattr(self, 'result') and self.result.logcat_file and os.path.exists(self.result.logcat_file):
+                from rvandroid.parser.log.logcat_parser import parse_logcat_file
+                try:
+                    self.repository = parse_logcat_file(self.result.logcat_file)
+                except Exception as e:
+                    self.logger.error(f"Error parsing logcat file: {e}")
+
+        return self.repository
 
     def initialize(self, base_results_dir: str) -> None:
         """

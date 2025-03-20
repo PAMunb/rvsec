@@ -209,29 +209,18 @@ class CoverageTracker:
         finally:
             self.stop()
 
-    def process_lines(self, lines: List[str]):
+    def process_lines(self, lines: List[str]) -> None:
         """
-        Process lines from the logcat file.
+        Process multiple lines from the logcat file.
+
+        This method processes multiple logcat lines and updates the internal
+        repository with coverage and error information.
 
         Args:
             lines: List of logcat lines
         """
         for line in lines:
-            try:
-                # Skip empty lines
-                if not line.strip():
-                    continue
-
-                # Parse the line for RVSEC or RVSEC-COV entries
-                error_log, coverage_log = parse_logcat_line(line)
-
-                if error_log:
-                    self._handle_error_log(error_log)
-                elif coverage_log:
-                    self._handle_coverage_log(coverage_log)
-
-            except Exception as e:
-                self.logger.error(f"Error processing line: {e}", exc_info=True)
+            self._process_line(line)
 
     def _handle_coverage_log(self, coverage: RvCoverageLog):
         """
@@ -252,6 +241,43 @@ class CoverageTracker:
 
         except Exception as e:
             self.logger.error(f"Error handling RVSEC-COV log: {e}", exc_info=True)
+
+    def _process_line(self, line: str) -> None:
+        """
+        Process a logcat line and update the repository.
+
+        This method parses a single logcat line and updates the internal
+        repository with any coverage or error information found.
+
+        Args:
+            line: A single line from the logcat file
+        """
+        try:
+            # Skip empty lines
+            if not line.strip():
+                return
+
+            # Parse the line for RVSEC or RVSEC-COV entries
+            from rvandroid.parser.log.logcat_parser import parse_logcat_line
+            error_log, coverage_log = parse_logcat_line(line)
+
+            # Update repository directly - the repository is the single source of truth
+            if error_log:
+                self.repository.register_error(error_log)
+                self.total_errors += 1
+                self.logger.debug(
+                    f"Tracked formal property violation in {error_log.class_full_name}.{error_log.method}"
+                )
+
+            elif coverage_log:
+                self.repository.register_method_call(coverage_log)
+                self.total_method_calls += 1
+                self.logger.debug(
+                    f"Tracked method call: {coverage_log.clazz}.{coverage_log.method}"
+                )
+
+        except Exception as e:
+            self.logger.error(f"Error processing logcat line: {e}", exc_info=True)
 
     def _handle_error_log(self, error: RvErrorLog):
         """

@@ -10,7 +10,6 @@ import os
 from typing import Dict, Any
 
 from rvandroid.model.coverage import LogcatRepository
-from rvandroid.parser.log.logcat_parser import parse_logcat_file
 
 logger = logging.getLogger(__name__)
 
@@ -162,10 +161,10 @@ def process_app_results(app_dir: str) -> Dict[str, Any]:
             parts = logcat_file.split("__")
             tool_name = parts[-1].split(".")[0] if len(parts) >= 4 else "unknown"
 
-            # Process logcat file using standardized models
+            # Process logcat file using standardized models and repository pattern
             repository = process_logcat_file(os.path.join(app_dir, logcat_file))
 
-            # Calculate metrics
+            # Calculate metrics directly from repository
             metrics = repository.calculate_metrics().to_dict()
 
             # Update tool statistics
@@ -217,27 +216,24 @@ def process_logcat_file(logcat_file: str) -> LogcatRepository:
     """
     Process a logcat file and return a LogcatRepository.
 
+    This is a unified method that delegates to the proper parser
+    and ensures a LogcatRepository is always returned.
+
     Args:
         logcat_file: Path to logcat file
 
     Returns:
         LogcatRepository with processed data
     """
-    repository = LogcatRepository()
+    from rvandroid.parser.log.logcat_parser import parse_logcat_file as modern_parse_logcat_file
 
     try:
-        # Parse logcat file
-        errors, _, method_logs = parse_logcat_file(logcat_file)
-
-        # Add errors and method calls to repository
-        for error in errors:
-            repository.register_error(error)
-
-        for method in method_logs:
-            repository.register_method_call(method)
-
-        return repository
-
+        # First try the modern parser
+        return modern_parse_logcat_file(logcat_file)
     except Exception as e:
-        logger.error(f"Error processing logcat file {logcat_file}: {e}", exc_info=True)
-        return repository
+        logger = logging.getLogger(__name__)
+        logger.warning(f"Modern parser failed, falling back to legacy parser: {e}")
+
+        # Fall back to legacy parser but ensure it returns a repository
+        from rvandroid.parser.log.logcat_parser_exp01 import parse_logcat_file as legacy_parse_logcat_file
+        return legacy_parse_logcat_file(logcat_file)

@@ -205,6 +205,9 @@ class TaskExecutor:
             # Try to load static analysis data
             self.logger.info("Loading static analysis data")
 
+            print(self.task.results_dir,
+                self.task.config.apk_name,
+                self.task.app.package_name)
             self.task.static_data = static_analysis_parser.read_static_analysis_files(
                 self.task.results_dir,
                 self.task.config.apk_name,
@@ -228,8 +231,16 @@ class TaskExecutor:
 
     def _process_coverage_data(self) -> None:
         """
-        Process coverage data after task execution using standardized models.
-        Also exports data to CSV files if configured.
+        Process coverage data after task execution using standardized repository model.
+        Ensures consistent usage of LogcatRepository for all coverage data.
+
+        This method:
+        1. Stops the coverage tracker and logcat capture
+        2. Retrieves the repository from the tracker
+        3. Updates task result metrics from the repository
+        4. Exports data to CSV if configured
+        5. Logs a summary of coverage metrics
+        6. Publishes coverage updated event
         """
         if not self.coverage_tracker:
             self.logger.warning("No coverage tracker available to process coverage data")
@@ -241,14 +252,15 @@ class TaskExecutor:
         # Stop logcat capture
         self.logcat_manager.stop_capture()
 
-        # Get repository from coverage tracker
+        # Get repository from coverage tracker - this is the source of truth
         repository = self.coverage_tracker.repository
 
         # Calculate metrics using the repository
         metrics = repository.calculate_metrics()
         metrics_dict = metrics.to_dict()
 
-        # Update task result with metrics from repository
+        # Update task result with metrics from repository using standardized keys
+        # to ensure consistency across the system
         self.task.result.coverage_metrics.update({
             "method_coverage": metrics_dict["method_coverage"],
             "activities_coverage": metrics_dict["activity_coverage"],
@@ -257,7 +269,8 @@ class TaskExecutor:
             "total_method_calls": metrics.called_methods
         })
 
-        # Transfer the repository to the task for later use
+        # Store the repository directly in the task
+        # This ensures the task has direct access to the standardized data model
         self.task.repository = repository
 
         # Export data to CSV files
@@ -278,12 +291,52 @@ class TaskExecutor:
             "error_count": metrics.get('total_errors', 0)
         })
 
+    def _analyze_coverage(self) -> None:
+        """
+        Analyze coverage data directly from the coverage tracker's repository.
+
+        This method:
+        1. Gets coverage metrics directly from the repository
+        2. Updates task result with standardized metrics
+        3. Logs coverage statistics
+        """
+        if not self.coverage_tracker or not self.coverage_tracker.repository:
+            self.logger.warning("No repository available for coverage analysis")
+            return
+
+        repository = self.coverage_tracker.repository
+
+        # Get metrics directly from repository
+        metrics = repository.calculate_metrics()
+
+        # Update task metrics with standardized keys
+        self.task.result.coverage_metrics.update({
+            "method_coverage": metrics.method_coverage,
+            "activity_coverage": metrics.activity_coverage,
+            "methods_jca_coverage": metrics.mop_method_coverage,
+            "total_errors": metrics.unique_errors,
+            "total_method_calls": metrics.called_methods,
+            "total_classes": metrics.total_classes,
+            "called_classes": metrics.called_classes
+        })
+
+        # Log meaningful coverage statistics
+        self.logger.info(
+            f"Coverage analysis: {metrics.called_methods}/{metrics.total_methods} methods "
+            f"({metrics.method_coverage:.2f}%), "
+            f"{metrics.called_activities}/{metrics.total_activities} activities "
+            f"({metrics.activity_coverage:.2f}%)"
+        )
+
+        # Store metrics in task for later retrieval
+        self.task.metrics = metrics
+
     def _export_repository_data(self, repository: LogcatRepository) -> None:
         """
         Export repository data to CSV files.
 
         Args:
-            repository: The repository with data to export
+            repository: The LogcatRepository to export
         """
         try:
             # Check if export is enabled
@@ -293,6 +346,7 @@ class TaskExecutor:
                 return
 
             # Create export context from task
+            from rvandroid.util.spreadsheet_exporter import ExportContext, SpreadsheetExporter
             context = ExportContext.from_task(self.task)
 
             # Determine export files
@@ -300,7 +354,7 @@ class TaskExecutor:
             coverage_file = os.path.join(experiment_dir, "coverage_data.csv")
             error_file = os.path.join(experiment_dir, "error_data.csv")
 
-            # Export data
+            # Export data directly from repository
             exporter = SpreadsheetExporter()
 
             # Append to existing files or create new ones
