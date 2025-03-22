@@ -8,6 +8,8 @@ from rvandroid.experiment.task_model import Task
 from rvandroid.server import Server
 from rvandroid.service.llm_action_service import LLMActionService
 from ..tool_spec import AbstractTool
+from ...experiment.event_system import EventBus, EventType
+from ...util.logging_manager import LoggingManager
 
 logging = logging_api.getLogger(__name__)
 
@@ -58,34 +60,73 @@ class ToolSpec(AbstractTool):
         config = Configuration.get_instance()
         rvandroid_url = config.get_str("rvandroid_url", "http://127.0.0.1:5000")
 
+        # Set up logging using LoggingManager
+        logging_manager = LoggingManager.get_instance()
+        logger = logging_manager.get_logger(
+            'tools.rvandroid',
+            {
+                LoggingManager.CONTEXT_TASK_ID: task.id,
+                LoggingManager.CONTEXT_APP_NAME: app.name,
+                LoggingManager.CONTEXT_TOOL_NAME: self.name,
+                LoggingManager.CONTEXT_COMPONENT: 'RVAndroidTool'
+            }
+        )
+
         # Create component configurator
         component_config = ComponentConfigurator(task.static_data)
-        component_config.set_strategy("basic")
+
+        # Configure with improved settings
+        component_config.set_llm("ollama", "llama3.2:3b")  # Default to Llama 3.2 3B model
+        component_config.set_strategy("composable_single_action")  # Use more advanced strategy
         component_config.set_visitor("enhanced")
+        component_config.set_parser("droidbot")
+
+        # Log configuration
+        logger.info(f"RVAndroid tool using configuration: {component_config.describe_configuration()}")
 
         # Create service
         service = LLMActionService(task.static_data, config=component_config)
+
+        # Publish tool start event
+        EventBus.get_instance().publish_task_event(
+            EventType.TOOL_STARTED,
+            task_id=task.id,
+            details={"tool": "rvandroid"},
+            source="RVAndroidTool"
+        )
 
         # Start server and run experiment
         server = Server(service, port=5000)
         try:
             if server.start():
-                logging.info("Server started successfully")
+                logger.info("Server started successfully")
                 with open(task.result.trace_file, "wb") as trace:
                     exec_cmd = Command("droidbot", [
-                        "-d",
-                        "emulator-5554",
-                        "-a",
-                        app.path,
-                        "--rvandroid_url",
-                        rvandroid_url,
-                        "-policy",
-                        "rvandroid",
+                        "-d", "emulator-5554",
+                        "-a", app.path,
+                        "--rvandroid_url", rvandroid_url,
+                        "-policy", "rvandroid",
                         "-is_emulator",
                     ], task.config.timeout)
                     exec_cmd.invoke(stdout=trace)
             else:
-                logging.error("Server failed to start")
+                logger.error("Server failed to start")
+
+        except Exception as e:
+            logger.error(f"Error running RVAndroid tool: {e}", exc_info=True)
+            raise
+
         finally:
-            logging.info("Stopping server")
+            logger.info("Stopping server")
             server.stop()
+
+            # Clean up service resources
+            service.cleanup()
+
+            # Publish tool end event
+            EventBus.get_instance().publish_task_event(
+                EventType.TOOL_STOPPED,
+                task_id=task.id,
+                details={"tool": "rvandroid"},
+                source="RVAndroidTool"
+            )

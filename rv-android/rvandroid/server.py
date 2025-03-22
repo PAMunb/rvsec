@@ -8,7 +8,7 @@ from flask import Flask, request, jsonify
 from werkzeug.exceptions import NotFound, HTTPException
 from werkzeug.serving import make_server
 
-from rvandroid.service.llm_action_service import LLMActionService
+from rvandroid.llm.service.action_service import LLMActionService
 
 
 class Server:
@@ -138,9 +138,10 @@ class Server:
         @self.app.route('/api/get_actions', methods=['POST'])
         def get_actions():
             """
-            Endpoint to receive DroidBot state and return suggested actions.
+            Endpoint to receive application state and return suggested actions.
+            Uses the refactored LLMActionService to process state and generate actions.
             """
-            print("**************************** GENERETING ACTIONS ****************************")
+            print("**************************** GENERATING ACTIONS ****************************")
             try:
                 # Get JSON data from request
                 data = request.json
@@ -165,26 +166,17 @@ class Server:
 
                 response = jsonify({
                     "actions": validated_actions,
-                    "status": "success"  # TODO remover .....
+                    "status": "success"
                 })
-                self.logger.info(f"Response: {response}")
+
+                self.logger.info(f"Returning {len(validated_actions)} actions")
+
                 # Return response
                 return response
 
             except Exception as e:
                 self.logger.error(f"Error processing request: {e}", exc_info=True)
                 return jsonify({"error": str(e)}), 500
-        # droidbot:
-
-    #     {
-    #     "activity": state.foreground_activity,
-    #     "stack": state.activity_stack,
-    #     "screen_size": {
-    #         "width": state.width,
-    #         "height": state.height
-    #     },
-    #     "view_tree": state.view_tree
-    # }
 
     def start(self) -> bool:
         """
