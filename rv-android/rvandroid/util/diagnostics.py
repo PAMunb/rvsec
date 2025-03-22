@@ -14,7 +14,13 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Dict, Any, List
 
-import psutil
+# Import psutil conditionally to handle cases where it might not be available
+try:
+    import psutil
+
+    PSUTIL_AVAILABLE = True
+except ImportError:
+    PSUTIL_AVAILABLE = False
 
 
 @dataclass
@@ -108,7 +114,7 @@ class DiagnosticTool:
             Dictionary with system information
         """
         try:
-            return {
+            info = {
                 "platform": platform.platform(),
                 "system": platform.system(),
                 "release": platform.release(),
@@ -116,8 +122,13 @@ class DiagnosticTool:
                 "machine": platform.machine(),
                 "processor": platform.processor(),
                 "cpu_count": os.cpu_count(),
-                "memory_total": psutil.virtual_memory().total
             }
+
+            # Add memory info if psutil is available
+            if PSUTIL_AVAILABLE:
+                info["memory_total"] = psutil.virtual_memory().total
+
+            return info
         except Exception as e:
             self.logger.error(f"Error getting system info: {e}")
             return {"error": str(e)}
@@ -149,6 +160,9 @@ class DiagnosticTool:
         Returns:
             Dictionary with resource usage information
         """
+        if not PSUTIL_AVAILABLE:
+            return {"error": "psutil module not available"}
+
         try:
             process = psutil.Process()
 

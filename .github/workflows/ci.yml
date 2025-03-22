@@ -32,46 +32,46 @@ jobs:
         run: |
           pip install -r requirements.txt
           pip install pytest-cov flake8 pylint mypy bandit black safety
-        working-directory: rv-android
+        working-directory: rvandroid
       
       - name: Run code quality checks (informational)
         continue-on-error: true
         run: |
           echo "Running Flake8 checks..."
-          flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+          flake8 rvandroid --count --select=E9,F63,F7,F82 --show-source --statistics --exclude=rvandroid/tools/qtesting/src
+          
           echo "Running more comprehensive Flake8 checks (warnings only)..."
-          flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+          flake8 rvandroid --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics --exclude=rvandroid/tools/qtesting/src
           
           echo "Running Pylint checks (warnings only)..."
-          pylint --exit-zero --disable=all --enable=E,F,W,R $(find . -type f -name "*.py" | grep -v "__pycache__" | grep -v ".venv")
+          pylint --exit-zero --disable=all --enable=E,F,W,R $(find rvandroid -type f -name "*.py" | grep -v "rvandroid/tools/qtesting/src")
           
           echo "Running type checking with MyPy (warnings only)..."
-          mypy --ignore-missing-imports --disallow-untyped-defs --disallow-incomplete-defs --check-untyped-defs --disallow-untyped-calls --warn-redundant-casts --warn-return-any --warn-unused-ignores --no-strict-optional --no-error-summary .
+          mypy rvandroid --ignore-missing-imports --disallow-untyped-defs --disallow-incomplete-defs --check-untyped-defs --disallow-untyped-calls --warn-redundant-casts --warn-return-any --warn-unused-ignores --no-strict-optional --no-error-summary --exclude 'rvandroid/tools/qtesting/src'
           
           echo "Running security checks with Bandit (warnings only)..."
-          bandit -r . --format txt --quiet --exit-zero
+          bandit -r rvandroid --format txt --quiet --exit-zero --exclude rvandroid/tools/qtesting/src
           
           echo "Checking code formatting with Black (warnings only)..."
-          black --check --diff . || true
+          black --check --diff rvandroid || true
           
           echo "Checking dependencies for security vulnerabilities (warnings only)..."
           safety check --full-report || true
-        working-directory: rv-android
+        working-directory: rvandroid
       
       - name: Run Python tests with coverage
         run: |
-          PYTHONPATH=. pytest --cov=. --cov-report=xml --cov-report=html --cov-report=term --cov-branch
-        working-directory: rv-android
+          PYTHONPATH=. pytest --cov=rvandroid --cov-report=xml --cov-report=html --cov-report=term --cov-branch --ignore=rvandroid/tools/qtesting/src
+        working-directory: rvandroid
       
       - name: Upload coverage reports
         uses: actions/upload-artifact@v4
         with:
           name: coverage-reports
           path: |
-            rv-android/coverage.xml
-            rv-android/htmlcov/
+            rvandroid/coverage.xml
+            rvandroid/htmlcov/
       
-      # Gerar relatório de qualidade
       - name: Generate quality report
         if: always()
         run: |
@@ -84,28 +84,20 @@ jobs:
           echo "## Code Quality Issues" >> quality_report.md
           echo "### Flake8 Issues (if any)" >> quality_report.md
           echo '```' >> quality_report.md
-          flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics >> quality_report.md || echo "Flake8 analysis failed" >> quality_report.md
+          flake8 rvandroid --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics --exclude=rvandroid/tools/qtesting/src >> quality_report.md || echo "Flake8 analysis failed" >> quality_report.md
           echo '```' >> quality_report.md
           
           echo "### Security Issues (if any)" >> quality_report.md
           echo '```' >> quality_report.md
-          bandit -r . -f txt --quiet --exit-zero >> quality_report.md || echo "Bandit analysis failed" >> quality_report.md
+          bandit -r rvandroid -f txt --quiet --exit-zero --exclude rvandroid/tools/qtesting/src >> quality_report.md || echo "Bandit analysis failed" >> quality_report.md
           echo '```' >> quality_report.md
-        working-directory: rv-android
+        working-directory: rvandroid
         continue-on-error: true
       
-      # Upload do relatório de qualidade
       - name: Upload quality report
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: quality-report
-          path: rv-android/quality_report.md
-      
-      # Opcional: Publicar no Codecov
-      # - name: Upload coverage to Codecov
-      #   uses: codecov/codecov-action@v3
-      #   with:
-      #     file: ./rv-android/coverage.xml
-      #     flags: pytests
-      #     fail_ci_if_error: true
+          path: rvandroid/quality_report.md
+
