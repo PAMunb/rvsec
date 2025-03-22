@@ -10,7 +10,8 @@ from argparse import Namespace
 from rvandroid.config.configuration import Configuration
 from rvandroid.config.configuration_manager import ConfigurationManager
 from rvandroid.constants import *
-from rvandroid.experiment import experiment_03
+from rvandroid.experiment_workflow.experiment_controller import ExperimentController
+from rvandroid.experiment_workflow.experiment_controller import execute as experiment_execute
 from rvandroid.tools.registry import ToolRegistry
 from rvandroid.tools.tool_spec import AbstractTool
 from rvandroid.util import utils
@@ -19,7 +20,7 @@ from rvandroid.util.logging_manager import LoggingManager
 available_tools: dict[str, AbstractTool] = {}
 
 program_description = '''
-Executes the 'Experiment 03' ... 
+Executes RV-Android experiments using a modular workflow architecture.
 
 Examples:    
 $ python main.py --no_window -tools monkey droidbot -r 3 -t 120 300 600 900
@@ -57,6 +58,8 @@ def run_cli():
     # Silence specific noisy loggers
     logging.getLogger("androguard").setLevel(logging.ERROR)
 
+    logger.info("Starting RV-Android CLI")
+
     if args.list_tools:
         logger.info("Listing available tools")
         for key in available_tools:
@@ -69,7 +72,7 @@ def run_cli():
     # Load configuration from args
     config_manager.load_from_args(args)
 
-    # Get the selected tools - VERIFICAR AQUI se as ferramentas corretas estão sendo selecionadas
+    # Get the selected tools
     selected_tools = get_selected_tools(args)
 
     logger.info(f"Selected tools for experiment: {[tool.name for tool in selected_tools]}")
@@ -78,7 +81,7 @@ def run_cli():
     config = Configuration.get_instance()
     config.set("tools", [tool.name for tool in selected_tools])
 
-    # Certificar que no_window está definido corretamente
+    # Ensure no_window is set correctly
     config.set("no_window", args.no_window)
 
     logger.info(f"Configuration no_window: {config.get_bool('no_window', False)}")
@@ -94,11 +97,11 @@ def run_cli():
     logger.info("############# STARTING EXPERIMENT #############")
     start = time.time()
 
-    # Adicionar log explícito para as ferramentas usadas
+    # Log explicitly for the tools used
     logger.info(f"Executing experiment with tools: {[tool.name for tool in selected_tools]}")
 
     # Execute the experiment with the selected tool objects
-    experiment_03.execute(tools=selected_tools)
+    experiment_execute(tools=selected_tools)
 
     end = time.time()
     elapsed = end - start
@@ -110,10 +113,10 @@ def load_tools():
     """
     Load all available tools from tool directories.
 
-     A tool must be defined in a subdirectory within
-     the tools folder, in a python module named tool.py.
-     This module must also declare a class named ToolSpec,
-     which should inherit from AbstractTool.
+    A tool must be defined in a subdirectory within
+    the tools folder, in a python module named tool.py.
+    This module must also declare a class named ToolSpec,
+    which should inherit from AbstractTool.
     """
     # Set up logging
     logging_manager = LoggingManager.get_instance()
@@ -271,7 +274,7 @@ def run_local():
 
     # Set configuration values
     config.set("repetitions", 1)
-    config.set("timeouts", [60])
+    config.set("timeouts", [60, 120])
     config.set("generate_monitors", True)
     config.set("instrument", True)
     config.set("static_analysis", True)
@@ -280,9 +283,9 @@ def run_local():
     config.set("memory_file", "")
 
     # Get selected tools as objects
-    selected_tool_objects = __get_tools(["ape", "monkey", "fastbot"])
+    selected_tool_objects = __get_tools(["ape", "monkey"])
 
-    # Log explícito para as ferramentas selecionadas
+    # Log explicitly for the selected tools
     logger.info(f"Selected tools for local experiment: {[tool.name for tool in selected_tool_objects]}")
 
     # Store tool names in configuration
@@ -293,7 +296,20 @@ def run_local():
 
     # Execute experiment with the selected tool objects
     logger.info(f"Executing experiment with tools: {[tool.name for tool in selected_tool_objects]}")
-    experiment_03.execute(tools=selected_tool_objects)
+
+    # Create and execute experiment directly using the controller
+    controller = ExperimentController()
+    controller.execute(
+        repetitions=config.get_int("repetitions", 1),
+        timeouts=config.get_list("timeouts", [60]),
+        tools=selected_tool_objects,
+        memory_file=config.get_str("memory_file", ""),
+        generate_monitors=config.get_bool("generate_monitors", True),
+        instrument=config.get_bool("instrument", True),
+        static_analysis=config.get_bool("static_analysis", True),
+        skip_experiment=config.get_bool("skip_experiment", False),
+        no_window=config.get_bool("no_window", True)
+    )
 
     logger.info("Local experiment completed successfully")
 
