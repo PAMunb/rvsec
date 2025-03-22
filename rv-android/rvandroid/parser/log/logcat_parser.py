@@ -41,7 +41,7 @@ def parse_logcat_file(log_file: str) -> LogcatRepository:
                 error_log, coverage_log = parse_logcat_line(line)
 
                 if error_log:
-                    repository.register_error(error_log)
+                    repository.register_rv_error(error_log)
                 elif coverage_log:
                     repository.register_method_call(coverage_log)
     except Exception as e:
@@ -236,7 +236,7 @@ def _parse_coverage_message(message: str) -> Optional[RvCoverageLog]:
     # First try the modern format with angle brackets
     match = re.match(r"<([^:]+):\s+([^ ]+)\s+([^:(]+)\(([^)]*)\)>", message)
     if match:
-        class_name, _, method_name, parameters = match.groups()
+        class_name, return_type, method_name, parameters = match.groups()
         return RvCoverageLog(class_name, method_name, parameters, message)
 
     # Try the legacy format with ::: separators

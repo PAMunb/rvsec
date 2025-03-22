@@ -2,10 +2,14 @@ import json
 import logging as logging_api
 import shutil
 import sys
+from typing import Dict, Any
 
 from rvandroid.app import App
 from rvandroid.commands.command import Command
 from rvandroid.commands.command_exception import CommandException
+from rvandroid.experiment.event_system import EventType, EventBus
+from rvandroid.util.error_handler import ErrorHandler, handle_errors
+from rvandroid.util.exceptions import InstrumentationError
 from settings import *
 
 # TODO rever o q eh usado nesse modulo ... talvez jogar tudo em constants.py
@@ -61,57 +65,141 @@ class RvAndroid(object):
     def __init__(self):
         pass
 
-    def instrument_apks(self, results_dir: str, force_instrumentation=False, apks_dir=APKS_DIR):
+    def instrument_apks(self, results_dir: str, force_instrumentation=False, apks_dir=APKS_DIR) -> Dict[
+        str, Dict[str, Any]]:
         """
-        Batch instruments multiple APKs with error tracking and optional force instrumentation.
-
-        Processes all APKs in a specified directory, attempting to instrument each one while
-        capturing and logging any instrumentation errors. Supports optional force re-instrumentation.
+        Batch instruments multiple APKs with improved error tracking and handling.
 
         Args:
-            results_dir (str): Directory where instrumented APKs and error logs will be saved
-            force_instrumentation (bool, optional): If True, re-instruments APKs even if already processed. Defaults to False.
-            apks_dir (str, optional): Directory containing APKs to instrument. Defaults to APKS_DIR.
+            results_dir: Directory where instrumented APKs and error logs will be saved
+            force_instrumentation: If True, re-instruments APKs even if already processed
+            apks_dir: Directory containing APKs to instrument
 
         Returns:
-            dict: A dictionary of instrumentation errors, keyed by APK name, with error details
+            Dictionary of instrumentation errors, keyed by APK name, with error details
         """
         errors = {}
+        error_handler = ErrorHandler.get_instance()
 
-        # clean directories, copy libraries and create INSTRUMENTED_DIR (if not exists)
-        self.prepare_instrumentation(results_dir)
-        # retrieves the APKs to be instrumented
-        apks = utils.get_apks(apks_dir)
+        # Clean directories, copy libraries and create INSTRUMENTED_DIR (if not exists)
+        try:
+            self.prepare_instrumentation(results_dir)
+        except Exception as e:
+            logging.error(f"Failed to prepare instrumentation: {e}")
+            error_handler.handle_error(
+                InstrumentationError("Failed to prepare instrumentation environment", e),
+                {"results_dir": results_dir}
+            )
+            return {"setup_error": {"code": -1, "message": str(e), "phase": "preparation"}}
+
+        # Retrieve the APKs to be instrumented
+        try:
+            apks = utils.get_apks(apks_dir)
+        except Exception as e:
+            logging.error(f"Failed to retrieve APKs: {e}")
+            error_handler.handle_error(
+                InstrumentationError("Failed to retrieve APKs", e),
+                {"apks_dir": apks_dir}
+            )
+            return {"apk_retrieval_error": {"code": -1, "message": str(e), "phase": "retrieval"}}
 
         total_apks = len(apks)
         cont = 0
-        logging.info("Instrumenting {} apks ...".format(total_apks))
+        logging.info(f"Instrumenting {total_apks} apks ...")
+
+        event_bus = EventBus.get_instance()
+
         for app in apks:
             cont = cont + 1
+            logging.info(f"Starting instrumentation {cont}/{total_apks}")
+
+            # Publish instrumentation started event
+            event_bus.publish_event(
+                EventType.TOOL_STARTED,
+                {
+                    "tool_name": "RvAndroid",
+                    "app_name": app.name,
+                    "phase": "instrumentation",
+                    "progress": f"{cont}/{total_apks}"
+                }
+            )
+
             try:
-                logging.info("Starting instrumentation {}/{}".format(cont, total_apks))
-                # instruments the APK. 'force_instrumentation' indicates whether the APK
-                # should be re-instrumented if it is already instrumented
-                self.instrument(app, results_dir, force_instrumentation)
-                # checks if the apk was instrumented
-                self.check_if_instrumented(app)
+                # Instrument the APK with error handling
+                with handle_errors({"app_name": app.name, "phase": "instrumentation"}):
+                    # Re-instrument if force flag is set or not already instrumented
+                    self.instrument(app, results_dir, force_instrumentation)
+
+                    # Check if successfully instrumented
+                    self.check_if_instrumented(app)
+
+                    # Publish instrumentation completed event
+                    event_bus.publish_event(
+                        EventType.TOOL_STOPPED,  # Changed from TOOL_COMPLETED to TOOL_STOPPED
+                        {
+                            "tool_name": "RvAndroid",
+                            "app_name": app.name,
+                            "phase": "instrumentation",
+                            "status": "success"
+                        }
+                    )
+
             except CommandException as ex:
-                logging.error("Failed to instrument APK: {}. {}".format(app.name, ex))
-                errors[app.name] = {"code": ex.code, "tool": ex.tool, "message": ex.message}
+                logging.error(f"Failed to instrument APK: {app.name}. {ex}")
+                errors[app.name] = {"code": ex.code, "tool": ex.tool, "message": ex.message,
+                                    "phase": "command_execution"}
+
+                # Handle the error with context
+                error_handler.handle_error(
+                    InstrumentationError(f"Command execution failed: {ex.message}", ex),
+                    {"app_name": app.name, "tool": ex.tool}
+                )
+
+                # Publish instrumentation failed event
+                event_bus.publish_event(
+                    EventType.TASK_FAILED,  # Changed from TOOL_FAILED to TASK_FAILED
+                    {
+                        "tool_name": "RvAndroid",
+                        "app_name": app.name,
+                        "phase": "instrumentation",
+                        "error": f"{ex.tool}: {ex.message}"
+                    }
+                )
+
             except Exception as ex:
-                logging.error("Error while instrumenting APK: {}. {}".format(app.path, ex))
+                logging.error(f"Error while instrumenting APK: {app.path}. {ex}")
+                errors[app.name] = {"code": -1, "message": str(ex), "phase": "general_error"}
+
+                # Handle the general error
+                error_handler.handle_error(
+                    InstrumentationError(f"Failed to instrument APK: {app.name}", ex),
+                    {"app_name": app.name}
+                )
+
+                # Publish instrumentation failed event
+                event_bus.publish_event(
+                    EventType.TASK_FAILED,  # Changed from TOOL_FAILED to TASK_FAILED
+                    {
+                        "tool_name": "RvAndroid",
+                        "app_name": app.name,
+                        "phase": "instrumentation",
+                        "error": str(ex)
+                    }
+                )
+
             finally:
                 self.clear([TMP_DIR, RVM_TMP_DIR])
+
         self.clear([LIB_TMP_DIR])
 
         if errors:
-            logging.warning("ERRORS: {}".format(len(errors)))
+            logging.warning(f"ERRORS: {len(errors)}")
             errors_file = os.path.join(results_dir, "instrument_errors.json")
             with open(errors_file, 'w') as outfile:
                 outfile.write(json.dumps(errors))
-                logging.info("Errors saved in: {}".format(errors_file))
+                logging.info(f"Errors saved in: {errors_file}")
             for error in errors:
-                logging.warning("ERROR: {}, tool={}".format(error, errors[error]["tool"]))
+                logging.warning(f"ERROR: {error}, tool={errors[error].get('tool', 'unknown')}")
         return errors
 
     def prepare_instrumentation(self, results_dir=INSTRUMENTED_DIR):

@@ -173,7 +173,7 @@ class Task:
             self.repository = LogcatRepository()
 
         # Add to repository
-        self.repository.register_error(error)
+        self.repository.register_rv_error(error)
 
     def add_method_call(self, coverage_log: RvCoverageLog) -> None:
         """

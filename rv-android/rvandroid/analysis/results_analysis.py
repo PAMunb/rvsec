@@ -5,13 +5,11 @@ Uses standardized models for consistent data representation.
 """
 
 import json
-import logging
 import os
 from typing import Dict, Any
 
 from rvandroid.model.coverage import LogcatRepository
-
-logger = logging.getLogger(__name__)
+from rvandroid.util.logging_manager import LoggingManager
 
 
 def process_results(results_dir: str) -> Dict[str, Any]:
@@ -24,7 +22,12 @@ def process_results(results_dir: str) -> Dict[str, Any]:
     Returns:
         Dictionary with processed results
     """
-    logger = logging.getLogger(__name__)
+    # Get logger from LoggingManager with context
+    logger = LoggingManager.get_instance().get_logger(
+        'analysis.results_analysis',
+        {'component': 'ResultsAnalysis', 'operation': 'process_results'}
+    )
+
     logger.info(f"Processing results from {results_dir}")
 
     # Results structure
@@ -128,7 +131,11 @@ def process_app_results(app_dir: str) -> Dict[str, Any]:
     Returns:
         Dictionary with app results
     """
-    logger = logging.getLogger(__name__)
+    # Get logger from LoggingManager with context
+    logger = LoggingManager.get_instance().get_logger(
+        'analysis.results_analysis',
+        {'component': 'ResultsAnalysis', 'operation': 'process_app_results', 'app_dir': app_dir}
+    )
 
     app_results = {
         "tools": {},
@@ -205,11 +212,10 @@ def process_app_results(app_dir: str) -> Dict[str, Any]:
             app_results["summary"]["mop_coverage"] = total_mop_coverage / task_count
             app_results["summary"]["errors"] = total_errors
 
-        return app_results
-
     except Exception as e:
         logger.error(f"Error processing app results: {e}", exc_info=True)
-        return app_results
+
+    return app_results
 
 
 def process_logcat_file(logcat_file: str) -> LogcatRepository:
@@ -225,13 +231,17 @@ def process_logcat_file(logcat_file: str) -> LogcatRepository:
     Returns:
         LogcatRepository with processed data
     """
-    from rvandroid.parser.log.logcat_parser import parse_logcat_file as modern_parse_logcat_file
+    # Get logger from LoggingManager with context
+    logger = LoggingManager.get_instance().get_logger(
+        'analysis.results_analysis',
+        {'component': 'ResultsAnalysis', 'operation': 'process_logcat_file', 'file': logcat_file}
+    )
 
     try:
         # First try the modern parser
+        from rvandroid.parser.log.logcat_parser import parse_logcat_file as modern_parse_logcat_file
         return modern_parse_logcat_file(logcat_file)
     except Exception as e:
-        logger = logging.getLogger(__name__)
         logger.warning(f"Modern parser failed, falling back to legacy parser: {e}")
 
         # Fall back to legacy parser but ensure it returns a repository

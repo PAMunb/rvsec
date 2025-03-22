@@ -213,7 +213,7 @@ def run_local():
     config.set("no_window", True)
     config.set("memory_file", "")
 
-    # Get selected tools first as objects
+    # Get selected tools as objects
     selected_tool_objects = __get_tools(["ape"])
 
     # Store tool names in configuration

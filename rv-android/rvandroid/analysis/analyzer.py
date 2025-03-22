@@ -1,4 +1,4 @@
-# rvandroid/analysis/analyzer.py - Complete rewrite to use repository
+# rvandroid/analysis/analyzer.py
 """
 Unified analyzer module for processing coverage data.
 Acts as a facade for different analysis functionalities.
@@ -42,6 +42,53 @@ class CoverageAnalyzer:
         # Primary model: standardized repository
         self.repository = LogcatRepository()
 
+        # Initialize repository from static_data if available
+        if static_data and static_data.classes:
+            self._initialize_from_static_data()
+        else:
+            self.logger.warning("No static analysis data provided. Coverage metrics will be set to 0%.")
+
+    def _initialize_from_static_data(self):
+        """Initialize repository from static analysis data."""
+        try:
+            self.logger.info("Initializing analyzer from static analysis data")
+
+            # Initialize classes and methods from static data
+            classes = self.static_data.classes
+
+            for class_name, class_info in classes.classes.items():
+                # Create class data in repository
+                from rvandroid.model.coverage import ClassCoverageData
+                class_data = ClassCoverageData(
+                    name=class_name,
+                    is_activity=class_info.is_activity,
+                    is_main_activity=getattr(class_info, "is_main_activity", False)
+                )
+                self.repository.add_class(class_data)
+
+                # Add methods to class
+                for method in class_info.methods:
+                    from rvandroid.model.coverage import MethodCoverageData
+                    method_data = MethodCoverageData(
+                        class_name=class_name,
+                        method_name=method.name,
+                        signature=method.signature,
+                        parameters=getattr(method, "params", []),
+                        reachable=method.reachable,
+                        reaches_mop=method.reaches_mop,
+                        directly_reaches_mop=method.directly_reaches_mop,
+                        from_static_analysis=True
+                    )
+                    class_data.add_method(method_data)
+
+            # Log summary
+            total_methods = sum(len(class_info.methods) for class_info in classes.classes.values())
+            self.logger.info(
+                f"Initialized analyzer with {len(self.repository.classes)} classes and {total_methods} methods from static data")
+
+        except Exception as e:
+            self.logger.error(f"Error initializing from static data: {e}", exc_info=True)
+
     def process_logcat_file(self, logcat_file: str) -> Dict:
         """
         Process a logcat file to extract coverage and error information.
@@ -55,15 +102,13 @@ class CoverageAnalyzer:
         """
         from rvandroid.parser.log.logcat_parser import parse_logcat_file
 
-        # Parse logcat file
-        errors, _, sorted_methods = parse_logcat_file(logcat_file)
+        # Parse logcat file - returns a repository with parsed data
+        repository = parse_logcat_file(logcat_file)
 
-        # Register all errors and method calls in the repository
-        for error in errors:
-            self.repository.register_error(error)
-
-        for method in sorted_methods:
-            self.repository.register_method_call(method)
+        # Add data to our own repository (which respects static analysis constraints)
+        # Only methods from static analysis will be registered
+        for error in repository.errors:
+            self.repository.register_rv_error(error)
 
         # Calculate and return coverage
         return self.get_coverage_metrics()
@@ -71,6 +116,7 @@ class CoverageAnalyzer:
     def add_method_call(self, coverage_log: RvCoverageLog) -> None:
         """
         Add a method call to the analyzer's data using standardized model.
+        Only methods from static analysis will be registered.
 
         Args:
             coverage_log: Coverage log entry to add
@@ -84,22 +130,24 @@ class CoverageAnalyzer:
         Args:
             error_log: Error log entry to add
         """
-        self.repository.register_error(error_log)
+        self.repository.register_rv_error(error_log)
 
     def get_coverage_metrics(self) -> Dict:
         """
         Get coverage metrics from repository.
+        Returns 0% metrics if no static analysis data is available.
 
         Returns:
             Dictionary with metrics
         """
-        metrics = self.repository.calculate_metrics().to_dict()
+        metrics = self.repository.calculate_metrics()
+        metrics_dict = metrics.to_dict()
 
         return {
-            "SUMMARY": metrics,
-            "method_coverage": metrics["method_coverage"],
-            "activities_coverage": metrics["activity_coverage"],
-            "methods_jca_reachable_coverage": metrics["mop_method_coverage"],
-            "total_errors": metrics["unique_errors"],
-            "total_method_calls": metrics["called_methods"]
+            "SUMMARY": metrics_dict,
+            "method_coverage": metrics_dict["method_coverage"],
+            "activities_coverage": metrics_dict["activity_coverage"],
+            "methods_jca_reachable_coverage": metrics_dict["mop_method_coverage"],
+            "total_errors": metrics_dict["unique_errors"],
+            "total_method_calls": metrics_dict["called_methods"]
         }

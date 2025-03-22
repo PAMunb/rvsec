@@ -8,7 +8,6 @@ from datetime import datetime
 from typing import Dict, Optional, List
 
 from rvandroid.model.coverage import LogcatRepository
-from rvandroid.model.log import RvCoverageLog, RvErrorLog
 from rvandroid.model.static import StaticAnalysisData
 from rvandroid.parser.log.logcat_parser import parse_logcat_line
 
@@ -54,6 +53,8 @@ class CoverageTracker:
         # Initialize repository from static_data if available
         if static_data and static_data.classes:
             self._initialize_from_static_data()
+        else:
+            self.logger.warning("No static analysis data provided. Coverage tracking will be disabled.")
 
     def _initialize_from_static_data(self):
         """Initialize repository from static analysis data."""
@@ -83,11 +84,17 @@ class CoverageTracker:
                         parameters=getattr(method, "params", []),
                         reachable=method.reachable,
                         reaches_mop=method.reaches_mop,
-                        directly_reaches_mop=method.directly_reaches_mop
+                        directly_reaches_mop=method.directly_reaches_mop,
+                        from_static_analysis=True
                     )
                     class_data.add_method(method_data)
 
-            self.logger.info(f"Initialized repository with {len(self.repository.classes)} classes from static data")
+                self.logger.info(f"Added class {class_name} with {len(class_info.methods)} methods")
+
+            # Log summary
+            total_methods = sum(len(class_info.methods) for class_info in classes.classes.values())
+            self.logger.info(
+                f"Initialized repository with {len(self.repository.classes)} classes and {total_methods} methods from static data")
 
         except Exception as e:
             self.logger.error(f"Error initializing from static data: {e}", exc_info=True)
@@ -96,6 +103,11 @@ class CoverageTracker:
         """Start tracking coverage in a separate thread with improved resource management."""
         if self.is_running:
             self.logger.warning("Coverage tracker is already running")
+            return
+
+        # Check if static data is available
+        if not self.static_data or not self.repository.classes:
+            self.logger.warning("Cannot start coverage tracking: No static analysis data available")
             return
 
         # Make sure the logcat file exists
@@ -222,26 +234,6 @@ class CoverageTracker:
         for line in lines:
             self._process_line(line)
 
-    def _handle_coverage_log(self, coverage: RvCoverageLog):
-        """
-        Handle an RVSEC-COV log entry.
-
-        Args:
-            coverage: Parsed coverage log entry
-        """
-        try:
-            # Add to the repository
-            self.repository.register_method_call(coverage)
-            self.total_method_calls += 1
-
-            # Log that we tracked a method call
-            self.logger.debug(
-                f"Tracked method call: {coverage.clazz}.{coverage.method} (signature: {coverage.signature})"
-            )
-
-        except Exception as e:
-            self.logger.error(f"Error handling RVSEC-COV log: {e}", exc_info=True)
-
     def _process_line(self, line: str) -> None:
         """
         Process a logcat line and update the repository.
@@ -258,50 +250,26 @@ class CoverageTracker:
                 return
 
             # Parse the line for RVSEC or RVSEC-COV entries
-            from rvandroid.parser.log.logcat_parser import parse_logcat_line
             error_log, coverage_log = parse_logcat_line(line)
 
             # Update repository directly - the repository is the single source of truth
             if error_log:
-                self.repository.register_error(error_log)
+                self.repository.register_rv_error(error_log)
                 self.total_errors += 1
                 self.logger.debug(
                     f"Tracked formal property violation in {error_log.class_full_name}.{error_log.method}"
                 )
 
             elif coverage_log:
+                # Try to register method call - repository will only register methods found in static analysis
                 self.repository.register_method_call(coverage_log)
                 self.total_method_calls += 1
                 self.logger.debug(
-                    f"Tracked method call: {coverage_log.clazz}.{coverage_log.method}"
+                    f"Processed method call: {coverage_log.clazz}.{coverage_log.method} (sig: {coverage_log.signature})"
                 )
 
         except Exception as e:
             self.logger.error(f"Error processing logcat line: {e}", exc_info=True)
-
-    def _handle_error_log(self, error: RvErrorLog):
-        """
-        Handle an RVSEC log entry for a formal property violation.
-
-        IMPORTANT: This method only processes runtime verification errors
-        (formal property violations), not general system errors or exceptions.
-
-        Args:
-            error: Parsed runtime verification error log entry
-        """
-        try:
-            # Update the repository
-            self.repository.register_error(error)
-            self.total_errors += 1
-
-            # Log that we found a property violation
-            self.logger.debug(
-                f"Tracked formal property violation in {error.class_full_name}.{error.method}: "
-                f"Specification '{error.spec}' was violated - {error.message}"
-            )
-
-        except Exception as e:
-            self.logger.error(f"Error handling RVSEC log: {e}", exc_info=True)
 
     def _update_coverage_metrics(self):
         """Update coverage metrics based on current tracking data."""
@@ -311,18 +279,69 @@ class CoverageTracker:
                 self.logger.warning("No coverage data available for metrics calculation")
                 return
 
-            # Calculate metrics using the repository
-            metrics = self.repository.calculate_metrics()
+            # Store previous metrics for comparison to avoid unnecessary logging
+            previous_metrics = getattr(self, '_previous_metrics', None)
+
+            # Calculate metrics using ONLY methods from static analysis
+            metrics = self.repository.calculate_metrics(restrict_to_static=True)
             metrics_dict = metrics.to_dict()
 
-            # Log coverage summary
-            self.logger.info(
-                f"Coverage update - Methods: {metrics_dict['method_coverage']:.2f}%, "
-                f"Activities: {metrics_dict['activity_coverage']:.2f}%, "
-                f"MOP Methods: {metrics_dict['mop_method_coverage']:.2f}%, "
-                f"Called methods: {metrics.called_methods}, "
-                f"Total methods: {metrics.total_methods}"
-            )
+            # Get counts for logging and debugging
+            static_method_count = self.repository.get_static_method_count()
+
+            # Check if metrics have changed
+            metrics_changed = False
+            if previous_metrics is None:
+                # First time calculating metrics
+                metrics_changed = True
+            else:
+                # Compare key metrics to detect changes
+                if (metrics.called_methods != previous_metrics.called_methods or
+                        metrics.called_activities != previous_metrics.called_activities or
+                        metrics.called_mop_methods != previous_metrics.called_mop_methods or
+                        metrics.unique_errors != previous_metrics.unique_errors):
+                    metrics_changed = True
+
+            # Only log if metrics have changed
+            if metrics_changed:
+                # Add counters to help debug any inconsistencies
+                self.logger.info(
+                    f"Coverage update - Methods: {metrics_dict['method_coverage']:.2f}%, "
+                    f"Activities: {metrics_dict['activity_coverage']:.2f}%, "
+                    f"MOP Methods: {metrics_dict['mop_method_coverage']:.2f}%, "
+                    f"Called methods: {metrics.called_methods}, "
+                    f"Total methods: {static_method_count}"
+                )
+
+                # Store current metrics for future comparison
+                self._previous_metrics = metrics
+
+                # Publish coverage updated event if EventBus is available
+                try:
+                    from rvandroid.experiment.event_system import EventBus, EventType
+                    event_bus = EventBus.get_instance()
+
+                    # Prepare event data
+                    event_data = {
+                        "method_coverage": metrics_dict["method_coverage"],
+                        "activity_coverage": metrics_dict["activity_coverage"],
+                        "mop_method_coverage": metrics_dict["mop_method_coverage"],
+                        "called_methods": metrics.called_methods,
+                        "total_methods": static_method_count,
+                        "called_activities": metrics.called_activities,
+                        "total_activities": metrics.total_activities,
+                        "unique_errors": metrics.unique_errors
+                    }
+
+                    # Publish event
+                    event_bus.publish_analysis_event(
+                        EventType.COVERAGE_UPDATED,
+                        data=event_data,
+                        source="CoverageTracker"
+                    )
+                except Exception as e:
+                    # Don't let event publishing failures affect coverage tracking
+                    self.logger.debug(f"Could not publish coverage event: {e}")
 
         except Exception as e:
             self.logger.error(f"Error updating coverage metrics: {e}", exc_info=True)

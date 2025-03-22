@@ -172,38 +172,17 @@ class LLMActionService:
         # Return just the first action in a list for consistency
         return [actions[0]]
 
-    def process_state(self, state: Dict[str, Any]) -> List[Dict[str, Any]]:
-        """
-        Process the current application state to generate AI-driven actions.
-
-        This method performs a comprehensive workflow to analyze the current application state,
-        generate prompts, call a language model, parse its response, and convert actions to a
-        compatible format. It includes performance monitoring, error handling, and optional
-        session recording.
-
-        Args:
-            state (Dict[str, Any]): A dictionary representing the current application state,
-                                    containing information about the app's package, activity,
-                                    and other relevant context.
-
-        Returns:
-            List[Dict[str, Any]]: A list of action dictionaries that can be executed by
-                                   the test automation system, representing suggested
-                                   interactions with the application.
-
-        Raises:
-            Exception: If any critical error occurs during state processing, with fallback
-                       to generating default actions.
-        """
         # Get logging and performance monitoring
         from rvandroid.util.logging_manager import LoggingManager
         from rvandroid.util.performance_monitor import PerformanceMonitor
+        from rvandroid.util.error_handler import ErrorHandler
 
         logger = LoggingManager.get_instance().get_logger(
             "service.llm_action_service",
             {"component": "LLMActionService"}
         )
         performance_monitor = PerformanceMonitor.get_instance()
+        error_handler = ErrorHandler.get_instance()
 
         # Add timestamp and application info for debugging
         app_package = state.get("package_name", "unknown")
@@ -220,152 +199,209 @@ class LLMActionService:
         with performance_monitor.measure_time("state_processing_total", context):
             try:
                 # Update dynamic transition graph
-                with performance_monitor.measure_time("update_transitions", context):
-                    self.update_dynamic_transitions(state)
+                try:
+                    with performance_monitor.measure_time("update_transitions", context):
+                        self.update_dynamic_transitions(state)
+                except Exception as e:
+                    # Non-critical - log but continue
+                    logger.warning(f"Error updating transitions: {e}")
+                    error_handler.handle_error(e, {**context, "phase": "update_transitions"})
 
                 # Get transition guidance
-                with performance_monitor.measure_time("get_transition_guidance", context):
-                    transition_guidance = self.get_transition_guidance(app_activity)
-                    # Add guidance to state for use in prompts
-                    state["transition_guidance"] = transition_guidance
+                try:
+                    with performance_monitor.measure_time("get_transition_guidance", context):
+                        transition_guidance = self.get_transition_guidance(app_activity)
+                        # Add guidance to state for use in prompts
+                        state["transition_guidance"] = transition_guidance
+                except Exception as e:
+                    # Non-critical - log but continue
+                    logger.warning(f"Error getting transition guidance: {e}")
+                    error_handler.handle_error(e, {**context, "phase": "transition_guidance"})
+                    # Set empty guidance to continue
+                    state["transition_guidance"] = {}
 
                 # Enhance action history if present
                 if "action_history" in state:
-                    with performance_monitor.measure_time("enhance_action_history", context):
-                        self._enhance_action_history(state)
+                    try:
+                        with performance_monitor.measure_time("enhance_action_history", context):
+                            self._enhance_action_history(state)
+                    except Exception as e:
+                        # Non-critical - log but continue
+                        logger.warning(f"Error enhancing action history: {e}")
+                        error_handler.handle_error(e, {**context, "phase": "enhance_action_history"})
 
                 # Add action-specific history information
-                with performance_monitor.measure_time("add_action_specific_history", context):
-                    self._add_action_specific_history(state)
+                try:
+                    with performance_monitor.measure_time("add_action_specific_history", context):
+                        self._add_action_specific_history(state)
+                except Exception as e:
+                    # Non-critical - log but continue
+                    logger.warning(f"Error adding action specific history: {e}")
+                    error_handler.handle_error(e, {**context, "phase": "action_specific_history"})
 
-                # Generate prompts using the selected strategy
-                with performance_monitor.measure_time("prompt_generation", context):
-                    logger.debug(f"Generating prompts using {self.prompt_strategy.__class__.__name__}")
-                    messages = self.prompt_strategy.generate_prompts(state)
-                    logger.debug(f"System prompt length: {len(messages[0]['content'])}")
-                    logger.debug(f"User prompt length: {len(messages[1]['content'])}")
+                # Generate prompts - THIS IS CRITICAL, handle differently
+                try:
+                    with performance_monitor.measure_time("prompt_generation", context):
+                        logger.debug(f"Generating prompts using {self.prompt_strategy.__class__.__name__}")
+                        messages = self.prompt_strategy.generate_prompts(state)
+                        logger.debug(f"System prompt length: {len(messages[0]['content'])}")
+                        logger.debug(f"User prompt length: {len(messages[1]['content'])}")
 
-                    # Record prompt length metrics
-                    performance_monitor.record_metric(
-                        name="prompt_length_system",
-                        value=len(messages[0]['content']),
-                        unit="chars",
-                        context=context
-                    )
-                    performance_monitor.record_metric(
-                        name="prompt_length_user",
-                        value=len(messages[1]['content']),
-                        unit="chars",
-                        context=context
-                    )
+                        # Record prompt length metrics
+                        performance_monitor.record_metric(
+                            name="prompt_length_system",
+                            value=len(messages[0]['content']),
+                            unit="chars",
+                            context=context
+                        )
+                        performance_monitor.record_metric(
+                            name="prompt_length_user",
+                            value=len(messages[1]['content']),
+                            unit="chars",
+                            context=context
+                        )
+                except Exception as e:
+                    logger.error(f"Critical error in prompt generation: {e}")
+                    error_handler.handle_error(e, {**context, "phase": "prompt_generation", "critical": True})
+                    return self._generate_fallback_actions(state)
 
-                # Call the LLM with the generated prompts
-                with performance_monitor.measure_time("llm_call", context):
-                    logger.info(f"Calling LLM model: {self.model_type}/{self.model_name}")
-                    llm = self._get_llm()
-                    start_time = time.time()
-                    response = llm.generate(messages, max_new_tokens=self.max_tokens)
-                    elapsed_time = time.time() - start_time
+                # Call the LLM - THIS IS CRITICAL
+                try:
+                    with performance_monitor.measure_time("llm_call", context):
+                        logger.info(f"Calling LLM model: {self.model_type}/{self.model_name}")
+                        llm = self._get_llm()
+                        start_time = time.time()
+                        response = llm.generate(messages, max_new_tokens=self.max_tokens)
+                        elapsed_time = time.time() - start_time
 
-                    logger.info(f"LLM response received in {elapsed_time:.2f} seconds")
-                    logger.debug(f"LLM response length: {len(response)}")
+                        logger.info(f"LLM response received in {elapsed_time:.2f} seconds")
+                        logger.debug(f"LLM response length: {len(response)}")
 
-                    # Record response metrics
-                    performance_monitor.record_metric(
-                        name="llm_response_time",
-                        value=elapsed_time,
-                        unit="s",
-                        context=context
-                    )
-                    performance_monitor.record_metric(
-                        name="llm_response_length",
-                        value=len(response),
-                        unit="chars",
-                        context=context
-                    )
+                        # Record response metrics
+                        performance_monitor.record_metric(
+                            name="llm_response_time",
+                            value=elapsed_time,
+                            unit="s",
+                            context=context
+                        )
+                        performance_monitor.record_metric(
+                            name="llm_response_length",
+                            value=len(response),
+                            unit="chars",
+                            context=context
+                        )
+                except Exception as e:
+                    logger.error(f"Critical error calling LLM: {e}")
+                    error_handler.handle_error(e, {**context, "phase": "llm_call", "critical": True})
+                    return self._generate_fallback_actions(state)
 
                 # Parse the response and get available action IDs
-                with performance_monitor.measure_time("response_parsing", context):
-                    # Get available action IDs for validation
-                    screen_description = self.prompt_strategy.parser.parse(state, self.static_data)
-                    available_action_ids = [
-                        str(action.id) for item in screen_description.items
-                        for action in item.actions
-                    ]
+                try:
+                    with performance_monitor.measure_time("response_parsing", context):
+                        # Get available action IDs for validation
+                        screen_description = self.prompt_strategy.parser.parse(state, self.static_data)
+                        available_action_ids = [
+                            str(action.id) for item in screen_description.items
+                            for action in item.actions
+                        ]
 
-                    # Determine single action mode based on strategy type
-                    single_action_mode = isinstance(self.prompt_strategy,
-                                                    (SingleActionPromptStrategy, DSPySingleActionPromptStrategy))
+                        # Determine single action mode based on strategy type
+                        single_action_mode = isinstance(self.prompt_strategy,
+                                                        (SingleActionPromptStrategy, DSPySingleActionPromptStrategy))
 
-                    # Parse the response
-                    actions, errors = self.response_parser.parse_actions(
-                        response,
-                        available_action_ids=available_action_ids,
-                        single_action_mode=single_action_mode
-                    )
+                        # Parse the response
+                        actions, errors = self.response_parser.parse_actions(
+                            response,
+                            available_action_ids=available_action_ids,
+                            single_action_mode=single_action_mode
+                        )
 
-                    # Log any parsing errors
-                    for error in errors:
-                        logger.warning(f"Response parsing issue: {error}")
+                        # Log any parsing errors
+                        for error in errors:
+                            logger.warning(f"Response parsing issue: {error}")
 
-                    # Record parsing metrics
-                    performance_monitor.record_metric(
-                        name="response_parsing_errors",
-                        value=len(errors),
-                        context=context
-                    )
+                        # Record parsing metrics
+                        performance_monitor.record_metric(
+                            name="response_parsing_errors",
+                            value=len(errors),
+                            context=context
+                        )
+                except Exception as e:
+                    logger.error(f"Error parsing LLM response: {e}")
+                    error_handler.handle_error(e, {**context, "phase": "response_parsing"})
+                    return self._generate_fallback_actions(state)
 
                 # Fall back to secondary parsing if primary fails
                 if not actions and errors:
-                    with performance_monitor.measure_time("response_repair", context):
-                        logger.warning("Primary parsing failed, attempting to repair response")
-                        repaired_json = self.response_parser.try_repair_response(response)
-                        if repaired_json:
-                            try:
+                    try:
+                        with performance_monitor.measure_time("response_repair", context):
+                            logger.warning("Primary parsing failed, attempting to repair response")
+                            repaired_json = self.response_parser.try_repair_response(response)
+                            if repaired_json:
                                 actions = json.loads(repaired_json)
                                 logger.info("Successfully recovered actions from repaired response")
-                            except Exception as e:
-                                logger.error(f"Error parsing repaired JSON: {e}")
+                    except Exception as e:
+                        logger.error(f"Error during response repair: {e}")
+                        error_handler.handle_error(e, {**context, "phase": "response_repair"})
 
                 # Fall back to default actions if all parsing failed
                 if not actions:
-                    with performance_monitor.measure_time("fallback_actions", context):
-                        logger.warning("Failed to extract valid actions from LLM response")
-                        return self._generate_fallback_actions(state)
+                    logger.warning("Failed to extract valid actions from LLM response")
+                    return self._generate_fallback_actions(state)
 
                 logger.info(f"Successfully parsed {len(actions)} actions from LLM response")
 
                 # Convert to DroidBot format
-                with performance_monitor.measure_time("convert_to_droidbot", context):
-                    droidbot_actions = self._convert_to_droidbot_format(actions, state, screen_description)
+                try:
+                    with performance_monitor.measure_time("convert_to_droidbot", context):
+                        droidbot_actions = self._convert_to_droidbot_format(actions, state, screen_description)
+                except Exception as e:
+                    logger.error(f"Error converting to DroidBot format: {e}")
+                    error_handler.handle_error(e, {**context, "phase": "format_conversion"})
+                    return self._generate_fallback_actions(state)
 
                 # Record actions if enabled
                 if self.record_session:
-                    app_package = state.get("package_name", "unknown")
-                    app_activity = state.get("activity", "unknown")
-                    timestamp = datetime.now().isoformat()
+                    try:
+                        app_package = state.get("package_name", "unknown")
+                        app_activity = state.get("activity", "unknown")
+                        timestamp = datetime.now().isoformat()
 
-                    for action in droidbot_actions:
-                        # Add metadata for recording
-                        recorded_action = action.copy()
-                        recorded_action.update({
-                            "timestamp": timestamp,
-                            "package": app_package,
-                            "activity": app_activity
-                        })
-                        self.session_actions.append(recorded_action)
+                        for action in droidbot_actions:
+                            # Add metadata for recording
+                            recorded_action = action.copy()
+                            recorded_action.update({
+                                "timestamp": timestamp,
+                                "package": app_package,
+                                "activity": app_activity
+                            })
+                            self.session_actions.append(recorded_action)
 
-                    # Save session periodically (every 20 actions)
-                    if len(self.session_actions) % 20 == 0:
-                        self._save_session()
+                        # Save session periodically (every 20 actions)
+                        if len(self.session_actions) % 20 == 0:
+                            self._save_session()
+                    except Exception as e:
+                        # Non-critical - log but continue
+                        logger.warning(f"Error recording session: {e}")
+                        error_handler.handle_error(e, {**context, "phase": "session_recording"})
 
                 # Update the dynamic transition graph with the chosen actions
-                with performance_monitor.measure_time("update_graph_with_actions", context):
-                    self._update_graph_with_actions(state, droidbot_actions)
+                try:
+                    with performance_monitor.measure_time("update_graph_with_actions", context):
+                        self._update_graph_with_actions(state, droidbot_actions)
+                except Exception as e:
+                    # Non-critical - log but continue
+                    logger.warning(f"Error updating graph with actions: {e}")
+                    error_handler.handle_error(e, {**context, "phase": "graph_update"})
 
                 # Save the dynamic transition graph periodically
-                with performance_monitor.measure_time("save_graph", context):
-                    self.save_dynamic_transition_graph()
+                try:
+                    with performance_monitor.measure_time("save_graph", context):
+                        self.save_dynamic_transition_graph()
+                except Exception as e:
+                    # Non-critical - log but continue
+                    logger.warning(f"Error saving dynamic transition graph: {e}")
+                    error_handler.handle_error(e, {**context, "phase": "graph_save"})
 
                 logger.info(f"Successfully processed state and generated {len(droidbot_actions)} actions")
 
@@ -379,7 +415,8 @@ class LLMActionService:
                 return droidbot_actions
 
             except Exception as e:
-                logger.error(f"Error processing state: {e}", exc_info=True)
+                logger.error(f"Unhandled error processing state: {e}", exc_info=True)
+                error_handler.handle_error(e, {**context, "phase": "general", "critical": True})
 
                 # Record error metrics
                 performance_monitor.record_metric(

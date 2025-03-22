@@ -1,30 +1,31 @@
-# rvandroid/util/error_handler.py - Centralized error handling
-
+# rvandroid/util/error_handler.py
+import os
 import time
+from contextlib import contextmanager
 from functools import wraps
-from typing import Dict, List, Callable, Any, Type
+from typing import Dict, List, Callable, Any, Type, Optional
 
+from rvandroid.experiment.event_system import EventBus, EventType
 from rvandroid.util.exceptions import RVAndroidError, ADBError, EmulatorError, RvTimeoutError
 from rvandroid.util.logging_manager import LoggingManager
 
 
 class ErrorHandler:
     """
-    The ErrorHandler class provides a centralized mechanism for handling exceptions
-    and errors within the rvandroid framework. It ensures that errors are logged,
-    tracked, and managed efficiently to prevent unexpected failures.
+    Centralized error handling system for rv-android.
 
     ### Architectural Decisions:
-    - Implements a structured error-handling approach to improve system resilience.
-    - Supports logging of error details for debugging and post-mortem analysis.
-    - Provides categorization of errors to differentiate between critical failures
-      and recoverable exceptions.
+    - Implements a unified approach to error management across all components
+    - Supports customizable error handling strategies and recovery mechanisms
+    - Provides detailed error tracking, aggregation, and reporting
+    - Enables component-specific error handlers with fallback to default handlers
 
     ### Role in the System:
-    - Acts as a global error-handling utility, reducing redundant exception handling across modules.
-    - Improves system stability by preventing unhandled exceptions from causing crashes.
-    - Enhances debugging and troubleshooting by maintaining detailed error logs.
-    - Supports potential integrations with external monitoring or alerting systems.
+    - Acts as the central error management facility
+    - Provides consistent error handling behavior across the framework
+    - Enables error aggregation for pattern detection and reporting
+    - Supports automatic recovery strategies for common failure scenarios
+    - Facilitates error classification and appropriate response selection
     """
 
     _instance = None
@@ -41,13 +42,15 @@ class ErrorHandler:
         self._logger = LoggingManager.get_instance().get_logger(
             'util.error_handler', {'component': 'ErrorHandler'})
 
-        # Keep track of errors by type to detect patterns
-        self._error_counts: Dict[str, int] = {}
+        # Event bus for publishing errors
+        self._event_bus = EventBus.get_instance()
 
-        # Track recovery attempts
+        # Error statistics and tracking
+        self._error_counts: Dict[str, int] = {}
+        self._error_history: List[Dict[str, Any]] = []
         self._recovery_attempts: Dict[str, int] = {}
 
-        # Registry of error handlers
+        # Registry of error handlers for different exception types
         self._error_handlers: Dict[Type[Exception], List[Callable]] = {}
 
         # Configure default error handlers
@@ -64,13 +67,17 @@ class ErrorHandler:
         # Timeout error handling
         self.register_handler(RvTimeoutError, self._handle_timeout_error)
 
-    def register_handler(self, error_type: Type[Exception], handler: Callable[[Exception], None]):
+        # General RVAndroid error
+        self.register_handler(RVAndroidError, self._handle_generic_error)
+
+    def register_handler(self, error_type: Type[Exception],
+                         handler: Callable[[Exception, Optional[Dict[str, Any]]], bool]):
         """
         Register a handler for a specific error type.
 
         Args:
             error_type: The type of exception to handle
-            handler: Function to call when this error occurs
+            handler: Function to call when this error occurs, should return True if handled
         """
         if error_type not in self._error_handlers:
             self._error_handlers[error_type] = []
@@ -79,7 +86,7 @@ class ErrorHandler:
             self._error_handlers[error_type].append(handler)
             self._logger.debug(f"Registered handler for {error_type.__name__}")
 
-    def handle_error(self, error: Exception, context: Dict[str, Any] = None) -> bool:
+    def handle_error(self, error: Exception, context: Optional[Dict[str, Any]] = None) -> bool:
         """
         Handle an error using registered handlers.
 
@@ -96,27 +103,69 @@ class ErrorHandler:
         # Update error counts for tracking patterns
         self._error_counts[error_name] = self._error_counts.get(error_name, 0) + 1
 
+        # Record in history for analysis
+        self._add_to_history(error, context)
+
         # Log the error with context
         self._log_error(error, context)
 
+        # Publish error event
+        self._publish_error_event(error, context)
+
         # Find and execute handlers for this error type and its parent types
-        handlers = []
-        for err_type, err_handlers in self._error_handlers.items():
-            if isinstance(error, err_type):
-                handlers.extend(err_handlers)
+        handlers = self._find_handlers(error_type)
 
         # Execute handlers
         handled = False
         for handler in handlers:
             try:
-                if handler(error):
+                if handler(error, context):
                     handled = True
+                    # Once an error is handled, we can stop (unless we want multiple handlers)
+                    break
             except Exception as e:
                 self._logger.error(f"Error in error handler: {e}")
 
         return handled
 
-    def _log_error(self, error: Exception, context: Dict[str, Any] = None):
+    def _find_handlers(self, error_type: Type[Exception]) -> List[Callable]:
+        """
+        Find all handlers that can handle this error type (including parent classes).
+
+        Args:
+            error_type: Exception type to find handlers for
+
+        Returns:
+            List of handler functions
+        """
+        handlers = []
+        # Check for handlers for this specific type
+        if error_type in self._error_handlers:
+            handlers.extend(self._error_handlers[error_type])
+
+        # Also check for parent class handlers (inheritance hierarchy)
+        for registered_type, type_handlers in self._error_handlers.items():
+            if error_type != registered_type and issubclass(error_type, registered_type):
+                handlers.extend(type_handlers)
+
+        return handlers
+
+    def _add_to_history(self, error: Exception, context: Optional[Dict[str, Any]]):
+        """Add error to history with timestamp and context."""
+        entry = {
+            "timestamp": time.time(),
+            "error_type": type(error).__name__,
+            "error_message": str(error),
+            "context": context or {}
+        }
+
+        # Keep the history at a reasonable size
+        if len(self._error_history) >= 100:
+            self._error_history.pop(0)
+
+        self._error_history.append(entry)
+
+    def _log_error(self, error: Exception, context: Optional[Dict[str, Any]]):
         """Log an error with detailed information."""
         ctx_str = ""
         if context:
@@ -133,12 +182,40 @@ class ErrorHandler:
                 exc_info=error
             )
 
-    def _handle_adb_error(self, error: ADBError) -> bool:
+    def _publish_error_event(self, error: Exception, context: Optional[Dict[str, Any]]):
+        """Publish an error event to the event bus."""
+        if not self._event_bus:
+            return
+
+        # Prepare event data
+        event_data = {
+            "error_type": type(error).__name__,
+            "error_message": str(error),
+            "context": context or {}
+        }
+
+        # Add task_id to event if available in context
+        if context and "task_id" in context:
+            self._event_bus.publish_analysis_event(
+                EventType.ERROR_DETECTED,
+                data=event_data,
+                related_task_id=context["task_id"],
+                source="ErrorHandler"
+            )
+        else:
+            self._event_bus.publish_analysis_event(
+                EventType.ERROR_DETECTED,
+                data=event_data,
+                source="ErrorHandler"
+            )
+
+    def _handle_adb_error(self, error: ADBError, context: Optional[Dict[str, Any]] = None) -> bool:
         """
         Handle ADB-related errors with retry mechanism.
 
         Args:
             error: The ADB error
+            context: Optional context information
 
         Returns:
             True if handled successfully, False otherwise
@@ -185,51 +262,116 @@ class ErrorHandler:
             self._logger.error(f"ADB recovery failed: {e}")
             return False
 
-    def _handle_emulator_error(self, error: EmulatorError) -> bool:
+    def _handle_emulator_error(self, error: EmulatorError, context: Optional[Dict[str, Any]] = None) -> bool:
         """
         Handle emulator-related errors.
 
         Args:
             error: The emulator error
+            context: Optional context information
 
         Returns:
             True if handled successfully, False otherwise
         """
         self._logger.info(f"Handling emulator error: {error.message}")
 
-        # For now, we just log the error - actual recovery would depend on specific emulator issues
-        self._logger.warning("Emulator error recovery not yet implemented")
-        return False
+        # Check if we have a device ID in the context
+        device_id = None
+        if context and "device_id" in context:
+            device_id = context["device_id"]
 
-    def _handle_timeout_error(self, error: RvTimeoutError) -> bool:
+        try:
+            # Try to kill any existing emulator processes
+            from rvandroid.commands.command import Command
+
+            # Kill running emulator instance if we have a device ID
+            if device_id:
+                kill_cmd = Command("adb", ["-s", device_id, "emu", "kill"])
+                kill_cmd.invoke()
+                self._logger.info(f"Emulator {device_id} killed")
+            else:
+                # General emulator cleanup
+                kill_all_cmd = Command("pkill", ["-f", "emulator"])
+                kill_all_cmd.invoke()
+                self._logger.info("All emulator processes terminated")
+
+            return True
+        except Exception as e:
+            self._logger.error(f"Emulator recovery failed: {e}")
+            return False
+
+    def _handle_timeout_error(self, error: RvTimeoutError, context: Optional[Dict[str, Any]] = None) -> bool:
         """
         Handle timeout errors.
 
         Args:
             error: The timeout error
+            context: Optional context information
 
         Returns:
             True if handled successfully, False otherwise
         """
         self._logger.info(f"Handling timeout error: {error.message}")
 
-        # For now, we just log the error - more specific handling would depend on the context
-        self._logger.warning("Timeout recovery not yet implemented")
+        # Examine context to determine timeout type
+        if context and "process" in context:
+            # Handle process timeout
+            process = context["process"]
+            try:
+                # Try to terminate the process
+                import signal
+                if hasattr(process, "pid"):
+                    os.kill(process.pid, signal.SIGTERM)
+                    self._logger.info(f"Process {process.pid} terminated due to timeout")
+                    return True
+            except Exception as e:
+                self._logger.error(f"Failed to terminate process: {e}")
+
+        # Log unhandled timeout
+        self._logger.warning(f"No specific handling for timeout error: {error.message}")
+        return False
+
+    def _handle_generic_error(self, error: RVAndroidError, context: Optional[Dict[str, Any]] = None) -> bool:
+        """
+        Default handler for RVAndroid errors.
+
+        Args:
+            error: The error
+            context: Optional context information
+
+        Returns:
+            True if handled, False otherwise
+        """
+        # Log that we've seen this error but don't claim to have handled it specifically
+        self._logger.info(f"Recorded RVAndroid error: {error.message}")
         return False
 
     def get_error_statistics(self) -> Dict[str, Any]:
-        """Get statistics about errors encountered."""
+        """
+        Get statistics about errors encountered.
+
+        Returns:
+            Dictionary with error statistics
+        """
         return {
             "error_counts": self._error_counts.copy(),
-            "recovery_attempts": self._recovery_attempts.copy()
+            "recovery_attempts": self._recovery_attempts.copy(),
+            "recent_errors": self._error_history[-10:] if self._error_history else []
         }
+
+    def clear_statistics(self) -> None:
+        """Clear all error statistics."""
+        self._error_counts = {}
+        self._error_history = []
+        self._recovery_attempts = {}
 
 
 # Decorator for automatic retry
 def retry(max_attempts: int = 3,
           retry_exceptions: List[Type[Exception]] = None,
           delay: float = 1.0,
-          backoff_factor: float = 2.0):
+          backoff_factor: float = 2.0,
+          log_retries: bool = True):
     """
     Decorator to automatically retry a function on specified exceptions.
 
@@ -238,6 +380,7 @@ def retry(max_attempts: int = 3,
         retry_exceptions: List of exception types to retry on
         delay: Initial delay between retries in seconds
         backoff_factor: Factor to increase delay with each retry
+        log_retries: Whether to log retry attempts
 
     Returns:
         Decorated function
@@ -262,14 +405,16 @@ def retry(max_attempts: int = 3,
 
                     if attempt < max_attempts - 1:
                         wait_time = current_delay
-                        logger.warning(
-                            f"Attempt {attempt + 1}/{max_attempts} failed with {type(e).__name__}: {e}. "
-                            f"Retrying in {wait_time:.2f}s...")
+                        if log_retries:
+                            logger.warning(
+                                f"Attempt {attempt + 1}/{max_attempts} failed with {type(e).__name__}: {e}. "
+                                f"Retrying in {wait_time:.2f}s...")
 
                         time.sleep(wait_time)
                         current_delay *= backoff_factor
                     else:
-                        logger.error(f"All {max_attempts} attempts failed")
+                        if log_retries:
+                            logger.error(f"All {max_attempts} attempts failed")
 
             # Re-raise the last exception
             raise last_exception
@@ -277,3 +422,30 @@ def retry(max_attempts: int = 3,
         return wrapper
 
     return decorator
+
+
+# Context manager for error handling
+@contextmanager
+def handle_errors(context: Optional[Dict[str, Any]] = None):
+    """
+    Context manager for handling errors with the central ErrorHandler.
+
+    Args:
+        context: Optional context information for the error
+
+    Yields:
+        Nothing
+
+    Example:
+        ```
+        with handle_errors({"task_id": task.id}):
+            # Code that might raise exceptions
+            process_task(task)
+        ```
+    """
+    handler = ErrorHandler.get_instance()
+    try:
+        yield
+    except Exception as e:
+        handler.handle_error(e, context)
+        raise  # Re-raise the exception after handling

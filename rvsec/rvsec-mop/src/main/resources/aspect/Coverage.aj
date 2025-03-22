@@ -18,7 +18,7 @@ public aspect Coverage {
 
     private final Set<String> messages = new HashSet<>();
 
-    // Define os pacotes que devem ser excluídos da análise
+    // Define packages that should be excluded from analysis
     pointcut excludedPackages() :
         within(sun..*) ||
         within(java..*) ||
@@ -45,7 +45,7 @@ public aspect Coverage {
         within(*..Log) ||
         within(Coverage+);
 
-    // Define quais execuções devem ser rastreadas
+    // Define which executions should be traced
     pointcut traced() : 
         execution(* *.*(..)) &&
         !excludedPackages();
@@ -109,11 +109,48 @@ public aspect Coverage {
     }
 
     private String getParametersString(MethodSignature methodSig) {
-        String longString = methodSig.toLongString();
+        String longString = methodSig.toLongString();               
+        
         int startIndex = longString.indexOf(SignatureConstants.PARAM_START);
-        return startIndex != -1 ? longString.substring(startIndex) : "()";
+        return startIndex != -1 ? removeSpacesAfterCommas(longString.substring(startIndex)) : "()";        
+        // return startIndex != -1 ? longString.substring(startIndex) + tmp : "()";
     }
 
+    private String removeSpacesAfterCommas(String input) {
+        // Check if the string is empty or null
+        if (input == null || input.isEmpty()) {
+            return input;
+        }
+        
+        // If it's "()" return as is
+        if (input.equals("()")) {
+            return input;
+        }
+        
+        // For case "(OneElement)" no change needed
+        if (!input.contains(",")) {
+            return input;
+        }
+        
+        // Remove spaces after commas
+        StringBuilder result = new StringBuilder();
+        boolean afterComma = false;
+        
+        for (int i = 0; i < input.length(); i++) {
+            char c = input.charAt(i);
+            
+            if (afterComma && c == ' ') {
+                // Skip the space after the comma
+                continue;
+            }
+            
+            result.append(c);
+            afterComma = (c == ',');
+        }
+        
+        return result.toString();
+    }
+    
     private void logMethodSignature(String methodSignature) {
         if (messages.add(methodSignature)) {
             Log.v("RVSEC-COV", methodSignature);

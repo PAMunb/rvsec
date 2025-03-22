@@ -93,7 +93,7 @@ def parse_logcat_file(log_file: str) -> LogcatRepository:
                         continue
                     handled_errors.add(error.unique_msg)
                     # Add to repository instead of a separate list
-                    repository.register_error(error)
+                    repository.register_rv_error(error)
                 case "RVSEC-COV":
                     cov = __cov_method_sig(right_term)
                     # Add to repository instead of a dictionary

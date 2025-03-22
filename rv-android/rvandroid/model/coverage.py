@@ -3,7 +3,7 @@
 Unified model for method coverage tracking and analysis.
 This module provides standardized data structures for tracking method coverage and coverage metrics.
 """
-
+import logging
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Dict, List, Optional, Set, Any
@@ -28,8 +28,9 @@ class MethodCoverageData:
     call_count: int = 0
     first_called_at: Optional[datetime] = None
     last_called_at: Optional[datetime] = None
+    from_static_analysis: bool = False  # New field to track source
 
-    def register_call(self, timestamp: Optional[datetime] = None):
+    def register_call(self, timestamp: Optional[datetime] = None) -> None:
         """
         Register a call to this method.
 
@@ -44,44 +45,6 @@ class MethodCoverageData:
             self.first_called_at = current_time
 
         self.last_called_at = current_time
-
-    def to_dict(self) -> Dict[str, Any]:
-        """Convert to a dictionary representation."""
-        return {
-            "class_name": self.class_name,
-            "method_name": self.method_name,
-            "signature": self.signature,
-            "parameters": self.parameters,
-            "reachable": self.reachable,
-            "reaches_mop": self.reaches_mop,
-            "directly_reaches_mop": self.directly_reaches_mop,
-            "called": self.called,
-            "call_count": self.call_count,
-            "first_called_at": self.first_called_at.isoformat() if self.first_called_at else None,
-            "last_called_at": self.last_called_at.isoformat() if self.last_called_at else None
-        }
-
-    @classmethod
-    def from_coverage_log(cls, coverage_log: RvCoverageLog) -> 'MethodCoverageData':
-        """
-        Create a MethodCoverageData instance from a RvCoverageLog.
-
-        Args:
-            coverage_log: Coverage log entry
-
-        Returns:
-            Method coverage data instance
-        """
-        return cls(
-            class_name=coverage_log.clazz,
-            method_name=coverage_log.method,
-            signature=coverage_log.signature,
-            parameters=coverage_log.params.split(";") if coverage_log.params else [],
-            called=True,
-            call_count=1,
-            first_called_at=coverage_log.time_occurred,
-            last_called_at=coverage_log.time_occurred
-        )
 
 
 @dataclass
@@ -147,7 +110,7 @@ class ClassCoverageData:
 
         Args:
             signature: Method signature
-            timestamp: When the call occurred
+            timestamp: When the call occurred (optional)
 
         Returns:
             True if the method was found and updated, False otherwise
@@ -156,21 +119,6 @@ class ClassCoverageData:
             self.methods[signature].register_call(timestamp)
             return True
         return False
-
-    def to_dict(self) -> Dict[str, Any]:
-        """Convert to a dictionary representation."""
-        return {
-            "name": self.name,
-            "is_activity": self.is_activity,
-            "is_main_activity": self.is_main_activity,
-            "method_count": self.method_count,
-            "called_method_count": self.called_method_count,
-            "reachable_method_count": self.reachable_method_count,
-            "called_reachable_method_count": self.called_reachable_method_count,
-            "mop_reaching_method_count": self.mop_reaching_method_count,
-            "called_mop_reaching_method_count": self.called_mop_reaching_method_count,
-            "methods": {signature: method.to_dict() for signature, method in self.methods.items()}
-        }
 
 
 @dataclass
@@ -240,9 +188,13 @@ class LogcatRepository:
 
     def __init__(self):
         """Initialize the coverage repository."""
+        self.logger = logging.getLogger(__name__)
         self.classes: Dict[str, ClassCoverageData] = {}
         self.errors: List[RvErrorLog] = []
         self.unique_errors: Set[str] = set()
+
+        # Cache for static analysis totals - calculated once
+        self._static_totals: Optional[Dict[str, int]] = None
 
     def add_class(self, class_data: ClassCoverageData) -> None:
         """
@@ -251,7 +203,16 @@ class LogcatRepository:
         Args:
             class_data: Class coverage data
         """
-        self.classes[class_data.name] = class_data
+        # We should only add a class once to maintain static analysis integrity
+        if class_data.name not in self.classes:
+            self.classes[class_data.name] = class_data
+
+            # Mark methods from static analysis
+            for signature, method in class_data.methods.items():
+                method.from_static_analysis = True
+
+            # Reset static totals cache when adding a class
+            self._static_totals = None
 
     def get_class(self, class_name: str) -> Optional[ClassCoverageData]:
         """
@@ -268,6 +229,7 @@ class LogcatRepository:
     def register_method_call(self, coverage_log: RvCoverageLog) -> None:
         """
         Register a method call from a coverage log entry.
+        Only registers calls to methods that exist in static analysis data.
 
         Args:
             coverage_log: Coverage log entry
@@ -275,21 +237,19 @@ class LogcatRepository:
         class_name = coverage_log.clazz
         signature = coverage_log.signature
 
-        # Get or create the class
+        # Get the class if it exists
         class_data = self.get_class(class_name)
         if not class_data:
-            class_data = ClassCoverageData(name=class_name)
-            self.add_class(class_data)
+            self.logger.debug(f"Ignoring method call for unknown class: {class_name}")
+            return
 
-        # Register the method call
+        # Only register calls to methods that exist in static analysis data
         if signature in class_data.methods:
             class_data.register_method_call(signature, coverage_log.time_occurred)
         else:
-            # Create and add the method
-            method_data = MethodCoverageData.from_coverage_log(coverage_log)
-            class_data.add_method(method_data)
+            self.logger.debug(f"Ignoring method call not found in static analysis: {signature}")
 
-    def register_error(self, error_log: RvErrorLog) -> None:
+    def register_rv_error(self, error_log: RvErrorLog) -> None:
         """
         Register a formal property violation detected during runtime verification.
 
@@ -303,119 +263,126 @@ class LogcatRepository:
         self.errors.append(error_log)
         self.unique_errors.add(error_log.unique_msg)
 
-    def calculate_metrics(self) -> CoverageMetrics:
+    def get_static_method_count(self) -> int:
+        """Get the count of methods from static analysis."""
+        if self._static_totals is None:
+            self._calculate_static_totals()
+        return self._static_totals.get("total_methods", 0) if self._static_totals else 0
+
+    def calculate_metrics(self, restrict_to_static: bool = True) -> CoverageMetrics:
         """
         Calculate coverage metrics from the repository data.
+        Returns 0% for all metrics if no static analysis data is available.
+
+        Args:
+            restrict_to_static: If True, only include methods found in static analysis
 
         Returns:
             Coverage metrics
         """
         metrics = CoverageMetrics()
 
-        # Count totals
-        metrics.total_classes = len(self.classes)
+        # Check if static analysis data is available
+        if not self.classes:
+            self.logger.warning("No static analysis data available, returning 0% for all metrics")
+            return metrics
+
+        # Calculate static analysis totals (only once)
+        if self._static_totals is None:
+            self._calculate_static_totals()
+
+        # Use static totals for total counts
+        if self._static_totals:
+            metrics.total_classes = self._static_totals.get("total_classes", 0)
+            metrics.total_activities = self._static_totals.get("total_activities", 0)
+            metrics.total_methods = self._static_totals.get("total_methods", 0)
+            metrics.total_reachable_methods = self._static_totals.get("total_reachable_methods", 0)
+            metrics.total_mop_methods = self._static_totals.get("total_mop_methods", 0)
+        else:
+            self.logger.warning("Static totals not available, metrics may be inaccurate")
+
+        # Count errors
         metrics.total_errors = len(self.errors)
         metrics.unique_errors = len(self.unique_errors)
 
-        # Calculate class and method counts
+        # Calculate called metrics
         for class_data in self.classes.values():
-            if class_data.is_activity:
-                metrics.total_activities += 1
-                if class_data.called:
-                    metrics.called_activities += 1
-
             if class_data.called:
                 metrics.called_classes += 1
+                if class_data.is_activity:
+                    metrics.called_activities += 1
 
-            # Add method counts
-            metrics.total_methods += class_data.method_count
-            metrics.called_methods += class_data.called_method_count
-            metrics.total_reachable_methods += class_data.reachable_method_count
-            metrics.called_reachable_methods += class_data.called_reachable_method_count
-            metrics.total_mop_methods += class_data.mop_reaching_method_count
-            metrics.called_mop_methods += class_data.called_mop_reaching_method_count
+            # Count called methods
+            for method in class_data.methods.values():
+                # Only count methods from static analysis, which is now enforced
+                if method.called:
+                    metrics.called_methods += 1
+                    if method.reachable:
+                        metrics.called_reachable_methods += 1
+                    if method.reaches_mop:
+                        metrics.called_mop_methods += 1
 
         return metrics
 
-    def to_dict(self) -> Dict[str, Any]:
-        """Convert to a dictionary representation."""
-        return {
-            "metrics": self.calculate_metrics().to_dict(),
-            "classes": {name: cls.to_dict() for name, cls in self.classes.items()},
-            "errors": {
-                "count": len(self.errors),
-                "unique_count": len(self.unique_errors)
-            }
+    def _calculate_static_totals(self) -> None:
+        """Calculate and cache totals from static analysis data."""
+        totals = {
+            "total_classes": 0,
+            "total_activities": 0,
+            "total_methods": 0,
+            "total_reachable_methods": 0,
+            "total_mop_methods": 0
         }
 
+        # Count all classes and methods from static analysis
+        for class_name, class_data in self.classes.items():
+            totals["total_classes"] += 1
 
-# def process_coverage_data(
-#         called_methods: Dict[str, Dict[str, Dict[str, RvCoverageLog]]],
-#         all_methods: Dict[str, Dict[str, Any]]
-# ) -> Dict[str, Any]:
-#     """
-#     Process coverage data using the new unified model.
-#     This is a compatibility function to ease transition to the new model.
-#
-#     Args:
-#         called_methods: Old format dictionary of called methods
-#         all_methods: Old format dictionary of all methods
-#
-#     Returns:
-#         Dictionary with coverage results in the old format for compatibility
-#     """
-#     # Create a repository
-#     repository = LogcatRepository()
-#
-#     # First add all methods from static analysis
-#     for class_name, class_info in all_methods.items():
-#         class_data = ClassCoverageData(
-#             name=class_name,
-#             is_activity=class_info.get("is_activity", False)
-#         )
-#
-#         for signature, method_info in class_info.get("methods", {}).items():
-#             method_data = MethodCoverageData(
-#                 class_name=class_name,
-#                 method_name=signature.split("(")[0] if "(" in signature else signature,
-#                 signature=signature,
-#                 parameters=[],  # We don't have this info in the old format
-#                 reachable=method_info.get("reachable", False),
-#                 reaches_mop=method_info.get("reaches_mop", False),
-#                 directly_reaches_mop=method_info.get("directly_reaches_mop", False),
-#                 called=method_info.get("called", False)
-#             )
-#             class_data.add_method(method_data)
-#
-#         repository.add_class(class_data)
-#
-#     # Now add called methods
-#     for class_name, class_info in called_methods.items():
-#         class_data = repository.get_class(class_name)
-#         if not class_data:
-#             class_data = ClassCoverageData(name=class_name)
-#             repository.add_class(class_data)
-#
-#         for signature, method_log in class_info.get("methods", {}).items():
-#             if isinstance(method_log, RvCoverageLog):
-#                 if signature in class_data.methods:
-#                     class_data.register_method_call(signature, method_log.time_occurred)
-#                 else:
-#                     method_data = MethodCoverageData.from_coverage_log(method_log)
-#                     class_data.add_method(method_data)
-#
-#     # Calculate metrics
-#     metrics = repository.calculate_metrics()
-#
-#     # Convert to old format for compatibility
-#     result = all_methods.copy()
-#     result["SUMMARY"] = metrics.to_dict()
-#
-#     # Mark called methods
-#     for class_name, class_info in called_methods.items():
-#         if class_name in result:
-#             for signature in class_info.get("methods", {}):
-#                 if signature in result[class_name]["methods"]:
-#                     result[class_name]["methods"][signature]["called"] = True
-#
-#     return result
+            if class_data.is_activity:
+                totals["total_activities"] += 1
+
+            # Count methods
+            for signature, method in class_data.methods.items():
+                totals["total_methods"] += 1
+
+                if method.reachable:
+                    totals["total_reachable_methods"] += 1
+
+                if method.reaches_mop:
+                    totals["total_mop_methods"] += 1
+
+        # Cache the results
+        self._static_totals = totals
+        self.logger.debug(f"Calculated static analysis totals: {totals}")
+
+    def diagnose(self) -> Dict[str, Any]:
+        """
+        Generate a diagnostic report about the current state of the repository.
+
+        Returns:
+            Dictionary with diagnostic information
+        """
+        # Collect diagnostic information
+        diagnostics = {
+            "class_count": len(self.classes),
+            "activity_count": sum(1 for c in self.classes.values() if c.is_activity),
+            "method_count": sum(len(c.methods) for c in self.classes.values()),
+            "called_method_count": sum(sum(1 for m in c.methods.values() if m.called) for c in self.classes.values()),
+            "error_count": len(self.errors),
+            "unique_error_count": len(self.unique_errors),
+            "static_totals": self._static_totals
+        }
+
+        # Check for common issues
+        issues = []
+
+        if diagnostics["method_count"] == 0:
+            issues.append("No methods found in repository")
+
+        if self._static_totals is None:
+            issues.append("Static totals not calculated")
+        elif self._static_totals.get("total_methods", 0) == 0:
+            issues.append("Static totals shows zero methods")
+
+        diagnostics["issues"] = issues
+        return diagnostics

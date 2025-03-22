@@ -34,6 +34,7 @@ class EventType(Enum):
     COVERAGE_TRACKING_STOPPED = auto()
     ERROR_DETECTED = auto()
     STATIC_ANALYSIS_COMPLETED = auto()
+    NEW_METHOD_DISCOVERED = auto()
 
     # Environment lifecycle events
     EMULATOR_STARTED = auto()
@@ -377,6 +378,188 @@ class EventBus:
         else:
             event = Event(type=event_type, source=source)
             return self.publish(event)
+
+    def publish_error_event(self, error: Exception, context: Optional[Dict[str, Any]] = None) -> int:
+        """
+        Publish an error event with details about the exception.
+
+        Args:
+            error: The exception that occurred
+            context: Optional context information
+
+        Returns:
+            Number of handlers that processed the event
+        """
+        # Extract task ID from context if available
+        task_id = None
+        if context and "task_id" in context:
+            task_id = context["task_id"]
+
+        # Create error data
+        error_data = {
+            "error_type": type(error).__name__,
+            "error_message": str(error),
+            "timestamp": datetime.now().isoformat(),
+            "context": context or {}
+        }
+
+        # If it's a known RVAndroid error, include more details
+        from rvandroid.util.exceptions import RVAndroidError
+        if isinstance(error, RVAndroidError):
+            error_data["message"] = error.message
+            if error.cause:
+                error_data["cause"] = {
+                    "type": type(error.cause).__name__,
+                    "message": str(error.cause)
+                }
+
+        # Publish as analysis event
+        return self.publish_analysis_event(
+            event_type=EventType.ERROR_DETECTED,
+            data=error_data,
+            related_task_id=task_id,
+            source="ErrorHandler"
+        )
+
+    def get_task_events(self, task_id: int, event_types: Optional[List[EventType]] = None,
+                        since: Optional[datetime] = None, limit: int = 100) -> List[TaskEvent]:
+        """
+        Get all events related to a specific task.
+
+        Args:
+            task_id: Task ID to filter by
+            event_types: Optional list of event types to filter
+            since: Optional time filter
+            limit: Maximum number of events to return
+
+        Returns:
+            List of task events matching criteria
+        """
+        with self._lock:
+            events = [e for e in self.history
+                      if isinstance(e, TaskEvent) and e.task_id == task_id]
+
+        # Apply additional filters
+        if event_types:
+            events = [e for e in events if e.type in event_types]
+
+        if since:
+            events = [e for e in events if e.timestamp >= since]
+
+        # Sort by timestamp (newest first) and apply limit
+        events.sort(key=lambda e: e.timestamp, reverse=True)
+        return events[:limit]
+
+    def get_experiment_events(self, experiment_id: str, event_types: Optional[List[EventType]] = None,
+                              since: Optional[datetime] = None, limit: int = 100) -> List[ExperimentEvent]:
+        """
+        Get all events related to a specific experiment.
+
+        Args:
+            experiment_id: Experiment ID to filter by
+            event_types: Optional list of event types to filter
+            since: Optional time filter
+            limit: Maximum number of events to return
+
+        Returns:
+            List of experiment events matching criteria
+        """
+        with self._lock:
+            events = [e for e in self.history
+                      if isinstance(e, ExperimentEvent) and e.experiment_id == experiment_id]
+
+        # Apply additional filters
+        if event_types:
+            events = [e for e in events if e.type in event_types]
+
+        if since:
+            events = [e for e in events if e.timestamp >= since]
+
+        # Sort by timestamp (newest first) and apply limit
+        events.sort(key=lambda e: e.timestamp, reverse=True)
+        return events[:limit]
+
+    def get_event_counts(self, since: Optional[datetime] = None) -> Dict[EventType, int]:
+        """
+        Get counts of events by type.
+
+        Args:
+            since: Optional time filter
+
+        Returns:
+            Dictionary mapping event types to counts
+        """
+        with self._lock:
+            events = self.history.copy()
+
+        # Apply time filter
+        if since:
+            events = [e for e in events if e.timestamp >= since]
+
+        # Count by type
+        counts = {}
+        for event_type in EventType:
+            counts[event_type] = len([e for e in events if e.type == event_type])
+
+        return counts
+
+    def get_recent_activity(self, limit: int = 20) -> List[Dict[str, Any]]:
+        """
+        Get a summary of recent event activity across the system.
+
+        Args:
+            limit: Maximum number of events to include
+
+        Returns:
+            List of event summaries
+        """
+        with self._lock:
+            events = sorted(self.history, key=lambda e: e.timestamp, reverse=True)[:limit]
+
+        # Create summaries
+        summaries = []
+        for event in events:
+            summary = {
+                "type": event.type.name,
+                "timestamp": event.timestamp.isoformat(),
+                "source": event.source
+            }
+
+            # Add event-specific details
+            if isinstance(event, TaskEvent):
+                summary["task_id"] = event.task_id
+                summary["details"] = event.details
+            elif isinstance(event, ExperimentEvent):
+                summary["experiment_id"] = event.experiment_id
+                summary["message"] = event.message
+            elif isinstance(event, AnalysisEvent):
+                summary["related_task_id"] = event.related_task_id
+                summary["data_keys"] = list(event.data.keys()) if event.data else []
+
+            summaries.append(summary)
+
+        return summaries
+
+    def get_error_events(self, since: Optional[datetime] = None, task_id: Optional[int] = None) -> List[AnalysisEvent]:
+        """
+        Get all error events matching the given criteria.
+
+        Args:
+            since: Get events after this time
+            task_id: Filter by task ID
+
+        Returns:
+            List of error events
+        """
+        # Filter history for error events
+        error_events = self.get_history(
+            event_type=EventType.ERROR_DETECTED,
+            since=since,
+            task_id=task_id
+        )
+
+        # Cast to AnalysisEvent
+        return [event for event in error_events if isinstance(event, AnalysisEvent)]
 
     def get_history(self,
                     event_type: Optional[EventType] = None,
