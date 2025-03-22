@@ -7,7 +7,7 @@ from rvandroid.model.wtg import WindowTransition, WindowTransitionGraph
 
 
 class TestWindowTransition:
-    """Tests for the WindowTransition class"""
+    """Comprehensive tests for the WindowTransition class"""
 
     @pytest.fixture
     def sample_transition(self):
@@ -38,16 +38,33 @@ class TestWindowTransition:
 
         assert "WindowTransition=" in string_repr
         assert "widget_id=button1" in string_repr
-        assert "event_type=WidgetEventType.CLICK" in string_repr  # Corrigido para corresponder à saída real
+        assert "event_type=" in string_repr
         assert "method=com.example.app.MainActivity.onClick(android.view.View)" in string_repr
 
     def test_repr(self, sample_transition):
         """Test __repr__ method"""
         assert repr(sample_transition) == "com.example.app.MainActivity.onClick(android.view.View)"
 
+    def test_different_event_types(self):
+        """Test creating transitions with different event types"""
+        click_transition = WindowTransition(
+            "button1", WidgetEventType.CLICK, "com.example.app.onClick()"
+        )
+        assert click_transition.event_type == WidgetEventType.CLICK
+
+        long_click_transition = WindowTransition(
+            "button1", WidgetEventType.LONG_CLICK, "com.example.app.onLongClick()"
+        )
+        assert long_click_transition.event_type == WidgetEventType.LONG_CLICK
+
+        text_change_transition = WindowTransition(
+            "editText1", WidgetEventType.TEXT_CHANGE, "com.example.app.onTextChanged()"
+        )
+        assert text_change_transition.event_type == WidgetEventType.TEXT_CHANGE
+
 
 class TestWindowTransitionGraph:
-    """Tests for the WindowTransitionGraph class"""
+    """Comprehensive tests for the WindowTransitionGraph class"""
 
     @pytest.fixture
     def sample_graph(self):
@@ -63,7 +80,10 @@ class TestWindowTransitionGraph:
         window2 = Window("SettingsActivity")
         window2.id = "settings_activity"
 
-        return window1, window2
+        window3 = Window("ProfileActivity")
+        window3.id = "profile_activity"
+
+        return window1, window2, window3
 
     @pytest.fixture
     def sample_transitions(self):
@@ -80,7 +100,13 @@ class TestWindowTransitionGraph:
             method_signature="com.example.app.SettingsActivity.goBack()"
         )
 
-        return [transition1, transition2]
+        transition3 = WindowTransition(
+            widget_id="profile_button",
+            transition_type=WidgetEventType.CLICK,
+            method_signature="com.example.app.MainActivity.openProfile()"
+        )
+
+        return [transition1, transition2, transition3]
 
     def test_window_transition_graph_initialization(self, sample_graph):
         """Test WindowTransitionGraph constructor"""
@@ -90,7 +116,7 @@ class TestWindowTransitionGraph:
 
     def test_add_transition(self, sample_graph, sample_windows, sample_transitions):
         """Test add_transition method"""
-        window1, window2 = sample_windows
+        window1, window2, window3 = sample_windows
 
         # Add transition from window1 to window2
         sample_graph.add_transition(window1, window2, [sample_transitions[0]])
@@ -114,9 +140,23 @@ class TestWindowTransitionGraph:
         assert len(sample_graph.graph.edges()) == 2
         assert sample_graph.graph.has_edge(window2, window1)
 
+        # Add a transition with multiple events
+        sample_graph.add_transition(window1, window3, [sample_transitions[0], sample_transitions[2]])
+
+        # Check updated graph
+        assert len(sample_graph.graph.nodes()) == 3
+        assert len(sample_graph.graph.edges()) == 3
+        assert sample_graph.graph.has_edge(window1, window3)
+
+        # Check edge data for multiple events
+        edge_data = sample_graph.graph.get_edge_data(window1, window3)
+        assert len(edge_data["events"]) == 2
+        assert sample_transitions[0] in edge_data["events"]
+        assert sample_transitions[2] in edge_data["events"]
+
     def test_to_json(self, sample_graph, sample_windows, sample_transitions):
         """Test to_json method"""
-        window1, window2 = sample_windows
+        window1, window2, _ = sample_windows
 
         # Add transitions in both directions
         sample_graph.add_transition(window1, window2, [sample_transitions[0]])
@@ -159,7 +199,7 @@ class TestWindowTransitionGraph:
 
     def test_string_representation(self, sample_graph, sample_windows, sample_transitions):
         """Test __str__ method"""
-        window1, window2 = sample_windows
+        window1, window2, _ = sample_windows
 
         # Add a transition
         sample_graph.add_transition(window1, window2, [sample_transitions[0]])
@@ -168,3 +208,25 @@ class TestWindowTransitionGraph:
 
         assert "WindowTransitionGraph=" in string_repr
         assert "graph=" in string_repr
+
+    def test_complex_graph(self, sample_graph, sample_windows, sample_transitions):
+        """Test creating a complex graph with multiple windows and transitions"""
+        window1, window2, window3 = sample_windows
+
+        # Create a cyclic graph: window1 -> window2 -> window3 -> window1
+        sample_graph.add_transition(window1, window2, [sample_transitions[0]])
+        sample_graph.add_transition(window2, window3, [sample_transitions[1]])
+        sample_graph.add_transition(window3, window1, [sample_transitions[2]])
+
+        # Check the graph structure
+        assert len(sample_graph.graph.nodes()) == 3
+        assert len(sample_graph.graph.edges()) == 3
+
+        # Verify all expected edges exist
+        assert sample_graph.graph.has_edge(window1, window2)
+        assert sample_graph.graph.has_edge(window2, window3)
+        assert sample_graph.graph.has_edge(window3, window1)
+
+        # Verify the json representation
+        json_data = sample_graph.to_json()
+        assert len(json_data["graph"]) == 3

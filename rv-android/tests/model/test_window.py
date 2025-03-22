@@ -1,14 +1,20 @@
+# tests/model/test_window.py
 import pytest
 
 from rvandroid.model.widget import Widget, WidgetType
 from rvandroid.model.window import Window, Windows, WindowType
+from .test_framework import ModelTestBase
 
 
-class TestWindowType:
-    """Tests for the WindowType enum"""
+class TestWindowType(ModelTestBase):
+    """
+    Unit tests for the WindowType enum.
 
-    def test_window_type_values(self):
-        """Test WindowType enum values"""
+    Tests cover enum values and string conversion functionality.
+    """
+
+    def test_enum_values(self):
+        """Test that WindowType enum has the expected values."""
         assert WindowType.ACTIVITY.value == 1
         assert WindowType.OPTIONSMENU.value == 2
         assert WindowType.CONTEXTMENU.value == 3
@@ -16,200 +22,298 @@ class TestWindowType:
         assert WindowType.FRAGMENT.value == 5
 
     def test_from_string(self):
-        """Test from_string method"""
+        """Test conversion from string to WindowType."""
         assert WindowType.from_string("ACT") == WindowType.ACTIVITY
         assert WindowType.from_string("OPTIONS_MENU") == WindowType.OPTIONSMENU
         assert WindowType.from_string("CONTEXT_MENU") == WindowType.CONTEXTMENU
         assert WindowType.from_string("DIALOG") == WindowType.DIALOG
         assert WindowType.from_string("FRAGMENT") == WindowType.FRAGMENT
-        assert WindowType.from_string("UNKNOWN") is None
+
+        # Test invalid inputs
+        assert WindowType.from_string("NONEXISTENT") is None
+        assert WindowType.from_string("") is None
+        assert WindowType.from_string(None) is None
 
 
-class TestWindow:
-    """Tests for the Window class"""
+class TestWindow(ModelTestBase):
+    """
+    Unit tests for the Window class.
+
+    Tests cover initialization, widget management, and JSON conversion.
+    """
 
     @pytest.fixture
-    def sample_window(self):
-        """Create a sample window for testing"""
-        return Window("MainActivity")
+    def window(self):
+        """Create a standard window for testing."""
+        return Window("com.example.TestActivity")
 
     @pytest.fixture
-    def sample_widget(self):
-        """Create a sample widget for testing"""
-        return Widget("button1", "login_button", WidgetType.BUTTON)
+    def widget(self):
+        """Create a standard widget for testing."""
+        return Widget("widget1", "Button1", WidgetType.BUTTON)
 
-    def test_window_initialization(self, sample_window):
-        """Test Window constructor"""
-        assert sample_window.id == ""
-        assert sample_window.name == "MainActivity"
-        assert sample_window.type == WindowType.ACTIVITY
-        assert sample_window.layout_file == ""
-        assert sample_window.widgets == {}
-        assert sample_window.fields == set()
+    def test_initialization(self, window):
+        """Test that Window initializes with correct attributes."""
+        assert window.id == ""
+        assert window.name == "com.example.TestActivity"
+        assert window.type == WindowType.ACTIVITY
+        assert window.layout_file == ""
+        assert len(window.widgets) == 0
+        assert len(window.fields) == 0
 
-    def test_add_widget(self, sample_window, sample_widget):
-        """Test adding a widget to a window"""
-        # First add should succeed
-        result = sample_window.add_widget(sample_widget)
+    def test_add_widget(self, window, widget):
+        """Test adding widgets to a window."""
+        # Add widget successfully
+        result = window.add_widget(widget)
         assert result is True
-        assert "button1" in sample_window.widgets
-        assert sample_window.widgets["button1"] == sample_widget
+        assert str(widget.id) in window.widgets
+        assert window.widgets[str(widget.id)] == widget
 
-        # Second add should fail (duplicate)
-        result = sample_window.add_widget(sample_widget)
+        # Try to add the same widget again
+        result = window.add_widget(widget)
+        assert result is False  # Already exists
+        assert len(window.widgets) == 1
+
+        # Test adding a widget with the same ID but different object
+        different_widget = Widget("widget1", "Different Button", WidgetType.BUTTON)
+        result = window.add_widget(different_widget)
         assert result is False
+        # The original widget should still be in the dictionary
+        assert window.widgets[str(widget.id)] == widget
 
-    def test_get_widget(self, sample_window, sample_widget):
-        """Test getting a widget by ID"""
-        sample_window.add_widget(sample_widget)
+    def test_get_widget(self, window, widget):
+        """Test retrieving widgets by ID."""
+        # Add widget first
+        window.add_widget(widget)
 
-        # Get existing widget
-        widget = sample_window.get_widget("button1")
-        assert widget == sample_widget
+        # Get by ID
+        retrieved = window.get_widget(str(widget.id))
+        assert retrieved is not None
+        assert retrieved == widget
 
-        # Get non-existent widget
-        widget = sample_window.get_widget("nonexistent")
-        assert widget is None
+        # Try to get non-existent widget
+        assert window.get_widget("non-existent-id") is None
 
-    def test_get_widget_by_name(self, sample_window, sample_widget):
-        """Test getting a widget by name"""
-        sample_window.add_widget(sample_widget)
+    def test_get_widget_by_name(self, window, widget):
+        """Test retrieving widgets by name."""
+        # Add widget first
+        window.add_widget(widget)
 
-        # Get existing widget
-        widget = sample_window.get_widget_by_name("login_button")
-        assert widget == sample_widget
+        # Get by name
+        retrieved = window.get_widget_by_name(widget.name)
+        assert retrieved is not None
+        assert retrieved == widget
 
-        # Get non-existent widget
-        widget = sample_window.get_widget_by_name("nonexistent")
-        assert widget is None
+        # Try to get non-existent widget
+        assert window.get_widget_by_name("Non-existent Widget") is None
 
-    def test_to_json(self, sample_window, sample_widget):
-        """Test to_json method"""
-        sample_window.id = "main_activity"
-        sample_window.add_widget(sample_widget)
-        sample_window.fields.add("user_data")
+        # Add a second widget with a different name
+        widget2 = Widget("widget2", "Button2", WidgetType.BUTTON)
+        window.add_widget(widget2)
 
-        json_data = sample_window.to_json()
-        assert json_data["id"] == "main_activity"
-        assert json_data["name"] == "MainActivity"
+        # Both widgets should be retrievable by name
+        assert window.get_widget_by_name("Button1") == widget
+        assert window.get_widget_by_name("Button2") == widget2
+
+    def test_to_json(self, window, widget):
+        """Test conversion to JSON format."""
+        # Add widget and field
+        window.add_widget(widget)
+        window.fields.add("test_field")
+
+        # Set additional properties
+        window.id = "test_window_id"
+        window.layout_file = "test_layout.xml"
+
+        # Convert to JSON
+        json_data = window.to_json()
+
+        # Verify JSON structure
+        assert json_data["id"] == "test_window_id"
+        assert json_data["name"] == "com.example.TestActivity"
         assert json_data["type"] == "ACTIVITY"
+        assert json_data["layout_file"] == "test_layout.xml"
         assert len(json_data["widgets"]) == 1
-        assert "user_data" in json_data["fields"]
+        assert json_data["widgets"][0] == widget.to_json()
+        assert json_data["fields"] == ["test_field"]
 
-    def test_string_representation(self, sample_window):
-        """Test __str__ method"""
-        sample_window.id = "main_activity"
-        string_repr = str(sample_window)
+    def test_str_representation(self, window):
+        """Test string representation."""
+        # Set properties
+        window.id = "test_id"
+        window.type = WindowType.DIALOG
+        window.layout_file = "dialog_layout.xml"
 
-        assert "Window=" in string_repr
-        assert "id=main_activity" in string_repr
-        assert "name=MainActivity" in string_repr
+        # Get string representation
+        str_rep = str(window)
 
-    def test_repr(self, sample_window):
-        """Test __repr__ method"""
-        assert repr(sample_window) == "MainActivity"
+        # Verify string contains important information
+        assert "Window=" in str_rep
+        assert "id=test_id" in str_rep
+        assert "name=com.example.TestActivity" in str_rep
+        assert "type=WindowType.DIALOG" in str_rep
+        assert "layout_file=dialog_layout.xml" in str_rep
+
+    def test_repr_representation(self, window):
+        """Test repr representation."""
+        repr_value = repr(window)
+        assert repr_value == "com.example.TestActivity"
 
 
-class TestWindows:
-    """Tests for the Windows class"""
+class TestWindows(ModelTestBase):
+    """
+    Unit tests for the Windows class.
+
+    Tests cover window and widget management across multiple windows.
+    """
 
     @pytest.fixture
-    def windows_manager(self):
-        """Create a Windows manager for testing"""
+    def windows(self):
+        """Create a Windows container for testing."""
         return Windows()
 
     @pytest.fixture
-    def sample_window(self):
-        """Create a sample window for testing"""
-        window = Window("MainActivity")
-        window.id = "main_activity"
-        return window
+    def window(self):
+        """Create a standard window for testing."""
+        return Window("com.example.TestActivity")
 
     @pytest.fixture
-    def sample_widget(self):
-        """Create a sample widget for testing"""
-        return Widget("button1", "login_button", WidgetType.BUTTON)
+    def window2(self):
+        """Create a second window for testing."""
+        return Window("com.example.SecondActivity")
 
-    def test_add_window(self, windows_manager, sample_window):
-        """Test adding a window"""
-        # First add should succeed
-        result = windows_manager.add_window(sample_window)
+    @pytest.fixture
+    def widget(self):
+        """Create a standard widget for testing."""
+        return Widget("widget1", "Button1", WidgetType.BUTTON)
+
+    def test_initialization(self, windows):
+        """Test that Windows initializes with empty collections."""
+        assert len(windows.windows) == 0
+        assert len(windows.widgets) == 0
+
+    def test_add_window(self, windows, window):
+        """Test adding a window."""
+        # Add window successfully
+        result = windows.add_window(window)
         assert result is True
-        assert sample_window in windows_manager.windows
+        assert window in windows.windows
+        assert len(windows.windows) == 1
 
-        # Second add should fail (duplicate)
-        result = windows_manager.add_window(sample_window)
-        assert result is False
+        # Try to add the same window again
+        result = windows.add_window(window)
+        assert result is False  # Already exists
+        assert len(windows.windows) == 1
 
-    def test_create_new_window(self, windows_manager):
-        """Test creating a new window"""
-        # Create regular window
-        window = windows_manager.create_new_window("SettingsActivity", "settings")
-        assert window.name == "SettingsActivity"
-        assert window.id == "settings"
+    def test_create_new_window(self, windows):
+        """Test creating and adding a new window."""
+        # Create window with just the name
+        window = windows.create_new_window("com.example.NewActivity")
+        assert window.name == "com.example.NewActivity"
+        assert window.id == ""
         assert window.type == WindowType.ACTIVITY
-        assert window in windows_manager.windows
+        assert window in windows.windows
 
-        # Create menu window
-        menu_window = windows_manager.create_new_window("android.view.Menu")
+        # Create window with name and ID
+        window_with_id = windows.create_new_window("com.example.AnotherActivity", "activity_id")
+        assert window_with_id.name == "com.example.AnotherActivity"
+        assert window_with_id.id == "activity_id"
+        assert window_with_id in windows.windows
+
+        # Test special case for Menu
+        menu_window = windows.create_new_window("android.view.Menu")
         assert menu_window.type == WindowType.OPTIONSMENU
 
-    def test_get_window_by_id(self, windows_manager, sample_window):
-        """Test getting a window by ID"""
-        windows_manager.add_window(sample_window)
+    def test_update_widgets_of_window(self, windows, window, widget):
+        """Test updating global widgets when adding windows with widgets."""
+        # Add widget to window
+        window.add_widget(widget)
 
-        # Get existing window
-        window = windows_manager.get_window_by_id("main_activity")
-        assert window == sample_window
+        # Add window to windows container
+        windows.add_window(window)
 
-        # Get non-existent window
-        window = windows_manager.get_window_by_id("nonexistent")
-        assert window is None
+        # Widget should be in global widgets dictionary
+        assert widget.id in windows.widgets
+        assert windows.widgets[widget.id] == widget
 
-    def test_get_window(self, windows_manager, sample_window):
-        """Test getting a window by name"""
-        windows_manager.add_window(sample_window)
+    def test_get_window_by_id(self, windows, window):
+        """Test retrieving windows by ID."""
+        # Set window ID and add to windows
+        window.id = "test_id"
+        windows.add_window(window)
 
-        # Get existing window
-        window = windows_manager.get_window("MainActivity")
-        assert window == sample_window
+        # Get by ID
+        retrieved = windows.get_window_by_id("test_id")
+        assert retrieved is not None
+        assert retrieved == window
 
-        # Get non-existent window
-        window = windows_manager.get_window("NonExistentActivity")
-        assert window is None
+        # Try to get non-existent window
+        assert windows.get_window_by_id("non-existent-id") is None
 
-    def test_add_widget(self, windows_manager, sample_window, sample_widget):
-        """Test adding a widget to a window"""
-        windows_manager.add_window(sample_window)
+    def test_get_window(self, windows, window):
+        """Test retrieving windows by name."""
+        # Add window
+        windows.add_window(window)
 
-        # Add widget
-        result = windows_manager.add_widget(sample_window, sample_widget)
+        # Get by name
+        retrieved = windows.get_window("com.example.TestActivity")
+        assert retrieved is not None
+        assert retrieved == window
+
+        # Try to get non-existent window
+        assert windows.get_window("com.example.NonExistentActivity") is None
+
+    def test_add_widget(self, windows, window, widget):
+        """Test adding a widget to a window through Windows class."""
+        # Add window first
+        windows.add_window(window)
+
+        # Add widget to window
+        result = windows.add_widget(window, widget)
         assert result is True
-        assert sample_widget.id in windows_manager.widgets
-        assert windows_manager.widgets[sample_widget.id] == sample_widget
 
-        # Adding the same widget should fail
-        result = windows_manager.add_widget(sample_window, sample_widget)
-        assert result is False
+        # Widget should be in both window and global widgets
+        assert str(widget.id) in window.widgets
+        assert widget.id in windows.widgets
 
-    def test_get_widget(self, windows_manager, sample_window, sample_widget):
-        """Test getting a widget"""
-        windows_manager.add_window(sample_window)
-        windows_manager.add_widget(sample_window, sample_widget)
+        # Try to add the same widget again
+        result = windows.add_widget(window, widget)
+        assert result is False  # Already exists
 
-        # Get existing widget
-        widget = windows_manager.get_widget("button1")
-        assert widget == sample_widget
+    def test_get_widget(self, windows, window, widget):
+        """Test retrieving widgets from global widget dictionary."""
+        # Add window with widget
+        window.add_widget(widget)
+        windows.add_window(window)
 
-        # Get non-existent widget
-        widget = windows_manager.get_widget("nonexistent")
-        assert widget is None
+        # Get widget
+        retrieved = windows.get_widget(widget.id)
+        assert retrieved is not None
+        assert retrieved == widget
 
-    def test_to_json(self, windows_manager, sample_window):
-        """Test to_json method"""
-        windows_manager.add_window(sample_window)
+        # Try to get non-existent widget
+        assert windows.get_widget("non-existent-id") is None
 
-        json_data = windows_manager.to_json()
+    def test_to_json(self, windows, window, window2, widget):
+        """Test conversion to JSON format."""
+        # Add widgets and windows
+        window.add_widget(widget)
+        windows.add_window(window)
+        windows.add_window(window2)
+
+        # Convert to JSON
+        json_data = windows.to_json()
+
+        # Verify JSON structure
         assert "windows" in json_data
-        assert len(json_data["windows"]) == 1
-       
+        assert len(json_data["windows"]) == 2
+
+        # Verify windows are included
+        window_names = [w["name"] for w in json_data["windows"]]
+        assert "com.example.TestActivity" in window_names
+        assert "com.example.SecondActivity" in window_names
+
+        # Find the first window and verify its widgets
+        first_window = next(w for w in json_data["windows"] if w["name"] == "com.example.TestActivity")
+        assert len(first_window["widgets"]) == 1
+        assert first_window["widgets"][0] == widget.to_json()

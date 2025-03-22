@@ -1,11 +1,11 @@
 # rvandroid/util/emulator_manager.py
-import logging
 from contextlib import contextmanager
 from typing import Optional
 
 from rvandroid.android import Android
 from rvandroid.commands.command import Command
 from rvandroid.util.exceptions import EmulatorError
+from rvandroid.util.logging_manager import LoggingManager
 
 
 class EmulatorManager:
@@ -24,7 +24,14 @@ class EmulatorManager:
     """
 
     def __init__(self):
-        self.logger = logging.getLogger(__name__)
+        """Initialize the emulator manager with standard logging."""
+        # Set up logging using LoggingManager
+        logging_manager = LoggingManager.get_instance()
+        self.logger = logging_manager.get_logger(
+            "util.emulator_manager",
+            {LoggingManager.CONTEXT_COMPONENT: "EmulatorManager"}
+        )
+
         self.android: Optional[Android] = None
         self._active_emulators = set()
 
@@ -43,41 +50,55 @@ class EmulatorManager:
         Raises:
             EmulatorError: If emulator fails to start
         """
-        self.logger.info(f"Starting emulator: {avd_name}")
-        self.android = Android()
+        with self.logger.with_context(avd_name=avd_name, no_window=no_window, phase="startup"):
+            self.logger.info(LoggingManager.LOG_START.format(operation=f"emulator: {avd_name}"))
+            self.android = Android()
 
-        try:
-            # Start the emulator
-            self.android.start_emulator(avd_name, no_window)
-            self._active_emulators.add(avd_name)
-            self.logger.info(f"Emulator {avd_name} started successfully")
-
-            yield self.android
-
-        except Exception as e:
-            self.logger.error(f"Error starting emulator {avd_name}: {e}")
-            raise EmulatorError(f"Failed to start emulator {avd_name}", cause=e)
-
-        finally:
-            # Always try to clean up
             try:
-                if avd_name in self._active_emulators:
-                    self.logger.info(f"Shutting down emulator {avd_name}")
-                    self.android.kill_emulator(avd_name)
-                    self._active_emulators.remove(avd_name)
+                # Start the emulator
+                self.android.start_emulator(avd_name, no_window)
+                self._active_emulators.add(avd_name)
+                self.logger.info(LoggingManager.LOG_COMPLETE.format(
+                    operation=f"emulator {avd_name} startup"
+                ))
+
+                yield self.android
+
             except Exception as e:
-                self.logger.warning(f"Error shutting down emulator {avd_name}: {e}")
+                self.logger.error(LoggingManager.LOG_ERROR.format(
+                    operation=f"starting emulator {avd_name}",
+                    error=str(e)
+                ))
+                raise EmulatorError(f"Failed to start emulator {avd_name}", cause=e)
+
+            finally:
+                # Always try to clean up
+                with self.logger.with_context(phase="shutdown"):
+                    try:
+                        if avd_name in self._active_emulators:
+                            self.logger.info(f"Shutting down emulator {avd_name}")
+                            self.android.kill_emulator(avd_name)
+                            self._active_emulators.remove(avd_name)
+                    except Exception as e:
+                        self.logger.warning(LoggingManager.LOG_ERROR.format(
+                            operation=f"shutting down emulator {avd_name}",
+                            error=str(e)
+                        ))
 
     def clear_logcat(self):
         """Clear logcat buffer."""
-        try:
-            clear_cmd = Command("adb", ["logcat", "-c"])
-            clear_cmd.invoke()
-            self.logger.debug("Cleared logcat buffer")
-            return True
-        except Exception as e:
-            self.logger.warning(f"Failed to clear logcat: {e}")
-            return False
+        with self.logger.with_context(phase="clear_logcat"):
+            try:
+                clear_cmd = Command("adb", ["logcat", "-c"])
+                clear_cmd.invoke()
+                self.logger.debug("Cleared logcat buffer")
+                return True
+            except Exception as e:
+                self.logger.warning(LoggingManager.LOG_ERROR.format(
+                    operation="clearing logcat",
+                    error=str(e)
+                ))
+                return False
 
     def install_app(self, app, with_permissions: bool = True) -> bool:
         """
@@ -90,17 +111,30 @@ class EmulatorManager:
         Returns:
             True if installation succeeded, False otherwise
         """
-        if not self.android:
-            self.logger.error("No active emulator for app installation")
-            return False
+        with self.logger.with_context(
+                app_name=app.name,
+                package_name=app.package_name,
+                with_permissions=with_permissions,
+                phase="app_installation"
+        ):
+            if not self.android:
+                self.logger.error("No active emulator for app installation")
+                return False
 
-        try:
-            if with_permissions:
-                self.android.install_with_permissions(app)
-            else:
-                self.android.install_apk(app)
-            self.logger.info(f"Installed app: {app.name}")
-            return True
-        except Exception as e:
-            self.logger.error(f"Failed to install app {app.name}: {e}")
-            return False
+            try:
+                if with_permissions:
+                    self.android.install_with_permissions(app)
+                else:
+                    self.android.install_apk(app)
+
+                self.logger.info(LoggingManager.LOG_COMPLETE.format(
+                    operation=f"installation of app: {app.name}"
+                ))
+                return True
+
+            except Exception as e:
+                self.logger.error(LoggingManager.LOG_ERROR.format(
+                    operation=f"installing app {app.name}",
+                    error=str(e)
+                ))
+                return False

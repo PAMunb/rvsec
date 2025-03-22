@@ -1,3 +1,4 @@
+# main.py
 import argparse
 import importlib
 import logging
@@ -13,6 +14,7 @@ from rvandroid.experiment import experiment_03
 from rvandroid.tools.registry import ToolRegistry
 from rvandroid.tools.tool_spec import AbstractTool
 from rvandroid.util import utils
+from rvandroid.util.logging_manager import LoggingManager
 
 available_tools: dict[str, AbstractTool] = {}
 
@@ -23,40 +25,42 @@ Examples:
 $ python main.py --no_window -tools monkey droidbot -r 3 -t 120 300 600 900
 $ python main.py --no_window -c PATH_TO_EXECUTION_FILE
 $ python main.py --list-tools
-
 '''
 
 
 def run_cli():
+    """
+    Run the command-line interface version of the RV-Android system.
+
+    Parses command-line arguments, configures logging, sets up the environment,
+    and executes the experiment based on provided configuration.
+    """
     parser = create_argument_parser()
     args: Namespace = parser.parse_args()
 
-    # Logging configuration
-    # log_debug = utils.get_env_or_default(ENV_DEBUG, args.debug, bool)
-    # logging.basicConfig(stream=sys.stdout, level=logging.DEBUG if log_debug else logging.INFO)
-    # logging.getLogger("androguard").setLevel(logging.ERROR)
     # Get log level from arguments or environment
     log_debug = utils.get_env_or_default(ENV_DEBUG, args.debug, bool)
 
     # Use LoggingManager to configure logging
-    from rvandroid.util.logging_manager import LoggingManager
     logging_manager = LoggingManager.get_instance()
+    logger = logging_manager.get_logger("main", {"component": "CLI"})
 
-    # Configure root logger through standard logging
-    # This will be detected by LoggingManager and it won't add duplicate handlers
-    logging.basicConfig(
-        stream=sys.stdout,
-        level=logging.DEBUG if log_debug else logging.INFO,
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    # Configure root logger through LoggingManager
+    logging_manager.configure_output(
+        console=True,
+        file=True,
+        console_level=logging.DEBUG if log_debug else logging.INFO,
+        file_level=logging.DEBUG,
+        console_format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
     )
 
     # Silence specific noisy loggers
     logging.getLogger("androguard").setLevel(logging.ERROR)
 
     if args.list_tools:
-        logging.info(" [Listing available tools] \n")
+        logger.info("Listing available tools")
         for key in available_tools:
-            print(" [{0}] {1} \n".format(key, available_tools[key].description))
+            print(f" [{key}] {available_tools[key].description}\n")
         sys.exit(0)
 
     # Create configuration manager
@@ -65,41 +69,56 @@ def run_cli():
     # Load configuration from args
     config_manager.load_from_args(args)
 
-    # Get the selected tools
+    # Get the selected tools - VERIFICAR AQUI se as ferramentas corretas estão sendo selecionadas
     selected_tools = get_selected_tools(args)
+
+    logger.info(f"Selected tools for experiment: {[tool.name for tool in selected_tools]}")
 
     # Store tool names in configuration
     config = Configuration.get_instance()
     config.set("tools", [tool.name for tool in selected_tools])
+
+    # Certificar que no_window está definido corretamente
+    config.set("no_window", args.no_window)
+
+    logger.info(f"Configuration no_window: {config.get_bool('no_window', False)}")
 
     # Print configuration
     config.print_experiment_summary()
 
     delay = utils.get_env_or_default(ENV_DELAY, 0, int)
     if delay > 0:
-        logging.info(f"Sleeping for {delay} seconds ...")
+        logger.info(f"Sleeping for {delay} seconds before starting experiment")
         time.sleep(delay)
 
-    logging.info("############# STARTING EXPERIMENT #############")
+    logger.info("############# STARTING EXPERIMENT #############")
     start = time.time()
+
+    # Adicionar log explícito para as ferramentas usadas
+    logger.info(f"Executing experiment with tools: {[tool.name for tool in selected_tools]}")
 
     # Execute the experiment with the selected tool objects
     experiment_03.execute(tools=selected_tools)
 
     end = time.time()
     elapsed = end - start
-    logging.info("It took {0} to complete".format(utils.to_readable_time(elapsed)))
-    logging.info("############# ENDING EXPERIMENT #############")
+    logger.info(f"It took {utils.to_readable_time(elapsed)} to complete")
+    logger.info("############# ENDING EXPERIMENT #############")
 
 
 def load_tools():
-    """Load all available tools.
+    """
+    Load all available tools from tool directories.
 
      A tool must be defined in a subdirectory within
      the tools folder, in a python module named tool.py.
      This module must also declare a class named ToolSpec,
      which should inherit from AbstractTool.
     """
+    # Set up logging
+    logging_manager = LoggingManager.get_instance()
+    logger = logging_manager.get_logger("main.load_tools", {"component": "ToolLoader"})
+
     # Get the tool registry
     registry = ToolRegistry.get_instance()
     # Clear any existing tools
@@ -109,40 +128,87 @@ def load_tools():
     global available_tools
     available_tools = {}
 
-    for subdir, dirs, files in os.walk('.' + os.sep + "rvandroid" + os.sep + "tools"):
+    logger.info("Loading available tools")
+    tools_dir = '.' + os.sep + "rvandroid" + os.sep + "tools"
+    for subdir, dirs, files in os.walk(tools_dir):
         for filename in files:
             if filename == "tool.py":
-                tool_module = importlib.import_module(qualified_name(subdir + os.sep + filename))
-                tool_class = getattr(tool_module, "ToolSpec")
-                tool_instance = tool_class()
+                tool_path = os.path.join(subdir, filename)
+                try:
+                    tool_module = importlib.import_module(qualified_name(tool_path))
+                    tool_class = getattr(tool_module, "ToolSpec")
+                    tool_instance = tool_class()
 
-                # Add to registry
-                registry.register_tool(tool_instance)
+                    # Add to registry
+                    registry.register_tool(tool_instance)
 
-                # Also keep in available_tools for backward compatibility
-                available_tools[tool_instance.name] = tool_instance
+                    # Also keep in available_tools for backward compatibility
+                    available_tools[tool_instance.name] = tool_instance
+                    logger.debug(f"Loaded tool: {tool_instance.name}")
+                except Exception as e:
+                    logger.error(f"Failed to load tool from {tool_path}: {e}")
+
+    logger.info(f"Loaded {len(available_tools)} tools")
 
 
 def get_selected_tools(args: Namespace):
+    """
+    Get the tools selected by the user either from command line or environment.
+
+    Args:
+        args: Command-line arguments
+
+    Returns:
+        List of selected tool instances
+    """
+    logging_manager = LoggingManager.get_instance()
+    logger = logging_manager.get_logger("main.get_selected_tools", {"component": "ToolSelector"})
+
     args_tools = utils.get_env_or_default(ENV_TOOLS, args.tools, list[str])
     selected_tools = __get_tools(args_tools)
+
     if len(selected_tools) == 0 and not args.skip_experiment:
-        print("No valid tools selected.")
+        logger.error("No valid tools selected.")
         exit(1)
+
+    logger.info(f"Selected tools: {[tool.name for tool in selected_tools]}")
     return selected_tools
 
 
 def __get_tools(names: list[str]) -> list[AbstractTool]:
-    """Get tools by name from the registry."""
+    """
+    Get tools by name from the registry.
+
+    Args:
+        names: List of tool names
+
+    Returns:
+        List of tool instances
+    """
     registry = ToolRegistry.get_instance()
     return registry.get_tools(names)
 
 
 def qualified_name(p):
+    """
+    Convert a file path to a qualified module name.
+
+    Args:
+        p: File path
+
+    Returns:
+        Qualified module name
+    """
     return p.replace(".py", "").replace("./", "").replace("/", ".")
 
 
 def create_argument_parser():
+    """
+    Create the argument parser for command-line options.
+
+    Returns:
+        Configured argument parser
+    """
     # Start catching arguments
     parser = argparse.ArgumentParser(description=program_description, formatter_class=argparse.RawTextHelpFormatter)
     # list available tools
@@ -180,19 +246,17 @@ def run_local():
     Logs are output to stdout with DEBUG level, and Androguard logs are set to ERROR level.
     Prints an experiment summary and a completion message after execution.
     """
-    # Get log level from arguments or environment
-    log_debug = True
-
-    # Use LoggingManager to configure logging
-    from rvandroid.util.logging_manager import LoggingManager
+    # Set up logging using LoggingManager
     logging_manager = LoggingManager.get_instance()
+    logger = logging_manager.get_logger("main.run_local", {"component": "LocalExperiment"})
 
-    # Configure root logger through standard logging
-    # This will be detected by LoggingManager and it won't add duplicate handlers
-    logging.basicConfig(
-        stream=sys.stdout,
-        level=logging.DEBUG,
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    # Configure logging
+    logging_manager.configure_output(
+        console=True,
+        file=True,
+        console_level=logging.DEBUG,
+        file_level=logging.DEBUG,
+        console_format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
     )
 
     # Silence specific noisy loggers
@@ -200,21 +264,26 @@ def run_local():
     logging.getLogger("matplotlib").setLevel(logging.ERROR)
     logging.getLogger("PIL").setLevel(logging.ERROR)
 
+    logger.info("Starting local experiment with predefined configuration")
+
     # Get configuration instance
     config = Configuration.get_instance()
 
     # Set configuration values
     config.set("repetitions", 1)
     config.set("timeouts", [60])
-    config.set("generate_monitors", False)
-    config.set("instrument", False)
-    config.set("static_analysis", False)
+    config.set("generate_monitors", True)
+    config.set("instrument", True)
+    config.set("static_analysis", True)
     config.set("skip_experiment", False)
     config.set("no_window", True)
     config.set("memory_file", "")
 
     # Get selected tools as objects
-    selected_tool_objects = __get_tools(["ape"])
+    selected_tool_objects = __get_tools(["ape", "monkey", "fastbot"])
+
+    # Log explícito para as ferramentas selecionadas
+    logger.info(f"Selected tools for local experiment: {[tool.name for tool in selected_tool_objects]}")
 
     # Store tool names in configuration
     config.set("tools", [tool.name for tool in selected_tool_objects])
@@ -223,13 +292,15 @@ def run_local():
     config.print_experiment_summary()
 
     # Execute experiment with the selected tool objects
+    logger.info(f"Executing experiment with tools: {[tool.name for tool in selected_tool_objects]}")
     experiment_03.execute(tools=selected_tool_objects)
 
-    print("FIM DE FESTA!!!")
+    logger.info("Local experiment completed successfully")
 
 
 if __name__ == '__main__':
     load_tools()
 
+    # Uncomment the desired execution mode:
     # run_cli()
     run_local()

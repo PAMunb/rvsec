@@ -39,8 +39,14 @@ class ErrorHandler:
 
     def __init__(self):
         """Initialize the error handler."""
-        self._logger = LoggingManager.get_instance().get_logger(
-            'util.error_handler', {'component': 'ErrorHandler'})
+        # Get standardized logger with context
+        logging_manager = LoggingManager.get_instance()
+        self._logger = logging_manager.get_logger(
+            'util.error_handler',
+            {
+                LoggingManager.CONTEXT_COMPONENT: 'ErrorHandler'
+            }
+        )
 
         # Event bus for publishing errors
         self._event_bus = EventBus.get_instance()
@@ -106,27 +112,35 @@ class ErrorHandler:
         # Record in history for analysis
         self._add_to_history(error, context)
 
-        # Log the error with context
-        self._log_error(error, context)
+        # Create a contextual logger for this specific error
+        with self._logger.with_context(error_type=error_name, **({} if context is None else context)):
+            # Log the error with context
+            self._log_error(error, context)
 
-        # Publish error event
-        self._publish_error_event(error, context)
+            # Publish error event
+            self._publish_error_event(error, context)
 
-        # Find and execute handlers for this error type and its parent types
-        handlers = self._find_handlers(error_type)
+            # Find and execute handlers for this error type and its parent types
+            handlers = self._find_handlers(error_type)
 
-        # Execute handlers
-        handled = False
-        for handler in handlers:
-            try:
-                if handler(error, context):
-                    handled = True
-                    # Once an error is handled, we can stop (unless we want multiple handlers)
-                    break
-            except Exception as e:
-                self._logger.error(f"Error in error handler: {e}")
+            # Execute handlers
+            handled = False
+            for handler in handlers:
+                try:
+                    self._logger.debug(f"Trying handler for {error_name}")
+                    if handler(error, context):
+                        handled = True
+                        self._logger.debug(
+                            f"Error handled by {handler.__name__ if hasattr(handler, '__name__') else 'unnamed handler'}")
+                        # Once an error is handled, we can stop (unless we want multiple handlers)
+                        break
+                except Exception as e:
+                    self._logger.error(LoggingManager.LOG_ERROR.format(operation="error handler", error=str(e)))
 
-        return handled
+            if not handled:
+                self._logger.debug(f"No handler successfully processed {error_name}")
+
+            return handled
 
     def _find_handlers(self, error_type: Type[Exception]) -> List[Callable]:
         """
@@ -167,20 +181,16 @@ class ErrorHandler:
 
     def _log_error(self, error: Exception, context: Optional[Dict[str, Any]]):
         """Log an error with detailed information."""
-        ctx_str = ""
-        if context:
-            ctx_str = " - Context: " + ", ".join(f"{k}={v}" for k, v in context.items())
-
         if isinstance(error, RVAndroidError) and error.cause:
-            self._logger.error(
-                f"{type(error).__name__}: {error.message}{ctx_str}",
-                exc_info=error.cause
-            )
+            self._logger.error(LoggingManager.LOG_ERROR.format(
+                operation=error.message if hasattr(error, 'message') else "operation",
+                error=str(error.cause)
+            ), exc_info=error.cause)
         else:
-            self._logger.error(
-                f"{type(error).__name__}: {str(error)}{ctx_str}",
-                exc_info=error
-            )
+            self._logger.error(LoggingManager.LOG_ERROR.format(
+                operation="processing",
+                error=str(error)
+            ), exc_info=error)
 
     def _publish_error_event(self, error: Exception, context: Optional[Dict[str, Any]]):
         """Publish an error event to the event bus."""
@@ -220,47 +230,51 @@ class ErrorHandler:
         Returns:
             True if handled successfully, False otherwise
         """
-        self._logger.info(f"Attempting to recover from ADB error: {error.message}")
+        with self._logger.with_context(phase="adb_error_recovery"):
+            self._logger.info(f"Attempting to recover from ADB error: {error.message}")
 
-        # Track recovery attempts for this error message
-        key = f"adb:{error.message}"
-        attempts = self._recovery_attempts.get(key, 0)
+            # Track recovery attempts for this error message
+            key = f"adb:{error.message}"
+            attempts = self._recovery_attempts.get(key, 0)
 
-        # Limit recovery attempts
-        if attempts >= 3:
-            self._logger.warning(f"Too many ADB recovery attempts for: {error.message}")
-            return False
+            # Limit recovery attempts
+            if attempts >= 3:
+                self._logger.warning(f"Too many ADB recovery attempts for: {error.message}")
+                return False
 
-        # Update attempt count
-        self._recovery_attempts[key] = attempts + 1
+            # Update attempt count
+            self._recovery_attempts[key] = attempts + 1
 
-        # Try to restart ADB server
-        try:
-            from rvandroid.commands.command import Command
+            # Try to restart ADB server
+            try:
+                from rvandroid.commands.command import Command
 
-            # Kill ADB server
-            kill_cmd = Command("adb", ["kill-server"])
-            kill_cmd.invoke()
-            self._logger.info("ADB server killed")
+                # Kill ADB server
+                kill_cmd = Command("adb", ["kill-server"])
+                kill_cmd.invoke()
+                self._logger.info("ADB server killed")
 
-            # Wait a moment
-            time.sleep(2)
+                # Wait a moment
+                time.sleep(2)
 
-            # Start ADB server
-            start_cmd = Command("adb", ["start-server"])
-            start_cmd.invoke()
-            self._logger.info("ADB server restarted")
+                # Start ADB server
+                start_cmd = Command("adb", ["start-server"])
+                start_cmd.invoke()
+                self._logger.info("ADB server restarted")
 
-            # Wait for devices
-            devices_cmd = Command("adb", ["devices"])
-            devices_cmd.invoke()
+                # Wait for devices
+                devices_cmd = Command("adb", ["devices"])
+                devices_cmd.invoke()
 
-            self._logger.info("ADB recovery successful")
-            return True
+                self._logger.info("ADB recovery successful")
+                return True
 
-        except Exception as e:
-            self._logger.error(f"ADB recovery failed: {e}")
-            return False
+            except Exception as e:
+                self._logger.error(LoggingManager.LOG_ERROR.format(
+                    operation="ADB recovery",
+                    error=str(e)
+                ))
+                return False
 
     def _handle_emulator_error(self, error: EmulatorError, context: Optional[Dict[str, Any]] = None) -> bool:
         """
@@ -273,32 +287,36 @@ class ErrorHandler:
         Returns:
             True if handled successfully, False otherwise
         """
-        self._logger.info(f"Handling emulator error: {error.message}")
+        with self._logger.with_context(phase="emulator_error_recovery"):
+            self._logger.info(f"Handling emulator error: {error.message}")
 
-        # Check if we have a device ID in the context
-        device_id = None
-        if context and "device_id" in context:
-            device_id = context["device_id"]
+            # Check if we have a device ID in the context
+            device_id = None
+            if context and "device_id" in context:
+                device_id = context["device_id"]
 
-        try:
-            # Try to kill any existing emulator processes
-            from rvandroid.commands.command import Command
+            try:
+                # Try to kill any existing emulator processes
+                from rvandroid.commands.command import Command
 
-            # Kill running emulator instance if we have a device ID
-            if device_id:
-                kill_cmd = Command("adb", ["-s", device_id, "emu", "kill"])
-                kill_cmd.invoke()
-                self._logger.info(f"Emulator {device_id} killed")
-            else:
-                # General emulator cleanup
-                kill_all_cmd = Command("pkill", ["-f", "emulator"])
-                kill_all_cmd.invoke()
-                self._logger.info("All emulator processes terminated")
+                # Kill running emulator instance if we have a device ID
+                if device_id:
+                    kill_cmd = Command("adb", ["-s", device_id, "emu", "kill"])
+                    kill_cmd.invoke()
+                    self._logger.info(f"Emulator {device_id} killed")
+                else:
+                    # General emulator cleanup
+                    kill_all_cmd = Command("pkill", ["-f", "emulator"])
+                    kill_all_cmd.invoke()
+                    self._logger.info("All emulator processes terminated")
 
-            return True
-        except Exception as e:
-            self._logger.error(f"Emulator recovery failed: {e}")
-            return False
+                return True
+            except Exception as e:
+                self._logger.error(LoggingManager.LOG_ERROR.format(
+                    operation="emulator recovery",
+                    error=str(e)
+                ))
+                return False
 
     def _handle_timeout_error(self, error: RvTimeoutError, context: Optional[Dict[str, Any]] = None) -> bool:
         """
@@ -311,25 +329,29 @@ class ErrorHandler:
         Returns:
             True if handled successfully, False otherwise
         """
-        self._logger.info(f"Handling timeout error: {error.message}")
+        with self._logger.with_context(phase="timeout_error_recovery"):
+            self._logger.info(f"Handling timeout error: {error.message}")
 
-        # Examine context to determine timeout type
-        if context and "process" in context:
-            # Handle process timeout
-            process = context["process"]
-            try:
-                # Try to terminate the process
-                import signal
-                if hasattr(process, "pid"):
-                    os.kill(process.pid, signal.SIGTERM)
-                    self._logger.info(f"Process {process.pid} terminated due to timeout")
-                    return True
-            except Exception as e:
-                self._logger.error(f"Failed to terminate process: {e}")
+            # Examine context to determine timeout type
+            if context and "process" in context:
+                # Handle process timeout
+                process = context["process"]
+                try:
+                    # Try to terminate the process
+                    import signal
+                    if hasattr(process, "pid"):
+                        os.kill(process.pid, signal.SIGTERM)
+                        self._logger.info(f"Process {process.pid} terminated due to timeout")
+                        return True
+                except Exception as e:
+                    self._logger.error(LoggingManager.LOG_ERROR.format(
+                        operation="process termination",
+                        error=str(e)
+                    ))
 
-        # Log unhandled timeout
-        self._logger.warning(f"No specific handling for timeout error: {error.message}")
-        return False
+            # Log unhandled timeout
+            self._logger.warning(f"No specific handling for timeout error: {error.message}")
+            return False
 
     def _handle_generic_error(self, error: RVAndroidError, context: Optional[Dict[str, Any]] = None) -> bool:
         """
@@ -365,7 +387,6 @@ class ErrorHandler:
         self._error_history = []
         self._recovery_attempts = {}
 
-
 # Decorator for automatic retry
 def retry(max_attempts: int = 3,
           retry_exceptions: List[Type[Exception]] = None,
@@ -391,8 +412,11 @@ def retry(max_attempts: int = 3,
     def decorator(func):
         @wraps(func)
         def wrapper(*args, **kwargs):
+            # Get logger from LoggingManager
             logger = LoggingManager.get_instance().get_logger(
-                'util.error_handler.retry', {'function': func.__name__})
+                'util.error_handler.retry',
+                {'function': func.__name__}
+            )
 
             current_delay = delay
             last_exception = None
@@ -408,7 +432,8 @@ def retry(max_attempts: int = 3,
                         if log_retries:
                             logger.warning(
                                 f"Attempt {attempt + 1}/{max_attempts} failed with {type(e).__name__}: {e}. "
-                                f"Retrying in {wait_time:.2f}s...")
+                                f"Retrying in {wait_time:.2f}s..."
+                            )
 
                         time.sleep(wait_time)
                         current_delay *= backoff_factor
@@ -422,7 +447,6 @@ def retry(max_attempts: int = 3,
         return wrapper
 
     return decorator
-
 
 # Context manager for error handling
 @contextmanager

@@ -1,6 +1,4 @@
 # rvandroid/experiment/task_executor.py
-
-import logging
 import os
 from typing import Optional, Dict, Any
 
@@ -17,6 +15,7 @@ from rvandroid.model.coverage import LogcatRepository
 from rvandroid.tools.tool_spec import AbstractTool
 from rvandroid.util.error_handler import ErrorHandler, handle_errors
 from rvandroid.util.exceptions import TaskExecutionError
+from rvandroid.util.logging_manager import LoggingManager
 from rvandroid.util.performance_monitor import PerformanceMonitor
 from rvandroid.util.spreadsheet_exporter import ExportContext, SpreadsheetExporter
 
@@ -49,9 +48,20 @@ class TaskExecutor:
         """
         self.task = task
         self.tool = tool
-        self.logger = logging.getLogger(__name__)
         self.event_bus = event_bus or EventBus.get_instance()
         self.error_handler = ErrorHandler.get_instance()
+
+        # Set up logging using LoggingManager
+        logging_manager = LoggingManager.get_instance()
+        self.logger = logging_manager.get_logger(
+            "experiment.task_executor",
+            {
+                LoggingManager.CONTEXT_TASK_ID: task.id,
+                LoggingManager.CONTEXT_APP_NAME: task.config.apk_name,
+                LoggingManager.CONTEXT_TOOL_NAME: tool.name,
+                LoggingManager.CONTEXT_COMPONENT: "TaskExecutor"
+            }
+        )
 
         # Initialize specialized components
         self.static_analysis = StaticAnalysisComponent(task, event_bus)
@@ -78,13 +88,17 @@ class TaskExecutor:
             "timeout": self.task.config.timeout
         }
 
-        self.logger.info(f"Starting execution of task {self.task}")
+        self.logger.info(LoggingManager.LOG_START.format(operation=f"execution of task {self.task}"))
 
         if not self.task.app:
-            self.task.mark_error("Task has no app instance set")
-            self.logger.error("Cannot execute task: app instance not set")
+            error_msg = "Task has no app instance set"
+            self.task.mark_error(error_msg)
+            self.logger.error(LoggingManager.LOG_ERROR.format(
+                operation="task execution",
+                error="app instance not set"
+            ))
             self._publish_event(EventType.TASK_FAILED, {
-                "error": "Task has no app instance set"
+                "error": error_msg
             })
             return False
 
@@ -95,46 +109,53 @@ class TaskExecutor:
             # Measure the total execution time
             with self.performance_monitor.measure_time("task_execution_total", task_context):
                 # Get static analysis data if not already available
-                with self.performance_monitor.measure_time("load_static_data", task_context):
-                    self.static_analysis.load_static_data(task_context)
+                with self.logger.with_context(phase="load_static_data"):
+                    with self.performance_monitor.measure_time("load_static_data", task_context):
+                        self.static_analysis.load_static_data(task_context)
 
                 # Initialize coverage tracker
-                with self.performance_monitor.measure_time("initialize_coverage_tracker", task_context):
-                    with handle_errors(task_context):
-                        self.coverage.initialize_tracker()
+                with self.logger.with_context(phase="initialize_coverage"):
+                    with self.performance_monitor.measure_time("initialize_coverage_tracker", task_context):
+                        with handle_errors(task_context):
+                            self.coverage.initialize_tracker()
 
                 # Start emulator and run the task
-                with self.performance_monitor.measure_time("environment_setup", task_context):
-                    with self.emulator.start_emulator("RVSec") as android:
-                        # Install app if needed
-                        if not self.task.config.skip_installation:
-                            with handle_errors({**task_context, "phase": "app_installation"}):
-                                self.emulator.install_app(android, self.task.app)
+                with self.logger.with_context(phase="environment_setup"):
+                    with self.performance_monitor.measure_time("environment_setup", task_context):
+                        with self.emulator.start_emulator("RVSec") as android:
+                            # Install app if needed
+                            if not self.task.config.skip_installation:
+                                with self.logger.with_context(phase="app_installation"):
+                                    with handle_errors({**task_context, "phase": "app_installation"}):
+                                        self.emulator.install_app(android, self.task.app)
 
-                        # Start logcat capture
-                        with self.performance_monitor.measure_time("logcat_capture_setup", task_context):
-                            with handle_errors({**task_context, "phase": "logcat_setup"}):
-                                self.logcat.start_capture()
-                                # Start the coverage tracker
-                                self.coverage.start_tracking()
+                            # Start logcat capture
+                            with self.logger.with_context(phase="logcat_setup"):
+                                with self.performance_monitor.measure_time("logcat_capture_setup", task_context):
+                                    with handle_errors({**task_context, "phase": "logcat_setup"}):
+                                        self.logcat.start_capture()
+                                        # Start the coverage tracker
+                                        self.coverage.start_tracking()
 
-                        # Execute the tool
-                        with self.performance_monitor.measure_time("tool_execution", task_context):
-                            try:
-                                self.tool_executor.execute_tool()
-                            except Exception as e:
-                                # Convert to TaskExecutionError with tool info
-                                task_error = TaskExecutionError(
-                                    f"Tool execution failed: {str(e)}",
-                                    self.task.id,
-                                    e
-                                )
-                                self.error_handler.handle_error(task_error, task_context)
-                                raise task_error
+                            # Execute the tool
+                            with self.logger.with_context(phase="tool_execution"):
+                                with self.performance_monitor.measure_time("tool_execution", task_context):
+                                    try:
+                                        self.tool_executor.execute_tool()
+                                    except Exception as e:
+                                        # Convert to TaskExecutionError with tool info
+                                        task_error = TaskExecutionError(
+                                            f"Tool execution failed: {str(e)}",
+                                            self.task.id,
+                                            e
+                                        )
+                                        self.error_handler.handle_error(task_error, task_context)
+                                        raise task_error
 
                 # Process coverage data
-                with self.performance_monitor.measure_time("process_coverage", task_context):
-                    self._process_coverage_data()
+                with self.logger.with_context(phase="process_coverage"):
+                    with self.performance_monitor.measure_time("process_coverage", task_context):
+                        self._process_coverage_data()
 
             # Mark task as completed
             self.task.mark_completed()
@@ -148,7 +169,9 @@ class TaskExecutor:
             )
 
             self._publish_event(EventType.TASK_COMPLETED)
-            self.logger.info(f"Task {self.task.id} executed successfully")
+            self.logger.info(LoggingManager.LOG_COMPLETE.format(
+                operation=f"Task {self.task.id}"
+            ))
             return True
 
         except Exception as e:
@@ -157,7 +180,10 @@ class TaskExecutor:
 
             # Still need to update task status
             error_message = str(e)
-            self.logger.error(f"Error executing task {self.task.id}: {error_message}")
+            self.logger.error(LoggingManager.LOG_ERROR.format(
+                operation=f"execution of task {self.task.id}",
+                error=error_message
+            ))
             self.task.mark_error(error_message)
 
             # Record error metric
@@ -179,11 +205,13 @@ class TaskExecutor:
     def _process_coverage_data(self) -> None:
         """Process coverage data after task execution."""
         # Stop coverage and logcat
-        self.coverage.stop_tracking()
-        self.logcat.stop_capture()
+        with self.logger.with_context(phase="stopping_coverage"):
+            self.coverage.stop_tracking()
+            self.logcat.stop_capture()
 
         # Process coverage results
-        self.coverage.process_results()
+        with self.logger.with_context(phase="processing_results"):
+            self.coverage.process_results()
 
         # Get repository
         repository = self.coverage.get_repository()
@@ -197,56 +225,73 @@ class TaskExecutor:
             # Check if export is enabled
             export_enabled = getattr(self.task.config, "export_to_csv", True)
             if not export_enabled:
-                self.logger.debug("CSV export is disabled for this task")
+                self.logger.debug(LoggingManager.LOG_SKIPPED.format(
+                    operation="CSV export",
+                    reason="export is disabled for this task"
+                ))
                 return
 
-            # Create export context from task
-            context = ExportContext.from_task(self.task)
+            with self.logger.with_context(phase="csv_export"):
+                # Create export context from task
+                context = ExportContext.from_task(self.task)
 
-            # Determine export files
-            experiment_dir = os.path.dirname(os.path.dirname(self.task.results_dir))
-            coverage_file = os.path.join(experiment_dir, "coverage_data.csv")
-            error_file = os.path.join(experiment_dir, "error_data.csv")
+                # Determine export files
+                experiment_dir = os.path.dirname(os.path.dirname(self.task.results_dir))
+                coverage_file = os.path.join(experiment_dir, "coverage_data.csv")
+                error_file = os.path.join(experiment_dir, "error_data.csv")
 
-            # Export data directly from repository
-            exporter = SpreadsheetExporter()
+                # Export data directly from repository
+                exporter = SpreadsheetExporter()
 
-            # Append to existing files or create new ones
-            if os.path.exists(coverage_file):
-                exporter.append_to_coverage_sheet(repository, context, coverage_file)
-            else:
-                exporter.export_coverage_data(repository, context, coverage_file)
+                # Append to existing files or create new ones
+                if os.path.exists(coverage_file):
+                    exporter.append_to_coverage_sheet(repository, context, coverage_file)
+                else:
+                    exporter.export_coverage_data(repository, context, coverage_file)
 
-            if os.path.exists(error_file):
-                exporter.append_to_error_sheet(repository, context, error_file)
-            else:
-                exporter.export_error_data(repository, context, error_file)
+                if os.path.exists(error_file):
+                    exporter.append_to_error_sheet(repository, context, error_file)
+                else:
+                    exporter.export_error_data(repository, context, error_file)
 
-            self.logger.info(f"Exported task data to CSV files")
+                self.logger.info(LoggingManager.LOG_COMPLETE.format(operation="CSV data export"))
 
         except Exception as e:
-            self.logger.error(f"Error exporting repository data: {e}")
+            self.logger.error(LoggingManager.LOG_ERROR.format(
+                operation="exporting repository data",
+                error=str(e)
+            ))
             # Don't raise - data export is not critical to task success
 
     def _cleanup_resources(self) -> None:
         """Clean up resources in case of error."""
-        try:
-            # Stop coverage tracking
-            self.coverage.stop_tracking()
-        except Exception as e:
-            self.logger.warning(f"Error stopping coverage tracking: {e}")
+        with self.logger.with_context(phase="resource_cleanup"):
+            try:
+                # Stop coverage tracking
+                self.coverage.stop_tracking()
+            except Exception as e:
+                self.logger.warning(LoggingManager.LOG_ERROR.format(
+                    operation="stopping coverage tracking",
+                    error=str(e)
+                ))
 
-        try:
-            # Stop logcat capture
-            self.logcat.stop_capture()
-        except Exception as e:
-            self.logger.warning(f"Error stopping logcat capture: {e}")
+            try:
+                # Stop logcat capture
+                self.logcat.stop_capture()
+            except Exception as e:
+                self.logger.warning(LoggingManager.LOG_ERROR.format(
+                    operation="stopping logcat capture",
+                    error=str(e)
+                ))
 
-        try:
-            # Clean up tool processes
-            self.tool_executor.cleanup_processes()
-        except Exception as e:
-            self.logger.warning(f"Error cleaning up tool processes: {e}")
+            try:
+                # Clean up tool processes
+                self.tool_executor.cleanup_processes()
+            except Exception as e:
+                self.logger.warning(LoggingManager.LOG_ERROR.format(
+                    operation="cleaning up tool processes",
+                    error=str(e)
+                ))
 
     def _publish_event(self, event_type: EventType, details: Optional[Dict[str, Any]] = None) -> None:
         """

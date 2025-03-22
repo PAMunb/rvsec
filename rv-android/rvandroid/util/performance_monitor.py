@@ -1,9 +1,12 @@
+# rvandroid/util/performance_monitor.py
 import statistics
 import threading
 import time
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Any, Callable
+
+from rvandroid.util.logging_manager import LoggingManager
 
 
 @dataclass
@@ -45,7 +48,14 @@ class PerformanceMonitor:
             return cls._instance
 
     def __init__(self):
-        """Initialize the performance monitor."""
+        """Initialize the performance monitor with standardized logging."""
+        # Set up logging using LoggingManager
+        logging_manager = LoggingManager.get_instance()
+        self.logger = logging_manager.get_logger(
+            "util.performance_monitor",
+            {LoggingManager.CONTEXT_COMPONENT: "PerformanceMonitor"}
+        )
+
         self.metrics: List[Metric] = []
         self.subscribers: Dict[str, List[Callable[[Metric], None]]] = {}
 
@@ -54,14 +64,16 @@ class PerformanceMonitor:
 
     def _setup_default_subscribers(self):
         """Set up default subscribers for metrics."""
-        # Import here to avoid circular imports
-        from rvandroid.util.logging_manager import LoggingManager
-        logger = LoggingManager.get_instance().get_logger('performance_monitor')
 
         # Log all metrics at debug level
         def log_metric(metric: Metric):
-            context_str = ", ".join(f"{k}={v}" for k, v in metric.context.items())
-            logger.debug(f"Metric: {metric.name}={metric.value}{metric.unit} [{context_str}]")
+            with self.logger.with_context(
+                    metric_name=metric.name,
+                    metric_value=metric.value,
+                    metric_unit=metric.unit,
+                    **metric.context
+            ):
+                self.logger.debug(f"Metric: {metric.name}={metric.value}{metric.unit}")
 
         self.subscribe("*", log_metric)
 
@@ -121,24 +133,28 @@ class PerformanceMonitor:
             Nothing, just executes the block and measures time
         """
         start_time = time.time()
-        try:
-            yield
-        finally:
-            end_time = time.time()
-            duration = end_time - start_time
+        with self.logger.with_context(operation=name, **({} if context is None else context)):
+            try:
+                self.logger.debug(f"Starting timed operation: {name}")
+                yield
+            finally:
+                end_time = time.time()
+                duration = end_time - start_time
 
-            metric = TimingMetric(
-                name=name,
-                value=duration,
-                unit="s",
-                timestamp=time.time(),
-                context=context or {},
-                start_time=start_time,
-                end_time=end_time
-            )
+                metric = TimingMetric(
+                    name=name,
+                    value=duration,
+                    unit="s",
+                    timestamp=time.time(),
+                    context=context or {},
+                    start_time=start_time,
+                    end_time=end_time
+                )
 
-            self.metrics.append(metric)
-            self._notify_subscribers(metric)
+                self.metrics.append(metric)
+                self._notify_subscribers(metric)
+
+                self.logger.debug(f"Completed timed operation: {name} in {duration:.2f}s")
 
     def get_metrics_by_name(self, name: str) -> List[Metric]:
         """
@@ -200,6 +216,7 @@ class PerformanceMonitor:
         self.subscribers[metric_name].append(callback)
 
     def _notify_subscribers(self, metric: Metric):
+        # TODO usar o event bus para isso
         """
         Notify subscribers about a new metric.
 
@@ -211,15 +228,17 @@ class PerformanceMonitor:
             try:
                 callback(metric)
             except Exception as e:
-                from rvandroid.util.logging_manager import LoggingManager
-                logger = LoggingManager.get_instance().get_logger('performance_monitor')
-                logger.error(f"Error in metric subscriber: {e}")
+                self.logger.error(LoggingManager.LOG_ERROR.format(
+                    operation="metric subscriber",
+                    error=str(e)
+                ))
 
         # Call global subscribers
         for callback in self.subscribers.get("*", []):
             try:
                 callback(metric)
             except Exception as e:
-                from rvandroid.util.logging_manager import LoggingManager
-                logger = LoggingManager.get_instance().get_logger('performance_monitor')
-                logger.error(f"Error in metric subscriber: {e}")
+                self.logger.error(LoggingManager.LOG_ERROR.format(
+                    operation="global metric subscriber",
+                    error=str(e)
+                ))

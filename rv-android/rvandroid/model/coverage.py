@@ -46,6 +46,68 @@ class MethodCoverageData:
 
         self.last_called_at = current_time
 
+    def to_dict(self) -> Dict[str, Any]:
+        """
+        Convert to a dictionary representation.
+
+        Returns:
+            Dictionary with method coverage details
+        """
+        result = {
+            "class_name": self.class_name,
+            "method_name": self.method_name,
+            "signature": self.signature,
+            "parameters": self.parameters,
+            "reachable": self.reachable,
+            "reaches_mop": self.reaches_mop,
+            "directly_reaches_mop": self.directly_reaches_mop,
+            "called": self.called,
+            "call_count": self.call_count,
+            "from_static_analysis": self.from_static_analysis
+        }
+
+        # Convert datetime objects to ISO format strings if present
+        if self.first_called_at:
+            result["first_called_at"] = self.first_called_at.isoformat()
+        else:
+            result["first_called_at"] = None
+
+        if self.last_called_at:
+            result["last_called_at"] = self.last_called_at.isoformat()
+        else:
+            result["last_called_at"] = None
+
+        return result
+
+    @classmethod
+    def from_coverage_log(cls, log: RvCoverageLog) -> 'MethodCoverageData':
+        """
+        Create a method coverage data instance from a coverage log entry.
+
+        Args:
+            log: Coverage log entry
+
+        Returns:
+            New MethodCoverageData instance initialized from the log
+        """
+        parameters = log.get_parameters_list()
+
+        instance = cls(
+            class_name=log.clazz,
+            method_name=log.method,
+            signature=log.signature,
+            parameters=parameters,
+            # Default values for other fields
+            reachable=False,
+            reaches_mop=False,
+            directly_reaches_mop=False
+        )
+
+        # Register the call with the timestamp from the log
+        instance.register_call(log.time_occurred)
+
+        return instance
+
 
 @dataclass
 class ClassCoverageData:
@@ -119,6 +181,26 @@ class ClassCoverageData:
             self.methods[signature].register_call(timestamp)
             return True
         return False
+
+    def to_dict(self) -> Dict[str, Any]:
+        """
+        Convert to a dictionary representation.
+
+        Returns:
+            Dictionary with class coverage details
+        """
+        return {
+            "name": self.name,
+            "is_activity": self.is_activity,
+            "is_main_activity": self.is_main_activity,
+            "method_count": self.method_count,
+            "called_method_count": self.called_method_count,
+            "reachable_method_count": self.reachable_method_count,
+            "called_reachable_method_count": self.called_reachable_method_count,
+            "mop_reaching_method_count": self.mop_reaching_method_count,
+            "called_mop_reaching_method_count": self.called_mop_reaching_method_count,
+            "methods": [method.to_dict() for method in self.methods.values()]
+        }
 
 
 @dataclass
@@ -386,3 +468,22 @@ class LogcatRepository:
 
         diagnostics["issues"] = issues
         return diagnostics
+
+    def to_dict(self) -> Dict[str, Any]:
+        """
+        Convert repository to dictionary format for serialization.
+
+        Returns:
+            Dictionary representation of the repository
+        """
+        metrics = self.calculate_metrics()
+
+        return {
+            "metrics": metrics.to_dict(),
+            "classes": {name: class_data.to_dict() for name, class_data in self.classes.items()},
+            "errors": {
+                "count": len(self.errors),
+                "unique_count": len(self.unique_errors),
+                "items": [error.to_dict() for error in self.errors]
+            }
+        }
