@@ -6,8 +6,8 @@ This parser is maintained for backward compatibility but now uses the same
 data structures as the modern parser.
 """
 
-from rvandroid.model.coverage import LogcatRepository
-from rvandroid.model.log import RvErrorLog, RvCoverageLog
+from rvandroid.domain.coverage import LogcatRepository
+from rvandroid.domain.log import RvErrorLog, RvCoverageLog
 
 
 def to_error(s: str) -> RvErrorLog:

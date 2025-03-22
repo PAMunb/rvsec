@@ -15,8 +15,8 @@ from datetime import datetime
 from typing import Dict, Any, Optional, Generator
 from typing import Tuple
 
-from rvandroid.model.coverage import LogcatRepository
-from rvandroid.model.log import RvErrorLog, RvCoverageLog, TAG_RVSEC, TAG_RVSEC_COV
+from rvandroid.domain.coverage import LogcatRepository
+from rvandroid.domain.log import RvErrorLog, RvCoverageLog, TAG_RVSEC, TAG_RVSEC_COV
 
 
 def parse_logcat_file(log_file: str) -> LogcatRepository:

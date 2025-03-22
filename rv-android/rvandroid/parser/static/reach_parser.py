@@ -8,7 +8,7 @@ import csv
 import logging as logging_api
 from typing import List
 
-from rvandroid.model.classes import Classes, Method, Clazz
+from rvandroid.domain.classes import Classes, Method, Clazz
 
 # Configure module logger
 logging = logging_api.getLogger(__name__)

@@ -5,8 +5,8 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import List, Dict, Optional, Set, Any
 
-from rvandroid.model.static import StaticAnalysisData
-from rvandroid.model.widget import WidgetEventType, Widget
+from rvandroid.domain.static import StaticAnalysisData
+from rvandroid.domain.widget import WidgetEventType, Widget
 
 
 @dataclass

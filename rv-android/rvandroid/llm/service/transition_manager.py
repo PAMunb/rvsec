@@ -2,7 +2,7 @@
 from typing import Dict, List, Any
 
 from rvandroid.experiment.event_system import EventBus
-from rvandroid.model.dynamic_wtg import DynamicTransitionGraph
+from rvandroid.domain.dynamic_wtg import DynamicTransitionGraph
 from rvandroid.util.logging_manager import LoggingManager
 from rvandroid.util.performance_monitor import PerformanceMonitor
 

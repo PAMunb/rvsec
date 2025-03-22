@@ -2,7 +2,7 @@ import logging
 from typing import Dict, List, Optional
 
 from rvandroid.llm.prompt.prompt_strategy import PromptStrategy
-from rvandroid.model.static import StaticAnalysisData
+from rvandroid.domain.static import StaticAnalysisData
 from rvandroid.parser.screen.parser_factory import ParserType
 
 

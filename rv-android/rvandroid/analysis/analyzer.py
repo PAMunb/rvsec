@@ -7,8 +7,8 @@ Acts as a facade for different analysis functionalities.
 import logging
 from typing import Dict
 
-from rvandroid.model.coverage import LogcatRepository
-from rvandroid.model.log import RvCoverageLog, RvErrorLog
+from rvandroid.domain.coverage import LogcatRepository
+from rvandroid.domain.log import RvCoverageLog, RvErrorLog
 
 
 class CoverageAnalyzer:
@@ -58,7 +58,7 @@ class CoverageAnalyzer:
 
             for class_name, class_info in classes.classes.items():
                 # Create class data in repository
-                from rvandroid.model.coverage import ClassCoverageData
+                from rvandroid.domain.coverage import ClassCoverageData
                 class_data = ClassCoverageData(
                     name=class_name,
                     is_activity=class_info.is_activity,
@@ -68,7 +68,7 @@ class CoverageAnalyzer:
 
                 # Add methods to class
                 for method in class_info.methods:
-                    from rvandroid.model.coverage import MethodCoverageData
+                    from rvandroid.domain.coverage import MethodCoverageData
                     method_data = MethodCoverageData(
                         class_name=class_name,
                         method_name=method.name,

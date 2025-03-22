@@ -1,6 +1,6 @@
 import pytest
 
-from rvandroid.model.widget import Widget, WidgetType, WidgetEvent, WidgetEventType
+from rvandroid.domain.widget import Widget, WidgetType, WidgetEvent, WidgetEventType
 
 
 class TestWidgetEventType:

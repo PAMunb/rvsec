@@ -1,6 +1,6 @@
-from rvandroid.model.classes import Classes
-from rvandroid.model.window import Windows
-from rvandroid.model.wtg import WindowTransitionGraph
+from rvandroid.domain.classes import Classes
+from rvandroid.domain.window import Windows
+from rvandroid.domain.wtg import WindowTransitionGraph
 
 
 class StaticAnalysisData:

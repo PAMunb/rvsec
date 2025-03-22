@@ -2,7 +2,7 @@
 from typing import Dict, Optional, Any, Union
 
 from rvandroid.llm.prompt.base_prompt_strategy import BasePromptStrategy
-from rvandroid.model.static import StaticAnalysisData
+from rvandroid.domain.static import StaticAnalysisData
 from rvandroid.parser.screen.abstract_parser import AbstractScreenParser
 from rvandroid.parser.screen.parser_factory import ParserType
 

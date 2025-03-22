@@ -5,10 +5,10 @@ Enables centralized component creation and configuration.
 """
 from rvandroid.experiment.event_system import EventBus
 from rvandroid.experiment.task_storage import TaskStorage
-from rvandroid.experiment_workflow.execution_controller import ExecutionController
-from rvandroid.experiment_workflow.post_processor import PostProcessor
-from rvandroid.experiment_workflow.pre_processor import PreProcessor
-from rvandroid.experiment_workflow.result_manager import ResultManager
+from rvandroid.experiment.workflow.execution_controller import ExecutionController
+from rvandroid.experiment.workflow.post_processor import PostProcessor
+from rvandroid.experiment.workflow.pre_processor import PreProcessor
+from rvandroid.experiment.workflow.result_manager import ResultManager
 
 
 class WorkflowFactory:

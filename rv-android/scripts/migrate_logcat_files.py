@@ -22,7 +22,7 @@ from typing import List, Optional
 # Add parent directory to path so we can import modules
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from rvandroid.model.coverage import LogcatRepository
+from rvandroid.domain.coverage import LogcatRepository
 from rvandroid.parser.log import logcat_parser
 
 

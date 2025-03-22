@@ -3,7 +3,7 @@ from unittest.mock import patch
 
 import pytest
 
-from rvandroid.model.log import RvErrorLog, RvCoverageLog, TAG_RVSEC, TAG_RVSEC_COV
+from rvandroid.domain.log import RvErrorLog, RvCoverageLog, TAG_RVSEC, TAG_RVSEC_COV
 
 
 class TestRvErrorLog:
@@ -155,7 +155,7 @@ class TestRvCoverageLog:
     def test_to_dict(self, sample_error_log):
         """Test to_dict method"""
         # Mock utils.datetime_to_milliseconds para um comportamento conhecido
-        with patch('rvandroid.model.log.utils.datetime_to_milliseconds', return_value=123456789):
+        with patch('rvandroid.domain.log.utils.datetime_to_milliseconds', return_value=123456789):
             dic = sample_error_log.to_dict()
 
             assert dic["spec"] == "SecuritySpec"
@@ -170,7 +170,7 @@ class TestRvCoverageLog:
     def test_to_dict(self, sample_coverage_log):
         """Test to_dict method"""
         # Mock utils.datetime_to_milliseconds para um comportamento conhecido
-        with patch('rvandroid.model.log.utils.datetime_to_milliseconds', return_value=123456789):
+        with patch('rvandroid.domain.log.utils.datetime_to_milliseconds', return_value=123456789):
             dic = sample_coverage_log.to_dict()
 
             assert dic["class"] == "com.example.app.MainActivity"

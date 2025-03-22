@@ -1,7 +1,7 @@
 # rvandroid/parser/screen/visitor/visitor_factory.py
 from typing import Dict, Type, Optional
 
-from rvandroid.model.static import StaticAnalysisData
+from rvandroid.domain.static import StaticAnalysisData
 from rvandroid.parser.screen.visitor.base_visitor import BaseScreenVisitor
 from rvandroid.parser.screen.visitor.basic_visitor import BasicTextVisitor
 from rvandroid.parser.screen.visitor.enhanced_visitor import NewEnhancedTextVisitor

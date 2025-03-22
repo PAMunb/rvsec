@@ -1,9 +1,9 @@
 import networkx as nx
 import pytest
 
-from rvandroid.model.widget import WidgetEventType
-from rvandroid.model.window import Window
-from rvandroid.model.wtg import WindowTransition, WindowTransitionGraph
+from rvandroid.domain.widget import WidgetEventType
+from rvandroid.domain.window import Window
+from rvandroid.domain.wtg import WindowTransition, WindowTransitionGraph
 
 
 class TestWindowTransition:

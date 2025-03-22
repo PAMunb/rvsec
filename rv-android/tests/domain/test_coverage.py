@@ -3,13 +3,13 @@ from datetime import datetime
 
 import pytest
 
-from rvandroid.model.coverage import (
+from rvandroid.domain.coverage import (
     MethodCoverageData,
     ClassCoverageData,
     CoverageMetrics,
     LogcatRepository
 )
-from rvandroid.model.log import RvCoverageLog, RvErrorLog
+from rvandroid.domain.log import RvCoverageLog, RvErrorLog
 from .test_framework import ModelTestBase
 
 

@@ -12,8 +12,8 @@ from enum import Enum
 from typing import Dict, List, Any, Optional
 
 from rvandroid.app import App
-from rvandroid.model.coverage import LogcatRepository
-from rvandroid.model.log import RvCoverageLog, RvErrorLog
+from rvandroid.domain.coverage import LogcatRepository
+from rvandroid.domain.log import RvCoverageLog, RvErrorLog
 
 
 class TaskStatus(Enum):
@@ -157,7 +157,7 @@ class Task:
         self.static_data = None
 
         # Standard repository for coverage and error data
-        from rvandroid.model.coverage import LogcatRepository
+        from rvandroid.domain.coverage import LogcatRepository
         self.repository = LogcatRepository()
 
     def add_error(self, error: RvErrorLog) -> None:
@@ -169,7 +169,7 @@ class Task:
         """
         # Ensure repository exists
         if not hasattr(self, 'repository') or self.repository is None:
-            from rvandroid.model.coverage import LogcatRepository
+            from rvandroid.domain.coverage import LogcatRepository
             self.repository = LogcatRepository()
 
         # Add to repository
@@ -184,7 +184,7 @@ class Task:
         """
         # Ensure repository exists
         if not hasattr(self, 'repository') or self.repository is None:
-            from rvandroid.model.coverage import LogcatRepository
+            from rvandroid.domain.coverage import LogcatRepository
             self.repository = LogcatRepository()
 
         # Add to repository
@@ -230,7 +230,7 @@ class Task:
             The task's LogcatRepository
         """
         if not hasattr(self, 'repository') or self.repository is None:
-            from rvandroid.model.coverage import LogcatRepository
+            from rvandroid.domain.coverage import LogcatRepository
             self.repository = LogcatRepository()
 
             # If logcat file exists, parse it and populate the repository

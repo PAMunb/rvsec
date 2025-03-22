@@ -9,11 +9,11 @@ import os
 from typing import List, Set
 
 import rvandroid.util.utils as utils
-from rvandroid.model.classes import (
+from rvandroid.domain.classes import (
     Classes
 )
-from rvandroid.model.widget import WidgetEventType, WidgetEvent, WidgetType, Widget
-from rvandroid.model.window import WindowType, Window, Windows
+from rvandroid.domain.widget import WidgetEventType, WidgetEvent, WidgetType, Widget
+from rvandroid.domain.window import WindowType, Window, Windows
 
 logger = logging.getLogger(__name__)
 

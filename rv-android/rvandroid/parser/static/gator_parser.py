@@ -10,12 +10,12 @@ import re
 from typing import Tuple
 
 import rvandroid.util.utils as utils
-from rvandroid.model.classes import (
+from rvandroid.domain.classes import (
     Classes,
 )
-from rvandroid.model.widget import WidgetEventType, WidgetEvent, WidgetType, Widget
-from rvandroid.model.window import Window, Windows
-from rvandroid.model.wtg import WindowTransition, WindowTransitionGraph
+from rvandroid.domain.widget import WidgetEventType, WidgetEvent, WidgetType, Widget
+from rvandroid.domain.window import Window, Windows
+from rvandroid.domain.wtg import WindowTransition, WindowTransitionGraph
 
 logger = logging.getLogger(__name__)
 

@@ -7,8 +7,8 @@ from contextlib import contextmanager
 from datetime import datetime
 from typing import Dict, Optional, List
 
-from rvandroid.model.coverage import LogcatRepository
-from rvandroid.model.static import StaticAnalysisData
+from rvandroid.domain.coverage import LogcatRepository
+from rvandroid.domain.static import StaticAnalysisData
 from rvandroid.parser.log.logcat_parser import parse_logcat_line
 
 
@@ -66,7 +66,7 @@ class CoverageTracker:
 
             for class_name, class_info in classes.classes.items():
                 # Create class data in repository
-                from rvandroid.model.coverage import ClassCoverageData
+                from rvandroid.domain.coverage import ClassCoverageData
                 class_data = ClassCoverageData(
                     name=class_name,
                     is_activity=class_info.is_activity,
@@ -76,7 +76,7 @@ class CoverageTracker:
 
                 # Add methods to class
                 for method in class_info.methods:
-                    from rvandroid.model.coverage import MethodCoverageData
+                    from rvandroid.domain.coverage import MethodCoverageData
                     method_data = MethodCoverageData(
                         class_name=class_name,
                         method_name=method.name,
@@ -89,7 +89,7 @@ class CoverageTracker:
                     )
                     class_data.add_method(method_data)
 
-                self.logger.info(f"Added class {class_name} with {len(class_info.methods)} methods")
+                self.logger.debug(f"Added class {class_name} with {len(class_info.methods)} methods")
 
             # Log summary
             total_methods = sum(len(class_info.methods) for class_info in classes.classes.values())

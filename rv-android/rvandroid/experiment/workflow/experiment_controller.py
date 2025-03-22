@@ -6,7 +6,7 @@ Coordinates the overall experiment workflow and lifecycle.
 import os
 from typing import List, Optional
 
-from rvandroid.experiment_workflow.workflow_factory import WorkflowFactory
+from rvandroid.experiment.workflow.workflow_factory import WorkflowFactory
 
 from rvandroid.experiment.event_system import EventBus, EventType
 from rvandroid.experiment.task_storage import TaskStorage
@@ -308,4 +308,3 @@ def execute(tools: Optional[List[AbstractTool]] = None):
             no_window=no_window
         )
         logger.info(LoggingManager.LOG_COMPLETE.format(operation="experiment execution"))
-       

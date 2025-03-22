@@ -6,7 +6,7 @@ This module implements the element handler pattern for processing different UI e
 
 from typing import Optional
 
-from rvandroid.model.widget import WidgetEventType
+from rvandroid.domain.widget import WidgetEventType
 from rvandroid.parser.screen.visitor.base_visitor import (
     ElementHandler, UiElementType, ScreenItem, Node, BaseScreenVisitor
 )

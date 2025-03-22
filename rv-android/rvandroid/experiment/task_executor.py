@@ -11,7 +11,7 @@ from rvandroid.experiment.task_components import (
     ToolExecutionComponent
 )
 from rvandroid.experiment.task_model import Task
-from rvandroid.model.coverage import LogcatRepository
+from rvandroid.domain.coverage import LogcatRepository
 from rvandroid.tools.tool_spec import AbstractTool
 from rvandroid.util.error_handler import ErrorHandler, handle_errors
 from rvandroid.util.exceptions import TaskExecutionError

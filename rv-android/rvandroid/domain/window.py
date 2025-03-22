@@ -2,7 +2,7 @@
 from enum import Enum
 from typing import Optional, Dict, Set
 
-from rvandroid.model.widget import Widget
+from rvandroid.domain.widget import Widget
 from rvandroid.util.logging_manager import LoggingManager
 
 

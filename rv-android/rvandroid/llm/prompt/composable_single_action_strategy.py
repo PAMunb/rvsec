@@ -8,7 +8,7 @@ from typing import Dict, Any, Optional, Union
 
 from rvandroid.llm.prompt.composable_prompt_strategy import ComposablePromptStrategy
 from rvandroid.llm.prompt.prompt_template import PromptTemplate, PromptLibrary
-from rvandroid.model.static import StaticAnalysisData
+from rvandroid.domain.static import StaticAnalysisData
 from rvandroid.parser.screen.abstract_parser import AbstractScreenParser
 from rvandroid.parser.screen.parser_factory import ParserType
 

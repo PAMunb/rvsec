@@ -3,10 +3,10 @@ import os
 from typing import Optional
 
 from rvandroid.constants import *
-from rvandroid.model.classes import Classes
-from rvandroid.model.static import StaticAnalysisData
-from rvandroid.model.window import Windows
-from rvandroid.model.wtg import WindowTransitionGraph
+from rvandroid.domain.classes import Classes
+from rvandroid.domain.static import StaticAnalysisData
+from rvandroid.domain.window import Windows
+from rvandroid.domain.wtg import WindowTransitionGraph
 from rvandroid.parser.static import gator_parser, reach_parser, gesda_parser
 from rvandroid.util.logging_manager import LoggingManager
 

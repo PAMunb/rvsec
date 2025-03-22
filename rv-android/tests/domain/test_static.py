@@ -2,10 +2,10 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from rvandroid.model.classes import Classes
-from rvandroid.model.static import StaticAnalysisData
-from rvandroid.model.window import Windows
-from rvandroid.model.wtg import WindowTransitionGraph
+from rvandroid.domain.classes import Classes
+from rvandroid.domain.static import StaticAnalysisData
+from rvandroid.domain.window import Windows
+from rvandroid.domain.wtg import WindowTransitionGraph
 
 
 class TestStaticAnalysisData:

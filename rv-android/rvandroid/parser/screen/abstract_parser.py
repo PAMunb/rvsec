@@ -2,7 +2,7 @@
 from abc import ABC, abstractmethod
 from typing import Dict, Any, Optional, Type
 
-from rvandroid.model.static import StaticAnalysisData
+from rvandroid.domain.static import StaticAnalysisData
 from rvandroid.parser.screen.visitor.base_visitor import ScreenDescription, BaseScreenVisitor, Node
 
 

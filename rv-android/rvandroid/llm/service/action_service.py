@@ -10,7 +10,7 @@ from rvandroid.llm.service.transition_manager import TransitionManager
 
 from rvandroid.config.component_configurator import ComponentConfigurator
 from rvandroid.experiment.event_system import EventBus, EventType
-from rvandroid.model.static import StaticAnalysisData
+from rvandroid.domain.static import StaticAnalysisData
 from rvandroid.util.logging_manager import LoggingManager
 from rvandroid.util.performance_monitor import PerformanceMonitor
 

@@ -8,7 +8,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Dict, List, Optional, Set, Any
 
-from rvandroid.model.log import RvCoverageLog, RvErrorLog
+from rvandroid.domain.log import RvCoverageLog, RvErrorLog
 
 
 @dataclass

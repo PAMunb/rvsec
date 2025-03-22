@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 from unittest.mock import MagicMock, patch
 
 import pytest
-from model.test_framework import ModelTestBase
+from domain.test_framework import ModelTestBase
 
 from rvandroid.experiment.event_system import (
     EventType,

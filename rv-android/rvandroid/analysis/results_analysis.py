@@ -8,7 +8,7 @@ import json
 import os
 from typing import Dict, Any
 
-from rvandroid.model.coverage import LogcatRepository
+from rvandroid.domain.coverage import LogcatRepository
 from rvandroid.util.logging_manager import LoggingManager
 
 

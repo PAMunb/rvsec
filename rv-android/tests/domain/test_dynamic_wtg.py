@@ -4,7 +4,7 @@ from unittest.mock import patch, MagicMock
 import networkx as nx
 import pytest
 
-from rvandroid.model.dynamic_wtg import DynamicTransition, ActivityNode, DynamicTransitionGraph
+from rvandroid.domain.dynamic_wtg import DynamicTransition, ActivityNode, DynamicTransitionGraph
 
 
 class TestDynamicTransition:
@@ -37,7 +37,7 @@ class TestDynamicTransition:
         original_timestamp = sample_transition.timestamp
 
         # Wait to ensure new timestamp is different
-        with patch('rvandroid.model.dynamic_wtg.datetime') as mock_datetime:
+        with patch('rvandroid.domain.dynamic_wtg.datetime') as mock_datetime:
             new_timestamp = original_timestamp + timedelta(seconds=10)
             mock_datetime.now.return_value = new_timestamp
 
@@ -147,7 +147,7 @@ class TestActivityNode:
     def test_record_visit(self, sample_node):
         """Test record_visit method"""
         # First visit
-        with patch('rvandroid.model.dynamic_wtg.datetime') as mock_datetime:
+        with patch('rvandroid.domain.dynamic_wtg.datetime') as mock_datetime:
             first_time = datetime(2023, 1, 1, 12, 0, 0)
             mock_datetime.now.return_value = first_time
 
@@ -158,7 +158,7 @@ class TestActivityNode:
             assert sample_node.last_visit == first_time
 
         # Second visit
-        with patch('rvandroid.model.dynamic_wtg.datetime') as mock_datetime:
+        with patch('rvandroid.domain.dynamic_wtg.datetime') as mock_datetime:
             second_time = datetime(2023, 1, 1, 12, 30, 0)
             mock_datetime.now.return_value = second_time
 
@@ -207,7 +207,7 @@ class TestActivityNode:
     def test_to_dict(self, sample_node):
         """Test to_dict method"""
         # Add visits and tested elements
-        with patch('rvandroid.model.dynamic_wtg.datetime') as mock_datetime:
+        with patch('rvandroid.domain.dynamic_wtg.datetime') as mock_datetime:
             visit_time = datetime(2023, 1, 1, 12, 0, 0)
             mock_datetime.now.return_value = visit_time
 
@@ -563,8 +563,8 @@ class TestDynamicTransitionGraph:
         # Check current activity
         assert graph.current_activity == "com.example.app.SettingsActivity"
 
-    @patch('rvandroid.model.dynamic_wtg.json')
-    @patch('rvandroid.model.dynamic_wtg.os.path.exists')
+    @patch('rvandroid.domain.dynamic_wtg.json')
+    @patch('rvandroid.domain.dynamic_wtg.os.path.exists')
     def test_load_from_file_success(self, mock_exists, mock_json):
         """Test load_from_file method success case"""
         # Mock file existence
@@ -607,7 +607,7 @@ class TestDynamicTransitionGraph:
             assert "com.example.app.MainActivity" in graph.activities
             assert graph.current_activity == "com.example.app.MainActivity"
 
-    @patch('rvandroid.model.dynamic_wtg.os.path.exists')
+    @patch('rvandroid.domain.dynamic_wtg.os.path.exists')
     def test_load_from_file_nonexistent(self, mock_exists):
         """Test load_from_file method with nonexistent file"""
         # Mock file non-existence
@@ -621,7 +621,7 @@ class TestDynamicTransitionGraph:
         # Verify no graph was returned
         assert graph is None
 
-    @patch('rvandroid.model.dynamic_wtg.os.path.exists')
+    @patch('rvandroid.domain.dynamic_wtg.os.path.exists')
     def test_load_from_file_error(self, mock_exists):
         """Test load_from_file method with error during loading"""
         # Mock file existence

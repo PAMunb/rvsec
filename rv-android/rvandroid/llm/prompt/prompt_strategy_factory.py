@@ -9,7 +9,7 @@ from rvandroid.llm.prompt.prompt_strategy_basic_001 import BasicPromptStrategy00
 from rvandroid.llm.prompt.prompt_strategy_dspy import DSPyPromptStrategy
 from rvandroid.llm.prompt.prompt_strategy_frontier import FrontierPromptStrategy
 from rvandroid.llm.prompt.single_action_prompt_strategy import SingleActionPromptStrategy
-from rvandroid.model.static import StaticAnalysisData
+from rvandroid.domain.static import StaticAnalysisData
 from rvandroid.parser.screen.abstract_parser import AbstractScreenParser
 from rvandroid.parser.screen.parser_factory import ParserType, ParserFactory
 

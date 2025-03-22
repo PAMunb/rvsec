@@ -12,7 +12,7 @@ from rvandroid.llm.service.prompt_processor import PromptProcessor
 from rvandroid.llm.service.response_processor import ResponseProcessor
 from rvandroid.llm.service.state_analyzer import StateAnalyzer
 from rvandroid.llm.service.transition_manager import TransitionManager
-from rvandroid.model.static import StaticAnalysisData
+from rvandroid.domain.static import StaticAnalysisData
 from rvandroid.util.logging_manager import LoggingManager
 from rvandroid.util.performance_monitor import PerformanceMonitor
 

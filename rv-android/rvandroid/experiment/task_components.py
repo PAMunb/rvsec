@@ -5,7 +5,7 @@ from rvandroid.analysis.coverage_tracker import CoverageTracker
 from rvandroid.app import App
 from rvandroid.experiment.event_system import EventBus, EventType
 from rvandroid.experiment.task_model import Task
-from rvandroid.model.coverage import LogcatRepository
+from rvandroid.domain.coverage import LogcatRepository
 from rvandroid.parser.static import static_analysis_parser
 from rvandroid.tools.tool_spec import AbstractTool
 from rvandroid.util.emulator_manager import EmulatorManager

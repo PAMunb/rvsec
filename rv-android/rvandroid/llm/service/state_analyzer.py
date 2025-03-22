@@ -2,7 +2,7 @@
 from typing import Dict, List, Any, Optional
 
 from rvandroid.experiment.event_system import EventBus
-from rvandroid.model.static import StaticAnalysisData
+from rvandroid.domain.static import StaticAnalysisData
 from rvandroid.util.logging_manager import LoggingManager
 from rvandroid.util.performance_monitor import PerformanceMonitor
 

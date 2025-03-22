@@ -10,8 +10,8 @@ from argparse import Namespace
 from rvandroid.config.configuration import Configuration
 from rvandroid.config.configuration_manager import ConfigurationManager
 from rvandroid.constants import *
-from rvandroid.experiment_workflow.experiment_controller import ExperimentController
-from rvandroid.experiment_workflow.experiment_controller import execute as experiment_execute
+from rvandroid.experiment.workflow.experiment_controller import ExperimentController
+from rvandroid.experiment.workflow.experiment_controller import execute as experiment_execute
 from rvandroid.tools.registry import ToolRegistry
 from rvandroid.tools.tool_spec import AbstractTool
 from rvandroid.util import utils
@@ -274,16 +274,16 @@ def run_local():
 
     # Set configuration values
     config.set("repetitions", 1)
-    config.set("timeouts", [60, 120])
-    config.set("generate_monitors", True)
-    config.set("instrument", True)
-    config.set("static_analysis", True)
+    config.set("timeouts", [60])
+    config.set("generate_monitors", False)
+    config.set("instrument", False)
+    config.set("static_analysis", False)
     config.set("skip_experiment", False)
     config.set("no_window", True)
     config.set("memory_file", "")
 
     # Get selected tools as objects
-    selected_tool_objects = __get_tools(["ape", "monkey"])
+    selected_tool_objects = __get_tools(["ape"])
 
     # Log explicitly for the selected tools
     logger.info(f"Selected tools for local experiment: {[tool.name for tool in selected_tool_objects]}")

@@ -1,8 +1,8 @@
 # tests/model/test_window.py
 import pytest
 
-from rvandroid.model.widget import Widget, WidgetType
-from rvandroid.model.window import Window, Windows, WindowType
+from rvandroid.domain.widget import Widget, WidgetType
+from rvandroid.domain.window import Window, Windows, WindowType
 from .test_framework import ModelTestBase
 
 

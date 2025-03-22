@@ -2,7 +2,7 @@
 import logging
 from typing import Dict, Any, Optional, Type
 
-from rvandroid.model.static import StaticAnalysisData
+from rvandroid.domain.static import StaticAnalysisData
 from rvandroid.parser.screen.abstract_parser import AbstractScreenParser
 from rvandroid.parser.screen.visitor.base_visitor import ScreenDescription, Node, BaseScreenVisitor
 

@@ -4,7 +4,7 @@ from unittest.mock import MagicMock, patch, ANY
 
 from rvandroid.config.component_configurator import ComponentConfigurator
 from rvandroid.llm.service.action_generator import ActionGenerator
-from rvandroid.model.static import StaticAnalysisData
+from rvandroid.domain.static import StaticAnalysisData
 from rvandroid.parser.screen.abstract_parser import AbstractScreenParser
 from rvandroid.util.logging_manager import LoggingManager
 from rvandroid.util.performance_monitor import PerformanceMonitor

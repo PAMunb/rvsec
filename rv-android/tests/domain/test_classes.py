@@ -1,5 +1,5 @@
 import pytest
-from rvandroid.model.classes import Method, Clazz, Classes
+from rvandroid.domain.classes import Method, Clazz, Classes
 
 @pytest.fixture
 def sample_method():
