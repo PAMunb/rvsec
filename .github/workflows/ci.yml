@@ -57,9 +57,15 @@ jobs:
           black --check --diff rvandroid || true          
         working-directory: rv-android
       
+      - name: Create coverage config
+        run: |
+          echo "[run]" > .coveragerc
+          echo "omit = rvandroid/tools/qtesting/src/*" >> .coveragerc
+        working-directory: rv-android
+      
       - name: Run Python tests with coverage
         run: |
-          PYTHONPATH=. pytest --cov=rvandroid --cov-report=xml --cov-report=html --cov-report=term --cov-branch --omit="rvandroid/tools/qtesting/src/*" .
+          PYTHONPATH=. pytest --cov=rvandroid --cov-report=xml --cov-report=html --cov-report=term --cov-branch .
         working-directory: rv-android
       
       - name: Upload coverage reports
