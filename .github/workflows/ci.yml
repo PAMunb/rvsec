@@ -30,6 +30,7 @@ jobs:
       
       - name: Install Python dependencies
         run: |
+          pip install uiautomator2
           pip install -r requirements.txt
           pip install pytest-cov flake8 pylint mypy bandit black safety
         working-directory: rv-android
