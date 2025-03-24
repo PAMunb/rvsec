@@ -3,6 +3,7 @@
 Main experiment controller for RV-Android.
 Coordinates the overall experiment workflow and lifecycle.
 """
+import json
 import os
 from typing import List, Optional
 
@@ -217,7 +218,7 @@ class ExperimentController:
 
     def _resume_from_memory(self, memory_file: str):
         """
-        Resume an experiment from a memory file.
+        Resume an experiment from a memory file with enhanced error handling.
 
         Args:
             memory_file: Path to the memory file
@@ -232,11 +233,36 @@ class ExperimentController:
 
             # Copy task storage to our results directory
             self.logger.info(f"Resuming experiment from memory file: {memory_file}")
-            self.task_storage = TaskStorage(memory_file)
-            self.task_storage.load()
 
-            # Update components with new task storage
-            self.execution_controller.update_storage(self.task_storage)
+            try:
+                # Create a new task storage instance with the memory file
+                self.task_storage = TaskStorage(memory_file)
+
+                # Attempt to load tasks, handling potential errors
+                load_success = self.task_storage.load()
+
+                if not load_success:
+                    self.logger.error(LOG_ERROR.format(
+                        operation="loading memory file",
+                        error=f"Failed to load tasks from {memory_file}"
+                    ))
+                    return
+
+                # Update components with new task storage
+                self.execution_controller.update_storage(self.task_storage)
+
+                self.logger.info(f"Successfully resumed experiment with {len(self.task_storage.get_tasks())} tasks")
+
+            except json.JSONDecodeError as e:
+                self.logger.error(LOG_ERROR.format(
+                    operation="parsing memory file",
+                    error=f"Memory file contains invalid JSON: {e}"
+                ))
+            except Exception as e:
+                self.logger.error(LOG_ERROR.format(
+                    operation="resuming from memory file",
+                    error=str(e)
+                ))
 
 
 def execute(tools: Optional[List[AbstractTool]] = None):
