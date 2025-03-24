@@ -240,6 +240,8 @@ class StateAnalyzer:
             return
 
         activity = state.get("activity", "unknown")
+        activity = activity.replace("/", "")
+        print(f"************* activity: {activity}")
 
         # Create insights container
         if "static_insights" not in state:
@@ -249,6 +251,7 @@ class StateAnalyzer:
 
         # Get activity class data if available
         activity_class = self.static_data.classes.get_clazz(activity)
+        print(f"************* activity_class: {activity_class}")
         if activity_class:
             # Count methods with different properties
             reachable_methods = [m for m in activity_class.methods if m.reachable]

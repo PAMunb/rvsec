@@ -149,6 +149,7 @@ class Server:
                     return jsonify({"error": "No state data provided"}), 400
 
                 self.logger.info(f"Received request for app: {data.get('package_name')}")
+                print(f"********************* DATA: {data}")
 
                 # Add request timestamp and handling info
                 self.logger.info(f"State has activity: {data.get('activity')}")

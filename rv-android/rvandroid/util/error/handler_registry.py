@@ -1,6 +1,5 @@
-# rvandroid/util/error/handler_registry.py
-from typing import Dict, List, Callable, Type, Optional
 import logging
+from typing import Dict, List, Callable, Type, Optional
 
 
 class HandlerRegistry:
@@ -12,14 +11,10 @@ class HandlerRegistry:
     - Separates handler registration from error processing logic
     - Implements a type-based lookup system with inheritance support
     - Provides a clean interface for handler management
-
-    ### Role in the System:
-    - Maintains a catalog of error handlers by exception type
-    - Supports handler lookup based on exception type hierarchy
-    - Enables extensible error handling strategies
     """
 
     def __init__(self):
+        """Initialize the handler registry."""
         self.logger = logging.getLogger(__name__)
         self._registry: Dict[Type[Exception], List[Callable]] = {}
 
@@ -35,9 +30,9 @@ class HandlerRegistry:
         if error_type not in self._registry:
             self._registry[error_type] = []
 
+        # Prevent duplicate handlers
         if handler not in self._registry[error_type]:
             self._registry[error_type].append(handler)
-            self.logger.debug(f"Registered handler for {error_type.__name__}")
 
     def find_handlers(self, error_type: Type[Exception]) -> List[Callable]:
         """
@@ -51,14 +46,10 @@ class HandlerRegistry:
         """
         handlers = []
 
-        # Check for handlers for this specific type
-        if error_type in self._registry:
-            handlers.extend(self._registry[error_type])
-
-        # Also check for parent class handlers (inheritance hierarchy)
+        # Check inheritance hierarchy from most specific to most general
         for registered_type, type_handlers in self._registry.items():
-            if error_type != registered_type and issubclass(error_type, registered_type):
+            # Check if the error type is the exact registered type or a subclass
+            if error_type == registered_type or issubclass(error_type, registered_type):
                 handlers.extend(type_handlers)
 
         return handlers
-   

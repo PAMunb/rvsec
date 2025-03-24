@@ -14,7 +14,7 @@ from rvandroid.server import Server
 from rvandroid.parser.static import static_analysis_parser
 from rvandroid.config.component_configurator import ComponentConfigurator
 from rvandroid.llm.huggingface_llm import HuggingFaceLLM
-from rvandroid.service.llm_action_service import LLMActionService
+from rvandroid.llm.service.action_service import LLMActionService
 
 
 def parse_arguments():

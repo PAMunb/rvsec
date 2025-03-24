@@ -1,7 +1,4 @@
 # rvandroid/analysis/coverage/tracker.py
-"""
-Coverage tracking module for monitoring method execution.
-"""
 import os
 import threading
 import time
@@ -71,6 +68,16 @@ class CoverageTracker:
         self.last_update_time = datetime.now()
         self.total_errors = 0
         self.total_method_calls = 0
+
+        # Track previous metrics for change detection
+        self._previous_metrics = {
+            "method_coverage": 0.0,
+            "activity_coverage": 0.0,
+            "mop_method_coverage": 0.0,
+            "called_methods": 0,
+            "total_activities": 0,
+            "unique_errors": 0
+        }
 
         # Initialize repository with static data
         if static_data and static_data.classes:
@@ -264,8 +271,8 @@ class CoverageTracker:
             if error_log:
                 self.repository.register_error(error_log)
                 self.total_errors += 1
-                self.logger.debug(
-                    f"Tracked formal property violation in {error_log.class_full_name}.{error_log.method}"
+                self.logger.info(
+                    f"Tracked formal property violation in {error_log.class_full_name}.{error_log.method}: {error_log.message}"
                 )
 
             elif coverage_log:
@@ -279,34 +286,47 @@ class CoverageTracker:
             self.logger.error(f"Error processing logcat line: {e}", exc_info=True)
 
     def _update_coverage_metrics(self) -> None:
-        """Update coverage metrics and publish events."""
+        """Update coverage metrics and publish events only when metrics change."""
         try:
-            # Get metrics from repository
-            metrics = self.repository.get_metrics()
+            # Get repository for metrics calculation
+            metrics = self.repository.calculate_metrics()
 
-            # Publish metrics update event
-            self.event_bus.publish_analysis_event(
-                EventType.COVERAGE_UPDATED,
-                data={
-                    "method_coverage": metrics["method_coverage"],
-                    "activity_coverage": metrics["activity_coverage"],
-                    "mop_method_coverage": metrics["mop_method_coverage"],
-                    "called_methods": metrics["called_methods"],
-                    "total_methods": metrics["total_methods"],
-                    "called_activities": metrics["called_activities"],
-                    "total_activities": metrics["total_activities"],
-                    "unique_errors": metrics["unique_errors"]
-                },
-                source="CoverageTracker"
-            )
+            # Extract metrics from the metrics object
+            current_metrics = {
+                "method_coverage": metrics.to_dict().get("method_coverage", 0.0),
+                "activity_coverage": metrics.to_dict().get("activity_coverage", 0.0),
+                "mop_method_coverage": metrics.to_dict().get("mop_method_coverage", 0.0),
+                "called_methods": metrics.called_methods,
+                "total_activities": metrics.total_activities,
+                "unique_errors": metrics.unique_errors
+            }
 
-            # Log update if significant changes occurred
-            self.logger.info(
-                f"Coverage update - Methods: {metrics['method_coverage']:.2f}%, "
-                f"Activities: {metrics['activity_coverage']:.2f}%, "
-                f"MOP Methods: {metrics['mop_method_coverage']:.2f}%, "
-                f"Called methods: {metrics['called_methods']}"
-            )
+            # Check if any metrics have changed
+            changed = False
+            for key, value in current_metrics.items():
+                if self._previous_metrics.get(key) != value:
+                    changed = True
+                    break
+
+            # Only log and publish events if metrics have changed
+            if changed:
+                # Update previous metrics
+                self._previous_metrics = current_metrics.copy()
+
+                # Publish metrics update event
+                self.event_bus.publish_analysis_event(
+                    EventType.COVERAGE_UPDATED,
+                    data=current_metrics,
+                    source="CoverageTracker"
+                )
+
+                # Log update since changes occurred
+                self.logger.info(
+                    f"Coverage update - Methods: {current_metrics['method_coverage']:.2f}%, "
+                    f"Activities: {current_metrics['activity_coverage']:.2f}%, "
+                    f"MOP Methods: {current_metrics['mop_method_coverage']:.2f}%, "
+                    f"Called methods: {current_metrics['called_methods']}"
+                )
 
         except Exception as e:
             self.logger.error(f"Error updating coverage metrics: {e}", exc_info=True)

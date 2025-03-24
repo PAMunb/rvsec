@@ -255,3 +255,20 @@ class ResultsProcessor:
 
             # Return empty repository
             return LogcatRepository()
+
+
+def process_results(results_dir: str) -> Dict[str, Any]:
+    """
+    Process experiment results from a directory.
+
+    This is a convenience function that creates a ResultsProcessor instance
+    and calls its process_results method.
+
+    Args:
+        results_dir: Directory containing results
+
+    Returns:
+        Dictionary with processed results
+    """
+    processor = ResultsProcessor()
+    return processor.process_results(results_dir)

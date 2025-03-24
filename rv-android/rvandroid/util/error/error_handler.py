@@ -222,4 +222,3 @@ class ErrorHandler:
         self._error_counts = {}
         self._error_history = []
         self._recovery_attempts = {}
-       
