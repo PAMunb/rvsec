@@ -3,7 +3,7 @@ from enum import Enum
 from typing import Optional, Dict, Set
 
 from rvandroid.domain.widget import Widget
-from rvandroid.util.logging_manager import LoggingManager
+from rvandroid.util.logging.manager import LoggingManager
 
 
 class WindowType(Enum):

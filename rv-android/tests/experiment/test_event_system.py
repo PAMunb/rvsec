@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from domain.test_framework import ModelTestBase
 
-from rvandroid.experiment.event_system import (
+from rvandroid.experiment.event.bus import (
     EventType,
     Event,
     TaskEvent,

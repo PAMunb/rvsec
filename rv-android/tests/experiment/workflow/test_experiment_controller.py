@@ -3,8 +3,8 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from rvandroid.experiment.event_system import EventBus, EventType
-from rvandroid.experiment.task_storage import TaskStorage
+from rvandroid.experiment.event.bus import EventBus, EventType
+from rvandroid.experiment.task.task_storage import TaskStorage
 from rvandroid.experiment.workflow.execution_controller import ExecutionController
 from rvandroid.experiment.workflow.experiment_controller import ExperimentController
 from rvandroid.experiment.workflow.post_processor import PostProcessor

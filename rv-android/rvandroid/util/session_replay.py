@@ -19,7 +19,7 @@ class ActionReplay:
             log_dir: Directory containing session logs (optional)
         """
         # Import here to avoid circular imports
-        from rvandroid.util.logging_manager import LoggingManager
+        from rvandroid.util.logging.manager import LoggingManager
         self.logger = LoggingManager.get_instance().get_logger('session_replay')
         self.log_dir = log_dir
 

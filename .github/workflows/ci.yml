@@ -32,7 +32,7 @@ jobs:
         run: |
           pip install -r requirements.txt
           pip install pytest-cov flake8 pylint mypy bandit black safety
-        working-directory: rvandroid
+        working-directory: rv-android
       
       - name: Run code quality checks (informational)
         continue-on-error: true
@@ -62,7 +62,7 @@ jobs:
       - name: Run Python tests with coverage
         run: |
           PYTHONPATH=. pytest --cov=rvandroid --cov-report=xml --cov-report=html --cov-report=term --cov-branch --ignore=rvandroid/tools/qtesting/src
-        working-directory: rvandroid
+        working-directory: rv-android
       
       - name: Upload coverage reports
         uses: actions/upload-artifact@v4

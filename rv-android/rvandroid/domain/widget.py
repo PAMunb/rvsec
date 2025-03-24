@@ -2,7 +2,7 @@
 from enum import Enum
 from typing import List, Set
 
-from rvandroid.util.logging_manager import LoggingManager
+from rvandroid.util.logging.manager import LoggingManager
 
 
 class WidgetEventType(Enum):

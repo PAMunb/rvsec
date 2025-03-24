@@ -5,7 +5,8 @@ from typing import Optional
 from rvandroid.android import Android
 from rvandroid.commands.command import Command
 from rvandroid.util.exceptions import EmulatorError
-from rvandroid.util.logging_manager import LoggingManager
+from rvandroid.util.logging.constants import CONTEXT_COMPONENT, LOG_START, LOG_COMPLETE, LOG_ERROR
+from rvandroid.util.logging.manager import LoggingManager
 
 
 class EmulatorManager:
@@ -29,7 +30,7 @@ class EmulatorManager:
         logging_manager = LoggingManager.get_instance()
         self.logger = logging_manager.get_logger(
             "util.emulator_manager",
-            {LoggingManager.CONTEXT_COMPONENT: "EmulatorManager"}
+            {CONTEXT_COMPONENT: "EmulatorManager"}
         )
 
         self.android: Optional[Android] = None
@@ -51,21 +52,21 @@ class EmulatorManager:
             EmulatorError: If emulator fails to start
         """
         with self.logger.with_context(avd_name=avd_name, no_window=no_window, phase="startup"):
-            self.logger.info(LoggingManager.LOG_START.format(operation=f"emulator: {avd_name}"))
+            self.logger.info(LOG_START.format(operation=f"emulator: {avd_name}"))
             self.android = Android()
 
             try:
                 # Start the emulator
                 self.android.start_emulator(avd_name, no_window)
                 self._active_emulators.add(avd_name)
-                self.logger.info(LoggingManager.LOG_COMPLETE.format(
+                self.logger.info(LOG_COMPLETE.format(
                     operation=f"emulator {avd_name} startup"
                 ))
 
                 yield self.android
 
             except Exception as e:
-                self.logger.error(LoggingManager.LOG_ERROR.format(
+                self.logger.error(LOG_ERROR.format(
                     operation=f"starting emulator {avd_name}",
                     error=str(e)
                 ))
@@ -80,7 +81,7 @@ class EmulatorManager:
                             self.android.kill_emulator(avd_name)
                             self._active_emulators.remove(avd_name)
                     except Exception as e:
-                        self.logger.warning(LoggingManager.LOG_ERROR.format(
+                        self.logger.warning(LOG_ERROR.format(
                             operation=f"shutting down emulator {avd_name}",
                             error=str(e)
                         ))
@@ -94,7 +95,7 @@ class EmulatorManager:
                 self.logger.debug("Cleared logcat buffer")
                 return True
             except Exception as e:
-                self.logger.warning(LoggingManager.LOG_ERROR.format(
+                self.logger.warning(LOG_ERROR.format(
                     operation="clearing logcat",
                     error=str(e)
                 ))
@@ -127,13 +128,13 @@ class EmulatorManager:
                 else:
                     self.android.install_apk(app)
 
-                self.logger.info(LoggingManager.LOG_COMPLETE.format(
+                self.logger.info(LOG_COMPLETE.format(
                     operation=f"installation of app: {app.name}"
                 ))
                 return True
 
             except Exception as e:
-                self.logger.error(LoggingManager.LOG_ERROR.format(
+                self.logger.error(LOG_ERROR.format(
                     operation=f"installing app {app.name}",
                     error=str(e)
                 ))

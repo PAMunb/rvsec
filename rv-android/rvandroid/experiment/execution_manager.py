@@ -12,10 +12,10 @@ from typing import List, Dict, Any, Optional
 
 from rvandroid.app import App
 from rvandroid.constants import EXTENSION_REACH, EXTENSION_GATOR, EXTENSION_GESDA, EXTENSION_METHODS
-from rvandroid.experiment.event_system import EventBus, EventType
-from rvandroid.experiment.task_executor import TaskExecutor
-from rvandroid.experiment.task_model import Task, TaskConfiguration, TaskStatus
-from rvandroid.experiment.task_storage import TaskStorage
+from rvandroid.experiment.event.bus import EventBus, EventType
+from rvandroid.experiment.task.task_executor import TaskExecutor
+from rvandroid.experiment.task.task_model import Task, TaskConfiguration, TaskStatus
+from rvandroid.experiment.task.task_storage import TaskStorage
 from rvandroid.tools.tool_spec import AbstractTool
 from settings import INSTRUMENTED_DIR
 

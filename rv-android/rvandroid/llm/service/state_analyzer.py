@@ -1,9 +1,10 @@
 # rvandroid/llm/service/state_analyzer.py
 from typing import Dict, List, Any, Optional
 
-from rvandroid.experiment.event_system import EventBus
+from rvandroid.experiment.event.bus import EventBus
 from rvandroid.domain.static import StaticAnalysisData
-from rvandroid.util.logging_manager import LoggingManager
+from rvandroid.util.logging.constants import CONTEXT_COMPONENT
+from rvandroid.util.logging.manager import LoggingManager
 from rvandroid.util.performance_monitor import PerformanceMonitor
 
 
@@ -39,7 +40,7 @@ class StateAnalyzer:
         # Configure logging
         self.logger = logging_manager.get_logger(
             "llm.service.state_analyzer",
-            {LoggingManager.CONTEXT_COMPONENT: "StateAnalyzer"}
+            {CONTEXT_COMPONENT: "StateAnalyzer"}
         )
 
         # Store configuration

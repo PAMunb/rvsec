@@ -1,7 +1,7 @@
 # classes.py
 from typing import Optional, Set, Dict, List
 
-from rvandroid.util.logging_manager import LoggingManager
+from rvandroid.util.logging.manager import LoggingManager
 
 
 class Method:

@@ -11,10 +11,11 @@ from rvandroid.constants import (
     EXTENSION_APK, EXTENSION_REACH, EXTENSION_GATOR,
     EXTENSION_GESDA
 )
-from rvandroid.experiment.event_system import EventBus, EventType
+from rvandroid.experiment.event.bus import EventBus, EventType
 from rvandroid.rvandroid import RvAndroid
 from rvandroid.rvsec import RVSec
-from rvandroid.util.logging_manager import LoggingManager
+from rvandroid.util.logging.constants import LOG_START, CONTEXT_COMPONENT, LOG_COMPLETE, LOG_ERROR
+from rvandroid.util.logging.manager import LoggingManager
 from settings import INSTRUMENTED_DIR
 
 
@@ -51,7 +52,7 @@ class PreProcessor:
         self.logger = self.logging_manager.get_logger(
             'experiment_workflow.pre_processor',
             {
-                LoggingManager.CONTEXT_COMPONENT: 'PreProcessor'
+                CONTEXT_COMPONENT: 'PreProcessor'
             }
         )
 
@@ -65,7 +66,7 @@ class PreProcessor:
             static_analysis: Whether to perform static analysis
         """
         with self.logger.with_context(phase="pre_processing"):
-            self.logger.info(LoggingManager.LOG_START.format(operation="APK pre-processing"))
+            self.logger.info(LOG_START.format(operation="APK pre-processing"))
 
             # Generate monitors if requested
             if generate_monitors:
@@ -79,15 +80,15 @@ class PreProcessor:
             if static_analysis:
                 self._run_static_analysis()
 
-            self.logger.info(LoggingManager.LOG_COMPLETE.format(operation="APK pre-processing"))
+            self.logger.info(LOG_COMPLETE.format(operation="APK pre-processing"))
 
     def _generate_monitors(self):
         """Generate runtime verification monitors using JavaMOP and RV-Monitor."""
         with self.logger.with_context(phase="generate_monitors"):
-            self.logger.info(LoggingManager.LOG_START.format(operation="monitor generation"))
+            self.logger.info(LOG_START.format(operation="monitor generation"))
             rvsec = RVSec()
             rvsec.generate_monitors()
-            self.logger.info(LoggingManager.LOG_COMPLETE.format(operation="monitor generation"))
+            self.logger.info(LOG_COMPLETE.format(operation="monitor generation"))
 
             # Publish event for monitor generation completion
             self.event_bus.publish_experiment_event(
@@ -100,10 +101,10 @@ class PreProcessor:
     def _instrument_apks(self):
         """Instrument APKs with runtime verification monitors."""
         with self.logger.with_context(phase="instrument_apks"):
-            self.logger.info(LoggingManager.LOG_START.format(operation="APK instrumentation"))
+            self.logger.info(LOG_START.format(operation="APK instrumentation"))
             rvandroid = RvAndroid()
             rvandroid.instrument_apks(results_dir=INSTRUMENTED_DIR)
-            self.logger.info(LoggingManager.LOG_COMPLETE.format(operation="APK instrumentation"))
+            self.logger.info(LOG_COMPLETE.format(operation="APK instrumentation"))
 
             # Publish event for instrumentation completion
             self.event_bus.publish_experiment_event(
@@ -118,7 +119,7 @@ class PreProcessor:
         import rvandroid.analysis.static_analysis as static
 
         with self.logger.with_context(phase="static_analysis"):
-            self.logger.info(LoggingManager.LOG_START.format(operation="static analysis"))
+            self.logger.info(LOG_START.format(operation="static analysis"))
 
             instrumented_apks = []
             for file in os.listdir(INSTRUMENTED_DIR):
@@ -136,7 +137,7 @@ class PreProcessor:
 
                 with self.logger.with_context(app_name=app.name):
                     try:
-                        self.logger.info(LoggingManager.LOG_START.format(
+                        self.logger.info(LOG_START.format(
                             operation=f"static analysis for {app.name}"
                         ))
                         static.run_static_analysis(app, gesda_file, gator_file, reach_file)
@@ -145,16 +146,16 @@ class PreProcessor:
                             data={"app_name": app.name},
                             source="PreProcessor"
                         )
-                        self.logger.info(LoggingManager.LOG_COMPLETE.format(
+                        self.logger.info(LOG_COMPLETE.format(
                             operation=f"static analysis for {app.name}"
                         ))
                     except Exception as e:
-                        self.logger.error(LoggingManager.LOG_ERROR.format(
+                        self.logger.error(LOG_ERROR.format(
                             operation=f"static analysis for {app.name}",
                             error=str(e)
                         ))
 
-            self.logger.info(LoggingManager.LOG_COMPLETE.format(operation="static analysis"))
+            self.logger.info(LOG_COMPLETE.format(operation="static analysis"))
 
     def get_instrumented_apks(self) -> List[App]:
         """
@@ -178,4 +179,3 @@ class PreProcessor:
                         ))
 
             return apks
-       

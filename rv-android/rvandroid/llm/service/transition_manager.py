@@ -1,9 +1,10 @@
 # rvandroid/llm/service/transition_manager.py
 from typing import Dict, List, Any
 
-from rvandroid.experiment.event_system import EventBus
+from rvandroid.experiment.event.bus import EventBus
 from rvandroid.domain.dynamic_wtg import DynamicTransitionGraph
-from rvandroid.util.logging_manager import LoggingManager
+from rvandroid.util.logging.constants import CONTEXT_COMPONENT
+from rvandroid.util.logging.manager import LoggingManager
 from rvandroid.util.performance_monitor import PerformanceMonitor
 
 
@@ -39,7 +40,7 @@ class TransitionManager:
         # Configure logging
         self.logger = logging_manager.get_logger(
             "llm.service.transition_manager",
-            {LoggingManager.CONTEXT_COMPONENT: "TransitionManager"}
+            {CONTEXT_COMPONENT: "TransitionManager"}
         )
 
         # Initialize dynamic transition graph or load from file

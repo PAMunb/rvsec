@@ -9,9 +9,10 @@ from rvandroid.llm.service.state_analyzer import StateAnalyzer
 from rvandroid.llm.service.transition_manager import TransitionManager
 
 from rvandroid.config.component_configurator import ComponentConfigurator
-from rvandroid.experiment.event_system import EventBus, EventType
+from rvandroid.experiment.event.bus import EventBus, EventType
 from rvandroid.domain.static import StaticAnalysisData
-from rvandroid.util.logging_manager import LoggingManager
+from rvandroid.util.logging.constants import CONTEXT_COMPONENT
+from rvandroid.util.logging.manager import LoggingManager
 from rvandroid.util.performance_monitor import PerformanceMonitor
 
 
@@ -62,7 +63,7 @@ class LLMActionService:
         self.logger = logging_manager.get_logger(
             "llm.action_service",
             {
-                LoggingManager.CONTEXT_COMPONENT: "LLMActionService"
+                CONTEXT_COMPONENT: "LLMActionService"
             }
         )
 

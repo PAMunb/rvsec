@@ -6,12 +6,12 @@ Coordinates the overall experiment workflow and lifecycle.
 import os
 from typing import List, Optional
 
+from rvandroid.experiment.event.bus import EventBus, EventType
+from rvandroid.experiment.task.task_storage import TaskStorage
 from rvandroid.experiment.workflow.workflow_factory import WorkflowFactory
-
-from rvandroid.experiment.event_system import EventBus, EventType
-from rvandroid.experiment.task_storage import TaskStorage
 from rvandroid.tools.tool_spec import AbstractTool
-from rvandroid.util.logging_manager import LoggingManager
+from rvandroid.util.logging.constants import CONTEXT_COMPONENT, LOG_START, LOG_COMPLETE, LOG_ERROR
+from rvandroid.util.logging.manager import LoggingManager
 from settings import TIMESTAMP, RESULTS_DIR
 
 
@@ -47,7 +47,7 @@ class ExperimentController:
             'experiment_workflow.controller',
             {
                 'experiment_id': self.experiment_id,
-                LoggingManager.CONTEXT_COMPONENT: 'ExperimentController'
+                CONTEXT_COMPONENT: 'ExperimentController'
             }
         )
 
@@ -91,14 +91,14 @@ class ExperimentController:
         def on_experiment_started(event):
             """Handle experiment start events"""
             with self.logger.with_context(phase="experiment_start"):
-                self.logger.info(LoggingManager.LOG_START.format(
+                self.logger.info(LOG_START.format(
                     operation=f"Experiment {event.experiment_id}"
                 ))
 
         def on_experiment_completed(event):
             """Handle experiment completion events"""
             with self.logger.with_context(phase="experiment_completion"):
-                self.logger.info(LoggingManager.LOG_COMPLETE.format(
+                self.logger.info(LOG_COMPLETE.format(
                     operation=f"Experiment {event.experiment_id}"
                 ))
 
@@ -109,7 +109,7 @@ class ExperimentController:
                     phase="task_start",
                     **event.task_config
             ):
-                self.logger.info(LoggingManager.LOG_START.format(
+                self.logger.info(LOG_START.format(
                     operation=f"Task {event.task_id} ({event.task_config.get('apk_name')}, "
                               f"{event.task_config.get('tool_name')})"
                 ))
@@ -121,7 +121,7 @@ class ExperimentController:
                     phase="task_failure",
                     error=event.details.get('error', 'Unknown error')
             ):
-                self.logger.error(LoggingManager.LOG_ERROR.format(
+                self.logger.error(LOG_ERROR.format(
                     operation=f"Task {event.task_id}",
                     error=event.details.get('error', 'Unknown error')
                 ))
@@ -164,7 +164,7 @@ class ExperimentController:
                 no_window=no_window,
                 phase="execute"
         ):
-            self.logger.info(LoggingManager.LOG_START.format(operation="Experiment"))
+            self.logger.info(LOG_START.format(operation="Experiment"))
 
             # Publish experiment started event
             self.event_bus.publish_experiment_event(
@@ -213,7 +213,7 @@ class ExperimentController:
                 source="ExperimentController"
             )
 
-            self.logger.info(LoggingManager.LOG_COMPLETE.format(operation="Experiment"))
+            self.logger.info(LOG_COMPLETE.format(operation="Experiment"))
 
     def _resume_from_memory(self, memory_file: str):
         """
@@ -224,7 +224,7 @@ class ExperimentController:
         """
         with self.logger.with_context(phase="resume_from_memory"):
             if not os.path.exists(memory_file):
-                self.logger.error(LoggingManager.LOG_ERROR.format(
+                self.logger.error(LOG_ERROR.format(
                     operation="finding memory file",
                     error=f"Memory file not found: {memory_file}"
                 ))
@@ -294,7 +294,7 @@ def execute(tools: Optional[List[AbstractTool]] = None):
 
     # Create experiment controller and execute
     with logger.with_context(phase="experiment_execution"):
-        logger.info(LoggingManager.LOG_START.format(operation="experiment execution"))
+        logger.info(LOG_START.format(operation="experiment execution"))
         experiment = ExperimentController()
         experiment.execute(
             repetitions=repetitions,
@@ -307,4 +307,4 @@ def execute(tools: Optional[List[AbstractTool]] = None):
             skip_experiment=skip_experiment,
             no_window=no_window
         )
-        logger.info(LoggingManager.LOG_COMPLETE.format(operation="experiment execution"))
+        logger.info(LOG_COMPLETE.format(operation="experiment execution"))

@@ -2,9 +2,10 @@
 from typing import Dict, List, Any, Optional, Tuple
 
 from rvandroid.config.component_configurator import ComponentConfigurator
-from rvandroid.experiment.event_system import EventBus
+from rvandroid.experiment.event.bus import EventBus
 from rvandroid.domain.static import StaticAnalysisData
-from rvandroid.util.logging_manager import LoggingManager
+from rvandroid.util.logging.constants import CONTEXT_COMPONENT
+from rvandroid.util.logging.manager import LoggingManager
 from rvandroid.util.performance_monitor import PerformanceMonitor
 
 
@@ -41,7 +42,7 @@ class ActionGenerator:
         # Configure logging
         self.logger = logging_manager.get_logger(
             "llm.service.action_generator",
-            {LoggingManager.CONTEXT_COMPONENT: "ActionGenerator"}
+            {CONTEXT_COMPONENT: "ActionGenerator"}
         )
 
         # Store configuration

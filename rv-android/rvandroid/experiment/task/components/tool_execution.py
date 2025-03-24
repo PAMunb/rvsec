@@ -1,0 +1,124 @@
+# rvandroid/experiment/components/tool_execution.py
+from typing import Optional
+
+from rvandroid.experiment.event.bus import EventBus, EventType
+from rvandroid.experiment.task.task_model import Task
+from rvandroid.tools.tool_spec import AbstractTool
+from rvandroid.util.error.error_handler import ErrorHandler
+from rvandroid.util.exceptions import ToolError
+from rvandroid.util.logging.constants import CONTEXT_TASK_ID, CONTEXT_APP_NAME, CONTEXT_TOOL_NAME, CONTEXT_COMPONENT, \
+    LOG_START, LOG_COMPLETE, LOG_ERROR
+from rvandroid.util.logging.manager import LoggingManager
+
+
+class ToolExecutionComponent:
+    """
+    Component responsible for managing tool execution.
+    Handles tool invocation and result processing.
+
+    ### Architectural Decisions:
+    - Encapsulates tool execution functionality
+    - Implements clear separation of concerns for task execution
+    - Provides focused error handling for tool operations
+
+    ### Role in the System:
+    - Manages testing tool execution during tasks
+    - Reports tool events to the event system
+    - Ensures proper process cleanup after execution
+    """
+
+    def __init__(self, task: Task, tool: AbstractTool, event_bus: Optional[EventBus] = None):
+        """Initialize with task, tool, and optional event bus."""
+        self.task = task
+        self.tool = tool
+        self.event_bus = event_bus or EventBus.get_instance()
+        self.error_handler = ErrorHandler.get_instance()
+
+        # Set up standardized logger with proper context
+        logging_manager = LoggingManager.get_instance()
+        self.logger = logging_manager.get_logger(
+            'experiment.components.tool_execution',
+            {
+                CONTEXT_TASK_ID: task.id,
+                CONTEXT_APP_NAME: task.config.apk_name,
+                CONTEXT_TOOL_NAME: tool.name,
+                CONTEXT_COMPONENT: 'ToolExecutionComponent'
+            }
+        )
+
+    def execute_tool(self) -> bool:
+        """
+        Execute the tool on the current task.
+
+        Returns:
+            Success status
+        """
+        with self.logger.with_context(phase="execute_tool"):
+            try:
+                self.logger.info(LOG_START.format(operation=f"tool: {self.tool.name}"))
+
+                # Publish tool started event
+                if self.event_bus:
+                    self.event_bus.publish_task_event(
+                        EventType.TOOL_STARTED,
+                        task_id=self.task.id,
+                        details={"tool_name": self.tool.name},
+                        source="ToolExecutionComponent"
+                    )
+
+                # Execute the tool
+                self.tool.execute(self.task, self.task.app)
+                self.logger.info(LOG_COMPLETE.format(operation=f"tool: {self.tool.name}"))
+
+                # Publish tool stopped event
+                if self.event_bus:
+                    self.event_bus.publish_task_event(
+                        EventType.TOOL_STOPPED,
+                        task_id=self.task.id,
+                        details={"tool_name": self.tool.name},
+                        source="ToolExecutionComponent"
+                    )
+
+                return True
+
+            except Exception as e:
+                self.logger.error(LOG_ERROR.format(
+                    operation=f"executing tool {self.tool.name}",
+                    error=str(e)
+                ))
+                self.error_handler.handle_error(
+                    ToolError(f"Error executing tool {self.tool.name}", self.tool.name, e),
+                    {"task_id": self.task.id, "tool_name": self.tool.name}
+                )
+
+                # Publish tool failed event
+                if self.event_bus:
+                    self.event_bus.publish_task_event(
+                        EventType.TASK_FAILED,
+                        task_id=self.task.id,
+                        details={
+                            "tool_name": self.tool.name,
+                            "error": str(e)
+                        },
+                        source="ToolExecutionComponent"
+                    )
+
+                return False
+
+    def cleanup_processes(self) -> None:
+        """Clean up any hanging processes related to the tool."""
+        with self.logger.with_context(phase="cleanup_processes"):
+            if hasattr(self.tool, 'process_pattern') and self.tool.process_pattern:
+                try:
+                    self.logger.debug(LOG_START.format(
+                        operation=f"cleaning up processes for tool: {self.tool.name}"
+                    ))
+                    self.tool.kill_related_processes(self.tool.process_pattern)
+                    self.logger.debug(LOG_COMPLETE.format(
+                        operation=f"cleaning up processes for tool: {self.tool.name}"
+                    ))
+                except Exception as e:
+                    self.logger.warning(LOG_ERROR.format(
+                        operation=f"cleaning up processes for tool: {self.tool.name}",
+                        error=str(e)
+                    ))

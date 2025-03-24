@@ -9,11 +9,12 @@ from typing import List, Dict, Any
 
 from rvandroid.app import App
 from rvandroid.constants import EXTENSION_METHODS, EXTENSION_GESDA, EXTENSION_GATOR, EXTENSION_REACH
-from rvandroid.experiment.event_system import EventBus
+from rvandroid.experiment.event.bus import EventBus
 from rvandroid.experiment.execution_manager import ExecutionManager
-from rvandroid.experiment.task_storage import TaskStorage
+from rvandroid.experiment.task.task_storage import TaskStorage
 from rvandroid.tools.tool_spec import AbstractTool
-from rvandroid.util.logging_manager import LoggingManager
+from rvandroid.util.logging.constants import CONTEXT_COMPONENT, LOG_START, LOG_COMPLETE, LOG_ERROR
+from rvandroid.util.logging.manager import LoggingManager
 from settings import INSTRUMENTED_DIR
 
 
@@ -53,7 +54,7 @@ class ExecutionController:
         self.logger = self.logging_manager.get_logger(
             'experiment_workflow.execution_controller',
             {
-                LoggingManager.CONTEXT_COMPONENT: 'ExecutionController'
+                CONTEXT_COMPONENT: 'ExecutionController'
             }
         )
 
@@ -91,7 +92,7 @@ class ExecutionController:
                 no_window=no_window,
                 phase="setup"
         ):
-            self.logger.info(LoggingManager.LOG_START.format(operation="execution setup"))
+            self.logger.info(LOG_START.format(operation="execution setup"))
 
             # Register apps and tools
             for app in apks:
@@ -111,7 +112,7 @@ class ExecutionController:
                     no_window=no_window
                 )
 
-            self.logger.info(LoggingManager.LOG_COMPLETE.format(operation="execution setup"))
+            self.logger.info(LOG_COMPLETE.format(operation="execution setup"))
 
     def run(self) -> bool:
         """
@@ -121,7 +122,7 @@ class ExecutionController:
             True if all tasks completed successfully, False if there were errors
         """
         with self.logger.with_context(phase="execution"):
-            self.logger.info(LoggingManager.LOG_START.format(operation="task execution"))
+            self.logger.info(LOG_START.format(operation="task execution"))
 
             # Run all tasks
             result = self.execution_manager.run_all_tasks()
@@ -131,7 +132,7 @@ class ExecutionController:
             stats = self.execution_manager.get_statistics()
             self.logger.info(f"Execution statistics: {stats}")
 
-            self.logger.info(LoggingManager.LOG_COMPLETE.format(operation="task execution"))
+            self.logger.info(LOG_COMPLETE.format(operation="task execution"))
             return result
 
     def copy_static_analysis_files(self, apk: str, app_results_dir: str) -> bool:
@@ -170,7 +171,7 @@ class ExecutionController:
             return True
 
         except Exception as e:
-            self.logger.error(LoggingManager.LOG_ERROR.format(
+            self.logger.error(LOG_ERROR.format(
                 operation=f"copying static analysis files for {apk}",
                 error=str(e)
             ))
@@ -193,4 +194,3 @@ class ExecutionController:
             Dictionary with coverage report
         """
         return self.execution_manager.get_coverage_report()
-   

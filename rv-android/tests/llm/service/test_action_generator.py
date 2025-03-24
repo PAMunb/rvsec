@@ -6,9 +6,9 @@ from rvandroid.config.component_configurator import ComponentConfigurator
 from rvandroid.llm.service.action_generator import ActionGenerator
 from rvandroid.domain.static import StaticAnalysisData
 from rvandroid.parser.screen.abstract_parser import AbstractScreenParser
-from rvandroid.util.logging_manager import LoggingManager
+from rvandroid.util.logging.manager import LoggingManager
 from rvandroid.util.performance_monitor import PerformanceMonitor
-from rvandroid.experiment.event_system import EventBus
+from rvandroid.experiment.event.bus import EventBus
 
 
 class TestActionGenerator:

@@ -6,8 +6,9 @@ Handles result visualization and report generation.
 import json
 import os
 
-from rvandroid.experiment.event_system import EventBus, EventType
-from rvandroid.util.logging_manager import LoggingManager
+from rvandroid.experiment.event.bus import EventBus, EventType
+from rvandroid.util.logging.constants import CONTEXT_COMPONENT, LOG_START, LOG_COMPLETE, LOG_ERROR
+from rvandroid.util.logging.manager import LoggingManager
 
 
 class ResultManager:
@@ -43,7 +44,7 @@ class ResultManager:
         self.logger = self.logging_manager.get_logger(
             'experiment_workflow.result_manager',
             {
-                LoggingManager.CONTEXT_COMPONENT: 'ResultManager'
+                CONTEXT_COMPONENT: 'ResultManager'
             }
         )
 
@@ -52,14 +53,14 @@ class ResultManager:
         Generate all reports and visualizations for the experiment.
         """
         with self.logger.with_context(phase="report_generation"):
-            self.logger.info(LoggingManager.LOG_START.format(operation="report generation"))
+            self.logger.info(LOG_START.format(operation="report generation"))
 
             # Generate different report types
             self._generate_performance_dashboard()
             self._generate_coverage_charts()
             self._generate_error_summary()
 
-            self.logger.info(LoggingManager.LOG_COMPLETE.format(operation="report generation"))
+            self.logger.info(LOG_COMPLETE.format(operation="report generation"))
 
             # Notify that reports are complete
             self.event_bus.publish_experiment_event(
@@ -74,7 +75,7 @@ class ResultManager:
         Generate a performance dashboard for the experiment.
         """
         with self.logger.with_context(phase="performance_visualization"):
-            self.logger.info(LoggingManager.LOG_START.format(operation="generating performance dashboard"))
+            self.logger.info(LOG_START.format(operation="generating performance dashboard"))
 
             try:
                 # Generate performance dashboard
@@ -91,19 +92,19 @@ class ResultManager:
                     self.logger.info(f"Dashboard available at: file://{os.path.abspath(dashboard_index)}")
 
             except Exception as e:
-                self.logger.error(LoggingManager.LOG_ERROR.format(
+                self.logger.error(LOG_ERROR.format(
                     operation="generating performance dashboard",
                     error=str(e)
                 ))
 
-            self.logger.info(LoggingManager.LOG_COMPLETE.format(operation="generating performance dashboard"))
+            self.logger.info(LOG_COMPLETE.format(operation="generating performance dashboard"))
 
     def _generate_coverage_charts(self):
         """
         Generate coverage charts for the experiment.
         """
         with self.logger.with_context(phase="coverage_visualization"):
-            self.logger.info(LoggingManager.LOG_START.format(operation="generating coverage charts"))
+            self.logger.info(LOG_START.format(operation="generating coverage charts"))
 
             try:
                 # Get coverage report
@@ -131,19 +132,19 @@ class ResultManager:
                 self.logger.info(f"Coverage charts generated in {charts_dir}")
 
             except Exception as e:
-                self.logger.error(LoggingManager.LOG_ERROR.format(
+                self.logger.error(LOG_ERROR.format(
                     operation="generating coverage charts",
                     error=str(e)
                 ))
 
-            self.logger.info(LoggingManager.LOG_COMPLETE.format(operation="generating coverage charts"))
+            self.logger.info(LOG_COMPLETE.format(operation="generating coverage charts"))
 
     def _generate_error_summary(self):
         """
         Generate error summary for the experiment.
         """
         with self.logger.with_context(phase="error_summary"):
-            self.logger.info(LoggingManager.LOG_START.format(operation="generating error summary"))
+            self.logger.info(LOG_START.format(operation="generating error summary"))
 
             try:
                 # Get analysis results
@@ -184,10 +185,9 @@ class ResultManager:
                 self.logger.info(f"Error summary saved to {summary_path}")
 
             except Exception as e:
-                self.logger.error(LoggingManager.LOG_ERROR.format(
+                self.logger.error(LOG_ERROR.format(
                     operation="generating error summary",
                     error=str(e)
                 ))
 
-            self.logger.info(LoggingManager.LOG_COMPLETE.format(operation="generating error summary"))
-           
+            self.logger.info(LOG_COMPLETE.format(operation="generating error summary"))

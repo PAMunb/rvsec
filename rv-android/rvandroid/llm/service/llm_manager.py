@@ -3,9 +3,10 @@ import time
 from typing import List, Dict, Optional
 
 from rvandroid.config.component_configurator import ComponentConfigurator
-from rvandroid.experiment.event_system import EventBus, EventType
+from rvandroid.experiment.event.bus import EventBus, EventType
 from rvandroid.llm.llm import LanguageModel
-from rvandroid.util.logging_manager import LoggingManager
+from rvandroid.util.logging.constants import CONTEXT_COMPONENT
+from rvandroid.util.logging.manager import LoggingManager
 from rvandroid.util.performance_monitor import PerformanceMonitor
 
 
@@ -42,7 +43,7 @@ class LLMManager:
         # Configure logging
         self.logger = logging_manager.get_logger(
             "llm.service.llm_manager",
-            {LoggingManager.CONTEXT_COMPONENT: "LLMManager"}
+            {CONTEXT_COMPONENT: "LLMManager"}
         )
 
         # Store configuration

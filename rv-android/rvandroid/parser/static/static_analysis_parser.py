@@ -8,7 +8,7 @@ from rvandroid.domain.static import StaticAnalysisData
 from rvandroid.domain.window import Windows
 from rvandroid.domain.wtg import WindowTransitionGraph
 from rvandroid.parser.static import gator_parser, reach_parser, gesda_parser
-from rvandroid.util.logging_manager import LoggingManager
+from rvandroid.util.logging.manager import LoggingManager
 
 
 def parse(reach_file, gator_file, gesda_file, package):

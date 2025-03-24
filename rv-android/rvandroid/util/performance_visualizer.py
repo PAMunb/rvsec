@@ -18,7 +18,7 @@ class PerformanceVisualizer:
     def __init__(self):
         """Initialize the visualizer."""
         # Import here to avoid circular imports
-        from rvandroid.util.logging_manager import LoggingManager
+        from rvandroid.util.logging.manager import LoggingManager
         self.logger = LoggingManager.get_instance().get_logger('performance_visualizer')
 
     def generate_timing_summary(self, output_dir: str, file_prefix: str = "timing_summary"):

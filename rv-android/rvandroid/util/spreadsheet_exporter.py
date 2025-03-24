@@ -5,7 +5,7 @@ import logging
 import os
 from datetime import datetime
 
-from rvandroid.experiment.task_model import Task
+from rvandroid.experiment.task.task_model import Task
 from rvandroid.domain.coverage import LogcatRepository
 
 

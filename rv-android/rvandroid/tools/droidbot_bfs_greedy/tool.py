@@ -1,7 +1,7 @@
 # rvandroid/tools/droidbot_bfs_greedy/tool.py
 from rvandroid.app import App
 from rvandroid.commands.command import Command
-from rvandroid.experiment.task_model import Task  # Updated import
+from rvandroid.experiment.task.task_model import Task  # Updated import
 from rvandroid.tools.tool_spec import AbstractTool
 
 

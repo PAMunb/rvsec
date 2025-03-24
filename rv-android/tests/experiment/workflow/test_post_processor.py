@@ -7,9 +7,9 @@ from unittest.mock import MagicMock, patch, mock_open
 
 import pytest
 
-from rvandroid.experiment.event_system import EventBus, EventType
+from rvandroid.experiment.event.bus import EventBus, EventType
 from rvandroid.experiment.workflow.post_processor import PostProcessor
-from rvandroid.util.logging_manager import LoggingManager
+from rvandroid.util.logging.manager import LoggingManager
 
 
 @pytest.fixture

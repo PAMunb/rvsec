@@ -12,7 +12,7 @@ from rvandroid.app import App
 from rvandroid.commands.command import Command
 from rvandroid.commands.command_exception import CommandException
 from rvandroid.constants import EXTENSION_APK
-from rvandroid.util.logging_manager import LoggingManager
+from rvandroid.util.logging.manager import LoggingManager
 
 # Get the singleton logging manager
 logging_manager = LoggingManager.get_instance()

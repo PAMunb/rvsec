@@ -3,9 +3,10 @@ import json
 from typing import Dict, List, Any, Optional, Tuple
 
 from rvandroid.config.component_configurator import ComponentConfigurator
-from rvandroid.experiment.event_system import EventBus
+from rvandroid.experiment.event.bus import EventBus
 from rvandroid.llm.response_parser import ResponseParser
-from rvandroid.util.logging_manager import LoggingManager
+from rvandroid.util.logging.constants import CONTEXT_COMPONENT
+from rvandroid.util.logging.manager import LoggingManager
 from rvandroid.util.performance_monitor import PerformanceMonitor
 
 
@@ -41,7 +42,7 @@ class ResponseProcessor:
         # Configure logging
         self.logger = logging_manager.get_logger(
             "llm.service.response_processor",
-            {LoggingManager.CONTEXT_COMPONENT: "ResponseProcessor"}
+            {CONTEXT_COMPONENT: "ResponseProcessor"}
         )
 
         # Store configuration

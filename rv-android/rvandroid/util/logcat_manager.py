@@ -3,7 +3,8 @@ import os
 from typing import List
 
 from rvandroid.commands.command import Command
-from rvandroid.util.logging_manager import LoggingManager
+from rvandroid.util.logging.constants import CONTEXT_COMPONENT, LOG_ERROR, LOG_COMPLETE
+from rvandroid.util.logging.manager import LoggingManager
 
 
 class LogcatManager:
@@ -27,7 +28,7 @@ class LogcatManager:
         logging_manager = LoggingManager.get_instance()
         self.logger = logging_manager.get_logger(
             "util.logcat_manager",
-            {LoggingManager.CONTEXT_COMPONENT: "LogcatManager"}
+            {CONTEXT_COMPONENT: "LogcatManager"}
         )
 
         self.logcat_process = None
@@ -79,7 +80,7 @@ class LogcatManager:
                 try:
                     self.logcat_process = logcat_cmd.invoke_as_deamon(stdout=log_file)
                     self.logcat_file_handle = log_file
-                    self.logger.info(LoggingManager.LOG_COMPLETE.format(
+                    self.logger.info(LOG_COMPLETE.format(
                         operation=f"logcat capture to {output_file}"
                     ))
                     return True
@@ -87,14 +88,14 @@ class LogcatManager:
                 except Exception as e:
                     # Close file handle if command fails
                     log_file.close()
-                    self.logger.error(LoggingManager.LOG_ERROR.format(
+                    self.logger.error(LOG_ERROR.format(
                         operation="starting logcat capture",
                         error=str(e)
                     ))
                     return False
 
             except Exception as e:
-                self.logger.error(LoggingManager.LOG_ERROR.format(
+                self.logger.error(LOG_ERROR.format(
                     operation="setting up logcat capture",
                     error=str(e)
                 ))
@@ -117,7 +118,7 @@ class LogcatManager:
                     self.logcat_process.kill()
                     self.logcat_process = None
                 except Exception as e:
-                    self.logger.warning(LoggingManager.LOG_ERROR.format(
+                    self.logger.warning(LOG_ERROR.format(
                         operation="stopping logcat process",
                         error=str(e)
                     ))
@@ -130,14 +131,14 @@ class LogcatManager:
                     self.logcat_file_handle.close()
                     self.logcat_file_handle = None
                 except Exception as e:
-                    self.logger.warning(LoggingManager.LOG_ERROR.format(
+                    self.logger.warning(LOG_ERROR.format(
                         operation="closing logcat file",
                         error=str(e)
                     ))
                     success = False
 
             if success:
-                self.logger.info(LoggingManager.LOG_COMPLETE.format(
+                self.logger.info(LOG_COMPLETE.format(
                     operation="logcat capture shutdown"
                 ))
 

@@ -6,8 +6,9 @@ Handles analysis of experiment results.
 import json
 import os
 
-from rvandroid.experiment.event_system import EventBus, EventType
-from rvandroid.util.logging_manager import LoggingManager
+from rvandroid.experiment.event.bus import EventBus, EventType
+from rvandroid.util.logging.constants import CONTEXT_COMPONENT, LOG_START, LOG_COMPLETE, LOG_ERROR
+from rvandroid.util.logging.manager import LoggingManager
 
 
 class PostProcessor:
@@ -45,7 +46,7 @@ class PostProcessor:
         self.logger = self.logging_manager.get_logger(
             'experiment_workflow.post_processor',
             {
-                LoggingManager.CONTEXT_COMPONENT: 'PostProcessor'
+                CONTEXT_COMPONENT: 'PostProcessor'
             }
         )
 
@@ -55,13 +56,13 @@ class PostProcessor:
         Performs standardized analysis on collected data.
         """
         with self.logger.with_context(phase="post_processing"):
-            self.logger.info(LoggingManager.LOG_START.format(operation="results processing"))
+            self.logger.info(LOG_START.format(operation="results processing"))
 
             # Process the results
             self._process_coverage_data()
             self._analyze_results()
 
-            self.logger.info(LoggingManager.LOG_COMPLETE.format(operation="results processing"))
+            self.logger.info(LOG_COMPLETE.format(operation="results processing"))
 
             # Notify that post-processing is complete
             self.event_bus.publish_experiment_event(
@@ -77,7 +78,7 @@ class PostProcessor:
         Generates a standardized coverage report.
         """
         with self.logger.with_context(phase="process_coverage"):
-            self.logger.info(LoggingManager.LOG_START.format(operation="coverage processing"))
+            self.logger.info(LOG_START.format(operation="coverage processing"))
 
             # Get coverage report from execution controller
             if self.execution_controller:
@@ -102,7 +103,7 @@ class PostProcessor:
                 json.dump(coverage_report, f, indent=2)
 
             self.logger.info(f"Coverage report saved to {report_path}")
-            self.logger.info(LoggingManager.LOG_COMPLETE.format(operation="coverage processing"))
+            self.logger.info(LOG_COMPLETE.format(operation="coverage processing"))
 
             # Publish coverage report generated event
             self.event_bus.publish_analysis_event(
@@ -117,11 +118,11 @@ class PostProcessor:
         Uses standardized models for result processing.
         """
         with self.logger.with_context(phase="results_analysis"):
-            self.logger.info(LoggingManager.LOG_START.format(operation="results analysis"))
+            self.logger.info(LOG_START.format(operation="results analysis"))
 
             try:
                 # Import here to avoid circular imports
-                from rvandroid.analysis.results_analysis import process_results
+                from rvandroid.analysis.results.processor import process_results
 
                 # Process results using standardized analysis
                 results = process_results(self.results_dir)
@@ -137,12 +138,12 @@ class PostProcessor:
                 self._generate_diagnostics()
 
             except Exception as e:
-                self.logger.error(LoggingManager.LOG_ERROR.format(
+                self.logger.error(LOG_ERROR.format(
                     operation="results analysis",
                     error=str(e)
                 ))
 
-            self.logger.info(LoggingManager.LOG_COMPLETE.format(operation="results analysis"))
+            self.logger.info(LOG_COMPLETE.format(operation="results analysis"))
 
     def _generate_diagnostics(self):
         """
@@ -150,7 +151,7 @@ class PostProcessor:
         Includes performance metrics and error summaries.
         """
         with self.logger.with_context(phase="diagnostics"):
-            self.logger.info(LoggingManager.LOG_START.format(operation="generating diagnostics"))
+            self.logger.info(LOG_START.format(operation="generating diagnostics"))
 
             try:
                 # Generate diagnostic report
@@ -162,10 +163,9 @@ class PostProcessor:
                 self.logger.info(f"Diagnostic report saved to {report_path}")
 
             except Exception as e:
-                self.logger.error(LoggingManager.LOG_ERROR.format(
+                self.logger.error(LOG_ERROR.format(
                     operation="generating diagnostics",
                     error=str(e)
                 ))
 
-            self.logger.info(LoggingManager.LOG_COMPLETE.format(operation="generating diagnostics"))
-           
+            self.logger.info(LOG_COMPLETE.format(operation="generating diagnostics"))

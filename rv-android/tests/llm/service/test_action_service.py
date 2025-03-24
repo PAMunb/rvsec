@@ -4,7 +4,7 @@ from unittest.mock import MagicMock, patch, ANY
 import pytest
 
 from rvandroid.config.component_configurator import ComponentConfigurator
-from rvandroid.experiment.event_system import EventBus, EventType
+from rvandroid.experiment.event.bus import EventBus, EventType
 from rvandroid.llm.service.action_generator import ActionGenerator
 from rvandroid.llm.service.action_service import LLMActionService
 from rvandroid.llm.service.llm_manager import LLMManager
@@ -13,7 +13,7 @@ from rvandroid.llm.service.response_processor import ResponseProcessor
 from rvandroid.llm.service.state_analyzer import StateAnalyzer
 from rvandroid.llm.service.transition_manager import TransitionManager
 from rvandroid.domain.static import StaticAnalysisData
-from rvandroid.util.logging_manager import LoggingManager
+from rvandroid.util.logging.manager import LoggingManager
 from rvandroid.util.performance_monitor import PerformanceMonitor
 
 

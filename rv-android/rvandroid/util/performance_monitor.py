@@ -6,7 +6,8 @@ from contextlib import contextmanager
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Any, Callable
 
-from rvandroid.util.logging_manager import LoggingManager
+from rvandroid.util.logging.constants import CONTEXT_COMPONENT, LOG_ERROR
+from rvandroid.util.logging.manager import LoggingManager
 
 
 @dataclass
@@ -53,7 +54,7 @@ class PerformanceMonitor:
         logging_manager = LoggingManager.get_instance()
         self.logger = logging_manager.get_logger(
             "util.performance_monitor",
-            {LoggingManager.CONTEXT_COMPONENT: "PerformanceMonitor"}
+            {CONTEXT_COMPONENT: "PerformanceMonitor"}
         )
 
         self.metrics: List[Metric] = []
@@ -228,7 +229,7 @@ class PerformanceMonitor:
             try:
                 callback(metric)
             except Exception as e:
-                self.logger.error(LoggingManager.LOG_ERROR.format(
+                self.logger.error(LOG_ERROR.format(
                     operation="metric subscriber",
                     error=str(e)
                 ))
@@ -238,7 +239,7 @@ class PerformanceMonitor:
             try:
                 callback(metric)
             except Exception as e:
-                self.logger.error(LoggingManager.LOG_ERROR.format(
+                self.logger.error(LOG_ERROR.format(
                     operation="global metric subscriber",
                     error=str(e)
                 ))

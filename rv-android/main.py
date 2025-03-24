@@ -10,12 +10,12 @@ from argparse import Namespace
 from rvandroid.config.configuration import Configuration
 from rvandroid.config.configuration_manager import ConfigurationManager
 from rvandroid.constants import *
-from rvandroid.experiment.workflow.experiment_controller import ExperimentController
-from rvandroid.experiment.workflow.experiment_controller import execute as experiment_execute
+from rvandroid.experiment.experiment_controller import ExperimentController
+from rvandroid.experiment.experiment_controller import execute as experiment_execute
 from rvandroid.tools.registry import ToolRegistry
 from rvandroid.tools.tool_spec import AbstractTool
 from rvandroid.util import utils
-from rvandroid.util.logging_manager import LoggingManager
+from rvandroid.util.logging.manager import LoggingManager
 
 available_tools: dict[str, AbstractTool] = {}
 
@@ -275,9 +275,9 @@ def run_local():
     # Set configuration values
     config.set("repetitions", 1)
     config.set("timeouts", [60])
-    config.set("generate_monitors", True)
-    config.set("instrument", True)
-    config.set("static_analysis", True)
+    config.set("generate_monitors", False)
+    config.set("instrument", False)
+    config.set("static_analysis", False)
     config.set("skip_experiment", False)
     config.set("no_window", True)
     config.set("memory_file", "")

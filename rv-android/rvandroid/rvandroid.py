@@ -7,8 +7,9 @@ from typing import Dict, Any
 from rvandroid.app import App
 from rvandroid.commands.command import Command
 from rvandroid.commands.command_exception import CommandException
-from rvandroid.experiment.event_system import EventType, EventBus
-from rvandroid.util.error_handler import ErrorHandler, handle_errors
+from rvandroid.experiment.event.bus import EventType, EventBus
+from rvandroid.util.error import handle_errors
+from rvandroid.util.error.error_handler import ErrorHandler
 from rvandroid.util.exceptions import InstrumentationError
 from settings import *
 
@@ -114,15 +115,15 @@ class RvAndroid(object):
             logging.info(f"Starting instrumentation {cont}/{total_apks}")
 
             # Publish instrumentation started event
-            event_bus.publish_event(
-                EventType.TOOL_STARTED,
-                {
-                    "tool_name": "RvAndroid",
-                    "app_name": app.name,
-                    "phase": "instrumentation",
-                    "progress": f"{cont}/{total_apks}"
-                }
-            )
+            # event_bus.publish_experiment_event(
+            #     EventType.TOOL_STARTED,
+            #     {
+            #         "tool_name": "RvAndroid",
+            #         "app_name": app.name,
+            #         "phase": "instrumentation",
+            #         "progress": f"{cont}/{total_apks}"
+            #     }
+            # )
 
             try:
                 # Instrument the APK with error handling
@@ -134,15 +135,15 @@ class RvAndroid(object):
                     self.check_if_instrumented(app)
 
                     # Publish instrumentation completed event
-                    event_bus.publish_event(
-                        EventType.TOOL_STOPPED,  # Changed from TOOL_COMPLETED to TOOL_STOPPED
-                        {
-                            "tool_name": "RvAndroid",
-                            "app_name": app.name,
-                            "phase": "instrumentation",
-                            "status": "success"
-                        }
-                    )
+                    # event_bus.publish_event(
+                    #     EventType.TOOL_STOPPED,  # Changed from TOOL_COMPLETED to TOOL_STOPPED
+                    #     {
+                    #         "tool_name": "RvAndroid",
+                    #         "app_name": app.name,
+                    #         "phase": "instrumentation",
+                    #         "status": "success"
+                    #     }
+                    # )
 
             except CommandException as ex:
                 logging.error(f"Failed to instrument APK: {app.name}. {ex}")
@@ -156,15 +157,15 @@ class RvAndroid(object):
                 )
 
                 # Publish instrumentation failed event
-                event_bus.publish_event(
-                    EventType.TASK_FAILED,  # Changed from TOOL_FAILED to TASK_FAILED
-                    {
-                        "tool_name": "RvAndroid",
-                        "app_name": app.name,
-                        "phase": "instrumentation",
-                        "error": f"{ex.tool}: {ex.message}"
-                    }
-                )
+                # event_bus.publish_event(
+                #     EventType.TASK_FAILED,  # Changed from TOOL_FAILED to TASK_FAILED
+                #     {
+                #         "tool_name": "RvAndroid",
+                #         "app_name": app.name,
+                #         "phase": "instrumentation",
+                #         "error": f"{ex.tool}: {ex.message}"
+                #     }
+                # )
 
             except Exception as ex:
                 logging.error(f"Error while instrumenting APK: {app.path}. {ex}")
@@ -177,15 +178,15 @@ class RvAndroid(object):
                 )
 
                 # Publish instrumentation failed event
-                event_bus.publish_event(
-                    EventType.TASK_FAILED,  # Changed from TOOL_FAILED to TASK_FAILED
-                    {
-                        "tool_name": "RvAndroid",
-                        "app_name": app.name,
-                        "phase": "instrumentation",
-                        "error": str(ex)
-                    }
-                )
+                # event_bus.publish_event(
+                #     EventType.TASK_FAILED,  # Changed from TOOL_FAILED to TASK_FAILED
+                #     {
+                #         "tool_name": "RvAndroid",
+                #         "app_name": app.name,
+                #         "phase": "instrumentation",
+                #         "error": str(ex)
+                #     }
+                # )
 
             finally:
                 self.clear([TMP_DIR, RVM_TMP_DIR])

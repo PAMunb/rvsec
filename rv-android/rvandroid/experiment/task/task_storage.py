@@ -10,7 +10,7 @@ import shutil
 from datetime import datetime
 from typing import Dict, List, Optional, Any
 
-from rvandroid.experiment.task_model import Task, TaskConfiguration, TaskStatus
+from rvandroid.experiment.task.task_model import Task, TaskConfiguration, TaskStatus
 
 
 class TaskStorage:

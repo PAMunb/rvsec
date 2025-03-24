@@ -2,20 +2,23 @@
 import os
 from typing import Optional, Dict, Any
 
-from rvandroid.experiment.event_system import EventBus, EventType
-from rvandroid.experiment.task_components import (
+from rvandroid.domain.coverage import LogcatRepository
+from rvandroid.experiment.event.bus import EventBus, EventType
+from rvandroid.experiment.task.components import (
     StaticAnalysisComponent,
     CoverageComponent,
     EmulatorComponent,
     LogcatComponent,
     ToolExecutionComponent
 )
-from rvandroid.experiment.task_model import Task
-from rvandroid.domain.coverage import LogcatRepository
+from rvandroid.experiment.task.task_model import Task
 from rvandroid.tools.tool_spec import AbstractTool
-from rvandroid.util.error_handler import ErrorHandler, handle_errors
+from rvandroid.util.error import handle_errors
+from rvandroid.util.error.error_handler import ErrorHandler
 from rvandroid.util.exceptions import TaskExecutionError
-from rvandroid.util.logging_manager import LoggingManager
+from rvandroid.util.logging.constants import CONTEXT_TASK_ID, CONTEXT_APP_NAME, CONTEXT_TOOL_NAME, CONTEXT_COMPONENT, \
+    LOG_START, LOG_ERROR, LOG_COMPLETE, LOG_SKIPPED
+from rvandroid.util.logging.manager import LoggingManager
 from rvandroid.util.performance_monitor import PerformanceMonitor
 from rvandroid.util.spreadsheet_exporter import ExportContext, SpreadsheetExporter
 
@@ -56,10 +59,10 @@ class TaskExecutor:
         self.logger = logging_manager.get_logger(
             "experiment.task_executor",
             {
-                LoggingManager.CONTEXT_TASK_ID: task.id,
-                LoggingManager.CONTEXT_APP_NAME: task.config.apk_name,
-                LoggingManager.CONTEXT_TOOL_NAME: tool.name,
-                LoggingManager.CONTEXT_COMPONENT: "TaskExecutor"
+                CONTEXT_TASK_ID: task.id,
+                CONTEXT_APP_NAME: task.config.apk_name,
+                CONTEXT_TOOL_NAME: tool.name,
+                CONTEXT_COMPONENT: "TaskExecutor"
             }
         )
 
@@ -88,12 +91,12 @@ class TaskExecutor:
             "timeout": self.task.config.timeout
         }
 
-        self.logger.info(LoggingManager.LOG_START.format(operation=f"execution of task {self.task}"))
+        self.logger.info(LOG_START.format(operation=f"execution of task {self.task}"))
 
         if not self.task.app:
             error_msg = "Task has no app instance set"
             self.task.mark_error(error_msg)
-            self.logger.error(LoggingManager.LOG_ERROR.format(
+            self.logger.error(LOG_ERROR.format(
                 operation="task execution",
                 error="app instance not set"
             ))
@@ -169,7 +172,7 @@ class TaskExecutor:
             )
 
             self._publish_event(EventType.TASK_COMPLETED)
-            self.logger.info(LoggingManager.LOG_COMPLETE.format(
+            self.logger.info(LOG_COMPLETE.format(
                 operation=f"Task {self.task.id}"
             ))
             return True
@@ -180,7 +183,7 @@ class TaskExecutor:
 
             # Still need to update task status
             error_message = str(e)
-            self.logger.error(LoggingManager.LOG_ERROR.format(
+            self.logger.error(LOG_ERROR.format(
                 operation=f"execution of task {self.task.id}",
                 error=error_message
             ))
@@ -225,7 +228,7 @@ class TaskExecutor:
             # Check if export is enabled
             export_enabled = getattr(self.task.config, "export_to_csv", True)
             if not export_enabled:
-                self.logger.debug(LoggingManager.LOG_SKIPPED.format(
+                self.logger.debug(LOG_SKIPPED.format(
                     operation="CSV export",
                     reason="export is disabled for this task"
                 ))
@@ -254,10 +257,10 @@ class TaskExecutor:
                 else:
                     exporter.export_error_data(repository, context, error_file)
 
-                self.logger.info(LoggingManager.LOG_COMPLETE.format(operation="CSV data export"))
+                self.logger.info(LOG_COMPLETE.format(operation="CSV data export"))
 
         except Exception as e:
-            self.logger.error(LoggingManager.LOG_ERROR.format(
+            self.logger.error(LOG_ERROR.format(
                 operation="exporting repository data",
                 error=str(e)
             ))
@@ -270,7 +273,7 @@ class TaskExecutor:
                 # Stop coverage tracking
                 self.coverage.stop_tracking()
             except Exception as e:
-                self.logger.warning(LoggingManager.LOG_ERROR.format(
+                self.logger.warning(LOG_ERROR.format(
                     operation="stopping coverage tracking",
                     error=str(e)
                 ))
@@ -279,7 +282,7 @@ class TaskExecutor:
                 # Stop logcat capture
                 self.logcat.stop_capture()
             except Exception as e:
-                self.logger.warning(LoggingManager.LOG_ERROR.format(
+                self.logger.warning(LOG_ERROR.format(
                     operation="stopping logcat capture",
                     error=str(e)
                 ))
@@ -288,7 +291,7 @@ class TaskExecutor:
                 # Clean up tool processes
                 self.tool_executor.cleanup_processes()
             except Exception as e:
-                self.logger.warning(LoggingManager.LOG_ERROR.format(
+                self.logger.warning(LOG_ERROR.format(
                     operation="cleaning up tool processes",
                     error=str(e)
                 ))

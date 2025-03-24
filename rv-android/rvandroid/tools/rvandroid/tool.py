@@ -4,12 +4,13 @@ from rvandroid.app import App
 from rvandroid.commands.command import Command
 from rvandroid.config.component_configurator import ComponentConfigurator
 from rvandroid.config.configuration import Configuration
-from rvandroid.experiment.task_model import Task
+from rvandroid.experiment.task.task_model import Task
 from rvandroid.server import Server
-from rvandroid.service.llm_action_service import LLMActionService
+from rvandroid.llm.service.action_service import LLMActionService
 from ..tool_spec import AbstractTool
-from ...experiment.event_system import EventBus, EventType
-from ...util.logging_manager import LoggingManager
+from ...experiment.event.bus import EventBus, EventType
+from ...util.logging.constants import CONTEXT_TASK_ID, CONTEXT_APP_NAME, CONTEXT_TOOL_NAME, CONTEXT_COMPONENT
+from ...util.logging.manager import LoggingManager
 
 logging = logging_api.getLogger(__name__)
 
@@ -65,10 +66,10 @@ class ToolSpec(AbstractTool):
         logger = logging_manager.get_logger(
             'tools.rvandroid',
             {
-                LoggingManager.CONTEXT_TASK_ID: task.id,
-                LoggingManager.CONTEXT_APP_NAME: app.name,
-                LoggingManager.CONTEXT_TOOL_NAME: self.name,
-                LoggingManager.CONTEXT_COMPONENT: 'RVAndroidTool'
+                CONTEXT_TASK_ID: task.id,
+                CONTEXT_APP_NAME: app.name,
+                CONTEXT_TOOL_NAME: self.name,
+                CONTEXT_COMPONENT: 'RVAndroidTool'
             }
         )
 

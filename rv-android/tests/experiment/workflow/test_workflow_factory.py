@@ -5,8 +5,8 @@ Unit tests for the WorkflowFactory component in the experiment workflow.
 import pytest
 from unittest.mock import MagicMock, patch
 
-from rvandroid.experiment.event_system import EventBus
-from rvandroid.experiment.task_storage import TaskStorage
+from rvandroid.experiment.event.bus import EventBus
+from rvandroid.experiment.task.task_storage import TaskStorage
 from rvandroid.experiment.workflow.workflow_factory import WorkflowFactory
 from rvandroid.experiment.workflow.pre_processor import PreProcessor
 from rvandroid.experiment.workflow.execution_controller import ExecutionController

@@ -7,6 +7,6 @@ Android application testing experiments with runtime verification capabilities.
 It splits the experiment workflow into specific components with clear responsibilities.
 """
 
-from rvandroid.experiment.workflow.experiment_controller import ExperimentController
-
-__all__ = ['ExperimentController']
+# from rvandroid.experiment.workflow.experiment_controller import ExperimentController
+#
+# __all__ = ['ExperimentController']

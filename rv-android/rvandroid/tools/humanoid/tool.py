@@ -1,7 +1,7 @@
 # rvandroid/tools/humanoid/tool.py
 from rvandroid.app import App
 from rvandroid.commands.command import Command
-from rvandroid.experiment.task_model import Task  # Updated import
+from rvandroid.experiment.task.task_model import Task  # Updated import
 from ..tool_spec import AbstractTool
 from ... import constants
 from ...util import utils
