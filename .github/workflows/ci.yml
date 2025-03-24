@@ -59,7 +59,7 @@ jobs:
       
       - name: Run Python tests with coverage
         run: |
-          PYTHONPATH=. pytest --cov=. --cov-report=xml --cov-report=html --cov-report=term --cov-branch --ignore=rvandroid/tools/qtesting/src
+          PYTHONPATH=. pytest --cov=rvandroid --cov-report=xml --cov-report=html --cov-report=term --cov-branch --omit="rvandroid/tools/qtesting/src/*" .
         working-directory: rv-android
       
       - name: Upload coverage reports
@@ -98,4 +98,3 @@ jobs:
         with:
           name: quality-report
           path: rv-android/quality_report.md
-      
