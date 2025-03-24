@@ -1,3 +1,4 @@
+# rvandroid/util/error/handler_registry.py - With suggested improvements
 import logging
 from typing import Dict, List, Callable, Type, Optional
 
@@ -26,7 +27,18 @@ class HandlerRegistry:
         Args:
             error_type: The type of exception to handle
             handler: Function to call when this error occurs, should return True if handled
+
+        Raises:
+            TypeError: If error_type is not an Exception class or handler is not callable
         """
+        # Validate error type is an Exception class
+        if not isinstance(error_type, type) or not issubclass(error_type, Exception):
+            raise TypeError(f"Error type must be an Exception class, got {error_type}")
+
+        # Validate handler is callable
+        if not callable(handler):
+            raise TypeError(f"Handler must be callable, got {handler}")
+
         if error_type not in self._registry:
             self._registry[error_type] = []
 

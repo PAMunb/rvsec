@@ -1,4 +1,5 @@
-# rvandroid/commands/command.py
+# rvandroid/commands/command.py - Improved version
+
 import os
 import signal
 import sys
@@ -24,14 +25,22 @@ def kill_process_tree(pid: int):
     Args:
         pid (int): Process ID of the parent process to kill
     """
-    parent = psutil.Process(pid)
+    try:
+        parent = psutil.Process(pid)
 
-    # Kill all child processes
-    for child in parent.children(recursive=True):
-        os.kill(child.pid, signal.SIGKILL)
+        # Kill all child processes
+        for child in parent.children(recursive=True):
+            try:
+                os.kill(child.pid, signal.SIGKILL)
+            except (ProcessLookupError, OSError):
+                # Process might already be gone
+                pass
 
-    # Kill the parent process
-    os.kill(parent.pid, signal.SIGKILL)
+        # Kill the parent process
+        os.kill(parent.pid, signal.SIGKILL)
+    except (psutil.NoSuchProcess, ProcessLookupError, OSError):
+        # Process might already be gone
+        pass
 
 
 class Command:
@@ -145,37 +154,58 @@ class Command:
         with self.logger.with_context(command=cmd_str, timeout=self._timeout):
             self.logger.debug(LOG_START.format(operation=f"command: {cmd_str}"))
 
+            # Normalize stdin if it's a string
+            if isinstance(stdin, str):
+                stdin = stdin.encode()
+
+            # Python 3.3+ has built-in timeout support
             if sys.version_info.major == 3 and sys.version_info.minor >= 3:
                 try:
                     proc = Popen(cmd_args, stderr=stderr, stdout=stdout)
-                    stdout, stderr = proc.communicate(stdin, timeout=self._timeout)
-                    self.logger.debug(LOG_COMPLETE.format(operation=f"command with exit code {proc.returncode}"))
-                    return CommandResult(proc.returncode, stdout, stderr)
+                    stdout_data, stderr_data = proc.communicate(stdin, timeout=self._timeout)
+
+                    self.logger.debug(LOG_COMPLETE.format(
+                        operation=f"command with exit code {proc.returncode}"
+                    ))
+
+                    return CommandResult(proc.returncode, stdout_data, stderr_data)
+
                 except TimeoutExpired:
-                    self.kill_process(proc)
-                    stdout, stderr = proc.communicate(stdin)
                     self.logger.warning(f"Command timed out after {self._timeout} seconds")
-                    return CommandResult(proc.returncode, stdout, stderr)
+                    self.kill_process(proc)
+                    stdout_data, stderr_data = proc.communicate()
+
+                    return CommandResult(proc.returncode, stdout_data, stderr_data)
+
                 except OSError as e:
                     self.logger.error(LOG_ERROR.format(
                         operation=f"executing command {cmd_str}",
                         error=str(e)
                     ))
                     raise CommandNotFoundError(f"The command {self._command} was not found")
+
             else:
                 # Legacy Python support
                 try:
-                    proc = Popen(cmd_args, stderr=PIPE, stdout=PIPE)
+                    proc = Popen(cmd_args, stderr=stderr, stdout=stdout)
+
+                    # Setup timer for timeout if specified
                     if self._timeout is not None:
                         timer = Timer(self._timeout, self.kill_process, [proc])
                         timer.start()
 
-                    stdout, stderr = proc.communicate(stdin)
+                    stdout_data, stderr_data = proc.communicate(stdin)
+
+                    # Cancel timer if it's still running
                     if self._timeout is not None:
                         timer.cancel()
 
-                    self.logger.debug(LOG_COMPLETE.format(operation=f"command with exit code {proc.returncode}"))
-                    return CommandResult(proc.returncode, stdout, stderr)
+                    self.logger.debug(LOG_COMPLETE.format(
+                        operation=f"command with exit code {proc.returncode}"
+                    ))
+
+                    return CommandResult(proc.returncode, stdout_data, stderr_data)
+
                 except OSError as e:
                     self.logger.error(LOG_ERROR.format(
                         operation=f"executing command {cmd_str}",
@@ -186,16 +216,23 @@ class Command:
     def kill_process(self, p):
         """
         Kill a process when timeout occurs.
+        Uses kill_process_tree to ensure all child processes are terminated.
 
         Args:
             p: Process object to kill
         """
         self.logger.warning(f"The command has timed out after {self._timeout} seconds")
-        kill_process_tree(p.pid)
+        try:
+            kill_process_tree(p.pid)
+        except Exception as e:
+            self.logger.error(f"Error killing process {p.pid}: {str(e)}")
 
     def invoke_as_deamon(self, stdout=PIPE, stderr=PIPE):
         """
         Execute the command as a daemon process.
+
+        Starts the command in a separate non-blocking process and returns the
+        process object without waiting for completion.
 
         Args:
             stdout: Where to redirect standard output (default: PIPE)
