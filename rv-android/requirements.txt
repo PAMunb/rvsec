@@ -344,7 +344,6 @@ typing-inspect==0.9.0
 typing_extensions==4.12.2
 tzdata==2025.1
 tzlocal==5.2
-uiautomator==1.0.2
 uiautomator2==3.2.8
 ujson==5.10.0
 unstructured==0.16.20
