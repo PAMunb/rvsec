@@ -3,7 +3,6 @@ import threading
 import time
 from typing import Dict, List, Callable, Any, Type, Optional
 
-from rvandroid.experiment.event.bus import EventBus, EventType
 from rvandroid.util.error.handler_registry import HandlerRegistry
 from rvandroid.util.error.recovery_strategies import RecoveryStrategies
 from rvandroid.util.exceptions import RVAndroidError, ADBError, EmulatorError, RvTimeoutError
@@ -54,8 +53,9 @@ class ErrorHandler:
         # Initialize handler registry
         self._registry = HandlerRegistry()
 
-        # Event bus for publishing errors
-        self._event_bus = EventBus.get_instance()
+        # Importe EventBus apenas quando necessário
+        # para evitar a importação circular
+        self._event_bus = None
 
         # Error statistics and tracking
         self._error_counts: Dict[str, int] = {}
@@ -64,6 +64,18 @@ class ErrorHandler:
 
         # Configure default error handlers
         self._configure_default_handlers()
+
+    @property
+    def event_bus(self):
+        # Importação tardia (lazy import)
+        if self._event_bus is None:
+            try:
+                from rvandroid.experiment.event.bus import EventBus
+                self._event_bus = EventBus.get_instance()
+            except ImportError:
+                self._logger.warning("EventBus module could not be imported")
+                self._event_bus = None
+        return self._event_bus
 
     def _configure_default_handlers(self):
         """Set up default error handlers for common errors."""
@@ -164,30 +176,36 @@ class ErrorHandler:
 
     def _publish_error_event(self, error: Exception, context: Optional[Dict[str, Any]]):
         """Publish an error event to the event bus."""
-        if not self._event_bus:
+        if not self.event_bus:
             return
 
-        # Prepare event data
-        event_data = {
-            "error_type": type(error).__name__,
-            "error_message": str(error),
-            "context": context or {}
-        }
+        # Importação tardia (lazy import)
+        try:
+            from rvandroid.experiment.event.bus import EventType
 
-        # Add task_id to event if available in context
-        if context and "task_id" in context:
-            self._event_bus.publish_analysis_event(
-                EventType.ERROR_DETECTED,
-                data=event_data,
-                related_task_id=context["task_id"],
-                source="ErrorHandler"
-            )
-        else:
-            self._event_bus.publish_analysis_event(
-                EventType.ERROR_DETECTED,
-                data=event_data,
-                source="ErrorHandler"
-            )
+            # Prepare event data
+            event_data = {
+                "error_type": type(error).__name__,
+                "error_message": str(error),
+                "context": context or {}
+            }
+
+            # Add task_id to event if available in context
+            if context and "task_id" in context:
+                self.event_bus.publish_analysis_event(
+                    EventType.ERROR_DETECTED,
+                    data=event_data,
+                    related_task_id=context["task_id"],
+                    source="ErrorHandler"
+                )
+            else:
+                self.event_bus.publish_analysis_event(
+                    EventType.ERROR_DETECTED,
+                    data=event_data,
+                    source="ErrorHandler"
+                )
+        except ImportError:
+            self._logger.warning("EventType could not be imported, event not published")
 
     def _handle_generic_error(self, error: RVAndroidError, context: Optional[Dict[str, Any]] = None) -> bool:
         """

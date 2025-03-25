@@ -5,13 +5,14 @@ from rvandroid.analysis.coverage.tracker import CoverageTracker
 from rvandroid.domain.coverage import LogcatRepository
 from rvandroid.experiment.event.bus import EventBus, EventType
 from rvandroid.experiment.task.task_model import Task
-from rvandroid.util.error.error_handler import ErrorHandler
+from rvandroid.parser.log.logcat_parser import parse_logcat_file
 from rvandroid.util.exceptions import AnalysisError
 from rvandroid.util.logging.constants import CONTEXT_TASK_ID, CONTEXT_COMPONENT, CONTEXT_APP_NAME, LOG_START, \
     LOG_COMPLETE, LOG_ERROR, LOG_SKIPPED
 from rvandroid.util.logging.manager import LoggingManager
 
 
+# @log_execution(logger_prefix="experiment.task.components.coverage", component_name="CoverageComponent")
 class CoverageComponent:
     """
     Component responsible for managing coverage tracking and analysis.
@@ -29,13 +30,24 @@ class CoverageComponent:
     """
 
     def __init__(self, task: Task, event_bus: Optional[EventBus] = None):
-        """Initialize with task and optional event bus."""
+        """
+        Initialize the coverage component.
+
+        Args:
+            task: Task being executed
+            event_bus: Optional event bus for publishing events
+        """
         self.task = task
         self.event_bus = event_bus or EventBus.get_instance()
-        self.error_handler = ErrorHandler.get_instance()
-        self.coverage_tracker = None
 
-        # Set up standardized logger with proper context
+        # Inicialize o erro handler apenas quando necessário para evitar a importação circular
+        self.error_handler = None
+
+        # Coverage tracking
+        self.repository = LogcatRepository()
+        self.task.repository = self.repository
+        self.tracker_process = None
+
         logging_manager = LoggingManager.get_instance()
         self.logger = logging_manager.get_logger(
             'experiment.components.coverage',
@@ -45,6 +57,35 @@ class CoverageComponent:
                 CONTEXT_COMPONENT: 'CoverageComponent'
             }
         )
+
+        # Parse any existing logcat file if available
+        if task.result.logcat_file:
+            try:
+                self._parse_existing_logcat()
+            except Exception as e:
+                self.logger.error(f"Error parsing existing logcat: {e}")
+
+    def _get_error_handler(self):
+        """Lazy import e inicialização do ErrorHandler."""
+        if self.error_handler is None:
+            from rvandroid.util.error.error_handler import ErrorHandler
+            self.error_handler = ErrorHandler.get_instance()
+        return self.error_handler
+
+    def _parse_existing_logcat(self) -> None:
+        """Parse existing logcat file if available."""
+        import os
+        if os.path.exists(self.task.result.logcat_file):
+            self.logger.info(f"Parsing existing logcat file: {self.task.result.logcat_file}")
+            try:
+                self.repository = parse_logcat_file(self.task.result.logcat_file)
+                self.task.repository = self.repository
+            except Exception as e:
+                self.logger.error(f"Error parsing logcat file: {e}")
+                # Utilize o error handler através do método getter
+                error_handler = self._get_error_handler()
+                if error_handler:
+                    error_handler.handle_error(e, {"task_id": self.task.id, "phase": "parse_logcat"})
 
     def initialize_tracker(self) -> bool:
         """
@@ -222,4 +263,3 @@ class CoverageComponent:
         if self.coverage_tracker:
             return self.coverage_tracker.repository
         return None
-   
