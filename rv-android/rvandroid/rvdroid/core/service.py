@@ -69,6 +69,8 @@ class RVDroidService:
                  config: Optional[ComponentConfigurator] = None,
                  device_id: str = "emulator-5554",
                  use_llm: bool = True,
+                 use_screenshot_analysis: bool = True,  # Novo parâmetro
+                 screenshot_frequency: str = "state_change",  # estado ou sempre
                  preferred_strategy: str = "SecurityFocusedStrategy"):
         """
         Initialize the RVDroid service.
@@ -78,7 +80,9 @@ class RVDroidService:
             config: Optional component configuration
             device_id: Target device ID
             use_llm: Whether to use LLM guidance
-            preferred_strategy: Optional name of preferred strategy (default will be used if not specified)
+            use_screenshot_analysis: Whether to use screenshot analysis
+            screenshot_frequency: When to take screenshots ("state_change" or "always")
+            preferred_strategy: Optional name of preferred strategy
         """
         import rvandroid.rvdroid.strategy.basic_strategies
         self.app_package_name = None
@@ -97,6 +101,9 @@ class RVDroidService:
         self.use_llm = use_llm
         self.preferred_strategy_name = preferred_strategy
 
+        self.use_screenshot_analysis = use_screenshot_analysis
+        self.screenshot_frequency = screenshot_frequency
+
         # Initialize performance monitor
         self.performance_monitor = PerformanceMonitor.get_instance()
 
@@ -105,6 +112,25 @@ class RVDroidService:
 
         # Initialize UIAutomator adapter
         self.ui_adapter = UIAutomator2Adapter(device_id)
+
+        # Inicializar componente de complemento de screenshot se requerido
+        if use_screenshot_analysis:
+            from rvandroid.analysis.screenshot.screenshot_action_complementor import ScreenshotActionComplementor
+            self.screenshot_complementor = ScreenshotActionComplementor()
+            self.logger.info("Screenshot action complementation enabled")
+        else:
+            self.screenshot_complementor = None
+
+        # Inicializar variáveis para armazenar informações de screenshot
+        self.last_screenshot_path = None
+        self.last_state_fingerprint = None
+
+        # Contadores e métricas para screenshot
+        self.screenshot_stats = {
+            "total_screenshots": 0,
+            "complemented_actions_count": 0,
+            "error_indicators_detected": 0
+        }
 
         # Initialize memory components
         self.short_term_memory = ShortTermMemory()
@@ -264,7 +290,7 @@ class RVDroidService:
                 with self.performance_monitor.measure_time("test_iteration"):
                     result = self._execute_test_iteration()
                     print(f"*** Result: {result}")
-                    input("$$$ Press Enter to continue...")
+                    # input("$$$ Press Enter to continue...")
 
                 # Update statistics
                 if result.get("success", False):
@@ -726,7 +752,7 @@ class RVDroidService:
             )
             print(f"==== Generated action: {action}")
 
-            input(">>> Press Enter to continue...")
+            # input(">>> Press Enter to continue...")
 
             if action:
                 self.logger.debug(f"Generated action {action.id}: {action.text}")
@@ -773,23 +799,75 @@ class RVDroidService:
                 self.logger.error("Failed to get UI state")
                 return
 
-            # Parse state to create ScreenDescription
+            # Extract state information
+            current_activity = ui_state.get("activity", "unknown")
+            current_package = ui_state.get("package_name", "unknown")
+
+            # Capturar screenshot baseado na configuração de frequência
+            should_take_screenshot = False
+            previous_fingerprint = self.last_state_fingerprint
+
+            if self.use_screenshot_analysis:
+                if self.screenshot_frequency == "always":
+                    should_take_screenshot = True
+                elif self.last_screenshot_path is None:  # Primeiro estado
+                    should_take_screenshot = True
+
+            # Parsear estado para criar ScreenDescription
             self.current_screen = self.ui_adapter.parse_screen(ui_state, self.static_data)
 
-            # Generate fingerprint and metadata
-            fingerprint = self._generate_state_fingerprint(self.current_screen, ui_state)
+            # Generate fingerprint
+            current_fingerprint = self._generate_state_fingerprint(self.current_screen, ui_state)
+            self.last_state_fingerprint = current_fingerprint
+
+            # Verificar se o estado mudou para decidir se tira screenshot (frequency="state_change")
+            if self.use_screenshot_analysis and self.screenshot_frequency == "state_change":
+                if previous_fingerprint != current_fingerprint:
+                    should_take_screenshot = True
+
+            # Tomar screenshot se necessário
+            if should_take_screenshot:
+                self.last_screenshot_path = self.ui_adapter.take_screenshot()
+                if self.last_screenshot_path:
+                    self.screenshot_stats["total_screenshots"] += 1
+
+                    # Atualizar o nome do arquivo de screenshot com o fingerprint do estado
+                    if self.last_state_fingerprint:
+                        self.last_screenshot_path = self.ui_adapter.update_screenshot_with_state(
+                            self.last_screenshot_path, self.last_state_fingerprint)
+
+            # Complementar ações com análise de screenshot
+            if self.use_screenshot_analysis and self.screenshot_complementor and self.last_screenshot_path:
+                self.logger.debug("Complementing actions with screenshot analysis")
+
+                # Guardar contagem de ações antes da complementação
+                actions_before = sum(len(item.actions) for item in self.current_screen.items)
+
+                # Complementar ações com análise de screenshot
+                with self.performance_monitor.measure_time("screenshot_analysis"):
+                    self.current_screen = self.screenshot_complementor.complement_screen_actions(
+                        self.current_screen, self.last_screenshot_path)
+
+                # Calcular quantas ações foram adicionadas
+                actions_after = sum(len(item.actions) for item in self.current_screen.items)
+                added_actions = actions_after - actions_before
+
+                if added_actions > 0:
+                    self.screenshot_stats["complemented_actions_count"] += added_actions
+                    self.logger.info(f"Added {added_actions} complementary actions from screenshot analysis")
 
             # Create state data
             self.current_state = {
-                "activity": ui_state.get("activity", "unknown"),
-                "package_name": ui_state.get("package_name", "unknown"),
-                "fingerprint": fingerprint,
+                "activity": current_activity,
+                "package_name": current_package,
+                "fingerprint": current_fingerprint,
                 "timestamp": time.time(),
-                "interactive_elements_count": len(self.current_screen.items)
+                "interactive_elements_count": len(self.current_screen.items),
+                "screenshot_path": self.last_screenshot_path  # Incluir caminho do screenshot para referência
             }
 
             # Record in memory
-            is_new_state = fingerprint not in self.short_term_memory.state_history
+            is_new_state = current_fingerprint not in self.short_term_memory.state_history
             self.short_term_memory.record_state(self.current_state)
 
             if self.long_term_memory:
@@ -797,6 +875,22 @@ class RVDroidService:
 
         except Exception as e:
             self.logger.error(f"Error updating current state: {e}")
+
+    def get_screenshot_statistics(self) -> Dict[str, Any]:
+        """
+        Get statistics about screenshot analysis.
+
+        Returns:
+            Dictionary with screenshot statistics
+        """
+        return {
+            "screenshot_enabled": self.use_screenshot_analysis,
+            "screenshot_frequency": self.screenshot_frequency,
+            "total_screenshots": self.screenshot_stats["total_screenshots"],
+            "complemented_actions": self.screenshot_stats["complemented_actions_count"],
+            "error_indicators_detected": self.screenshot_stats["error_indicators_detected"],
+            "last_screenshot": self.last_screenshot_path
+        }
 
     def _generate_state_fingerprint(self, screen: ScreenDescription, state_data: Dict[str, Any]) -> str:
         """
@@ -857,6 +951,10 @@ class RVDroidService:
         # Add component-specific results
         if self.progress_tracker:
             results["progress"] = self.progress_tracker.get_progress_summary()
+
+        # Adicionar estatísticas de screenshot se habilitado
+        if self.use_screenshot_analysis:
+            results["screenshot_stats"] = self.get_screenshot_statistics()
 
         return results
 

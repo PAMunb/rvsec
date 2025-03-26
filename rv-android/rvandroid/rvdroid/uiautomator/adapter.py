@@ -49,6 +49,14 @@ class UIAutomator2Adapter:
         from rvandroid.util.error.error_handler import ErrorHandler
         self.error_handler = ErrorHandler.get_instance()
 
+        self.screenshot_manager = None
+        try:
+            from rvandroid.analysis.screenshot.screenshot_manager import ScreenshotManager
+            self.screenshot_manager = ScreenshotManager()
+            self.logger.info("Screenshot manager initialized")
+        except ImportError:
+            self.logger.warning("ScreenshotManager not available")
+
         # Initialize parser
         # TODO visitor ....
         self.parser = UIAutomator2Parser(GenericScreenVisitor)
@@ -578,6 +586,76 @@ class UIAutomator2Adapter:
         except Exception as e:
             self.logger.error(f"Error stopping app {package_name}: {e}")
             raise ADBError(f"Failed to stop app: {str(e)}", e)
+
+    def take_screenshot(self, save_path: Optional[str] = None) -> Optional[str]:
+        """
+        Capture screenshot from the device.
+
+        Args:
+            save_path: Optional path to save the screenshot to.
+               If None, a timestamp-based path will be used.
+
+        Returns:
+            Path to saved screenshot or None if failed
+        """
+        try:
+            if not self.device:
+                self.logger.error("No connection to device")
+                return None
+
+            # If ScreenshotManager is available and no specific path is requested, use it
+            current_activity = None
+            if not save_path and self.screenshot_manager:
+                try:
+                    # Get current activity for better organization
+                    current_app = self.device.app_current()
+                    current_activity = current_app.get("activity", "").split('/')[-1]
+                except:
+                    pass
+
+                # Take screenshot using device's screenshot method
+                # This returns PIL.Image object in newer versions of uiautomator2
+                screenshot_data = self.device.screenshot()
+
+                # Save using screenshot manager
+                return self.screenshot_manager.save_screenshot(screenshot_data, current_activity)
+            else:
+                # Create default path if none provided
+                if not save_path:
+                    timestamp = time.strftime("%Y%m%d_%H%M%S")
+                    filename = f"screenshot_{timestamp}.png"
+                    screenshot_dir = os.path.join(os.path.dirname(__file__), "..", "screenshots")
+                    os.makedirs(screenshot_dir, exist_ok=True)
+                    save_path = os.path.join(screenshot_dir, filename)
+
+                # Take screenshot and save directly to the specified path
+                self.logger.debug(f"Taking screenshot and saving to {save_path}")
+                success = self.device.screenshot(save_path)
+
+                if success:
+                    return save_path
+                else:
+                    self.logger.error("Failed to capture screenshot")
+                    return None
+
+        except Exception as e:
+            self.logger.error(f"Error capturing screenshot: {e}")
+            return None
+
+    def update_screenshot_with_state(self, screenshot_path: str, state_fingerprint: str) -> Optional[str]:
+        """
+        Update a screenshot filename with state fingerprint.
+
+        Args:
+            screenshot_path: Path to the screenshot
+            state_fingerprint: State fingerprint to add
+
+        Returns:
+            Updated path or None if failed
+        """
+        if self.screenshot_manager and screenshot_path:
+            return self.screenshot_manager.rename_with_state(screenshot_path, state_fingerprint)
+        return screenshot_path
 
     def cleanup(self) -> None:
         """Clean up resources."""
