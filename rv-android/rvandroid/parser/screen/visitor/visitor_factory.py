@@ -1,11 +1,11 @@
 # rvandroid/parser/screen/visitor/visitor_factory.py
-from typing import Dict, Type, Optional
+from typing import Dict, Type, Optional, List
 
 from rvandroid.domain.static import StaticAnalysisData
 from rvandroid.parser.screen.visitor.base_visitor import BaseScreenVisitor
 from rvandroid.parser.screen.visitor.basic_visitor import BasicTextVisitor
-from rvandroid.parser.screen.visitor.enhanced_visitor import NewEnhancedTextVisitor
-from rvandroid.parser.screen.visitor.text_visitor import EnhancedTextVisitor
+from rvandroid.parser.screen.visitor.enhanced_visitor import EnhancedTextVisitor
+from rvandroid.parser.screen.visitor.text_visitor import TextVisitor
 
 
 class VisitorFactory:
@@ -16,16 +16,16 @@ class VisitorFactory:
 
     # Registry of visitor types and their implementations
     _REGISTRY: Dict[str, Type[BaseScreenVisitor]] = {
-        "enhanced_text": EnhancedTextVisitor,
-        "basic_text": BasicTextVisitor,
-        "detailed_text": NewEnhancedTextVisitor,
+        "basic": BasicTextVisitor,
+        "default": TextVisitor,
+        "detailed": EnhancedTextVisitor,
         # Add other visitor implementations as needed
     }
 
     @classmethod
     def create(
             cls,
-            visitor_type: str = "enhanced_text",
+            visitor_type: str = "default",
             static_data: Optional[StaticAnalysisData] = None,
             activity: str = "",
             **kwargs
@@ -52,7 +52,7 @@ class VisitorFactory:
         return visitor_class(static_data, activity, **kwargs)
 
     @classmethod
-    def get_visitor_class(cls, visitor_type: str = "enhanced_text") -> Type[BaseScreenVisitor]:
+    def get_visitor_class(cls, visitor_type: str = "default") -> Type[BaseScreenVisitor]:
         """
         Get the visitor class for a specified type.
 
@@ -96,3 +96,13 @@ class VisitorFactory:
             Dictionary of visitor types and their classes
         """
         return VisitorFactory._REGISTRY.copy()
+
+    @staticmethod
+    def get_available_types_names() -> List[str]:
+        """
+        Get all available visitor types names.
+
+        Returns:
+            Dictionary of visitor types and their classes
+        """
+        return VisitorFactory._REGISTRY.keys()

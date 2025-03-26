@@ -68,7 +68,8 @@ class RVDroidService:
     def __init__(self, static_data: Optional[StaticAnalysisData] = None,
                  config: Optional[ComponentConfigurator] = None,
                  device_id: str = "emulator-5554",
-                 use_llm: bool = True):
+                 use_llm: bool = True,
+                 preferred_strategy: str = "SecurityFocusedStrategy"):
         """
         Initialize the RVDroid service.
 
@@ -77,7 +78,9 @@ class RVDroidService:
             config: Optional component configuration
             device_id: Target device ID
             use_llm: Whether to use LLM guidance
+            preferred_strategy: Optional name of preferred strategy (default will be used if not specified)
         """
+        import rvandroid.rvdroid.strategy.basic_strategies
         self.app_package_name = None
 
         # Configure logging
@@ -92,6 +95,7 @@ class RVDroidService:
         self.config = config or ComponentConfigurator(static_data)
         self.device_id = device_id
         self.use_llm = use_llm
+        self.preferred_strategy_name = preferred_strategy
 
         # Initialize performance monitor
         self.performance_monitor = PerformanceMonitor.get_instance()
@@ -125,6 +129,10 @@ class RVDroidService:
         self.strategy_balancer = StrategyBalancer(static_data, use_llm_guidance=use_llm)
         self.current_strategy = None
 
+        # Set preferred strategy if specified
+        if self.preferred_strategy_name:
+            self._set_preferred_strategy(self.preferred_strategy_name)
+
         # Initialize LLM service if needed
         self.llm_service = LLMService(static_data) if use_llm else None
         self.last_llm_guidance_time = 0
@@ -150,6 +158,41 @@ class RVDroidService:
         self.logger.info("RVDroid service initialized successfully")
         if use_llm:
             self.logger.info("LLM guidance enabled")
+        if self.preferred_strategy_name:
+            self.logger.info(f"Preferred strategy set to: {self.preferred_strategy_name}")
+
+    def _set_preferred_strategy(self, strategy_name: str) -> bool:
+        """
+        Set the preferred strategy by name.
+
+        Args:
+            strategy_name: Name of the strategy class or strategy instance
+
+        Returns:
+            True if strategy was found and set as preferred, False otherwise
+        """
+        if not self.strategy_balancer or not self.strategy_balancer.strategies:
+            self.logger.warning(f"Cannot set preferred strategy: no strategy balancer or strategies available")
+            return False
+
+        # Try to find the strategy by name match
+        for strategy_info in self.strategy_balancer.strategies:
+            strategy = strategy_info["strategy"]
+            strategy_class_name = strategy.__class__.__name__
+
+            # Check for match with class name or instance name
+            if (strategy_name == strategy_class_name or
+                    strategy_name == strategy.name or
+                    strategy_class_name.lower().startswith(strategy_name.lower())):
+                # Set as preferred
+                self.strategy_balancer.preferred_strategy_info = strategy_info
+                self.strategy_balancer.last_strategy_switch = time.time()
+
+                self.logger.info(f"Set preferred strategy to {strategy_class_name} ({strategy.name})")
+                return True
+
+        self.logger.warning(f"Could not find strategy matching '{strategy_name}'")
+        return False
 
     def start_testing(self, package_name: str, activity: Optional[str] = None,
                       timeout: int = 3600, llm_guidance: bool = True) -> bool:
@@ -220,6 +263,8 @@ class RVDroidService:
                 # Execute one test iteration
                 with self.performance_monitor.measure_time("test_iteration"):
                     result = self._execute_test_iteration()
+                    print(f"*** Result: {result}")
+                    input("$$$ Press Enter to continue...")
 
                 # Update statistics
                 if result.get("success", False):
@@ -229,7 +274,7 @@ class RVDroidService:
                     self.stats["new_states"] += 1
 
                 # Small delay between iterations
-                time.sleep(0.5)
+                time.sleep(0.5) # TODO externalize
 
             # Collect final results
             results = self._collect_results()
@@ -396,9 +441,11 @@ class RVDroidService:
         Returns:
             Result dictionary with execution details
         """
+        print("Executing test iteration .......................")
         try:
             # 1. Analyze current state
             state_analysis = self._analyze_state()
+            print("State analysis: ", state_analysis)
 
             # Check if app is in foreground
             if not state_analysis or state_analysis.get("app_in_foreground", False) == False:
@@ -424,10 +471,12 @@ class RVDroidService:
             # 3. Select the strategy to use
             if self.strategy_balancer:
                 self.current_strategy = self.strategy_balancer.select_strategy(state_analysis)
+                print("=== Selected strategy: ", self.current_strategy)
 
             if not self.current_strategy:
                 # Fall back to default strategy
                 self.current_strategy = StrategyRegistry.create_strategy("RandomStrategy", self.static_data)
+                print("=== Fallback strategy: ", self.current_strategy)
 
             # 4. Generate next action
             action = self._generate_action()
@@ -510,7 +559,10 @@ class RVDroidService:
 
         except Exception as e:
             self.logger.error(f"Error in test iteration: {e}")
+            import traceback
+            traceback.print_exc()
             return {"success": False, "error": str(e)}
+
 
     def _get_action_feedback(self, action: ItemAction, result: Dict[str, Any]) -> None:
         """
@@ -599,6 +651,7 @@ class RVDroidService:
         try:
             # Check if app is in foreground
             current_package = self.current_state.get("package_name", "unknown")
+            print(f"Current package:: {current_package}")
 
             # Use the correct attribute for the target app's package name
             # The app package name should be available when the service is initialized
@@ -619,6 +672,7 @@ class RVDroidService:
                 state_analysis["context_info"] = context_analysis
 
             # Add opportunity detection if available
+            print(f"Opportunity detector={self.opportunity_detector}")
             if self.opportunity_detector:
                 opportunities = self.opportunity_detector.detect_opportunities(
                     self.current_screen,
@@ -627,6 +681,7 @@ class RVDroidService:
                 state_analysis["opportunities"] = opportunities
 
             # Add progress tracking if available
+            print(f"Progress tracker={self.progress_tracker}")
             if self.progress_tracker:
                 progress_metrics = self.progress_tracker.update_progress(
                     self.current_screen,
@@ -635,10 +690,14 @@ class RVDroidService:
                 )
                 state_analysis["progress_metrics"] = progress_metrics
 
+            print(f"*** State analysis: {state_analysis}")
+
             return state_analysis
 
         except Exception as e:
             self.logger.error(f"Error analyzing state: {e}")
+            import traceback
+            traceback.print_exc()
             return {}
 
     def _generate_action(self) -> Optional[ItemAction]:
@@ -652,9 +711,12 @@ class RVDroidService:
             self.logger.error("Cannot generate action: missing strategy or screen")
             return None
 
+        print(f"********** Generating action... strategy: {self.current_strategy} ::: screen={self.current_screen} ::::::::::::: {self.current_state}")
+
         try:
             # Get history if needed by the strategy
             history = list(self.short_term_memory.state_history)
+            print(f"History: {history}")
 
             # Use current strategy to generate action
             action = self.current_strategy.generate_action(
@@ -662,6 +724,9 @@ class RVDroidService:
                 self.current_state or {},
                 history
             )
+            print(f"==== Generated action: {action}")
+
+            input(">>> Press Enter to continue...")
 
             if action:
                 self.logger.debug(f"Generated action {action.id}: {action.text}")
@@ -680,6 +745,7 @@ class RVDroidService:
         Returns:
             Fallback action or None if no action available
         """
+        print("%%%%%%%%%%%%%%%%%%% Generating fallback action...")
         if not self.current_screen or not self.current_screen.items:
             return None
 

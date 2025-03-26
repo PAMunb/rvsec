@@ -1,3 +1,5 @@
+# rvandroid/rvdroid/strategy/balancer/strategy_balancer.py
+
 """
 Strategy balancer for RVDroid.
 
@@ -7,6 +9,7 @@ based on results and application state.
 """
 
 import time
+import random
 from typing import Dict, Any, List, Optional, Tuple
 
 from rvandroid.domain.static import StaticAnalysisData
@@ -22,13 +25,24 @@ class StrategyBalancer:
     """
     Balances multiple testing strategies and adaptively selects between them.
 
-    Tracks strategy performance metrics, adjusts strategy weights based on
-    effectiveness, and selects strategies based on application state and context.
+    ### Architectural Decisions:
+    - Implements a preference-based strategy selection mechanism with occasional exploration
+    - Tracks strategy performance metrics to dynamically update preferred strategies
+    - Supports context-aware strategy selection based on application state
+    - Integrates with LLM for strategic guidance when available
+    - Allows for periodic phase transitions to balance different testing goals
+
+    ### Role in the System:
+    - Serves as the central decision maker for testing strategy selection
+    - Analyzes strategy performance and effectiveness in different contexts
+    - Balances exploration and exploitation in strategy selection
+    - Provides a feedback loop to improve strategy selection over time
+    - Adapts testing approach based on application context and observed results
     """
 
     def __init__(self, static_data: Optional[StaticAnalysisData] = None,
                  strategies: Optional[List[str]] = None,
-                 use_llm_guidance: bool = True):
+                 use_llm_guidance: bool = False):
         """
         Initialize the strategy balancer.
 
@@ -71,6 +85,12 @@ class StrategyBalancer:
         # Normalize initial weights
         self._normalize_weights()
 
+        # Initialize preferred strategy
+        self.preferred_strategy_info = self.strategies[0] if self.strategies else None
+        self.exploration_probability = 0.3  # 30% chance to explore non-preferred strategies
+        self.last_strategy_switch = time.time()
+        self.strategy_switch_cooldown = 30  # seconds to wait before considering another switch
+
         # Initialize LLM service if needed
         self.use_llm_guidance = use_llm_guidance
         self.llm_service = LLMService(static_data) if use_llm_guidance else None
@@ -83,6 +103,8 @@ class StrategyBalancer:
         self.phase_duration = 300  # 5 minutes per phase
 
         self.logger.info(f"Initialized strategy balancer with {len(self.strategies)} strategies")
+        self.logger.info(
+            f"Preferred strategy: {self.preferred_strategy_info['strategy'].name if self.preferred_strategy_info else 'None'}")
         if use_llm_guidance:
             self.logger.info("LLM guidance enabled")
 
@@ -127,6 +149,11 @@ class StrategyBalancer:
             for strategy_info in self.strategies:
                 if strategy_info["strategy"].__class__.__name__.lower().startswith(strategy_name.lower()):
                     self.logger.info(f"Using LLM-recommended strategy: {strategy_info['strategy'].name}")
+
+                    # Update preferred strategy
+                    self.preferred_strategy_info = strategy_info
+                    self.last_strategy_switch = current_time
+
                     return strategy_info["strategy"]
 
             return None
@@ -152,7 +179,6 @@ class StrategyBalancer:
         # Normalize weights
         self._normalize_weights()
 
-    # Update the select_strategy method to use LLM guidance
     def select_strategy(self, state_data: Dict[str, Any]) -> Optional[Strategy]:
         """
         Select a strategy based on current weights and application state.
@@ -184,27 +210,56 @@ class StrategyBalancer:
         # Check for context-specific strategy selection
         context_strategy = self._select_context_specific_strategy(state_data)
         if context_strategy:
+            # Update preferred strategy if a context-specific strategy is selected
+            for strategy_info in self.strategies:
+                if strategy_info["strategy"] == context_strategy:
+                    self.preferred_strategy_info = strategy_info
+                    self.last_strategy_switch = time.time()
+                    break
+
             return context_strategy
 
-        # Use weighted random selection based on strategy weights
-        import random
-        total_weight = sum(s["weight"] for s in self.strategies)
+        # Check if we should use preferred strategy or explore
+        current_time = time.time()
+        if (self.preferred_strategy_info and
+                random.random() > self.exploration_probability and
+                current_time - self.last_strategy_switch > self.strategy_switch_cooldown):
+            # Use preferred strategy
+            self.logger.debug(f"Using preferred strategy: {self.preferred_strategy_info['strategy'].name}")
+            return self.preferred_strategy_info["strategy"]
+        else:
+            # Explore other strategies using weighted random selection
+            self.logger.debug("Exploring non-preferred strategies")
 
-        if total_weight <= 0:
-            # If all weights are zero, use uniform selection
-            return random.choice(self.strategies)["strategy"]
+            # Create a list of strategies excluding the preferred one
+            other_strategies = [s for s in self.strategies if s != self.preferred_strategy_info]
 
-        # Weight-based selection
-        selection = random.uniform(0, total_weight)
-        current = 0
+            if not other_strategies:
+                # If there are no other strategies, use the preferred one
+                return self.preferred_strategy_info["strategy"] if self.preferred_strategy_info else None
 
-        for strategy_info in self.strategies:
-            current += strategy_info["weight"]
-            if selection <= current:
-                return strategy_info["strategy"]
+            # Use weighted random selection for other strategies
+            total_weight = sum(s["weight"] for s in other_strategies)
 
-        # Fallback to first strategy
-        return self.strategies[0]["strategy"]
+            if total_weight <= 0:
+                # If all weights are zero, use uniform selection
+                selected = random.choice(other_strategies)
+            else:
+                # Weight-based selection
+                selection = random.uniform(0, total_weight)
+                current = 0
+
+                for strategy_info in other_strategies:
+                    current += strategy_info["weight"]
+                    if selection <= current:
+                        selected = strategy_info
+                        break
+                else:
+                    # Fallback to first strategy
+                    selected = other_strategies[0]
+
+            self.logger.debug(f"Selected non-preferred strategy: {selected['strategy'].name}")
+            return selected["strategy"]
 
     def update_performance(self, strategy: Strategy, action: ItemAction, result: Dict[str, Any]) -> None:
         """
@@ -242,6 +297,9 @@ class StrategyBalancer:
         # Update strategy weight based on performance
         self._update_strategy_weight(strategy_info, result)
 
+        # Check if we should update the preferred strategy
+        self._consider_updating_preferred_strategy(strategy_info)
+
         # Log performance update
         with self.performance_monitor.measure_time("strategy_performance_update"):
             # Record metrics for this strategy
@@ -257,6 +315,56 @@ class StrategyBalancer:
                 value=self._calculate_new_state_rate(performance),
                 unit="%",
                 context={"strategy": strategy.name}
+            )
+
+    def _consider_updating_preferred_strategy(self, strategy_info: Dict[str, Any]) -> None:
+        """
+        Consider updating the preferred strategy based on recent performance.
+
+        Args:
+            strategy_info: Strategy information that was just updated
+        """
+        current_time = time.time()
+
+        # Only consider switching if cooldown has passed
+        if current_time - self.last_strategy_switch < self.strategy_switch_cooldown:
+            return
+
+        # If we don't have a preferred strategy yet, use this one
+        if not self.preferred_strategy_info:
+            self.preferred_strategy_info = strategy_info
+            self.last_strategy_switch = current_time
+            self.logger.info(f"Setting initial preferred strategy: {strategy_info['strategy'].name}")
+            return
+
+        # Don't update if this is already the preferred strategy
+        if strategy_info == self.preferred_strategy_info:
+            return
+
+        # Compare performance metrics
+        current_perf = self.preferred_strategy_info["performance"]
+        new_perf = strategy_info["performance"]
+
+        # Calculate performance scores (weighted sum of different metrics)
+        current_score = (
+                self._calculate_success_rate(current_perf) * 0.3 +
+                self._calculate_new_state_rate(current_perf) * 0.5 +
+                (current_perf["security_operations"] / max(1, current_perf["total_actions"])) * 0.2
+        )
+
+        new_score = (
+                self._calculate_success_rate(new_perf) * 0.3 +
+                self._calculate_new_state_rate(new_perf) * 0.5 +
+                (new_perf["security_operations"] / max(1, new_perf["total_actions"])) * 0.2
+        )
+
+        # Update preferred strategy if new strategy performs significantly better
+        if new_score > current_score * 1.2:  # 20% better performance
+            self.preferred_strategy_info = strategy_info
+            self.last_strategy_switch = current_time
+            self.logger.info(
+                f"Switching preferred strategy from {self.preferred_strategy_info['strategy'].name} "
+                f"to {strategy_info['strategy'].name} (score: {new_score:.2f} vs {current_score:.2f})"
             )
 
     def _update_strategy_weight(self, strategy_info: Dict[str, Any], result: Dict[str, Any]) -> None:
@@ -343,6 +451,66 @@ class StrategyBalancer:
 
             # Adjust strategy weights for new phase
             self._adjust_weights_for_phase(next_phase)
+
+            # Reset preferred strategy on phase change
+            self.preferred_strategy_info = self._select_best_strategy_for_phase(next_phase)
+            self.last_strategy_switch = current_time
+
+            if self.preferred_strategy_info:
+                self.logger.info(
+                    f"New preferred strategy for {next_phase} phase: {self.preferred_strategy_info['strategy'].name}")
+
+    def _select_best_strategy_for_phase(self, phase: str) -> Optional[Dict[str, Any]]:
+        """
+        Select the best strategy for a specific phase based on historical performance.
+
+        Args:
+            phase: Exploration phase
+
+        Returns:
+            Best strategy info for this phase or None if no strategies
+        """
+        if not self.strategies:
+            return None
+
+        # Define phase-specific scoring function
+        if phase == "exploration":
+            # For exploration, prioritize new state discovery
+            def score_func(perf):
+                return self._calculate_new_state_rate(perf)
+        elif phase == "coverage":
+            # For coverage, prioritize successful actions
+            def score_func(perf):
+                return self._calculate_success_rate(perf)
+        elif phase == "security":
+            # For security, prioritize security operations
+            def score_func(perf):
+                return perf["security_operations"] / max(1, perf["total_actions"]) * 100
+        else:
+            # Default scoring function
+            def score_func(perf):
+                return (self._calculate_success_rate(perf) +
+                        self._calculate_new_state_rate(perf)) / 2
+
+        # Score each strategy
+        scored_strategies = []
+        for strategy_info in self.strategies:
+            perf = strategy_info["performance"]
+            # Skip strategies with too few actions
+            if perf["total_actions"] < 10:
+                continue
+
+            score = score_func(perf)
+            scored_strategies.append((strategy_info, score))
+
+        # Sort by score (highest first)
+        scored_strategies.sort(key=lambda x: x[1], reverse=True)
+
+        # Return best strategy or first if no scores
+        if scored_strategies:
+            return scored_strategies[0][0]
+        else:
+            return self.strategies[0] if self.strategies else None
 
     def _adjust_weights_for_phase(self, phase: str) -> None:
         """
@@ -462,7 +630,7 @@ class StrategyBalancer:
         Returns:
             List of strategy statistics dictionaries
         """
-        return [
+        stats = [
             {
                 "name": s["strategy"].name,
                 "type": s["strategy"].__class__.__name__,
@@ -471,10 +639,16 @@ class StrategyBalancer:
                 "new_state_rate": self._calculate_new_state_rate(s["performance"]),
                 "total_actions": s["performance"]["total_actions"],
                 "new_states": s["performance"]["new_states"],
-                "security_operations": s["performance"]["security_operations"]
+                "security_operations": s["performance"]["security_operations"],
+                "is_preferred": (s == self.preferred_strategy_info)
             }
             for s in self.strategies
         ]
+
+        # Sort by weight (highest first)
+        stats.sort(key=lambda x: x["weight"], reverse=True)
+
+        return stats
 
     def get_current_phase(self) -> Dict[str, Any]:
         """
@@ -491,5 +665,7 @@ class StrategyBalancer:
             "phase": self.current_phase,
             "elapsed_seconds": elapsed_in_phase,
             "remaining_seconds": remaining_in_phase,
-            "total_seconds": self.phase_duration
+            "total_seconds": self.phase_duration,
+            "preferred_strategy": self.preferred_strategy_info[
+                "strategy"].name if self.preferred_strategy_info else None
         }

@@ -60,12 +60,14 @@ class StateAnalyzer:
         Returns:
             Dictionary with analysis results
         """
+        print("Analyzing state...")
         with self.performance_monitor.measure_time("state_analysis"):
             # Generate state fingerprint
             fingerprint = self._generate_fingerprint(screen, state_data)
 
             # Check if we've seen this state before
             is_new_state = fingerprint not in self.seen_states
+            print(f"is_new_state={is_new_state}")
 
             # Track state
             if is_new_state:
@@ -78,12 +80,15 @@ class StateAnalyzer:
 
             # Classify screen
             screen_type = self._classify_screen(screen, state_data)
+            print(f"screen_type={screen_type}")
 
             # Identify testing opportunities
             opportunities = self._identify_opportunities(screen, state_data)
+            print(f"opportunities={opportunities}")
 
             # Enrich with static analysis if available
             static_insights = self._get_static_insights(screen.activity)
+            print(f"static_insights={static_insights}")
 
             # Combine all results
             analysis = {
@@ -95,6 +100,7 @@ class StateAnalyzer:
                 "seen_states_count": len(self.seen_states),
                 "interactive_elements_count": len(screen.items)
             }
+            print(f"analysis={analysis}")
 
             return analysis
 
@@ -109,6 +115,7 @@ class StateAnalyzer:
         Returns:
             State fingerprint string
         """
+        print("Generating fingerprint...")
         # Start with activity name
         components = [screen.activity]
 
@@ -132,6 +139,7 @@ class StateAnalyzer:
         # Create fingerprint
         import hashlib
         fingerprint = hashlib.md5("|".join(components).encode()).hexdigest()
+        print(f"********** Fingerprint: {fingerprint}")
 
         return fingerprint
 

@@ -96,6 +96,8 @@ class ContextAnalyzer:
             }
         }
 
+    # rvandroid/rvdroid/analysis/context/context_analyzer.py
+
     def analyze_context(self, screen: ScreenDescription, state_data: Dict[str, Any]) -> Dict[str, Any]:
         """
         Analyze the context of the current screen.
@@ -240,8 +242,8 @@ class ContextAnalyzer:
             return "unknown", 0.0
 
         # Find domain with highest confidence
-        primary_context = max(domain_matches.items(), key=lambda x: x[1])
-        return primary_context
+        domain, confidence = max(domain_matches.items(), key=lambda x: x[1])
+        return domain, confidence
 
     def _track_context_transition(self, context: Dict[str, Any]) -> None:
         """
@@ -340,4 +342,3 @@ class ContextAnalyzer:
                     suggestions["focus_areas"].append("security")
 
         return suggestions
-   

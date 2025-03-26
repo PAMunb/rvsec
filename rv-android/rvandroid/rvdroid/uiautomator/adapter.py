@@ -4,17 +4,17 @@ UIAutomator adapter for RVDroid.
 This module provides a high-level interface for interacting with an Android device
 using the uiautomator2 Python API, handling XML hierarchy retrieval, and UI interactions.
 """
-
-import os
+import subprocess
 import time
-from typing import Dict, Any, Optional, Tuple
+from typing import Dict, Any, Optional
 
 import uiautomator2 as u2
 
+from rvandroid.domain.static import StaticAnalysisData
 from rvandroid.parser.screen.uiautomator.uiautomator_parser import UIAutomator2Parser
 from rvandroid.parser.screen.visitor.base_visitor import ScreenDescription
-from rvandroid.domain.static import StaticAnalysisData
-from rvandroid.util.exceptions import ADBError, EmulatorError
+from rvandroid.parser.screen.visitor.generic_visitor import GenericScreenVisitor
+from rvandroid.util.exceptions import ADBError
 from rvandroid.util.logging.constants import CONTEXT_COMPONENT
 from rvandroid.util.logging.manager import LoggingManager
 
@@ -50,7 +50,8 @@ class UIAutomator2Adapter:
         self.error_handler = ErrorHandler.get_instance()
 
         # Initialize parser
-        self.parser = UIAutomator2Parser()
+        # TODO visitor ....
+        self.parser = UIAutomator2Parser(GenericScreenVisitor)
 
         # Try to stop any existing uiautomator services before connecting
         self._stop_existing_uiautomator()
@@ -63,6 +64,11 @@ class UIAutomator2Adapter:
             # Basic device info
             info = self.device.info
             self.logger.debug(f"Device info: {info}")
+
+            # TODO mostra cliques na tela .... REMOVER
+            subprocess.run(['adb', 'shell', 'settings', 'put', 'system', 'show_touches', '1'])
+            print("mostrando cliques na tela ......................................................")
+
         except Exception as e:
             self.logger.error(f"Error connecting to device: {e}")
             self.device = None
@@ -156,9 +162,9 @@ class UIAutomator2Adapter:
             # Get current activity and package name
             current_app = self.device.app_current()
             package_name = current_app.get("package", "unknown")
-            current_activity = current_app.get("activity", "unknown")
+            current_activity = package_name + current_app.get("activity", "unknown")
 
-            self.logger.debug(f"Current package: {package_name}, activity: {current_activity}")
+            self.logger.debug(f"Current activity: {current_activity}")
 
             # Get UI hierarchy as XML
             xml_content = self.device.dump_hierarchy(compressed=False)
@@ -172,8 +178,7 @@ class UIAutomator2Adapter:
                 "activity": current_activity,
                 "package_name": package_name,
                 "hierarchy": xml_content,
-                "timestamp": current_time,
-                "currentActivityName": current_activity
+                "timestamp": current_time
             }
 
             # Cache state
@@ -302,7 +307,7 @@ class UIAutomator2Adapter:
             self.logger.error("No hierarchy XML found in state data")
             raise ValueError("No hierarchy XML found in state data")
 
-        return self.parser.parse(xml_data, static_data)
+        return self.parser.parse(xml_data, static_data, state.get("activity", ""))
 
     def click(self, x: int, y: int) -> bool:
         """
@@ -537,32 +542,8 @@ class UIAutomator2Adapter:
             # Start the app using uiautomator2
             if activity:
                 self.device.app_start(package_name, activity)
-                # # TODO remover gambiarra para teste
-                # if self.device.app_start(package_name, activity):
-                #     # Force a click in the middle of the screen after app launch
-                #     print("************************* fica de olho")
-                #     time.sleep(3)  # Wait for app to fully load
-                #     screen_size = self.device.window_size()
-                #     center_x = screen_size[0] // 2
-                #     center_y = screen_size[1] // 2
-                #     self.logger.info(f"Forcing test click at center: ({center_x}, {center_y})")
-                #     self.device.click(center_x, center_y)
-                #     return True
-                # return False
             else:
                 self.device.app_start(package_name)
-                # TODO remover gambiarra para teste
-                # if self.device.app_start(package_name):
-                #     # Force a click in the middle of the screen after app launch
-                #     print("************************* fica de olho 000000")
-                #     time.sleep(3)  # Wait for app to fully load
-                #     screen_size = self.device.window_size()
-                #     center_x = screen_size[0] // 2
-                #     center_y = screen_size[1] // 2
-                #     self.logger.info(f"Forcing test click at center: ({center_x}, {center_y})")
-                #     self.device.click(center_x, center_y)
-                #     return True
-                # return False
 
             # Wait for app to start
             time.sleep(2)

@@ -8,7 +8,7 @@ from rvandroid.parser.screen.visitor.base_visitor import BaseScreenVisitor, Item
     ScreenDescription
 
 
-class NewEnhancedTextVisitor(BaseScreenVisitor):
+class EnhancedTextVisitor(BaseScreenVisitor):
     """
     Highly detailed visitor implementation for generating comprehensive text descriptions of Android UI elements.
     This visitor provides extensive details about UI elements, their properties, relationships, and accessibility information.

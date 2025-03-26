@@ -1,9 +1,4 @@
-"""
-Opportunity detector for RVDroid.
-
-This module provides functionality to identify testing opportunities
-based on UI elements, application state, and historical context.
-"""
+# Fixed version of rvandroid/rvdroid/analysis/opportunity/opportunity_detector.py
 
 from typing import Dict, Any, List, Optional, Set
 
@@ -106,8 +101,38 @@ class OpportunityDetector:
         if context_info and "domain_matches" in context_info:
             # Get security level from domain pattern matches
             domain_matches = context_info["domain_matches"]
-            if domain_matches and context_type in domain_matches:
-                security_level = domain_matches.get(context_type, {}).get("security_level", "medium")
+
+            # Fix: Check the type of domain_matches to handle different possible structures
+            if isinstance(domain_matches, dict):
+                # Possible structures:
+                # 1. domain_matches = {'authentication': 0.8, 'payment': 0.3}
+                # 2. domain_matches = {'authentication': {'security_level': 'high'}}
+
+                if context_type in domain_matches:
+                    match_value = domain_matches[context_type]
+
+                    # Case 1: If it's a confidence score (float)
+                    if isinstance(match_value, float):
+                        # Determine security level based on confidence
+                        if match_value > 0.7:
+                            security_level = "high"
+                        elif match_value > 0.4:
+                            security_level = "medium"
+                        else:
+                            security_level = "low"
+
+                    # Case 2: If it's a dictionary with security_level
+                    elif isinstance(match_value, dict) and "security_level" in match_value:
+                        security_level = match_value["security_level"]
+
+                # Also look for domains with security implications
+                for domain, value in domain_matches.items():
+                    if domain in ["authentication", "payment", "registration"] and domain != context_type:
+                        # If another security-sensitive domain has high confidence
+                        if isinstance(value, float) and value > 0.6:
+                            security_level = "medium"  # At least medium security
+                        elif isinstance(value, dict) and value.get("security_level") in ["high", "critical"]:
+                            security_level = "medium"  # At least medium security
 
         # Track which resource IDs we've seen to avoid duplicates
         seen_resource_ids = set()
@@ -309,4 +334,3 @@ class OpportunityDetector:
             List of security-sensitive actions
         """
         return [opp for opp in opportunities if opp["reaches_mop"] or opp["security_level"] in ["high", "critical"]]
-   

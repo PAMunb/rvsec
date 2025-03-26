@@ -7,7 +7,7 @@ from rvandroid.parser.screen.visitor.base_visitor import BaseScreenVisitor, Item
     ScreenDescription
 
 
-class EnhancedTextVisitor(BaseScreenVisitor):
+class TextVisitor(BaseScreenVisitor):
     """
     Enhanced visitor implementation for generating text descriptions of Android UI elements.
     This visitor traverses the UI hierarchy and creates human-readable descriptions
@@ -118,8 +118,6 @@ class EnhancedTextVisitor(BaseScreenVisitor):
             self.items.append(item)
             self.window_info["interactive_elements"] += 1
             self.processed_parents.add(node_id)
-
-    # rvandroid/parser/visitor/text_visitor.py (correção para o método visit_button)
 
     def visit_button(self, node: Node) -> None:
         """

@@ -37,6 +37,7 @@ class AbstractScreenParser(ABC):
         Returns:
             BaseScreenVisitor instance
         """
+        print(f"create_visitor: class={self.visitor_class}, activity={activity}")
         return self.visitor_class(static_data, activity)
 
     @abstractmethod

@@ -24,7 +24,7 @@ class UIAutomator2Parser(AbstractScreenParser):
         super().__init__(visitor_class)
         self.logger = logging.getLogger(__name__)
 
-    def parse(self, xml_data: str, static_data: Optional[StaticAnalysisData] = None) -> ScreenDescription:
+    def parse(self, xml_data: str, static_data: Optional[StaticAnalysisData] = None, activity_name: Optional[str] = None) -> ScreenDescription:
         """
         Parse UIAutomator2 XML dump into a ScreenDescription.
 
@@ -40,6 +40,8 @@ class UIAutomator2Parser(AbstractScreenParser):
         """
         # Avoid logging the entire XML which could be very large
         self.logger.debug(f"Parsing UIAutomator2 XML data: {len(xml_data)} bytes")
+        print(f"activity_name={activity_name}")
+        print(f"static_data={static_data}")
 
         # Verify if it's valid XML
         if not xml_data or not isinstance(xml_data, str):
@@ -52,7 +54,8 @@ class UIAutomator2Parser(AbstractScreenParser):
             raise ValueError(f"Invalid XML format: {e}")
 
         # Extract activity name and create node tree
-        activity_name = self.get_activity_name(root)
+        if not activity_name:
+            activity_name = self.get_activity_name(root)
         root_node = self.create_node_tree(root)
 
         if not root_node:
@@ -61,10 +64,12 @@ class UIAutomator2Parser(AbstractScreenParser):
 
         # Create visitor and traverse tree
         visitor = self.create_visitor(static_data, activity_name)
+        print(f"visitor={visitor}")
         root_node.accept(visitor)
 
         # Get screen description
         description = visitor.get_screen_description()
+        print(f"___description={description}")
         self.logger.info(f"Parsed {len(description.items)} UI elements from UIAutomator2 XML")
 
         return description

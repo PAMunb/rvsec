@@ -116,7 +116,7 @@ class TestComponentConfigurator:
         mock_visitor = MagicMock()
 
         # Patch the imported class inside the method
-        with patch('rvandroid.parser.screen.visitor.enhanced_visitor.NewEnhancedTextVisitor', mock_visitor):
+        with patch('rvandroid.parser.screen.visitor.enhanced_visitor.EnhancedTextVisitor', mock_visitor):
             # Test with valid visitor type
             result = configurator.set_visitor("detailed", include_bounds=True)
 
@@ -322,7 +322,7 @@ class TestComponentConfigurator:
         configurator.parser_class = MagicMock()
         configurator.parser_class.__name__ = "DroidBotParser"
         configurator.visitor_class = MagicMock()
-        configurator.visitor_class.__name__ = "EnhancedTextVisitor"
+        configurator.visitor_class.__name__ = "TextVisitor"
 
         # Call method
         description = configurator.describe_configuration()
@@ -336,7 +336,7 @@ class TestComponentConfigurator:
 
         assert description["strategy"] == "BasicPromptStrategy001"
         assert description["parser"] == "DroidBotParser"
-        assert description["visitor"] == "EnhancedTextVisitor"
+        assert description["visitor"] == "TextVisitor"
 
     def test_get_available_llm_types(self, configurator):
         """Test get_available_llm_types method"""

@@ -79,8 +79,8 @@ class ComponentConfigurator:
 
     VISITOR_TYPES = {
         "basic": "BasicTextVisitor",
-        "enhanced": "EnhancedTextVisitor",
-        "detailed": "NewEnhancedTextVisitor"
+        "enhanced": "TextVisitor",
+        "detailed": "EnhancedTextVisitor"
     }
 
     # Model registries
@@ -136,8 +136,8 @@ class ComponentConfigurator:
         self.parser_class = DroidBotParser
 
         # Set default visitor class
-        from rvandroid.parser.screen.visitor.text_visitor import EnhancedTextVisitor
-        self.visitor_class = EnhancedTextVisitor
+        from rvandroid.parser.screen.visitor.text_visitor import TextVisitor
+        self.visitor_class = TextVisitor
 
         # Set default strategy class
         from rvandroid.llm.prompt.prompt_strategy_basic_001 import BasicPromptStrategy001
@@ -285,11 +285,11 @@ class ComponentConfigurator:
             from rvandroid.parser.screen.visitor.basic_visitor import BasicTextVisitor
             self.visitor_class = BasicTextVisitor
         elif visitor_type == "enhanced":
-            from rvandroid.parser.screen.visitor.text_visitor import EnhancedTextVisitor
-            self.visitor_class = EnhancedTextVisitor
+            from rvandroid.parser.screen.visitor.text_visitor import TextVisitor
+            self.visitor_class = TextVisitor
         elif visitor_type == "detailed":
-            from rvandroid.parser.screen.visitor.enhanced_visitor import NewEnhancedTextVisitor
-            self.visitor_class = NewEnhancedTextVisitor
+            from rvandroid.parser.screen.visitor.enhanced_visitor import EnhancedTextVisitor
+            self.visitor_class = EnhancedTextVisitor
 
         # Store visitor parameters
         self.visitor_kwargs = kwargs
