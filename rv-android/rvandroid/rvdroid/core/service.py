@@ -85,6 +85,7 @@ class RVDroidService:
             preferred_strategy: Optional name of preferred strategy
         """
         import rvandroid.rvdroid.strategy.basic_strategies
+        import rvandroid.rvdroid.strategy.visual_aware_strategy
         self.app_package_name = None
 
         # Configure logging
@@ -189,10 +190,10 @@ class RVDroidService:
 
     def _set_preferred_strategy(self, strategy_name: str) -> bool:
         """
-        Set the preferred strategy by name.
+        Set the preferred strategy by name or class type.
 
         Args:
-            strategy_name: Name of the strategy class or strategy instance
+            strategy_name: Name of the strategy class or strategy instance (case-insensitive)
 
         Returns:
             True if strategy was found and set as preferred, False otherwise
@@ -201,24 +202,48 @@ class RVDroidService:
             self.logger.warning(f"Cannot set preferred strategy: no strategy balancer or strategies available")
             return False
 
-        # Try to find the strategy by name match
+        # Normalize the strategy name for comparison
+        normalized_name = strategy_name.lower()
+        # Add "Strategy" suffix if not already present
+        if not normalized_name.endswith("strategy"):
+            normalized_name = f"{normalized_name}strategy"
+
+        # Try to find the strategy by class name match
+        matched_strategy_info = None
+
         for strategy_info in self.strategy_balancer.strategies:
             strategy = strategy_info["strategy"]
-            strategy_class_name = strategy.__class__.__name__
+            strategy_class_name = strategy.__class__.__name__.lower()
+            strategy_instance_name = strategy.name.lower()
 
-            # Check for match with class name or instance name
-            if (strategy_name == strategy_class_name or
-                    strategy_name == strategy.name or
-                    strategy_class_name.lower().startswith(strategy_name.lower())):
-                # Set as preferred
-                self.strategy_balancer.preferred_strategy_info = strategy_info
-                self.strategy_balancer.last_strategy_switch = time.time()
+            # Check for match with class name or instance name (case-insensitive)
+            if normalized_name == strategy_class_name or normalized_name == strategy_instance_name:
+                matched_strategy_info = strategy_info
+                break
 
-                self.logger.info(f"Set preferred strategy to {strategy_class_name} ({strategy.name})")
-                return True
+        # If we didn't find an exact match, try a partial match
+        if not matched_strategy_info:
+            for strategy_info in self.strategy_balancer.strategies:
+                strategy = strategy_info["strategy"]
+                strategy_class_name = strategy.__class__.__name__.lower()
 
-        self.logger.warning(f"Could not find strategy matching '{strategy_name}'")
-        return False
+                # Check if the provided name is a prefix of the strategy class name
+                if strategy_class_name.startswith(normalized_name.replace("strategy", "")):
+                    matched_strategy_info = strategy_info
+                    break
+
+        # Set the matched strategy as preferred
+        if matched_strategy_info:
+            # Set as preferred
+            self.strategy_balancer.preferred_strategy_info = matched_strategy_info
+            self.strategy_balancer.last_strategy_switch = time.time()
+
+            self.logger.info(
+                f"Set preferred strategy to {matched_strategy_info['strategy'].__class__.__name__} ({matched_strategy_info['strategy'].name})")
+            return True
+        else:
+            self.logger.warning(f"Could not find strategy matching '{strategy_name}'")
+            return False
 
     def start_testing(self, package_name: str, activity: Optional[str] = None,
                       timeout: int = 3600, llm_guidance: bool = True) -> bool:
@@ -249,6 +274,36 @@ class RVDroidService:
             if not self.ui_adapter.start_app(package_name, activity):
                 self.logger.error(f"Failed to start app: {package_name}")
                 return False
+
+            # Give app time to fully initialize
+            time.sleep(2)
+
+            # Ensure soft keyboard is disabled or hidden
+            if hasattr(self.ui_adapter, 'hide_keyboard'):
+                self.ui_adapter.hide_keyboard()
+
+            # Attempt to disable auto-showing of keyboard
+            try:
+                from rvandroid.commands.command import Command
+                # Disable auto-show of soft keyboard
+                cmd = Command("adb", [
+                    "-s", self.ui_adapter.device_id,
+                    "shell",
+                    "settings put secure show_ime_with_hard_keyboard 0"
+                ])
+                cmd.invoke()
+
+                # Also try disabling automatic keyboard popup
+                cmd = Command("adb", [
+                    "-s", self.ui_adapter.device_id,
+                    "shell",
+                    "settings put secure default_input_method com.android.inputmethod.latin/.LatinIME"
+                ])
+                cmd.invoke()
+
+                self.logger.info("Disabled automatic keyboard display")
+            except Exception as e:
+                self.logger.warning(f"Could not disable automatic keyboard: {e}")
 
             # Get initial state
             with self.performance_monitor.measure_time("get_initial_state"):
@@ -300,7 +355,7 @@ class RVDroidService:
                     self.stats["new_states"] += 1
 
                 # Small delay between iterations
-                time.sleep(0.5) # TODO externalize
+                time.sleep(0.5)  # TODO externalize
 
             # Collect final results
             results = self._collect_results()
@@ -589,7 +644,6 @@ class RVDroidService:
             traceback.print_exc()
             return {"success": False, "error": str(e)}
 
-
     def _get_action_feedback(self, action: ItemAction, result: Dict[str, Any]) -> None:
         """
         Get feedback from the LLM about an executed action and its result.
@@ -737,7 +791,8 @@ class RVDroidService:
             self.logger.error("Cannot generate action: missing strategy or screen")
             return None
 
-        print(f"********** Generating action... strategy: {self.current_strategy} ::: screen={self.current_screen} ::::::::::::: {self.current_state}")
+        print(
+            f"********** Generating action... strategy: {self.current_strategy} ::: screen={self.current_screen} ::::::::::::: {self.current_state}")
 
         try:
             # Get history if needed by the strategy
@@ -792,6 +847,10 @@ class RVDroidService:
         Update the current application state.
         """
         try:
+            # Ensure keyboard is hidden before getting UI state
+            if hasattr(self.ui_adapter, 'hide_keyboard'):
+                self.ui_adapter.hide_keyboard()
+
             # Get UI state from adapter
             ui_state = self.ui_adapter.get_ui_state(force_refresh=True)
 
@@ -803,52 +862,52 @@ class RVDroidService:
             current_activity = ui_state.get("activity", "unknown")
             current_package = ui_state.get("package_name", "unknown")
 
-            # Capturar screenshot baseado na configuração de frequência
+            # Capture screenshot based on configuration frequency
             should_take_screenshot = False
             previous_fingerprint = self.last_state_fingerprint
 
             if self.use_screenshot_analysis:
                 if self.screenshot_frequency == "always":
                     should_take_screenshot = True
-                elif self.last_screenshot_path is None:  # Primeiro estado
+                elif self.last_screenshot_path is None:  # First state
                     should_take_screenshot = True
 
-            # Parsear estado para criar ScreenDescription
+            # Parse state to create ScreenDescription
             self.current_screen = self.ui_adapter.parse_screen(ui_state, self.static_data)
 
             # Generate fingerprint
             current_fingerprint = self._generate_state_fingerprint(self.current_screen, ui_state)
             self.last_state_fingerprint = current_fingerprint
 
-            # Verificar se o estado mudou para decidir se tira screenshot (frequency="state_change")
+            # Check if the state changed to decide if take screenshot (frequency="state_change")
             if self.use_screenshot_analysis and self.screenshot_frequency == "state_change":
                 if previous_fingerprint != current_fingerprint:
                     should_take_screenshot = True
 
-            # Tomar screenshot se necessário
+            # Take screenshot if necessary
             if should_take_screenshot:
                 self.last_screenshot_path = self.ui_adapter.take_screenshot()
                 if self.last_screenshot_path:
                     self.screenshot_stats["total_screenshots"] += 1
 
-                    # Atualizar o nome do arquivo de screenshot com o fingerprint do estado
+                    # Update the screenshot filename with the state fingerprint
                     if self.last_state_fingerprint:
                         self.last_screenshot_path = self.ui_adapter.update_screenshot_with_state(
                             self.last_screenshot_path, self.last_state_fingerprint)
 
-            # Complementar ações com análise de screenshot
+            # Complement actions with screenshot analysis
             if self.use_screenshot_analysis and self.screenshot_complementor and self.last_screenshot_path:
                 self.logger.debug("Complementing actions with screenshot analysis")
 
-                # Guardar contagem de ações antes da complementação
+                # Store action count before complementation
                 actions_before = sum(len(item.actions) for item in self.current_screen.items)
 
-                # Complementar ações com análise de screenshot
+                # Complement actions with screenshot analysis
                 with self.performance_monitor.measure_time("screenshot_analysis"):
                     self.current_screen = self.screenshot_complementor.complement_screen_actions(
                         self.current_screen, self.last_screenshot_path)
 
-                # Calcular quantas ações foram adicionadas
+                # Calculate how many actions were added
                 actions_after = sum(len(item.actions) for item in self.current_screen.items)
                 added_actions = actions_after - actions_before
 
@@ -863,7 +922,7 @@ class RVDroidService:
                 "fingerprint": current_fingerprint,
                 "timestamp": time.time(),
                 "interactive_elements_count": len(self.current_screen.items),
-                "screenshot_path": self.last_screenshot_path  # Incluir caminho do screenshot para referência
+                "screenshot_path": self.last_screenshot_path  # Include screenshot path for reference
             }
 
             # Record in memory

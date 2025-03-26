@@ -57,7 +57,7 @@ class RandomStrategy(Strategy):
     def generate_action(self, screen: ScreenDescription, state_data: Dict[str, Any],
                         history: Optional[List[Dict[str, Any]]] = None) -> Optional[ItemAction]:
         """
-        Generate a random action from the available options.
+        Generate a random action from the available options with improved prioritization for text fields and spinners.
 
         Args:
             screen: Parsed screen description
@@ -74,6 +74,42 @@ class RandomStrategy(Strategy):
         # Collect all available actions with weights
         weighted_actions = []
 
+        # First, check if there are any text fields or spinners we should prioritize
+        text_fields = []
+        spinners = []
+
+        # Identify text fields and spinners
+        for item in screen.items:
+            if hasattr(item, 'view') and item.view:
+                class_name = item.view.get("class", "")
+
+                # Check for EditText
+                if "EditText" in class_name:
+                    for action in item.actions:
+                        if "SET_TEXT" in action.text:
+                            text_fields.append(action)
+
+                # Check for Spinner
+                if "Spinner" in class_name or "DropDown" in class_name:
+                    for action in item.actions:
+                        if "CLICK" in action.text:
+                            spinners.append(action)
+
+        # Prioritize text fields and spinners that haven't been interacted with yet
+        for priority_list, priority_name, weight_multiplier in [
+            (text_fields, "text field", 3.0),
+            (spinners, "spinner", 2.5)
+        ]:
+            if priority_list and not all(a.id in self.executed_actions for a in priority_list):
+                # Find ones we haven't executed yet
+                unexecuted = [a for a in priority_list if a.id not in self.executed_actions]
+                if unexecuted:
+                    # Highly prioritize unexecuted text fields and spinners
+                    self.logger.info(f"Prioritizing unexecuted {priority_name}: {len(unexecuted)} available")
+                    selected = random.choice(unexecuted)
+                    return selected
+
+        # Regular weighted action selection (existing code) with increased weights for text fields and spinners
         for item in screen.items:
             for action in item.actions:
                 # Determine action type from text
@@ -81,6 +117,17 @@ class RandomStrategy(Strategy):
 
                 # Get weight for this action type
                 weight = self.weights.get(action_type, 0.5)
+
+                # Get element class
+                element_class = ""
+                if hasattr(action, 'target_view') and action.target_view:
+                    element_class = action.target_view.get("class", "")
+
+                # Significantly boost weight for text fields and spinners
+                if "EditText" in element_class:
+                    weight *= 3.0  # Triple weight for text fields
+                elif "Spinner" in element_class or "DropDown" in element_class:
+                    weight *= 2.5  # 2.5x weight for spinners
 
                 # IMPROVEMENT: Check for element text/label - prioritize elements with text
                 element_text = ""

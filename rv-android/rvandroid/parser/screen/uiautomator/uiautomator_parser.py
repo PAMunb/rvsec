@@ -1,17 +1,21 @@
-# rvandroid/parser/screen/uiautomator/uiautomator_parser.py
-import logging
+# rvandroid/parser/screen/uiautomator/uiautomator_parser.py - complete class
+
 import xml.etree.ElementTree as ET
-from typing import Optional, Type
+from typing import Dict, Any, Optional, Type
+
+import logging
 
 from rvandroid.domain.static import StaticAnalysisData
 from rvandroid.parser.screen.abstract_parser import AbstractScreenParser
-from rvandroid.parser.screen.visitor.base_visitor import ScreenDescription, Node, BaseScreenVisitor
+from rvandroid.parser.screen.visitor.base_visitor import BaseScreenVisitor, Node, ScreenDescription
 
 
 class UIAutomator2Parser(AbstractScreenParser):
     """
-    Parser for UIAutomator2 XML dump.
-    Converts UIAutomator2 XML data into a ScreenDescription.
+    Parser for UIAutomator2 XML hierarchy data.
+
+    Extracts structured screen information from UIAutomator2 XML format,
+    building a node tree and applying visitor patterns for screen analysis.
     """
 
     def __init__(self, visitor_class: Optional[Type[BaseScreenVisitor]] = None):
@@ -24,174 +28,208 @@ class UIAutomator2Parser(AbstractScreenParser):
         super().__init__(visitor_class)
         self.logger = logging.getLogger(__name__)
 
-    def parse(self, xml_data: str, static_data: Optional[StaticAnalysisData] = None, activity_name: Optional[str] = None) -> ScreenDescription:
+    def parse(self, xml_data: str, static_data: Optional[StaticAnalysisData] = None,
+              activity: str = "", state_data: Optional[Dict[str, Any]] = None) -> ScreenDescription:
         """
-        Parse UIAutomator2 XML dump into a ScreenDescription.
+        Parse UIAutomator2 XML data into a screen description.
 
         Args:
-            xml_data: XML string containing UIAutomator2 hierarchy
-            static_data: Optional static analysis data for the application (optional)
+            xml_data: XML hierarchy data
+            static_data: Optional static analysis data
+            activity: Current activity name
+            state_data: Optional state data including system navigation information
 
         Returns:
             ScreenDescription object
-
-        Raises:
-            ValueError: If XML data is invalid or cannot be parsed
         """
-        # Avoid logging the entire XML which could be very large
-        self.logger.debug(f"Parsing UIAutomator2 XML data: {len(xml_data)} bytes")
-        print(f"activity_name={activity_name}")
-        print(f"static_data={static_data}")
+        # Create visitor
+        visitor = self.create_visitor(static_data, activity)
 
-        # Verify if it's valid XML
-        if not xml_data or not isinstance(xml_data, str):
-            raise ValueError("Invalid XML data: must be a non-empty string")
+        # Pass system navigation information to visitor if available
+        if state_data and "system_navigation_bounds" in state_data:
+            visitor.system_navigation_bounds = state_data["system_navigation_bounds"]
 
-        try:
-            root = ET.fromstring(xml_data)
-        except ET.ParseError as e:
-            self.logger.error(f"Failed to parse XML: {e}")
-            raise ValueError(f"Invalid XML format: {e}")
+        # Pass device information to visitor if available
+        if state_data and "device_info" in state_data:
+            visitor.device_info = state_data["device_info"]
 
-        # Extract activity name and create node tree
-        if not activity_name:
-            activity_name = self.get_activity_name(root)
-        root_node = self.create_node_tree(root)
-
+        # Parse XML and build node tree
+        root_node = self._parse_xml(xml_data)
         if not root_node:
-            self.logger.error("Failed to create UI tree from UIAutomator2 XML")
-            return ScreenDescription(activity_name, [])
+            raise ValueError("Failed to parse XML data")
 
-        # Create visitor and traverse tree
-        visitor = self.create_visitor(static_data, activity_name)
-        print(f"visitor={visitor}")
+        # Visit nodes to build screen description
         root_node.accept(visitor)
 
-        # Get screen description
-        description = visitor.get_screen_description()
-        print(f"___description={description}")
-        self.logger.info(f"Parsed {len(description.items)} UI elements from UIAutomator2 XML")
+        # Get screen description from visitor
+        return visitor.get_screen_description()
 
-        return description
-
-    def get_activity_name(self, root: ET.Element) -> str:
+    def get_activity_name(self, state_data: Dict[str, Any]) -> str:
         """
-        Extract activity name from XML root.
+        Extract the current activity name from the state data.
 
         Args:
-            root: Root XML element
+            state_data: Dictionary containing UI state information
 
         Returns:
-            Activity name
+            Name of the current activity
+
+        Raises:
+            ValueError: If activity name cannot be determined
         """
-        # Try to extract activity from XML attributes or package
-        activity = root.get("activity", "")
-        package = root.get("package", "unknown")
+        # If state_data is a string (XML data), try to parse it
+        if isinstance(state_data, str):
+            try:
+                root = ET.fromstring(state_data)
+                # Try to find package and activity information
+                package = root.get("package", "")
+                if package:
+                    return package
+                # If no package attribute, try first node with package
+                for child in root.iter():
+                    package = child.get("package", "")
+                    if package:
+                        return package
+                raise ValueError("Could not determine activity from XML data")
+            except Exception as e:
+                raise ValueError(f"Error parsing XML for activity: {e}")
 
-        if not activity:
-            # Fallback to package if no activity found
-            activity = f"{package}.UnknownActivity"
+        # If state_data is a dictionary, look for activity information
+        if isinstance(state_data, dict):
+            # Check for explicitly provided activity
+            if "activity" in state_data:
+                return state_data["activity"]
 
-        # Clean up activity name
-        if "/" in activity:
-            activity = activity.split("/")[-1]
+            # Check for hierarchy XML
+            if "hierarchy" in state_data:
+                return self.get_activity_name(state_data["hierarchy"])
 
-        return activity
+        raise ValueError("Could not determine activity from state data")
 
-    def validate_state_data(self, root: ET.Element) -> bool:
+    def create_node_tree(self, state_data: Dict[str, Any]) -> Optional[Node]:
         """
-        Validate UIAutomator2 XML data.
+        Create a Node tree from the state data.
 
         Args:
-            root: Root XML element
+            state_data: Dictionary containing UI state information
+
+        Returns:
+            Root Node of the UI hierarchy or None if invalid data
+
+        Raises:
+            ValueError: If node tree cannot be created from the state data
+        """
+        # If state_data is a string (XML data), parse it directly
+        if isinstance(state_data, str):
+            return self._parse_xml(state_data)
+
+        # If state_data is a dictionary, look for hierarchy XML
+        if isinstance(state_data, dict) and "hierarchy" in state_data:
+            return self._parse_xml(state_data["hierarchy"])
+
+        raise ValueError("Could not create node tree from state data")
+
+    def _parse_xml(self, xml_data: str) -> Optional[Node]:
+        """
+        Parse UIAutomator XML data and build a node tree.
+
+        Args:
+            xml_data: XML hierarchy data from UIAutomator
+
+        Returns:
+            Root Node of the UI hierarchy or None if parsing fails
+        """
+        try:
+            # Parse XML string
+            root = ET.fromstring(xml_data)
+
+            # Create node tree
+            return self._build_node_from_element(root)
+        except Exception as e:
+            self.logger.error(f"Error parsing XML data: {e}")
+            return None
+
+    def validate_state_data(self, state_data: Dict[str, Any]) -> bool:
+        """
+        Validate that state data contains required fields.
+
+        Args:
+            state_data: Dictionary containing UI state information
 
         Returns:
             True if valid, False otherwise
         """
-        # Basic validation: check for hierarchy root
-        return (root is not None and
-                root.tag.lower() in ["hierarchy", "root", "node"])
-
-    def create_node_tree(self, root: ET.Element) -> Optional[Node]:
-        """
-        Create a Node tree from UIAutomator2 XML hierarchy.
-
-        Args:
-            root: Root XML element
-
-        Returns:
-            Root Node or None if invalid data
-        """
-
-        def create_node(xml_node: ET.Element, parent: Optional[Node] = None) -> Optional[Node]:
-            """
-            Recursively create Nodes from XML elements.
-
-            Args:
-                xml_node: Current XML node
-                parent: Parent Node (optional)
-
-            Returns:
-                Created Node or None
-            """
-            if xml_node is None:
-                return None
-
-            # Extract node properties from XML attributes
-            node_data = {
-                # Standard properties mapping
-                "class": xml_node.get("class", ""),
-                "package": xml_node.get("package", ""),
-                "content_description": xml_node.get("content-desc", ""),
-                "resource_id": xml_node.get("resource-id", ""),
-                "text": xml_node.get("text", ""),
-
-                # Boolean properties
-                "checkable": xml_node.get("checkable", "false") == "true",
-                "checked": xml_node.get("checked", "false") == "true",
-                "clickable": xml_node.get("clickable", "false") == "true",
-                "enabled": xml_node.get("enabled", "true") == "true",
-                "focusable": xml_node.get("focusable", "false") == "true",
-                "focused": xml_node.get("focused", "false") == "true",
-                "long_clickable": xml_node.get("long-clickable", "false") == "true",
-                "password": xml_node.get("password", "false") == "true",
-                "scrollable": xml_node.get("scrollable", "false") == "true",
-                "selected": xml_node.get("selected", "false") == "true"
-            }
-
-            # Parse bounds
-            bounds_str = xml_node.get("bounds", "[0,0][0,0]")
+        # For XML string data, check if it's parseable
+        if isinstance(state_data, str):
             try:
-                # Extract coordinates from bounds string like "[100,200][300,400]"
-                bounds = [
-                    [int(x) for x in bounds_str[1:bounds_str.index("][")].split(",")],
-                    [int(x) for x in bounds_str[bounds_str.index("][") + 2:-1].split(",")]
-                ]
-                node_data["bounds"] = bounds
-            except (ValueError, IndexError):
-                node_data["bounds"] = [[0, 0], [0, 0]]
+                ET.fromstring(state_data)
+                return True
+            except Exception:
+                return False
 
-            # Create Node
-            node = Node(node_data, [], parent)
+        # For dictionary data, check for hierarchy
+        if isinstance(state_data, dict):
+            if "hierarchy" in state_data:
+                return self.validate_state_data(state_data["hierarchy"])
 
-            # Recursively process child nodes
-            for child_xml in xml_node:
-                child_node = create_node(child_xml, node)
-                if child_node:
-                    node.children.append(child_node)
+        return False
 
-            return node
-
-        return create_node(root)
-
-    def get_package_name(self, root: ET.Element) -> Optional[str]:
+    def _build_node_from_element(self, element: ET.Element, parent_node: Optional[Node] = None) -> Node:
         """
-        Extract package name from XML root.
+        Recursively build a Node from an XML element.
 
         Args:
-            root: Root XML element
+            element: XML element to convert
+            parent_node: Parent Node for the current element
 
         Returns:
-            Package name if available, None otherwise
+            Node object representing the XML element and its children
         """
-        return root.get("package")
+        # Extract attributes from element
+        attributes = {key.lower(): value for key, value in element.attrib.items()}
+
+        # Convert common attributes to expected format
+        view_data = {
+            "class": attributes.get("class", ""),
+            "package": attributes.get("package", ""),
+            "resource_id": attributes.get("resource-id", ""),
+            "text": attributes.get("text", ""),
+            "content_description": attributes.get("content-desc", ""),
+            "clickable": attributes.get("clickable", "false").lower() == "true",
+            "checkable": attributes.get("checkable", "false").lower() == "true",
+            "checked": attributes.get("checked", "false").lower() == "true",
+            "scrollable": attributes.get("scrollable", "false").lower() == "true",
+            "long_clickable": attributes.get("long-clickable", "false").lower() == "true",
+            "editable": attributes.get("editable", "false").lower() == "true",
+            "enabled": attributes.get("enabled", "true").lower() == "true",
+            "focused": attributes.get("focused", "false").lower() == "true",
+            "selected": attributes.get("selected", "false").lower() == "true",
+            "password": attributes.get("password", "false").lower() == "true",
+        }
+
+        # Parse bounds string into coordinates
+        # Format is usually "[left,top][right,bottom]"
+        bounds_str = attributes.get("bounds", "")
+        if bounds_str:
+            try:
+                # Extract numbers from string
+                import re
+                numbers = re.findall(r'\d+', bounds_str)
+                if len(numbers) >= 4:
+                    # Create bounds as [[left, top], [right, bottom]]
+                    view_data["bounds"] = [
+                        [int(numbers[0]), int(numbers[1])],
+                        [int(numbers[2]), int(numbers[3])]
+                    ]
+            except Exception as e:
+                self.logger.warning(f"Error parsing bounds '{bounds_str}': {e}")
+
+        # Create the node
+        node = Node(view_data, [], parent_node)
+
+        # Process child elements
+        for child_element in element:
+            child_node = self._build_node_from_element(child_element, node)
+            node.children.append(child_node)
+
+        return node

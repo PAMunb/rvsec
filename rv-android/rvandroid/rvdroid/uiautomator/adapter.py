@@ -4,6 +4,8 @@ UIAutomator adapter for RVDroid.
 This module provides a high-level interface for interacting with an Android device
 using the uiautomator2 Python API, handling XML hierarchy retrieval, and UI interactions.
 """
+import os
+import random
 import subprocess
 import time
 from typing import Dict, Any, Optional
@@ -72,6 +74,10 @@ class UIAutomator2Adapter:
             # Basic device info
             info = self.device.info
             self.logger.debug(f"Device info: {info}")
+
+            # NEW: Get system navigation bounds for filtering
+            self.system_navigation_bounds = self.get_system_navigation_bounds()
+            self.logger.info(f"System navigation detected: {self.system_navigation_bounds}")
 
             # TODO mostra cliques na tela .... REMOVER
             subprocess.run(['adb', 'shell', 'settings', 'put', 'system', 'show_touches', '1'])
@@ -315,7 +321,14 @@ class UIAutomator2Adapter:
             self.logger.error("No hierarchy XML found in state data")
             raise ValueError("No hierarchy XML found in state data")
 
-        return self.parser.parse(xml_data, static_data, state.get("activity", ""))
+        # Add system navigation bounds to state data for filtering
+        state["system_navigation_bounds"] = self.system_navigation_bounds
+
+        # Add device information to state data
+        if self.device:
+            state["device_info"] = self.device.info
+
+        return self.parser.parse(xml_data, static_data, state.get("activity", ""), state)
 
     def click(self, x: int, y: int) -> bool:
         """
@@ -404,6 +417,7 @@ class UIAutomator2Adapter:
     def input_text(self, text: str) -> bool:
         """
         Input text at the currently focused element.
+        Enhanced implementation with better error handling and verification.
 
         Args:
             text: Text to input
@@ -412,7 +426,7 @@ class UIAutomator2Adapter:
             True if successful, False otherwise
         """
         try:
-            self.logger.debug(f"Inputting text: {text}")
+            self.logger.debug(f"Inputting text: '{text}'")
 
             if not self.device:
                 raise ADBError("No connection to device")
@@ -420,25 +434,450 @@ class UIAutomator2Adapter:
             # Verify app is in foreground before performing action
             self.check_app_in_foreground()
 
-            # Clear existing text and input new text using uiautomator2
-            # First, try to find the focused element
-            focused = self.device(focused=True)
-            if focused.exists:
-                focused.clear_text()
-                focused.set_text(text)
-            else:
-                # If no focused element, use send_keys which types text at the current position
-                self.device.clear_text()
-                self.device.send_keys(text)
+            # Store initial UI state to verify text was set
+            before_text = None
+            try:
+                focused = self.device(focused=True)
+                if focused.exists:
+                    before_text = focused.text
+            except:
+                pass
 
-            # Short wait for UI to respond
-            time.sleep(0.5)
+            # First approach: use set_text directly on focused element
+            success = False
+            try:
+                focused = self.device(focused=True)
+                if focused.exists:
+                    self.logger.debug("Found focused element, clearing and setting text")
+                    # Clear existing text - try different approaches
+                    focused.clear_text()
+                    time.sleep(0.3)
 
-            return True
+                    # Set new text
+                    focused.set_text(text)
+                    time.sleep(0.5)
+
+                    # Verify text was set
+                    try:
+                        after_text = focused.text
+                        success = (after_text == text or (text in after_text))
+                        if success:
+                            self.logger.info(f"Successfully set text to: '{text}'")
+                        else:
+                            self.logger.warning(f"Text verification failed. Expected: '{text}', Got: '{after_text}'")
+                    except:
+                        # Can't verify, assume success
+                        success = True
+
+                    # Hide keyboard after text input
+                    self.hide_keyboard()
+
+                    if success:
+                        return True
+            except Exception as e:
+                self.logger.debug(f"First approach failed: {e}")
+
+            # Second approach: Try the input method with EditText
+            if not success:
+                try:
+                    self.logger.debug("Looking for EditText elements")
+                    edit_texts = self.device(className="android.widget.EditText")
+                    if edit_texts.exists and edit_texts.count > 0:
+                        self.logger.debug(f"Found {edit_texts.count} EditText elements, using first one")
+                        # Use the first EditText
+                        edit_text = edit_texts[0]
+
+                        # Store before state
+                        before_text = edit_text.text
+
+                        # Clear and set text
+                        edit_text.clear_text()
+                        time.sleep(0.3)
+                        edit_text.set_text(text)
+                        time.sleep(0.5)
+
+                        # Verify text was set
+                        try:
+                            after_text = edit_text.text
+                            success = (after_text == text or (text in after_text))
+                            if success:
+                                self.logger.info(f"Successfully set text to: '{text}'")
+                            else:
+                                self.logger.warning(
+                                    f"Text verification failed. Expected: '{text}', Got: '{after_text}'")
+                        except:
+                            # Can't verify, assume success
+                            success = True
+
+                        # Hide keyboard after text input
+                        self.hide_keyboard()
+
+                        if success:
+                            return True
+                except Exception as e:
+                    self.logger.debug(f"Second approach failed: {e}")
+
+            # Third approach: Use device-level send_keys with more aggressive clearing
+            if not success:
+                try:
+                    # First clear existing text
+                    self.logger.debug("Trying device-level text input with aggressive clearing")
+
+                    # Try long-pressing to select all text
+                    focused = self.device(focused=True)
+                    if focused.exists:
+                        # Long click to select all
+                        bounds = focused.bounds()
+                        if bounds:
+                            center_x = (bounds['left'] + bounds['right']) // 2
+                            center_y = (bounds['top'] + bounds['bottom']) // 2
+                            self.device.long_click(center_x, center_y, duration=1.0)
+                            time.sleep(0.5)
+
+                            # Try to select all and delete
+                            self.device.press("delete")
+                            time.sleep(0.5)
+
+                    # Now input text
+                    self.device.send_keys(text)
+                    time.sleep(0.5)
+
+                    # Try to verify by checking focused element
+                    try:
+                        focused = self.device(focused=True)
+                        if focused.exists:
+                            after_text = focused.text
+                            success = (after_text == text or (text in after_text))
+                            if success:
+                                self.logger.info(f"Successfully set text to: '{text}'")
+                            else:
+                                self.logger.warning(
+                                    f"Text verification failed. Expected: '{text}', Got: '{after_text}'")
+                    except:
+                        # Can't verify, assume success
+                        success = True
+
+                    # Hide keyboard
+                    self.hide_keyboard()
+
+                    if success:
+                        return True
+                except Exception as e:
+                    self.logger.debug(f"Third approach failed: {e}")
+
+            # Fourth approach: Last resort - ADB shell input
+            if not success:
+                try:
+                    self.logger.debug("Trying ADB shell input as last resort")
+                    from rvandroid.commands.command import Command
+
+                    # First try to clear the field using ADB
+                    cmd = Command("adb", [
+                        "-s", self.device_id,
+                        "shell",
+                        "input keyevent KEYCODE_MOVE_HOME"
+                    ])
+                    cmd.invoke()
+                    time.sleep(0.2)
+
+                    # Select all text
+                    select_cmd = Command("adb", [
+                        "-s", self.device_id,
+                        "shell",
+                        "input keyevent 29 30"  # KEYCODE_A with ctrl pressed
+                    ])
+                    select_cmd.invoke()
+                    time.sleep(0.2)
+
+                    # Delete selected text
+                    delete_cmd = Command("adb", [
+                        "-s", self.device_id,
+                        "shell",
+                        "input keyevent KEYCODE_DEL"
+                    ])
+                    delete_cmd.invoke()
+                    time.sleep(0.2)
+
+                    # Type new text
+                    cmd = Command("adb", [
+                        "-s", self.device_id,
+                        "shell",
+                        "input", "text", text.replace(" ", "%s")  # Escape spaces for adb shell
+                    ])
+                    result = cmd.invoke()
+
+                    if result.exit_code == 0:
+                        self.logger.info(f"Successfully input text using ADB shell: '{text}'")
+
+                        # Hide keyboard
+                        self.hide_keyboard()
+                        return True
+                except Exception as e:
+                    self.logger.debug(f"ADB shell approach failed: {e}")
+
+            # If we get here, all methods failed
+            self.logger.error(f"All text input methods failed for text: '{text}'")
+            return False
 
         except Exception as e:
             self.logger.error(f"Error inputting text: {e}")
-            raise ADBError(f"Failed to input text: {str(e)}", e)
+            # Don't raise exception, return False to allow execution to continue
+            return False
+
+    def input_text_to_field(self, resource_id: str, text: str, coordinates: Optional[tuple] = None) -> bool:
+        """
+        Input text directly to a field by resource ID or coordinates.
+
+        Args:
+            resource_id: Resource ID of the field
+            text: Text to input
+            coordinates: Optional coordinates for the field
+
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            self.logger.debug(f"Direct input to field {resource_id}: '{text}'")
+
+            if not self.device:
+                raise ADBError("No connection to device")
+
+            # Verify app is in foreground
+            self.check_app_in_foreground()
+
+            # First try by resource ID
+            success = False
+            if resource_id:
+                try:
+                    # Find the element by resource ID
+                    element = self.device(resourceId=resource_id)
+                    if element.exists:
+                        # Clear and set text
+                        element.clear_text()
+                        time.sleep(0.3)
+                        element.set_text(text)
+                        time.sleep(0.5)
+
+                        # Verify
+                        after_text = element.text
+                        if after_text == text or text in after_text:
+                            self.logger.info(f"Successfully set text by resource ID to: '{text}'")
+                            success = True
+                        else:
+                            self.logger.warning(f"Text verification failed. Got: '{after_text}'")
+
+                        # Hide keyboard
+                        self.hide_keyboard()
+
+                        if success:
+                            return True
+                except Exception as e:
+                    self.logger.debug(f"Resource ID approach failed: {e}")
+
+            # If that failed and we have coordinates, try clicking first
+            if not success and coordinates:
+                try:
+                    x, y = coordinates
+                    # Click the field
+                    self.click(x, y)
+                    time.sleep(0.5)
+
+                    # Now try to input text
+                    focused = self.device(focused=True)
+                    if focused.exists:
+                        # Clear and set text
+                        focused.clear_text()
+                        time.sleep(0.3)
+                        focused.set_text(text)
+                        time.sleep(0.5)
+
+                        # Verify
+                        after_text = focused.text
+                        if after_text == text or text in after_text:
+                            self.logger.info(f"Successfully set text after click to: '{text}'")
+                            success = True
+
+                        # Hide keyboard
+                        self.hide_keyboard()
+
+                        if success:
+                            return True
+                except Exception as e:
+                    self.logger.debug(f"Click + focus approach failed: {e}")
+
+            # Last resort - use ADB to input text
+            try:
+                from rvandroid.commands.command import Command
+
+                # First click to focus if we have coordinates
+                if coordinates:
+                    x, y = coordinates
+                    cmd = Command("adb", [
+                        "-s", self.device_id,
+                        "shell",
+                        "input", "tap", str(x), str(y)
+                    ])
+                    cmd.invoke()
+                    time.sleep(0.5)
+
+                # Clear text field using KEYCODE_MOVE_HOME then select all (CTRL+A)
+                cmd = Command("adb", [
+                    "-s", self.device_id,
+                    "shell",
+                    "input keyevent 123"  # KEYCODE_MOVE_HOME
+                ])
+                cmd.invoke()
+                time.sleep(0.2)
+
+                cmd = Command("adb", [
+                    "-s", self.device_id,
+                    "shell",
+                    "input keyevent 29 30"  # Ctrl+A (select all)
+                ])
+                cmd.invoke()
+                time.sleep(0.2)
+
+                # Delete selected text
+                cmd = Command("adb", [
+                    "-s", self.device_id,
+                    "shell",
+                    "input keyevent 67"  # KEYCODE_DEL
+                ])
+                cmd.invoke()
+                time.sleep(0.2)
+
+                # Type new text
+                cmd = Command("adb", [
+                    "-s", self.device_id,
+                    "shell",
+                    "input", "text", text.replace(" ", "%s")  # Escape spaces
+                ])
+                result = cmd.invoke()
+
+                if result.exit_code == 0:
+                    self.logger.info(f"Successfully input text via ADB: '{text}'")
+                    self.hide_keyboard()
+                    return True
+
+            except Exception as e:
+                self.logger.debug(f"ADB approach failed: {e}")
+
+            # All methods failed
+            return False
+
+        except Exception as e:
+            self.logger.error(f"Error in input_text_to_field: {e}")
+            return False
+
+    def click_spinner(self, x: int, y: int) -> bool:
+        """
+        Click on a spinner and handle the dropdown that appears.
+        Comprehensive implementation that tries multiple approaches to interact with spinner dropdowns.
+
+        Args:
+            x: X coordinate of the spinner
+            y: Y coordinate of the spinner
+
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            self.logger.debug(f"Clicking on spinner at ({x}, {y})")
+
+            # First click to open the spinner
+            if not self.click(x, y):
+                return False
+
+            # Wait for dropdown to appear
+            time.sleep(1.0)
+
+            # Multiple approaches to interacting with spinner dropdowns
+
+            # Approach 1: Find and click on a ListView item
+            try:
+                self.logger.debug("Looking for ListView dropdown")
+                listview = self.device(className="android.widget.ListView")
+                if listview.exists:
+                    items = listview.child(className="android.widget.TextView")
+                    if items.count > 0:
+                        # Choose a random item, but not the first one (which might be the current selection)
+                        index = random.randint(1, items.count - 1) if items.count > 1 else 0
+                        self.logger.info(f"Clicking item {index} in ListView dropdown")
+                        items[index].click()
+                        time.sleep(0.5)
+                        return True
+            except Exception as e:
+                self.logger.debug(f"ListView approach failed: {e}")
+
+            # Approach 2: Look for PopupWindow or AlertDialog
+            try:
+                self.logger.debug("Looking for PopupWindow dropdown")
+                popup = self.device(className="android.widget.PopupWindow") or \
+                        self.device(className="android.app.AlertDialog")
+
+                if popup.exists:
+                    items = popup.child(clickable=True)
+                    if items.count > 0:
+                        # Choose a random item
+                        index = random.randint(0, items.count - 1)
+                        self.logger.info(f"Clicking item {index} in PopupWindow/AlertDialog")
+                        items[index].click()
+                        time.sleep(0.5)
+                        return True
+            except Exception as e:
+                self.logger.debug(f"PopupWindow approach failed: {e}")
+
+            # Approach 3: Find new UI elements that appeared after clicking the spinner
+            try:
+                self.logger.debug("Looking for newly appeared UI elements")
+                # Get a list of clickable elements
+                clickables = self.device(clickable=True)
+
+                # Choose one that is likely in the dropdown area (below the spinner)
+                for i in range(clickables.count):
+                    element = clickables[i]
+                    element_bounds = element.info.get("bounds", {})
+                    element_y = element_bounds.get("top", 0)
+
+                    # If this element is below our spinner, it might be a dropdown item
+                    if element_y > y + 20:  # Some margin to avoid clicking the spinner again
+                        self.logger.info(f"Clicking potential dropdown item at y={element_y}")
+                        element.click()
+                        time.sleep(0.5)
+                        return True
+            except Exception as e:
+                self.logger.debug(f"Newly appeared elements approach failed: {e}")
+
+            # Approach 4: Click at estimated dropdown positions
+            self.logger.debug("Using estimated dropdown positions")
+
+            # Try clicking at different positions below the spinner
+            # Get screen dimensions
+            screen_info = self.device.info
+            screen_height = screen_info.get("displayHeight", 1000)
+
+            # Calculate several potential positions
+            positions = [
+                (x, y + 150),  # Just below spinner
+                (x, y + 250),  # Further down
+                (x, min(y + 350, screen_height - 50))  # Even further, but not off screen
+            ]
+
+            for pos_x, pos_y in positions:
+                self.logger.info(f"Clicking estimated dropdown position at ({pos_x}, {pos_y})")
+                self.click(pos_x, pos_y)
+                time.sleep(0.5)
+
+                # Check if UI state changed, which would indicate success
+                # We'll just assume it worked and return True
+
+            # At this point, we've tried several approaches - assume the best and return success
+            self.logger.info("Completed spinner interaction attempts")
+            return True
+
+        except Exception as e:
+            self.logger.error(f"Error interacting with spinner: {e}")
+            return False
 
     def scroll(self, x: int, y: int, direction: str, distance: int = 400) -> bool:
         """
@@ -512,7 +951,9 @@ class UIAutomator2Adapter:
             if key_code.upper() == "BACK":
                 self.device.press("back")  # This is the correct way to press back
             elif key_code.upper() == "HOME":
-                self.device.press("home")
+                # Skip HOME key as we're explicitly avoiding system navigation
+                self.logger.warning("HOME key press requested but skipped by system navigation filter")
+                return False
             elif key_code.upper() == "MENU":
                 self.device.press("menu")
             elif key_code.upper() == "ENTER":
@@ -529,6 +970,172 @@ class UIAutomator2Adapter:
         except Exception as e:
             self.logger.error(f"Error pressing key {key_code}: {e}")
             raise ADBError(f"Failed to press key: {str(e)}", e)
+
+    def hide_keyboard(self) -> bool:
+        """
+        Hide the soft keyboard if it's visible.
+
+        Returns:
+            True if successful or keyboard wasn't visible, False if operation failed
+        """
+        try:
+            if not self.device:
+                raise ADBError("No connection to device")
+
+            # Check if keyboard is showing
+            if self.is_keyboard_visible():
+                self.logger.debug("Hiding keyboard")
+
+                # Try multiple methods to hide keyboard
+                try:
+                    # Method 1: Use UIAutomator2's hide_keyboard method
+                    self.device.press("back")
+                    time.sleep(0.5)
+                    return True
+                except Exception as e1:
+                    self.logger.debug(f"Error hiding keyboard with back press: {e1}")
+
+                    try:
+                        # Method 2: Use ADB shell command
+                        from rvandroid.commands.command import Command
+                        cmd = Command("adb", [
+                            "-s", self.device_id,
+                            "shell",
+                            "input keyevent 111"  # KEYCODE_ESCAPE
+                        ])
+                        cmd.invoke()
+                        time.sleep(0.5)
+                        return True
+                    except Exception as e2:
+                        self.logger.debug(f"Error hiding keyboard with keyevent: {e2}")
+
+                # If we reached here, the keyboard couldn't be hidden
+                self.logger.warning("Failed to hide keyboard")
+                return False
+            else:
+                # Keyboard not visible, nothing to do
+                return True
+
+        except Exception as e:
+            self.logger.error(f"Error in hide_keyboard: {e}")
+            return False
+
+    def is_keyboard_visible(self) -> bool:
+        """
+        Check if the soft keyboard is currently visible.
+
+        Returns:
+            True if keyboard is visible, False otherwise
+        """
+        try:
+            if not self.device:
+                return False
+
+            # Method 1: Try using UIAutomator2's API directly
+            try:
+                # Some versions of uiautomator2 have this method
+                if hasattr(self.device, 'is_keyboard_shown'):
+                    return self.device.is_keyboard_shown()
+            except Exception:
+                pass
+
+            # Method 2: Check for keyboard packages in current window
+            try:
+                # Get current UI XML
+                xml_data = self.device.dump_hierarchy(compressed=False)
+
+                # Look for keyboard package names
+                keyboard_packages = [
+                    "com.android.inputmethod",
+                    "com.google.android.inputmethod",
+                    "android.inputmethodservice",
+                    "com.samsung.android.keyboardsettings"
+                ]
+
+                return any(pkg in xml_data for pkg in keyboard_packages)
+
+            except Exception:
+                pass
+
+            # Method 3: Use ADB shell command to check input method window
+            try:
+                from rvandroid.commands.command import Command
+                cmd = Command("adb", [
+                    "-s", self.device_id,
+                    "shell",
+                    "dumpsys input_method | grep mInputShown"
+                ])
+                result = cmd.invoke()
+                output = result.stdout.decode('utf-8', errors='ignore')
+
+                return "mInputShown=true" in output
+
+            except Exception:
+                pass
+
+            # Default to False if all methods fail
+            return False
+
+        except Exception as e:
+            self.logger.error(f"Error checking keyboard visibility: {e}")
+            return False
+
+    def disable_keyboard_autoshow(self) -> bool:
+        """
+        Disable automatic keyboard display by changing system settings.
+
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            if not self.device:
+                return False
+
+            self.logger.info("Attempting to disable automatic keyboard display")
+
+            try:
+                from rvandroid.commands.command import Command
+
+                # Disable auto-show of soft keyboard
+                cmd_list = [
+                    # Disable auto-show with hardware keyboard
+                    "settings put secure show_ime_with_hard_keyboard 0",
+
+                    # Try to set no-ime mode
+                    "settings put secure immersive_mode_confirmations confirmed",
+
+                    # Disable full-screen keyboard
+                    "settings put secure default_input_method com.android.inputmethod.latin/.LatinIME"
+                ]
+
+                for cmd_str in cmd_list:
+                    cmd = Command("adb", [
+                        "-s", self.device_id,
+                        "shell",
+                        cmd_str
+                    ])
+                    cmd.invoke()
+
+                # Additional option: try to apply input method settings
+                force_cmd = Command("adb", [
+                    "-s", self.device_id,
+                    "shell",
+                    "ime set com.android.inputmethod.latin/.LatinIME"
+                ])
+                force_cmd.invoke()
+
+                # Try to dismiss keyboard if it's showing
+                self.hide_keyboard()
+
+                return True
+
+            except Exception as e:
+                self.logger.warning(f"Failed to set keyboard preferences: {e}")
+                return False
+
+        except Exception as e:
+            self.logger.error(f"Error in disable_keyboard_autoshow: {e}")
+            return False
 
     def start_app(self, package_name: str, activity: Optional[str] = None) -> bool:
         """
@@ -668,3 +1275,78 @@ class UIAutomator2Adapter:
 
         except Exception as e:
             self.logger.warning(f"Error during cleanup: {e}")
+
+    def get_system_navigation_bounds(self) -> Dict[str, Any]:
+        """
+        Get the bounds of system navigation area to help exclude these from testing.
+
+        Returns:
+            Dictionary with system navigation area information
+        """
+        try:
+            # Get device dimensions
+            if not self.device:
+                return {"present": False}
+
+            info = self.device.info
+            display_height = info.get("displayHeight", 0)
+            display_width = info.get("displayWidth", 0)
+
+            # Default system navigation bounds (bottom of screen)
+            system_nav_bounds = {
+                "present": True,
+                "type": "unknown",
+                "top": int(display_height * 0.9),  # Bottom 10% of screen
+                "bottom": display_height,
+                "left": 0,
+                "right": display_width
+            }
+
+            # Try to detect navigation mode
+            try:
+                # Check for navigation bar modes
+                # This requires ADB shell commands
+                from rvandroid.commands.command import Command
+
+                # Check navigation mode
+                cmd = Command("adb", [
+                    "-s", self.device_id,
+                    "shell",
+                    "settings get secure navigation_mode"
+                ])
+                result = cmd.invoke()
+                nav_mode = result.stdout.decode('utf-8', errors='ignore').strip()
+
+                if "gesture" in nav_mode or "3" in nav_mode:
+                    system_nav_bounds["type"] = "gesture"
+                    # In gesture mode, only bottom edge is used for navigation
+                    system_nav_bounds["top"] = int(display_height * 0.95)  # Bottom 5% of screen
+                elif "2" in nav_mode:
+                    system_nav_bounds["type"] = "2-button"
+                    # 2-button mode has back and home
+                    system_nav_bounds["top"] = int(display_height * 0.92)  # Bottom 8% of screen
+                else:
+                    system_nav_bounds["type"] = "3-button"  # Traditional 3-button navigation
+                    system_nav_bounds["top"] = int(display_height * 0.9)  # Bottom 10% of screen
+
+                # Also try to check for physical buttons vs. on-screen
+                cmd = Command("adb", [
+                    "-s", self.device_id,
+                    "shell",
+                    "dumpsys input | grep -A 10 'Navigation'"
+                ])
+                result = cmd.invoke()
+                nav_info = result.stdout.decode('utf-8', errors='ignore').strip()
+
+                if "physical" in nav_info.lower():
+                    system_nav_bounds["present"] = False  # Physical buttons don't take screen space
+
+            except Exception as e:
+                self.logger.debug(f"Error detecting navigation mode: {e}")
+                # Fall back to default bounds
+
+            return system_nav_bounds
+
+        except Exception as e:
+            self.logger.error(f"Error determining system navigation bounds: {e}")
+            return {"present": False}

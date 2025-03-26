@@ -136,7 +136,6 @@ class ScreenItem:
     def __str__(self) -> str:
         return self.description
 
-
 class ScreenDescription:
     """Represents the complete description of a screen including all UI elements and their actions."""
 
@@ -150,11 +149,67 @@ class ScreenDescription:
         """
         self.activity = activity
         self.items = items
+
+        # Add a standard BACK action if needed
+        self._add_standard_back_action()
+
+        # Update the events dictionary
         self.events_by_id: Dict[int, ItemAction] = {
             action.id: action
             for item in items
             for action in item.actions
         }
+
+    def _add_standard_back_action(self):
+        """
+        Add a standard BACK action to the screen if one doesn't already exist.
+        This ensures there's always a way to navigate back regardless of the UI state.
+        """
+        # Find the maximum action ID to ensure uniqueness
+        max_id = 0
+        for item in self.items:
+            for action in item.actions:
+                max_id = max(max_id, action.id)
+
+        # Check if there's already a BACK action
+        has_back_action = False
+        for item in self.items:
+            for action in item.actions:
+                if "BACK" in action.text:
+                    has_back_action = True
+                    break
+            if has_back_action:
+                break
+
+        # If no BACK action exists, create one
+        if not has_back_action:
+            # Create a virtual view for the back action
+            back_view = {
+                "content_description": "Back",
+                "class": "BackAction",
+                "resource_id": "standard_back_action"
+            }
+
+            # Create action for the back button
+            back_action = ItemAction(
+                id=max_id + 1,
+                text=f"BACK ({max_id + 1})",
+                event=WidgetEventType.KEY,
+                reaches_mop=False,
+                directly_reaches_mop=False,
+                target_view=back_view,
+                coordinates=None
+            )
+
+            # Create item for the back action
+            back_item = ScreenItem(
+                view=back_view,
+                base_description="Standard back action",
+                actions=[back_action]
+            )
+
+            # Add to items list
+            self.items.append(back_item)
 
     @property
     def description(self) -> str:
@@ -165,6 +220,9 @@ class ScreenDescription:
             "with action id in parentheses:\n "
         )
         return state_desc + "\n ".join(view_descs)
+
+    def __str__(self) -> str:
+        return self.description
 
     def __str__(self) -> str:
         return self.description
@@ -384,10 +442,9 @@ class ElementHandler:
         """Process a node and generate a ScreenItem."""
         return None
 
-
 class BaseScreenVisitor(ABC):
     """
-    Simplified abstract base visitor implementation for processing Android UI elements.
+    Abstract base visitor implementation for processing Android UI elements.
     Uses a more generic approach with registered handlers for different element types.
     """
 
@@ -403,6 +460,12 @@ class BaseScreenVisitor(ABC):
         self.static_info = static_info
         self.activity = activity
         self.window = None
+
+        # NEW: System navigation bounds
+        self.system_navigation_bounds = {}
+
+        # NEW: Device info
+        self.device_info = {}
 
         # Initialize window info if static info is available
         if static_info and static_info.windows:
@@ -429,7 +492,6 @@ class BaseScreenVisitor(ABC):
         """Register a custom element handler."""
         self.handlers[handler.element_type] = handler
 
-    @abstractmethod
     def get_screen_description(self) -> ScreenDescription:
         """
         Create and return a complete screen description.
@@ -437,7 +499,13 @@ class BaseScreenVisitor(ABC):
         Returns:
             ScreenDescription object containing all parsed items
         """
-        pass
+        # Create a screen description with items
+        screen_desc = ScreenDescription(self.activity, self.items)
+
+        # This call happens internally in the ScreenDescription constructor
+        # so we don't need to explicitly call _add_standard_back_action here
+
+        return screen_desc
 
     def visit(self, node: Node) -> None:
         """
@@ -450,6 +518,11 @@ class BaseScreenVisitor(ABC):
         # Skip already visited nodes
         node_id = node.get_unique_id()
         if node_id in self.visited_nodes:
+            return
+
+        # Skip system navigation buttons
+        if self.should_exclude_system_button(node):
+            self.logger.debug(f"Excluding system navigation button: {node}")
             return
 
         # Find handler for this element type
@@ -558,6 +631,99 @@ class BaseScreenVisitor(ABC):
             method = self.static_info.classes.methods.get(signature)
             if method:
                 return method.directly_reaches_mop
+        return False
+
+    def should_exclude_system_button(self, node: Node) -> bool:
+        """
+        Determine if a node represents a system navigation button or keyboard key that should be excluded.
+
+        Args:
+            node: UI node to check
+
+        Returns:
+            True if the node should be excluded from testing
+        """
+        # Check for resource IDs related to navigation buttons
+        resource_id = node.resource_id or ""
+
+        # Common resource IDs for system navigation buttons
+        system_button_ids = [
+            "home", "recent", "recents", "back", "back_button",
+            "navigation_bar", "nav_bar", "navbar_view",
+            "com.android.systemui:id/home",
+            "com.android.systemui:id/recent_apps",
+            "com.android.systemui:id/back"
+        ]
+
+        # Check if resource ID contains any system button pattern
+        if any(btn_id in resource_id.lower() for btn_id in system_button_ids):
+            return True
+
+        # Check for packages associated with system UI or keyboards
+        package = node.package or ""
+        keyboard_packages = [
+            "com.android.inputmethod",
+            "com.google.android.inputmethod",
+            "android.inputmethodservice",
+            "com.samsung.android.keyboardsettings",
+            "com.android.systemui"
+        ]
+
+        if any(kbd_pkg in package.lower() for kbd_pkg in keyboard_packages):
+            return True
+
+        # Check for common keyboard class names
+        class_name = node.view_class or ""
+        keyboard_classes = [
+            "Keyboard", "KeyboardView", "KeyboardViewCluster",
+            "SoftKeyboard", "SoftKeyboardView", "KeyboardLayout",
+            "KeyButton", "KeyboardButtonCluster"
+        ]
+
+        if any(kbd_cls.lower() in class_name.lower() for kbd_cls in keyboard_classes):
+            return True
+
+        # Check if the node is in the system navigation area based on bounds
+        if hasattr(self, 'system_navigation_bounds') and self.system_navigation_bounds.get("present", False):
+            bounds = node.bounds
+            if bounds and len(bounds) == 2:
+                # Check if the node is entirely in the navigation area
+                bottom_y = bounds[1][1]  # Bottom Y coordinate
+                top_y = bounds[0][1]  # Top Y coordinate
+
+                nav_top = self.system_navigation_bounds.get("top", 0)
+                if top_y >= nav_top:
+                    return True
+
+        # Check for keyboard pattern: small buttons in bottom half of screen
+        if hasattr(self, 'device_info') and self.device_info:
+            display_height = self.device_info.get("displayHeight", 0)
+            if display_height > 0:
+                bounds = node.bounds
+                if bounds and len(bounds) == 2:
+                    # Keyboard keys are typically small buttons in the bottom half of the screen
+                    width = bounds[1][0] - bounds[0][0]
+                    height = bounds[1][1] - bounds[0][1]
+                    center_y = (bounds[0][1] + bounds[1][1]) / 2
+
+                    # Check if it's a small button in the bottom half of the screen
+                    if (width < 100 and height < 100 and
+                            center_y > display_height * 0.5):
+
+                        # Additional check for keyboard key: look for single character text
+                        text = node.view_text or ""
+                        if len(text) <= 2:  # Single character or special keys
+                            return True
+
+        # Check based on common descriptions for system buttons
+        content_desc = (node.content_description or "").lower()
+        if any(desc in content_desc for desc in ["home", "recent apps", "overview", "go back"]):
+            return True
+
+        # Check "soft buttons" identifier
+        if "soft" in class_name.lower() and "button" in class_name.lower():
+            return True
+
         return False
 
     def get_possible_actions(self, node: Node, counter: Counter, inherit_click: bool = False,

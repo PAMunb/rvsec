@@ -24,20 +24,13 @@ from rvandroid.util.performance_monitor import PerformanceMonitor
 class StrategyBalancer:
     """
     Balances multiple testing strategies and adaptively selects between them.
+    Improved to be more stable and prioritize the preferred strategy.
 
     ### Architectural Decisions:
-    - Implements a preference-based strategy selection mechanism with occasional exploration
-    - Tracks strategy performance metrics to dynamically update preferred strategies
-    - Supports context-aware strategy selection based on application state
-    - Integrates with LLM for strategic guidance when available
-    - Allows for periodic phase transitions to balance different testing goals
-
-    ### Role in the System:
-    - Serves as the central decision maker for testing strategy selection
-    - Analyzes strategy performance and effectiveness in different contexts
-    - Balances exploration and exploitation in strategy selection
-    - Provides a feedback loop to improve strategy selection over time
-    - Adapts testing approach based on application context and observed results
+    - Simplified selection mechanism that strongly favors the preferred strategy
+    - Detects exploration plateaus to trigger strategy changes only when needed
+    - Maintains a stable preferred strategy with clear transition conditions
+    - Reduces thrashing between strategies for more focused exploration
     """
 
     def __init__(self, static_data: Optional[StaticAnalysisData] = None,
@@ -87,9 +80,18 @@ class StrategyBalancer:
 
         # Initialize preferred strategy
         self.preferred_strategy_info = self.strategies[0] if self.strategies else None
-        self.exploration_probability = 0.3  # 30% chance to explore non-preferred strategies
         self.last_strategy_switch = time.time()
-        self.strategy_switch_cooldown = 30  # seconds to wait before considering another switch
+
+        # Modified properties for improved stability
+        self.exploration_probability = 0.1  # Reduced from 0.3 - only 10% chance to explore non-preferred strategies
+        self.strategy_switch_cooldown = 60  # Increased from 30 - wait 60 seconds between strategy switches
+        self.plateau_detection_threshold = 5  # Number of consecutive actions in same state to detect plateau
+        self.consecutive_same_state_counter = 0  # Track consecutive actions in same state
+        self.last_state_fingerprint = None  # Track the last state for plateau detection
+
+        # Track performance metrics at the overall strategy balancer level
+        self.plateau_escapes = 0
+        self.strategy_switches = 0
 
         # Initialize LLM service if needed
         self.use_llm_guidance = use_llm_guidance
@@ -162,6 +164,32 @@ class StrategyBalancer:
             self.logger.error(f"Error consulting LLM for strategy: {e}")
             return None
 
+    def _is_in_plateau(self, state_fingerprint: str) -> bool:
+        """
+        Determine if exploration is currently in a plateau.
+
+        Args:
+            state_fingerprint: Current state fingerprint
+
+        Returns:
+            True if exploration is stuck in a plateau, False otherwise
+        """
+        # Check if we're in the same state as before
+        if self.last_state_fingerprint == state_fingerprint:
+            self.consecutive_same_state_counter += 1
+        else:
+            # Reset counter when state changes
+            self.consecutive_same_state_counter = 0
+            self.last_state_fingerprint = state_fingerprint
+
+        # Log if we're approaching a plateau
+        if self.consecutive_same_state_counter >= (self.plateau_detection_threshold - 1):
+            self.logger.debug(f"Approaching exploration plateau: {self.consecutive_same_state_counter} "
+                              f"consecutive actions in state {state_fingerprint}")
+
+        # Consider it a plateau if we've been in the same state for several consecutive actions
+        return self.consecutive_same_state_counter >= self.plateau_detection_threshold
+
     def _adjust_strategy_weights_from_llm(self, strategy_name: str) -> None:
         """
         Adjust strategy weights based on LLM recommendation.
@@ -181,7 +209,8 @@ class StrategyBalancer:
 
     def select_strategy(self, state_data: Dict[str, Any]) -> Optional[Strategy]:
         """
-        Select a strategy based on current weights and application state.
+        Select a strategy based on current state and exploration history.
+        Simplified to heavily favor the preferred strategy with plateau detection.
 
         Args:
             state_data: Current state data
@@ -193,77 +222,96 @@ class StrategyBalancer:
             self.logger.warning("No strategies available")
             return None
 
-        # Update exploration phase if needed
-        self._update_exploration_phase(state_data)
+        # Ensure we have a preferred strategy
+        if not self.preferred_strategy_info and self.strategies:
+            self.preferred_strategy_info = self.strategies[0]
+            self.last_strategy_switch = time.time()
+            self.logger.info(f"Setting initial preferred strategy: {self.preferred_strategy_info['strategy'].name}")
 
-        # Get exploration history for LLM consultation
-        exploration_history = []
-        if hasattr(self, 'short_term_memory') and self.short_term_memory:
-            exploration_history = list(self.short_term_memory.state_history)
+        # Get current state fingerprint
+        current_state = state_data.get("fingerprint", "unknown")
 
-        # Try to get strategy from LLM
-        if self.use_llm_guidance:
-            llm_strategy = self.consult_llm_for_strategy(state_data, exploration_history)
-            if llm_strategy:
-                return llm_strategy
+        # Check if we're in a plateau (too many actions in the same state)
+        in_plateau = self._is_in_plateau(current_state)
 
-        # Check for context-specific strategy selection
-        context_strategy = self._select_context_specific_strategy(state_data)
-        if context_strategy:
-            # Update preferred strategy if a context-specific strategy is selected
-            for strategy_info in self.strategies:
-                if strategy_info["strategy"] == context_strategy:
-                    self.preferred_strategy_info = strategy_info
-                    self.last_strategy_switch = time.time()
-                    break
-
-            return context_strategy
-
-        # Check if we should use preferred strategy or explore
         current_time = time.time()
-        if (self.preferred_strategy_info and
-                random.random() > self.exploration_probability and
-                current_time - self.last_strategy_switch > self.strategy_switch_cooldown):
-            # Use preferred strategy
-            self.logger.debug(f"Using preferred strategy: {self.preferred_strategy_info['strategy'].name}")
-            return self.preferred_strategy_info["strategy"]
-        else:
-            # Explore other strategies using weighted random selection
-            self.logger.debug("Exploring non-preferred strategies")
+        cooldown_elapsed = current_time - self.last_strategy_switch > self.strategy_switch_cooldown
 
-            # Create a list of strategies excluding the preferred one
+        # Strategy selection logic:
+        # 1. If in plateau and cooldown has elapsed, switch strategies
+        # 2. Otherwise, strongly prefer the current strategy
+
+        if in_plateau and cooldown_elapsed:
+            # We're stuck in a plateau and cooldown has elapsed - switch strategies
             other_strategies = [s for s in self.strategies if s != self.preferred_strategy_info]
 
-            if not other_strategies:
-                # If there are no other strategies, use the preferred one
-                return self.preferred_strategy_info["strategy"] if self.preferred_strategy_info else None
+            if other_strategies:
+                # Find a strategy that has previously discovered states
+                other_strategies.sort(
+                    key=lambda s: (
+                        s["performance"].get("new_states", 0),
+                        s["performance"].get("successful_actions", 0)
+                    ),
+                    reverse=True
+                )
 
-            # Use weighted random selection for other strategies
-            total_weight = sum(s["weight"] for s in other_strategies)
+                new_strategy_info = other_strategies[0]
 
-            if total_weight <= 0:
-                # If all weights are zero, use uniform selection
-                selected = random.choice(other_strategies)
-            else:
-                # Weight-based selection
-                selection = random.uniform(0, total_weight)
-                current = 0
+                self.logger.info(
+                    f"Switching from {self.preferred_strategy_info['strategy'].name} to "
+                    f"{new_strategy_info['strategy'].name} to escape plateau"
+                )
 
-                for strategy_info in other_strategies:
-                    current += strategy_info["weight"]
-                    if selection <= current:
-                        selected = strategy_info
-                        break
+                # Update preferred strategy temporarily
+                self.preferred_strategy_info = new_strategy_info
+                self.last_strategy_switch = current_time
+                self.strategy_switches += 1
+                self.plateau_escapes += 1
+
+                # Reset consecutive same state counter since we're trying a new strategy
+                self.consecutive_same_state_counter = 0
+
+                return new_strategy_info["strategy"]
+
+        # Most of the time (90%), use the preferred strategy
+        # Only occasionally (10%) try others for exploration
+        if self.preferred_strategy_info and random.random() > self.exploration_probability:
+            # Log that we're using the preferred strategy
+            if random.random() < 0.1:  # Only log occasionally to avoid flooding logs
+                self.logger.debug(f"Using preferred strategy: {self.preferred_strategy_info['strategy'].name}")
+            return self.preferred_strategy_info["strategy"]
+        else:
+            # Occasionally try other strategies (exploration_probability chance)
+            other_strategies = [s for s in self.strategies if s != self.preferred_strategy_info]
+            if other_strategies:
+                # Weight the selection by their weights
+                total_weight = sum(s["weight"] for s in other_strategies)
+
+                if total_weight <= 0:
+                    # If all weights are zero, use uniform selection
+                    selected_strategy_info = random.choice(other_strategies)
                 else:
-                    # Fallback to first strategy
-                    selected = other_strategies[0]
+                    # Use weighted random selection
+                    selection = random.uniform(0, total_weight)
+                    current_sum = 0
 
-            self.logger.debug(f"Selected non-preferred strategy: {selected['strategy'].name}")
-            return selected["strategy"]
+                    selected_strategy_info = other_strategies[0]  # Default in case loop doesn't select one
+                    for s in other_strategies:
+                        current_sum += s["weight"]
+                        if selection <= current_sum:
+                            selected_strategy_info = s
+                            break
+
+                self.logger.debug(f"Exploring alternative strategy: {selected_strategy_info['strategy'].name}")
+                return selected_strategy_info["strategy"]
+            else:
+                # Fall back to preferred strategy if no alternatives
+                return self.preferred_strategy_info["strategy"] if self.preferred_strategy_info else None
 
     def update_performance(self, strategy: Strategy, action: ItemAction, result: Dict[str, Any]) -> None:
         """
         Update performance metrics for a strategy based on action result.
+        More stable implementation that rewards strategies finding new states.
 
         Args:
             strategy: Strategy that generated the action
@@ -286,36 +334,38 @@ class StrategyBalancer:
             performance["successful_actions"] += 1
             performance["last_success_time"] = time.time()
 
-        # Track new states
+        # Track new states - this is most important for strategy selection
         if result.get("new_state", False):
             performance["new_states"] += 1
+
+            # If this isn't the preferred strategy but it found a new state,
+            # consider making it the preferred strategy
+            if (strategy_info != self.preferred_strategy_info and
+                    performance["new_states"] >= 2):  # Require at least 2 new states before promoting
+
+                current_time = time.time()
+                self.logger.info(
+                    f"Setting preferred strategy to {strategy_info['strategy'].name} "
+                    f"after discovering new state"
+                )
+
+                self.preferred_strategy_info = strategy_info
+                self.last_strategy_switch = current_time
 
         # Track security operations
         if action.reaches_mop:
             performance["security_operations"] += 1
 
-        # Update strategy weight based on performance
-        self._update_strategy_weight(strategy_info, result)
+        # Only make minor adjustments to weights to maintain stability
+        if result.get("new_state", False):
+            # Reward strategies that find new states with small weight increase
+            strategy_info["weight"] *= 1.05  # 5% increase
 
-        # Check if we should update the preferred strategy
-        self._consider_updating_preferred_strategy(strategy_info)
+        # Normalize weights
+        self._normalize_weights()
 
-        # Log performance update
-        with self.performance_monitor.measure_time("strategy_performance_update"):
-            # Record metrics for this strategy
-            self.performance_monitor.record_metric(
-                name=f"strategy_{strategy.name}_success_rate",
-                value=self._calculate_success_rate(performance),
-                unit="%",
-                context={"strategy": strategy.name}
-            )
-
-            self.performance_monitor.record_metric(
-                name=f"strategy_{strategy.name}_new_state_rate",
-                value=self._calculate_new_state_rate(performance),
-                unit="%",
-                context={"strategy": strategy.name}
-            )
+        # Skip updating preferred strategy here to reduce thrashing
+        # We'll primarily update it in the select_strategy method when a plateau is detected
 
     def _consider_updating_preferred_strategy(self, strategy_info: Dict[str, Any]) -> None:
         """
@@ -623,14 +673,15 @@ class StrategyBalancer:
         new_states = performance["new_states"]
         return (new_states / total_actions) * 100
 
-    def get_strategy_statistics(self) -> List[Dict[str, Any]]:
+    def get_strategy_statistics(self) -> Dict[str, Any]:
         """
-        Get statistics about strategy performance.
+        Get comprehensive statistics about strategy performance and balancer behavior.
 
         Returns:
-            List of strategy statistics dictionaries
+            Dictionary with detailed strategy statistics
         """
-        stats = [
+        # Get basic strategy stats
+        strategy_stats = [
             {
                 "name": s["strategy"].name,
                 "type": s["strategy"].__class__.__name__,
@@ -646,9 +697,25 @@ class StrategyBalancer:
         ]
 
         # Sort by weight (highest first)
-        stats.sort(key=lambda x: x["weight"], reverse=True)
+        strategy_stats.sort(key=lambda x: x["weight"], reverse=True)
 
-        return stats
+        # Add balancer statistics
+        balancer_stats = {
+            "preferred_strategy": self.preferred_strategy_info[
+                "strategy"].name if self.preferred_strategy_info else "None",
+            "last_strategy_switch": time.time() - self.last_strategy_switch if self.last_strategy_switch else 0,
+            "strategy_switches": self.strategy_switches,
+            "plateau_escapes": self.plateau_escapes,
+            "exploration_probability": self.exploration_probability,
+            "consecutive_same_state_actions": self.consecutive_same_state_counter,
+            "in_plateau": self._is_in_plateau(self.last_state_fingerprint) if self.last_state_fingerprint else False,
+            "strategy_switch_cooldown": self.strategy_switch_cooldown
+        }
+
+        return {
+            "strategies": strategy_stats,
+            "balancer": balancer_stats
+        }
 
     def get_current_phase(self) -> Dict[str, Any]:
         """
