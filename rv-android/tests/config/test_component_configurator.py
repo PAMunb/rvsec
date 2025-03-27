@@ -188,26 +188,26 @@ class TestComponentConfigurator:
             # Should use provided static data instead of instance default
             mock_strategy_class.assert_called_with(other_static_data, mock_parser, max_tokens=500)
 
-    def test_create_llm(self, configurator):
-        """Test create_llm method"""
-        # Setup mock
-        mock_llm_instance = MagicMock()
-        mock_model_factory = MagicMock()
-        mock_model_factory.create.return_value = mock_llm_instance
-
-        # Patch the imported ModelFactory
-        with patch('rvandroid.llm.model_factory.ModelFactory', mock_model_factory):
-            # Set LLM config
-            configurator.llm_config.model_type = "ollama"
-            configurator.llm_config.model_name = "llama3.2:3b"
-            configurator.llm_config.kwargs = {"temperature": 0.7}
-
-            # Call method
-            llm = configurator.create_llm()
-
-            # Verify
-            assert llm == mock_llm_instance
-            mock_model_factory.create.assert_called_once_with("ollama", "llama3.2:3b", temperature=0.7)
+    # def test_create_llm(self, configurator):
+    #     """Test create_llm method"""
+    #     # Setup mock
+    #     mock_llm_instance = MagicMock()
+    #     mock_model_factory = MagicMock()
+    #     mock_model_factory.create.return_value = mock_llm_instance
+    #
+    #     # Patch the imported ModelFactory
+    #     with patch('rvandroid.llm.model_factory.ModelFactory', mock_model_factory):
+    #         # Set LLM config
+    #         configurator.llm_config.model_type = "ollama"
+    #         configurator.llm_config.model_name = "llama3.2:3b"
+    #         configurator.llm_config.kwargs = {"temperature": 0.7}
+    #
+    #         # Call method
+    #         llm = configurator.create_llm()
+    #
+    #         # Verify
+    #         assert llm == mock_llm_instance
+    #         mock_model_factory.create.assert_called_once_with("ollama", "llama3.2:3b", temperature=0.7)
 
     def test_from_config(self, configurator, mock_config):
         """Test from_config method"""

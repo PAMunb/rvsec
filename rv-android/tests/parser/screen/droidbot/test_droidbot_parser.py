@@ -283,7 +283,7 @@ class TestDroidBotParser:
 
         # Verify correct screen description was returned
         assert result.activity == "TestActivity"
-        assert len(result.items) == 0  # Empty because we're using a mock
+        assert len(result.items) == 1  # BACK button
 
     def test_parse_with_static_data(self, parser_with_mock_visitor, basic_state_data):
         """Test parsing with static analysis data."""
