@@ -1,3 +1,5 @@
+# rvandroid/rvdroid/memory/long_term/long_term_memory.py
+
 """
 Long-term memory system for RVDroid.
 
@@ -69,6 +71,9 @@ class LongTermMemory:
         self.action_knowledge: Dict[int, Dict[str, Any]] = {}
         self.security_operations: Dict[str, List[Dict[str, Any]]] = {}
 
+        # Initialize transition graph
+        self.transition_graph = dynamic_wtg if dynamic_wtg else DynamicTransitionGraph()
+
         # Statistics
         self.session_stats: Dict[str, Any] = {
             "start_time": time.time(),
@@ -133,7 +138,10 @@ class LongTermMemory:
         state_info["last_seen"] = timestamp
 
         # Record in transition graph
-        self.transition_graph.record_visit(activity)
+        try:
+            self.transition_graph.record_visit(activity)
+        except Exception as e:
+            self.logger.error(f"Error recording visit to transition graph: {e}")
 
     def record_action(self, action: ItemAction, state_fingerprint: str, success: bool) -> None:
         """
@@ -198,25 +206,31 @@ class LongTermMemory:
             action: Action that caused the transition
             success: Whether the transition was successful
         """
-        # Skip recording if either state is unknown
-        if from_state == "unknown" or to_state == "unknown":
-            return
+        try:
+            # Skip recording if either state is unknown
+            if from_state == "unknown" or to_state == "unknown":
+                return
 
-        # Get activity names
-        from_activity = self.state_knowledge.get(from_state, {}).get("activity", "unknown")
-        to_activity = self.state_knowledge.get(to_state, {}).get("activity", "unknown")
+            # Get activity names
+            from_activity = self.state_knowledge.get(from_state, {}).get("activity", "unknown")
+            to_activity = self.state_knowledge.get(to_state, {}).get("activity", "unknown")
 
-        # Record in transition graph
-        self.transition_graph.record_transition(
-            from_activity,
-            to_activity,
-            str(action.id),
-            self._get_action_type(action.text)
-        )
+            # Record in transition graph
+            self.transition_graph.record_transition(
+                from_activity,
+                to_activity,
+                str(action.id),
+                self._get_action_type(action.text)
+            )
+        except Exception as e:
+            self.logger.error(f"Error recording transition: {e}", exc_info=True)
 
-    def save(self) -> bool:
+    def save(self, file_path: str) -> bool:
         """
         Save memory to disk.
+
+        Args:
+            file_path: Path to save the memory
 
         Returns:
             True if successful, False otherwise
@@ -255,29 +269,33 @@ class LongTermMemory:
             }
 
             # Write to file
-            with open(self.memory_file, 'w') as f:
+            os.makedirs(os.path.dirname(file_path), exist_ok=True)
+            with open(file_path, 'w') as f:
                 json.dump(memory_data, f, indent=2)
 
-            self.logger.info(f"Saved memory to {self.memory_file}")
+            self.logger.info(f"Saved memory to {file_path}")
             return True
 
         except Exception as e:
             self.logger.error(f"Error saving memory: {e}")
             return False
 
-    def _load_memory(self) -> bool:
+    def load(self, file_path: str) -> bool:
         """
         Load memory from disk.
+
+        Args:
+            file_path: Path to load the memory from
 
         Returns:
             True if successful, False otherwise
         """
-        if not os.path.exists(self.memory_file):
-            self.logger.info(f"No existing memory file found at {self.memory_file}")
+        if not os.path.exists(file_path):
+            self.logger.info(f"No existing memory file found at {file_path}")
             return False
 
         try:
-            with open(self.memory_file, 'r') as f:
+            with open(file_path, 'r') as f:
                 memory_data = json.load(f)
 
             # Check if this memory is for the correct app
@@ -325,7 +343,7 @@ class LongTermMemory:
                 graph_data = memory_data["transition_graph"]
                 self.transition_graph = DynamicTransitionGraph.from_dict(graph_data)
 
-            self.logger.info(f"Loaded memory from {self.memory_file} with {len(self.state_knowledge)} states")
+            self.logger.info(f"Loaded memory from {file_path} with {len(self.state_knowledge)} states")
             return True
 
         except Exception as e:
@@ -462,33 +480,37 @@ class LongTermMemory:
         Returns:
             List of activity names
         """
-        # Get least visited neighbors from transition graph
-        neighbor_activities = []
+        try:
+            # Get least visited neighbors from transition graph
+            neighbor_activities = []
 
-        # Get neighbors from graph
-        neighbors = list(self.transition_graph.graph.neighbors(current_activity))
+            # Get neighbors from graph
+            neighbors = list(self.transition_graph.graph.neighbors(current_activity))
 
-        if not neighbors:
-            # No known transitions, return least visited activities
-            least_visited = sorted(
-                [(a, info["visit_count"]) for a, info in self.activity_knowledge.items()],
-                key=lambda x: x[1]
-            )
-            neighbor_activities = [a for a, _ in least_visited[:count]]
-        else:
-            # Get visit counts for neighbors
-            neighbor_visits = []
-            for neighbor in neighbors:
-                visit_count = self.activity_knowledge.get(neighbor, {}).get("visit_count", 0)
-                neighbor_visits.append((neighbor, visit_count))
+            if not neighbors:
+                # No known transitions, return least visited activities
+                least_visited = sorted(
+                    [(a, info["visit_count"]) for a, info in self.activity_knowledge.items()],
+                    key=lambda x: x[1]
+                )
+                neighbor_activities = [a for a, _ in least_visited[:count]]
+            else:
+                # Get visit counts for neighbors
+                neighbor_visits = []
+                for neighbor in neighbors:
+                    visit_count = self.activity_knowledge.get(neighbor, {}).get("visit_count", 0)
+                    neighbor_visits.append((neighbor, visit_count))
 
-            # Sort by visit count (ascending)
-            neighbor_visits.sort(key=lambda x: x[1])
+                # Sort by visit count (ascending)
+                neighbor_visits.sort(key=lambda x: x[1])
 
-            # Get activity names
-            neighbor_activities = [a for a, _ in neighbor_visits[:count]]
+                # Get activity names
+                neighbor_activities = [a for a, _ in neighbor_visits[:count]]
 
-        return neighbor_activities
+            return neighbor_activities
+        except Exception as e:
+            self.logger.error(f"Error getting next activities to explore: {e}")
+            return []
 
     def get_memory_stats(self) -> Dict[str, Any]:
         """
@@ -497,14 +519,26 @@ class LongTermMemory:
         Returns:
             Dictionary with memory statistics
         """
-        return {
-            "states_count": len(self.state_knowledge),
-            "activities_count": len(self.activity_knowledge),
-            "actions_count": len(self.action_knowledge),
-            "security_operations_count": len(self.security_operations),
-            "transitions_count": sum(1 for _ in self.transition_graph.transitions),
-            "session_stats": self.session_stats
-        }
+        try:
+            transitions_count = 0
+            try:
+                transitions_count = len(self.transition_graph.transitions)
+            except:
+                self.logger.warning("Could not get transitions count from transition graph")
+
+            return {
+                "states_count": len(self.state_knowledge),
+                "activities_count": len(self.activity_knowledge),
+                "actions_count": len(self.action_knowledge),
+                "security_operations_count": len(self.security_operations),
+                "transitions_count": transitions_count,
+                "session_stats": self.session_stats
+            }
+        except Exception as e:
+            self.logger.error(f"Error getting memory stats: {e}")
+            return {
+                "error": f"Failed to get memory stats: {str(e)}"
+            }
 
     def _get_action_type(self, action_text: str) -> str:
         """
@@ -528,3 +562,4 @@ class LongTermMemory:
             return "back"
         else:
             return "other"
+       

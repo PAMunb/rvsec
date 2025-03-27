@@ -43,13 +43,13 @@ def main(app: App, static_data: StaticAnalysisData):
 
     try:
         # Initialize service
-        service = RVDroidService(device_id=device, use_llm=use_llm, preferred_strategy="VisualAwareStrategy")
+        service = RVDroidService(device_id=device, static_data=static_data, use_llm=use_llm, preferred_strategy="VisualAwareStrategy")
 
         # Start testing
         logger.info(f"Starting testing of {app.package_name}")
         result = service.start_testing(
             package_name=app.package_name,
-            # activity=app.,
+            activity=app.apk.get_main_activity(),
             timeout=timeout,
             llm_guidance=use_llm
         )
