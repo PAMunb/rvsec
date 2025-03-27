@@ -419,6 +419,49 @@ class RVDroidService:
         """
         return self.current_state
 
+    def _ensure_back_action_available(self, actions: List[ItemAction]) -> List[ItemAction]:
+        """
+        Ensure that a BACK action is available in the action list.
+
+        Args:
+            actions: Original list of actions
+
+        Returns:
+            List with BACK action added if not already present
+        """
+        # Check if BACK action already exists
+        has_back = any("BACK" in action.text.upper() for action in actions)
+
+        if not has_back:
+            # Create a BACK action
+            from rvandroid.parser.screen.visitor.base_visitor import ItemAction
+            from rvandroid.domain.widget import WidgetEventType
+
+            # Generate a unique ID for the BACK action
+            action_id = max([action.id for action in actions], default=0) + 1000
+
+            # Create the BACK action
+            back_action = ItemAction(
+                id=action_id,
+                text=f"BACK ({action_id})",
+                event=WidgetEventType.KEY,
+                target_view=None,
+                coordinates=None
+            )
+
+            # Add an is_back flag to make it easily identifiable
+            back_action.is_back = True
+
+            # Add reaches_mop=False and directly_reaches_mop=False attributes
+            back_action.reaches_mop = False
+            back_action.directly_reaches_mop = False
+
+            # Add to the actions list
+            self.logger.debug(f"Adding BACK action {action_id} to available actions")
+            return actions + [back_action]
+
+        return actions
+
     def get_statistics(self) -> Dict[str, Any]:
         """
         Get current execution statistics.
@@ -522,11 +565,9 @@ class RVDroidService:
         Returns:
             Result dictionary with execution details
         """
-        print("Executing test iteration .......................")
         try:
             # 1. Analyze current state
             state_analysis = self._analyze_state()
-            print("State analysis: ", state_analysis)
 
             # Check if app is in foreground
             if not state_analysis or state_analysis.get("app_in_foreground", False) == False:
@@ -536,8 +577,11 @@ class RVDroidService:
                 app_package = getattr(self, 'app_package_name', None)
 
                 if app_package and not self.ui_adapter.ensure_app_in_foreground(app_package):
-                    self.logger.error("Failed to bring app to foreground, skipping iteration")
-                    return {"success": False, "error": "App not in foreground"}
+                    self.logger.error("Failed to bring app to foreground, executing BACK action")
+                    # If recovery fails, try executing a BACK action to dismiss possible dialogs
+                    if self.action_executor._execute_key_event("BACK"):
+                        self.logger.info("BACK action executed to recover from dialog")
+                    return {"success": False, "error": "App not in foreground, executed BACK"}
 
                 # Update state after recovery
                 state_analysis = self._analyze_state()
@@ -567,8 +611,10 @@ class RVDroidService:
                 action = self._generate_fallback_action()
 
                 if not action:
-                    self.logger.error("Failed to generate fallback action, skipping iteration")
-                    return {"success": False, "error": "No action available"}
+                    self.logger.error("Failed to generate fallback action, executing BACK")
+                    # If no action is available, try executing a BACK action
+                    self.action_executor._execute_key_event("BACK")
+                    return {"success": False, "error": "No action available, executed BACK"}
 
             # 5. Execute action
             previous_state_fingerprint = self.current_state.get("fingerprint") if self.current_state else None
@@ -619,7 +665,6 @@ class RVDroidService:
 
             # 9. Get action feedback from LLM if enabled
             if self.use_llm and self.llm_service and new_state:
-                # TODO implementar ........
                 self._get_action_feedback(action, result)
 
             # 10. Update strategy feedback
@@ -642,6 +687,8 @@ class RVDroidService:
             self.logger.error(f"Error in test iteration: {e}")
             import traceback
             traceback.print_exc()
+            # Try to recover with BACK action on exception
+            self.action_executor._execute_key_event("BACK")
             return {"success": False, "error": str(e)}
 
     def _get_action_feedback(self, action: ItemAction, result: Dict[str, Any]) -> None:
@@ -791,13 +838,26 @@ class RVDroidService:
             self.logger.error("Cannot generate action: missing strategy or screen")
             return None
 
-        print(
-            f"********** Generating action... strategy: {self.current_strategy} ::: screen={self.current_screen} ::::::::::::: {self.current_state}")
-
         try:
             # Get history if needed by the strategy
             history = list(self.short_term_memory.state_history)
-            print(f"History: {history}")
+
+            # Make sure we have all UI elements and ensure BACK is available
+            if self.current_screen.items:
+                # Get all actions
+                all_actions = []
+                for item in self.current_screen.items:
+                    all_actions.extend(item.actions)
+
+                # Ensure BACK action is available
+                all_actions = self._ensure_back_action_available(all_actions)
+
+                # Update the screen with the modified actions list if needed
+                if len(all_actions) > sum(len(item.actions) for item in self.current_screen.items):
+                    # We added a BACK action, so we need to update the screen
+                    # For simplicity, we'll just attach it to the first item
+                    if self.current_screen.items:
+                        self.current_screen.items[0].actions.append(all_actions[-1])
 
             # Use current strategy to generate action
             action = self.current_strategy.generate_action(
@@ -805,9 +865,6 @@ class RVDroidService:
                 self.current_state or {},
                 history
             )
-            print(f"==== Generated action: {action}")
-
-            # input(">>> Press Enter to continue...")
 
             if action:
                 self.logger.debug(f"Generated action {action.id}: {action.text}")
@@ -826,21 +883,42 @@ class RVDroidService:
         Returns:
             Fallback action or None if no action available
         """
-        print("%%%%%%%%%%%%%%%%%%% Generating fallback action...")
         if not self.current_screen or not self.current_screen.items:
-            return None
+            # If no screen or items, try to create a BACK action
+            from rvandroid.parser.screen.visitor.base_visitor import ItemAction
+            from rvandroid.domain.widget import WidgetEventType
 
-        # Get all available actions
-        available_actions = []
+            back_action = ItemAction(
+                id=9999,
+                text="BACK (Fallback)",
+                event=WidgetEventType.KEY,
+                target_view=None,
+                coordinates=None
+            )
+            back_action.is_back = True
+            back_action.reaches_mop = False
+            back_action.directly_reaches_mop = False
+
+            self.logger.info("No screen elements, creating fallback BACK action")
+            return back_action
+
+        # First, try to find a BACK action in the existing actions
+        all_actions = []
         for item in self.current_screen.items:
-            available_actions.extend(item.actions)
+            all_actions.extend(item.actions)
 
-        if not available_actions:
-            return None
+        # Look for BACK actions
+        back_actions = [a for a in all_actions if "BACK" in a.text.upper()]
+        if back_actions:
+            self.logger.info("Using BACK action as fallback")
+            return back_actions[0]
 
-        # Select a random action
+        # If no BACK action, select a random action
         import random
-        return random.choice(available_actions)
+        if all_actions:
+            return random.choice(all_actions)
+
+        return None
 
     def _update_current_state(self) -> None:
         """

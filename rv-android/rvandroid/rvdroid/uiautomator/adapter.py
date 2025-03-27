@@ -8,6 +8,7 @@ UI hierarchy processing.
 """
 
 import os
+import random
 import subprocess
 import time
 from typing import Dict, Any, Optional, Tuple
@@ -632,56 +633,125 @@ class UIAutomator2Adapter:
 
             # First click to open the spinner
             if not self.click(x, y):
+                self.logger.error("Failed to click spinner to open dropdown")
                 return False
 
             # Wait for dropdown to appear
-            time.sleep(1.0)
+            time.sleep(1.5)  # Increased wait time for dropdown to fully appear
 
-            # Try to find and click on a ListView item
-            listview = self.device(className="android.widget.ListView")
-            if listview.exists:
-                items = listview.child(className="android.widget.TextView")
-                if items.count > 0:
-                    # Choose a random item, but not the first one (which might be the current selection)
-                    import random
-                    index = random.randint(1, items.count - 1) if items.count > 1 else 0
-                    self.logger.info(f"Clicking item {index} in ListView dropdown")
-                    items[index].click()
-                    time.sleep(0.5)
-                    return True
+            # Try multiple approaches to find and interact with the dropdown
+            success = False
 
-            # Try to find popup window or dialog
-            popup = self.device(className="android.widget.PopupWindow") or \
-                    self.device(className="android.app.AlertDialog")
+            # Approach 1: Try to find ListView or AbsListView
+            listview_classes = ["android.widget.ListView", "android.widget.AbsListView"]
+            for list_class in listview_classes:
+                listview = self.device(className=list_class)
+                if listview.exists:
+                    self.logger.debug(f"Found dropdown as {list_class}")
+                    items = listview.child(className="android.widget.TextView") or listview.child(clickable=True)
 
-            if popup.exists:
-                items = popup.child(clickable=True)
-                if items.count > 0:
-                    # Choose a random item
-                    import random
-                    index = random.randint(0, items.count - 1)
-                    self.logger.info(f"Clicking item {index} in PopupWindow/AlertDialog")
-                    items[index].click()
-                    time.sleep(0.5)
-                    return True
+                    if items.count > 0:
+                        # Select a random item, but NOT the first one (which is usually the current selection)
+                        if items.count > 1:
+                            # Explicitly avoid index 0 to ensure we don't select the current item
+                            index = random.randint(1, items.count - 1)
+                            self.logger.info(f"Clicking random item {index} of {items.count} in ListView dropdown")
+                        else:
+                            index = 0  # Only one item available
+                            self.logger.info("Only one item in ListView dropdown, selecting it")
 
-            # If no dropdown found, try click below the spinner
-            screen_info = self.device.info
-            screen_height = screen_info.get("displayHeight", 1000)
+                        try:
+                            items[index].click()
+                            time.sleep(0.5)
+                            success = True
+                            break
+                        except Exception as e:
+                            self.logger.error(f"Error clicking dropdown item: {e}")
 
-            # Try clicking at positions below the spinner
-            positions = [
-                (x, y + 150),  # Just below spinner
-                (x, y + 250),  # Further down
-                (x, min(y + 350, screen_height - 50))  # Even further, but not off screen
-            ]
+            # Approach 2: Try to find popup window or dialog
+            if not success:
+                popup_classes = ["android.widget.PopupWindow", "android.app.AlertDialog",
+                                 "android.widget.PopupMenu"]
+                for popup_class in popup_classes:
+                    popup = self.device(className=popup_class)
+                    if popup.exists:
+                        self.logger.debug(f"Found dropdown as {popup_class}")
+                        items = popup.child(clickable=True)
 
-            for pos_x, pos_y in positions:
-                self.logger.info(f"Clicking estimated dropdown position at ({pos_x}, {pos_y})")
-                self.click(pos_x, pos_y)
-                time.sleep(0.5)
+                        if items.count > 0:
+                            # Select a random item, avoiding the first one
+                            if items.count > 1:
+                                index = random.randint(1, items.count - 1)
+                                self.logger.info(f"Clicking random item {index} of {items.count} in {popup_class}")
+                            else:
+                                index = 0  # Only one item
+                                self.logger.info(f"Only one item in {popup_class}, selecting it")
 
-            return True
+                            try:
+                                items[index].click()
+                                time.sleep(0.5)
+                                success = True
+                                break
+                            except Exception as e:
+                                self.logger.error(f"Error clicking popup item: {e}")
+
+            # Approach 3: Look for any new clickable items that might be part of dropdown
+            if not success:
+                self.logger.debug("Looking for any new clickable items")
+                # Get screen dimensions
+                screen_info = self.device.info
+                screen_height = screen_info.get("displayHeight", 1000)
+                screen_width = screen_info.get("displayWidth", 500)
+
+                # Look below the spinner for clickable elements
+                clickable_below = self.device(clickable=True,
+                                              bounds=f"[0,{y + 10}][{screen_width},{screen_height}]")
+
+                if clickable_below.count > 0:
+                    # Select a random clickable element, but not the first one
+                    if clickable_below.count > 1:
+                        # Avoid index 0 which might be the spinner itself or header
+                        index = random.randint(1, clickable_below.count - 1)
+                        self.logger.info(
+                            f"Clicking random item {index} of {clickable_below.count} clickable elements below spinner")
+                    else:
+                        index = 0  # Only one item
+                        self.logger.info("Only one clickable item below spinner, selecting it")
+
+                    try:
+                        clickable_below[index].click()
+                        time.sleep(0.5)
+                        success = True
+                    except Exception as e:
+                        self.logger.error(f"Error clicking element below spinner: {e}")
+
+            # Approach 4: If all else fails, click at random positions below the spinner
+            if not success:
+                # Generate random positions below the spinner to try different items
+                positions = []
+                base_y = y + 100  # Start well below the spinner
+
+                # Create 4 random positions at different vertical offsets
+                for i in range(4):
+                    pos_y = base_y + random.randint(50, 150) + (i * 75)
+                    if pos_y < screen_height - 50:  # Ensure we stay on screen
+                        positions.append((x, pos_y))
+
+                # Shuffle positions for more randomness
+                random.shuffle(positions)
+
+                for pos_x, pos_y in positions:
+                    self.logger.info(f"Clicking random dropdown position at ({pos_x}, {pos_y})")
+                    try:
+                        self.click(pos_x, pos_y)
+                        time.sleep(0.5)
+                        # Consider successful since we made our best attempt
+                        success = True
+                        break
+                    except Exception as e:
+                        self.logger.error(f"Error clicking estimated position: {e}")
+
+            return success
 
         except Exception as e:
             self.logger.error(f"Error interacting with spinner: {e}")
@@ -1020,6 +1090,108 @@ class UIAutomator2Adapter:
             return self.screenshot_manager.rename_with_state(screenshot_path, state_fingerprint)
         return screenshot_path
 
+    @task_phase("click_by_resource_id", measure_performance=True)
+    def click_by_resource_id(self, resource_id: str) -> bool:
+        """
+        Click on an element identified by resource ID.
+
+        Args:
+            resource_id: Resource ID of the element to click
+
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            self.logger.debug(f"Clicking element with resource ID: {resource_id}")
+
+            if not self.device:
+                raise ADBError("No connection to device")
+
+            # Find the element by resource ID
+            element = self.device(resourceId=resource_id)
+            if not element.exists:
+                self.logger.warning(f"Element with resource ID {resource_id} not found")
+                return False
+
+            # Get bounds and click in the center
+            bounds = element.bounds()
+            if not bounds:
+                self.logger.warning(f"Could not determine bounds for element {resource_id}")
+                return False
+
+            # Calculate center coordinates
+            x = (bounds["left"] + bounds["right"]) // 2
+            y = (bounds["top"] + bounds["bottom"]) // 2
+
+            # Click at the center of the element
+            return self.click(x, y)
+
+        except Exception as e:
+            self.logger.error(f"Error clicking element with resource ID {resource_id}: {e}")
+            return False
+
+    @task_phase("input_text_to_field", measure_performance=True)
+    def input_text_to_field(self, resource_id: str, text: str, coordinates: Optional[Tuple[int, int]] = None) -> bool:
+        """
+        Input text directly to a field by resource ID or coordinates.
+
+        Args:
+            resource_id: Resource ID of the field
+            text: Text to input
+            coordinates: Optional coordinates for the field
+
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            self.logger.debug(f"Direct input to field {resource_id}: '{text}'")
+
+            if not self.device:
+                raise ADBError("No connection to device")
+
+            # Verify app is in foreground
+            self._check_app_in_foreground()
+
+            # First try by resource ID
+            if resource_id:
+                element = self.device(resourceId=resource_id)
+                if element.exists:
+                    element.clear_text()
+                    time.sleep(0.3)
+                    element.set_text(text)
+                    time.sleep(0.5)
+
+                    # Verify text was set
+                    after_text = element.text
+                    if after_text == text or text in after_text:
+                        self.logger.info(f"Successfully set text by resource ID to: '{text}'")
+                        self.hide_keyboard()
+                        return True
+
+            # If that failed and we have coordinates, try clicking first
+            if coordinates:
+                x, y = coordinates
+                if self.click(x, y):
+                    time.sleep(0.5)
+
+                    focused = self.device(focused=True)
+                    if focused.exists:
+                        focused.clear_text()
+                        time.sleep(0.3)
+                        focused.set_text(text)
+                        time.sleep(0.5)
+
+                        # Verify success
+                        self.hide_keyboard()
+                        return True
+
+            # Fall back to regular text input
+            return self.input_text(text)
+
+        except Exception as e:
+            self.logger.error(f"Error in input_text_to_field: {e}")
+            return False
+
     @task_phase("cleanup", measure_performance=True)
     def cleanup(self) -> None:
         """Clean up resources."""
@@ -1126,18 +1298,38 @@ class UIAutomator2Adapter:
                 self.logger.warning(f"Element with resource ID {resource_id} not found")
                 return False
 
-            # Get bounds and click in the center
-            bounds = element.bounds()
-            if not bounds:
-                self.logger.warning(f"Could not determine bounds for element {resource_id}")
-                return False
+            # Get element information
+            try:
+                # Try to use element.click() directly first
+                element.click()
+                time.sleep(0.3)
+                return True
+            except Exception as e:
+                self.logger.debug(f"Direct element click failed: {e}, trying with coordinates")
 
-            # Calculate center coordinates
-            x = (bounds["left"] + bounds["right"]) // 2
-            y = (bounds["top"] + bounds["bottom"]) // 2
+                # Fall back to getting bounds and clicking center
+                try:
+                    # Bounds in UIAutomator2 are usually returned as a dictionary with top, left, right, bottom
+                    bounds = element.bounds()
 
-            # Click at the center of the element
-            return self.click(x, y)
+                    # Calculate center coordinates - bounds format may vary depending on UIAutomator2 version
+                    if isinstance(bounds, dict) and "left" in bounds:
+                        # Dictionary format
+                        x = (bounds["left"] + bounds["right"]) // 2
+                        y = (bounds["top"] + bounds["bottom"]) // 2
+                    elif isinstance(bounds, tuple) and len(bounds) == 4:
+                        # Tuple format (left, top, right, bottom)
+                        x = (bounds[0] + bounds[2]) // 2
+                        y = (bounds[1] + bounds[3]) // 2
+                    else:
+                        self.logger.error(f"Unrecognized bounds format: {bounds}")
+                        return False
+
+                    # Click at the center of the element
+                    return self.click(x, y)
+                except Exception as e2:
+                    self.logger.error(f"Error calculating bounds for click: {e2}")
+                    return False
 
         except Exception as e:
             self.logger.error(f"Error clicking element with resource ID {resource_id}: {e}")

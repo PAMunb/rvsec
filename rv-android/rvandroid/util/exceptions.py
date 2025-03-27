@@ -95,3 +95,15 @@ class LogcatError(AnalysisError):
 class CoverageError(AnalysisError):
     """Error raised when there's a problem with coverage tracking or analysis."""
     pass
+
+
+class ActionExecutionError(TestExecutionError):
+    """Error raised specifically during action execution."""
+
+    def __init__(self, message: str, action_id: Optional[int] = None, cause: Optional[Exception] = None):
+        super().__init__(message, cause)
+        self.action_id = action_id
+
+    def __str__(self):
+        action_info = f" (Action ID: {self.action_id})" if self.action_id else ""
+        return f"{super().__str__()}{action_info}"

@@ -243,3 +243,20 @@ class PerformanceMonitor:
                     operation="global metric subscriber",
                     error=str(e)
                 ))
+
+    def track_action_execution(self, action_type: str, action_id: Optional[int] = None):
+        """
+        Track the execution of a specific action.
+
+        Args:
+            action_type: Type of action being executed
+            action_id: Optional ID of the action
+
+        Returns:
+            Context manager for duration tracking
+        """
+        context = {
+            "action_type": action_type,
+            "action_id": action_id
+        }
+        return self.measure_time(f"action_execution:{action_type}", context)
