@@ -11,6 +11,8 @@ import random
 import time
 from typing import Dict, Any, Optional
 
+from rvandroid.parser.screen.visitor.base_visitor import ItemAction
+
 
 class BaseInteractionStrategy:
     """
@@ -126,34 +128,31 @@ class SpinnerStrategy(BaseInteractionStrategy):
 
         # Get coordinates
         try:
+            # First try by resource ID if available
+            resource_id = view_data.get("resource_id", "")
+            if resource_id and hasattr(self.adapter, 'click_by_resource_id'):
+                self.logger.info(f"Interacting with spinner by resource ID: {resource_id}")
+                if self.adapter.click_by_resource_id(resource_id):
+                    time.sleep(1.0)  # Wait for dropdown to appear
+                    return self._select_dropdown_item()
+
+            # Fall back to coordinates if resource ID approach didn't work or isn't available
             if "bounds" in view_data:
                 bounds = view_data["bounds"]
                 if bounds and len(bounds) == 2:
                     x = (bounds[0][0] + bounds[1][0]) // 2
                     y = (bounds[0][1] + bounds[1][1]) // 2
 
-                    self.logger.info(f"Interacting with spinner at ({x}, {y})")
+                    self.logger.info(f"Interacting with spinner at coordinates ({x}, {y})")
 
                     # Use spinner-specific click method if available
                     if hasattr(self.adapter, 'click_spinner'):
-                        try:
-                            return self.adapter.click_spinner(x, y)
-                        except Exception as e:
-                            self.logger.error(f"Spinner-specific click failed: {e}")
-                            # Fall back to manual approach below
+                        return self.adapter.click_spinner(x, y)
 
-                    # Manual approach if specialized method is not available or failed
-                    # First click the spinner to open dropdown
+                    # Manual approach if specialized method is not available
                     if self.adapter.click(x, y):
                         time.sleep(1.0)  # Wait for dropdown to appear
                         return self._select_dropdown_item()
-
-            # If bounds not available, try resource ID
-            resource_id = view_data.get("resource_id", "")
-            if resource_id and hasattr(self.adapter, 'click_by_resource_id'):
-                if self.adapter.click_by_resource_id(resource_id):
-                    time.sleep(1.0)  # Wait for dropdown to appear
-                    return self._select_dropdown_item()
 
             self.logger.warning("Could not determine how to interact with spinner")
             return False
@@ -176,11 +175,13 @@ class SpinnerStrategy(BaseInteractionStrategy):
                 listview = self.adapter.device(className="android.widget.ListView")
                 if listview.exists:
                     items = listview.child(className="android.widget.TextView")
-                    if items.count > 0:
+                    if not items or items.count == 0:
+                        items = listview.child(clickable=True)
+
+                    if items and items.count > 0:
                         # Ensure we select a truly random item
                         if items.count > 1:
                             # Select any item except the currently selected one (usually the first)
-                            # Generate a random index between 1 and items.count-1
                             index = random.randint(1, items.count - 1)
                             self.logger.info(
                                 f"Clicking random item {index} in ListView dropdown of {items.count} items")
@@ -200,7 +201,7 @@ class SpinnerStrategy(BaseInteractionStrategy):
 
                 if popup.exists:
                     items = popup.child(clickable=True)
-                    if items.count > 0:
+                    if items and items.count > 0:
                         # Select a truly random item
                         if items.count > 1:
                             # Avoid the first item (which might be a header or the currently selected item)
@@ -216,15 +217,10 @@ class SpinnerStrategy(BaseInteractionStrategy):
 
                 # 3. Look for any new clickable TextView elements that appeared
                 textviews = self.adapter.device(className="android.widget.TextView", clickable=True)
-                if textviews.count > 2:  # More than a few clickable text elements
+                if textviews and textviews.count > 1:  # More than one clickable text element
                     # Select random item, avoiding first one which might be a header
-                    if textviews.count > 2:
-                        # Skip first item (index 0) which might be a header or current selection
-                        index = random.randint(1, textviews.count - 1)
-                        self.logger.info(f"Clicking random item {index} from {textviews.count} clickable text elements")
-                    else:
-                        index = 1  # Select the second item if only two are available
-                        self.logger.info(f"Only two text elements, selecting the second one")
+                    index = random.randint(1, textviews.count - 1)
+                    self.logger.info(f"Clicking random item {index} from {textviews.count} clickable text elements")
 
                     textviews[index].click()
                     time.sleep(0.5)
@@ -242,8 +238,7 @@ class SpinnerStrategy(BaseInteractionStrategy):
 
             x_center = screen_width // 2
 
-            # Instead of fixed y positions, create random positions spread throughout the screen
-            # This increases the chance of hitting different dropdown items
+            # Create random positions spread throughout the screen
             y_positions = []
             base_y = 200  # Start a bit down from the top
             for i in range(4):

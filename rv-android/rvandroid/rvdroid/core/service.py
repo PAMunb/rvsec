@@ -1,4 +1,5 @@
 # rvandroid/rvdroid/core/service.py
+
 """
 Core service for RVDroid.
 
@@ -18,10 +19,7 @@ from rvandroid.rvdroid.analysis.progress.progress_tracker import ProgressTracker
 from rvandroid.rvdroid.analysis.state_analyzer import StateAnalyzer
 from rvandroid.rvdroid.executor.action_executor import ActionExecutor
 from rvandroid.rvdroid.llm.llm_service import LLMService
-from rvandroid.rvdroid.memory.exploration.exploration_optimizer import ExplorationOptimizer
-from rvandroid.rvdroid.memory.long_term.long_term_memory import LongTermMemory
-from rvandroid.rvdroid.memory.patterns.pattern_recognition import PatternRecognition
-from rvandroid.rvdroid.memory.short_term.short_term_memory import ShortTermMemory
+from rvandroid.rvdroid.memory.memory_system import MemorySystem
 from rvandroid.rvdroid.strategy.balancer.strategy_balancer import StrategyBalancer
 from rvandroid.rvdroid.strategy.strategy import StrategyRegistry
 from rvandroid.rvdroid.uiautomator.adapter import UIAutomator2Adapter
@@ -69,8 +67,8 @@ class RVDroidService:
                  config: Optional[ComponentConfigurator] = None,
                  device_id: str = "emulator-5554",
                  use_llm: bool = True,
-                 use_screenshot_analysis: bool = True,  # Novo parâmetro
-                 screenshot_frequency: str = "state_change",  # estado ou sempre
+                 use_screenshot_analysis: bool = True,
+                 screenshot_frequency: str = "state_change",
                  preferred_strategy: str = "SecurityFocusedStrategy"):
         """
         Initialize the RVDroid service.
@@ -114,7 +112,7 @@ class RVDroidService:
         # Initialize UIAutomator adapter
         self.ui_adapter = UIAutomator2Adapter(device_id)
 
-        # Inicializar componente de complemento de screenshot se requerido
+        # Initialize screenshot complementor if required
         if use_screenshot_analysis:
             from rvandroid.analysis.screenshot.screenshot_action_complementor import ScreenshotActionComplementor
             self.screenshot_complementor = ScreenshotActionComplementor()
@@ -122,25 +120,21 @@ class RVDroidService:
         else:
             self.screenshot_complementor = None
 
-        # Inicializar variáveis para armazenar informações de screenshot
+        # Initialize variables for storing screenshot information
         self.last_screenshot_path = None
         self.last_state_fingerprint = None
 
-        # Contadores e métricas para screenshot
+        # Screenshot counters and metrics
         self.screenshot_stats = {
             "total_screenshots": 0,
             "complemented_actions_count": 0,
             "error_indicators_detected": 0
         }
 
-        # Initialize memory components
-        self.short_term_memory = ShortTermMemory()
-        self.long_term_memory = LongTermMemory("target_app", static_data) if static_data else None
-        self.pattern_recognition = PatternRecognition(self.short_term_memory, self.long_term_memory)
-        self.exploration_optimizer = ExplorationOptimizer(
-            self.short_term_memory,
-            self.long_term_memory,
-            self.pattern_recognition
+        # Initialize memory system
+        self.memory_system = MemorySystem(
+            app_package="target_app",  # Will be updated when start_testing is called
+            static_data=static_data
         )
 
         # Initialize analysis components
@@ -187,6 +181,7 @@ class RVDroidService:
             self.logger.info("LLM guidance enabled")
         if self.preferred_strategy_name:
             self.logger.info(f"Preferred strategy set to: {self.preferred_strategy_name}")
+
 
     def _set_preferred_strategy(self, strategy_name: str) -> bool:
         """
@@ -268,6 +263,9 @@ class RVDroidService:
 
         # Store the app package name for use in other methods
         self.app_package_name = package_name
+
+        # Update memory system with the correct package name
+        self.memory_system.app_package = package_name
 
         try:
             # Start application
@@ -472,27 +470,26 @@ class RVDroidService:
         current_time = time.time()
         elapsed_time = current_time - self.start_time if self.start_time > 0 else 0
 
+        # Get memory system statistics
+        memory_stats = self.memory_system.get_memory_stats()
+
         stats = {
             "elapsed_time": elapsed_time,
             "running": self.execution_running,
-            **self.stats
+            **self.stats,
+            "memory": memory_stats
         }
 
         # Add component-specific statistics
         if self.progress_tracker:
             stats["progress"] = self.progress_tracker.get_progress_summary()
 
-        if self.short_term_memory:
-            stats["short_term_memory"] = self.short_term_memory.get_memory_stats()
-
-        if self.long_term_memory:
-            stats["long_term_memory"] = self.long_term_memory.get_memory_stats()
-
         if self.strategy_balancer:
             stats["strategies"] = self.strategy_balancer.get_strategy_statistics()
 
-        if self.pattern_recognition:
-            stats["patterns"] = self.pattern_recognition.get_pattern_stats()
+        # Add screenshot statistics if enabled
+        if self.use_screenshot_analysis:
+            stats["screenshot_stats"] = self.get_screenshot_statistics()
 
         return stats
 
@@ -554,9 +551,9 @@ class RVDroidService:
         if self.action_executor:
             self.action_executor.cleanup()
 
-        # Save any state if needed
-        if self.long_term_memory:
-            pass  # save memory when implemented
+        # # Save any state if needed
+        # if self.memory_system:
+        #     pass  # save memory when implemented
 
     def _execute_test_iteration(self) -> Dict[str, Any]:
         """
@@ -603,8 +600,8 @@ class RVDroidService:
                 self.current_strategy = StrategyRegistry.create_strategy("RandomStrategy", self.static_data)
                 print("=== Fallback strategy: ", self.current_strategy)
 
-            # 4. Generate next action
-            action = self._generate_action()
+            # 4. Generate next action - using memory-optimized action generation
+            action = self._generate_action_with_memory()
 
             if not action:
                 self.logger.warning("No action generated, using fallback")
@@ -619,12 +616,14 @@ class RVDroidService:
             # 5. Execute action
             previous_state_fingerprint = self.current_state.get("fingerprint") if self.current_state else None
 
-            # Record action in memory
+            # Record action reference for later use
             self.last_action = action
-            self.short_term_memory.record_action(action)
 
             # Execute the action
             success = self.action_executor.execute_item_action(action)
+
+            # Process action result in memory system
+            self.memory_system.process_action(action, success)
 
             # 6. Update state and record transition
             self._update_current_state()
@@ -636,22 +635,7 @@ class RVDroidService:
             if previous_state_fingerprint and current_fingerprint:
                 new_state = previous_state_fingerprint != current_fingerprint
 
-                # Record transition
-                if success:
-                    self.short_term_memory.record_transition(
-                        previous_state_fingerprint,
-                        current_fingerprint,
-                        action,
-                        success
-                    )
-
-                    if self.long_term_memory:
-                        self.long_term_memory.record_transition(
-                            previous_state_fingerprint,
-                            current_fingerprint,
-                            action,
-                            success
-                        )
+                # Transition is already recorded by memory_system.process_state and process_action
 
             # 8. Create result
             result = {
@@ -674,12 +658,12 @@ class RVDroidService:
                 if self.strategy_balancer:
                     self.strategy_balancer.update_performance(self.current_strategy, action, result)
 
-            # 11. Update exploration optimizer
-            if self.exploration_optimizer:
-                self.exploration_optimizer.record_action_result(action, result)
-
-            # 12. Update statistics
+            # 11. Update statistics
             self.stats["actions_executed"] += 1
+            if success:
+                self.stats["successful_actions"] += 1
+            if new_state:
+                self.stats["new_states"] += 1
 
             return result
 
@@ -690,6 +674,65 @@ class RVDroidService:
             # Try to recover with BACK action on exception
             self.action_executor._execute_key_event("BACK")
             return {"success": False, "error": str(e)}
+
+    def _generate_action_with_memory(self) -> Optional[ItemAction]:
+        """
+        Generate the next action using memory-based optimization.
+
+        Returns:
+            Next action to execute or None if no action available
+        """
+        if not self.current_strategy or not self.current_screen:
+            self.logger.error("Cannot generate action: missing strategy or screen")
+            return None
+
+        try:
+            # Get all actions from screen
+            all_actions = []
+            for item in self.current_screen.items:
+                all_actions.extend(item.actions)
+
+            # Ensure BACK action is available
+            all_actions = self._ensure_back_action_available(all_actions)
+
+            # First optimize using memory system
+            optimized_actions = self.memory_system.optimize_actions(
+                self.current_screen,
+                self.current_state or {},
+                all_actions
+            )
+
+            # Then use strategy on the optimized list (if optimized list is available)
+            if optimized_actions:
+                action = self.current_strategy.generate_action(
+                    self.current_screen,
+                    self.current_state or {},
+                    []  # No need to pass history - memory system already used it
+                )
+
+                if action:
+                    self.logger.debug(f"Generated action {action.id}: {action.text}")
+                    return action
+
+                # If strategy couldn't select an action, use the first optimized action
+                return optimized_actions[0]
+            else:
+                # If no optimized actions, fall back to strategy
+                action = self.current_strategy.generate_action(
+                    self.current_screen,
+                    self.current_state or {},
+                    []
+                )
+
+                if action:
+                    self.logger.debug(f"Generated action using strategy fallback: {action.id}: {action.text}")
+                    return action
+
+            return None
+
+        except Exception as e:
+            self.logger.error(f"Error generating action with memory: {e}")
+            return None
 
     def _get_action_feedback(self, action: ItemAction, result: Dict[str, Any]) -> None:
         """
@@ -703,13 +746,17 @@ class RVDroidService:
             return
 
         try:
+            # Get action information from memory system
+            action_info = self.memory_system.get_action_info(action.id) or {}
+
             # Prepare action data for LLM
             action_data = {
                 "id": action.id,
                 "text": action.text,
-                "type": self._get_action_type(action.text),
+                "type": action_info.get("type", self._get_action_type(action.text)),
                 "reaches_mop": action.reaches_mop,
-                "directly_reaches_mop": action.directly_reaches_mop
+                "directly_reaches_mop": action.directly_reaches_mop,
+                "success_rate": action_info.get("success_rate", 0.0)
             }
 
             # Get feedback from LLM
@@ -735,10 +782,20 @@ class RVDroidService:
             return
 
         # Prepare exploration context
+        memory_stats = self.memory_system.get_memory_stats()
+
+        # Obter histórico de estados através do short_term_memory
+        recent_states = []
+        if hasattr(self.memory_system, 'short_term_memory'):
+            recent_states = self.memory_system.short_term_memory.get_recent_states(10)
+
         exploration_context = {
-            "exploration_phase": self.progress_tracker.get_current_phase() if self.progress_tracker else "exploration",
+            "exploration_phase": self.memory_system.exploration_optimizer.exploration_phase if hasattr(
+                self.memory_system, 'exploration_optimizer') else "exploration",
             "metrics": self.progress_tracker.get_progress_summary() if self.progress_tracker else {},
-            "history": list(self.short_term_memory.state_history) if self.short_term_memory else []
+            "history": recent_states,  # Usando o acesso direto ao short_term_memory
+            "patterns": self.memory_system.get_patterns(),
+            "memory_stats": memory_stats
         }
 
         try:
@@ -781,17 +838,25 @@ class RVDroidService:
             print(f"Current package:: {current_package}")
 
             # Use the correct attribute for the target app's package name
-            # The app package name should be available when the service is initialized
-            # or through the current task configuration
             app_package = getattr(self, 'app_package_name', current_package)
 
             app_in_foreground = (current_package == app_package)
+
+            # Get memory system insights
+            memory_insights = {
+                "patterns": self.memory_system.get_patterns(),
+                "state_info": self.memory_system.get_state_info(self.current_state.get("fingerprint")),
+                "memory_stats": self.memory_system.get_memory_stats()
+            }
 
             # Analyze state with different analyzers
             state_analysis = self.state_analyzer.analyze_state(self.current_screen, self.current_state)
 
             # Add app_in_foreground flag
             state_analysis["app_in_foreground"] = app_in_foreground
+
+            # Add memory insights
+            state_analysis["memory_insights"] = memory_insights
 
             # Add context analysis if available
             if self.context_analyzer:
@@ -953,8 +1018,11 @@ class RVDroidService:
             # Parse state to create ScreenDescription
             self.current_screen = self.ui_adapter.parse_screen(ui_state, self.static_data)
 
-            # Generate fingerprint
-            current_fingerprint = self._generate_state_fingerprint(self.current_screen, ui_state)
+            # Process state through memory system
+            memory_result = self.memory_system.process_state(self.current_screen, ui_state)
+
+            # Update fingerprint tracking
+            current_fingerprint = memory_result["fingerprint"]
             self.last_state_fingerprint = current_fingerprint
 
             # Check if the state changed to decide if take screenshot (frequency="state_change")
@@ -1000,15 +1068,9 @@ class RVDroidService:
                 "fingerprint": current_fingerprint,
                 "timestamp": time.time(),
                 "interactive_elements_count": len(self.current_screen.items),
-                "screenshot_path": self.last_screenshot_path  # Include screenshot path for reference
+                "screenshot_path": self.last_screenshot_path,
+                "is_new_state": memory_result["is_new_state"]
             }
-
-            # Record in memory
-            is_new_state = current_fingerprint not in self.short_term_memory.state_history
-            self.short_term_memory.record_state(self.current_state)
-
-            if self.long_term_memory:
-                self.long_term_memory.record_state(self.current_state, is_new_state)
 
         except Exception as e:
             self.logger.error(f"Error updating current state: {e}")
@@ -1125,31 +1187,31 @@ class RVDroidService:
                     self.strategy_balancer._normalize_weights()
 
             elif directive_type == "focus":
-                # Update focus areas for opportunity detector
+                # Update focus areas for exploration through memory system
                 target = directive.get("target", "")
-                if target and self.opportunity_detector:
-                    # Adjust opportunity detector scoring
+                if target and hasattr(self.memory_system, 'exploration_optimizer'):
+                    # Adjust exploration parameters
                     if "security" in target.lower():
-                        self.opportunity_detector.security_focus_factor = 0.8
-                    elif "input" in target.lower():
-                        # Prioritize text inputs
-                        if hasattr(self.opportunity_detector, "exploration_scores"):
-                            self.opportunity_detector.exploration_scores["element_types"]["EditText"] *= 1.5
-                    elif "button" in target.lower() or "click" in target.lower():
-                        # Prioritize buttons
-                        if hasattr(self.opportunity_detector, "exploration_scores"):
-                            self.opportunity_detector.exploration_scores["element_types"]["Button"] *= 1.5
+                        self.memory_system.exploration_optimizer.security_focus_factor = 0.8
+                    elif "diversity" in target.lower():
+                        self.memory_system.exploration_optimizer.diversity_factor = 0.8
+                    elif "exploration" in target.lower():
+                        self.memory_system.exploration_optimizer.exploration_factor = 0.8
 
             elif directive_type == "explore":
-                # Update exploration parameters
+                # Update exploration phase
                 target = directive.get("target", "")
-                if target and self.exploration_optimizer:
-                    if "diversity" in target.lower():
-                        self.exploration_optimizer.diversity_factor = 0.8
+                if target and hasattr(self.memory_system, 'exploration_optimizer'):
+                    # Set exploration phase based on directive
+                    if "exploration" in target.lower():
+                        self.memory_system.exploration_optimizer.exploration_phase = "exploration"
+                        self.memory_system.exploration_optimizer._adjust_parameters_for_phase("exploration")
+                    elif "exploitation" in target.lower():
+                        self.memory_system.exploration_optimizer.exploration_phase = "exploitation"
+                        self.memory_system.exploration_optimizer._adjust_parameters_for_phase("exploitation")
                     elif "security" in target.lower():
-                        self.exploration_optimizer.security_focus_factor = 0.8
-                    elif "new" in target.lower() or "unexplored" in target.lower():
-                        self.exploration_optimizer.exploration_factor = 0.8
+                        self.memory_system.exploration_optimizer.exploration_phase = "security_focus"
+                        self.memory_system.exploration_optimizer._adjust_parameters_for_phase("security_focus")
 
             # Log the directive application
             self.logger.info(f"Applied LLM directive: {directive_type} - {directive}")
@@ -1178,18 +1240,20 @@ class RVDroidService:
 
             # Parse the suggestion to see if it's actionable
             if "try" in text.lower() or "should" in text.lower() or "recommend" in text.lower():
-                # Extract key focus areas
-                if "input" in text.lower() and self.opportunity_detector:
-                    # Increase weight for text inputs
-                    if hasattr(self.opportunity_detector, "exploration_scores"):
-                        self.opportunity_detector.exploration_scores["element_types"]["EditText"] *= 1.5
-                elif "button" in text.lower() and self.opportunity_detector:
-                    # Increase weight for buttons
-                    if hasattr(self.opportunity_detector, "exploration_scores"):
-                        self.opportunity_detector.exploration_scores["element_types"]["Button"] *= 1.5
-                elif "security" in text.lower() and self.exploration_optimizer:
-                    # Increase security focus
-                    self.exploration_optimizer.security_focus_factor = 0.8
+                # Extract key focus areas and update memory system focus
+                if hasattr(self.memory_system, 'exploration_optimizer'):
+                    if "input" in text.lower():
+                        # Increase focus on input fields
+                        self.memory_system.exploration_optimizer.diversity_factor = 0.4
+                    elif "button" in text.lower():
+                        # Increase focus on buttons
+                        self.memory_system.exploration_optimizer.diversity_factor = 0.6
+                    elif "security" in text.lower():
+                        # Increase security focus
+                        self.memory_system.exploration_optimizer.security_focus_factor = 0.8
+                    elif "diversity" in text.lower() or "explore" in text.lower():
+                        # Increase exploration
+                        self.memory_system.exploration_optimizer.exploration_factor = 0.8
 
             # Log the suggestion processing
             self.logger.info(f"Processed LLM suggestion: {text}")

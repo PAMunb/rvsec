@@ -1,3 +1,5 @@
+# rvandroid/rvdroid/memory/patterns/pattern_recognition.py
+
 """
 Pattern recognition system for RVDroid.
 
@@ -5,35 +7,49 @@ This module provides functionality to detect recurring patterns in user
 interactions and application behavior, enabling more intelligent testing.
 """
 
-from collections import defaultdict
 import time
-from typing import Dict, Any, List, Optional, Set, Tuple, Sequence
+from collections import defaultdict
+from typing import Dict, Any, List, Optional, Sequence
 
-from rvandroid.parser.screen.visitor.base_visitor import ItemAction
-from rvandroid.rvdroid.memory.short_term.short_term_memory import ShortTermMemory
 from rvandroid.rvdroid.memory.long_term.long_term_memory import LongTermMemory
+from rvandroid.rvdroid.memory.short_term.short_term_memory import ShortTermMemory
 from rvandroid.util.logging.constants import CONTEXT_COMPONENT
 from rvandroid.util.logging.manager import LoggingManager
 
 
 class InteractionPattern:
-    """Represents a pattern of interactions detected in the application."""
+    """
+    Represents a pattern of interactions detected in the application.
 
-    def __init__(self, actions: List[Dict[str, Any]], states: List[Dict[str, Any]]):
+    ### Architectural Decisions:
+    - Stores both the sequence of actions and resulting states
+    - Tracks pattern statistics including occurrences and success rate
+    - Provides self-contained pattern analysis capabilities
+    - Enables efficient pattern matching and evaluation
+
+    ### Role in the System:
+    - Encapsulates detected interaction patterns for reuse
+    - Supports pattern-based testing strategies
+    - Enables learning from successful interaction sequences
+    - Facilitates identification of critical application workflows
+    """
+
+    def __init__(self, action_ids: List[int], state_fingerprints: List[str]):
         """
         Initialize an interaction pattern.
 
         Args:
-            actions: List of action dictionaries
-            states: List of state dictionaries
+            action_ids: List of action IDs in the pattern
+            state_fingerprints: List of state fingerprints in the pattern
         """
-        self.actions = actions
-        self.states = states
+        self.action_ids = action_ids
+        self.state_fingerprints = state_fingerprints
         self.occurrences = 1
         self.first_seen = time.time()
         self.last_seen = time.time()
         self.success_count = 0
         self.failure_count = 0
+        self.pattern_id = self._generate_pattern_id()
 
     def update(self, success: bool) -> None:
         """
@@ -63,6 +79,46 @@ class InteractionPattern:
 
         return self.success_count / total
 
+    def matches(self, action_ids: List[int], min_match_length: int = 2) -> bool:
+        """
+        Check if this pattern matches a sequence of actions.
+
+        Args:
+            action_ids: List of action IDs to match against
+            min_match_length: Minimum match length to consider a match
+
+        Returns:
+            True if pattern matches, False otherwise
+        """
+        if len(action_ids) < min_match_length:
+            return False
+
+        # Check if the action_ids list contains this pattern
+        pattern_length = len(self.action_ids)
+
+        for i in range(len(action_ids) - pattern_length + 1):
+            if action_ids[i:i + pattern_length] == self.action_ids:
+                return True
+
+        return False
+
+    def _generate_pattern_id(self) -> str:
+        """
+        Generate a unique ID for this pattern.
+
+        Returns:
+            Pattern ID string
+        """
+        import hashlib
+
+        # Combine action IDs and state fingerprints
+        components = [str(aid) for aid in self.action_ids]
+        components.extend(self.state_fingerprints)
+
+        # Generate hash
+        pattern_string = "|".join(components)
+        return hashlib.md5(pattern_string.encode()).hexdigest()
+
     def to_dict(self) -> Dict[str, Any]:
         """
         Convert pattern to dictionary.
@@ -71,8 +127,9 @@ class InteractionPattern:
             Dictionary representation of pattern
         """
         return {
-            "actions": self.actions,
-            "states": self.states,
+            "pattern_id": self.pattern_id,
+            "action_ids": self.action_ids,
+            "state_fingerprints": self.state_fingerprints,
             "occurrences": self.occurrences,
             "first_seen": self.first_seen,
             "last_seen": self.last_seen,
@@ -81,13 +138,48 @@ class InteractionPattern:
             "success_rate": self.get_success_rate()
         }
 
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> 'InteractionPattern':
+        """
+        Create pattern from dictionary.
+
+        Args:
+            data: Dictionary representation
+
+        Returns:
+            InteractionPattern instance
+        """
+        pattern = cls(
+            action_ids=data["action_ids"],
+            state_fingerprints=data["state_fingerprints"]
+        )
+
+        pattern.occurrences = data["occurrences"]
+        pattern.first_seen = data["first_seen"]
+        pattern.last_seen = data["last_seen"]
+        pattern.success_count = data["success_count"]
+        pattern.failure_count = data["failure_count"]
+        pattern.pattern_id = data["pattern_id"]
+
+        return pattern
+
 
 class PatternRecognition:
     """
     Recognizes patterns in application interactions.
 
-    Analyzes interactions stored in memory to identify recurring patterns,
-    which can be used to guide future testing and optimize exploration.
+    ### Architectural Decisions:
+    - Uses a simplified pattern detection algorithm with reduced computational complexity
+    - Focuses on actionable patterns that can guide testing
+    - Integrates with memory systems to track patterns throughout the test session
+    - Implements optimized pattern matching with minimal overhead
+    - Provides clear pattern classification and prioritization mechanisms
+
+    ### Role in the System:
+    - Analyzes interactions stored in memory to identify recurring patterns
+    - Guides exploration by identifying valuable interaction sequences
+    - Helps predict action outcomes based on historical patterns
+    - Identifies potential test scenarios for systematic validation
     """
 
     def __init__(self, short_term_memory: ShortTermMemory, long_term_memory: Optional[LongTermMemory] = None):
@@ -111,10 +203,11 @@ class PatternRecognition:
 
         # Pattern storage
         self.action_patterns: Dict[str, InteractionPattern] = {}
-        self.state_transition_patterns: Dict[str, InteractionPattern] = {}
-        self.navigation_patterns: Dict[str, InteractionPattern] = {}
+        self.state_patterns: Dict[str, InteractionPattern] = {}
+        self.form_patterns: List[Dict[str, Any]] = []
+        self.navigation_patterns: List[Dict[str, Any]] = []
 
-        # Minimum pattern length and threshold
+        # Configuration
         self.min_pattern_length = 2
         self.max_pattern_length = 5
         self.detection_threshold = 2  # Minimum occurrences to recognize a pattern
@@ -130,19 +223,28 @@ class PatternRecognition:
         """
         # Get recent actions from memory
         recent_actions = self.short_term_memory.get_recent_actions(20)  # Last 20 actions
+        action_ids = [a.id for a in recent_actions]
 
         # Find patterns of different lengths
-        patterns = []
+        new_patterns = []
 
         for pattern_length in range(self.min_pattern_length,
-                                    min(self.max_pattern_length + 1, len(recent_actions) // 2)):
-            # Scan for repeating subsequences
-            action_patterns = self._find_repeating_subsequences(
-                recent_actions, pattern_length, key=lambda a: a["action_id"]
-            )
+                                    min(self.max_pattern_length + 1, len(action_ids) // 2)):
+            # Find repeating subsequences
+            subsequences = self._find_repeating_subsequences(action_ids, pattern_length)
 
-            for pattern in action_patterns:
-                pattern_key = self._create_pattern_key([a["action_id"] for a in pattern])
+            for subsequence in subsequences:
+                # Get corresponding states if possible
+                state_fingerprints = []
+                for i in range(len(subsequence)):
+                    action_idx = action_ids.index(subsequence[i])
+                    if i < len(recent_actions) and action_idx < len(recent_actions):
+                        # Try to get state from transitions if available
+                        # This is a simplified approach
+                        pass
+
+                # Create pattern key
+                pattern_key = "|".join(str(aid) for aid in subsequence)
 
                 # Check if we've seen this pattern before
                 if pattern_key in self.action_patterns:
@@ -150,11 +252,11 @@ class PatternRecognition:
                     self.action_patterns[pattern_key].update(True)
                 else:
                     # Create new pattern
-                    new_pattern = InteractionPattern(pattern, [])
+                    new_pattern = InteractionPattern(subsequence, state_fingerprints)
                     self.action_patterns[pattern_key] = new_pattern
-                    patterns.append(new_pattern)
+                    new_patterns.append(new_pattern)
 
-        return patterns
+        return new_patterns
 
     def analyze_state_transitions(self) -> List[InteractionPattern]:
         """
@@ -165,64 +267,34 @@ class PatternRecognition:
         """
         # Get recent states from memory
         recent_states = self.short_term_memory.get_recent_states(20)  # Last 20 states
+        state_fingerprints = [s.fingerprint for s in recent_states]
 
         # Find patterns of different lengths
-        patterns = []
+        new_patterns = []
 
-        for pattern_length in range(self.min_pattern_length, min(self.max_pattern_length + 1, len(recent_states) // 2)):
-            # Scan for repeating subsequences
-            state_patterns = self._find_repeating_subsequences(
-                recent_states, pattern_length, key=lambda s: s["fingerprint"]
-            )
+        for pattern_length in range(self.min_pattern_length,
+                                    min(self.max_pattern_length + 1, len(state_fingerprints) // 2)):
+            # Find repeating subsequences
+            subsequences = self._find_repeating_subsequences(state_fingerprints, pattern_length)
 
-            for pattern in state_patterns:
-                pattern_key = self._create_pattern_key([s["fingerprint"] for s in pattern])
+            for subsequence in subsequences:
+                # Create pattern key
+                pattern_key = "|".join(subsequence)
+
+                # Create corresponding action IDs if possible
+                action_ids = []
 
                 # Check if we've seen this pattern before
-                if pattern_key in self.state_transition_patterns:
+                if pattern_key in self.state_patterns:
                     # Update existing pattern
-                    self.state_transition_patterns[pattern_key].update(True)
+                    self.state_patterns[pattern_key].update(True)
                 else:
                     # Create new pattern
-                    new_pattern = InteractionPattern([], pattern)
-                    self.state_transition_patterns[pattern_key] = new_pattern
-                    patterns.append(new_pattern)
+                    new_pattern = InteractionPattern(action_ids, subsequence)
+                    self.state_patterns[pattern_key] = new_pattern
+                    new_patterns.append(new_pattern)
 
-        return patterns
-
-    def analyze_navigation_flows(self) -> List[Dict[str, Any]]:
-        """
-        Analyze memory for navigation flows between activities.
-
-        Returns:
-            List of navigation flow patterns
-        """
-        # Get available activity transitions from long-term memory
-        if not self.long_term_memory:
-            return []
-
-        # Extract activity transitions
-        activity_transitions = defaultdict(int)
-
-        for transition in self.long_term_memory.transition_graph.transitions:
-            key = f"{transition.source_activity}|{transition.target_activity}"
-            activity_transitions[key] += 1
-
-        # Find common navigation flows
-        common_flows = []
-        for key, count in activity_transitions.items():
-            if count >= self.detection_threshold:
-                source, target = key.split("|")
-                common_flows.append({
-                    "source_activity": source,
-                    "target_activity": target,
-                    "count": count
-                })
-
-        # Sort by frequency (descending)
-        common_flows.sort(key=lambda x: x["count"], reverse=True)
-
-        return common_flows
+        return new_patterns
 
     def detect_form_filling_patterns(self) -> List[Dict[str, Any]]:
         """
@@ -239,18 +311,20 @@ class PatternRecognition:
         text_inputs = []
 
         for i, action in enumerate(recent_actions):
-            action_text = action["action_text"]
-
             # Collect text input actions
-            if "SET_TEXT" in action_text:
+            if action.type == "text_input":
                 text_inputs.append((i, action))
 
             # Look for submit actions after text inputs
-            elif "CLICK" in action_text and text_inputs:
+            elif action.type == "click" and text_inputs:
                 # Check if this might be a form submission
-                submit_keywords = ["submit", "login", "sign", "register", "confirm", "ok", "next", "continue"]
+                is_submit = False
 
-                is_submit = any(keyword in action_text.lower() for keyword in submit_keywords)
+                # Check element properties if available
+                if "Button" in action.element_properties.get("class", "") and action.element_properties.get("text", ""):
+                    text = action.element_properties["text"].lower()
+                    submit_keywords = ["submit", "login", "sign", "register", "confirm", "ok", "next", "continue"]
+                    is_submit = any(keyword in text for keyword in submit_keywords)
 
                 if is_submit:
                     # Find all text inputs that precede this submit action
@@ -258,15 +332,15 @@ class PatternRecognition:
 
                     if form_inputs:
                         form_pattern = {
-                            "inputs": form_inputs,
-                            "submit": action,
+                            "inputs": [a.id for a in form_inputs],
+                            "submit": action.id,
                             "count": 1
                         }
 
                         # Check for duplicates before adding
                         is_duplicate = False
                         for existing in form_patterns:
-                            if existing["submit"]["action_id"] == action["action_id"]:
+                            if existing["submit"] == action.id:
                                 is_duplicate = True
                                 existing["count"] += 1
                                 break
@@ -293,7 +367,8 @@ class PatternRecognition:
             if pattern.occurrences >= self.detection_threshold:
                 # Create sequence description
                 sequence = {
-                    "actions": pattern.actions,
+                    "pattern_id": pattern.pattern_id,
+                    "action_ids": pattern.action_ids,
                     "occurrences": pattern.occurrences,
                     "success_rate": pattern.get_success_rate(),
                     "last_seen": pattern.last_seen
@@ -328,16 +403,13 @@ class PatternRecognition:
 
         return []
 
-    def _find_repeating_subsequences(self, items: List[Dict[str, Any]],
-                                     length: int,
-                                     key=lambda x: x) -> List[List[Dict[str, Any]]]:
+    def _find_repeating_subsequences(self, items: Sequence[Any], length: int) -> List[List[Any]]:
         """
         Find repeating subsequences in a list of items.
 
         Args:
-            items: List of items
+            items: List of items to search
             length: Length of subsequences to find
-            key: Function to extract key from items
 
         Returns:
             List of repeating subsequences
@@ -346,39 +418,51 @@ class PatternRecognition:
             return []
 
         # Find all subsequences of the given length
+        subsequence_counts = defaultdict(int)
         subsequences = []
-        subsequence_keys = {}
 
         for i in range(len(items) - length + 1):
-            subsequence = items[i:i + length]
-            subsequence_key = tuple(key(item) for item in subsequence)
-
-            if subsequence_key in subsequence_keys:
-                subsequence_keys[subsequence_key].append(i)
+            # Convert subsequence to tuple for hashing
+            if isinstance(items[i], str):
+                subsequence = tuple(items[i:i + length])
             else:
-                subsequence_keys[subsequence_key] = [i]
+                subsequence = tuple(str(item) for item in items[i:i + length])
 
-        # Find repeating subsequences
-        for subsequence_key, indices in subsequence_keys.items():
-            if len(indices) >= self.detection_threshold:
-                # Get the actual subsequence (using the first occurrence)
-                start_idx = indices[0]
-                subsequence = items[start_idx:start_idx + length]
-                subsequences.append(subsequence)
+            subsequence_counts[subsequence] += 1
+
+            # If this is a repeat and we haven't added it yet
+            if subsequence_counts[subsequence] == 2 and subsequence not in subsequences:
+                # Convert back to list of original type
+                if isinstance(items[i], str):
+                    subsequences.append(list(subsequence))
+                else:
+                    subsequences.append([int(item) if item.isdigit() else item for item in subsequence])
 
         return subsequences
 
-    def _create_pattern_key(self, ids: List[Any]) -> str:
+    def find_matching_patterns(self, action_ids: List[int]) -> List[InteractionPattern]:
         """
-        Create a string key for a pattern.
+        Find patterns that match a sequence of actions.
 
         Args:
-            ids: List of identifiers
+            action_ids: List of action IDs to match
 
         Returns:
-            String key
+            List of matching patterns
         """
-        return "|".join(str(id) for id in ids)
+        matching_patterns = []
+
+        for pattern in self.action_patterns.values():
+            if pattern.matches(action_ids):
+                matching_patterns.append(pattern)
+
+        # Sort by success rate and occurrences
+        matching_patterns.sort(
+            key=lambda p: (p.get_success_rate(), p.occurrences),
+            reverse=True
+        )
+
+        return matching_patterns
 
     def get_pattern_stats(self) -> Dict[str, Any]:
         """
@@ -389,8 +473,8 @@ class PatternRecognition:
         """
         return {
             "action_patterns": len(self.action_patterns),
-            "state_transition_patterns": len(self.state_transition_patterns),
+            "state_patterns": len(self.state_patterns),
+            "form_patterns": len(self.form_patterns),
             "navigation_patterns": len(self.navigation_patterns),
             "detection_threshold": self.detection_threshold
         }
-   

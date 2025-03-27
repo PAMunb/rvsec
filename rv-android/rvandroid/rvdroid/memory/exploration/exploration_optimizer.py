@@ -1,3 +1,5 @@
+# rvandroid/rvdroid/memory/exploration/exploration_optimizer.py
+
 """
 Exploration optimizer for RVDroid.
 
@@ -6,14 +8,13 @@ on memory systems, detecting and escaping local minimums, and balancing
 exploration versus exploitation.
 """
 
-import random
 import time
-from typing import Dict, Any, List, Optional, Set, Tuple
+from typing import Dict, Any, List, Optional, Set
 
 from rvandroid.parser.screen.visitor.base_visitor import ScreenDescription, ItemAction
-from rvandroid.rvdroid.memory.short_term.short_term_memory import ShortTermMemory
 from rvandroid.rvdroid.memory.long_term.long_term_memory import LongTermMemory
 from rvandroid.rvdroid.memory.patterns.pattern_recognition import PatternRecognition
+from rvandroid.rvdroid.memory.short_term.short_term_memory import ShortTermMemory
 from rvandroid.util.logging.constants import CONTEXT_COMPONENT
 from rvandroid.util.logging.manager import LoggingManager
 
@@ -22,8 +23,19 @@ class ExplorationOptimizer:
     """
     Optimizes exploration strategies using memory systems.
 
-    Provides mechanisms to detect and escape local minimums, balance
-    exploration and exploitation, and promote diversity in exploration.
+    ### Architectural Decisions:
+    - Implements intelligent exploration-exploitation balancing
+    - Uses memory systems to guide exploration decision making
+    - Provides mechanisms to detect and escape local minimums
+    - Supports adaptation to different application contexts
+    - Maintains exploration state to promote discovery of new behavior
+
+    ### Role in the System:
+    - Guides exploration to maximize test coverage
+    - Detects and helps overcome exploration plateaus
+    - Optimizes action selection to discover new states
+    - Balances between exploring new areas and exploiting known paths
+    - Adapts exploration strategy based on application domain
     """
 
     def __init__(self, short_term_memory: ShortTermMemory,
@@ -64,6 +76,10 @@ class ExplorationOptimizer:
         # Action history for diversity tracking
         self.recent_actions: Set[int] = set()
 
+        # Current state tracking
+        self.current_state: Optional[str] = None
+        self.current_activity: Optional[str] = None
+
         self.logger.info("Initialized exploration optimizer")
 
     def optimize_action_selection(self, screen: ScreenDescription, state_data: Dict[str, Any],
@@ -73,7 +89,7 @@ class ExplorationOptimizer:
 
         Args:
             screen: Parsed screen description
-            state_data: Raw state data
+            state_data: State data dictionary
             available_actions: List of available actions
 
         Returns:
@@ -84,6 +100,10 @@ class ExplorationOptimizer:
 
         # Update exploration phase if needed
         self._update_exploration_phase(state_data)
+
+        # Update current state tracking
+        self.current_state = state_data.get("fingerprint", "unknown")
+        self.current_activity = state_data.get("activity", "unknown")
 
         # Check for stuck in local minimum or cycle
         in_local_minimum = self._detect_local_minimum()
@@ -207,10 +227,7 @@ class ExplorationOptimizer:
 
     def _prioritize_escape_actions(self, available_actions: List[ItemAction]) -> List[ItemAction]:
         """
-        Prioritize actions to escape local minimums or explore previously unexplored paths.
-
-        Uses window transition graphs (static and dynamic) to identify promising escape
-        actions that may lead to unexplored areas of the application.
+        Prioritize actions to escape local minimums.
 
         Args:
             available_actions: List of available actions
@@ -221,101 +238,202 @@ class ExplorationOptimizer:
         if not available_actions:
             return []
 
-        # Action scores will determine priorities
+        # Assign scores to actions
         action_scores = {}
 
-        # Get state information
-        current_state = getattr(self, "current_state", None)
-        current_activity = getattr(self, "current_activity", None)
-
-        # 1. Analyze dynamic window transition graph for unexplored paths
-        dyn_wtg = None
-        if self.long_term_memory and hasattr(self.long_term_memory, "dynamic_wtg"):
-            dyn_wtg = self.long_term_memory.dynamic_wtg
-
-        # 2. Check static window transition graph for potential transitions
-        static_wtg = None
-        if self.long_term_memory and hasattr(self.long_term_memory, "static_wtg"):
-            static_wtg = self.long_term_memory.static_wtg
-
-        # Score each action
+        # Score actions based on exploration value
         for action in available_actions:
-            score = 1.0  # Base score
+            # Start with base score
+            score = 1.0
 
-            # Score factor 1: Security-sensitive operations get high priority
+            # Factor 1: Prefer actions not tried recently
+            if action.id not in self.recent_actions:
+                score += 1.5
+
+            # Factor 2: Prefer security operations
             if action.reaches_mop:
-                score += 5.0
+                score += 1.0
                 if action.directly_reaches_mop:
-                    score += 3.0
+                    score += 0.5
 
-            # Score factor 2: Prioritize actions not tried in current state
-            if current_state and self.long_term_memory:
-                state_info = self.long_term_memory.state_knowledge.get(current_state, {})
-                tried_actions = set()
-                tried_actions.update(state_info.get("successful_actions", set()))
-                tried_actions.update(state_info.get("failed_actions", set()))
+            # Factor 3: Prefer diverse action types
+            # Determine action type by text
+            action_type = self._get_action_type_from_text(action.text)
 
-                if action.id not in tried_actions:
-                    score += 4.0
+            # Check recent actions for diversity
+            recent_actions = self.short_term_memory.get_recent_actions(10)
+            recent_types = [self._get_action_type_from_text(a.text) for a in recent_actions]
 
-            # Score factor 3: From static WTG, prioritize actions that might lead to unexplored activities
-            if static_wtg and current_activity:
-                potential_transitions = []
-                for edge in static_wtg.graph.edges():
-                    if edge[0].name == current_activity:
-                        potential_transitions.append((edge[1].name, edge[2]))  # target activity, events
+            # Boost score if this type is underrepresented
+            if action_type not in recent_types:
+                score += 1.0
+            elif recent_types.count(action_type) <= 2:
+                score += 0.5
 
-                # Check if this action might trigger an unexplored transition
-                for target_activity, events in potential_transitions:
-                    # Try to match event with action
-                    for event in events:
-                        if event.event_type.name == self._get_event_type(action.text):
-                            # Check if target activity is unexplored
-                            if self.long_term_memory and target_activity not in self.long_term_memory.activity_knowledge:
-                                score += 4.5
-                            else:
-                                # Otherwise, still prioritize but less
-                                score += 2.0
+            # Factor 4: Prefer actions in different parts of the screen
+            if hasattr(action, 'coordinates') and action.coordinates:
+                x, y = action.coordinates
 
-            # Score factor 4: From dynamic WTG, prioritize transitions to less visited activities
-            if dyn_wtg and current_activity:
-                # Get least visited neighboring activities
-                neighbor_visits = dyn_wtg.get_least_visited_activities(3)
-                if neighbor_visits:
-                    # Clickable actions might trigger transitions to these activities
-                    if "CLICK" in action.text:
-                        score += 2.5
-                    # Buttons are even more likely to trigger transitions
-                    if "Button" in str(action.target_view.get("class", "")):
-                        score += 1.5
+                # Check if recent actions were in same screen area
+                recent_coordinates = []
+                for recent_action in recent_actions:
+                    if hasattr(recent_action, 'coordinates') and recent_action.coordinates:
+                        recent_coordinates.append(recent_action.coordinates)
 
-            # Score factor 5: Prioritize actions that access unexplored UI elements
-            if self.short_term_memory:
-                recent_actions = set(a["action_id"] for a in self.short_term_memory.get_recent_actions(20))
-                if action.id not in recent_actions:
-                    score += 2.0
+                # Rough screen area check (divide screen into quadrants)
+                in_different_area = True
+                for rx, ry in recent_coordinates:
+                    # Check if in same quadrant
+                    if (x < 500 and rx < 500 and y < 800 and ry < 800) or \
+                            (x < 500 and rx < 500 and y >= 800 and ry >= 800) or \
+                            (x >= 500 and rx >= 500 and y < 800 and ry < 800) or \
+                            (x >= 500 and rx >= 500 and y >= 800 and ry >= 800):
+                        in_different_area = False
+                        break
 
-            # Store action score
+                if in_different_area:
+                    score += 1.0
+
+            # Store score
             action_scores[action.id] = score
 
-        # Sort actions by score (descending)
+        # Sort actions by score
         sorted_actions = sorted(available_actions, key=lambda a: action_scores.get(a.id, 0), reverse=True)
 
-        # Log selection for debugging
+        # Log top scores for debugging
         top_scores = [(a.id, action_scores.get(a.id, 0)) for a in sorted_actions[:3]] if sorted_actions else []
-        self.logger.info(f"Prioritized {len(sorted_actions)} actions for exploration. Top scores: {top_scores}")
+        self.logger.info(f"Prioritized actions for exploration. Top scores: {top_scores}")
 
         return sorted_actions
 
-    def _get_event_type(self, action_text: str) -> str:
-        """Map action text to event type name for WTG comparison."""
+    def _prioritize_exploration(self, available_actions: List[ItemAction]) -> List[ItemAction]:
+        """
+        Prioritize actions for exploration phase.
+
+        Args:
+            available_actions: List of available actions
+
+        Returns:
+            Re-prioritized list of actions for exploration
+        """
+        # In exploration phase, we want to maximize state discovery
+        # Use similar approach to escape actions but with different weights
+
+        # Assign scores to actions
+        action_scores = {}
+
+        for action in available_actions:
+            # Base score
+            score = 1.0
+
+            # Prefer actions we haven't tried
+            if action.id not in self.recent_actions:
+                score += 2.0
+
+            # Prefer buttons and interactive elements
+            if hasattr(action, 'target_view') and action.target_view:
+                element_class = action.target_view.get("class", "")
+
+                if "Button" in str(element_class):
+                    score += 1.5
+                elif "EditText" in str(element_class):
+                    score += 1.0
+
+            # Moderately prefer security operations
+            if action.reaches_mop:
+                score *= 1.2
+
+            # Store score
+            action_scores[action.id] = score
+
+        # Sort actions by score
+        sorted_actions = sorted(available_actions, key=lambda a: action_scores.get(a.id, 0), reverse=True)
+
+        return sorted_actions
+
+    def _prioritize_exploitation(self, available_actions: List[ItemAction],
+                                 state_data: Dict[str, Any]) -> List[ItemAction]:
+        """
+        Prioritize actions for exploitation phase.
+
+        Args:
+            available_actions: List of available actions
+            state_data: Current state data
+
+        Returns:
+            Re-prioritized list of actions for exploitation
+        """
+        # In exploitation phase, we want to follow previously successful paths
+        # Use long-term memory to guide action selection if available
+
+        if not self.long_term_memory:
+            # Fall back to exploration
+            return self._prioritize_exploration(available_actions)
+
+        # Get current state fingerprint
+        current_state = state_data.get("fingerprint", "unknown")
+
+        # Get successful actions for this state
+        successful_actions = self.long_term_memory.get_successful_actions_for_state(current_state)
+
+        # Find matches in available actions
+        preferred_actions = []
+        other_actions = []
+
+        for action in available_actions:
+            if action.id in successful_actions:
+                preferred_actions.append(action)
+            else:
+                other_actions.append(action)
+
+        # Combine with preference for successful actions
+        return preferred_actions + other_actions
+
+    def _prioritize_security_operations(self, available_actions: List[ItemAction]) -> List[ItemAction]:
+        """
+        Prioritize security-sensitive operations.
+
+        Args:
+            available_actions: List of available actions
+
+        Returns:
+            Re-prioritized list of actions for security testing
+        """
+        # In security focus phase, we want to prioritize security operations
+        security_actions = []
+        other_actions = []
+
+        for action in available_actions:
+            if action.reaches_mop:
+                security_actions.append(action)
+            else:
+                other_actions.append(action)
+
+        # Sort security actions by directness
+        security_actions.sort(key=lambda a: a.directly_reaches_mop, reverse=True)
+
+        # Combine with preference for security actions
+        return security_actions + other_actions
+
+    def _get_action_type_from_text(self, action_text: str) -> str:
+        """
+        Extract action type from action text.
+
+        Args:
+            action_text: Text description of the action
+
+        Returns:
+            Action type string
+        """
         if "CLICK" in action_text:
-            return "CLICK"
+            return "click"
         elif "LONG_CLICK" in action_text:
-            return "LONG_CLICK"
+            return "long_click"
         elif "SCROLL" in action_text:
-            return "SCROLL"
+            return "scroll"
         elif "SET_TEXT" in action_text:
-            return "TEXT_CHANGE"
+            return "text_input"
+        elif "BACK" in action_text:
+            return "back"
         else:
-            return "OTHER"
+            return "other"

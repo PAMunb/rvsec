@@ -1,5 +1,7 @@
+# rvandroid/rvdroid/memory/short_term/short_term_memory.py
+
 """
-Short-term memory system for RVDroid.
+Short-term memory module for RVDroid.
 
 This module provides a short-term memory implementation that stores
 recent actions, states, and transitions for quick lookups and pattern detection.
@@ -9,7 +11,8 @@ import time
 from collections import deque
 from typing import Dict, Any, List, Optional, Deque, Tuple
 
-from rvandroid.parser.screen.visitor.base_visitor import ItemAction
+from rvandroid.rvdroid.memory.action.memory_action import MemoryAction
+from rvandroid.rvdroid.memory.state.memory_state import MemoryState
 from rvandroid.util.logging.constants import CONTEXT_COMPONENT
 from rvandroid.util.logging.manager import LoggingManager
 
@@ -18,8 +21,18 @@ class ShortTermMemory:
     """
     Maintains a short-term memory of recent actions and states.
 
-    Provides efficient storage and retrieval of recent events, with
-    cycle detection and pattern recognition capabilities.
+    ### Architectural Decisions:
+    - Implements an efficient circular buffer for fixed-capacity memory management
+    - Optimizes for rapid access to recent events and quick pattern detection
+    - Uses lightweight representations of actions and states to minimize memory usage
+    - Maintains temporal ordering of events for sequence-based analysis
+    - Provides efficient cycle and pattern detection with minimal computational overhead
+
+    ### Role in the System:
+    - Provides immediate context for decision making
+    - Enables detection of short-term patterns and cycles
+    - Supports quick lookups for recent activities
+    - Serves as a bridge between immediate perception and long-term memory
     """
 
     def __init__(self, capacity: int = 50):
@@ -38,69 +51,70 @@ class ShortTermMemory:
 
         # Initialize memory structures
         self.capacity = capacity
-        self.state_history: Deque[Dict[str, Any]] = deque(maxlen=capacity)
-        self.action_history: Deque[Dict[str, Any]] = deque(maxlen=capacity)
+        self.states: Dict[str, MemoryState] = {}  # fingerprint -> MemoryState
+        self.actions: Dict[int, MemoryAction] = {}  # action_id -> MemoryAction
+
+        # Time-ordered history (most recent at end)
+        self.state_history: Deque[str] = deque(maxlen=capacity)  # fingerprints
+        self.action_history: Deque[int] = deque(maxlen=capacity)  # action_ids
         self.transition_history: Deque[Dict[str, Any]] = deque(maxlen=capacity)
 
-        # Track recent states for cycle detection
-        self.recent_state_fingerprints: List[str] = []
-        self.state_visit_counts: Dict[str, int] = {}
+        # Current state tracking
+        self.current_state_fingerprint: Optional[str] = None
 
         self.logger.info(f"Initialized short-term memory with capacity {capacity}")
 
-    def record_state(self, state_data: Dict[str, Any]) -> None:
+    def record_state(self, state: MemoryState) -> None:
         """
         Record a state in short-term memory.
 
         Args:
-            state_data: State data dictionary
+            state: State to record
         """
-        # Extract key information
-        fingerprint = state_data.get("fingerprint", "unknown")
-        timestamp = time.time()
+        fingerprint = state.fingerprint
 
-        # Create memory entry
-        memory_entry = {
-            "fingerprint": fingerprint,
-            "timestamp": timestamp,
-            "activity": state_data.get("activity", "unknown"),
-            "screen_type": state_data.get("screen_type", "unknown"),
-            "interactive_elements_count": state_data.get("interactive_elements_count", 0)
-        }
+        # Check if state exists
+        if fingerprint in self.states:
+            # Update existing state
+            self.states[fingerprint].record_visit()
+        else:
+            # Add new state
+            self.states[fingerprint] = state
 
-        # Add to state history
-        self.state_history.append(memory_entry)
+        # Update history
+        self.state_history.append(fingerprint)
 
-        # Update state visit tracking
-        self.state_visit_counts[fingerprint] = self.state_visit_counts.get(fingerprint, 0) + 1
+        # Update current state
+        self.current_state_fingerprint = fingerprint
 
-        # Update recent states for cycle detection (keep last 10)
-        self.recent_state_fingerprints.append(fingerprint)
-        if len(self.recent_state_fingerprints) > 10:
-            self.recent_state_fingerprints.pop(0)
+        self.logger.debug(f"Recorded state: {fingerprint}")
 
-    def record_action(self, action: ItemAction, success: bool = True) -> None:
+        # Clean up old states if needed
+        self._cleanup_states()
+
+    def record_action(self, action: MemoryAction, success: bool = True) -> None:
         """
         Record an action in short-term memory.
 
         Args:
-            action: Action that was executed
+            action: Action to record
             success: Whether the action was successful
         """
-        # Create memory entry
-        memory_entry = {
-            "action_id": action.id,
-            "action_text": action.text,
-            "timestamp": time.time(),
-            "success": success,
-            "reaches_mop": action.reaches_mop,
-            "directly_reaches_mop": action.directly_reaches_mop
-        }
+        action_id = action.id
 
-        # Add to action history
-        self.action_history.append(memory_entry)
+        # Add action to memory
+        self.actions[action_id] = action
 
-    def record_transition(self, from_state: str, to_state: str, action: ItemAction, success: bool = True) -> None:
+        # Update history
+        self.action_history.append(action_id)
+
+        self.logger.debug(f"Recorded action: {action_id}")
+
+        # Clean up old actions if needed
+        self._cleanup_actions()
+
+    def record_transition(self, from_state: str, to_state: str,
+                          action: MemoryAction, success: bool = True) -> None:
         """
         Record a state transition in short-term memory.
 
@@ -111,19 +125,42 @@ class ShortTermMemory:
             success: Whether the transition was successful
         """
         # Create memory entry
-        memory_entry = {
+        transition = {
             "from_state": from_state,
             "to_state": to_state,
             "action_id": action.id,
-            "action_text": action.text,
             "timestamp": time.time(),
             "success": success
         }
 
         # Add to transition history
-        self.transition_history.append(memory_entry)
+        self.transition_history.append(transition)
 
-    def get_recent_states(self, count: int = 5) -> List[Dict[str, Any]]:
+        # Update action with transition
+        if action.id in self.actions:
+            self.actions[action.id].record_execution(from_state, to_state, success)
+
+        # Update state transition records
+        if from_state in self.states:
+            self.states[from_state].record_transition(action.id, to_state)
+
+        if to_state in self.states:
+            self.states[to_state].record_incoming_transition(action.id, from_state)
+
+        self.logger.debug(f"Recorded transition: {from_state} -> {to_state} via {action.id}")
+
+    def get_current_state(self) -> Optional[MemoryState]:
+        """
+        Get the current state.
+
+        Returns:
+            Current state or None if no states recorded
+        """
+        if self.current_state_fingerprint:
+            return self.states.get(self.current_state_fingerprint)
+        return None
+
+    def get_recent_states(self, count: int = 5) -> List[MemoryState]:
         """
         Get the most recent states.
 
@@ -131,11 +168,12 @@ class ShortTermMemory:
             count: Number of states to retrieve
 
         Returns:
-            List of recent state entries
+            List of recent states
         """
-        return list(self.state_history)[-count:]
+        recent_fingerprints = list(self.state_history)[-count:]
+        return [self.states[fp] for fp in recent_fingerprints if fp in self.states]
 
-    def get_recent_actions(self, count: int = 5) -> List[Dict[str, Any]]:
+    def get_recent_actions(self, count: int = 5) -> List[MemoryAction]:
         """
         Get the most recent actions.
 
@@ -143,59 +181,10 @@ class ShortTermMemory:
             count: Number of actions to retrieve
 
         Returns:
-            List of recent action entries
+            List of recent actions
         """
-        return list(self.action_history)[-count:]
-
-    def get_state_transitions(self, state_fingerprint: str) -> List[Dict[str, Any]]:
-        """
-        Get transitions from a specific state.
-
-        Args:
-            state_fingerprint: State fingerprint to get transitions for
-
-        Returns:
-            List of transition entries
-        """
-        return [t for t in self.transition_history if t["from_state"] == state_fingerprint]
-
-    def get_action_history_in_state(self, state_fingerprint: str) -> List[Dict[str, Any]]:
-        """
-        Get history of actions performed in a specific state.
-
-        Args:
-            state_fingerprint: State fingerprint to get actions for
-
-        Returns:
-            List of action entries
-        """
-        # Find state visits in history
-        state_visits = [i for i, s in enumerate(self.state_history) if s["fingerprint"] == state_fingerprint]
-
-        if not state_visits:
-            return []
-
-        # Find actions that occurred during state visits
-        actions = []
-        for i, action in enumerate(self.action_history):
-            # Find corresponding state visit for this action
-            action_time = action["timestamp"]
-            for visit_idx in state_visits:
-                if visit_idx < len(self.state_history) - 1:
-                    # Check if action time is between this state and the next
-                    state_time = self.state_history[visit_idx]["timestamp"]
-                    next_state_time = self.state_history[visit_idx + 1]["timestamp"]
-
-                    if state_time <= action_time < next_state_time:
-                        actions.append(action)
-                        break
-                else:
-                    # Last state visit, check if action came after
-                    state_time = self.state_history[visit_idx]["timestamp"]
-                    if action_time >= state_time:
-                        actions.append(action)
-
-        return actions
+        recent_action_ids = list(self.action_history)[-count:]
+        return [self.actions[aid] for aid in recent_action_ids if aid in self.actions]
 
     def detect_cycles(self) -> Tuple[bool, Optional[List[str]]]:
         """
@@ -204,11 +193,16 @@ class ShortTermMemory:
         Returns:
             Tuple of (cycle_detected, cycle_states)
         """
-        # Minimum cycle length
+        # Minimum and maximum cycle length
         min_cycle_length = 2
         max_cycle_length = 5
 
-        recent_states = self.recent_state_fingerprints
+        # Get recent state fingerprints
+        recent_states = list(self.state_history)
+
+        # Need at least 2*min_cycle_length states to detect a cycle
+        if len(recent_states) < 2 * min_cycle_length:
+            return False, None
 
         # Check for cycles of different lengths
         for cycle_length in range(min_cycle_length, min(max_cycle_length + 1, len(recent_states) // 2 + 1)):
@@ -239,58 +233,28 @@ class ShortTermMemory:
         last_state = None
         repetitive_actions = []
 
-        # Process events in chronological order
-        events = []
+        # Get recent states and actions
+        recent_states = list(self.state_history)
+        recent_actions = list(self.action_history)
 
-        # Add state events
-        for i, state in enumerate(self.state_history):
-            events.append(("state", i, state["timestamp"], state))
+        # Process events in pairs (state, action)
+        for i in range(min(len(recent_states), len(recent_actions))):
+            state_fp = recent_states[i]
+            action_id = recent_actions[i]
 
-        # Add action events
-        for i, action in enumerate(self.action_history):
-            events.append(("action", i, action["timestamp"], action))
-
-        # Sort by timestamp
-        events.sort(key=lambda x: x[2])
-
-        # Process events in order
-        for event_type, idx, timestamp, event in events:
-            if event_type == "state":
-                # State change resets action counts
-                last_state = event["fingerprint"]
+            # If state changed, reset action counts
+            if last_state != state_fp:
+                last_state = state_fp
                 action_counts = {}
 
-            elif event_type == "action":
-                # Count consecutive actions in the same state
-                action_id = event["action_id"]
+            # Count actions in the same state
+            action_counts[action_id] = action_counts.get(action_id, 0) + 1
 
-                if last_state:
-                    action_counts[action_id] = action_counts.get(action_id, 0) + 1
-
-                    # Check if this action is repetitive
-                    if action_counts[action_id] >= threshold:
-                        repetitive_actions.append(action_id)
+            # Check if this action is repetitive
+            if action_counts[action_id] >= threshold:
+                repetitive_actions.append(action_id)
 
         return repetitive_actions
-
-    def get_successful_actions_in_state(self, state_fingerprint: str) -> List[int]:
-        """
-        Get actions that were successful in a specific state.
-
-        Args:
-            state_fingerprint: State fingerprint
-
-        Returns:
-            List of successful action IDs
-        """
-        successful_actions = []
-
-        # Find transitions from this state
-        for transition in self.transition_history:
-            if transition["from_state"] == state_fingerprint and transition["success"]:
-                successful_actions.append(transition["action_id"])
-
-        return successful_actions
 
     def get_memory_stats(self) -> Dict[str, Any]:
         """
@@ -299,14 +263,45 @@ class ShortTermMemory:
         Returns:
             Dictionary with memory statistics
         """
+        # Find most visited state
+        most_visited_state = None
+        most_visited_count = 0
+
+        for fingerprint, state in self.states.items():
+            if state.visit_count > most_visited_count:
+                most_visited_count = state.visit_count
+                most_visited_state = fingerprint
+
         return {
             "capacity": self.capacity,
-            "state_count": len(self.state_history),
-            "action_count": len(self.action_history),
+            "state_count": len(self.states),
+            "action_count": len(self.actions),
             "transition_count": len(self.transition_history),
-            "unique_states": len(self.state_visit_counts),
-            "most_visited_state": max(self.state_visit_counts.items(), key=lambda x: x[1])[
-                0] if self.state_visit_counts else None,
-            "most_visited_count": max(self.state_visit_counts.values()) if self.state_visit_counts else 0
+            "unique_states": len(self.states),
+            "most_visited_state": most_visited_state,
+            "most_visited_count": most_visited_count
         }
-   
+
+    def _cleanup_states(self) -> None:
+        """Clean up old states if needed."""
+        # Only keep states that are in the history
+        if len(self.states) > self.capacity * 2:
+            active_fingerprints = set(self.state_history)
+            inactive_fingerprints = set(self.states.keys()) - active_fingerprints
+
+            # Remove oldest inactive states
+            for fingerprint in list(inactive_fingerprints)[:len(inactive_fingerprints) - self.capacity]:
+                if fingerprint in self.states:
+                    del self.states[fingerprint]
+
+    def _cleanup_actions(self) -> None:
+        """Clean up old actions if needed."""
+        # Only keep actions that are in the history
+        if len(self.actions) > self.capacity * 2:
+            active_action_ids = set(self.action_history)
+            inactive_action_ids = set(self.actions.keys()) - active_action_ids
+
+            # Remove oldest inactive actions
+            for action_id in list(inactive_action_ids)[:len(inactive_action_ids) - self.capacity]:
+                if action_id in self.actions:
+                    del self.actions[action_id]

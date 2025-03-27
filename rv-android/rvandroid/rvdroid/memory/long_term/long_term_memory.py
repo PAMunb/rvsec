@@ -1,21 +1,22 @@
 # rvandroid/rvdroid/memory/long_term/long_term_memory.py
 
 """
-Long-term memory system for RVDroid.
+Long-term memory module for RVDroid.
 
-This module provides a persistent memory system that maintains knowledge
-about application behavior across testing sessions, enabling the tool
-to build on previous explorations.
+This module provides a memory system that maintains knowledge about application
+behavior during a test execution session, enabling the tool to build on
+exploration discoveries and guide testing.
 """
 
 import json
 import os
 import time
-from typing import Dict, Any, List, Optional, Tuple
+from typing import Dict, Any, List, Optional, Tuple, Set
 
 from rvandroid.domain.dynamic_wtg import DynamicTransitionGraph
 from rvandroid.domain.static import StaticAnalysisData
-from rvandroid.parser.screen.visitor.base_visitor import ItemAction
+from rvandroid.rvdroid.memory.action.memory_action import MemoryAction
+from rvandroid.rvdroid.memory.state.memory_state import MemoryState
 from rvandroid.util.logging.constants import CONTEXT_COMPONENT
 from rvandroid.util.logging.manager import LoggingManager
 
@@ -29,7 +30,7 @@ class LongTermMemory:
     hours long). It integrates with window transition graphs to guide testing behavior.
 
     ### Architectural Decisions:
-    - Stores and organizes testing information in-memory without writing to disk
+    - Stores and organizes testing information in-memory for the duration of a test session
     - Integrates with static and dynamic window transition graphs
     - Provides efficient access patterns to guide action generation and selection
     - Maintains a comprehensive model of application states and transitions
@@ -66,12 +67,21 @@ class LongTermMemory:
         self.dynamic_wtg = dynamic_wtg
 
         # Initialize memory structures
-        self.state_knowledge: Dict[str, Dict[str, Any]] = {}
-        self.activity_knowledge: Dict[str, Dict[str, Any]] = {}
-        self.action_knowledge: Dict[int, Dict[str, Any]] = {}
-        self.security_operations: Dict[str, List[Dict[str, Any]]] = {}
+        self.states: Dict[str, MemoryState] = {}  # fingerprint -> MemoryState
+        self.actions: Dict[int, MemoryAction] = {}  # action_id -> MemoryAction
 
-        # Initialize transition graph
+        # Activity tracking
+        self.activities: Dict[str, Dict[str, Any]] = {}  # activity_name -> info
+
+        # Security operations tracking
+        self.security_operations: Dict[int, Dict[str, Any]] = {}  # action_id -> info
+
+        # Prioritized state tracking
+        self.unexplored_states: Set[str] = set()  # States with unexplored actions
+        self.security_states: Set[str] = set()  # States with security operations
+        self.error_states: Set[str] = set()  # States with error conditions
+
+        # Transition tracking for navigation
         self.transition_graph = dynamic_wtg if dynamic_wtg else DynamicTransitionGraph()
 
         # Statistics
@@ -81,69 +91,61 @@ class LongTermMemory:
             "activities_visited": 0,
             "actions_executed": 0,
             "security_operations_executed": 0,
-            "new_states_discovered": 0
+            "new_states_discovered": 0,
+            "errors_detected": 0
         }
 
         self.logger.info(f"Initialized long-term memory for {app_package}")
 
-    def record_state(self, state_data: Dict[str, Any], is_new: bool = False) -> None:
+    def record_state(self, state: MemoryState, is_new: bool = False) -> None:
         """
         Record information about an application state.
 
         Args:
-            state_data: State data dictionary
+            state: State to record
             is_new: Whether this is a newly discovered state
         """
-        # Extract key information
-        fingerprint = state_data.get("fingerprint", "unknown")
-        activity = state_data.get("activity", "unknown")
-        timestamp = time.time()
+        fingerprint = state.fingerprint
+        activity = state.activity
 
         # Update statistics
         self.session_stats["states_visited"] += 1
         if is_new:
             self.session_stats["new_states_discovered"] += 1
+            self.unexplored_states.add(fingerprint)
 
         # Record activity visit
-        if activity not in self.activity_knowledge:
-            self.activity_knowledge[activity] = {
+        if activity not in self.activities:
+            self.activities[activity] = {
                 "visit_count": 0,
-                "first_seen": timestamp,
-                "last_seen": timestamp,
+                "first_seen": time.time(),
+                "last_seen": time.time(),
                 "states": set()
             }
             self.session_stats["activities_visited"] += 1
 
         # Update activity knowledge
-        activity_info = self.activity_knowledge[activity]
+        activity_info = self.activities[activity]
         activity_info["visit_count"] += 1
-        activity_info["last_seen"] = timestamp
+        activity_info["last_seen"] = time.time()
         activity_info["states"].add(fingerprint)
 
-        # Record state knowledge
-        if fingerprint not in self.state_knowledge:
-            self.state_knowledge[fingerprint] = {
-                "activity": activity,
-                "visit_count": 0,
-                "first_seen": timestamp,
-                "last_seen": timestamp,
-                "interactive_elements": state_data.get("interactive_elements_count", 0),
-                "successful_actions": set(),
-                "failed_actions": set()
-            }
+        # Record state
+        if fingerprint in self.states:
+            # Update existing state
+            self.states[fingerprint].record_visit()
+        else:
+            # Add new state
+            self.states[fingerprint] = state
 
-        # Update state knowledge
-        state_info = self.state_knowledge[fingerprint]
-        state_info["visit_count"] += 1
-        state_info["last_seen"] = timestamp
+        # Record in transition graph if needed
+        if hasattr(self.transition_graph, 'record_visit'):
+            try:
+                self.transition_graph.record_visit(activity)
+            except Exception as e:
+                self.logger.error(f"Error recording visit to transition graph: {e}")
 
-        # Record in transition graph
-        try:
-            self.transition_graph.record_visit(activity)
-        except Exception as e:
-            self.logger.error(f"Error recording visit to transition graph: {e}")
-
-    def record_action(self, action: ItemAction, state_fingerprint: str, success: bool) -> None:
+    def record_action(self, action: MemoryAction, state_fingerprint: str, success: bool) -> None:
         """
         Record information about an executed action.
 
@@ -154,49 +156,51 @@ class LongTermMemory:
         """
         # Update statistics
         self.session_stats["actions_executed"] += 1
+
+        # Track security operations
         if action.reaches_mop:
             self.session_stats["security_operations_executed"] += 1
+            self.security_states.add(state_fingerprint)
 
-        # Update action knowledge
-        if action.id not in self.action_knowledge:
-            self.action_knowledge[action.id] = {
-                "execution_count": 0,
-                "success_count": 0,
-                "states": set(),
-                "reaches_mop": action.reaches_mop,
+            # Record security operation details
+            self.security_operations[action.id] = {
+                "timestamp": time.time(),
+                "state": state_fingerprint,
+                "success": success,
                 "directly_reaches_mop": action.directly_reaches_mop
             }
 
-        # Update action stats
-        action_info = self.action_knowledge[action.id]
-        action_info["execution_count"] += 1
-        if success:
-            action_info["success_count"] += 1
-        action_info["states"].add(state_fingerprint)
+        # Store or update action
+        if action.id in self.actions:
+            # Action exists, just update execution info
+            existing_action = self.actions[action.id]
+            # Update record will happen in transition record
+        else:
+            # New action
+            self.actions[action.id] = action
 
         # Update state knowledge
-        if state_fingerprint in self.state_knowledge:
-            state_info = self.state_knowledge[state_fingerprint]
-            if success:
-                state_info["successful_actions"].add(action.id)
-            else:
-                state_info["failed_actions"].add(action.id)
+        if state_fingerprint in self.states:
+            state = self.states[state_fingerprint]
+            state.record_action(action.id, success)
 
-        # Record security operations
-        if action.reaches_mop:
-            operation_key = f"{state_fingerprint}_{action.id}"
-            if operation_key not in self.security_operations:
-                self.security_operations[operation_key] = []
+            # If all actions in this state have been executed,
+            # remove from unexplored states
+            if state_fingerprint in self.unexplored_states:
+                # Check if there are unexplored actions
+                # This is a simple check - in practice we would need
+                # a more sophisticated way to determine "all actions"
+                if len(state.all_actions) > 0:
+                    has_unexplored = False  # Assume all explored until proven otherwise
+                    for item_action_id in state.all_actions:
+                        if item_action_id not in state.successful_actions and item_action_id not in state.failed_actions:
+                            has_unexplored = True
+                            break
 
-            self.security_operations[operation_key].append({
-                "timestamp": time.time(),
-                "success": success,
-                "state": state_fingerprint,
-                "action_id": action.id,
-                "directly_reaches_mop": action.directly_reaches_mop
-            })
+                    if not has_unexplored:
+                        self.unexplored_states.remove(state_fingerprint)
 
-    def record_transition(self, from_state: str, to_state: str, action: ItemAction, success: bool) -> None:
+    def record_transition(self, from_state: str, to_state: str, action: MemoryAction, success: bool) -> None:
         """
         Record a state transition.
 
@@ -212,16 +216,29 @@ class LongTermMemory:
                 return
 
             # Get activity names
-            from_activity = self.state_knowledge.get(from_state, {}).get("activity", "unknown")
-            to_activity = self.state_knowledge.get(to_state, {}).get("activity", "unknown")
+            from_activity = self.states.get(from_state, MemoryState(from_state, "unknown")).activity
+            to_activity = self.states.get(to_state, MemoryState(to_state, "unknown")).activity
+
+            # Update state transition records
+            if from_state in self.states:
+                self.states[from_state].record_transition(action.id, to_state)
+
+            if to_state in self.states:
+                self.states[to_state].record_incoming_transition(action.id, from_state)
 
             # Record in transition graph
-            self.transition_graph.record_transition(
-                from_activity,
-                to_activity,
-                str(action.id),
-                self._get_action_type(action.text)
-            )
+            if hasattr(self.transition_graph, 'record_transition'):
+                self.transition_graph.record_transition(
+                    from_activity,
+                    to_activity,
+                    str(action.id),
+                    action.type
+                )
+
+            # Update action with transition info
+            if action.id in self.actions:
+                action.record_execution(from_state, to_state, success)
+
         except Exception as e:
             self.logger.error(f"Error recording transition: {e}", exc_info=True)
 
@@ -236,37 +253,23 @@ class LongTermMemory:
             True if successful, False otherwise
         """
         try:
-            # Convert sets to lists for JSON serialization
-            serializable_state_knowledge = {}
-            for fingerprint, info in self.state_knowledge.items():
-                serializable_info = info.copy()
-                serializable_info["successful_actions"] = list(info["successful_actions"])
-                serializable_info["failed_actions"] = list(info["failed_actions"])
-                serializable_state_knowledge[fingerprint] = serializable_info
-
-            serializable_activity_knowledge = {}
-            for activity, info in self.activity_knowledge.items():
-                serializable_info = info.copy()
-                serializable_info["states"] = list(info["states"])
-                serializable_activity_knowledge[activity] = serializable_info
-
-            serializable_action_knowledge = {}
-            for action_id, info in self.action_knowledge.items():
-                serializable_info = info.copy()
-                serializable_info["states"] = list(info["states"])
-                serializable_action_knowledge[str(action_id)] = serializable_info
-
-            # Prepare data structure for serialization
+            # Create serializable data
             memory_data = {
                 "app_package": self.app_package,
                 "last_updated": time.time(),
                 "session_stats": self.session_stats,
-                "state_knowledge": serializable_state_knowledge,
-                "activity_knowledge": serializable_activity_knowledge,
-                "action_knowledge": serializable_action_knowledge,
+                "states": {fp: state.to_dict() for fp, state in self.states.items()},
+                "actions": {str(aid): action.to_dict() for aid, action in self.actions.items()},
+                "activities": self._serialize_activities(),
                 "security_operations": self.security_operations,
-                "transition_graph": self.transition_graph.to_dict()
+                "unexplored_states": list(self.unexplored_states),
+                "security_states": list(self.security_states),
+                "error_states": list(self.error_states)
             }
+
+            # Add transition graph if available
+            if hasattr(self.transition_graph, 'to_dict'):
+                memory_data["transition_graph"] = self.transition_graph.to_dict()
 
             # Write to file
             os.makedirs(os.path.dirname(file_path), exist_ok=True)
@@ -295,55 +298,44 @@ class LongTermMemory:
             return False
 
         try:
+            # Read from file
             with open(file_path, 'r') as f:
                 memory_data = json.load(f)
 
-            # Check if this memory is for the correct app
+            # Check application package
             if memory_data.get("app_package") != self.app_package:
                 self.logger.warning(f"Memory file is for a different app: {memory_data.get('app_package')}")
                 return False
 
-            # Load state knowledge
-            for fingerprint, info in memory_data.get("state_knowledge", {}).items():
-                self.state_knowledge[fingerprint] = {
-                    "activity": info.get("activity", "unknown"),
-                    "visit_count": info.get("visit_count", 0),
-                    "first_seen": info.get("first_seen", 0),
-                    "last_seen": info.get("last_seen", 0),
-                    "interactive_elements": info.get("interactive_elements", 0),
-                    "successful_actions": set(info.get("successful_actions", [])),
-                    "failed_actions": set(info.get("failed_actions", []))
-                }
+            # Load states
+            for fingerprint, state_data in memory_data.get("states", {}).items():
+                self.states[fingerprint] = MemoryState.from_dict(state_data)
 
-            # Load activity knowledge
-            for activity, info in memory_data.get("activity_knowledge", {}).items():
-                self.activity_knowledge[activity] = {
-                    "visit_count": info.get("visit_count", 0),
-                    "first_seen": info.get("first_seen", 0),
-                    "last_seen": info.get("last_seen", 0),
-                    "states": set(info.get("states", []))
-                }
+            # Load actions
+            for action_id_str, action_data in memory_data.get("actions", {}).items():
+                self.actions[int(action_id_str)] = MemoryAction.from_dict(action_data)
 
-            # Load action knowledge
-            for action_id_str, info in memory_data.get("action_knowledge", {}).items():
-                action_id = int(action_id_str)
-                self.action_knowledge[action_id] = {
-                    "execution_count": info.get("execution_count", 0),
-                    "success_count": info.get("success_count", 0),
-                    "states": set(info.get("states", [])),
-                    "reaches_mop": info.get("reaches_mop", False),
-                    "directly_reaches_mop": info.get("directly_reaches_mop", False)
-                }
+            # Load activities
+            activities_data = memory_data.get("activities", {})
+            self._deserialize_activities(activities_data)
+
+            # Load special state sets
+            self.unexplored_states = set(memory_data.get("unexplored_states", []))
+            self.security_states = set(memory_data.get("security_states", []))
+            self.error_states = set(memory_data.get("error_states", []))
 
             # Load security operations
             self.security_operations = memory_data.get("security_operations", {})
 
-            # Load transition graph
-            if "transition_graph" in memory_data:
+            # Load transition graph if available
+            if "transition_graph" in memory_data and hasattr(self.transition_graph, 'from_dict'):
                 graph_data = memory_data["transition_graph"]
                 self.transition_graph = DynamicTransitionGraph.from_dict(graph_data)
 
-            self.logger.info(f"Loaded memory from {file_path} with {len(self.state_knowledge)} states")
+            # Load session stats
+            self.session_stats = memory_data.get("session_stats", self.session_stats)
+
+            self.logger.info(f"Loaded memory from {file_path} with {len(self.states)} states")
             return True
 
         except Exception as e:
@@ -360,10 +352,10 @@ class LongTermMemory:
         Returns:
             List of successful action IDs
         """
-        if state_fingerprint not in self.state_knowledge:
+        if state_fingerprint not in self.states:
             return []
 
-        return list(self.state_knowledge[state_fingerprint]["successful_actions"])
+        return list(self.states[state_fingerprint].successful_actions)
 
     def get_security_actions(self) -> List[Tuple[str, int]]:
         """
@@ -372,14 +364,13 @@ class LongTermMemory:
         Returns:
             List of (state_fingerprint, action_id) tuples
         """
-        security_actions = []
+        result = []
 
-        for action_id, info in self.action_knowledge.items():
-            if info["reaches_mop"]:
-                for state in info["states"]:
-                    security_actions.append((state, action_id))
+        for action_id, info in self.security_operations.items():
+            state_fingerprint = info.get("state", "unknown")
+            result.append((state_fingerprint, int(action_id)))
 
-        return security_actions
+        return result
 
     def get_action_success_rate(self, action_id: int) -> float:
         """
@@ -391,14 +382,10 @@ class LongTermMemory:
         Returns:
             Success rate (0.0 to 1.0)
         """
-        if action_id not in self.action_knowledge:
+        if action_id not in self.actions:
             return 0.0
 
-        info = self.action_knowledge[action_id]
-        if info["execution_count"] == 0:
-            return 0.0
-
-        return info["success_count"] / info["execution_count"]
+        return self.actions[action_id].get_success_rate()
 
     def get_action_success_rate_in_state(self, action_id: int, state_fingerprint: str) -> float:
         """
@@ -411,20 +398,10 @@ class LongTermMemory:
         Returns:
             Success rate (0.0 to 1.0) or 0.0 if unknown
         """
-        if state_fingerprint not in self.state_knowledge:
+        if action_id not in self.actions:
             return 0.0
 
-        state_info = self.state_knowledge[state_fingerprint]
-        successful = action_id in state_info["successful_actions"]
-        failed = action_id in state_info["failed_actions"]
-
-        if not successful and not failed:
-            return 0.0
-
-        success_count = 1 if successful else 0
-        total_count = 1 if successful else 0 + 1 if failed else 0
-
-        return success_count / total_count
+        return self.actions[action_id].get_success_rate(state_fingerprint)
 
     def suggest_next_actions(self, current_state: str, count: int = 3) -> List[int]:
         """
@@ -437,33 +414,37 @@ class LongTermMemory:
         Returns:
             List of suggested action IDs
         """
-        if current_state not in self.state_knowledge:
+        if current_state not in self.states:
             return []
 
         # Get successful actions for this state
-        successful_actions = list(self.state_knowledge[current_state]["successful_actions"])
+        current_state_obj = self.states[current_state]
+        successful_actions = list(current_state_obj.successful_actions)
 
         # If we have enough actions, return them
         if len(successful_actions) >= count:
             return successful_actions[:count]
 
         # Otherwise, add actions that were successful in similar states
-        current_activity = self.state_knowledge[current_state]["activity"]
+        current_activity = current_state_obj.activity
 
         # Find other states in the same activity
         similar_states = [
-            state for state, info in self.state_knowledge.items()
-            if info["activity"] == current_activity and state != current_state
+            fingerprint for fingerprint, state in self.states.items()
+            if state.activity == current_activity and fingerprint != current_state
         ]
 
         # Collect successful actions from similar states
-        for state in similar_states:
-            actions = self.state_knowledge[state]["successful_actions"]
-            for action in actions:
-                if action not in successful_actions:
-                    successful_actions.append(action)
-                    if len(successful_actions) >= count:
-                        break
+        for state_fingerprint in similar_states:
+            if state_fingerprint in self.states:
+                state = self.states[state_fingerprint]
+                actions = state.successful_actions
+                for action_id in actions:
+                    if action_id not in successful_actions:
+                        successful_actions.append(action_id)
+                        if len(successful_actions) >= count:
+                            break
+
             if len(successful_actions) >= count:
                 break
 
@@ -484,33 +465,92 @@ class LongTermMemory:
             # Get least visited neighbors from transition graph
             neighbor_activities = []
 
-            # Get neighbors from graph
-            neighbors = list(self.transition_graph.graph.neighbors(current_activity))
+            # Check if we can access transition graph neighbors
+            if hasattr(self.transition_graph, 'graph') and hasattr(self.transition_graph.graph, 'neighbors'):
+                neighbors = list(self.transition_graph.graph.neighbors(current_activity))
 
-            if not neighbors:
-                # No known transitions, return least visited activities
-                least_visited = sorted(
-                    [(a, info["visit_count"]) for a, info in self.activity_knowledge.items()],
-                    key=lambda x: x[1]
-                )
-                neighbor_activities = [a for a, _ in least_visited[:count]]
-            else:
-                # Get visit counts for neighbors
-                neighbor_visits = []
-                for neighbor in neighbors:
-                    visit_count = self.activity_knowledge.get(neighbor, {}).get("visit_count", 0)
-                    neighbor_visits.append((neighbor, visit_count))
+                if not neighbors:
+                    # No known transitions, return least visited activities
+                    least_visited = sorted(
+                        [(a, info["visit_count"]) for a, info in self.activities.items()],
+                        key=lambda x: x[1]
+                    )
+                    neighbor_activities = [a for a, _ in least_visited[:count]]
+                else:
+                    # Get visit counts for neighbors
+                    neighbor_visits = []
+                    for neighbor in neighbors:
+                        visit_count = self.activities.get(neighbor, {}).get("visit_count", 0)
+                        neighbor_visits.append((neighbor, visit_count))
 
-                # Sort by visit count (ascending)
-                neighbor_visits.sort(key=lambda x: x[1])
+                    # Sort by visit count (ascending)
+                    neighbor_visits.sort(key=lambda x: x[1])
 
-                # Get activity names
-                neighbor_activities = [a for a, _ in neighbor_visits[:count]]
+                    # Get activity names
+                    neighbor_activities = [a for a, _ in neighbor_visits[:count]]
 
             return neighbor_activities
         except Exception as e:
             self.logger.error(f"Error getting next activities to explore: {e}")
             return []
+
+    def mark_error_state(self, state_fingerprint: str) -> None:
+        """
+        Mark a state as having an error condition.
+
+        Args:
+            state_fingerprint: State fingerprint to mark
+        """
+        self.error_states.add(state_fingerprint)
+        self.session_stats["errors_detected"] += 1
+
+    def get_prioritized_states(self, count: int = 5) -> List[str]:
+        """
+        Get prioritized states for exploration.
+
+        Args:
+            count: Maximum number of states to return
+
+        Returns:
+            List of state fingerprints in priority order
+        """
+        prioritized = []
+
+        # First priority: unexplored states with security operations
+        security_unexplored = self.security_states.intersection(self.unexplored_states)
+        prioritized.extend(list(security_unexplored)[:count])
+
+        # Second priority: other unexplored states
+        if len(prioritized) < count:
+            remaining = count - len(prioritized)
+            other_unexplored = self.unexplored_states - security_unexplored
+            prioritized.extend(list(other_unexplored)[:remaining])
+
+        # Third priority: states with outgoing transitions to unexplored states
+        if len(prioritized) < count:
+            remaining = count - len(prioritized)
+            transition_states = self._get_states_with_transitions_to_unexplored(remaining)
+            prioritized.extend([s for s in transition_states if s not in prioritized][:remaining])
+
+        # Fourth priority: states with security operations
+        if len(prioritized) < count:
+            remaining = count - len(prioritized)
+            other_security = self.security_states - set(prioritized)
+            prioritized.extend(list(other_security)[:remaining])
+
+        return prioritized[:count]
+
+    def get_state_by_fingerprint(self, fingerprint: str) -> Optional[MemoryState]:
+        """
+        Get a state by its fingerprint.
+
+        Args:
+            fingerprint: State fingerprint
+
+        Returns:
+            Memory state or None if not found
+        """
+        return self.states.get(fingerprint)
 
     def get_memory_stats(self) -> Dict[str, Any]:
         """
@@ -520,46 +560,96 @@ class LongTermMemory:
             Dictionary with memory statistics
         """
         try:
-            transitions_count = 0
-            try:
-                transitions_count = len(self.transition_graph.transitions)
-            except:
-                self.logger.warning("Could not get transitions count from transition graph")
+            # Calculate additional metrics
+            security_ratio = 0
+            if self.session_stats["actions_executed"] > 0:
+                security_ratio = (self.session_stats["security_operations_executed"] /
+                                  self.session_stats["actions_executed"])
 
-            return {
-                "states_count": len(self.state_knowledge),
-                "activities_count": len(self.activity_knowledge),
-                "actions_count": len(self.action_knowledge),
+            transitions_count = 0
+            if hasattr(self.transition_graph, 'transitions'):
+                transitions_count = len(self.transition_graph.transitions)
+
+            stats = {
+                "states_count": len(self.states),
+                "activities_count": len(self.activities),
+                "actions_count": len(self.actions),
                 "security_operations_count": len(self.security_operations),
+                "unexplored_states_count": len(self.unexplored_states),
+                "security_states_count": len(self.security_states),
+                "error_states_count": len(self.error_states),
                 "transitions_count": transitions_count,
+                "session_duration": time.time() - self.session_stats["start_time"],
+                "security_ratio": security_ratio,
                 "session_stats": self.session_stats
             }
+
+            return stats
+
         except Exception as e:
             self.logger.error(f"Error getting memory stats: {e}")
             return {
                 "error": f"Failed to get memory stats: {str(e)}"
             }
 
-    def _get_action_type(self, action_text: str) -> str:
+    def _serialize_activities(self) -> Dict[str, Any]:
         """
-        Extract action type from action text.
-
-        Args:
-            action_text: Text description of the action
+        Serialize activities for JSON storage.
 
         Returns:
-            Action type string
+            Dictionary representation of activities
         """
-        if "CLICK" in action_text:
-            return "click"
-        elif "LONG_CLICK" in action_text:
-            return "long_click"
-        elif "SCROLL" in action_text:
-            return "scroll"
-        elif "SET_TEXT" in action_text:
-            return "text_input"
-        elif "BACK" in action_text:
-            return "back"
-        else:
-            return "other"
-       
+        result = {}
+
+        for activity, info in self.activities.items():
+            result[activity] = {
+                "visit_count": info["visit_count"],
+                "first_seen": info["first_seen"],
+                "last_seen": info["last_seen"],
+                "states": list(info["states"])
+            }
+
+        return result
+
+    def _deserialize_activities(self, activities_data: Dict[str, Any]) -> None:
+        """
+        Deserialize activities from JSON.
+
+        Args:
+            activities_data: Dictionary representation of activities
+        """
+        for activity, info in activities_data.items():
+            self.activities[activity] = {
+                "visit_count": info["visit_count"],
+                "first_seen": info["first_seen"],
+                "last_seen": info["last_seen"],
+                "states": set(info["states"])
+            }
+
+    def _get_states_with_transitions_to_unexplored(self, count: int) -> List[str]:
+        """
+        Get states that have transitions to unexplored states.
+
+        Args:
+            count: Maximum number of states to return
+
+        Returns:
+            List of state fingerprints
+        """
+        transition_states = []
+
+        for fingerprint, state in self.states.items():
+            # Skip if already in unexplored
+            if fingerprint in self.unexplored_states:
+                continue
+
+            # Check if this state has transitions to unexplored states
+            for target in state.outgoing_transitions:
+                if target in self.unexplored_states:
+                    transition_states.append(fingerprint)
+                    break
+
+            if len(transition_states) >= count:
+                break
+
+        return transition_states

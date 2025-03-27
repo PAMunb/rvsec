@@ -621,6 +621,8 @@ class UIAutomator2Adapter:
         """
         Click on a spinner and handle the dropdown that appears.
 
+        Improved implementation with more reliable dropdown detection and item selection.
+
         Args:
             x: X coordinate of the spinner
             y: Y coordinate of the spinner
@@ -636,8 +638,8 @@ class UIAutomator2Adapter:
                 self.logger.error("Failed to click spinner to open dropdown")
                 return False
 
-            # Wait for dropdown to appear
-            time.sleep(1.5)  # Increased wait time for dropdown to fully appear
+            # Wait for dropdown to appear - increased wait time for reliability
+            time.sleep(2.0)
 
             # Try multiple approaches to find and interact with the dropdown
             success = False
@@ -648,9 +650,21 @@ class UIAutomator2Adapter:
                 listview = self.device(className=list_class)
                 if listview.exists:
                     self.logger.debug(f"Found dropdown as {list_class}")
-                    items = listview.child(className="android.widget.TextView") or listview.child(clickable=True)
 
-                    if items.count > 0:
+                    # Try to find items as TextView or any clickable element
+                    items = None
+
+                    # First try to get text views (most common dropdown items)
+                    text_items = listview.child(className="android.widget.TextView")
+                    if text_items and text_items.count > 0:
+                        items = text_items
+                    else:
+                        # Fall back to any clickable child
+                        clickable_items = listview.child(clickable=True)
+                        if clickable_items and clickable_items.count > 0:
+                            items = clickable_items
+
+                    if items and items.count > 0:
                         # Select a random item, but NOT the first one (which is usually the current selection)
                         if items.count > 1:
                             # Explicitly avoid index 0 to ensure we don't select the current item
@@ -676,10 +690,14 @@ class UIAutomator2Adapter:
                     popup = self.device(className=popup_class)
                     if popup.exists:
                         self.logger.debug(f"Found dropdown as {popup_class}")
-                        items = popup.child(clickable=True)
 
-                        if items.count > 0:
-                            # Select a random item, avoiding the first one
+                        # Try first with TextView, then any clickable item
+                        items = popup.child(className="android.widget.TextView")
+                        if not items or items.count == 0:
+                            items = popup.child(clickable=True)
+
+                        if items and items.count > 0:
+                            # Select a random item, avoiding the first one if possible
                             if items.count > 1:
                                 index = random.randint(1, items.count - 1)
                                 self.logger.info(f"Clicking random item {index} of {items.count} in {popup_class}")
@@ -695,63 +713,58 @@ class UIAutomator2Adapter:
                             except Exception as e:
                                 self.logger.error(f"Error clicking popup item: {e}")
 
-            # Approach 3: Look for any new clickable items that might be part of dropdown
+            # Approach 3: Look for any new clickable TextView elements that appeared
             if not success:
-                self.logger.debug("Looking for any new clickable items")
-                # Get screen dimensions
+                self.logger.debug("Looking for clickable TextViews that might be dropdown items")
+                textviews = self.device(className="android.widget.TextView", clickable=True)
+                if textviews and textviews.count > 0:
+                    # Select random item, avoiding first one which might be a header
+                    if textviews.count > 1:
+                        # Skip first item (index 0) which might be a header or current selection
+                        index = random.randint(1, textviews.count - 1)
+                        self.logger.info(f"Clicking random item {index} from {textviews.count} clickable text elements")
+                    else:
+                        index = 0  # Only one choice available
+                        self.logger.info(f"Only one text element available, selecting it")
+
+                    try:
+                        textviews[index].click()
+                        time.sleep(0.5)
+                        success = True
+                    except Exception as e:
+                        self.logger.error(f"Error clicking text element: {e}")
+
+            # Approach 4: If all else fails, click at random positions below the spinner
+            if not success:
+                self.logger.debug("Trying fallback approach: clicking at positions below spinner")
                 screen_info = self.device.info
                 screen_height = screen_info.get("displayHeight", 1000)
                 screen_width = screen_info.get("displayWidth", 500)
 
-                # Look below the spinner for clickable elements
-                clickable_below = self.device(clickable=True,
-                                              bounds=f"[0,{y + 10}][{screen_width},{screen_height}]")
+                x_center = screen_width // 2
 
-                if clickable_below.count > 0:
-                    # Select a random clickable element, but not the first one
-                    if clickable_below.count > 1:
-                        # Avoid index 0 which might be the spinner itself or header
-                        index = random.randint(1, clickable_below.count - 1)
-                        self.logger.info(
-                            f"Clicking random item {index} of {clickable_below.count} clickable elements below spinner")
-                    else:
-                        index = 0  # Only one item
-                        self.logger.info("Only one clickable item below spinner, selecting it")
-
-                    try:
-                        clickable_below[index].click()
-                        time.sleep(0.5)
-                        success = True
-                    except Exception as e:
-                        self.logger.error(f"Error clicking element below spinner: {e}")
-
-            # Approach 4: If all else fails, click at random positions below the spinner
-            if not success:
-                # Generate random positions below the spinner to try different items
-                positions = []
-                base_y = y + 100  # Start well below the spinner
-
-                # Create 4 random positions at different vertical offsets
+                # Create random positions spread throughout the screen
+                y_positions = []
+                base_y = y + 100  # Start below the original spinner
                 for i in range(4):
-                    pos_y = base_y + random.randint(50, 150) + (i * 75)
-                    if pos_y < screen_height - 50:  # Ensure we stay on screen
-                        positions.append((x, pos_y))
+                    # Generate random positions in different screen areas
+                    y_pos = base_y + random.randint(50, 150) + (i * 100)
+                    if y_pos < screen_height - 50:
+                        y_positions.append(y_pos)
 
-                # Shuffle positions for more randomness
-                random.shuffle(positions)
+                # Shuffle the positions
+                random.shuffle(y_positions)
 
-                for pos_x, pos_y in positions:
-                    self.logger.info(f"Clicking random dropdown position at ({pos_x}, {pos_y})")
+                for y_pos in y_positions:
+                    self.logger.info(f"Clicking random dropdown position at ({x_center}, {y_pos})")
                     try:
-                        self.click(pos_x, pos_y)
+                        self.click(x_center, y_pos)
                         time.sleep(0.5)
-                        # Consider successful since we made our best attempt
-                        success = True
-                        break
+                        success = True  # Assume success after at least one click attempt
                     except Exception as e:
                         self.logger.error(f"Error clicking estimated position: {e}")
 
-            return success
+            return success or False  # Return True if any approach succeeded, False otherwise
 
         except Exception as e:
             self.logger.error(f"Error interacting with spinner: {e}")
