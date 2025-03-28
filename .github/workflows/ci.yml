@@ -20,6 +20,11 @@ jobs:
           java-version: '21'
           cache: maven
       
+      - name: Install system dependencies
+        run: |
+          apt-get update
+          apt-get install -y tesseract-ocr libtesseract-dev libopencv-dev python3-opencv
+      
       - name: Build Maven project
         run: mvn clean install -DskipTests -DskipMopAgent
       
@@ -32,6 +37,7 @@ jobs:
         run: |
           pip install uiautomator2
           pip install -r requirements.txt
+          pip install pytesseract opencv-python Pillow numpy
           pip install pytest-cov flake8 pylint mypy bandit black safety vulture
         working-directory: rv-android
       
