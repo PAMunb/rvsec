@@ -22,8 +22,8 @@ jobs:
       
       - name: Install system dependencies
         run: |
-          apt-get update
-          apt-get install -y tesseract-ocr libtesseract-dev libopencv-dev python3-opencv
+          sudo apt update
+          sudo apt install -y tesseract-ocr libtesseract-dev libopencv-dev python3-opencv
       
       - name: Build Maven project
         run: mvn clean install -DskipTests -DskipMopAgent
