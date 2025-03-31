@@ -74,7 +74,7 @@ class MemorySystem:
         self.exploration_optimizer = ExplorationOptimizer(
             self.short_term_memory,
             self.long_term_memory,
-            self.pattern_recognition
+            self.pattern_recognition  # Pass pattern_recognition with the correct parameter name
         )
 
         # Last state and action tracking for transitions
@@ -179,6 +179,8 @@ class MemorySystem:
         """
         Optimize the order of actions based on exploration strategy.
 
+        Enhanced to prioritize actions leading to unexplored activities.
+
         Args:
             screen: Parsed screen description
             state_data: State data dictionary
@@ -187,9 +189,105 @@ class MemorySystem:
         Returns:
             Re-prioritized list of actions
         """
-        return self.exploration_optimizer.optimize_action_selection(
-            screen, state_data, available_actions
-        )
+        if not available_actions:
+            return []
+
+        try:
+            # If no exploration optimizer is available, return actions as-is
+            if not hasattr(self, 'exploration_optimizer') or not self.exploration_optimizer:
+                self.logger.debug("No exploration optimizer available, returning actions as-is")
+                return available_actions
+
+            # Ensure state_data is a dictionary (not None)
+            safe_state_data = state_data if isinstance(state_data, dict) else {}
+
+            # Extract current activity with safety check
+            current_activity = safe_state_data.get("activity", "unknown")
+            self.logger.debug(f"Optimizing actions for activity: {current_activity}")
+
+            # Create a copy of actions to avoid modifying the original list
+            optimized_actions = list(available_actions)
+
+            # Use memory information to prioritize navigation-related actions
+            # if we've explored multiple activities
+            visited_activities = set()
+
+            # Get visited activities from long term memory if available
+            if hasattr(self, 'long_term_memory') and self.long_term_memory:
+                try:
+                    visited_activities = {info.get("activity", "unknown")
+                                          for info in self.long_term_memory.activities.values()}
+                except Exception as e:
+                    self.logger.error(f"Error retrieving activities from long-term memory: {e}")
+                    # Continue even if this fails
+
+            # If we've visited more than one activity, prioritize potential navigation
+            if len(visited_activities) > 1:
+                # Look for actions that might navigate to different activities
+                navigation_candidates = []
+                other_actions = []
+
+                for action in optimized_actions:
+                    # Determine if this action might be a navigation action
+                    is_navigation = False
+
+                    # Check if this action has led to transitions before
+                    if hasattr(self, 'long_term_memory') and self.long_term_memory and hasattr(self.long_term_memory,
+                                                                                               'actions'):
+                        if action.id in self.long_term_memory.actions:
+                            try:
+                                action_obj = self.long_term_memory.actions[action.id]
+
+                                # Check if this action has transitions to different activities
+                                if hasattr(action_obj, 'state_transitions'):
+                                    for from_state, transitions in action_obj.state_transitions.items():
+                                        for to_state in transitions:
+                                            # Get state objects
+                                            from_state_obj = self.long_term_memory.get_state_by_fingerprint(from_state)
+                                            to_state_obj = self.long_term_memory.get_state_by_fingerprint(to_state)
+
+                                            # Check if transition crosses activity boundaries
+                                            if (from_state_obj and to_state_obj and
+                                                    from_state_obj.activity != to_state_obj.activity):
+                                                is_navigation = True
+                                                break
+                            except Exception as e:
+                                self.logger.error(f"Error checking state transitions: {e}")
+
+                    # Also check if it's a button with text (likely navigation)
+                    if not is_navigation and hasattr(action, 'target_view') and action.target_view:
+                        class_name = action.target_view.get("class", "")
+                        has_text = bool(action.target_view.get("text", ""))
+
+                        if "Button" in class_name and has_text and "CLICK" in action.text:
+                            is_navigation = True
+
+                    # Add to appropriate list
+                    if is_navigation:
+                        navigation_candidates.append(action)
+                    else:
+                        other_actions.append(action)
+
+                # If we found navigation candidates, prioritize them
+                if navigation_candidates:
+                    self.logger.info(f"Prioritizing {len(navigation_candidates)} navigation candidates")
+                    return navigation_candidates + other_actions
+
+            # If no special prioritization applied, use exploration optimizer
+            try:
+                if hasattr(self, 'exploration_optimizer') and self.exploration_optimizer:
+                    return self.exploration_optimizer.optimize_action_selection(
+                        screen, safe_state_data, optimized_actions
+                    )
+            except Exception as e:
+                self.logger.error(f"Error in exploration optimizer: {e}")
+
+            # Return the original actions if optimization fails
+            return available_actions
+
+        except Exception as e:
+            self.logger.error(f"Memory system optimization failed: {e}, using all actions")
+            return available_actions
 
     def get_state_info(self, fingerprint: Optional[str] = None) -> Optional[Dict[str, Any]]:
         """

@@ -149,16 +149,16 @@ class ShortTermMemory:
 
         self.logger.debug(f"Recorded transition: {from_state} -> {to_state} via {action.id}")
 
-    def get_current_state(self) -> Optional[MemoryState]:
-        """
-        Get the current state.
-
-        Returns:
-            Current state or None if no states recorded
-        """
-        if self.current_state_fingerprint:
-            return self.states.get(self.current_state_fingerprint)
-        return None
+    # def get_current_state(self) -> Optional[MemoryState]:
+    #     """
+    #     Get the current state.
+    #
+    #     Returns:
+    #         Current state or None if no states recorded
+    #     """
+    #     if self.current_state_fingerprint:
+    #         return self.states.get(self.current_state_fingerprint)
+    #     return None
 
     def get_recent_states(self, count: int = 5) -> List[MemoryState]:
         """

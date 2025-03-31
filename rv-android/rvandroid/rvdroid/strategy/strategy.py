@@ -1,3 +1,5 @@
+# rvandroid/rvdroid/strategy/strategy.py
+
 """
 Strategy framework for RVDroid.
 
@@ -104,7 +106,9 @@ class StrategyRegistry:
         if not issubclass(strategy_class, Strategy):
             raise TypeError(f"Strategy class must inherit from Strategy base class")
 
-        cls._strategies[strategy_class.__name__] = strategy_class
+        class_name = strategy_class.__name__
+        cls._strategies[class_name] = strategy_class
+        print(f"Registered strategy: {class_name}")  # Debug print
 
     @classmethod
     def get_strategy(cls, strategy_name: str) -> Optional[type]:
@@ -117,7 +121,22 @@ class StrategyRegistry:
         Returns:
             Strategy class or None if not found
         """
-        return cls._strategies.get(strategy_name)
+        # Try exact match first
+        if strategy_name in cls._strategies:
+            return cls._strategies[strategy_name]
+
+        # Try case-insensitive match
+        strategy_name_lower = strategy_name.lower()
+        for name, strategy_class in cls._strategies.items():
+            if name.lower() == strategy_name_lower:
+                return strategy_class
+
+        # Try prefix match
+        for name, strategy_class in cls._strategies.items():
+            if name.lower().startswith(strategy_name_lower):
+                return strategy_class
+
+        return None
 
     @classmethod
     def create_strategy(cls, strategy_name: str, static_data: Optional[StaticAnalysisData] = None,
@@ -135,9 +154,14 @@ class StrategyRegistry:
         """
         strategy_class = cls.get_strategy(strategy_name)
         if not strategy_class:
+            print(f"Strategy not found: {strategy_name}, available: {list(cls._strategies.keys())}")  # Debug print
             return None
 
-        return strategy_class(static_data=static_data, **kwargs)
+        try:
+            return strategy_class(static_data=static_data, **kwargs)
+        except Exception as e:
+            print(f"Error creating strategy {strategy_name}: {e}")  # Debug print
+            return None
 
     @classmethod
     def list_strategies(cls) -> List[str]:
@@ -150,164 +174,11 @@ class StrategyRegistry:
         return list(cls._strategies.keys())
 
 
-class StrategyComposition(Strategy):
-    """
-    Strategy that composes multiple strategies with configurable weighting.
-
-    Delegates action generation to component strategies based on weights
-    and selection criteria, allowing for flexible strategy combinations.
-    """
-
-    def __init__(self, static_data: Optional[StaticAnalysisData] = None, name: str = "CompositeStrategy",
-                 strategies: Optional[List[Dict[str, Any]]] = None):
-        """
-        Initialize the composite strategy.
-
-        Args:
-            static_data: Optional static analysis data
-            name: Strategy name
-            strategies: List of strategy configurations with names and weights
-        """
-        super().__init__(static_data, name)
-
-        # Initialize component strategies
-        self.strategies: List[Dict[str, Any]] = []
-
-        if strategies:
-            for strategy_config in strategies:
-                strategy_name = strategy_config.get("name")
-                weight = strategy_config.get("weight", 1.0)
-
-                strategy = StrategyRegistry.create_strategy(strategy_name, static_data)
-                if strategy:
-                    self.strategies.append({
-                        "strategy": strategy,
-                        "weight": weight,
-                        "last_result": None
-                    })
-
-        self.logger.info(f"Initialized composite strategy with {len(self.strategies)} component strategies")
-
-    def generate_action(self, screen: ScreenDescription, state_data: Dict[str, Any],
-                        history: Optional[List[Dict[str, Any]]] = None) -> Optional[ItemAction]:
-        """
-        Generate the next action by delegating to component strategies.
-
-        Args:
-            screen: Parsed screen description
-            state_data: Raw state data
-            history: Optional history of previous states and actions
-
-        Returns:
-            ItemAction to execute, or None if no action is available
-        """
-        if not self.strategies:
-            self.logger.warning("No component strategies available")
-            return None
-
-        # Select strategy based on weights and previous results
-        selected_strategy = self._select_strategy(state_data)
-        if not selected_strategy:
-            self.logger.warning("Failed to select a component strategy")
-            return None
-
-        # Generate action using selected strategy
-        strategy = selected_strategy["strategy"]
-        self.logger.debug(f"Using '{strategy.name}' strategy for action generation")
-
-        action = strategy.generate_action(screen, state_data, history)
-
-        # Record which strategy generated this action
-        if action:
-            selected_strategy["last_action"] = action
-
-        return action
-
-    def update_feedback(self, action: ItemAction, result: Dict[str, Any]) -> None:
-        """
-        Update component strategies based on action execution feedback.
-
-        Args:
-            action: Action that was executed
-            result: Execution result with success status and state change info
-        """
-        # Find which strategy generated this action
-        for strategy_info in self.strategies:
-            if "last_action" in strategy_info and strategy_info["last_action"] == action:
-                # Update the strategy that generated this action
-                strategy = strategy_info["strategy"]
-                strategy.update_feedback(action, result)
-
-                # Update last result for strategy selection
-                strategy_info["last_result"] = result
-
-                # Adjust weights based on results
-                if result.get("new_state", False):
-                    # Increase weight of strategies that discover new states
-                    strategy_info["weight"] *= 1.1
-
-                break
-
-        # Normalize weights
-        self._normalize_weights()
-
-    def _select_strategy(self, state_data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-        """
-        Select a strategy based on weights and previous results.
-
-        Args:
-            state_data: Raw state data
-
-        Returns:
-            Selected strategy info or None if no strategies available
-        """
-        if not self.strategies:
-            return None
-
-        # Get total weight
-        total_weight = sum(s["weight"] for s in self.strategies)
-
-        # Simple weighted random selection
-        import random
-        selection = random.uniform(0, total_weight)
-
-        current = 0
-        for strategy_info in self.strategies:
-            current += strategy_info["weight"]
-            if selection <= current:
-                return strategy_info
-
-        # Fallback to first strategy
-        return self.strategies[0]
-
-    def _normalize_weights(self) -> None:
-        """Normalize the weights of component strategies."""
-        # Get total weight
-        total_weight = sum(s["weight"] for s in self.strategies)
-
-        # Normalize weights
-        if total_weight > 0:
-            for strategy_info in self.strategies:
-                strategy_info["weight"] /= total_weight
-
-    def get_metadata(self) -> Dict[str, Any]:
-        """
-        Get metadata about the composite strategy.
-
-        Returns:
-            Dictionary with composite strategy metadata
-        """
-        metadata = super().get_metadata()
-
-        # Add component strategy information
-        metadata["component_strategies"] = [
-            {
-                "name": s["strategy"].name,
-                "type": s["strategy"].__class__.__name__,
-                "weight": s["weight"]
-            }
-            for s in self.strategies
-        ]
-
-        return metadata
-   
+# from rvandroid.rvdroid.strategy.basic_strategies import RandomStrategy, SystematicStrategy, SecurityFocusedStrategy
+# from rvandroid.rvdroid.strategy.visual_aware_strategy import VisualAwareStrategy
+#
+# # Pre-register essential strategies
+# StrategyRegistry.register(RandomStrategy)
+# StrategyRegistry.register(SystematicStrategy)
+# StrategyRegistry.register(SecurityFocusedStrategy)
+# StrategyRegistry.register(VisualAwareStrategy)

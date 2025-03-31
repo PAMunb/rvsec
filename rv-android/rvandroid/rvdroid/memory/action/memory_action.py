@@ -160,39 +160,6 @@ class MemoryAction:
                 "password": view.get("password", False)
             }
 
-    def is_similar_to(self, other: 'MemoryAction') -> bool:
-        """
-        Check if this action is similar to another action.
-
-        Args:
-            other: Other action to compare with
-
-        Returns:
-            True if similar, False otherwise
-        """
-        # Same action type is required
-        if self.type != other.type:
-            return False
-
-        # Check element properties for similarity
-        if self.element_properties and other.element_properties:
-            # Same class is strong indicator
-            if (self.element_properties.get("class") == other.element_properties.get("class") and
-                    self.element_properties.get("class")):
-                return True
-
-            # Same resource ID is strong indicator
-            if (self.element_properties.get("resource_id") == other.element_properties.get("resource_id") and
-                    self.element_properties.get("resource_id")):
-                return True
-
-            # Same text is moderate indicator if non-empty
-            if (self.element_properties.get("text") == other.element_properties.get("text") and
-                    self.element_properties.get("text")):
-                return True
-
-        return False
-
     def to_dict(self) -> Dict[str, Any]:
         """
         Convert action to dictionary representation.

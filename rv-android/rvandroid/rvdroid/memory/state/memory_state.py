@@ -126,56 +126,6 @@ class MemoryState:
 
         self.incoming_transitions[source_state].add(action_id)
 
-    def set_property(self, key: str, value: Any) -> None:
-        """
-        Set a state property.
-
-        Args:
-            key: Property key
-            value: Property value
-        """
-        self.properties[key] = value
-
-    def get_property(self, key: str, default: Any = None) -> Any:
-        """
-        Get a state property.
-
-        Args:
-            key: Property key
-            default: Default value if property not found
-
-        Returns:
-            Property value or default
-        """
-        return self.properties.get(key, default)
-
-    def get_transition_count(self) -> int:
-        """
-        Get the number of outgoing transitions.
-
-        Returns:
-            Number of outgoing transitions
-        """
-        return sum(len(actions) for actions in self.outgoing_transitions.values())
-
-    def get_unique_transition_count(self) -> int:
-        """
-        Get the number of unique target states for transitions.
-
-        Returns:
-            Number of unique target states
-        """
-        return len(self.outgoing_transitions)
-
-    def record_security_operation(self, action_id: int) -> None:
-        """
-        Record a security operation.
-
-        Args:
-            action_id: ID of the security-sensitive action
-        """
-        self.security_operations.add(action_id)
-
     def set_screenshot(self, path: str) -> None:
         """
         Set the screenshot path for this state.

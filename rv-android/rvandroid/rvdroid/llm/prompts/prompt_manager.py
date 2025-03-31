@@ -204,51 +204,51 @@ class PromptManager:
 
         return result
 
-    def optimize_prompt(self, prompt_type: str, success_rate: float) -> None:
-        """
-        Optimize a prompt based on its success rate.
-
-        Args:
-            prompt_type: Type of prompt to optimize
-            success_rate: Rate of successful responses (0.0 to 1.0)
-        """
-        # Update success stats
-        if prompt_type in self.prompt_stats:
-            self.prompt_stats[prompt_type]["successful_responses"] += 1 if success_rate > 0.5 else 0
-
-            # Calculate overall success rate
-            usage_count = self.prompt_stats[prompt_type]["usage_count"]
-            successful_responses = self.prompt_stats[prompt_type]["successful_responses"]
-            overall_success_rate = successful_responses / usage_count if usage_count > 0 else 0
-
-            self.logger.info(f"Prompt {prompt_type} success rate: {overall_success_rate:.2f}")
-
-    def get_template_info(self) -> Dict[str, Any]:
-        """
-        Get information about available templates and their usage.
-
-        Returns:
-            Dictionary with template information
-        """
-        template_info = {}
-
-        for template_name, template in self.templates.items():
-            # Get stats if available
-            stats = self.prompt_stats.get(template_name, {
-                "usage_count": 0,
-                "token_estimate": 0,
-                "successful_responses": 0
-            })
-
-            # Calculate success rate
-            usage_count = stats["usage_count"]
-            successful_responses = stats["successful_responses"]
-            success_rate = successful_responses / usage_count if usage_count > 0 else 0
-
-            template_info[template_name] = {
-                "usage_count": usage_count,
-                "avg_token_estimate": stats["token_estimate"],
-                "success_rate": success_rate
-            }
-
-        return template_info
+    # def optimize_prompt(self, prompt_type: str, success_rate: float) -> None:
+    #     """
+    #     Optimize a prompt based on its success rate.
+    #
+    #     Args:
+    #         prompt_type: Type of prompt to optimize
+    #         success_rate: Rate of successful responses (0.0 to 1.0)
+    #     """
+    #     # Update success stats
+    #     if prompt_type in self.prompt_stats:
+    #         self.prompt_stats[prompt_type]["successful_responses"] += 1 if success_rate > 0.5 else 0
+    #
+    #         # Calculate overall success rate
+    #         usage_count = self.prompt_stats[prompt_type]["usage_count"]
+    #         successful_responses = self.prompt_stats[prompt_type]["successful_responses"]
+    #         overall_success_rate = successful_responses / usage_count if usage_count > 0 else 0
+    #
+    #         self.logger.info(f"Prompt {prompt_type} success rate: {overall_success_rate:.2f}")
+    #
+    # def get_template_info(self) -> Dict[str, Any]:
+    #     """
+    #     Get information about available templates and their usage.
+    #
+    #     Returns:
+    #         Dictionary with template information
+    #     """
+    #     template_info = {}
+    #
+    #     for template_name, template in self.templates.items():
+    #         # Get stats if available
+    #         stats = self.prompt_stats.get(template_name, {
+    #             "usage_count": 0,
+    #             "token_estimate": 0,
+    #             "successful_responses": 0
+    #         })
+    #
+    #         # Calculate success rate
+    #         usage_count = stats["usage_count"]
+    #         successful_responses = stats["successful_responses"]
+    #         success_rate = successful_responses / usage_count if usage_count > 0 else 0
+    #
+    #         template_info[template_name] = {
+    #             "usage_count": usage_count,
+    #             "avg_token_estimate": stats["token_estimate"],
+    #             "success_rate": success_rate
+    #         }
+    #
+    #     return template_info

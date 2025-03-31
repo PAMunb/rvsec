@@ -3,7 +3,6 @@ import hashlib
 import json
 import os
 import shutil
-import sys
 from datetime import datetime
 from typing import Union, List
 from zipfile import ZipFile, ZIP_DEFLATED
@@ -18,7 +17,7 @@ from rvandroid.util.logging.manager import LoggingManager
 logging_manager = LoggingManager.get_instance()
 
 
-def execute_command(cmd: Command, tag: str, skip_stderr=False):
+def execute_command(cmd: Command, tag: str, skip_stderr: bool = False, stdout=None):
     """
     Execute a command with proper error handling.
 
@@ -26,6 +25,10 @@ def execute_command(cmd: Command, tag: str, skip_stderr=False):
         cmd: Command to execute
         tag: Tag for command identification
         skip_stderr: Whether to skip checking stderr for errors
+        stdout: Optional stdout stream for command output (default: None)
+
+    Returns:
+        Command execution result
 
     Raises:
         CommandException: If command execution fails
@@ -33,18 +36,27 @@ def execute_command(cmd: Command, tag: str, skip_stderr=False):
     logger = logging_manager.get_logger("util.utils.execute_command", {"command": tag})
 
     logger.debug(f"Executing command: {cmd.command} {' '.join(cmd.args)}")
-    cmd_result = cmd.invoke(stdout=sys.stdout)
+    cmd_result = cmd.invoke(stdout=stdout)
 
+    # Determine if the command failed
     cond = cmd_result.code != 0
     if not skip_stderr:
         cond = cond or cmd_result.stderr
 
     if cond:
-        error_msg = str(cmd_result.stderr, "UTF-8")
+        # If the command failed, raise CommandException with error details
+        error_msg = str(cmd_result.stderr, "UTF-8") if cmd_result.stderr else ""
         logger.error(f"Command execution failed: {error_msg}")
-        raise CommandException(tag, cmd_result.code, error_msg)
+
+        # Raise CommandException with detailed information
+        raise CommandException(
+            tool=tag,
+            code=cmd_result.code,
+            message=error_msg
+        )
 
     logger.debug("Command executed successfully")
+    return cmd_result
 
 
 def file_hash(file_path: str):

@@ -440,30 +440,6 @@ class PatternRecognition:
 
         return subsequences
 
-    def find_matching_patterns(self, action_ids: List[int]) -> List[InteractionPattern]:
-        """
-        Find patterns that match a sequence of actions.
-
-        Args:
-            action_ids: List of action IDs to match
-
-        Returns:
-            List of matching patterns
-        """
-        matching_patterns = []
-
-        for pattern in self.action_patterns.values():
-            if pattern.matches(action_ids):
-                matching_patterns.append(pattern)
-
-        # Sort by success rate and occurrences
-        matching_patterns.sort(
-            key=lambda p: (p.get_success_rate(), p.occurrences),
-            reverse=True
-        )
-
-        return matching_patterns
-
     def get_pattern_stats(self) -> Dict[str, Any]:
         """
         Get statistics about detected patterns.

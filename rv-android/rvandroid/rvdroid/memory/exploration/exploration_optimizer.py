@@ -9,11 +9,10 @@ exploration versus exploitation.
 """
 
 import time
-from typing import Dict, Any, List, Optional, Set
+from typing import Dict, Any, List, Optional
 
 from rvandroid.parser.screen.visitor.base_visitor import ScreenDescription, ItemAction
 from rvandroid.rvdroid.memory.long_term.long_term_memory import LongTermMemory
-from rvandroid.rvdroid.memory.patterns.pattern_recognition import PatternRecognition
 from rvandroid.rvdroid.memory.short_term.short_term_memory import ShortTermMemory
 from rvandroid.util.logging.constants import CONTEXT_COMPONENT
 from rvandroid.util.logging.manager import LoggingManager
@@ -23,24 +22,20 @@ class ExplorationOptimizer:
     """
     Optimizes exploration strategies using memory systems.
 
-    ### Architectural Decisions:
-    - Implements intelligent exploration-exploitation balancing
-    - Uses memory systems to guide exploration decision making
-    - Provides mechanisms to detect and escape local minimums
-    - Supports adaptation to different application contexts
-    - Maintains exploration state to promote discovery of new behavior
+    Balances exploration and exploitation while ensuring thorough
+    coverage of the application, with special focus on preventing
+    redundant exploration of already visited activities.
 
-    ### Role in the System:
-    - Guides exploration to maximize test coverage
-    - Detects and helps overcome exploration plateaus
-    - Optimizes action selection to discover new states
-    - Balances between exploring new areas and exploiting known paths
-    - Adapts exploration strategy based on application domain
+    ### Architectural Decisions:
+    - Implements a simplified exploration-exploitation balance
+    - Tracks activity coverage to prevent overexploration of single areas
+    - Provides clear mechanisms to detect and escape exploration plateaus
+    - Prioritizes undiscovered areas of the application
     """
 
     def __init__(self, short_term_memory: ShortTermMemory,
                  long_term_memory: Optional[LongTermMemory] = None,
-                 pattern_recognition: Optional[PatternRecognition] = None):
+                 pattern_recognition=None):  # Added pattern_recognition parameter with default None
         """
         Initialize the exploration optimizer.
 
@@ -59,37 +54,45 @@ class ExplorationOptimizer:
         # Store memory references
         self.short_term_memory = short_term_memory
         self.long_term_memory = long_term_memory
-        self.pattern_recognition = pattern_recognition
+        self.pattern_recognition = pattern_recognition  # Store pattern recognition reference
 
         # Exploration parameters
-        self.exploration_factor = 0.2  # Balance of exploration vs exploitation
-        self.diversity_factor = 0.3  # Importance of exploring diverse actions
-        self.security_focus_factor = 0.5  # Focus on security-sensitive operations
+        self.exploration_factor = 0.7  # Higher default for better exploration
+        self.diversity_factor = 0.5
+        self.security_focus_factor = 0.5  # For security-focused exploration
 
-        # Track exploration status
-        self.exploration_phase = "exploration"  # exploration, exploitation, security_focus
+        # Activity tracking for balancing exploration
+        self.visited_activities = set()
+        self.activity_visit_counts = {}
+        self.overexplored_threshold = 10  # Consider an activity overexplored after 10 visits
+
+        # Track exploration phase and timing
+        self.exploration_phase = "exploration"  # exploration, exploitation, focus
         self.phase_start_time = time.time()
         self.phase_duration = 300  # 5 minutes per phase
-        self.plateaus_escaped = 0
+
+        # Track potentially interesting actions
+        self.navigation_actions = set()  # Actions that led to activity transitions
+        self.security_actions = set()  # Security-sensitive actions
+
+        # Track tested actions
+        self.tested_actions = set()  # Actions that have been tested
+
+        # Track local minimums
+        self._in_local_minimum = False
         self.local_minimums_detected = 0
-
-        # Action history for diversity tracking
-        self.recent_actions: Set[int] = set()
-
-        # Current state tracking
-        self.current_state: Optional[str] = None
-        self.current_activity: Optional[str] = None
+        self.recent_actions = set()
 
         self.logger.info("Initialized exploration optimizer")
 
     def optimize_action_selection(self, screen: ScreenDescription, state_data: Dict[str, Any],
                                   available_actions: List[ItemAction]) -> List[ItemAction]:
         """
-        Optimize action selection based on exploration strategy.
+        Optimize action selection based on current state and exploration needs.
 
         Args:
             screen: Parsed screen description
-            state_data: State data dictionary
+            state_data: Raw state data
             available_actions: List of available actions
 
         Returns:
@@ -98,85 +101,132 @@ class ExplorationOptimizer:
         if not available_actions:
             return []
 
-        # Update exploration phase if needed
-        self._update_exploration_phase(state_data)
+        # Safely get current activity with default
+        current_activity = state_data.get("activity", "unknown")
 
-        # Update current state tracking
-        self.current_state = state_data.get("fingerprint", "unknown")
-        self.current_activity = state_data.get("activity", "unknown")
+        # Track activity
+        self.visited_activities.add(current_activity)
 
-        # Check for stuck in local minimum or cycle
-        in_local_minimum = self._detect_local_minimum()
+        # Track activity visit count
+        self.activity_visit_counts[current_activity] = self.activity_visit_counts.get(current_activity, 0) + 1
 
-        # If stuck, prioritize escape actions
-        if in_local_minimum:
-            self.logger.info("Detected local minimum, prioritizing escape actions")
-            return self._prioritize_escape_actions(available_actions)
+        # Check if this activity is potentially overexplored
+        activity_count = self.activity_visit_counts.get(current_activity, 0)
+        is_overexplored = activity_count > self.overexplored_threshold and len(self.visited_activities) > 1
 
-        # Otherwise, prioritize based on current phase
+        # Assign scores to actions based on exploration value
+        action_scores = {}
+
+        for action in available_actions:
+            # Calculate base score from element type
+            score = self._calculate_base_score(action, current_activity)
+
+            # Adjust for security sensitivity
+            if action.reaches_mop:
+                score *= 1.5
+                self.security_actions.add(action.id)
+
+            # Adjust for exploration value (prefer untested actions)
+            if action.id in self.tested_actions:
+                score *= 0.5
+
+            # Prioritize actions that might lead to a new activity if current one is overexplored
+            if is_overexplored:
+                if hasattr(action, 'target_view') and action.target_view:
+                    class_name = action.target_view.get("class", "")
+                    element_text = action.target_view.get("text", "")
+
+                    # Buttons with text are likely navigation elements
+                    if "Button" in class_name and element_text:
+                        score *= 2.0
+
+            # Store score
+            action_scores[action.id] = score
+
+        # Sort actions by score (highest first)
+        sorted_actions = sorted(available_actions, key=lambda a: action_scores.get(a.id, 0), reverse=True)
+
+        return sorted_actions
+
+    def _calculate_base_score(self, action: ItemAction, current_activity: str) -> float:
+        """
+        Calculate a base score for an action based on its properties.
+
+        Args:
+            action: Action to score
+            current_activity: Current activity name
+
+        Returns:
+            Base score value
+        """
+        # Start with a base score of 1.0
+        score = 1.0
+
+        # Boost score for untested actions
+        if action.id not in self.tested_actions:
+            score += 1.0
+
+        # Boost for security-sensitive operations
+        if action.reaches_mop:
+            score += 1.5
+            if action.directly_reaches_mop:
+                score += 0.5
+
+        # Check for element type if available
+        if hasattr(action, 'target_view') and action.target_view:
+            class_name = action.target_view.get("class", "")
+            element_text = action.target_view.get("text", "")
+
+            # Boost for buttons with text (likely navigation)
+            if "Button" in class_name and element_text:
+                score += 1.0
+
+            # Boost for text fields (form interaction)
+            elif "EditText" in class_name:
+                score += 0.8
+
+            # Boost for checkboxes and other interactive elements
+            elif any(c in class_name for c in ["CheckBox", "RadioButton", "Switch"]):
+                score += 0.6
+
+        # Boost for actions in the exploration phase
         if self.exploration_phase == "exploration":
-            return self._prioritize_exploration(available_actions)
+            if action.id not in self.tested_actions:
+                score *= 1.2
 
-        elif self.exploration_phase == "exploitation":
-            return self._prioritize_exploitation(available_actions, state_data)
-
+        # Boost for security operations in the security_focus phase
         elif self.exploration_phase == "security_focus":
-            return self._prioritize_security_operations(available_actions)
+            if action.reaches_mop:
+                score *= 1.5
 
-        # Default prioritization
-        return available_actions
+        return score
 
     def record_action_result(self, action: ItemAction, result: Dict[str, Any]) -> None:
         """
-        Record action execution result for optimization.
+        Record the result of an action for future optimization.
 
         Args:
             action: Action that was executed
             result: Execution result
         """
-        # Track recent actions for diversity
+        # Mark action as tested
+        self.tested_actions.add(action.id)
+
+        # Track recent actions for local minimum detection
         self.recent_actions.add(action.id)
+        if len(self.recent_actions) > 20:  # Keep only the last 20 actions
+            self.recent_actions.pop()
 
-        # Keep recent actions set to a reasonable size
-        if len(self.recent_actions) > 100:
-            self.recent_actions.clear()
+        # Check if this action caused an activity transition
+        activity_changed = result.get("activity_changed", False)
 
-        # Check if we escaped a local minimum
-        if getattr(self, "_in_local_minimum", False) and result.get("new_state", False):
-            self._in_local_minimum = False
-            self.plateaus_escaped += 1
-            self.logger.info("Escaped from local minimum/plateau")
+        if activity_changed:
+            self.logger.info(f"Recording activity transition action: {action.id}")
+            self.navigation_actions.add(action.id)
 
-    def _update_exploration_phase(self, state_data: Dict[str, Any]) -> None:
-        """
-        Update the exploration phase based on elapsed time and coverage.
-
-        Args:
-            state_data: Current state data
-        """
-        current_time = time.time()
-        elapsed_in_phase = current_time - self.phase_start_time
-
-        # Check if we should transition to next phase
-        if elapsed_in_phase >= self.phase_duration:
-            # Determine next phase
-            if self.exploration_phase == "exploration":
-                next_phase = "exploitation"
-            elif self.exploration_phase == "exploitation":
-                next_phase = "security_focus"
-            else:
-                # Cycle back to exploration
-                next_phase = "exploration"
-
-            # Log phase transition
-            self.logger.info(f"Transitioning from {self.exploration_phase} phase to {next_phase} phase")
-
-            # Update phase tracking
-            self.exploration_phase = next_phase
-            self.phase_start_time = current_time
-
-            # Adjust exploration parameters for the new phase
-            self._adjust_parameters_for_phase(next_phase)
+        # Record security operations
+        if action.reaches_mop:
+            self.security_actions.add(action.id)
 
     def _adjust_parameters_for_phase(self, phase: str) -> None:
         """
@@ -188,17 +238,15 @@ class ExplorationOptimizer:
         if phase == "exploration":
             self.exploration_factor = 0.8  # High exploration
             self.diversity_factor = 0.7
-            self.security_focus_factor = 0.2
-
+            self.security_focus_factor = 0.3
         elif phase == "exploitation":
+            self.exploration_factor = 0.3  # Moderate exploration
+            self.diversity_factor = 0.4
+            self.security_focus_factor = 0.4
+        elif phase == "security_focus":
             self.exploration_factor = 0.2  # Low exploration
             self.diversity_factor = 0.3
-            self.security_focus_factor = 0.5
-
-        elif phase == "security_focus":
-            self.exploration_factor = 0.3  # Moderate exploration
-            self.diversity_factor = 0.2
-            self.security_focus_factor = 0.9  # High security focus
+            self.security_focus_factor = 0.8
 
     def _detect_local_minimum(self) -> bool:
         """
@@ -223,7 +271,7 @@ class ExplorationOptimizer:
             self.local_minimums_detected += 1
             return True
 
-        return getattr(self, "_in_local_minimum", False)
+        return self._in_local_minimum
 
     def _prioritize_escape_actions(self, available_actions: List[ItemAction]) -> List[ItemAction]:
         """
@@ -270,150 +318,13 @@ class ExplorationOptimizer:
             elif recent_types.count(action_type) <= 2:
                 score += 0.5
 
-            # Factor 4: Prefer actions in different parts of the screen
-            if hasattr(action, 'coordinates') and action.coordinates:
-                x, y = action.coordinates
-
-                # Check if recent actions were in same screen area
-                recent_coordinates = []
-                for recent_action in recent_actions:
-                    if hasattr(recent_action, 'coordinates') and recent_action.coordinates:
-                        recent_coordinates.append(recent_action.coordinates)
-
-                # Rough screen area check (divide screen into quadrants)
-                in_different_area = True
-                for rx, ry in recent_coordinates:
-                    # Check if in same quadrant
-                    if (x < 500 and rx < 500 and y < 800 and ry < 800) or \
-                            (x < 500 and rx < 500 and y >= 800 and ry >= 800) or \
-                            (x >= 500 and rx >= 500 and y < 800 and ry < 800) or \
-                            (x >= 500 and rx >= 500 and y >= 800 and ry >= 800):
-                        in_different_area = False
-                        break
-
-                if in_different_area:
-                    score += 1.0
-
-            # Store score
-            action_scores[action.id] = score
-
-        # Sort actions by score
-        sorted_actions = sorted(available_actions, key=lambda a: action_scores.get(a.id, 0), reverse=True)
-
-        # Log top scores for debugging
-        top_scores = [(a.id, action_scores.get(a.id, 0)) for a in sorted_actions[:3]] if sorted_actions else []
-        self.logger.info(f"Prioritized actions for exploration. Top scores: {top_scores}")
-
-        return sorted_actions
-
-    def _prioritize_exploration(self, available_actions: List[ItemAction]) -> List[ItemAction]:
-        """
-        Prioritize actions for exploration phase.
-
-        Args:
-            available_actions: List of available actions
-
-        Returns:
-            Re-prioritized list of actions for exploration
-        """
-        # In exploration phase, we want to maximize state discovery
-        # Use similar approach to escape actions but with different weights
-
-        # Assign scores to actions
-        action_scores = {}
-
-        for action in available_actions:
-            # Base score
-            score = 1.0
-
-            # Prefer actions we haven't tried
-            if action.id not in self.recent_actions:
-                score += 2.0
-
-            # Prefer buttons and interactive elements
-            if hasattr(action, 'target_view') and action.target_view:
-                element_class = action.target_view.get("class", "")
-
-                if "Button" in str(element_class):
-                    score += 1.5
-                elif "EditText" in str(element_class):
-                    score += 1.0
-
-            # Moderately prefer security operations
-            if action.reaches_mop:
-                score *= 1.2
-
-            # Store score
+            # Store the score
             action_scores[action.id] = score
 
         # Sort actions by score
         sorted_actions = sorted(available_actions, key=lambda a: action_scores.get(a.id, 0), reverse=True)
 
         return sorted_actions
-
-    def _prioritize_exploitation(self, available_actions: List[ItemAction],
-                                 state_data: Dict[str, Any]) -> List[ItemAction]:
-        """
-        Prioritize actions for exploitation phase.
-
-        Args:
-            available_actions: List of available actions
-            state_data: Current state data
-
-        Returns:
-            Re-prioritized list of actions for exploitation
-        """
-        # In exploitation phase, we want to follow previously successful paths
-        # Use long-term memory to guide action selection if available
-
-        if not self.long_term_memory:
-            # Fall back to exploration
-            return self._prioritize_exploration(available_actions)
-
-        # Get current state fingerprint
-        current_state = state_data.get("fingerprint", "unknown")
-
-        # Get successful actions for this state
-        successful_actions = self.long_term_memory.get_successful_actions_for_state(current_state)
-
-        # Find matches in available actions
-        preferred_actions = []
-        other_actions = []
-
-        for action in available_actions:
-            if action.id in successful_actions:
-                preferred_actions.append(action)
-            else:
-                other_actions.append(action)
-
-        # Combine with preference for successful actions
-        return preferred_actions + other_actions
-
-    def _prioritize_security_operations(self, available_actions: List[ItemAction]) -> List[ItemAction]:
-        """
-        Prioritize security-sensitive operations.
-
-        Args:
-            available_actions: List of available actions
-
-        Returns:
-            Re-prioritized list of actions for security testing
-        """
-        # In security focus phase, we want to prioritize security operations
-        security_actions = []
-        other_actions = []
-
-        for action in available_actions:
-            if action.reaches_mop:
-                security_actions.append(action)
-            else:
-                other_actions.append(action)
-
-        # Sort security actions by directness
-        security_actions.sort(key=lambda a: a.directly_reaches_mop, reverse=True)
-
-        # Combine with preference for security actions
-        return security_actions + other_actions
 
     def _get_action_type_from_text(self, action_text: str) -> str:
         """

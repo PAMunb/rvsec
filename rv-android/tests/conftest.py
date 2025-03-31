@@ -7,6 +7,16 @@ from unittest.mock import MagicMock
 # Add the parent directory to the path to make imports work correctly
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
+def pytest_configure(config):
+    """
+    Configure pytest for the RV-Android testing environment.
+
+    Configures logging, sets up test environment, and provides global fixtures.
+    """
+    # Optional: Configure logging
+    import logging
+    logging.basicConfig(level=logging.INFO)
+
 # Global fixtures that can be used by multiple test modules
 
 @pytest.fixture

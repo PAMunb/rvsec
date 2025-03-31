@@ -310,27 +310,3 @@ class OpportunityDetector:
         """
         # Already sorted by score, just return the top ones
         return opportunities[:count]
-
-    def get_untested_actions(self, opportunities: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        """
-        Get a list of untested actions from the opportunities.
-
-        Args:
-            opportunities: List of opportunities
-
-        Returns:
-            List of untested actions
-        """
-        return [opp for opp in opportunities if not opp["already_tested"]]
-
-    def get_security_sensitive_actions(self, opportunities: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        """
-        Get a list of security-sensitive actions from the opportunities.
-
-        Args:
-            opportunities: List of opportunities
-
-        Returns:
-            List of security-sensitive actions
-        """
-        return [opp for opp in opportunities if opp["reaches_mop"] or opp["security_level"] in ["high", "critical"]]

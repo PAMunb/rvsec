@@ -233,56 +233,6 @@ class ProgressTracker:
             "plateaus_count": len(self.exploration_plateaus)
         }
 
-    def get_most_visited_states(self, limit: int = 5) -> List[Tuple[str, int]]:
-        """
-        Get the most frequently visited states.
-
-        Args:
-            limit: Maximum number of states to return
-
-        Returns:
-            List of (state_fingerprint, visit_count) tuples
-        """
-        state_visits = [(state, len(times)) for state, times in self.state_visit_times.items()]
-        state_visits.sort(key=lambda x: x[1], reverse=True)
-        return state_visits[:limit]
-
-    def get_most_executed_actions(self, limit: int = 5) -> List[Tuple[int, int]]:
-        """
-        Get the most frequently executed actions.
-
-        Args:
-            limit: Maximum number of actions to return
-
-        Returns:
-            List of (action_id, execution_count) tuples
-        """
-        action_counts = list(self.executed_actions.items())
-        action_counts.sort(key=lambda x: x[1], reverse=True)
-        return action_counts[:limit]
-
-    def get_longest_plateaus(self, limit: int = 3) -> List[Dict[str, Any]]:
-        """
-        Get the longest exploration plateaus.
-
-        Args:
-            limit: Maximum number of plateaus to return
-
-        Returns:
-            List of plateau dictionaries
-        """
-        sorted_plateaus = sorted(self.exploration_plateaus, key=lambda x: x["duration"], reverse=True)
-        return sorted_plateaus[:limit]
-
-    def get_coverage_trend(self) -> List[Dict[str, Any]]:
-        """
-        Get the coverage trend over time.
-
-        Returns:
-            List of coverage snapshots
-        """
-        return self.coverage_snapshots
-
     def get_progress_summary(self) -> Dict[str, Any]:
         """
         Get a summary of the testing progress.

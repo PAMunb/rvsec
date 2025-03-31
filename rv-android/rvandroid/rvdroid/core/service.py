@@ -146,6 +146,9 @@ class RVDroidService:
         # Initialize action executor
         self.action_executor = ActionExecutor(device_id)
 
+        # Ensure strategies are registered
+        self._ensure_strategies_registered()
+
         # Initialize strategy components
         self.strategy_balancer = StrategyBalancer(static_data, use_llm_guidance=use_llm)
         self.current_strategy = None
@@ -181,7 +184,6 @@ class RVDroidService:
             self.logger.info("LLM guidance enabled")
         if self.preferred_strategy_name:
             self.logger.info(f"Preferred strategy set to: {self.preferred_strategy_name}")
-
 
     def _set_preferred_strategy(self, strategy_name: str) -> bool:
         """
@@ -227,11 +229,61 @@ class RVDroidService:
                     matched_strategy_info = strategy_info
                     break
 
+        # If still no match, attempt to create the strategy directly
+        if not matched_strategy_info:
+            strategy_class_name = normalized_name.capitalize() if not normalized_name.startswith(
+                "visual") else "VisualAwareStrategy"
+
+            # Try to dynamically create the strategy
+            try:
+                # Import the strategy module
+                if strategy_class_name == "VisualAwareStrategy":
+                    from rvandroid.rvdroid.strategy.visual_aware_strategy import VisualAwareStrategy as StrategyClass
+                elif strategy_class_name == "RandomStrategy":
+                    from rvandroid.rvdroid.strategy.basic_strategies import RandomStrategy as StrategyClass
+                elif strategy_class_name == "SystematicStrategy":
+                    from rvandroid.rvdroid.strategy.basic_strategies import SystematicStrategy as StrategyClass
+                elif strategy_class_name == "SecurityfocusedStrategy" or strategy_class_name == "SecurityFocusedStrategy":
+                    from rvandroid.rvdroid.strategy.basic_strategies import SecurityFocusedStrategy as StrategyClass
+                else:
+                    self.logger.error(f"Unknown strategy class: {strategy_class_name}")
+                    return False
+
+                # Create the strategy
+                strategy_instance = StrategyClass(self.static_data)
+
+                # Add to strategy balancer
+                strategy_info = {
+                    "strategy": strategy_instance,
+                    "weight": 1.0,
+                    "performance": {
+                        "new_states": 0,
+                        "successful_actions": 0,
+                        "total_actions": 0
+                    }
+                }
+
+                self.strategy_balancer.strategies.append(strategy_info)
+                matched_strategy_info = strategy_info
+
+                # Re-normalize weights
+                if hasattr(self.strategy_balancer, '_normalize_weights'):
+                    self.strategy_balancer._normalize_weights()
+
+                self.logger.info(f"Created and added strategy: {strategy_class_name}")
+
+            except Exception as e:
+                self.logger.error(f"Failed to create strategy {strategy_class_name}: {e}")
+                return False
+
         # Set the matched strategy as preferred
         if matched_strategy_info:
             # Set as preferred
             self.strategy_balancer.preferred_strategy_info = matched_strategy_info
             self.strategy_balancer.last_strategy_switch = time.time()
+
+            # Set current strategy
+            self.current_strategy = matched_strategy_info["strategy"]
 
             self.logger.info(
                 f"Set preferred strategy to {matched_strategy_info['strategy'].__class__.__name__} ({matched_strategy_info['strategy'].name})")
@@ -408,14 +460,32 @@ class RVDroidService:
         # For now, just return the statistics we've collected
         return self._collect_results()
 
-    def get_current_state(self) -> Optional[Dict[str, Any]]:
+    def _ensure_strategies_registered(self):
         """
-        Get the current application state.
+        Ensure all strategy classes are properly registered with the registry.
+        """
+        from rvandroid.rvdroid.strategy.strategy import StrategyRegistry
+        from rvandroid.rvdroid.strategy.basic_strategies import (
+            RandomStrategy,
+            SystematicStrategy,
+            SecurityFocusedStrategy
+        )
+        from rvandroid.rvdroid.strategy.visual_aware_strategy import VisualAwareStrategy
 
-        Returns:
-            Current state dictionary or None if not available
-        """
-        return self.current_state
+        # Check if strategies are registered
+        registered_strategies = StrategyRegistry.list_strategies()
+        self.logger.info(f"Currently registered strategies: {registered_strategies}")
+
+        # Register any missing strategies
+        for strategy_class in [RandomStrategy, SystematicStrategy, SecurityFocusedStrategy, VisualAwareStrategy]:
+            class_name = strategy_class.__name__
+            if class_name not in registered_strategies:
+                self.logger.info(f"Registering missing strategy: {class_name}")
+                StrategyRegistry.register(strategy_class)
+
+        # Verify registration
+        registered_strategies = StrategyRegistry.list_strategies()
+        self.logger.info(f"Updated registered strategies: {registered_strategies}")
 
     def _ensure_back_action_available(self, actions: List[ItemAction]) -> List[ItemAction]:
         """
@@ -493,48 +563,6 @@ class RVDroidService:
 
         return stats
 
-    def execute_specific_action(self, action: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        Execute a specific action.
-
-        Args:
-            action: Action dictionary with type, target, and parameters
-
-        Returns:
-            Result dictionary with success status and state change info
-        """
-        self.logger.info(f"Executing specific action: {action}")
-
-        try:
-            # Execute the action
-            success = self.action_executor.execute_action(action)
-
-            # Update current state
-            previous_state = self.current_state
-            self._update_current_state()
-
-            # Check if state changed
-            new_state = False
-            if previous_state and self.current_state:
-                new_state = previous_state.get("fingerprint") != self.current_state.get("fingerprint")
-
-            # Create result
-            result = {
-                "success": success,
-                "new_state": new_state,
-                "previous_state": previous_state.get("fingerprint") if previous_state else None,
-                "current_state": self.current_state.get("fingerprint") if self.current_state else None
-            }
-
-            # Update statistics
-            self.stats["actions_executed"] += 1
-
-            return result
-
-        except Exception as e:
-            self.logger.error(f"Error executing specific action: {e}")
-            return {"success": False, "error": str(e)}
-
     def cleanup(self) -> None:
         """
         Clean up resources used by RVDroid.
@@ -559,12 +587,26 @@ class RVDroidService:
         """
         Execute a single test iteration.
 
+        Enhanced to track and prioritize unexplored activities.
+
         Returns:
             Result dictionary with execution details
         """
         try:
             # 1. Analyze current state
             state_analysis = self._analyze_state()
+
+            # Track current activity and visited activities
+            current_activity = self.current_state.get("activity", "unknown") if self.current_state else "unknown"
+
+            # Initialize visited activities tracking if needed
+            if not hasattr(self, 'visited_activities'):
+                self.visited_activities = set()
+                self.activity_visit_counts = {}
+
+            # Update activity visit tracking
+            self.visited_activities.add(current_activity)
+            self.activity_visit_counts[current_activity] = self.activity_visit_counts.get(current_activity, 0) + 1
 
             # Check if app is in foreground
             if not state_analysis or state_analysis.get("app_in_foreground", False) == False:
@@ -590,15 +632,20 @@ class RVDroidService:
                 self._get_llm_guidance(state_analysis)
                 self.last_llm_guidance_time = current_time
 
-            # 3. Select the strategy to use
-            if self.strategy_balancer:
-                self.current_strategy = self.strategy_balancer.select_strategy(state_analysis)
-                print("=== Selected strategy: ", self.current_strategy)
-
+            # 3. Manually create basic strategy objects if needed
+            # This ensures we always have at least one strategy available
             if not self.current_strategy:
-                # Fall back to default strategy
-                self.current_strategy = StrategyRegistry.create_strategy("RandomStrategy", self.static_data)
-                print("=== Fallback strategy: ", self.current_strategy)
+                try:
+                    from rvandroid.rvdroid.strategy.basic_strategies import RandomStrategy
+                    self.current_strategy = RandomStrategy(self.static_data)
+                    self.logger.info("Created RandomStrategy directly as fallback")
+                except Exception as e:
+                    self.logger.error(f"Failed to create RandomStrategy directly: {e}")
+                    # Final fallback: create an extremely simple strategy
+                    self.current_strategy = self._create_emergency_strategy()
+                    if not self.current_strategy:
+                        self.logger.error("All strategy creation attempts failed")
+                        return {"success": False, "error": "Cannot create any strategy"}
 
             # 4. Generate next action - using memory-optimized action generation
             action = self._generate_action_with_memory()
@@ -615,6 +662,7 @@ class RVDroidService:
 
             # 5. Execute action
             previous_state_fingerprint = self.current_state.get("fingerprint") if self.current_state else None
+            previous_state_activity = self.current_state.get("activity") if self.current_state else None
 
             # Record action reference for later use
             self.last_action = action
@@ -631,20 +679,28 @@ class RVDroidService:
             # 7. Check if state changed
             new_state = False
             current_fingerprint = self.current_state.get("fingerprint") if self.current_state else None
+            current_state_activity = self.current_state.get("activity") if self.current_state else None
 
             if previous_state_fingerprint and current_fingerprint:
                 new_state = previous_state_fingerprint != current_fingerprint
 
-                # Transition is already recorded by memory_system.process_state and process_action
+                # Check if we've moved to a different activity
+                activity_changed = previous_state_activity != current_state_activity
+                if activity_changed:
+                    self.logger.info(f"Activity transition: {previous_state_activity} -> {current_state_activity}")
 
             # 8. Create result
             result = {
                 "success": success,
                 "new_state": new_state,
                 "previous_state": previous_state_fingerprint,
+                "previous_state_activity": previous_state_activity,
                 "state_fingerprint": current_fingerprint,
+                "current_state_activity": current_state_activity,
                 "action_id": action.id,
-                "strategy": self.current_strategy.name if self.current_strategy else "unknown"
+                "strategy": self.current_strategy.name if self.current_strategy else "emergency",
+                "activity_changed": (previous_state_activity != current_state_activity)
+                if previous_state_activity and current_state_activity else False
             }
 
             # 9. Get action feedback from LLM if enabled
@@ -675,15 +731,67 @@ class RVDroidService:
             self.action_executor._execute_key_event("BACK")
             return {"success": False, "error": str(e)}
 
+    def _create_emergency_strategy(self) -> 'Strategy':
+        """
+        Create an emergency, bare-bones strategy for when all other strategies fail.
+
+        This is a last-resort approach to ensure the system can continue testing.
+
+        Returns:
+            A minimal working Strategy implementation
+        """
+        from rvandroid.rvdroid.strategy.strategy import Strategy
+        from rvandroid.parser.screen.visitor.base_visitor import ScreenDescription, ItemAction
+        import random
+
+        class EmergencyStrategy(Strategy):
+            def __init__(self, static_data=None):
+                super().__init__(static_data, "EmergencyStrategy")
+
+            def generate_action(self, screen, state_data, history=None):
+                """Simply pick a random action or back button."""
+                all_actions = []
+                back_actions = []
+
+                # Collect all actions
+                for item in screen.items:
+                    for action in item.actions:
+                        all_actions.append(action)
+                        if "BACK" in action.text.upper():
+                            back_actions.append(action)
+
+                # Prioritize back actions
+                if back_actions and random.random() < 0.3:  # 30% chance to use back
+                    return random.choice(back_actions)
+
+                # Otherwise pick a random action
+                if all_actions:
+                    return random.choice(all_actions)
+
+                return None
+
+            def update_feedback(self, action, result):
+                """Do nothing for this emergency strategy."""
+                pass
+
+        # Create and return instance
+        return EmergencyStrategy(self.static_data)
+
     def _generate_action_with_memory(self) -> Optional[ItemAction]:
         """
         Generate the next action using memory-based optimization.
 
+        Enhanced to prioritize actions that lead to unexplored activities.
+
         Returns:
             Next action to execute or None if no action available
         """
-        if not self.current_strategy or not self.current_screen:
-            self.logger.error("Cannot generate action: missing strategy or screen")
+        if not self.current_strategy:
+            self.logger.error("Cannot generate action: missing strategy")
+            return None
+
+        if not self.current_screen:
+            self.logger.error("Cannot generate action: missing screen")
             return None
 
         try:
@@ -692,41 +800,103 @@ class RVDroidService:
             for item in self.current_screen.items:
                 all_actions.extend(item.actions)
 
+            # If no actions are available, return None early
+            if not all_actions:
+                self.logger.warning("No UI actions available")
+                return None
+
             # Ensure BACK action is available
             all_actions = self._ensure_back_action_available(all_actions)
 
-            # First optimize using memory system
-            optimized_actions = self.memory_system.optimize_actions(
-                self.current_screen,
-                self.current_state or {},
-                all_actions
-            )
+            # Track current activity and visited activities - with safety checks
+            current_activity = "unknown"
+            if self.current_state and "activity" in self.current_state:
+                current_activity = self.current_state.get("activity", "unknown")
 
-            # Then use strategy on the optimized list (if optimized list is available)
+            # Initialize activity tracking if needed
+            if not hasattr(self, 'visited_activities'):
+                self.visited_activities = set()
+                self.activity_visit_counts = {}
+
+            # Update activity tracking
+            self.visited_activities.add(current_activity)
+            self.activity_visit_counts[current_activity] = self.activity_visit_counts.get(current_activity, 0) + 1
+
+            # Check if this activity is potentially overexplored
+            activity_count = self.activity_visit_counts.get(current_activity, 0)
+            is_overexplored = activity_count > 10 and len(self.visited_activities) > 1
+
+            # Optimize using memory system if available
+            optimized_actions = all_actions
+            if hasattr(self.memory_system, 'optimize_actions'):
+                try:
+                    optimized_actions = self.memory_system.optimize_actions(
+                        self.current_screen,
+                        self.current_state or {},
+                        all_actions
+                    )
+                except Exception as e:
+                    self.logger.error(f"Memory system optimization failed: {e}, using all actions")
+                    optimized_actions = all_actions
+
+            # If the activity is overexplored, prioritize actions that might lead elsewhere
+            if is_overexplored:
+                self.logger.info(
+                    f"Activity {current_activity} appears overexplored (visits={activity_count}), prioritizing navigation")
+
+                # Look for navigation-related actions
+                navigation_actions = []
+                other_actions = []
+
+                for action in optimized_actions:
+                    # Check if this looks like a navigation action
+                    is_navigation = False
+
+                    # Check action properties for navigation potential
+                    if hasattr(action, 'target_view') and action.target_view:
+                        class_name = action.target_view.get("class", "")
+                        text = action.target_view.get("text", "")
+
+                        # Buttons with text are likely navigation elements
+                        if "Button" in class_name and text and "CLICK" in action.text:
+                            is_navigation = True
+
+                    # Add to appropriate list
+                    if is_navigation:
+                        navigation_actions.append(action)
+                    else:
+                        other_actions.append(action)
+
+                # Use navigation actions if available, otherwise use regular optimization
+                if navigation_actions:
+                    # Use the first navigation action
+                    self.logger.debug(f"Selected navigation action to leave overexplored activity")
+                    return navigation_actions[0]
+
+            # Use strategy to select from optimized actions
+            action = None
             if optimized_actions:
-                action = self.current_strategy.generate_action(
-                    self.current_screen,
-                    self.current_state or {},
-                    []  # No need to pass history - memory system already used it
-                )
+                try:
+                    action = self.current_strategy.generate_action(
+                        self.current_screen,
+                        self.current_state or {},
+                        []  # No need to pass history - memory system already used it
+                    )
+                except Exception as e:
+                    self.logger.error(f"Strategy action generation failed: {e}")
+                    # Fall back to a random action
+                    if optimized_actions:
+                        import random
+                        action = random.choice(optimized_actions)
+                        self.logger.info(f"Selected random action after strategy failure: {action.id}")
 
                 if action:
                     self.logger.debug(f"Generated action {action.id}: {action.text}")
                     return action
 
                 # If strategy couldn't select an action, use the first optimized action
-                return optimized_actions[0]
-            else:
-                # If no optimized actions, fall back to strategy
-                action = self.current_strategy.generate_action(
-                    self.current_screen,
-                    self.current_state or {},
-                    []
-                )
-
-                if action:
-                    self.logger.debug(f"Generated action using strategy fallback: {action.id}: {action.text}")
-                    return action
+                if optimized_actions:
+                    return optimized_actions[0]
 
             return None
 
@@ -1001,22 +1171,16 @@ class RVDroidService:
                 self.logger.error("Failed to get UI state")
                 return
 
+            # Parse state to create ScreenDescription - ensure this happens before memory processing
+            self.current_screen = self.ui_adapter.parse_screen(ui_state, self.static_data)
+
+            if not self.current_screen:
+                self.logger.error("Failed to parse screen description")
+                return
+
             # Extract state information
             current_activity = ui_state.get("activity", "unknown")
             current_package = ui_state.get("package_name", "unknown")
-
-            # Capture screenshot based on configuration frequency
-            should_take_screenshot = False
-            previous_fingerprint = self.last_state_fingerprint
-
-            if self.use_screenshot_analysis:
-                if self.screenshot_frequency == "always":
-                    should_take_screenshot = True
-                elif self.last_screenshot_path is None:  # First state
-                    should_take_screenshot = True
-
-            # Parse state to create ScreenDescription
-            self.current_screen = self.ui_adapter.parse_screen(ui_state, self.static_data)
 
             # Process state through memory system
             memory_result = self.memory_system.process_state(self.current_screen, ui_state)
@@ -1025,12 +1189,18 @@ class RVDroidService:
             current_fingerprint = memory_result["fingerprint"]
             self.last_state_fingerprint = current_fingerprint
 
-            # Check if the state changed to decide if take screenshot (frequency="state_change")
-            if self.use_screenshot_analysis and self.screenshot_frequency == "state_change":
-                if previous_fingerprint != current_fingerprint:
+            # Take screenshot if necessary
+            should_take_screenshot = False
+            previous_fingerprint = self.last_state_fingerprint
+
+            if self.use_screenshot_analysis:
+                if self.screenshot_frequency == "always":
+                    should_take_screenshot = True
+                elif self.last_screenshot_path is None:  # First state
+                    should_take_screenshot = True
+                elif self.screenshot_frequency == "state_change" and previous_fingerprint != current_fingerprint:
                     should_take_screenshot = True
 
-            # Take screenshot if necessary
             if should_take_screenshot:
                 self.last_screenshot_path = self.ui_adapter.take_screenshot()
                 if self.last_screenshot_path:

@@ -99,28 +99,6 @@ class PerformanceMonitor:
         self.metrics.append(metric)
         self._notify_subscribers(metric)
 
-    def record_timing(self, name: str, duration: float, context: Optional[Dict[str, Any]] = None):
-        """
-        Record a timing metric.
-
-        Args:
-            name: Name of the timing metric
-            duration: Duration in seconds
-            context: Additional context for the metric (optional)
-        """
-        metric = TimingMetric(
-            name=name,
-            value=duration,
-            unit="s",
-            timestamp=time.time(),
-            context=context or {},
-            start_time=time.time() - duration,
-            end_time=time.time()
-        )
-
-        self.metrics.append(metric)
-        self._notify_subscribers(metric)
-
     @contextmanager
     def measure_time(self, name: str, context: Optional[Dict[str, Any]] = None):
         """

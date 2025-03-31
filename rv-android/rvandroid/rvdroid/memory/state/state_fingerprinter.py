@@ -19,30 +19,22 @@ class StateFingerprinter:
     """
     Generates unique fingerprints for application states.
 
-    ### Architectural Decisions:
-    - Implements a deterministic fingerprinting algorithm for reproducible state identification
-    - Uses elements' structural properties rather than visual appearance for stability
-    - Applies intelligent filtering to exclude volatile or irrelevant UI elements
-    - Supports context-aware fingerprinting with configurable precision levels
-    - Optimizes computation by focusing on the most distinctive screen elements
+    Creates stable identifiers that combine activity name and UI structure,
+    allowing the system to reliably identify and track application states.
 
-    ### Role in the System:
-    - Provides stable, unique identifiers for application states
-    - Enables reliable state tracking and transition analysis
-    - Supports memory systems with consistent state identification
-    - Minimizes false state change detection due to irrelevant UI elements
+    ### Architectural Decisions:
+    - Combines activity name and UI structure for reliable state identification
+    - Filters out unstable or irrelevant UI elements to improve consistency
+    - Prioritizes structural elements over dynamic content
+    - Uses robust hashing algorithm to minimize collision risk
     """
 
-    def __init__(self, ignore_dynamic_content: bool = True,
-                 ignore_system_elements: bool = True,
-                 prioritize_interactive_elements: bool = True):
+    def __init__(self, ignore_dynamic_content: bool = True):
         """
         Initialize the state fingerprinter.
 
         Args:
             ignore_dynamic_content: Whether to ignore elements with dynamic content
-            ignore_system_elements: Whether to ignore system UI elements
-            prioritize_interactive_elements: Whether to prioritize interactive elements
         """
         # Configure logging
         logging_manager = LoggingManager.get_instance()
@@ -53,8 +45,6 @@ class StateFingerprinter:
 
         # Configuration options
         self.ignore_dynamic_content = ignore_dynamic_content
-        self.ignore_system_elements = ignore_system_elements
-        self.prioritize_interactive_elements = prioritize_interactive_elements
 
         # System package prefixes to ignore
         self.system_packages = {
@@ -73,22 +63,15 @@ class StateFingerprinter:
             "id="
         }
 
-        # Interactive element classes for prioritization
-        self.interactive_classes = {
-            "Button",
-            "CheckBox",
-            "RadioButton",
-            "Spinner",
-            "EditText",
-            "Switch"
-        }
-
         self.logger.info("Initialized state fingerprinter")
 
     def generate_fingerprint(self, screen: ScreenDescription,
                              state_data: Dict[str, Any]) -> str:
         """
         Generate a stable fingerprint for the current application state.
+
+        The fingerprint combines the activity name with essential UI elements
+        to ensure states are reliably identified even with minor UI changes.
 
         Args:
             screen: Parsed screen description
@@ -98,7 +81,8 @@ class StateFingerprinter:
             State fingerprint string
         """
         # Start with activity name as base component
-        components = [screen.activity]
+        activity_name = screen.activity
+        components = [activity_name]
 
         # Extract essential UI elements that define the state
         ui_elements = self._extract_significant_elements(screen)
@@ -107,11 +91,20 @@ class StateFingerprinter:
         # Create fingerprint from combined components
         fingerprint = self._create_hash_from_components(components)
 
+        # Log components for debugging if needed
+        if len(ui_elements) < 5:
+            self.logger.debug(f"State fingerprint components for {activity_name}: {ui_elements}")
+        else:
+            self.logger.debug(f"State fingerprint based on {len(ui_elements)} elements for {activity_name}")
+
         return fingerprint
 
     def _extract_significant_elements(self, screen: ScreenDescription) -> List[str]:
         """
         Extract significant UI elements that define the state.
+
+        Focuses on stable identifiers like resource IDs and avoids
+        dynamic content that might change between instances.
 
         Args:
             screen: Parsed screen description
@@ -119,25 +112,25 @@ class StateFingerprinter:
         Returns:
             List of element identifiers
         """
-        # Lists to store elements by priority
-        priority_elements = []
-        standard_elements = []
+        # Lists to store elements by type
+        id_elements = []  # Elements with resource IDs
+        text_elements = []  # Elements with text
+        structural_elements = []  # Elements with just a class name
 
         # Track processed resource IDs to avoid duplicates
         processed_ids: Set[str] = set()
 
         # Process all items
         for item in screen.items:
-            # Skip system elements if configured
-            if self.ignore_system_elements:
-                item_class = item.view.get("class", "")
-                if any(pkg in item_class for pkg in self.system_packages):
-                    continue
+            # Skip system elements
+            item_class = item.view.get("class", "")
+            if any(pkg in item_class for pkg in self.system_packages):
+                continue
 
-            # Extract key properties that identify the element
+            # Extract key properties
             element_id = item.view.get("resource_id", "")
             element_class = item.view.get("class", "")
-            element_text = item.view.get("text", "")
+            element_text = item.view.get("text", "").strip()
 
             # Skip if we've already processed this resource ID
             if element_id and element_id in processed_ids:
@@ -150,36 +143,36 @@ class StateFingerprinter:
             # Skip dynamic content if configured
             if self.ignore_dynamic_content and element_text:
                 if any(pattern in element_text.lower() for pattern in self.dynamic_content_patterns):
-                    # Replace dynamic content with placeholder
+                    # Replace dynamic content with placeholder or skip
                     element_text = "<dynamic_content>"
 
-            # Create element signature
-            element_signature = None
+            # Categorize by available properties
             if element_id:
-                element_signature = f"id:{element_id}"
+                id_elements.append(f"id:{element_id}")
             elif element_text:
-                element_signature = f"text:{element_text}:{element_class}"
+                # Only include text if it's meaningful
+                if len(element_text) > 1:
+                    text_elements.append(f"text:{element_text}:{element_class}")
             elif element_class:
-                # When no better identifier is available, use class
-                element_signature = f"class:{element_class}"
+                # For structural elements, include bounds to avoid confusion
+                bounds = item.view.get("bounds", [])
+                if bounds and len(bounds) == 2:
+                    x1, y1 = bounds[0]
+                    x2, y2 = bounds[1]
+                    area = (x2 - x1) * (y2 - y1)
+                    # Only include larger elements
+                    if area > 1000:
+                        structural_elements.append(f"class:{element_class}:{x1}_{y1}_{x2}_{y2}")
+                else:
+                    structural_elements.append(f"class:{element_class}")
 
-            if not element_signature:
-                continue
+        # Sort each category for consistency
+        id_elements.sort()
+        text_elements.sort()
+        structural_elements.sort()
 
-            # Determine if this is an interactive element
-            is_interactive = any(cls in element_class for cls in self.interactive_classes)
-
-            # Add to appropriate list based on priority
-            if self.prioritize_interactive_elements and is_interactive:
-                priority_elements.append(element_signature)
-            else:
-                standard_elements.append(element_signature)
-
-        # Combine and sort elements
-        all_elements = priority_elements + standard_elements
-        all_elements.sort()
-
-        return all_elements
+        # Combine elements with priority for more stable identifiers
+        return id_elements + text_elements + structural_elements
 
     def _create_hash_from_components(self, components: List[str]) -> str:
         """
@@ -191,19 +184,8 @@ class StateFingerprinter:
         Returns:
             Hash string
         """
-        # Join components and create hash
+        # Create a deterministic string representation
         combined = "|".join(components)
+
+        # Use MD5 for quick and reliable hashing
         return hashlib.md5(combined.encode()).hexdigest()
-
-    def is_same_state(self, fingerprint1: str, fingerprint2: str) -> bool:
-        """
-        Check if two fingerprints represent the same state.
-
-        Args:
-            fingerprint1: First fingerprint
-            fingerprint2: Second fingerprint
-
-        Returns:
-            True if same state, False otherwise
-        """
-        return fingerprint1 == fingerprint2
