@@ -1,26 +1,61 @@
 # rvandroid/tools/qtesting/tool.py
+"""
+QTesting tool implementation with configuration support.
+"""
 import os
 
 from rvandroid.app import App
 from rvandroid.commands.command import Command
-from rvandroid.experiment.task.task_model import Task  # Updated import
+from rvandroid.experiment.task.task_model import Task
+from rvandroid.tools.configurable_tool import ConfigurableTool
 from settings import TOOLS_DIR
-from ..tool_spec import AbstractTool
 
 
-class ToolSpec(AbstractTool):
+class ToolSpec(ConfigurableTool):
+    """
+    QTesting tool with configurable parameters.
+
+    ### Architectural Decisions:
+    - Extends ConfigurableTool for standardized configuration handling
+    - Provides a unified interface to the QTesting framework
+    - Supports customization through configuration parameters
+
+    ### Role in the System:
+    - Integrates QTesting Android testing tool into the RV-Android framework
+    - Enables reinforcement learning-based testing with configurable parameters
+    - Provides consistent execution interface aligned with other tools
+    """
+
     def __init__(self):
-        super(ToolSpec, self).__init__("qtesting", """ qtesting """, "main.py")
+        """Initialize the QTesting tool with default configuration."""
+        super().__init__(
+            "qtesting",
+            "QTesting is a reinforcement learning-based Android testing tool.",
+            "main.py"
+        )
+
+        # Default configuration
+        self.config = {
+            "test_index": 1  # Default test index
+        }
+
+    def configure_tool_specific(self, config):
+        """Configure QTesting-specific parameters."""
+        # Update parameters if specified
+        if "test_index" in config:
+            self.config["test_index"] = int(config["test_index"])
 
     def execute_tool_specific_logic(self, task: Task, app: App):
+        """Execute QTesting with the configured parameters."""
+        self.logger.info(f"Running QTesting on {app.name}")
+
         timeout_in_seconds = task.config.timeout
         qtesting_dir = os.path.join(TOOLS_DIR, "qtesting")
         qtesting_python = os.path.join(qtesting_dir, "venv", "bin", "python")
         qtesting_entrypoint = os.path.join(qtesting_dir, "src", "main.py")
-        # qtesting_dir = os.path.join(WORKING_DIR, "tools", "qtesting")
-        # qtesting_entrypoint = os.path.join(qtesting_dir, "run.sh")
+
+        # Create configuration file
         config_file = os.path.join(qtesting_dir, "src", "conf.txt")
-        # config_file = os.path.join(qtesting_dir, "apks", "conf.txt")
         with open(config_file, "w") as f:
             f.write("""
                     [Path]
@@ -29,31 +64,18 @@ class ToolSpec(AbstractTool):
                     [Setting]
                     DEVICE_ID = emulator-5554
                     TIME_LIMIT = {1}
-                    TEST_INDEX=1""".format(app.path, timeout_in_seconds))
-            # f.write("""
-            #         [Path]
-            #         Benchmark =
-            #         APK_NAME = /qtesting/apks/app.apk
-            #         [Setting]
-            #         DEVICE_ID = emulator-5554
-            #         TIME_LIMIT = {0}
-            #         TEST_INDEX=1""".format(timeout_in_seconds))
+                    TEST_INDEX={2}""".format(
+                app.path,
+                timeout_in_seconds,
+                self.config["test_index"]
+            ))
 
+        # Execute QTesting
         with open(task.result.trace_file, "wb") as qtesting_trace:
-            # exec_cmd = Command(qtesting_entrypoint, [
-            #     "{}".format(qtesting_dir)
-            # ], timeout_in_seconds)
-
             exec_cmd = Command("python", [
-                "{}".format(qtesting_entrypoint),
+                f"{qtesting_entrypoint}",
                 "-r",
-                "{0}".format(config_file)
+                f"{config_file}"
             ])
-            # ], timeout_in_seconds)
-
-            # exec_cmd = Command("{}".format(qtesting_entrypoint), [
-            #     app.path,
-            #     qtesting_dir
-            # ], timeout_in_seconds)
 
             exec_cmd.invoke(stdout=qtesting_trace)

@@ -1,34 +1,181 @@
 # main.py
 import argparse
 import importlib
+import json
 import logging
 import os
 import sys
 import time
 from argparse import Namespace
+from typing import Dict, Any
 
 from rvandroid.config.configuration import Configuration
 from rvandroid.config.configuration_manager import ConfigurationManager
 from rvandroid.constants import *
 from rvandroid.experiment.experiment_controller import ExperimentController
 from rvandroid.experiment.experiment_controller import execute as experiment_execute
+from rvandroid.llm.ollama_llm import OllamaLLM
 from rvandroid.tools.registry import ToolRegistry
-from rvandroid.tools.tool_spec import AbstractTool
+from rvandroid.tools.tool_factory import ToolFactory
 from rvandroid.util import utils
 from rvandroid.util.logging.manager import LoggingManager
 
-available_tools: dict[str, AbstractTool] = {}
+"""
+RV-Android Usage Guide
+======================
+
+RV-Android is a modular testing framework for Android applications with runtime verification
+capabilities. This guide explains how to run experiments, configure the system, and use the 
+various tool variants.
+
+Basic Usage
+----------
+The main entry point for RV-Android is the `main.py` script, which can be used to run 
+experiments with various testing tools and configurations:
+
+   # Basic usage with a single tool
+   python main.py --no_window -tools monkey -r 1 -t 60
+
+   # Using multiple tools with 3 repetitions and different timeouts
+   python main.py --no_window -tools monkey droidbot:dfs_greedy -r 3 -t 120 300 600 900
+
+Command-Line Arguments
+---------------------
+-tools              List of testing tools to use in the experiment (default: monkey)
+-t                  List of execution timeouts in seconds (default: [60])
+-r                  Number of repetitions (default: 1)
+-c                  Path to an execution memory file or configuration JSON
+--no_window         Start emulator without GUI window
+--debug             Enable debug logging
+--list-tools        Display available tools and their variants
+--skip_monitors     Skip monitor generation
+--skip_instrument   Skip instrumentation
+--skip_experiment   Skip experiment execution
+--skip_static_analysis  Skip static analysis
+
+Tool Specification Format
+------------------------
+Tools can be specified with variants and parameters using the following format:
+tool_name[:variant1][:variant2][@param1=value1,param2=value2]
+
+Examples:
+- monkey                           Use the default Monkey tool
+- droidbot:dfs_greedy              Use DroidBot with the dfs_greedy variant
+- rvandroid:llama:single_action    Use RVAndroid with the llama and single_action variants
+- rvandroid@model=gpt-4,strategy=composable  Use RVAndroid with custom parameters
+
+Available Tool Variants
+----------------------
+1. DroidBot Variants:
+  - dfs_naive, dfs_greedy, bfs_naive, bfs_greedy
+  Example: python main.py -tools droidbot:dfs_greedy
+
+2. RVAndroid Variants:
+  - LLM Variants: llama, gpt4, claude
+  - Strategy Variants: single_action, composable
+  Example: python main.py -tools rvandroid:llama:single_action
+  Example: python main.py -tools rvandroid@model=gpt-4,strategy=composable
+
+3. RVDroid Variants:
+  - llm_enabled: Enables LLM-guided testing
+  - detailed_ui: Uses detailed UI parser
+  Example: python main.py -tools rvdroid:llm_enabled
+
+4. Monkey Variants:
+  - fixed_seed: Uses a fixed seed (42)
+  - low_throttle: Uses lower throttle value (50)
+  Example: python main.py -tools monkey:fixed_seed
+
+5. FastBot Variants:
+  - fast: Uses low throttle (50)
+  - slow: Uses high throttle (500)
+  Example: python main.py -tools fastbot:fast
+
+Configuration Files
+------------------
+Instead of specifying all parameters via command line, you can use a JSON configuration file:
+
+   python main.py -c experiment_config.json
+
+Configuration file example:
+{
+   "repetitions": 3,
+   "timeouts": [60, 120, 300],
+   "no_window": true,
+   "tools": [
+       {
+           "name": "monkey",
+           "variant": "fixed_seed"
+       },
+       {
+           "name": "droidbot",
+           "variant": "dfs_greedy",
+           "params": {
+               "count": "1000"
+           }
+       },
+       {
+           "name": "rvandroid",
+           "variants": ["llama", "single_action"],
+           "params": {
+               "temperature": 0.2
+           }
+       }
+   ]
+}
+
+Continuing Experiments with Memory Files
+---------------------------------------
+To continue an interrupted experiment, use the memory file option:
+
+   python main.py -c path/to/execution_memory.json
+
+Environment Variables
+-------------------
+The following environment variables can be used to override command-line arguments:
+RV_TOOLS              Comma-separated list of tools
+RV_REPETITIONS        Number of repetitions
+RV_TIMEOUTS           Space-separated list of timeouts
+RV_MEMORY_FILE        Path to memory file
+RV_SKIP_MONITORS      Skip monitor generation (true/false)
+RV_SKIP_INSTRUMENT    Skip instrumentation (true/false)
+RV_SKIP_STATIC_ANALYSIS Skip static analysis (true/false)
+RV_SKIP_EXPERIMENT    Skip experiment execution (true/false)
+RV_NO_WINDOW          Start emulator without window (true/false)
+RV_DEBUG              Enable debug mode (true/false)
+RV_HUMANOID_URL       URL for Humanoid service
+RV_RVANDROID_URL      URL for RVAndroid service
+
+Examples:
+RV_TOOLS="rvandroid:llama:single_action" RV_NO_WINDOW=true python main.py
+
+Advanced Usage
+-------------
+1. Running with multiple LLM-guided tools:
+  python main.py --no_window -tools rvandroid:llama rvandroid:gpt4 -r 2 -t 300 600
+
+2. Custom configuration for RVAndroid:
+  python main.py --no_window -tools rvandroid@model=llama3.2:3b,temperature=0.1,strategy=composable
+
+3. Running only on pre-instrumented apps:
+  python main.py --skip_monitors --skip_instrument -tools monkey -r 1 -t 120
+
+4. Comparing multiple tool variants:
+  python main.py -tools monkey:fixed_seed monkey:low_throttle droidbot:dfs_naive droidbot:dfs_greedy -r 3 -t 300
+"""
 
 program_description = '''
 Executes RV-Android experiments using a modular workflow architecture.
 
 Examples:    
-$ python main.py --no_window -tools monkey droidbot -r 3 -t 120 300 600 900
+$ python main.py --no_window -tools monkey droidbot:dfs_greedy -r 3 -t 120 300 600 900
+$ python main.py --no_window -tools rvandroid:llama@strategy=single_action
 $ python main.py --no_window -c PATH_TO_EXECUTION_FILE
 $ python main.py --list-tools
 '''
 
 
+# main.py (continued)
 def run_cli():
     """
     Run the command-line interface version of the RV-Android system.
@@ -60,19 +207,38 @@ def run_cli():
 
     logger.info("Starting RV-Android CLI")
 
-    if args.list_tools:
-        logger.info("Listing available tools")
-        for key in available_tools:
-            print(f" [{key}] {available_tools[key].description}\n")
-        sys.exit(0)
+    # Load tools
+    load_tools()
 
     # Create configuration manager
     config_manager = ConfigurationManager()
 
+    # Check if we're listing tools
+    if args.list_tools:
+        logger.info("Listing available tools and variants")
+        list_available_tools()
+        sys.exit(0)
+
+    # Load configuration from file if specified
+    if args.c:
+        if os.path.exists(args.c):
+            logger.info(f"Loading configuration from file: {args.c}")
+            experiment_config = load_experiment_config(args.c)
+            if not experiment_config:
+                logger.error("Failed to load configuration file")
+                sys.exit(1)
+
+            # Execute experiment with loaded configuration
+            execute_with_config(experiment_config)
+            sys.exit(0)
+        else:
+            logger.error(f"Configuration file not found: {args.c}")
+            sys.exit(1)
+
     # Load configuration from args
     config_manager.load_from_args(args)
 
-    # Get the selected tools
+    # Process tool specifications
     selected_tools = get_selected_tools(args)
 
     logger.info(f"Selected tools for experiment: {[tool.name for tool in selected_tools]}")
@@ -148,10 +314,136 @@ def load_tools():
                     # Also keep in available_tools for backward compatibility
                     available_tools[tool_instance.name] = tool_instance
                     logger.debug(f"Loaded tool: {tool_instance.name}")
+
+                    # Register default variants if tool is configurable
+                    register_default_variants(tool_instance)
+
                 except Exception as e:
                     logger.error(f"Failed to load tool from {tool_path}: {e}")
 
     logger.info(f"Loaded {len(available_tools)} tools")
+
+
+def register_default_variants(tool):
+    """
+    Register default variants for a tool based on its type.
+
+    Args:
+        tool: Tool instance
+    """
+    registry = ToolRegistry.get_instance()
+    logger = logging.getLogger("main.register_variants")
+
+    if tool.name == "droidbot":
+        # Register DroidBot policies as variants
+        policies = ["dfs_naive", "dfs_greedy", "bfs_naive", "bfs_greedy"]
+        for policy in policies:
+            registry.register_variant(tool.name, policy, {"policy": policy})
+            logger.debug(f"Registered variant '{policy}' for tool '{tool.name}'")
+
+    elif tool.name == "rvandroid":
+        # Register RVAndroid LLM variants
+        registry.register_variant(tool.name, "llama", {
+            "llm": {
+                "model_type": OllamaLLM.NAME,
+                "model_name": OllamaLLM.LLAMA
+            },
+            "strategy": {"type": "single_action"},
+            "parser": {"type": "uiautomator_detailed"},
+            "visitor": {"type": "enhanced"}
+        })
+
+        registry.register_variant(tool.name, "gpt4", {
+            "llm": {
+                "model_type": "openai",
+                "model_name": "gpt-4"
+            }
+        })
+
+        registry.register_variant(tool.name, "claude", {
+            "llm": {
+                "model_type": "anthropic",
+                "model_name": "claude-3-opus-20240229"
+            }
+        })
+
+        # Register strategy variants
+        registry.register_variant(tool.name, "single_action", {
+            "strategy": {"type": "single_action"}
+        })
+
+        registry.register_variant(tool.name, "composable", {
+            "strategy": {"type": "composable"}
+        })
+
+        logger.debug(f"Registered LLM and strategy variants for tool '{tool.name}'")
+
+    elif tool.name == "rvdroid":
+        # Register RVDroid variants
+        registry.register_variant(tool.name, "llm_enabled", {
+            "use_llm": True
+        })
+
+        # Register parser variants
+        registry.register_variant(tool.name, "detailed_ui", {
+            "parser": {"type": "uiautomator_detailed"}
+        })
+
+        logger.debug(f"Registered variants for tool '{tool.name}'")
+
+    elif tool.name == "monkey":
+        # Register Monkey variants
+        registry.register_variant(tool.name, "fixed_seed", {
+            "seed": 42
+        })
+
+        registry.register_variant(tool.name, "low_throttle", {
+            "throttle": 50
+        })
+
+        logger.debug(f"Registered variants for tool '{tool.name}'")
+
+    elif tool.name == "fastbot":
+        # Register FastBot variants
+        registry.register_variant(tool.name, "fast", {
+            "throttle": 50
+        })
+
+        registry.register_variant(tool.name, "slow", {
+            "throttle": 500
+        })
+
+        logger.debug(f"Registered variants for tool '{tool.name}'")
+
+
+def list_available_tools():
+    """
+    List all available tools and their variants.
+    """
+    registry = ToolRegistry.get_instance()
+    tools = registry.get_all_tools()
+
+    print("\nAvailable Tools:")
+    print("===============")
+
+    for tool in tools:
+        print(f"\n[{tool.name}] {tool.description}")
+
+        # List variants if any
+        if tool.name in registry.variants and len(registry.variants[tool.name]) > 1:
+            print("\nVariants:")
+            for variant in registry.variants[tool.name]:
+                if variant != "default":
+                    print(f"  - {variant}")
+
+            print("\nUsage examples:")
+            if tool.name == "droidbot":
+                print(f"  python main.py -tools {tool.name}:dfs_greedy")
+            elif tool.name == "rvandroid":
+                print(f"  python main.py -tools {tool.name}:llama:single_action")
+                print(f"  python main.py -tools {tool.name}@model=gpt-4,strategy=composable")
+
+        print("\n" + "-" * 50)
 
 
 def get_selected_tools(args: Namespace):
@@ -168,7 +460,17 @@ def get_selected_tools(args: Namespace):
     logger = logging_manager.get_logger("main.get_selected_tools", {"component": "ToolSelector"})
 
     args_tools = utils.get_env_or_default(ENV_TOOLS, args.tools, list[str])
-    selected_tools = __get_tools(args_tools)
+    selected_tools = []
+
+    for tool_spec in args_tools:
+        try:
+            # Create tool from specification
+            tool = ToolFactory.create_tool_from_spec(tool_spec)
+            selected_tools.append(tool)
+            logger.info(f"Selected tool from specification: {tool_spec}")
+        except ValueError as e:
+            logger.error(f"Error processing tool specification '{tool_spec}': {e}")
+            exit(1)
 
     if len(selected_tools) == 0 and not args.skip_experiment:
         logger.error("No valid tools selected.")
@@ -178,31 +480,85 @@ def get_selected_tools(args: Namespace):
     return selected_tools
 
 
-def __get_tools(names: list[str]) -> list[AbstractTool]:
+def load_experiment_config(config_file: str) -> Dict[str, Any]:
     """
-    Get tools by name from the registry.
+    Load experiment configuration from a JSON file.
 
     Args:
-        names: List of tool names
+        config_file: Path to configuration file
 
     Returns:
-        List of tool instances
+        Configuration dictionary or None if loading failed
     """
-    registry = ToolRegistry.get_instance()
-    return registry.get_tools(names)
+    logger = logging.getLogger("main.load_config")
+
+    try:
+        with open(config_file, 'r') as f:
+            config = json.load(f)
+
+        return config
+    except json.JSONDecodeError as e:
+        logger.error(f"Error parsing configuration file: {e}")
+        return None
+    except Exception as e:
+        logger.error(f"Error loading configuration file: {e}")
+        return None
 
 
-def qualified_name(p):
+def execute_with_config(config: Dict[str, Any]):
     """
-    Convert a file path to a qualified module name.
+    Execute experiment with the provided configuration.
 
     Args:
-        p: File path
-
-    Returns:
-        Qualified module name
+        config: Configuration dictionary
     """
-    return p.replace(".py", "").replace("./", "").replace("/", ".")
+    logger = logging.getLogger("main.execute_with_config")
+
+    # Extract experiment parameters
+    repetitions = config.get("repetitions", 1)
+    timeouts = config.get("timeouts", [60])
+    no_window = config.get("no_window", True)
+
+    # Process tools configurations
+    tools_config = config.get("tools", [])
+    selected_tools = []
+
+    for tool_config in tools_config:
+        tool_name = tool_config.get("name")
+        if not tool_name:
+            logger.error("Tool configuration missing 'name' field")
+            continue
+
+        # Process variants
+        variants = []
+        if "variant" in tool_config:
+            variants.append(tool_config["variant"])
+        if "variants" in tool_config:
+            variants.extend(tool_config["variants"])
+
+        params = tool_config.get("params", {})
+
+        try:
+            # Create tool with configuration
+            tool = ToolFactory.create_configured_tool(tool_name, variants, params)
+            selected_tools.append(tool)
+        except ValueError as e:
+            logger.error(f"Error creating tool '{tool_name}': {e}")
+
+    if not selected_tools:
+        logger.error("No valid tools found in configuration")
+        return
+
+    # Configure experiment
+    config_obj = Configuration.get_instance()
+    config_obj.set("repetitions", repetitions)
+    config_obj.set("timeouts", timeouts)
+    config_obj.set("no_window", no_window)
+    config_obj.set("tools", [tool.name for tool in selected_tools])
+
+    # Execute experiment
+    logger.info(f"Executing experiment with tools: {[tool.name for tool in selected_tools]}")
+    experiment_execute(tools=selected_tools)
 
 
 def create_argument_parser():
@@ -218,7 +574,9 @@ def create_argument_parser():
     parser.add_argument("--list-tools", help="list available tools", action="store_true")
     # List of test tools to be used in the experiment
     parser.add_argument('-tools', nargs='+', default=['monkey'],
-                        help="List of test tools to be used in the experiment. Default: [monkey]. EX: -tools monkey droidbot")
+                        help="List of test tools to be used in the experiment with optional variants. "
+                             "Format: tool_name[:variant1][:variant2][@param1=value1,param2=value2]\n"
+                             "Examples: droidbot:dfs_greedy, rvandroid:llama:single_action")
     # List of the execution timeouts in the experiment
     parser.add_argument('-t', nargs='+', default=[60],
                         help='List of the execution timeouts (in seconds) in the experiment. Default: [60]. EX: -t 120 300',
@@ -226,7 +584,7 @@ def create_argument_parser():
     # Number of repetitions used in the experiment
     parser.add_argument('-r', default=1, help='Number of repetitions used in the experiment. Default: 1. EX: -r 3',
                         type=int, required=False)
-    parser.add_argument('-c', default="", help='Path of the execution memory file (to continue an execution)', type=str)
+    parser.add_argument('-c', default="", help='Path of the execution memory file or configuration JSON', type=str)
     parser.add_argument("--no_window", help="Starts emulator with '-no-window'", action="store_true")
     # Enable DEBUG mode.
     parser.add_argument('--debug', help='Run in DEBUG mode (default: false)', dest='debug', action='store_true')
@@ -236,6 +594,32 @@ def create_argument_parser():
     parser.add_argument("--skip_static_analysis", help="Skip static analysis", action="store_true")
 
     return parser
+
+
+def qualified_name(p):
+    """
+    Convert a file path to a qualified module name.
+
+    Args:
+        p: File path
+
+    Returns:
+        Qualified module name
+    """
+    return p.replace(".py", "").replace("./", "").replace("/", ".")
+
+
+def get_tools_obj(names: list[str], logger: logging.Logger):
+    selected_tool_objects = []
+    tool_name = ""
+    try:
+        for tool_name in names:
+            tool_obj = ToolFactory.create_tool_from_spec(tool_name)
+            selected_tool_objects.append(tool_obj)
+    except ValueError:
+        logger.error(f"Tool '{tool_name}' not found")
+
+    return selected_tool_objects
 
 
 def run_local():
@@ -269,21 +653,39 @@ def run_local():
 
     logger.info("Starting local experiment with predefined configuration")
 
+    # Load tools
+    load_tools()
+
     # Get configuration instance
     config = Configuration.get_instance()
 
     # Set configuration values
     config.set("repetitions", 1)
     config.set("timeouts", [60])
-    config.set("generate_monitors", True)
-    config.set("instrument", True)
-    config.set("static_analysis", True)
+    config.set("generate_monitors", False)
+    config.set("instrument", False)
+    config.set("static_analysis", False)
     config.set("skip_experiment", False)
     config.set("no_window", True)
     config.set("memory_file", "")
 
+    # ape = OK
+    # ares
+    # droidbot
+    #   - droidbot:dfs_naive
+    #   - droidbot:dfs_greedy
+    #   - droidbot:bfs_naive
+    #   - droidbot:bfs_greedy
+    # droidmate = OK
+    # fastbot = OK
+    # humanoid
+    # monkey = OK
+    # qtesting (DOCKER)
+    # rvandroid
+    # rvdroid
+
     # Get selected tools as objects
-    selected_tool_objects = __get_tools(["ape"])
+    selected_tool_objects = get_tools_obj(["ape"], logger)
 
     # Log explicitly for the selected tools
     logger.info(f"Selected tools for local experiment: {[tool.name for tool in selected_tool_objects]}")

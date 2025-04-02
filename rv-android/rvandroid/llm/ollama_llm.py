@@ -121,13 +121,16 @@ class OllamaLLM(LanguageModel):
                 options["num_predict"] = max_new_tokens
 
             self.logger.debug(f"Generating with {self.model_name} using {len(messages)} messages")
+            print(f"\n\nPROMPT: {messages}")
+            for prompt in messages:
+                print(f"{prompt["role"]}:\n{prompt["content"]}")
             response: ChatResponse = self.client.chat(
                 model=self.model_name,
                 messages=messages,
                 options=options,
                 keep_alive=True  # Keep model loaded for potential subsequent requests
             )
-
+            print(f"\nRESPONSE: {response.message.content}\n")
             return response.message.content
         except Exception as e:
             self.logger.error(f"Error generating text with Ollama: {e}")

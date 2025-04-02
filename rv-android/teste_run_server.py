@@ -223,7 +223,7 @@ if __name__ == '__main__':
         # # OLLAMA
         configurator.set_llm(
             llm_type=OllamaLLM.NAME,
-            model=OllamaLLM.GEMMA,
+            model=OllamaLLM.QWEN,
             base_url="http://localhost:11434"
         )
         configurator.set_strategy("single_action")

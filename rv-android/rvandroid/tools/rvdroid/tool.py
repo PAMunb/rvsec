@@ -1,42 +1,64 @@
+# rvandroid/tools/rvdroid/tool.py
+"""
+RVDroid tool implementation with configuration support.
+"""
 import os
-
-from rvandroid.rvdroid.core.service import RVDroidService
 
 from rvandroid.app import App
 from rvandroid.commands.command import Command
 from rvandroid.config.component_configurator import ComponentConfigurator
 from rvandroid.experiment.event.bus import EventBus, EventType
 from rvandroid.experiment.task.task_model import Task
-from rvandroid.tools.tool_spec import AbstractTool
+from rvandroid.rvdroid.core.service import RVDroidService
+from rvandroid.tools.configurable_tool import ConfigurableTool
 from rvandroid.util.logging.constants import CONTEXT_TASK_ID, CONTEXT_APP_NAME, CONTEXT_TOOL_NAME, CONTEXT_COMPONENT
 from rvandroid.util.logging.manager import LoggingManager
 
 
-class ToolSpec(AbstractTool):
+class ToolSpec(ConfigurableTool):
     """
     A specialized tool implementation for RVDroid, a UIAutomator2-based testing tool integrated with RV-Android.
 
-    This tool serves as the main entry point for executing RVDroid tests within the RV-Android framework.
-    It connects the framework's tool system to the RVDroid implementation, handling proper initialization,
-    execution, and cleanup of testing resources.
+    ### Architectural Decisions:
+    - Extends ConfigurableTool for standardized configuration handling
+    - Integrates with ComponentConfigurator for flexible AI configuration
+    - Provides a modular interface to UIAutomator2-based testing
+
+    ### Role in the System:
+    - Serves as the main entry point for UIAutomator2-based testing in RV-Android
+    - Integrates AI-guided testing with UIAutomator2 capabilities
+    - Provides a bridge between RV-Android and UIAutomator2 testing
+    - Enables intelligent, adaptive test exploration in native Android environments
     """
 
     def __init__(self):
-        """Initialize the RVDroid tool with proper name and process pattern."""
-        super(ToolSpec, self).__init__(
+        """Initialize the RVDroid tool with default configuration."""
+        super().__init__(
             "rvdroid",
             "UIAutomator2-based Android testing tool with AI-guided exploration",
             "br.unb.cic.rvsec"
         )
 
-    def execute_tool_specific_logic(self, task: Task, app: App):
-        """
-        Execute RVDroid-specific testing logic for the given task and app.
+        # Initialize component configurator
+        self.component_config = ComponentConfigurator()
 
-        Args:
-            task: The task to execute containing configuration and result storage
-            app: The Android application under test
-        """
+        # Set defaults
+        self.component_config.set_parser("uiautomator")
+        self.component_config.set_visitor("enhanced")
+
+        # Default configuration
+        self.config = {
+            "use_llm": False  # Default to no LLM guidance
+        }
+
+    def configure_tool_specific(self, config):
+        """Configure RVDroid-specific parameters."""
+        # Update parameters if specified
+        if "use_llm" in config:
+            self.config["use_llm"] = bool(config["use_llm"])
+
+    def execute_tool_specific_logic(self, task: Task, app: App):
+        """Execute RVDroid with the configured parameters."""
         # Set up logging using LoggingManager
         logging_manager = LoggingManager.get_instance()
         logger = logging_manager.get_logger(
@@ -52,15 +74,8 @@ class ToolSpec(AbstractTool):
         # Get event bus for publishing events
         event_bus = EventBus.get_instance()
 
-        # Create component configurator
-        component_config = ComponentConfigurator(task.static_data)
-
-        # Configure with default settings
-        component_config.set_parser("uiautomator")
-        component_config.set_visitor("generic")
-
         # Log configuration
-        logger.info(f"RVDroid tool initialized with configuration: {component_config.describe_configuration()}")
+        logger.info(f"RVDroid tool initialized with configuration: {self.component_config.describe_configuration()}")
 
         # Publish tool start event
         event_bus.publish_task_event(
@@ -72,7 +87,7 @@ class ToolSpec(AbstractTool):
 
         try:
             # Create and start RVDroid service
-            service = RVDroidService(task.static_data, config=component_config)
+            service = RVDroidService(task.static_data, config=self.component_config)
 
             # Prepare UIAutomator2 server setup
             logger.info("Starting UIAutomator2 server")
@@ -95,7 +110,8 @@ class ToolSpec(AbstractTool):
                     "--package", app.package_name,
                     "--device", task.config.device_id,
                     "--timeout", str(task.config.timeout),
-                    "--output", os.path.dirname(task.result.trace_file)
+                    "--output", os.path.dirname(task.result.trace_file),
+                    "--llm" if self.config["use_llm"] else ""
                 ], task.config.timeout)
 
                 exec_cmd.invoke(stdout=trace)
@@ -131,4 +147,3 @@ class ToolSpec(AbstractTool):
                 stop_server_cmd.invoke()
             except Exception as e:
                 logger.warning(f"Error stopping UIAutomator2 server: {e}")
-               

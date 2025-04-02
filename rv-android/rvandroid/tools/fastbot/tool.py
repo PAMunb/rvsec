@@ -1,54 +1,90 @@
 # rvandroid/tools/fastbot/tool.py
+"""
+FastBot tool implementation with configuration support.
+"""
 import os
 
 from rvandroid.app import App
 from rvandroid.commands.command import Command
-from rvandroid.experiment.task.task_model import Task  # Updated import
+from rvandroid.experiment.task.task_model import Task
+from rvandroid.tools.configurable_tool import ConfigurableTool
 from settings import TOOLS_DIR
-from ..tool_spec import AbstractTool
 
 
-def adb_push(input_file, out_path):
-    push_cmd = Command("adb", ["push", input_file, out_path])
-    push_cmd.invoke()
+class ToolSpec(ConfigurableTool):
+    """
+    FastBot testing tool with configurable parameters.
 
+    ### Architectural Decisions:
+    - Extends ConfigurableTool for standardized configuration handling
+    - Provides a unified interface to the FastBot testing framework
+    - Supports customization through configuration parameters
 
-class ToolSpec(AbstractTool):
+    ### Role in the System:
+    - Integrates FastBot Android testing tool into the RV-Android framework
+    - Enables model-based testing with configurable parameters
+    - Provides consistent execution interface aligned with other tools
+    """
+
     def __init__(self):
-        super(ToolSpec, self).__init__("fastbot", """Fastbot is a model-based testing tool for 
-        modeling GUI transitions to discover app stability problems. It combines machine learning and reinforcement 
-        learning techniques to assist discovery in a more intelligent way. (https://github.com/bytedance/Fastbot_Android).""",
-                                       "com.android.commands.fastbot")
+        """Initialize the FastBot tool with default configuration."""
+        super().__init__(
+            "fastbot",
+            "Fastbot is a model-based testing tool for modeling GUI transitions "
+            "to discover app stability problems.",
+            "com.android.commands.fastbot"
+        )
+
+        # Default configuration
+        self.config = {
+            "throttle": 100  # Default throttle value
+        }
+
+    def configure_tool_specific(self, config):
+        """Configure FastBot-specific parameters."""
+        # Update parameters if specified
+        if "throttle" in config:
+            self.config["throttle"] = int(config["throttle"])
 
     def execute_tool_specific_logic(self, task: Task, app: App):
+        """Execute FastBot with the configured parameters."""
+        self.logger.info(f"Running FastBot on {app.name}")
+
         fastbot_base_dir = os.path.join(TOOLS_DIR, "fastbot")
 
         jar_monkeyq = os.path.join(fastbot_base_dir, "monkeyq.jar")
         jar_fastbot = os.path.join(fastbot_base_dir, "fastbot-thirdpart.jar")
         jar_framework = os.path.join(fastbot_base_dir, "framework.jar")
-        libs = os.path.join(fastbot_base_dir, "libs")  # , "*")
+        libs = os.path.join(fastbot_base_dir, "libs")
         apk_string = os.path.join(fastbot_base_dir, "max.valid.strings")
 
-        adb_push(jar_monkeyq, "/sdcard/monkeyq.jar")
-        adb_push(jar_fastbot, "/sdcard/fastbot-thirdpart.jar")
-        adb_push(jar_framework, "/sdcard/framework.jar")
-        # adb_push(libs, "/data/local/tmp/")
-        adb_push(os.path.join(libs, "arm64-v8a", "libfastbot_native.so"),
-                 "/data/local/tmp/arm64-v8a/libfastbot_native.so")
-        adb_push(os.path.join(libs, "armeabi-v7a", "libfastbot_native.so"),
-                 "/data/local/tmp/armeabi-v7a/libfastbot_native.so")
-        adb_push(os.path.join(libs, "x86", "libfastbot_native.so"), "/data/local/tmp/x86/libfastbot_native.so")
-        adb_push(os.path.join(libs, "x86_64", "libfastbot_native.so"), "/data/local/tmp/x86_64/libfastbot_native.so")
+        # Push files to device
+        self._adb_push(jar_monkeyq, "/sdcard/monkeyq.jar")
+        self._adb_push(jar_fastbot, "/sdcard/fastbot-thirdpart.jar")
+        self._adb_push(jar_framework, "/sdcard/framework.jar")
 
+        # Push libraries
+        self._adb_push(os.path.join(libs, "arm64-v8a", "libfastbot_native.so"),
+                       "/data/local/tmp/arm64-v8a/libfastbot_native.so")
+        self._adb_push(os.path.join(libs, "armeabi-v7a", "libfastbot_native.so"),
+                       "/data/local/tmp/armeabi-v7a/libfastbot_native.so")
+        self._adb_push(os.path.join(libs, "x86", "libfastbot_native.so"),
+                       "/data/local/tmp/x86/libfastbot_native.so")
+        self._adb_push(os.path.join(libs, "x86_64", "libfastbot_native.so"),
+                       "/data/local/tmp/x86_64/libfastbot_native.so")
+
+        # Prepare APK strings
         with open(apk_string, "wb") as aapt:
             aapt_cmd = Command("aapt2", ["dump", "strings", app.path])
             aapt_cmd.invoke(stdout=aapt)
-        adb_push(apk_string, "/sdcard")
+        self._adb_push(apk_string, "/sdcard")
         os.remove(apk_string)
 
+        # Calculate timeout
         timeout_in_seconds = task.config.timeout
         timeout_in_minutes = int(timeout_in_seconds / 60)
 
+        # Execute FastBot
         with open(task.result.trace_file, "wb") as trace:
             exec_cmd = Command("adb", [
                 "-s",
@@ -66,8 +102,20 @@ class ToolSpec(AbstractTool):
                 "--running-minutes",
                 str(timeout_in_minutes),
                 "--throttle",
-                "100",  # TODO
+                str(self.config["throttle"]),
                 "-v",
                 "-v"
             ], timeout_in_seconds)
+
             exec_cmd.invoke(stdout=trace)
+
+    def _adb_push(self, input_file, out_path):
+        """
+        Push a file to the Android device.
+
+        Args:
+            input_file: File to push
+            out_path: Destination path on device
+        """
+        push_cmd = Command("adb", ["push", input_file, out_path])
+        push_cmd.invoke()
