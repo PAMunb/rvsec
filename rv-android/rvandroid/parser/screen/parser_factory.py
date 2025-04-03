@@ -2,7 +2,7 @@
 from enum import Enum
 from typing import Dict, Type, Optional
 
-from rvandroid.parser.screen.abstract_parser import AbstractScreenParser
+from rvandroid.parser.screen.base_parser import BaseScreenParser
 from rvandroid.parser.screen.visitor.base_visitor import BaseScreenVisitor
 
 
@@ -19,7 +19,7 @@ class ParserFactory:
     """
 
     # Registry of parser types and their implementations
-    _REGISTRY: Dict[ParserType, Type[AbstractScreenParser]] = {}
+    _REGISTRY: Dict[ParserType, Type[BaseScreenParser]] = {}
 
     @classmethod
     def register_default_parsers(cls):
@@ -35,7 +35,7 @@ class ParserFactory:
             cls,
             parser_type: ParserType,
             visitor_class: Optional[Type[BaseScreenVisitor]] = None
-    ) -> AbstractScreenParser:
+    ) -> BaseScreenParser:
         """
         Create a parser instance of the specified type.
 
@@ -60,7 +60,7 @@ class ParserFactory:
         return parser_class(visitor_class)
 
     @staticmethod
-    def get_available_types() -> Dict[ParserType, Type[AbstractScreenParser]]:
+    def get_available_types() -> Dict[ParserType, Type[BaseScreenParser]]:
         """
         Get all available parser types.
 
@@ -74,7 +74,7 @@ class ParserFactory:
         return ParserFactory._REGISTRY.copy()
 
     @staticmethod
-    def register_parser_type(parser_type: ParserType, parser_class: Type[AbstractScreenParser]) -> None:
+    def register_parser_type(parser_type: ParserType, parser_class: Type[BaseScreenParser]) -> None:
         """
         Register a new parser type.
 
@@ -83,9 +83,9 @@ class ParserFactory:
             parser_class: Parser implementation class
 
         Raises:
-            TypeError: If parser is not a subclass of AbstractScreenParser
+            TypeError: If parser is not a subclass of BaseScreenParser
         """
-        if not issubclass(parser_class, AbstractScreenParser):
-            raise TypeError(f"Parser class must be a subclass of AbstractScreenParser")
+        if not issubclass(parser_class, BaseScreenParser):
+            raise TypeError(f"Parser class must be a subclass of BaseScreenParser")
 
         ParserFactory._REGISTRY[parser_type] = parser_class

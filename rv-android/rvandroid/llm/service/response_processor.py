@@ -156,6 +156,10 @@ class ResponseProcessor:
         valid_actions = []
         errors = []
 
+        # Log validation attempt
+        self.logger.debug(f"Validating {len(actions) if isinstance(actions, list) else 'non-list'} action(s)")
+        self.logger.debug(f"Available action IDs: {available_action_ids}")
+
         # Check if actions is a list
         if not isinstance(actions, list):
             errors.append(f"Expected a list of actions, got {type(actions)}")
@@ -179,9 +183,29 @@ class ResponseProcessor:
 
             # Validate action_id
             action_id = str(action["action_id"])
-            if available_action_ids and action_id not in available_action_ids:
+            self.logger.debug(f"Validating action_id: {action_id}")
+            
+            if not available_action_ids:
+                self.logger.warning("No available action IDs to validate against")
+                # If we don't have action IDs to validate against, accept the action conditionally
+                action_id_as_int = action_id
+                try:
+                    action_id_as_int = int(action_id)
+                    if 1 <= action_id_as_int <= 10:  # A reasonable range for most screens
+                        self.logger.debug(f"Conditionally accepting action_id {action_id} (no validation list)")
+                        # Still valid in this case
+                    else:
+                        errors.append(f"Action ID {action_id} is out of reasonable range (1-10)")
+                        continue
+                except ValueError:
+                    errors.append(f"Action ID {action_id} is not a valid number")
+                    continue
+            elif action_id not in available_action_ids:
+                self.logger.warning(f"Action ID {action_id} not found in available actions: {available_action_ids}")
                 errors.append(f"Invalid action_id: {action_id} (not in available actions)")
                 continue
+            else:
+                self.logger.debug(f"Action ID {action_id} is valid")
 
             # Add default fields if missing
             if "params" not in action or not isinstance(action["params"], dict):
@@ -191,7 +215,9 @@ class ResponseProcessor:
                 action["explanation"] = f"Executing action {action_id}"
 
             valid_actions.append(action)
+            self.logger.debug(f"Added valid action with ID {action_id}")
 
+        self.logger.debug(f"Validation result: {len(valid_actions)} valid action(s), {len(errors)} error(s)")
         return valid_actions, errors
 
     def _try_repair_response(self, response: str) -> Optional[str]:

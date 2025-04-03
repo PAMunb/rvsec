@@ -103,6 +103,25 @@ class ResponseParser:
         """
         self.logger.debug(f"Attempting to extract JSON from response of length {len(text)}")
 
+        # Try to validate the entire text as JSON first (common in API responses)
+        try:
+            json.loads(text)
+            self.logger.debug("Entire response is valid JSON")
+            return text
+        except json.JSONDecodeError:
+            self.logger.debug("Response is not valid JSON as a whole, attempting extraction")
+
+        # Look for JSON in code blocks (common with Claude and GPT)
+        code_block_match = re.search(r'```(?:json)?\s*([\s\S]*?)\s*```', text)
+        if code_block_match:
+            json_text = code_block_match.group(1).strip()
+            try:
+                json.loads(json_text)  # Validate
+                self.logger.debug("Successfully extracted JSON from code block")
+                return json_text
+            except json.JSONDecodeError:
+                self.logger.warning("Found code block but content isn't valid JSON")
+
         # First attempt: Look for JSON array pattern with action_id
         array_pattern = r'\[\s*\{\s*"action_id"\s*:.*?\}\s*\]'
         array_match = re.search(array_pattern, text, re.DOTALL)
@@ -160,6 +179,21 @@ class ResponseParser:
         actions = extract_structured_content(text)
         if actions:
             self.logger.debug(f"Reconstructed JSON array from fragments")
+            return json.dumps(actions)
+            
+        # Last resort: Look for any mentions of action IDs in the text
+        action_id_pattern = r'action_id\s*[:=]?\s*["\'`]?(\d+)["\'`]?'
+        action_id_matches = re.findall(action_id_pattern, text, re.IGNORECASE)
+        
+        if action_id_matches:
+            self.logger.warning(f"Found raw action IDs in text: {action_id_matches}")
+            actions = []
+            for action_id in action_id_matches:
+                actions.append({
+                    "action_id": action_id,
+                    "params": {},
+                    "explanation": f"Extracted action ID {action_id} from text"
+                })
             return json.dumps(actions)
 
         # If all attempts fail, raise the exception

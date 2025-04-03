@@ -22,13 +22,15 @@ class CoverageTracker:
     ### Architectural Decisions:
     - Separates coverage tracking from data storage
     - Uses event-driven architecture for real-time updates
-    - Leverages repository pattern for data management
+    - Leverages standardized repository pattern for data management
+    - Integrates with the unified analysis component structure
 
     ### Role in the System:
     - Monitors method execution in real-time
     - Extracts coverage data from logcat output
     - Updates repository with coverage information
     - Publishes coverage events for monitoring
+    - Provides metrics for the unified result system
     """
 
     def __init__(self, logcat_file: str, static_data: Optional[StaticAnalysisData] = None):

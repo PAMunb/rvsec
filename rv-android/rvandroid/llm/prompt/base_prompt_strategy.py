@@ -1,81 +1,362 @@
 # rvandroid/llm/prompt/base_prompt_strategy.py
+"""
+Base Prompt Strategy Implementation
+
+Provides a robust foundation for all prompt strategy implementations.
+This class implements shared functionality like workflow guidance,
+input type inference, and action analysis to reduce code duplication.
+"""
+
 import logging
-from typing import Dict, List, Optional, Union
+from typing import Dict, List, Any, Optional, Union, Tuple
 
 from rvandroid.llm.prompt.prompt_strategy import PromptStrategy
+from rvandroid.llm.prompt.prompt_template import PromptTemplate, PromptLibrary
 from rvandroid.domain.static import StaticAnalysisData
 from rvandroid.parser.screen.abstract_parser import AbstractScreenParser
 from rvandroid.parser.screen.parser_factory import ParserType
+from rvandroid.parser.screen.visitor.base_visitor import ScreenDescription
 
 
 class BasePromptStrategy(PromptStrategy):
     """
-    Base class for all prompt strategies that implements common functionality.
-    Contains shared system prompts, utility methods, and basic structure.
+    Base class for all prompt strategies implementing shared functionality.
+    
+    ### Architectural Decisions:
+    - Implements common prompt generation patterns and utilities
+    - Provides reusable workflow analysis and guidance functions
+    - Integrates with template system for consistent prompt generation
+    - Supports different complexity levels of static analysis integration
+    - Maintains backward compatibility with existing prompt consumers
+
+    ### Role in the System:
+    - Serves as the foundation for all prompt strategy implementations
+    - Reduces code duplication across different strategy variants
+    - Ensures consistent handling of static analysis and workflow data
+    - Facilitates template-based prompt generation
+    - Provides flexible extension points for specialized strategies
     """
 
-    def __init__(self, static_data: Optional[StaticAnalysisData] = None, parser_type: Union[ParserType, AbstractScreenParser, None] = ParserType.DROIDBOT):
-        super().__init__(static_data, parser_type)
-        self.logger = logging.getLogger(__name__)
+    def __init__(self, 
+                 static_data: Optional[StaticAnalysisData] = None, 
+                 parser: Union[ParserType, AbstractScreenParser, None] = None,
+                 detailed_static_analysis: bool = False,
+                 include_screenshots: bool = False):
+        """
+        Initialize the base prompt strategy.
+
+        Args:
+            static_data: Static analysis data (optional)
+            parser: Parser type or instance for screen parsing
+            detailed_static_analysis: Whether to include detailed static analysis
+            include_screenshots: Whether to include screenshot analysis
+        """
+        super().__init__(static_data, parser)
+        self.logger = logging.getLogger(f"{__name__}.{self.__class__.__name__}")
+        
+        # Configuration flags
+        self.detailed_static_analysis = detailed_static_analysis
+        self.include_screenshots = include_screenshots
+        
+        # Initialize template system
+        self.system_template = PromptLibrary.get_template("system_base")
+        self.user_template = PromptLibrary.get_template("user_base")
+        
+        if not self.system_template or not self.user_template:
+            # Fall back to creating new templates
+            self.system_template = PromptLibrary.system_base_template()
+            self.user_template = PromptLibrary.user_base_template()
+            
+        # Track the last processed screen description
+        self._last_screen_description = None
 
     def generate_system_prompt(self) -> str:
         """
-        Generate a standardized system prompt to be used across different LLM providers.
-        This base implementation provides a comprehensive system prompt that works well
+        Generate a standardized system prompt using the template system.
+        This implementation provides a comprehensive system prompt that works well
         with most models.
 
         Returns:
             System prompt string
         """
-        return """You are an Android UI testing expert. Your task is to analyze the current app state and suggest the MOST EFFECTIVE NEXT ACTIONS to take for testing the application thoroughly.
+        # Default to balanced exploration
+        exploration_goal = ("Systematically exploring ALL parts of the application, "
+                           "balancing breadth and depth to maximize coverage")
+        
+        # Default to multi-action format
+        response_format = PromptLibrary.multi_action_format()
+        
+        # No additional guidelines by default
+        additional_guidelines = ""
+        
+        # Render template with parameters
+        return self.system_template.render({
+            "exploration_goal": exploration_goal,
+            "response_format": response_format,
+            "additional_guidelines": additional_guidelines
+        })
 
-Focus on:
-1. Systematically exploring ALL parts of the application, not just the current screen
-2. Maximizing code coverage by targeting untested UI elements
-3. Prioritizing the examination of methods of interest that interact with points defined in formal specifications, enabling verdict emissions during monitored execution
-4. Testing complete workflows from start to finish
+    def process_screen(self, state: Dict[str, Any]) -> Optional[ScreenDescription]:
+        """
+        Process the screen state to get a structured representation.
+        This is called before generating prompts to extract and analyze the screen.
+        
+        Args:
+            state: Current application state dictionary
+            
+        Returns:
+            ScreenDescription object or None if parsing fails
+        """
+        try:
+            # Parse the screen to get a structured representation
+            screen_description = self.parser.parse(state, self.static_data)
+            
+            # Store the screen description for later use
+            self._last_screen_description = screen_description
+            
+            return screen_description
+            
+        except Exception as e:
+            self.logger.error(f"Error processing screen: {e}", exc_info=True)
+            return None
 
-Your response must be a valid JSON array of actions with this structure:
-[
-  {
-    "action_id": "5",  
-    "params": {},  
-    "explanation": "Detailed explanation of why this action was chosen as the next step"
-  }
-]
+    def generate_user_prompt(self, state: Dict[str, Any]) -> str:
+        """
+        Generate a user prompt based on current application state.
+        Uses template system to create a consistent, structured prompt.
 
-For actions that require parameters (like SET_TEXT), you must include appropriate values:
-[
-  {
-    "action_id": "5",  
-    "params": {"text": "test@example.com"},  
-    "explanation": "Entering a valid email address in the email field"
-  }
-]
+        Args:
+            state: Current application state dictionary
 
-EXPLORATION GUIDELINES:
-1. After testing the same workflow 3 times, use the BACK button to explore other parts of the app
-2. Avoid repeatedly clicking the same button more than 3 times
-3. When stuck in a loop, prioritize navigating to different screens
-4. Try different input values each time you fill a form
-5. Balance depth (completing workflows) with breadth (exploring all screens)
+        Returns:
+            Formatted user prompt string
+        """
+        try:
+            # Use screen description if already processed, otherwise parse now
+            if "screen_description" in state and isinstance(state["screen_description"], ScreenDescription):
+                screen_description = state["screen_description"]
+            elif self._last_screen_description:
+                screen_description = self._last_screen_description
+            else:
+                # Try to parse as a fallback
+                screen_description = self.process_screen(state)
+                if not screen_description:
+                    raise ValueError("Failed to obtain screen description")
+            
+            # Get activity name with error handling
+            try:
+                activity = self.parser.get_activity_name(state)
+            except (ValueError, AttributeError):
+                activity = state.get("package_name", "unknown.package") + ".UnknownActivity"
+                self.logger.warning(f"Using fallback activity name: {activity}")
+            
+            # Format UI elements for the prompt
+            ui_elements = self._format_ui_elements(screen_description, state)
+            
+            # Get static analysis context
+            if self.detailed_static_analysis:
+                static_context = self._get_detailed_static_analysis_context(activity)
+            else:
+                static_context = self._add_static_analysis_context(activity)
+                
+            # Format action history if available
+            action_history = self._format_action_history(state)
+            
+            # Generate the summary section
+            summary = self._generate_summary(activity, screen_description, state)
+            
+            # Add screenshot analysis if enabled
+            if self.include_screenshots:
+                screenshot_analysis = self._get_screenshot_analysis(state)
+                if screenshot_analysis:
+                    static_context += screenshot_analysis
+                    
+            # Add transition guidance if available
+            transition_guidance = state.get("transition_guidance")
+            if transition_guidance:
+                nav_guidance = self._get_transition_guidance(state)
+                if nav_guidance:
+                    static_context += nav_guidance
+            
+            # Add workflow guidance based on UI elements and history
+            workflow = self._add_workflow_guidance(screen_description, state.get("action_history", []))
+            if workflow:
+                summary += "\n\n" + workflow
+                
+            # Render the template with all components
+            return self.user_template.render({
+                "activity": activity,
+                "static_context": static_context,
+                "ui_elements": ui_elements,
+                "action_history": action_history,
+                "summary": summary
+            })
+            
+        except Exception as e:
+            self.logger.error(f"Error generating user prompt: {e}", exc_info=True)
+            
+            # Provide a simple fallback prompt
+            return (f"Current Activity: {state.get('activity', 'Unknown')}\n\n"
+                   f"Analyze the current screen and suggest appropriate testing actions.")
 
-DROPDOWN INTERACTION RULES:
-1. For dropdown spinners, you MUST first CLICK the dropdown to open it before scrolling
-2. The correct sequence is: CLICK dropdown → THEN scroll to find option → THEN click to select
+    def _format_ui_elements(self, screen_description: ScreenDescription, state: Dict[str, Any]) -> str:
+        """
+        Format UI elements for prompt display.
 
-FORM TESTING WORKFLOW:
-1. ALWAYS fill forms in a SEQUENTIAL, LOGICAL ORDER before submitting them
-2. For forms with dropdowns/spinners, first click and select from dropdown, then fill other fields, then click action buttons
-3. For forms with input fields and buttons, fill ALL required inputs first, THEN click the action/submit button
-4. When a form appears to be completely filled, CLICK THE ACTION BUTTON to complete the workflow
-5. COMPLETE WORKFLOWS - After filling all required inputs, proceed to action buttons to test the functionality
+        Args:
+            screen_description: Parsed screen description
+            state: Current application state
 
-REVIEW the action history carefully to understand what has already been tested and choose the most logical next action.
+        Returns:
+            Formatted UI elements string
+        """
+        if not screen_description.items:
+            return "No UI elements detected in the current state."
+            
+        lines = []
+        activity = state.get("activity", "")
+        
+        for item in screen_description.items:
+            view = item.view
+            widget_id = view.get("resource_id", "").split("/")[-1] if view.get("resource_id") else "unknown"
+            
+            # Format the item description
+            lines.append(f"- {item.base_description}")
+            
+            # Add actions with their IDs
+            if item.actions:
+                lines.append("  Available actions:")
+                for action in item.actions:
+                    # Add indicators for operations of interest
+                    importance_tag = ""
+                    if action.directly_reaches_mop:
+                        importance_tag = " [CRITICAL: Directly reaches operation of interest]"
+                    elif action.reaches_mop:
+                        importance_tag = " [IMPORTANT: Can reach operation of interest]"
+                    
+                    # Add usage history
+                    history_tag = ""
+                    if "action_specific_history" in state:
+                        action_specific_history = state["action_specific_history"].get(str(action.id), [])
+                        if action_specific_history:
+                            count = len(action_specific_history)
+                            history_tag = f" [Used {count} times]"
+                    
+                    # Create detailed action description
+                    action_desc = f"  - {action.text} (action_id: \"{action.id}\"){importance_tag}{history_tag}"
+                    
+                    # Check for transitions
+                    transitions = self._get_transitions_for_action(activity, widget_id, action)
+                    if transitions:
+                        action_desc += f" -> Will transition to: {', '.join(transitions)}"
+                    
+                    lines.append(action_desc)
+                    
+                    # Add most recent usage if available
+                    if "action_specific_history" in state:
+                        action_specific_history = state["action_specific_history"].get(str(action.id), [])
+                        if action_specific_history and len(action_specific_history) > 0:
+                            last_usage = action_specific_history[-1]
+                            lines.append(f"    Last usage: {last_usage}")
+                
+                # Add guidance for parameterized actions
+                has_text_action = any(a.text.startswith("SET_TEXT") for a in item.actions)
+                if has_text_action:
+                    # Get input hints or description
+                    hint = ""
+                    if "hint" in view and view["hint"]:
+                        hint = f" (hint: {view['hint']})"
+                    elif "content_description" in view and view["content_description"]:
+                        hint = f" (description: {view['content_description']})"
+                    elif "text" in view and view["text"]:
+                        hint = f" (current text: {view['text']})"
+                    
+                    # Infer input type
+                    input_type = self._infer_input_type(view, widget_id)
+                    if input_type:
+                        lines.append(f"  Input type appears to be: {input_type}{hint}")
+                
+                # Add static analysis info if available
+                static_info = self._get_widget_static_info(activity, widget_id)
+                if static_info:
+                    lines.append(f"  Static analysis: {static_info}")
+        
+        return "\n".join(lines)
 
-DO NOT include any additional text outside of the JSON array. Your response must be valid JSON that can be parsed directly."""
+    def _format_action_history(self, state: Dict[str, Any]) -> str:
+        """
+        Format action history for display in the prompt.
 
-    def _add_workflow_guidance(self, screen_description, action_history=None) -> str:
+        Args:
+            state: Current application state
+
+        Returns:
+            Formatted action history string
+        """
+        if "action_history" not in state or not state["action_history"]:
+            return ""
+            
+        action_history = state["action_history"]
+        
+        # Limit history to most recent actions
+        max_actions = 15
+        recent_actions = action_history[-max_actions:] if len(action_history) > max_actions else action_history
+        
+        # Create formatted history string
+        history_text = ["ACTION HISTORY (most recent actions last):"]
+        for i, action in enumerate(recent_actions):
+            history_text.append(f"{i + 1}. {action}")
+            
+        return "\n".join(history_text)
+
+    def _generate_summary(self, activity: str, screen_description: ScreenDescription, 
+                         state: Dict[str, Any]) -> str:
+        """
+        Generate a summary section for the prompt.
+
+        Args:
+            activity: Current activity name
+            screen_description: Parsed screen description
+            state: Current application state
+
+        Returns:
+            Generated summary string
+        """
+        summary = f"SUMMARY: You are testing the {activity} screen."
+        
+        # Detect form patterns
+        form_elements = [item for item in screen_description.items
+                         if any(t in item.base_description.lower()
+                                for t in ["text field", "spinner", "checkbox"])]
+        
+        buttons = [item for item in screen_description.items
+                   if "button" in item.base_description.lower()]
+        
+        # Identify screen type
+        if form_elements and buttons:
+            summary += " This screen appears to contain a form with input fields and buttons."
+            
+            # Check if this appears to be a login form
+            login_related = any(("login" in item.base_description.lower() or
+                               "username" in item.base_description.lower() or
+                               "password" in item.base_description.lower())
+                              for item in form_elements)
+            
+            if login_related:
+                summary += " This appears to be a login form."
+                
+        elif buttons and len(buttons) > 3:
+            summary += " This screen contains multiple buttons/controls that should be systematically tested."
+            
+        elif "menu" in activity.lower() or len(screen_description.items) > 5:
+            summary += " This appears to be a menu or list screen with multiple options."
+        
+        # Add testing instructions
+        summary += " Based on the state analysis and action history, suggest the most appropriate testing actions."
+        
+        return summary
+
+    def _add_workflow_guidance(self, screen_description: ScreenDescription, action_history: List[Any]) -> str:
         """
         Add generic workflow guidance based on detected UI elements and action history.
         Encourages exploration after repeated actions.
@@ -228,149 +509,3 @@ DO NOT include any additional text outside of the JSON array. Your response must
                         break
 
         return transitions
-
-    def _infer_input_type(self, view: Dict, widget_id: str) -> str:
-        """
-        Infer the input type for a text field based on properties and static analysis.
-
-        Args:
-            view: View data dictionary
-            widget_id: Widget identifier
-
-        Returns:
-            Inferred input type as string
-        """
-        # Try to find widget in static data
-        widget = None
-        if self.static_data and self.static_data.windows:
-            activity = self.parser.get_activity_name({})  # Get current activity
-            window = self.static_data.windows.get_window(activity)
-            if window:
-                widget = window.get_widget_by_name(widget_id)
-
-        # Use widget input_type if available
-        if widget and hasattr(widget, 'input_type') and widget.input_type:
-            return widget.input_type
-
-        # Otherwise infer from view properties
-        input_type = view.get("input_type", 0)
-        hint = view.get("hint", "")
-        text = view.get("text", "")
-        resource_id = view.get("resource_id", "")
-
-        # Check common patterns in properties
-        lower_id = resource_id.lower() if resource_id else ""
-        lower_hint = hint.lower() if hint else ""
-        lower_text = text.lower() if text else ""
-
-        if "password" in lower_id or "password" in lower_hint or view.get("is_password", False):
-            return "password"
-        elif "email" in lower_id or "email" in lower_hint or "email" in lower_text:
-            return "email address"
-        elif "phone" in lower_id or "phone" in lower_hint:
-            return "phone number"
-        elif "search" in lower_id or "search" in lower_hint:
-            return "search query"
-        elif "username" in lower_id or "username" in lower_hint or "user" in lower_id:
-            return "username"
-        elif "url" in lower_id or "website" in lower_hint:
-            return "URL"
-
-        # Default
-        return "text"
-
-    def _add_static_analysis_context(self, activity: str) -> str:
-        """
-        Enhanced static analysis context that includes clearer transition information.
-
-        Args:
-            activity: Current activity name
-
-        Returns:
-            String containing static analysis context
-        """
-        context = "Static Analysis Context:\n"
-
-        # Get information about the activity class
-        activity_class = None
-        if self.static_data and self.static_data.classes:
-            activity_class = self.static_data.classes.get_clazz(activity)
-
-        if not activity_class:
-            return context + "No static analysis data available for this activity.\n\n"
-
-        # Count methods with different properties
-        reachable_methods = [m for m in activity_class.methods if m.reachable]
-        critical_methods = [m for m in activity_class.methods if m.reaches_mop]
-        direct_critical_methods = [m for m in activity_class.methods if m.directly_reaches_mop]
-
-        # Add method statistics
-        context += f"- Activity contains {len(reachable_methods)} reachable methods\n"
-        context += f"- {len(critical_methods)} methods can reach operations of interest\n"
-        context += f"- {len(direct_critical_methods)} methods directly call operations of interest\n"
-
-        # Add enhanced window transition information with actions
-        if self.static_data and self.static_data.wtg:
-            edges = [edge for edge in self.static_data.wtg.graph.edges(data=True)
-                     if edge[0].name == activity_class.name]
-
-            if edges:
-                # Format transitions with related actions
-                context += f"- Can transition to {len(edges)} other activities/screens:\n"
-                for edge in edges:
-                    to_activity = edge[1].name
-                    events = edge[2].get('events', [])
-
-                    # Find corresponding actions if possible
-                    for event in events:
-                        widget_id = event.widget_id
-                        event_type = event.event_type
-
-                        # Find matching action IDs from the current state
-                        context += f"  - Can transition to {to_activity}"
-                        if widget_id:
-                            context += f" via widget ID: {widget_id}"
-                        if event_type:
-                            context += f" using {event_type.name}"
-                        context += "\n"
-
-        return context + "\n"
-
-    def _get_widget_static_info(self, activity: str, widget_id: str) -> str:
-        """
-        Get static analysis information for a specific widget.
-
-        Args:
-            activity: Activity name
-            widget_id: Widget identifier
-
-        Returns:
-            String containing widget static analysis information
-        """
-        if not self.static_data or not self.static_data.windows:
-            return ""
-
-        window = self.static_data.windows.get_window(activity)
-        if not window:
-            return ""
-
-        widget = window.get_widget_by_name(widget_id)
-        if not widget:
-            return ""
-
-        # Gather information about widget events
-        event_info = []
-        for event in widget.events:
-            if event.signature in self.static_data.classes.methods:
-                method = self.static_data.classes.methods[event.signature]
-                event_desc = f"{event.type.name}"
-                if method.directly_reaches_mop:
-                    event_desc += " (directly reaches operations of interest)"
-                elif method.reaches_mop:
-                    event_desc += " (can reach operations of interest)"
-                event_info.append(event_desc)
-
-        if not event_info:
-            return ""
-
-        return "Registered events: " + ", ".join(event_info)

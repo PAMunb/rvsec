@@ -2,6 +2,7 @@
 """
 Task model classes for experiment execution.
 Provides a clear separation of concerns for task configuration, execution, and results.
+Integrates with the standardized result system for consistent data representation.
 """
 
 import logging

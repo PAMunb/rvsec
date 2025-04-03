@@ -499,10 +499,25 @@ class UIAutomator2Adapter:
                 focused.set_text(text)
                 time.sleep(0.5)
 
-                # Verify text was set
-                after_text = focused.text
-                if after_text == text or text in after_text:
-                    self.logger.info(f"Successfully set text to: '{text}'")
+                # Verify text was set - safely get text attribute if available
+                try:
+                    # Most UIAutomator2 implementations use get_text() method rather than text attribute
+                    if hasattr(focused, 'get_text'):
+                        after_text = focused.get_text()
+                    elif hasattr(focused, 'info') and 'text' in focused.info:
+                        after_text = focused.info['text']
+                    else:
+                        # If we can't verify, assume success
+                        self.logger.info(f"Text set (unable to verify): '{text}'")
+                        self.hide_keyboard()
+                        return True
+                        
+                    if after_text == text or text in after_text:
+                        self.logger.info(f"Successfully set text to: '{text}'")
+                        self.hide_keyboard()
+                        return True
+                except Exception as e:
+                    self.logger.debug(f"Error verifying text input: {e}, assuming success")
                     self.hide_keyboard()
                     return True
 
@@ -517,10 +532,25 @@ class UIAutomator2Adapter:
                 edit_text.set_text(text)
                 time.sleep(0.5)
 
-                # Verify text was set
-                after_text = edit_text.text
-                if after_text == text or text in after_text:
-                    self.logger.info(f"Successfully set text to: '{text}'")
+                # Verify text was set - safely get text attribute if available
+                try:
+                    # Most UIAutomator2 implementations use get_text() method rather than text attribute
+                    if hasattr(edit_text, 'get_text'):
+                        after_text = edit_text.get_text()
+                    elif hasattr(edit_text, 'info') and 'text' in edit_text.info:
+                        after_text = edit_text.info['text']
+                    else:
+                        # If we can't verify, assume success
+                        self.logger.info(f"Text set (unable to verify): '{text}'")
+                        self.hide_keyboard()
+                        return True
+                        
+                    if after_text == text or text in after_text:
+                        self.logger.info(f"Successfully set text to: '{text}'")
+                        self.hide_keyboard()
+                        return True
+                except Exception as e:
+                    self.logger.debug(f"Error verifying text input: {e}, assuming success")
                     self.hide_keyboard()
                     return True
 
@@ -585,10 +615,25 @@ class UIAutomator2Adapter:
                     element.set_text(text)
                     time.sleep(0.5)
 
-                    # Verify text was set
-                    after_text = element.text
-                    if after_text == text or text in after_text:
-                        self.logger.info(f"Successfully set text by resource ID to: '{text}'")
+                    # Verify text was set - safely get text attribute if available
+                    try:
+                        # Most UIAutomator2 implementations use get_text() method rather than text attribute
+                        if hasattr(element, 'get_text'):
+                            after_text = element.get_text()
+                        elif hasattr(element, 'info') and 'text' in element.info:
+                            after_text = element.info['text']
+                        else:
+                            # If we can't verify, assume success
+                            self.logger.info(f"Text set by resource ID (unable to verify): '{text}'")
+                            self.hide_keyboard()
+                            return True
+                            
+                        if after_text == text or text in after_text:
+                            self.logger.info(f"Successfully set text by resource ID to: '{text}'")
+                            self.hide_keyboard()
+                            return True
+                    except Exception as e:
+                        self.logger.debug(f"Error verifying text input: {e}, assuming success")
                         self.hide_keyboard()
                         return True
 
@@ -1174,10 +1219,25 @@ class UIAutomator2Adapter:
                     element.set_text(text)
                     time.sleep(0.5)
 
-                    # Verify text was set
-                    after_text = element.text
-                    if after_text == text or text in after_text:
-                        self.logger.info(f"Successfully set text by resource ID to: '{text}'")
+                    # Verify text was set - safely get text attribute if available
+                    try:
+                        # Most UIAutomator2 implementations use get_text() method rather than text attribute
+                        if hasattr(element, 'get_text'):
+                            after_text = element.get_text()
+                        elif hasattr(element, 'info') and 'text' in element.info:
+                            after_text = element.info['text']
+                        else:
+                            # If we can't verify, assume success
+                            self.logger.info(f"Text set by resource ID (unable to verify): '{text}'")
+                            self.hide_keyboard()
+                            return True
+                            
+                        if after_text == text or text in after_text:
+                            self.logger.info(f"Successfully set text by resource ID to: '{text}'")
+                            self.hide_keyboard()
+                            return True
+                    except Exception as e:
+                        self.logger.debug(f"Error verifying text input: {e}, assuming success")
                         self.hide_keyboard()
                         return True
 

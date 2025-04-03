@@ -1,9 +1,20 @@
 # rvandroid/experiment/task/task_executor.py
+"""
+Task executor for RV-Android experiments.
+
+This module provides a comprehensive task executor for running RV-Android experiments.
+It manages the execution of individual tasks, including setup, execution, and cleanup.
+"""
+
 import os
 from typing import Optional, Dict, Any
 
 from rvandroid.domain.coverage import LogcatRepository
-from rvandroid.experiment.event.bus import EventBus, EventType
+from rvandroid.experiment.event import (
+    EventBus,
+    EventType,
+    get_event_bus
+)
 from rvandroid.experiment.task.components import (
     StaticAnalysisComponent,
     CoverageComponent,
@@ -17,8 +28,16 @@ from rvandroid.util.decorators import task_phase, log_execution
 from rvandroid.util.error import handle_errors
 from rvandroid.util.error.error_handler import ErrorHandler
 from rvandroid.util.exceptions import TaskExecutionError
-from rvandroid.util.logging.constants import CONTEXT_TASK_ID, CONTEXT_APP_NAME, CONTEXT_TOOL_NAME, CONTEXT_COMPONENT, \
-    LOG_START, LOG_ERROR, LOG_COMPLETE, LOG_SKIPPED
+from rvandroid.util.logging.constants import (
+    CONTEXT_TASK_ID, 
+    CONTEXT_APP_NAME, 
+    CONTEXT_TOOL_NAME, 
+    CONTEXT_COMPONENT,
+    LOG_START, 
+    LOG_ERROR, 
+    LOG_COMPLETE, 
+    LOG_SKIPPED
+)
 from rvandroid.util.performance_monitor import PerformanceMonitor
 from rvandroid.util.spreadsheet_exporter import ExportContext, SpreadsheetExporter
 
@@ -27,6 +46,7 @@ from rvandroid.util.spreadsheet_exporter import ExportContext, SpreadsheetExport
 class TaskExecutor:
     """
     Manages the execution of individual tasks within an experiment workflow using a component-based architecture.
+    Integrates with the standardized result system for consistent data representation and analysis.
 
     ### Architectural Decisions:
     - Implements a component-based approach to task execution
@@ -52,7 +72,7 @@ class TaskExecutor:
         """
         self.task = task
         self.tool = tool
-        self.event_bus = event_bus or EventBus.get_instance()
+        self.event_bus = event_bus or get_event_bus()
         self.error_handler = ErrorHandler.get_instance()
 
         # Initialize standardized context for all logging and events
@@ -105,14 +125,14 @@ class TaskExecutor:
                 operation="task execution",
                 error="app instance not set"
             ))
-            self._publish_event(EventType.TASK_FAILED, {
-                "error": error_msg
-            })
+            # Use new API to publish failed event
+            self._publish_task_failed_event(error_msg)
             return False
 
         try:
             self.task.mark_started()
-            self._publish_event(EventType.TASK_STARTED)
+            # Use new API to publish started event
+            self._publish_task_started_event()
 
             # Measure the total execution time
             with self.performance_monitor.measure_time("task_execution_total", self._get_task_context()):
@@ -133,7 +153,8 @@ class TaskExecutor:
                 context=self._get_task_context()
             )
 
-            self._publish_event(EventType.TASK_COMPLETED)
+            # Use new API to publish completed event
+            self._publish_task_completed_event()
             self.logger.info(LOG_COMPLETE.format(
                 operation=f"Task {self.task.id}"
             ))
@@ -158,9 +179,8 @@ class TaskExecutor:
                 context={**self._get_task_context(), "error": error_message}
             )
 
-            self._publish_event(EventType.TASK_FAILED, {
-                "error": error_message
-            })
+            # Use new API to publish failed event
+            self._publish_task_failed_event(error_message)
 
             # Clean up resources
             self._cleanup_resources()
@@ -309,28 +329,57 @@ class TaskExecutor:
                     error=str(e)
                 ))
 
-    def _publish_event(self, event_type: EventType, details: Optional[Dict[str, Any]] = None) -> None:
-        """
-        Publish a task event.
+    # Methods for publishing events using the new event system API
 
+    def _publish_task_started_event(self) -> None:
+        """Publish task started event using the modernized event system."""
+        self.event_bus.publish_task_event(
+            event_type=EventType.TASK_STARTED,
+            task_id=str(self.task.id),
+            task_config={
+                "apk_name": self.task.config.apk_name,
+                "repetition": self.task.config.repetition,
+                "timeout": self.task.config.timeout,
+                "tool_name": self.task.config.tool_name
+            },
+            source="TaskExecutor",
+            channel=EventBus.LIFECYCLE_CHANNEL
+        )
+
+    def _publish_task_completed_event(self) -> None:
+        """Publish task completed event using the modernized event system."""
+        self.event_bus.publish_task_event(
+            event_type=EventType.TASK_COMPLETED,
+            task_id=str(self.task.id),
+            task_config={
+                "apk_name": self.task.config.apk_name,
+                "repetition": self.task.config.repetition,
+                "timeout": self.task.config.timeout,
+                "tool_name": self.task.config.tool_name
+            },
+            source="TaskExecutor",
+            channel=EventBus.LIFECYCLE_CHANNEL
+        )
+
+    def _publish_task_failed_event(self, error_message: str) -> None:
+        """
+        Publish task failed event using the modernized event system.
+        
         Args:
-            event_type: Type of event
-            details: Optional event details
+            error_message: Error message to include in the event
         """
-        if not self.event_bus:
-            return
-
-        if event_type in [EventType.TASK_STARTED, EventType.TASK_COMPLETED, EventType.TASK_FAILED]:
-            # For task-related events
-            self.event_bus.publish_task_event(
-                event_type=event_type,
-                task_id=self.task.id,
-                task_config={
-                    "apk_name": self.task.config.apk_name,
-                    "repetition": self.task.config.repetition,
-                    "timeout": self.task.config.timeout,
-                    "tool_name": self.task.config.tool_name
-                },
-                details=details or {},
-                source="TaskExecutor"
-            )
+        self.event_bus.publish_task_event(
+            event_type=EventType.TASK_FAILED,
+            task_id=str(self.task.id),
+            task_config={
+                "apk_name": self.task.config.apk_name,
+                "repetition": self.task.config.repetition,
+                "timeout": self.task.config.timeout,
+                "tool_name": self.task.config.tool_name
+            },
+            details={
+                "error": error_message
+            },
+            source="TaskExecutor",
+            channel=EventBus.LIFECYCLE_CHANNEL
+        )

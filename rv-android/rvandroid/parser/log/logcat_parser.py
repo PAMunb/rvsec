@@ -19,13 +19,14 @@ from rvandroid.domain.coverage import LogcatRepository
 from rvandroid.domain.log import RvErrorLog, RvCoverageLog, TAG_RVSEC, TAG_RVSEC_COV
 
 
-def parse_logcat_file(log_file: str) -> LogcatRepository:
+def parse_logcat_file(log_file: str, static_data=None) -> LogcatRepository:
     """
     Parse a logcat file and extract runtime verification logs.
     Returns a standardized LogcatRepository.
 
     Args:
         log_file (str): Path to the logcat file
+        static_data: Optional static analysis data to initialize the repository
 
     Returns:
         LogcatRepository containing the parsed coverage data
@@ -33,6 +34,11 @@ def parse_logcat_file(log_file: str) -> LogcatRepository:
     # Initialize the repository
     repository = LogcatRepository()
     logger = logging.getLogger(__name__)
+
+    # Initialize repository with static data if provided
+    if static_data and hasattr(static_data, 'classes'):
+        logger.debug("Initializing repository with static analysis data")
+        _initialize_repository_from_static_data(repository, static_data)
 
     # Process log file line by line for memory efficiency
     try:
@@ -48,6 +54,48 @@ def parse_logcat_file(log_file: str) -> LogcatRepository:
         logger.error(f"Error parsing logcat file {log_file}: {e}", exc_info=True)
 
     return repository
+
+
+def _initialize_repository_from_static_data(repository: LogcatRepository, static_data) -> None:
+    """
+    Initialize repository with data from static analysis.
+    
+    Args:
+        repository: LogcatRepository instance to initialize
+        static_data: Static analysis data
+    """
+    try:
+        # Process classes from static data
+        classes = static_data.classes
+        for class_name, class_info in classes.classes.items():
+            # Create class in repository
+            from rvandroid.domain.coverage import ClassCoverageData
+            class_data = ClassCoverageData(
+                name=class_name,
+                is_activity=class_info.is_activity,
+                is_main_activity=getattr(class_info, "is_main_activity", False)
+            )
+
+            # Add to repository
+            repository.add_class(class_data)
+
+            # Add methods to class
+            for method in class_info.methods:
+                from rvandroid.domain.coverage import MethodCoverageData
+                method_data = MethodCoverageData(
+                    class_name=class_name,
+                    method_name=method.name,
+                    signature=method.signature,
+                    parameters=getattr(method, "params", []),
+                    reachable=method.reachable,
+                    reaches_mop=method.reaches_mop,
+                    directly_reaches_mop=method.directly_reaches_mop,
+                    from_static_analysis=True
+                )
+                class_data.add_method(method_data)
+
+    except Exception as e:
+        logging.getLogger(__name__).error(f"Error initializing from static data: {e}", exc_info=True)
 
 
 def stream_logcat_entries(log_file: str) -> Generator[Dict[str, Any], None, None]:

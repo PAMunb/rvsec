@@ -33,7 +33,7 @@ def main(app: App, static_data: StaticAnalysisData):
     use_llm = False
 
     # Set up logging
-    logger = setup_logging(True)
+    logger = setup_logging(False)
     logger.info("Starting RVDroid runner")
     logger.info(f"App: {app.name}")
     logger.info(f"Package: {app.package_name}")

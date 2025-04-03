@@ -299,12 +299,34 @@ class StateAnalyzer:
         if self.static_data.wtg:
             edges = []
             for edge in self.static_data.wtg.graph.edges():
-                if edge[0].name == activity_class.name:
+                # edge is now (source_id, target_id) where both are strings
+                source_id = edge[0]
+                target_id = edge[1]
+                
+                # Get the window objects by ID if needed
+                source_window = self.static_data.windows.get_window_by_id(source_id)
+                
+                # Compare with activity class name
+                if source_window and source_window.name == activity_class.name:
+                    edges.append(edge)
+                # Also check by ID directly in case the window names use IDs
+                elif source_id == activity_class.name:
                     edges.append(edge)
 
             if edges:
                 insights["possible_transitions_count"] = len(edges)
-                insights["possible_transitions"] = [edge[1].name for edge in edges[:5]]
+                
+                # Get the window names if possible, otherwise use the IDs
+                target_names = []
+                for edge in edges[:5]:
+                    target_id = edge[1]
+                    target_window = self.static_data.windows.get_window_by_id(target_id)
+                    if target_window:
+                        target_names.append(target_window.name)
+                    else:
+                        target_names.append(target_id)
+                        
+                insights["possible_transitions"] = target_names
 
         return insights
 

@@ -22,11 +22,13 @@ class CoverageComponent:
     - Encapsulates coverage tracking functionality
     - Implements clear separation of concerns for task execution
     - Provides focused error handling for coverage operations
+    - Integrates with the unified analysis component system
 
     ### Role in the System:
     - Manages coverage tracking during task execution
     - Reports coverage events to the event system
     - Processes coverage data after task completion
+    - Formats coverage results for the standardized result system
     """
 
     def __init__(self, task: Task, event_bus: Optional[EventBus] = None):
@@ -188,6 +190,7 @@ class CoverageComponent:
     def process_results(self) -> bool:
         """
         Process coverage results and update task metrics.
+        Uses the standardized result system for consistent data representation.
 
         Returns:
             Success status

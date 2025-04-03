@@ -258,6 +258,18 @@ class Configuration:
                 default="error_data.csv",
                 value_type=str,
                 description="Name of the CSV file for error data"
+            ),
+            "use_enhanced_controller": ConfigValue(
+                key="use_enhanced_controller",
+                default=False,
+                value_type=bool,
+                description="Whether to use the enhanced experiment controller"
+            ),
+            "orchestration_mode": ConfigValue(
+                key="orchestration_mode",
+                default="SEQUENTIAL",
+                value_type=str,
+                description="Orchestration mode for experiment execution"
             )
         }
 
@@ -413,6 +425,80 @@ class Configuration:
                 "choices": config_value.choices
             }
         return result
+    
+    def get_section(self, prefix: str, remove_prefix: bool = True) -> Dict[str, Any]:
+        """
+        Get a configuration section by prefix.
+        
+        This method extracts all configuration values that start with the given prefix
+        and returns them as a dictionary. This is useful for component-specific
+        configuration.
+        
+        Args:
+            prefix: Configuration key prefix (e.g., "llm." for LLM settings)
+            remove_prefix: If True, remove the prefix from the keys
+            
+        Returns:
+            Dictionary with section configuration values
+        
+        Example:
+            ```python
+            # Get all LLM configuration
+            llm_config = config.get_section("llm.")
+            # llm_config = {"model": "gpt-3", "temperature": 0.7}
+            
+            # Without removing prefix
+            llm_config = config.get_section("llm.", remove_prefix=False)
+            # llm_config = {"llm.model": "gpt-3", "llm.temperature": 0.7}
+            ```
+        """
+        result = {}
+        
+        for key, config_value in self.schema.items():
+            if key.startswith(prefix):
+                if remove_prefix:
+                    # Remove prefix and return section-relative key
+                    section_key = key[len(prefix):]
+                else:
+                    # Keep full key
+                    section_key = key
+                    
+                result[section_key] = config_value.value
+                
+        return result
+    
+    def set_section(self, prefix: str, values: Dict[str, Any], append_prefix: bool = True) -> List[str]:
+        """
+        Set multiple configuration values in a section.
+        
+        Args:
+            prefix: Configuration key prefix (e.g., "llm." for LLM settings)
+            values: Dictionary with configuration values to set
+            append_prefix: If True, append the prefix to the keys
+            
+        Returns:
+            List of error messages for values that couldn't be set
+            
+        Example:
+            ```python
+            # Set LLM configuration
+            config.set_section("llm.", {"model": "gpt-4", "temperature": 0.5})
+            
+            # Without appending prefix (keys already include it)
+            config.set_section("", {"llm.model": "gpt-4"}, append_prefix=False)
+            ```
+        """
+        errors = []
+        
+        for key, value in values.items():
+            full_key = f"{prefix}{key}" if append_prefix else key
+            
+            try:
+                self.set(full_key, value)
+            except ValueError as e:
+                errors.append(f"Could not set {full_key}: {e}")
+                
+        return errors
 
     def validate_all(self) -> List[str]:
         """

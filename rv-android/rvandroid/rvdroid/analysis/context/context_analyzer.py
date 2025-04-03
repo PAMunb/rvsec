@@ -57,42 +57,42 @@ class ContextAnalyzer:
             "authentication": {
                 "keywords": ["login", "sign in", "password", "username", "email", "authenticate"],
                 "ui_classes": ["EditText", "Button"],
-                "security_level": "high"
+                "operation_sensitivity": "high"
             },
             "registration": {
                 "keywords": ["register", "sign up", "create account", "new user"],
                 "ui_classes": ["EditText", "Button"],
-                "security_level": "high"
+                "operation_sensitivity": "high"
             },
             "payment": {
                 "keywords": ["pay", "payment", "credit card", "checkout", "purchase"],
                 "ui_classes": ["EditText", "Button"],
-                "security_level": "critical"
+                "operation_sensitivity": "critical"
             },
             "messaging": {
                 "keywords": ["message", "chat", "send", "reply", "conversation"],
                 "ui_classes": ["EditText", "Button", "ListView", "RecyclerView"],
-                "security_level": "medium"
+                "operation_sensitivity": "medium"
             },
             "settings": {
                 "keywords": ["settings", "preferences", "configure", "options"],
                 "ui_classes": ["CheckBox", "Switch", "RadioButton"],
-                "security_level": "medium"
+                "operation_sensitivity": "medium"
             },
             "navigation": {
                 "keywords": ["menu", "home", "back", "next", "previous"],
                 "ui_classes": ["Button", "ImageButton"],
-                "security_level": "low"
+                "operation_sensitivity": "low"
             },
             "content_display": {
                 "keywords": ["view", "display", "show", "details"],
                 "ui_classes": ["TextView", "ImageView"],
-                "security_level": "low"
+                "operation_sensitivity": "low"
             },
             "data_entry": {
                 "keywords": ["edit", "input", "enter", "fill", "form"],
                 "ui_classes": ["EditText", "Button"],
-                "security_level": "medium"
+                "operation_sensitivity": "medium"
             }
         }
 
@@ -288,14 +288,14 @@ class ContextAnalyzer:
         # Default suggestions
         suggestions = {
             "focus_areas": [],
-            "security_level": "low",
+            "operation_sensitivity": "low",
             "recommended_actions": []
         }
 
         # Context-specific suggestions
         if primary_context == "authentication":
-            suggestions["focus_areas"] = ["input validation", "error handling", "security", "usability"]
-            suggestions["security_level"] = "high"
+            suggestions["focus_areas"] = ["input validation", "error handling", "specification compliance", "usability"]
+            suggestions["operation_sensitivity"] = "high"
             suggestions["recommended_actions"] = [
                 "Test invalid credentials",
                 "Test password requirements",
@@ -304,18 +304,18 @@ class ContextAnalyzer:
             ]
 
         elif primary_context == "payment":
-            suggestions["focus_areas"] = ["input validation", "error handling", "security", "transaction flow"]
-            suggestions["security_level"] = "critical"
+            suggestions["focus_areas"] = ["input validation", "error handling", "specification compliance", "transaction flow"]
+            suggestions["operation_sensitivity"] = "critical"
             suggestions["recommended_actions"] = [
                 "Test invalid payment information",
                 "Verify transaction confirmation",
-                "Check security indicators",
+                "Check method usage indicators",
                 "Validate payment flow"
             ]
 
         elif primary_context == "data_entry":
             suggestions["focus_areas"] = ["input validation", "error handling", "data persistence"]
-            suggestions["security_level"] = "medium"
+            suggestions["operation_sensitivity"] = "medium"
             suggestions["recommended_actions"] = [
                 "Test boundary values",
                 "Test invalid input",
@@ -325,20 +325,20 @@ class ContextAnalyzer:
 
         elif primary_context == "navigation":
             suggestions["focus_areas"] = ["navigation flow", "state management", "accessibility"]
-            suggestions["security_level"] = "low"
+            suggestions["operation_sensitivity"] = "low"
             suggestions["recommended_actions"] = [
                 "Test navigation paths",
                 "Check state preservation",
                 "Verify back button behavior"
             ]
 
-        # Add security focus if domain pattern has high security level
+        # Add specification focus if domain pattern has high operation sensitivity
         if primary_context in self.domain_patterns:
-            security_level = self.domain_patterns[primary_context]["security_level"]
-            suggestions["security_level"] = security_level
+            sensitivity_level = self.domain_patterns[primary_context].get("operation_sensitivity", "low")
+            suggestions["operation_sensitivity"] = sensitivity_level
 
-            if security_level in ["high", "critical"]:
-                if "security" not in suggestions["focus_areas"]:
-                    suggestions["focus_areas"].append("security")
+            if sensitivity_level in ["high", "critical"]:
+                if "specification compliance" not in suggestions["focus_areas"]:
+                    suggestions["focus_areas"].append("specification compliance")
 
         return suggestions

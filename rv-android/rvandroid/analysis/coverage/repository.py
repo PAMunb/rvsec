@@ -3,15 +3,14 @@
 Repository for storing and analyzing coverage data.
 Provides a unified interface for coverage operations.
 """
-from typing import Dict
+from typing import Dict, List, Any
 
+from rvandroid.analysis.base_analyzer import BaseRepository
 from rvandroid.domain.coverage import LogcatRepository
 from rvandroid.domain.log import RvCoverageLog, RvErrorLog
-from rvandroid.util.logging.constants import CONTEXT_COMPONENT
-from rvandroid.util.logging.manager import LoggingManager
 
 
-class CoverageRepository:
+class CoverageRepository(BaseRepository):
     """
     Wrapper for the LogcatRepository to provide cleaner API.
     Acts as a facade to simplify common coverage operations.
@@ -20,6 +19,7 @@ class CoverageRepository:
     - Serves as a facade for the core LogcatRepository
     - Simplifies common coverage operations
     - Provides a cleaner, more focused API
+    - Extends BaseRepository for consistent interface
 
     ### Role in the System:
     - Centralizes coverage data management
@@ -29,10 +29,7 @@ class CoverageRepository:
 
     def __init__(self):
         """Initialize the coverage repository."""
-        self.logger = LoggingManager.get_instance().get_logger(
-            'analysis.coverage.repository',
-            {CONTEXT_COMPONENT: 'CoverageRepository'}
-        )
+        super().__init__(repository_name="coverage")
 
         # Core repository - the source of truth
         self.repository = LogcatRepository()
@@ -55,6 +52,7 @@ class CoverageRepository:
             coverage_log: Coverage log entry
         """
         self.repository.register_method_call(coverage_log)
+        self.log_storage_summary("method call", 1)
 
     def register_error(self, error_log: RvErrorLog) -> None:
         """
@@ -64,8 +62,9 @@ class CoverageRepository:
             error_log: Error log entry
         """
         self.repository.register_rv_error(error_log)
+        self.log_storage_summary("error", 1)
 
-    def get_metrics(self, restrict_to_static: bool = True) -> Dict[str, float]:
+    def get_metrics(self, restrict_to_static: bool = True) -> Dict[str, Any]:
         """
         Get coverage metrics.
 
@@ -118,7 +117,7 @@ class CoverageRepository:
         return self.repository.calculate_metrics(restrict_to_static)
 
     @property
-    def errors(self):
+    def errors(self) -> List:
         """
         Access the errors list from the underlying repository.
 

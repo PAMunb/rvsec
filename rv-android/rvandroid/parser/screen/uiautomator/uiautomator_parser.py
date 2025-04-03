@@ -8,7 +8,6 @@ from rvandroid.parser.screen.abstract_parser import AbstractScreenParser
 from rvandroid.parser.screen.visitor.base_visitor import BaseScreenVisitor, Node, ScreenDescription
 from rvandroid.util.decorators import task_phase
 from rvandroid.util.logging.constants import CONTEXT_COMPONENT
-from rvandroid.util.logging.manager import LoggingManager
 
 
 class UIAutomator2Parser(AbstractScreenParser):
@@ -21,12 +20,6 @@ class UIAutomator2Parser(AbstractScreenParser):
     - Provides consistent element attribute normalization
     - Handles system navigation filtering through parsing configuration
     - Maintains compatibility with RV-Android's parser architecture
-
-    ### Role in the System:
-    - Translates raw XML hierarchy into structured ScreenDescription objects
-    - Enables analysis and action generation on parsed UI elements
-    - Provides a clean separation between UI retrieval and UI processing
-    - Filters system elements to focus testing on application UI
     """
 
     def __init__(self, visitor_class: Optional[Type[BaseScreenVisitor]] = None):
@@ -37,11 +30,11 @@ class UIAutomator2Parser(AbstractScreenParser):
             visitor_class: Optional visitor class to use for parsing
         """
         super().__init__(visitor_class)
-
+        self.parser_name = "uiautomator"
+        
         # Configure logging with context adapter
-        logging_manager = LoggingManager.get_instance()
-        self.logger = logging_manager.get_logger(
-            "parser.screen.uiautomator.parser",
+        self.logger = self.logging_manager.get_logger(
+            f"parser.screen.{self.parser_name}",
             {CONTEXT_COMPONENT: "UIAutomator2Parser"}
         )
 
@@ -49,12 +42,14 @@ class UIAutomator2Parser(AbstractScreenParser):
     def parse(self, xml_data: str, static_data: Optional[StaticAnalysisData] = None,
               activity: str = "", state_data: Optional[Dict[str, Any]] = None) -> ScreenDescription:
         """
-        Parse UIAutomator2 XML data into a screen description.
+        Special parse method for XML data that maintains backward compatibility.
+        
+        This method handles both string XML data and dictionary state data.
 
         Args:
-            xml_data: XML hierarchy data
+            xml_data: XML hierarchy data or state data dict
             static_data: Optional static analysis data
-            activity: Current activity name
+            activity: Current activity name (optional)
             state_data: Optional state data including system navigation information
 
         Returns:
@@ -63,41 +58,68 @@ class UIAutomator2Parser(AbstractScreenParser):
         Raises:
             ValueError: If XML data cannot be parsed
         """
-        # Create parsing context
-        parse_context = {
-            "activity": activity,
-            "data_size": len(xml_data) if xml_data else 0
-        }
+        # Determine data type and handle accordingly
+        if isinstance(xml_data, str):
+            # XML string data
+            if not activity:
+                activity = self._extract_activity_from_xml(xml_data)
+                
+            # Create simple state data for processing
+            state_data_dict = {
+                "hierarchy": xml_data,
+                "activity": activity
+            }
+            
+            if state_data and isinstance(state_data, dict):
+                # Merge any additional state data
+                state_data_dict.update(state_data)
+                
+            return self.parse_screen(state_data_dict, static_data)
+        elif isinstance(xml_data, dict):
+            # Already dictionary state data
+            return self.parse_screen(xml_data, static_data)
+        else:
+            raise ValueError(f"Unsupported data type: {type(xml_data)}")
 
-        # Use with_context from the ContextAdapter
-        with self.logger.with_context(**parse_context):
-            self.logger.debug("Starting XML parsing")
+    def _parse_implementation(self, state_data: Dict[str, Any],
+                             static_data: Optional[StaticAnalysisData],
+                             activity: str) -> ScreenDescription:
+        """
+        Implementation-specific parsing logic for UIAutomator2 data.
+        
+        Args:
+            state_data: Dictionary containing UI state information
+            static_data: Static analysis data for the application
+            activity: Current activity name
+            
+        Returns:
+            ScreenDescription object containing parsed UI elements
+        """
+        # Create visitor
+        visitor = self.create_visitor(static_data, activity)
 
-            # Create visitor
-            visitor = self.create_visitor(static_data, activity)
+        # Pass system navigation information to visitor if available
+        if "system_navigation_bounds" in state_data:
+            visitor.system_navigation_bounds = state_data["system_navigation_bounds"]
 
-            # Pass system navigation information to visitor if available
-            if state_data and "system_navigation_bounds" in state_data:
-                visitor.system_navigation_bounds = state_data["system_navigation_bounds"]
+        # Pass device information to visitor if available
+        if "device_info" in state_data:
+            visitor.device_info = state_data["device_info"]
 
-            # Pass device information to visitor if available
-            if state_data and "device_info" in state_data:
-                visitor.device_info = state_data["device_info"]
+        # Parse XML and build node tree
+        root_node = self.create_node_tree(state_data)
+        if not root_node:
+            self.logger.error("Failed to parse XML data")
+            raise ValueError("Failed to parse XML data")
 
-            # Parse XML and build node tree
-            root_node = self._parse_xml(xml_data)
-            if not root_node:
-                self.logger.error("Failed to parse XML data")
-                raise ValueError("Failed to parse XML data")
+        # Visit nodes to build screen description
+        root_node.accept(visitor)
 
-            # Visit nodes to build screen description
-            root_node.accept(visitor)
+        # Get screen description from visitor
+        screen_desc = visitor.get_screen_description()
+        self.log_processing_summary("interactive elements", len(screen_desc.items))
 
-            # Get screen description from visitor
-            screen_desc = visitor.get_screen_description()
-            self.logger.debug(f"Completed XML parsing, found {len(screen_desc.items)} interactive elements")
-
-            return screen_desc
+        return screen_desc
 
     def get_activity_name(self, state_data: Dict[str, Any]) -> str:
         """
@@ -113,37 +135,49 @@ class UIAutomator2Parser(AbstractScreenParser):
             ValueError: If activity name cannot be determined
         """
         try:
-            # If state_data is a string (XML data), try to parse it
-            if isinstance(state_data, str):
-                try:
-                    root = ET.fromstring(state_data)
-                    # Try to find package and activity information
-                    package = root.get("package", "")
-                    if package:
-                        return package
-                    # If no package attribute, try first node with package
-                    for child in root.iter():
-                        package = child.get("package", "")
-                        if package:
-                            return package
-                    raise ValueError("Could not determine activity from XML data")
-                except Exception as e:
-                    raise ValueError(f"Error parsing XML for activity: {e}")
-
-            # If state_data is a dictionary, look for activity information
-            if isinstance(state_data, dict):
-                # Check for explicitly provided activity
-                if "activity" in state_data:
-                    return state_data["activity"]
-
-                # Check for hierarchy XML
-                if "hierarchy" in state_data:
-                    return self.get_activity_name(state_data["hierarchy"])
-
+            # First check if activity is explicitly provided
+            if "activity" in state_data and state_data["activity"]:
+                return state_data["activity"]
+                
+            # If state_data has hierarchy, extract from XML
+            if "hierarchy" in state_data and isinstance(state_data["hierarchy"], str):
+                return self._extract_activity_from_xml(state_data["hierarchy"])
+                
+            # If all else fails
             raise ValueError("Could not determine activity from state data")
         except Exception as e:
             self.logger.error(f"Error determining activity name: {e}")
             raise
+            
+    def _extract_activity_from_xml(self, xml_data: str) -> str:
+        """
+        Extract activity/package name from XML string.
+        
+        Args:
+            xml_data: XML hierarchy string
+            
+        Returns:
+            Activity or package name
+            
+        Raises:
+            ValueError: If activity cannot be determined
+        """
+        try:
+            root = ET.fromstring(xml_data)
+            # Try to find package attribute
+            package = root.get("package", "")
+            if package:
+                return package
+                
+            # If no package attribute, try first node with package
+            for child in root.iter():
+                package = child.get("package", "")
+                if package:
+                    return package
+                    
+            raise ValueError("Could not determine activity from XML data")
+        except Exception as e:
+            raise ValueError(f"Error parsing XML for activity: {e}")
 
     def create_node_tree(self, state_data: Dict[str, Any]) -> Optional[Node]:
         """
@@ -159,18 +193,41 @@ class UIAutomator2Parser(AbstractScreenParser):
             ValueError: If node tree cannot be created from the state data
         """
         try:
-            # If state_data is a string (XML data), parse it directly
-            if isinstance(state_data, str):
-                return self._parse_xml(state_data)
-
-            # If state_data is a dictionary, look for hierarchy XML
-            if isinstance(state_data, dict) and "hierarchy" in state_data:
+            # If state_data has hierarchy, parse the XML
+            if "hierarchy" in state_data and isinstance(state_data["hierarchy"], str):
                 return self._parse_xml(state_data["hierarchy"])
-
-            raise ValueError("Could not create node tree from state data")
+                
+            raise ValueError("Could not create node tree from state data (missing hierarchy)")
         except Exception as e:
             self.logger.error(f"Error creating node tree: {e}")
             raise
+
+    def validate_state_data(self, state_data: Dict[str, Any]) -> bool:
+        """
+        Validate that state data contains required fields.
+
+        Args:
+            state_data: Dictionary containing UI state information
+
+        Returns:
+            True if valid, False otherwise
+        """
+        try:
+            # Check for hierarchy
+            if "hierarchy" in state_data:
+                xml_data = state_data["hierarchy"]
+                if isinstance(xml_data, str):
+                    try:
+                        ET.fromstring(xml_data)
+                        return True
+                    except Exception:
+                        self.logger.error("Invalid XML data")
+                        return False
+                        
+            return False
+        except Exception as e:
+            self.logger.error(f"Error validating state data: {e}")
+            return False
 
     def _parse_xml(self, xml_data: str) -> Optional[Node]:
         """
@@ -194,35 +251,6 @@ class UIAutomator2Parser(AbstractScreenParser):
         except Exception as e:
             self.logger.error(f"Error parsing XML data: {e}")
             return None
-
-    def validate_state_data(self, state_data: Dict[str, Any]) -> bool:
-        """
-        Validate that state data contains required fields.
-
-        Args:
-            state_data: Dictionary containing UI state information
-
-        Returns:
-            True if valid, False otherwise
-        """
-        try:
-            # For XML string data, check if it's parseable
-            if isinstance(state_data, str):
-                try:
-                    ET.fromstring(state_data)
-                    return True
-                except Exception:
-                    return False
-
-            # For dictionary data, check for hierarchy
-            if isinstance(state_data, dict):
-                if "hierarchy" in state_data:
-                    return self.validate_state_data(state_data["hierarchy"])
-
-            return False
-        except Exception as e:
-            self.logger.error(f"Error validating state data: {e}")
-            return False
 
     def _build_node_from_element(self, element: ET.Element, parent_node: Optional[Node] = None) -> Node:
         """

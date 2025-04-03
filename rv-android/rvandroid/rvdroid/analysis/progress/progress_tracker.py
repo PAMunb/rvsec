@@ -51,6 +51,18 @@ class ProgressTracker:
         self.current_state: Optional[str] = None
         self.current_state_start_time: float = 0
 
+        # Monitored method coverage tracking
+        self.monitored_methods_reached: Set[str] = set()  # Method signatures
+        self.crypto_methods_reached: Set[str] = set()     # Crypto specification methods
+        self.general_api_methods_reached: Set[str] = set() # General API specification methods
+        self.total_monitored_methods = 0
+        self.total_crypto_methods = 0
+        self.total_general_api_methods = 0
+
+        # Initialize method counts from static analysis if available
+        if static_data:
+            self._initialize_method_counts()
+
         # Exploration metrics
         self.last_new_state_time = time.time()
         self.exploration_plateaus: List[Dict[str, Any]] = []
@@ -87,6 +99,21 @@ class ProgressTracker:
         if executed_action:
             action_id = executed_action.id
             self.executed_actions[action_id] = self.executed_actions.get(action_id, 0) + 1
+            
+            # Track monitored method hits
+            if hasattr(executed_action, 'reaches_mop') and executed_action.reaches_mop:
+                method_signature = None
+                if hasattr(executed_action, 'target_method'):
+                    method_signature = executed_action.target_method
+                
+                if method_signature:
+                    self.monitored_methods_reached.add(method_signature)
+                    
+                    # Try to categorize based on method signature
+                    if self._is_crypto_method(method_signature):
+                        self.crypto_methods_reached.add(method_signature)
+                    elif self._is_general_api_method(method_signature):
+                        self.general_api_methods_reached.add(method_signature)
 
         # Track state visits
         if state_fingerprint not in self.state_visit_times:
@@ -233,6 +260,84 @@ class ProgressTracker:
             "plateaus_count": len(self.exploration_plateaus)
         }
 
+    def _initialize_method_counts(self) -> None:
+        """
+        Initialize monitored method counts from static analysis data.
+        """
+        if not self.static_data or not self.static_data.classes:
+            return
+            
+        # Look for a static analyzer in the context
+        static_analyzer = None
+        if hasattr(self, 'context') and hasattr(self.context, 'static_analyzer'):
+            static_analyzer = self.context.static_analyzer
+        
+        # Use enhanced static analyzer if available
+        if static_analyzer and hasattr(static_analyzer, 'get_monitored_methods'):
+            # Get counts by specification type
+            all_methods = static_analyzer.get_monitored_methods()
+            crypto_methods = static_analyzer.get_monitored_methods("crypto")
+            general_api_methods = static_analyzer.get_monitored_methods("general_api")
+            
+            self.total_monitored_methods = len(all_methods)
+            self.total_crypto_methods = len(crypto_methods)
+            self.total_general_api_methods = len(general_api_methods)
+        else:
+            # Fallback to manual counting
+            monitored_methods = 0
+            crypto_methods = 0
+            general_api_methods = 0
+            
+            for clazz in self.static_data.classes.get_classes():
+                for method in clazz.methods:
+                    if method.reaches_mop or method.directly_reaches_mop:
+                        monitored_methods += 1
+                        
+                        # Use simple classification
+                        if self._is_crypto_method(method.signature):
+                            crypto_methods += 1
+                        elif self._is_general_api_method(method.signature):
+                            general_api_methods += 1
+                            
+            self.total_monitored_methods = monitored_methods
+            self.total_crypto_methods = crypto_methods
+            self.total_general_api_methods = general_api_methods
+            
+        self.logger.info(f"Initialized method counts: {self.total_monitored_methods} total monitored methods, "
+                       f"{self.total_crypto_methods} crypto methods, {self.total_general_api_methods} general API methods")
+    
+    def _is_crypto_method(self, method_signature: str) -> bool:
+        """
+        Check if a method is related to cryptography.
+        
+        Args:
+            method_signature: Method signature
+            
+        Returns:
+            True if the method is crypto-related, False otherwise
+        """
+        crypto_keywords = {"cipher", "encrypt", "decrypt", "key", "mac", "hash", "digest", 
+                          "random", "secure", "sign", "verify", "certificate"}
+        
+        method_lower = method_signature.lower()
+        return any(kw in method_lower for kw in crypto_keywords)
+    
+    def _is_general_api_method(self, method_signature: str) -> bool:
+        """
+        Check if a method is related to general API usage.
+        
+        Args:
+            method_signature: Method signature
+            
+        Returns:
+            True if the method is general API-related, False otherwise
+        """
+        general_api_keywords = {"iterator", "next", "hasnext", "collection", "map", "list", 
+                              "compare", "equals", "hashcode", "clone", "close"}
+        
+        method_lower = method_signature.lower()
+        return any(kw in method_lower for kw in general_api_keywords)
+    
     def get_progress_summary(self) -> Dict[str, Any]:
         """
         Get a summary of the testing progress.
@@ -253,6 +358,20 @@ class ProgressTracker:
         elapsed_minutes = int((metrics["elapsed_time"] % 3600) // 60)
         elapsed_seconds = int(metrics["elapsed_time"] % 60)
         elapsed_str = f"{elapsed_hours}h {elapsed_minutes}m {elapsed_seconds}s"
+        
+        # Calculate specification coverage percentages
+        monitored_methods_coverage = 0.0
+        crypto_methods_coverage = 0.0
+        general_api_methods_coverage = 0.0
+        
+        if self.total_monitored_methods > 0:
+            monitored_methods_coverage = (len(self.monitored_methods_reached) / self.total_monitored_methods) * 100
+            
+        if self.total_crypto_methods > 0:
+            crypto_methods_coverage = (len(self.crypto_methods_reached) / self.total_crypto_methods) * 100
+            
+        if self.total_general_api_methods > 0:
+            general_api_methods_coverage = (len(self.general_api_methods_reached) / self.total_general_api_methods) * 100
 
         return {
             "elapsed_time": elapsed_str,
@@ -264,5 +383,20 @@ class ProgressTracker:
             "actions_per_state": f"{actions_per_state:.1f}",
             "states_per_hour": f"{states_per_hour:.1f}",
             "redundancy_ratio": f"{metrics['redundancy_ratio'] * 100:.1f}%",
-            "exploration_plateaus": len(self.exploration_plateaus)
+            "exploration_plateaus": len(self.exploration_plateaus),
+            "monitored_methods": {
+                "total": self.total_monitored_methods,
+                "reached": len(self.monitored_methods_reached),
+                "coverage_percent": f"{monitored_methods_coverage:.1f}%"
+            },
+            "crypto_methods": {
+                "total": self.total_crypto_methods,
+                "reached": len(self.crypto_methods_reached),
+                "coverage_percent": f"{crypto_methods_coverage:.1f}%"
+            },
+            "general_api_methods": {
+                "total": self.total_general_api_methods,
+                "reached": len(self.general_api_methods_reached),
+                "coverage_percent": f"{general_api_methods_coverage:.1f}%"
+            }
         }

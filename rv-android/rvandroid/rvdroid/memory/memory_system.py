@@ -73,8 +73,9 @@ class MemorySystem:
         self.pattern_recognition = PatternRecognition(self.short_term_memory, self.long_term_memory)
         self.exploration_optimizer = ExplorationOptimizer(
             self.short_term_memory,
-            self.long_term_memory,
-            self.pattern_recognition  # Pass pattern_recognition with the correct parameter name
+            self.long_term_memory, 
+            self.pattern_recognition,
+            static_data  # Pass static_data to enable enhanced static analysis
         )
 
         # Last state and action tracking for transitions

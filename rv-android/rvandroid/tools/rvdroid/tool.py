@@ -3,6 +3,7 @@
 RVDroid tool implementation with configuration support.
 """
 import os
+import json
 
 from rvandroid.app import App
 from rvandroid.commands.command import Command
@@ -10,6 +11,8 @@ from rvandroid.config.component_configurator import ComponentConfigurator
 from rvandroid.experiment.event.bus import EventBus, EventType
 from rvandroid.experiment.task.task_model import Task
 from rvandroid.rvdroid.core.service import RVDroidService
+from rvandroid.rvdroid.orchestration.lifecycle import LifecycleManager, ExecutionPhase
+from rvandroid.rvdroid.orchestration.recovery import RecoveryManager, ErrorSeverity, RecoveryStrategy
 from rvandroid.tools.configurable_tool import ConfigurableTool
 from rvandroid.util.logging.constants import CONTEXT_TASK_ID, CONTEXT_APP_NAME, CONTEXT_TOOL_NAME, CONTEXT_COMPONENT
 from rvandroid.util.logging.manager import LoggingManager
@@ -86,8 +89,14 @@ class ToolSpec(ConfigurableTool):
         )
 
         try:
-            # Create and start RVDroid service
-            service = RVDroidService(task.static_data, config=self.component_config)
+            # Create RVDroid service with configured options
+            service = RVDroidService(
+                static_data=task.static_data, 
+                config=self.component_config,
+                device_id=task.config.device_id,
+                use_llm=self.config["use_llm"],
+                execution_timeout=task.config.timeout
+            )
 
             # Prepare UIAutomator2 server setup
             logger.info("Starting UIAutomator2 server")
@@ -102,19 +111,24 @@ class ToolSpec(ConfigurableTool):
             ])
             start_server_cmd.invoke()
 
-            # Execute RVDroid test with UIAutomator2
-            with open(task.result.trace_file, "wb") as trace:
-                exec_cmd = Command("python", [
-                    "-m", "rvandroid.rvdroid.runner",
-                    "--app", app.path,
-                    "--package", app.package_name,
-                    "--device", task.config.device_id,
-                    "--timeout", str(task.config.timeout),
-                    "--output", os.path.dirname(task.result.trace_file),
-                    "--llm" if self.config["use_llm"] else ""
-                ], task.config.timeout)
-
-                exec_cmd.invoke(stdout=trace)
+            # Start RVDroid testing
+            with open(task.result.trace_file, "wb") as trace_file:
+                # Start the app and begin testing
+                if service.start_testing(app.package_name):
+                    logger.info(f"Successfully started testing {app.package_name}")
+                    
+                    # Execute the main testing loop
+                    results = service.execute_testing_loop()
+                    
+                    # Write results to trace file
+                    import json
+                    trace_file.write(json.dumps(results, default=str).encode('utf-8'))
+                    
+                    # Stop testing and cleanup
+                    service.stop_testing()
+                else:
+                    logger.error(f"Failed to start testing for {app.package_name}")
+                    trace_file.write(b"ERROR: Failed to start testing")
 
             # Process results and generate coverage information
             service.process_results(task.result.trace_file)

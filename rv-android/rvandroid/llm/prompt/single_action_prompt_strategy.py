@@ -1,7 +1,17 @@
 # rvandroid/llm/prompt/single_action_prompt_strategy.py
+"""
+Single Action Prompt Strategy Implementation
+
+Specializes the base prompt strategy to generate prompts focused on selecting
+a single, most appropriate action at each step. Uses explicit guidance and
+enhanced context to help the model make optimal decisions within the single-action
+constraint.
+"""
+
 from typing import Dict, Optional, Any, Union
 
 from rvandroid.llm.prompt.base_prompt_strategy import BasePromptStrategy
+from rvandroid.llm.prompt.prompt_template import PromptLibrary
 from rvandroid.domain.static import StaticAnalysisData
 from rvandroid.parser.screen.abstract_parser import AbstractScreenParser
 from rvandroid.parser.screen.parser_factory import ParserType
@@ -9,281 +19,118 @@ from rvandroid.parser.screen.parser_factory import ParserType
 
 class SingleActionPromptStrategy(BasePromptStrategy):
     """
-    Prompt strategy_class that generates a single action at a time based on detailed action history.
-    This strategy_class encourages the LLM to build upon previous actions by providing a rich history context.
+    A specialized prompt strategy that focuses on generating exactly one action at a time.
+    
+    ### Architectural Decisions:
+    - Extends the BasePromptStrategy for common functionality
+    - Specializes prompts for single action selection
+    - Provides enhanced contextual guidance for sequential action planning
+    - Uses template system with single-action-specific parameters
+    - Optimizes for depth-first exploration in form testing
+
+    ### Role in the System:
+    - Enables predictable, single-step test execution
+    - Supports detailed reasoning about each chosen action
+    - Facilitates careful workflow testing with explicit guidance
+    - Provides clearer action history tracking
+    - Ensures consistent, controllable UI interaction
     """
 
-    def __init__(self, static_data: Optional[StaticAnalysisData] = None, parser_type: Union[ParserType, AbstractScreenParser, None] = ParserType.DROIDBOT):
-        super().__init__(static_data, parser_type)
-        self.logger.info("Using SingleActionPromptStrategy for action generation")
+    def __init__(self, 
+                 static_data: Optional[StaticAnalysisData] = None, 
+                 parser: Union[ParserType, AbstractScreenParser, None] = None,
+                 detailed_static_analysis: bool = False,
+                 include_screenshots: bool = False):
+        """
+        Initialize the single action prompt strategy.
 
-    # rvandroid/llm/prompt/single_action_prompt_strategy.py
+        Args:
+            static_data: Static analysis data (optional)
+            parser: Parser type or instance for screen parsing
+            detailed_static_analysis: Whether to include detailed static analysis
+            include_screenshots: Whether to include screenshot analysis
+        """
+        super().__init__(static_data, parser, detailed_static_analysis, include_screenshots)
+        self.logger.info("Using SingleActionPromptStrategy for action generation")
 
     def generate_system_prompt(self) -> str:
         """
-        Generate a system prompt focused on single action selection with improved exploration guidance.
+        Generate a system prompt specialized for single action selection.
         Emphasizes that EXACTLY ONE action should be selected.
+
+        Returns:
+            System prompt string
         """
-        return """You are an Android UI testing expert. Your task is to analyze the current app state and suggest the SINGLE MOST EFFECTIVE NEXT ACTION to take based on the testing context and history.
-
-Focus on:
-1. Systematically exploring ALL parts of the application, not just the current screen
-2. Maximizing code coverage by targeting untested UI elements
-3. Prioritizing testing of methods of interest that directly or indirectly affect operations defined in formal specifications
-4. Testing complete workflows from start to finish
-
-IMPORTANT: You will be provided with a list of possible actions, each with a unique action_id. Your job is to select EXACTLY ONE action that would be most appropriate as the next step in the testing sequence.
-
-YOUR RESPONSE MUST CONTAIN EXACTLY ONE ACTION. DO NOT SUGGEST MULTIPLE ACTIONS OR A SEQUENCE OF ACTIONS.
-
-Your response MUST follow this schema - a JSON array with EXACTLY ONE object inside:
-[
-  {
-    "action_id": "5",  
-    "params": {},  
-    "explanation": "Detailed explanation of why this action was chosen as the next step"
-  }
-]
-
-Failure to provide just one action will make your response unusable. The system only supports executing one action at a time in this mode.
-
-For actions that require parameters (like SET_TEXT), you must include appropriate values:
-[
-  {
-    "action_id": "5",  
-    "params": {"text": "test@example.com"},  
-    "explanation": "Entering a valid email address in the email field"
-  }
-]
-
-EXPLORATION GUIDELINES:
-1. After testing the same workflow 3 times, use the BACK button to explore other parts of the app
-2. Avoid repeatedly clicking the same button more than 3 times
-3. When stuck in a loop, prioritize navigating to different screens
-4. Try different input values each time you fill a form
-5. Balance depth (completing workflows) with breadth (exploring all screens)
-
-DROPDOWN INTERACTION RULES:
-1. For dropdown spinners, you MUST first CLICK the dropdown to open it before scrolling
-2. The correct sequence is: CLICK dropdown → THEN scroll to find option → THEN click to select
-
-FORM TESTING WORKFLOW:
-1. ALWAYS fill forms in a SEQUENTIAL, LOGICAL ORDER before submitting them
-2. For forms with dropdowns/spinners, first click and select from dropdown, then fill other fields, then click action buttons
-3. For forms with input fields and buttons, fill ALL required inputs first, THEN click the action/submit button
-4. When a form appears to be completely filled, CLICK THE ACTION BUTTON to complete the workflow
-5. COMPLETE WORKFLOWS - After filling all required inputs, proceed to action buttons to test the functionality
-
+        # Use deep exploration goal for single actions
+        exploration_goal = ("Systematically exploring ALL parts of the application "
+                           "with a focus on depth-first testing of complete workflows")
+        
+        # Use single action format
+        response_format = PromptLibrary.single_action_format()
+        
+        # Add single-action-specific guidelines
+        additional_guidelines = """
 REMEMBER: You MUST suggest only ONE action - the single most important next action to take.
 
-DO NOT include any additional text outside of the JSON array. Your response must be valid JSON that can be parsed directly with EXACTLY ONE action."""
+CRITICAL: In each step, carefully consider which UI element needs attention next based on logical workflow sequence."""
+        
+        # Render template with parameters
+        return self.system_template.render({
+            "exploration_goal": exploration_goal,
+            "response_format": response_format,
+            "additional_guidelines": additional_guidelines
+        })
 
-    def generate_user_prompt(self, state: Dict) -> str:
+    def _generate_summary(self, activity: str, screen_description, state: Dict[str, Any]) -> str:
         """
-        Generate an enhanced user prompt with explicit action IDs and detailed history.
-        Handles cases where activity information might be missing.
+        Generate a summary section specialized for single action selection.
+
+        Args:
+            activity: Current activity name
+            screen_description: Parsed screen description
+            state: Current application state
+
+        Returns:
+            Generated summary string
         """
-        try:
-            # Parse the state to get a structured representation
-            screen_description = self.parser.parse(state, self.static_data)
-
-            # Extract activity name with error handling
-            try:
-                activity = self.parser.get_activity_name(state)
-            except ValueError:
-                # Fallback if activity name cannot be determined
-                activity = state.get("package_name", "unknown.package") + ".UnknownActivity"
-                self.logger.warning(f"Using fallback activity name: {activity}")
-
-            # Begin building the prompt
-            prompt = f"Current Activity: {activity}\n\n"
-
-            # Add transition guidance if available
-            transition_guidance = state.get("transition_guidance")
-            if transition_guidance:
-                prompt += self._add_transition_guidance(transition_guidance)
-
-            # Add static analysis context if available
-            static_context = self._add_static_analysis_context(activity)
-            prompt += static_context
-
-            # Add UI state information with enhanced action descriptions
-            prompt += "Current UI Elements and Available Actions:\n"
-
-            if not screen_description.items:
-                prompt += "No UI elements detected in the current state. This might be a loading screen or an error state.\n"
-            else:
+        # Get basic summary from parent class
+        summary = super()._generate_summary(activity, screen_description, state)
+        
+        # Add single-action-specific guidance
+        summary += "\n\nIMPORTANT: Based on the context, SELECT EXACTLY ONE ACTION from the available options that would be the most effective next step in testing."
+        
+        # Check if this is a form with multiple inputs
+        form_elements = [item for item in screen_description.items
+                         if any(t in item.base_description.lower()
+                               for t in ["text field", "spinner", "checkbox"])]
+        
+        if len(form_elements) > 1:
+            summary += " Remember to follow a logical sequence when filling forms - handle one input at a time in a natural order."
+        
+        # Check for repetitive actions and suggest back navigation if needed
+        action_history = state.get("action_history", [])
+        if len(action_history) >= 3:
+            # Check last few actions for repetition
+            recent_actions = action_history[-3:]
+            
+            # Simple repetition check - are all recent actions identical?
+            if len(set(recent_actions)) == 1:
+                # Find back button action ID
+                back_action_id = None
                 for item in screen_description.items:
-                    view = item.view
-                    widget_id = view.get("resource_id", "").split("/")[-1] if view.get("resource_id") else "unknown"
-                    widget_text = view.get("text", "")
-
-                    # Format the item description
-                    prompt += f"- {item.base_description}\n"
-
-                    # Add actions with their IDs and more detailed information
-                    if item.actions:
-                        prompt += "  Available actions:\n"
+                    if "System back button" in item.base_description or "BACK" in item.base_description:
                         for action in item.actions:
-                            # Add indicators for operations of interest
-                            importance_tag = ""
-                            if action.directly_reaches_mop:
-                                importance_tag = " [CRITICAL: Directly reaches operation of interest]"
-                            elif action.reaches_mop:
-                                importance_tag = " [IMPORTANT: Can reach operation of interest]"
-
-                            # Add usage history context
-                            history_tag = ""
-                            action_specific_history = state.get("action_specific_history", {}).get(str(action.id), [])
-                            if action_specific_history:
-                                count = len(action_specific_history)
-                                history_tag = f" [Previously used {count} times]"
-
-                            # Create detailed action description
-                            action_desc = f"  - {action.text} (action_id: \"{action.id}\"){importance_tag}{history_tag}"
-
-                            # Check for transitions based on this action
-                            transitions = self._get_transitions_for_action(activity, widget_id, action)
-                            if transitions:
-                                action_desc += f" -> Will transition to: {', '.join(transitions)}"
-
-                            prompt += action_desc + "\n"
-
-                            # Add most recent usage of this action if available
-                            if action_specific_history and len(action_specific_history) > 0:
-                                last_usage = action_specific_history[-1]
-                                prompt += f"    Last usage: {last_usage}\n"
-
-                        # Add guidance for parameterized actions
-                        has_text_action = any(a.text.startswith("SET_TEXT") for a in item.actions)
-                        if has_text_action:
-                            hint = ""
-                            if "hint" in view and view["hint"]:
-                                hint = f" (hint: {view['hint']})"
-                            elif "content_description" in view and view["content_description"]:
-                                hint = f" (description: {view['content_description']})"
-                            elif widget_text:
-                                hint = f" (current text: {widget_text})"
-
-                            input_type = self._infer_input_type(view, widget_id)
-                            if input_type:
-                                prompt += f"  Input type appears to be: {input_type}{hint}\n"
-
-                        # Add static info if available
-                        static_info = self._get_widget_static_info(activity, widget_id)
-                        if static_info:
-                            prompt += f"  Static analysis: {static_info}\n"
-
-                # Get action history if available
-                action_history = state.get("action_history", []) if "action_history" in state else []
-
-                # Add workflow guidance based on detected UI elements and action history
-                workflow_guidance = self._add_workflow_guidance(screen_description, action_history)
-                prompt += workflow_guidance
-
-                # Add enhanced action history
-                if action_history:
-                    prompt += "\nACTION HISTORY (most recent actions last):\n"
-                    recent_actions = action_history[-30:] if len(action_history) > 30 else action_history
-
-                    for i, action in enumerate(recent_actions):
-                        prompt += f"{i + 1}. {action}\n"
-
-                # Add instructions with balanced emphasis on workflow completion
-                prompt += f"\nSUMMARY: You are testing the {activity} screen. Based on the action history and current state, SELECT ONE ACTION from the available options above that would be the most logical next step in testing this screen."
-
-                # Detect if there are unselected dropdowns
-                has_dropdowns = any(
-                    "Dropdown spinner" in item.base_description for item in screen_description.items)
-                dropdown_clicked = False
-                for action in action_history:
-                    if isinstance(action, str) and "click" in action.lower() and any(
-                            spinner_term in action.lower() for spinner_term in ["spinner", "dropdown"]):
-                        dropdown_clicked = True
-                        break
-
-                # Analyze if form fields have been filled
-                inputs_filled = any(isinstance(action, str) and "set_text" in action.lower() for action in
-                                    action_history) if action_history else False
-
-                # Detect action buttons
-                action_buttons = []
-                for item in screen_description.items:
-                    if "Button" in item.base_description:
-                        view_text = item.view.get("text", "").lower() if item.view.get("text") else ""
-                        if view_text and any(keyword in view_text for keyword in
-                                             ["submit", "login", "save", "apply", "ok", "next", "continue",
-                                              "generate", "create", "send", "search", "encrypt", "decrypt"]):
-                            action_buttons.append(item)
-
-                # Check for repetitive actions
-                repeated_button_clicks = 0
-                if action_history and len(action_history) >= 3:
-                    # Check the last few actions
-                    for i in range(min(5, len(action_history))):
-                        action = action_history[-(i + 1)]
-                        if isinstance(action, str) and "click" in action.lower():
-                            if action_buttons:
-                                button_text = action_buttons[0].view.get("text", "").lower()
-                                if button_text in action.lower():
-                                    repeated_button_clicks += 1
-
-                # Add specific guidance based on form state
-                if repeated_button_clicks >= 3:
-                    # Find back button action ID
-                    back_action_id = None
-                    for item in screen_description.items:
-                        if "System back button" in item.base_description:
-                            for action in item.actions:
-                                if "BACK" in action.text:
-                                    back_action_id = action.id
-                                    break
-
-                    if back_action_id:
-                        prompt += f"\n\nIMPORTANT: You have repeatedly clicked the same button multiple times. Consider using the BACK button (action_id: \"{back_action_id}\") to explore other parts of the application."
-                    else:
-                        prompt += "\n\nIMPORTANT: You have repeatedly clicked the same button multiple times. Consider navigating back to explore other parts of the application."
-                elif has_dropdowns and not dropdown_clicked:
-                    spinner_action_id = None
-                    # Find the dropdown spinner's click action ID
-                    for item in screen_description.items:
-                        if "Dropdown spinner" in item.base_description:
-                            for action in item.actions:
-                                if "CLICK" in action.text:
-                                    spinner_action_id = action.id
-                                    break
-
-                    if spinner_action_id:
-                        prompt += f"\n\nCRITICAL: You must CLICK the dropdown first (action_id: \"{spinner_action_id}\") to open it before you can select from it."
-                    else:
-                        prompt += "\n\nCRITICAL: You must CLICK the dropdown first to open it before you can select from it."
-                elif inputs_filled and action_buttons and (not has_dropdowns or dropdown_clicked):
-                    if repeated_button_clicks < 3:
-                        button_text = action_buttons[0].view.get("text", "action")
-                        prompt += f"\n\nIMPORTANT: Input fields have been filled based on previous actions. Consider clicking the {button_text} button to complete the workflow."
-                elif action_buttons and not inputs_filled and (not has_dropdowns or dropdown_clicked):
-                    prompt += "\n\nREMINDER: For forms, fill all required fields before clicking action buttons."
-
-                # Add special instructions for screen transitions
-                if "can_transition_to" in static_context:
-                    prompt += "\n\nNOTE: If you decide to test a screen transition, consider whether it's the right time to navigate away from the current screen based on what has been tested so far."
-
-                prompt += "\n\n⚠️ CRITICAL INSTRUCTION: You MUST return EXACTLY ONE action. Do not suggest multiple actions, even if you think more than one action would be useful. Your response should be a JSON array containing EXACTLY ONE object with 'action_id', 'params', and 'explanation' fields."
-
-                return prompt
-
-        except Exception as e:
-            # Handle any errors during prompt generation
-            self.logger.error(f"Error generating prompt: {e}", exc_info=True)
-
-            # Return a simple fallback prompt that will still work
-            simple_prompt = (
-                "Error occurred while analyzing the current screen. Please suggest 1 basic testing action.\n"
-                "Return your response as a JSON array with a single action with an action_id value that might be on the screen:\n"
-                "[{\"action_id\": \"1\", \"params\": {}, \"explanation\": \"Basic test action\"}]"
-            )
-            return simple_prompt
-
+                            if "BACK" in action.text:
+                                back_action_id = action.id
+                                break
+                            
+                if back_action_id:
+                    summary += f" You have repeated the same action multiple times - consider using the BACK button (action_id: \"{back_action_id}\") to explore other parts of the application."
+                else:
+                    summary += " You have repeated the same action multiple times - consider navigating to a different part of the application."
+        
+        return summary
+    
     def _add_transition_guidance(self, guidance: Dict[str, Any]) -> str:
         """
         Add transition guidance information to the prompt.

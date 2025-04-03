@@ -174,11 +174,11 @@ class StrategyRegistry:
         return list(cls._strategies.keys())
 
 
-# from rvandroid.rvdroid.strategy.basic_strategies import RandomStrategy, SystematicStrategy, SecurityFocusedStrategy
+# from rvandroid.rvdroid.strategy.basic_strategies import RandomStrategy, SystematicStrategy, SpecificationFocusedStrategy
 # from rvandroid.rvdroid.strategy.visual_aware_strategy import VisualAwareStrategy
 #
 # # Pre-register essential strategies
 # StrategyRegistry.register(RandomStrategy)
 # StrategyRegistry.register(SystematicStrategy)
-# StrategyRegistry.register(SecurityFocusedStrategy)
+# StrategyRegistry.register(SpecificationFocusedStrategy)
 # StrategyRegistry.register(VisualAwareStrategy)

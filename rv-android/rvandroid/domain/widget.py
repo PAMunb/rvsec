@@ -150,6 +150,18 @@ class Widget:
     """
     Represents a UI widget in the application.
     Manages widget properties and associated listeners.
+    
+    ### Architectural Decisions:
+    - Stores comprehensive metadata about UI elements
+    - Manages associated event handlers and callbacks
+    - Maintains both internal identifiers and Android resource IDs
+    - Supports integration with static analysis and runtime exploration
+    
+    ### Role in the System:
+    - Provides rich representation of UI components
+    - Maps between UI events and code handlers
+    - Enables association between UI elements and monitored methods
+    - Supports advanced exploration through resource linking
     """
 
     def __init__(self, widget_id: str, name: str, widget_type: WidgetType):
@@ -175,8 +187,13 @@ class Widget:
         self.hint = ""
         self.field = ""
         self.input_type = ""
+        self.resource_id = ""  # Resource identifier in the layout XML
+        self.class_name = ""   # Class name of the widget
         self.entries: List[str] = []
         self.events: Set[WidgetEvent] = set()
+        self.handlers: List[str] = []  # List of handlers associated with the widget
+        self.reaches_mop = False  # Whether this widget can reach monitored methods
+        self.directly_reaches_mop = False  # Whether this widget directly reaches monitored methods
 
         self.logger.debug(f"Widget created: {self.name or widget_id}")
 
@@ -213,8 +230,13 @@ class Widget:
             "hint": self.hint,
             "field": self.field,
             "input_type": self.input_type,
+            "resource_id": self.resource_id,
+            "class_name": self.class_name,
             "entries": self.entries,
-            "events": [event.to_json() for event in self.events]
+            "events": [event.to_json() for event in self.events],
+            "handlers": self.handlers,
+            "reaches_mop": self.reaches_mop,
+            "directly_reaches_mop": self.directly_reaches_mop
         }
 
     def __eq__(self, value):

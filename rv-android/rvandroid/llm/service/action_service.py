@@ -152,7 +152,13 @@ class LLMActionService:
                 # Process response and generate actions
                 with self.performance_monitor.measure_time("action_generation", context):
                     # Parse LLM response into actions
-                    available_action_ids = self.state_analyzer.get_available_action_ids(state)
+                    available_action_ids = state.get("available_actions", [])
+                    if not available_action_ids:
+                        available_action_ids = self.state_analyzer.get_available_action_ids(state)
+                        self.logger.debug(f"Got {len(available_action_ids)} action IDs from state analyzer")
+                    else:
+                        self.logger.debug(f"Using {len(available_action_ids)} action IDs from state")
+                        
                     actions, errors = self.response_processor.process_response(
                         response, available_action_ids, state
                     )

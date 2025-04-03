@@ -1,5 +1,4 @@
 # rvandroid/parser/screen/droidbot/droidbot_parser.py
-import logging
 from typing import Dict, Any, Optional, Type
 
 from rvandroid.domain.static import StaticAnalysisData
@@ -21,31 +20,23 @@ class DroidBotParser(AbstractScreenParser):
             visitor_class: Optional visitor class to use for parsing
         """
         super().__init__(visitor_class)
-        self.logger = logging.getLogger(__name__)
+        self.parser_name = "droidbot"
+        self.logger = self.logging_manager.get_logger(f"parser.screen.{self.parser_name}")
 
-    def parse(self, state_data: Dict[str, Any], static_data: Optional[StaticAnalysisData] = None) -> ScreenDescription:
+    def _parse_implementation(self, state_data: Dict[str, Any],
+                             static_data: Optional[StaticAnalysisData],
+                             activity: str) -> ScreenDescription:
         """
-        Parse DroidBot state data into a ScreenDescription.
-
+        Implementation-specific parsing logic for DroidBot data.
+        
         Args:
-            state_data: Dictionary containing DroidBot state
-            static_data: Static analysis data for the application (optional)
-
+            state_data: Dictionary containing UI state information
+            static_data: Static analysis data for the application
+            activity: Current activity name
+            
         Returns:
-            ScreenDescription object
-
-        Raises:
-            ValueError: If state data is invalid or cannot be parsed
+            ScreenDescription object containing parsed UI elements
         """
-        # Validate state data
-        if not self.validate_state_data(state_data):
-            raise ValueError("Invalid DroidBot state data: missing required fields")
-
-        self.logger.info(f"Parsing DroidBot state for activity: {self.get_activity_name(state_data)}")
-
-        # Clean up activity name
-        activity = self.get_activity_name(state_data)
-
         # Update stack info if available
         if "stack" in state_data:
             stack = state_data.get("stack", [])
@@ -64,7 +55,7 @@ class DroidBotParser(AbstractScreenParser):
 
         # Get and return screen description
         description = visitor.get_screen_description()
-        self.logger.info(f"Parsed {len(description.items)} UI elements from DroidBot state")
+        self.log_processing_summary("UI elements", len(description.items))
 
         return description
 

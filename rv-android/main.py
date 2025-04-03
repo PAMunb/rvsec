@@ -14,6 +14,9 @@ from rvandroid.config.configuration_manager import ConfigurationManager
 from rvandroid.constants import *
 from rvandroid.experiment.experiment_controller import ExperimentController
 from rvandroid.experiment.experiment_controller import execute as experiment_execute
+from rvandroid.experiment.enhanced_experiment_controller import EnhancedExperimentController
+from rvandroid.experiment.enhanced_experiment_controller import execute_enhanced as enhanced_experiment_execute
+from rvandroid.experiment.orchestration.interfaces import OrchestrationMode
 from rvandroid.llm.ollama_llm import OllamaLLM
 from rvandroid.tools.registry import ToolRegistry
 from rvandroid.tools.tool_factory import ToolFactory
@@ -172,6 +175,10 @@ $ python main.py --no_window -tools monkey droidbot:dfs_greedy -r 3 -t 120 300 6
 $ python main.py --no_window -tools rvandroid:llama@strategy=single_action
 $ python main.py --no_window -c PATH_TO_EXECUTION_FILE
 $ python main.py --list-tools
+
+Enhanced Mode Examples:
+$ python main.py --enhanced -tools monkey -r 1 -t 60
+$ python main.py --enhanced --orchestration-mode PARALLEL -tools droidbot -r 2 -t 120 300
 '''
 
 
@@ -249,6 +256,12 @@ def run_cli():
 
     # Ensure no_window is set correctly
     config.set("no_window", args.no_window)
+    
+    # Set enhanced experiment options if provided
+    config.set("use_enhanced_controller", args.enhanced)
+    if args.enhanced:
+        config.set("orchestration_mode", args.orchestration_mode)
+        logger.info(f"Enhanced controller enabled with orchestration mode: {args.orchestration_mode}")
 
     logger.info(f"Configuration no_window: {config.get_bool('no_window', False)}")
 
@@ -266,8 +279,29 @@ def run_cli():
     # Log explicitly for the tools used
     logger.info(f"Executing experiment with tools: {[tool.name for tool in selected_tools]}")
 
-    # Execute the experiment with the selected tool objects
-    experiment_execute(tools=selected_tools)
+    # Determine which controller to use
+    use_enhanced = config.get_bool("use_enhanced_controller", False)
+    
+    if use_enhanced:
+        logger.info("Using enhanced experiment controller with advanced orchestration")
+        
+        # Get orchestration mode
+        orchestration_mode_name = config.get_str("orchestration_mode", "PARALLEL")
+        try:
+            orchestration_mode = OrchestrationMode[orchestration_mode_name]
+        except KeyError:
+            logger.warning(f"Invalid orchestration mode: {orchestration_mode_name}, using PARALLEL")
+            orchestration_mode = OrchestrationMode.PARALLEL
+        
+        logger.info(f"Orchestration mode: {orchestration_mode.name}")
+        
+        # Execute experiment using the enhanced controller
+        enhanced_experiment_execute(tools=selected_tools)
+    else:
+        logger.info("Using standard experiment controller")
+        
+        # Execute experiment using the standard controller
+        experiment_execute(tools=selected_tools)
 
     end = time.time()
     elapsed = end - start
@@ -518,6 +552,8 @@ def execute_with_config(config: Dict[str, Any]):
     repetitions = config.get("repetitions", 1)
     timeouts = config.get("timeouts", [60])
     no_window = config.get("no_window", True)
+    use_enhanced = config.get("use_enhanced_controller", False)
+    orchestration_mode = config.get("orchestration_mode", "PARALLEL")
 
     # Process tools configurations
     tools_config = config.get("tools", [])
@@ -555,10 +591,33 @@ def execute_with_config(config: Dict[str, Any]):
     config_obj.set("timeouts", timeouts)
     config_obj.set("no_window", no_window)
     config_obj.set("tools", [tool.name for tool in selected_tools])
+    config_obj.set("use_enhanced_controller", use_enhanced)
+    config_obj.set("orchestration_mode", orchestration_mode)
 
     # Execute experiment
     logger.info(f"Executing experiment with tools: {[tool.name for tool in selected_tools]}")
-    experiment_execute(tools=selected_tools)
+    
+    # Determine which controller to use
+    if use_enhanced:
+        logger.info("Using enhanced experiment controller with advanced orchestration")
+        
+        # Get orchestration mode
+        orchestration_mode_name = config_obj.get_str("orchestration_mode", "PARALLEL")
+        try:
+            orchestration_mode = OrchestrationMode[orchestration_mode_name]
+        except KeyError:
+            logger.warning(f"Invalid orchestration mode: {orchestration_mode_name}, using PARALLEL")
+            orchestration_mode = OrchestrationMode.PARALLEL
+        
+        logger.info(f"Orchestration mode: {orchestration_mode.name}")
+        
+        # Execute experiment using the enhanced controller
+        enhanced_experiment_execute(tools=selected_tools)
+    else:
+        logger.info("Using standard experiment controller")
+        
+        # Execute experiment using the standard controller
+        experiment_execute(tools=selected_tools)
 
 
 def create_argument_parser():
@@ -592,6 +651,13 @@ def create_argument_parser():
     parser.add_argument("--skip_instrument", help="Skip instrumentation", action="store_true")
     parser.add_argument("--skip_experiment", help="Skip experiment execution", action="store_true")
     parser.add_argument("--skip_static_analysis", help="Skip static analysis", action="store_true")
+    
+    # Add options for enhanced experiment controller
+    parser.add_argument("--enhanced", help="Use the enhanced experiment controller", action="store_true")
+    parser.add_argument("--orchestration-mode", 
+                      choices=["SEQUENTIAL", "PARALLEL", "ADAPTIVE", "PRIORITY_BASED"],
+                      default="SEQUENTIAL",
+                      help="Orchestration mode for the enhanced controller (default: SEQUENTIAL)")
 
     return parser
 
@@ -668,6 +734,10 @@ def run_local():
     config.set("skip_experiment", False)
     config.set("no_window", True)
     config.set("memory_file", "")
+    
+    # Set enhanced experiment configuration
+    config.set("use_enhanced_controller", False)
+    config.set("orchestration_mode", OrchestrationMode.SEQUENTIAL.name)
 
     # ape = OK
     # ares
@@ -699,19 +769,51 @@ def run_local():
     # Execute experiment with the selected tool objects
     logger.info(f"Executing experiment with tools: {[tool.name for tool in selected_tool_objects]}")
 
-    # Create and execute experiment directly using the controller
-    controller = ExperimentController()
-    controller.execute(
-        repetitions=config.get_int("repetitions", 1),
-        timeouts=config.get_list("timeouts", [60]),
-        tools=selected_tool_objects,
-        memory_file=config.get_str("memory_file", ""),
-        generate_monitors=config.get_bool("generate_monitors", True),
-        instrument=config.get_bool("instrument", True),
-        static_analysis=config.get_bool("static_analysis", True),
-        skip_experiment=config.get_bool("skip_experiment", False),
-        no_window=config.get_bool("no_window", True)
-    )
+    # Determine which controller to use based on configuration
+    use_enhanced = config.get_bool("use_enhanced_controller", False)
+    
+    if use_enhanced:
+        logger.info("Using enhanced experiment controller with advanced orchestration")
+        
+        # Get orchestration mode
+        orchestration_mode_name = config.get_str("orchestration_mode", "PARALLEL")
+        try:
+            orchestration_mode = OrchestrationMode[orchestration_mode_name]
+        except KeyError:
+            logger.warning(f"Invalid orchestration mode: {orchestration_mode_name}, using PARALLEL")
+            orchestration_mode = OrchestrationMode.PARALLEL
+        
+        logger.info(f"Orchestration mode: {orchestration_mode.name}")
+        
+        # Create and execute experiment with enhanced controller
+        controller = EnhancedExperimentController()
+        controller.execute(
+            repetitions=config.get_int("repetitions", 1),
+            timeouts=config.get_list("timeouts", [60]),
+            tools=selected_tool_objects,
+            memory_file=config.get_str("memory_file", ""),
+            generate_monitors=config.get_bool("generate_monitors", True),
+            instrument=config.get_bool("instrument", True),
+            static_analysis=config.get_bool("static_analysis", True),
+            skip_experiment=config.get_bool("skip_experiment", False),
+            no_window=config.get_bool("no_window", True)
+        )
+    else:
+        logger.info("Using standard experiment controller")
+        
+        # Create and execute experiment with standard controller
+        controller = ExperimentController()
+        controller.execute(
+            repetitions=config.get_int("repetitions", 1),
+            timeouts=config.get_list("timeouts", [60]),
+            tools=selected_tool_objects,
+            memory_file=config.get_str("memory_file", ""),
+            generate_monitors=config.get_bool("generate_monitors", True),
+            instrument=config.get_bool("instrument", True),
+            static_analysis=config.get_bool("static_analysis", True),
+            skip_experiment=config.get_bool("skip_experiment", False),
+            no_window=config.get_bool("no_window", True)
+        )
 
     logger.info("Local experiment completed successfully")
 
@@ -719,6 +821,8 @@ def run_local():
 if __name__ == '__main__':
     load_tools()
 
-    # Uncomment the desired execution mode:
+    # Use CLI by default
     # run_cli()
+    
+    # Uncomment for local testing:
     run_local()

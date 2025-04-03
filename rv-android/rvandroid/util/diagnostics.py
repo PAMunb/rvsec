@@ -5,6 +5,46 @@ Diagnostic tool for generating system reports.
 Provides insights into experiment execution and resource usage.
 """
 
+import functools
+
+
+# Function decorator for logging function calls with parameters and timing
+def log_wrapper(logger):
+    """
+    Decorator that logs function calls with parameters and execution time.
+    
+    Args:
+        logger: Logger instance to use for logging
+        
+    Returns:
+        Decorated function
+    """
+    def decorator(func):
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            # Prepare argument strings for logging
+            args_str = ", ".join([str(a) for a in args])
+            kwargs_str = ", ".join([f"{k}={v}" for k, v in kwargs.items()])
+            all_args = f"{args_str}{', ' if args_str and kwargs_str else ''}{kwargs_str}"
+            
+            # Log function call
+            logger.debug(f"Calling {func.__name__}({all_args})")
+            
+            # Call function and time it
+            import time
+            start = time.time()
+            try:
+                result = func(*args, **kwargs)
+                end = time.time()
+                logger.debug(f"{func.__name__} completed in {(end-start)*1000:.2f}ms")
+                return result
+            except Exception as e:
+                end = time.time()
+                logger.error(f"{func.__name__} failed after {(end-start)*1000:.2f}ms: {e}")
+                raise
+        return wrapper
+    return decorator
+
 import json
 import logging
 import os

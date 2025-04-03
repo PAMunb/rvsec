@@ -67,7 +67,23 @@ class PromptManager:
         # Default templates if directory doesn't exist
         if not os.path.exists(self.prompt_dir):
             self.logger.warning(f"Prompt directory not found: {self.prompt_dir}")
-            return self._get_default_templates()
+            templates = self._get_default_templates()
+            
+            # Try to create the prompts directory and save the default templates
+            try:
+                os.makedirs(self.prompt_dir, exist_ok=True)
+                
+                # Save default templates to files
+                for template_name, template_data in templates.items():
+                    template_path = os.path.join(self.prompt_dir, f"{template_name}.json")
+                    with open(template_path, "w") as f:
+                        json.dump(template_data, f, indent=2)
+                        
+                self.logger.info(f"Created default prompt templates in {self.prompt_dir}")
+            except Exception as e:
+                self.logger.error(f"Error creating default templates: {e}")
+            
+            return templates
 
         try:
             # Load all template files
@@ -99,29 +115,211 @@ class PromptManager:
         """
         return {
             "exploration": {
-                "system": "You are a strategic advisor for mobile app testing. Your goal is to provide guidance on exploring the app efficiently to find potential issues, especially security vulnerabilities.",
-                "user": "I am testing an Android app. Current screen: {current_screen}. Interactive elements: {elements_count}. Exploration progress: {progress}. What areas should I focus on exploring next?",
-                "max_tokens": 500
+                "system": """You are a strategic advisor for mobile app testing specializing in runtime verification. 
+Your goal is to provide clear, actionable guidance for app exploration with a focus on:
+1. Areas with monitored methods (API usage, data operations, validation)
+2. Unexplored functionality that might reveal specification violations
+3. Potential edge cases in user input and API interaction
+
+Format your response with:
+1. A brief analysis of the current state
+2. Specific actions to try next, prioritized by potential for finding violations
+3. IMPORTANT: Include structured directives in this format:
+```json
+[
+  {"type": "explore", "target": "input_validation", "priority": "high"},
+  {"type": "strategy", "name": "systematic", "duration": 300},
+  {"type": "focus", "target": "data_operations", "priority": "high"}
+]
+```
+Keep your guidance concise, practical and focused on finding specification violations.""",
+                "user": """I am testing an Android app with a focus on finding runtime verification violations.
+
+CURRENT SCREEN:
+{current_screen}
+
+INTERACTIVE ELEMENTS: {elements_count}
+
+EXPLORATION PROGRESS: {progress}
+
+EXPLORATION CONTEXT:
+{history_summary}
+
+What areas should I focus on exploring next to maximize detection of API misuse and specification violations? Prioritize actions that interact with monitored methods and provide structured directives for my testing strategy.""",
+                "max_tokens": 800
             },
-            "security": {
-                "system": "You are a security advisor for mobile app testing. Your goal is to identify potential security vulnerabilities in the current application state.",
-                "user": "I am testing an Android app for security issues. Current screen: {current_screen}. Available operations: {security_operations}. What security aspects should I focus on?",
-                "max_tokens": 600
+            "monitored_operations": {
+                "system": """You are a mobile app testing expert specializing in runtime verification. 
+Your goal is to analyze the current application state and identify potential operations of interest to monitor, with focus on:
+1. API usage patterns
+2. Data validation operations
+3. Resource management (iterators, streams, connections)
+4. Cryptographic operations
+5. Input handling
+6. State management
+
+Format your response with:
+1. Assessment of critical operation likelihood for the current screen
+2. Specific areas of interest identified
+3. IMPORTANT: Include structured recommendations in this format:
+```json
+[
+  {"interest_level": "high/medium/low", "operation_type": "api_usage", "description": "..."},
+  {"test_action": "...", "priority": "high/medium/low", "purpose": "..."}
+]
+```
+Keep your analysis concise, evidence-based, and actionable.""",
+                "user": """I need an assessment of potential operations of interest in the current Android app state.
+
+CURRENT SCREEN:
+{current_screen}
+
+MONITORED OPERATIONS:
+{security_operations}
+
+STATIC ANALYSIS INSIGHTS:
+{security_insights}
+
+Based on this information, what operations of interest might exist in the current screen, and what specific tests should I perform to detect potential specification violations?""",
+                "max_tokens": 800
             },
             "action_feedback": {
-                "system": "You are an app testing expert. Your goal is to provide feedback on test actions and their results to improve testing effectiveness.",
-                "user": "I performed action: {action_description}. Result: {action_result}. Current screen: {current_screen}. Was this a useful test action? What should I try next?",
-                "max_tokens": 300
+                "system": """You are an expert in mobile app test optimization.
+Your goal is to provide feedback on testing actions to improve test effectiveness, with focus on:
+1. Coverage efficiency (how well the action explores new functionality)
+2. Potential for revealing specification violations (how relevant the action is for monitoring)
+3. Next action recommendations based on the result
+
+Format your response with:
+1. Brief assessment of the action's effectiveness
+2. Specific suggestions for follow-up actions
+3. IMPORTANT: Include structured suggestions in this format:
+```json
+[
+  {"text": "suggested next action", "priority": "high/medium/low", "reason": "..."},
+  {"text": "alternative action", "priority": "high/medium/low", "reason": "..."}
+]
+```
+Keep your feedback concise, specific, and focused on improving testing efficiency.""",
+                "user": """I need feedback on a test action I performed.
+
+ACTION: {action_description}
+RESULT: {action_result}
+
+CURRENT SCREEN AFTER ACTION:
+{current_screen}
+
+Was this a useful test action? What should I try next to effectively continue testing, especially for finding specification violations and API misuse?""",
+                "max_tokens": 500
             },
             "strategy": {
-                "system": "You are a test strategy expert for mobile apps. Your goal is to recommend the most effective testing strategy for the current exploration state.",
-                "user": "I am testing an Android app. Current exploration phase: {exploration_phase}. Current screen: {current_screen}. Progress metrics: {progress_metrics}. What testing strategy would be most effective now?",
-                "max_tokens": 300
+                "system": """You are a test strategy optimization expert for mobile apps.
+Your goal is to recommend the most effective testing approach based on the current exploration phase and app state.
+
+Testing strategies to consider:
+1. Random - useful for initial exploration
+2. Systematic - methodical coverage of all UI elements
+3. Model-based - using app structure knowledge to guide testing
+4. MonitoredMethod-focused - prioritizing components with monitored operations
+5. Greedy - focusing on areas that previously revealed issues
+
+Format your response with:
+1. Assessment of current exploration progress
+2. Recommended strategy with clear rationale
+3. IMPORTANT: Include a structured strategy directive in this format:
+```json
+{
+  "strategy": "strategy_name",
+  "rationale": "explanation for this strategy",
+  "duration": seconds_to_apply,
+  "focus_areas": ["area1", "area2"]
+}
+```
+Keep your recommendation concise and tailored to the current exploration state.""",
+                "user": """I need a testing strategy recommendation.
+
+CURRENT EXPLORATION PHASE: {exploration_phase}
+
+CURRENT SCREEN:
+{current_screen}
+
+PROGRESS METRICS:
+{progress_metrics}
+
+RECENT ACTIONS:
+{recent_actions}
+
+What testing strategy would be most effective now to maximize testing efficiency and detection of specification violations?""",
+                "max_tokens": 500
+            },
+            "context_detection": {
+                "system": """You are a mobile app context analysis expert.
+Your goal is to analyze the current screen and identify the functional context (e.g., login, data entry, API interaction) of the app.
+
+Key contexts to identify:
+1. Authentication (login/registration screens)
+2. Transaction processing (payments, data submissions)
+3. Data handling (personal information entry, storage)
+4. API interaction (external services, remote operations)
+5. Settings/configuration screens
+6. Content creation/editing
+7. Navigation/browsing
+
+Format your response with:
+1. Identified primary context with confidence level
+2. Secondary contexts if present
+3. IMPORTANT: Include a structured context assessment in this format:
+```json
+{
+  "primary_context": "context_name",
+  "confidence": 0.0-1.0,
+  "secondary_contexts": ["context_name1", "context_name2"],
+  "interest_level": "high/medium/low"
+}
+```
+Keep your analysis concise, evidence-based and focused on the functional context.""",
+                "user": """I need to identify the functional context of the current screen in this Android app.
+
+SCREEN DETAILS:
+{screen_description}
+
+ELEMENT TEXTS:
+{element_texts}
+
+Based on these details, what is the functional context of this screen (e.g., login, data entry, settings, etc.)? Provide your confidence level and indicate if this context likely contains monitored operations of interest.""",
+                "max_tokens": 400
             },
             "general": {
-                "system": "You are an assistant for mobile app testing. Your goal is to provide general guidance to make testing more effective.",
-                "user": "I am testing an Android app. Current state: {current_state}. What general guidance can you provide to improve my testing approach?",
-                "max_tokens": 400
+                "system": """You are an assistant for mobile app testing with runtime verification.
+Your goal is to provide general guidance to make testing more effective, with focus on:
+1. Best practices for detecting specification violations
+2. Coverage optimization techniques
+3. Strategy adaptation based on exploration progress
+
+Format your response with:
+1. General assessment of the testing approach
+2. Specific recommendations for improvement
+3. IMPORTANT: Include structured directives in this format:
+```json
+[
+  {"type": "approach", "description": "...", "priority": "high/medium/low"},
+  {"type": "focus", "target": "...", "rationale": "..."}
+]
+```
+Keep your guidance concise, practical, and focused on improving testing efficiency.""",
+                "user": """I need general guidance for my current mobile app testing approach.
+
+CURRENT STATE:
+{current_state}
+
+TESTING STATISTICS:
+- Screens explored: {screens_explored}
+- Actions executed: {actions_executed}
+- Monitored operations identified: {security_areas}
+- Exploration phase: {exploration_phase}
+
+What general guidance can you provide to improve my testing approach, especially for finding specification violations and API misuse?""",
+                "max_tokens": 600
             }
         }
 

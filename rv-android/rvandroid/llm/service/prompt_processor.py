@@ -66,7 +66,25 @@ class PromptProcessor:
         self.logger.debug(f"Generating prompts using {self.strategy.__class__.__name__}")
 
         try:
-            # Use the strategy to generate prompts
+            # Use the strategy to process the screen - this handles the parsing internally
+            # and will populate the necessary data structures including available actions
+            screen_description = self.strategy.process_screen(state)
+            
+            # Store the screen description in state for later use by response processor
+            if screen_description:
+                state["screen_description"] = screen_description
+                
+                # Extract available action IDs and add to state
+                # This ensures action_ids are available for validation later
+                available_action_ids = []
+                for item in screen_description.items:
+                    for action in item.actions:
+                        available_action_ids.append(str(action.id))
+                
+                state["available_actions"] = available_action_ids
+                self.logger.debug(f"Added {len(available_action_ids)} available action IDs to state")
+            
+            # Generate prompts using the strategy
             messages = self.strategy.generate_prompts(state)
 
             # Debug log the prompt sizes

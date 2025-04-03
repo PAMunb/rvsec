@@ -2,7 +2,7 @@
 """
 Base class for tools that support configuration.
 """
-from typing import Dict, Any, Optional
+from typing import Dict, Any
 
 from rvandroid.app import App
 from rvandroid.config.component_configurator import ComponentConfigurator

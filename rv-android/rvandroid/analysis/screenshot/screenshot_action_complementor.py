@@ -10,13 +10,13 @@ enabling better testing of non-standard UI elements and error detection.
 import os
 from typing import Dict, Any, List, Optional, Tuple
 
+from rvandroid.analysis.base_analyzer import BaseAnalyzer
 from rvandroid.analysis.screenshot_analyzer import ScreenshotAnalyzer
 from rvandroid.parser.screen.visitor.base_visitor import ScreenDescription, ItemAction, Counter
-from rvandroid.util.logging.constants import CONTEXT_COMPONENT
-from rvandroid.util.logging.manager import LoggingManager
+from rvandroid.domain.static import StaticAnalysisData
 
 
-class ScreenshotActionComplementor:
+class ScreenshotActionComplementor(BaseAnalyzer[ScreenDescription]):
     """
     Complements screen actions with additional insights from screenshot analysis.
 
@@ -25,6 +25,7 @@ class ScreenshotActionComplementor:
     - Uses visual analysis to identify interactive elements not in UI hierarchy
     - Provides error detection capabilities using visual cues
     - Maintains a cache to optimize performance with similar screens
+    - Extends BaseAnalyzer for consistent interface
 
     ### Role in the System:
     - Enriches screen descriptions with visually-derived actions
@@ -33,20 +34,18 @@ class ScreenshotActionComplementor:
     - Enhances error detection based on visual indicators
     """
 
-    def __init__(self, screenshot_dir: Optional[str] = None, cache_size: int = 10):
+    def __init__(self, screenshot_dir: Optional[str] = None, 
+                 cache_size: int = 10,
+                 static_data: Optional[StaticAnalysisData] = None):
         """
         Initialize the screenshot action complementor.
 
         Args:
             screenshot_dir: Directory for storing screenshots (None to use temp)
             cache_size: Size of the screenshot analysis cache
+            static_data: Optional static analysis data
         """
-        # Configure logging
-        logging_manager = LoggingManager.get_instance()
-        self.logger = logging_manager.get_logger(
-            "rvandroid.analysis.screenshot.complementor",
-            {CONTEXT_COMPONENT: "ScreenshotActionComplementor"}
-        )
+        super().__init__(analyzer_name="screenshot_complementor", static_data=static_data)
 
         # Set screenshot directory
         self.screenshot_dir = screenshot_dir or os.path.join(os.path.dirname(__file__), "screenshots")
@@ -61,6 +60,44 @@ class ScreenshotActionComplementor:
         self.counter = Counter(1000)  # Start IDs from 1000 to avoid conflicts
 
         self.logger.info(f"Initialized screenshot action complementor with cache size {cache_size}")
+        
+    def _initialize_from_static_data(self) -> None:
+        """
+        Initialize from static analysis data.
+        
+        This component doesn't need static data initialization,
+        but we implement the abstract method as required.
+        """
+        pass
+
+    def analyze(self, data: Any) -> ScreenDescription:
+        """
+        Analyze data and return enhanced screen description.
+        
+        Handles two input types:
+        - Tuple[ScreenDescription, str]: Screen description and screenshot path
+        - Dict with 'screen_description' and 'screenshot_path' keys
+        
+        Args:
+            data: The data to analyze
+            
+        Returns:
+            Enhanced screen description
+        """
+        # Extract screen description and screenshot path from input
+        if isinstance(data, tuple) and len(data) == 2:
+            screen_description, screenshot_path = data
+        elif isinstance(data, dict) and 'screen_description' in data and 'screenshot_path' in data:
+            screen_description = data['screen_description']
+            screenshot_path = data['screenshot_path']
+        else:
+            self.logger.error(f"Unsupported data format for analysis: {type(data)}")
+            if isinstance(data, ScreenDescription):
+                return data  # Return original description if that's what we got
+            raise ValueError(f"Unsupported data format: {type(data)}")
+            
+        # Process with the traditional method
+        return self.complement_screen_actions(screen_description, screenshot_path)
 
     def complement_screen_actions(self, screen_description: ScreenDescription,
                                   screenshot_path: str) -> ScreenDescription:
@@ -87,7 +124,7 @@ class ScreenshotActionComplementor:
             else:
                 # Analyze screenshot
                 self.logger.debug(f"Analyzing screenshot: {screenshot_path}")
-                analyzer = ScreenshotAnalyzer(screenshot_path)
+                analyzer = ScreenshotAnalyzer(image_path=screenshot_path)
                 analysis_result = analyzer.extract_information()
 
                 # Cache the result
@@ -130,7 +167,7 @@ class ScreenshotActionComplementor:
         # Process visual buttons that don't overlap with existing elements
         complementary_items = []
 
-        # Identify error conditions first - rastrear quantos indicadores encontrados
+        # Identify error conditions first
         error_fields = set()
         error_count = 0
 
@@ -257,8 +294,12 @@ class ScreenshotActionComplementor:
         # Create new screen description with additional items
         all_items = screen_description.items + complementary_items
         enhanced_screen = ScreenDescription(screen_description.activity, all_items)
+        
+        # Log processing summary
+        self.log_processing_summary("visual elements", len(complementary_items))
+        if error_count > 0:
+            self.log_processing_summary("error indicators", error_count)
 
-        self.logger.info(f"Enhanced screen with {len(complementary_items)} visual elements")
         return enhanced_screen
 
     def _create_visual_button(self, button_data: Dict[str, Any]) -> Any:
@@ -568,3 +609,16 @@ class ScreenshotActionComplementor:
             return ((x1 + x2) // 2, (y1 + y2) // 2)
         except (TypeError, IndexError):
             return None
+            
+    def get_metrics(self) -> Dict[str, Any]:
+        """
+        Get metrics from the analyzer.
+        
+        Returns:
+            Dictionary containing metrics and their values
+        """
+        return {
+            "cache_size": self.cache_size,
+            "cache_utilization": len(self.cache_keys),
+            "cache_hit_ratio": len(self.cache_keys) / self.cache_size if self.cache_size > 0 else 0
+        }

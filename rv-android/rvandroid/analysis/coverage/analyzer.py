@@ -2,15 +2,15 @@
 """
 Centralized coverage analyzer module.
 """
-import logging
-from typing import Dict, Optional, Any
+from typing import Dict, Optional, Any, List
 
+from rvandroid.analysis.base_analyzer import BaseAnalyzer
 from rvandroid.analysis.coverage.repository import CoverageRepository
 from rvandroid.domain.log import RvCoverageLog, RvErrorLog
 from rvandroid.domain.static import StaticAnalysisData
 
 
-class CoverageAnalyzer:
+class CoverageAnalyzer(BaseAnalyzer[Dict[str, Any]]):
     """
     Centralized analyzer for processing coverage data from various sources.
 
@@ -18,6 +18,7 @@ class CoverageAnalyzer:
     - Separates analysis logic from data collection
     - Provides a unified interface for coverage analysis
     - Supports both streaming and batch processing
+    - Extends BaseAnalyzer for consistent interface
 
     ### Role in the System:
     - Processes coverage data from experiment execution
@@ -32,8 +33,7 @@ class CoverageAnalyzer:
         Args:
             static_data: Optional static analysis data
         """
-        self.logger = logging.getLogger(__name__)
-        self.static_data = static_data
+        super().__init__(analyzer_name="coverage", static_data=static_data)
 
         # Initialize repository
         self.repository = CoverageRepository()
@@ -82,6 +82,10 @@ class CoverageAnalyzer:
 
             # Log summary
             total_methods = sum(len(class_info.methods) for class_info in classes.classes.values())
+            self.log_processing_summary(
+                "methods from static data", 
+                total_methods
+            )
             self.logger.info(
                 f"Initialized analyzer with {len(core_repo.classes)} classes and "
                 f"{total_methods} methods from static data"
@@ -89,6 +93,42 @@ class CoverageAnalyzer:
 
         except Exception as e:
             self.logger.error(f"Error initializing from static data: {e}", exc_info=True)
+
+    def analyze(self, data: Any) -> Dict[str, Any]:
+        """
+        Analyze data and return results.
+        
+        Can handle:
+        - RvCoverageLog: for method call registration
+        - RvErrorLog: for error registration
+        - str: assumes it's a logcat file path
+        - List[RvCoverageLog] or List[RvErrorLog]: batch processing
+        
+        Args:
+            data: The data to analyze
+            
+        Returns:
+            Dictionary with coverage metrics
+        """
+        if isinstance(data, str):
+            return self.process_logcat_file(data)
+        elif isinstance(data, RvCoverageLog):
+            self.add_method_call(data)
+            return self.get_coverage_metrics()
+        elif isinstance(data, RvErrorLog):
+            self.add_error(data)
+            return self.get_coverage_metrics()
+        elif isinstance(data, list):
+            # Process each item in the list
+            for item in data:
+                if isinstance(item, RvCoverageLog):
+                    self.add_method_call(item)
+                elif isinstance(item, RvErrorLog):
+                    self.add_error(item)
+            return self.get_coverage_metrics()
+        else:
+            self.logger.warning(f"Unsupported data type for analysis: {type(data)}")
+            return self.get_coverage_metrics()
 
     def process_logcat_file(self, logcat_file: str) -> Dict[str, Any]:
         """
@@ -111,6 +151,9 @@ class CoverageAnalyzer:
         # Transfer errors
         for error in parsed_repo.errors:
             core_repo.register_rv_error(error)
+            
+        # Log processing
+        self.log_processing_summary("errors from logcat", len(parsed_repo.errors))
 
         # Calculate and return coverage
         return self.get_coverage_metrics()
@@ -150,3 +193,12 @@ class CoverageAnalyzer:
             "total_errors": metrics["unique_errors"],
             "total_method_calls": metrics["called_methods"]
         }
+        
+    def get_metrics(self) -> Dict[str, Any]:
+        """
+        Get metrics from the analyzer.
+        
+        Returns:
+            Dictionary containing metrics and their values
+        """
+        return self.get_coverage_metrics()

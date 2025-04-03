@@ -20,6 +20,17 @@ class EventType(Enum):
     EXPERIMENT_FAILED = auto()
     EXPERIMENT_PAUSED = auto()
     EXPERIMENT_RESUMED = auto()
+    
+    # Workflow lifecycle events
+    WORKFLOW_STARTED = auto()
+    WORKFLOW_COMPLETED = auto()
+    WORKFLOW_FAILED = auto()
+
+    # Orchestration events
+    ORCHESTRATION_EVENT = auto()
+    
+    # Generic events
+    CUSTOM = auto()
 
     # Analysis events
     COVERAGE_UPDATED = auto()
@@ -27,6 +38,7 @@ class EventType(Enum):
     COVERAGE_TRACKING_STOPPED = auto()
     ERROR_DETECTED = auto()
     STATIC_ANALYSIS_COMPLETED = auto()
+    ANALYSIS_COMPLETED = auto()
     NEW_METHOD_DISCOVERED = auto()
 
     # Environment lifecycle events
@@ -55,7 +67,7 @@ class Event:
 @dataclass
 class TaskEvent(Event):
     """Event related to a specific task"""
-    task_id: int = 0
+    task_id: str = ""  # Changed from int to str to support UUID
     task_config: Dict[str, Any] = field(default_factory=dict)
     details: Dict[str, Any] = field(default_factory=dict)
 
@@ -67,7 +79,7 @@ class TaskEvent(Event):
 class ExperimentEvent(Event):
     """Event related to the overall experiment"""
     experiment_id: str = ""
-    affected_tasks: List[int] = field(default_factory=list)
+    affected_tasks: List[str] = field(default_factory=list)  # Changed from List[int] to List[str] for UUID support
     message: str = ""
 
     def __str__(self) -> str:
@@ -78,7 +90,7 @@ class ExperimentEvent(Event):
 class AnalysisEvent(Event):
     """Event related to analysis results"""
     data: Dict[str, Any] = field(default_factory=dict)
-    related_task_id: Optional[int] = None
+    related_task_id: Optional[str] = None  # Changed from Optional[int] to Optional[str] for UUID support
 
     def __str__(self) -> str:
         task_str = f" for Task {self.related_task_id}" if self.related_task_id else ""

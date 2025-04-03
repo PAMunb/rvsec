@@ -28,7 +28,7 @@ class DSPyLLM(LanguageModel):
     MODELS = [LLAMA, PHI, QWEN, MISTRAL]
 
     def __init__(self, model_name: str, provider: str = "ollama", base_url: str = "http://localhost:11434",
-                 use_cot: bool = True):
+                 use_cot: bool = True, **kwargs):
         """
         Initialize DSPyLLM with a model name and provider.
 
@@ -37,6 +37,7 @@ class DSPyLLM(LanguageModel):
             provider: Provider for the model ('ollama', 'huggingface', 'openai', 'anthropic')
             base_url: Base URL for API (for Ollama)
             use_cot: Whether to use Chain of Thought reasoning
+            **kwargs: Additional model parameters for generation
         """
         super().__init__(model_name)
         self.provider = provider
@@ -44,6 +45,7 @@ class DSPyLLM(LanguageModel):
         self.use_cot = use_cot
         self._lm = None
         self.logger = logger
+        self.kwargs = kwargs
 
     @property
     def lm(self):

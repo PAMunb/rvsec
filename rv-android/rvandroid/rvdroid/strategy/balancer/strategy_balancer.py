@@ -14,6 +14,7 @@ from typing import Dict, Any, List, Optional
 from rvandroid.domain.static import StaticAnalysisData
 from rvandroid.parser.screen.visitor.base_visitor import ItemAction
 from rvandroid.rvdroid.strategy.strategy import Strategy, StrategyRegistry
+from rvandroid.rvdroid.orchestration.resources import ResourceManager
 from rvandroid.util.logging.constants import CONTEXT_COMPONENT
 from rvandroid.util.logging.manager import LoggingManager
 from rvandroid.util.performance_monitor import PerformanceMonitor
@@ -33,11 +34,13 @@ class StrategyBalancer:
     - Minimal state tracking to reduce overhead
     - Focused exploration phases with distinct strategy preferences
     - Optional LLM guidance for smarter strategy selection
+    - Resource-aware strategy selection to adapt to system load
     """
 
     def __init__(self, static_data: Optional[StaticAnalysisData] = None,
                  strategies: Optional[List[str]] = None,
-                 use_llm_guidance: bool = False):
+                 use_llm_guidance: bool = False,
+                 resource_manager: Optional['ResourceManager'] = None):
         """
         Initialize the strategy balancer.
 
@@ -45,6 +48,7 @@ class StrategyBalancer:
             static_data: Optional static analysis data
             strategies: List of strategy names to use
             use_llm_guidance: Whether to use LLM guidance for strategy selection
+            resource_manager: Optional resource manager for resource-aware selection
         """
         # Configure logging
         logging_manager = LoggingManager.get_instance()
@@ -56,12 +60,27 @@ class StrategyBalancer:
         # Initialize performance monitor
         self.performance_monitor = PerformanceMonitor.get_instance()
 
+        # Initialize or store resource manager
+        self.resource_manager = resource_manager
+        self._externally_provided_resource_manager = (resource_manager is not None)
+        
+        # Create resource manager if not provided
+        if self.resource_manager is None:
+            self.logger.info("No resource manager provided, creating one")
+            try:
+                from rvandroid.rvdroid.orchestration.resources import ResourceManager
+                self.resource_manager = ResourceManager()
+                self.resource_manager.start_monitoring()
+                self.logger.info("Created and started resource manager")
+            except Exception as e:
+                self.logger.warning(f"Failed to create resource manager: {e}")
+        
         # Store LLM guidance setting
         self.use_llm_guidance = use_llm_guidance
 
         # Use default strategies if none provided
         if not strategies:
-            strategies = ["RandomStrategy", "SecurityFocusedStrategy"]
+            strategies = ["RandomStrategy", "SpecificationFocusedStrategy"]
 
             # Add VisualAwareStrategy if using LLM (it's more sophisticated)
             if use_llm_guidance and "VisualAwareStrategy" not in strategies:
@@ -149,7 +168,7 @@ class StrategyBalancer:
 
     def select_strategy(self, state_data: Dict[str, Any]) -> Optional[Strategy]:
         """
-        Select a strategy based on current state and exploration needs.
+        Select a strategy based on current state, exploration needs, and system resources.
 
         Args:
             state_data: Current state data
@@ -176,10 +195,13 @@ class StrategyBalancer:
         current_time = time.time()
         cooldown_elapsed = current_time - self.last_strategy_switch > self.strategy_switch_cooldown
 
+        # Check resource constraints - this affects strategy selection
+        resource_constrained = self._check_resource_constraints()
+        
         # Strategy selection logic
         if in_plateau and cooldown_elapsed:
             # We're stuck in a plateau - select strategy that prioritizes exploration
-            return self._select_exploration_strategy()
+            return self._select_exploration_strategy(resource_constrained)
 
         # Check if we've overexplored this activity (fix for repeated visits)
         activity_count = self.activity_visit_counts.get(current_activity, 0)
@@ -187,8 +209,12 @@ class StrategyBalancer:
             # We've spent too much time in this activity - force exploration
             self.logger.info(
                 f"Activity {current_activity} appears overexplored (count={activity_count}), forcing exploration")
-            return self._select_exploration_strategy()
+            return self._select_exploration_strategy(resource_constrained)
 
+        # If resources are constrained, prefer lightweight strategies
+        if resource_constrained:
+            return self._select_resource_efficient_strategy()
+            
         # Most of the time, use the preferred strategy
         if self.preferred_strategy_info and random.random() > self.exploration_probability:
             return self.preferred_strategy_info["strategy"]
@@ -200,13 +226,68 @@ class StrategyBalancer:
             else:
                 return self.preferred_strategy_info["strategy"] if self.preferred_strategy_info else None
 
-    def _select_exploration_strategy(self) -> Strategy:
+    def _check_resource_constraints(self) -> bool:
+        """
+        Check if the system is under resource constraints.
+        
+        Returns:
+            True if system resources are constrained, False otherwise
+        """
+        if not self.resource_manager:
+            return False
+            
+        # Check if resource throttling is active
+        if self.resource_manager.is_throttling_active():
+            throttling_level = self.resource_manager.get_throttling_level()
+            self.logger.info(f"Resource throttling active (level={throttling_level}), adjusting strategy selection")
+            return True
+            
+        # Get resource recommendations
+        recommendations = self.resource_manager.get_resource_recommendations()
+        
+        # If LLM is recommended to be disabled, we consider resources constrained
+        if recommendations.get("disable_llm", False):
+            self.logger.info("Resources constrained: LLM usage not recommended")
+            return True
+            
+        return False
+
+    def _select_resource_efficient_strategy(self) -> Strategy:
+        """
+        Select a resource-efficient strategy based on current system load.
+        
+        Returns:
+            Resource-efficient strategy
+        """
+        # Get resource-efficient strategies (typically, simpler strategies like random)
+        # RandomStrategy is usually the most resource-efficient
+        for strategy_info in self.strategies:
+            strategy = strategy_info["strategy"]
+            
+            # Check strategy name for resource efficiency
+            if (hasattr(strategy, 'name') and 
+                    ('Random' in strategy.name or 'Basic' in strategy.name)):
+                self.logger.info(f"Selected resource-efficient strategy: {strategy.name}")
+                return strategy
+                
+        # Default to the first strategy if no resource-efficient one found
+        return self.strategies[0]["strategy"]
+
+    def _select_exploration_strategy(self, resource_constrained: bool = False) -> Strategy:
         """
         Select a strategy that prioritizes exploration.
 
+        Args:
+            resource_constrained: Whether system resources are constrained
+            
         Returns:
             Strategy that emphasizes exploration
         """
+        # If resources are constrained, prefer simpler strategies
+        if resource_constrained:
+            self.logger.info("Resources constrained, selecting simpler exploration strategy")
+            return self._select_resource_efficient_strategy()
+            
         # Look for strategies that have discovered new states
         exploration_strategies = sorted(
             self.strategies,
@@ -319,7 +400,7 @@ class StrategyBalancer:
         Returns:
             Dictionary with strategy statistics
         """
-        return {
+        stats = {
             "strategies": [
                 {
                     "name": s["strategy"].name,
@@ -335,3 +416,44 @@ class StrategyBalancer:
             "strategy_switches": self.strategy_switches,
             "plateau_escapes": self.plateau_escapes
         }
+        
+        # Add resource-related statistics if resource manager is available
+        if self.resource_manager:
+            resource_constrained = self._check_resource_constraints()
+            resource_data = self.resource_manager.get_current_resources()
+            
+            stats["resource_info"] = {
+                "resource_constrained": resource_constrained,
+                "throttling_active": self.resource_manager.is_throttling_active(),
+                "throttling_level": self.resource_manager.get_throttling_level(),
+                "memory_usage": resource_data.get("memory_percent", 0),
+                "system_memory": resource_data.get("system_memory_percent", 0),
+                "cpu_usage": resource_data.get("cpu_percent", 0),
+                "recommended_delay": self.resource_manager.get_recommended_delay()
+            }
+            
+        return stats
+        
+    def cleanup(self) -> None:
+        """
+        Clean up resources used by the strategy balancer.
+        
+        This should be called when the balancer is no longer needed to ensure
+        proper resource management and thread cleanup.
+        """
+        if self.resource_manager:
+            try:
+                # Only stop monitoring if we created the resource manager
+                if not hasattr(self, '_externally_provided_resource_manager') or not self._externally_provided_resource_manager:
+                    self.logger.info("Stopping resource manager monitoring")
+                    self.resource_manager.stop_monitoring()
+            except Exception as e:
+                self.logger.warning(f"Error stopping resource manager: {e}")
+                
+        # Clear any large data structures
+        self.strategies.clear()
+        self.resource_history = []
+        self.activity_visit_counts.clear()
+        self.visited_activities.clear()
+        
+        self.logger.info("Strategy balancer resources cleaned up")

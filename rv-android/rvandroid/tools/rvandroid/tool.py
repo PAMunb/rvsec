@@ -12,7 +12,8 @@ from rvandroid.experiment.task.task_model import Task
 from rvandroid.server import Server
 from rvandroid.llm.service.action_service import LLMActionService
 from rvandroid.tools.configurable_tool import ConfigurableTool
-from rvandroid.experiment.event.bus import EventBus, EventType
+from rvandroid.experiment.event.bus import EventBus
+from rvandroid.experiment.event.models import EventType
 from rvandroid.util.logging.constants import CONTEXT_TASK_ID, CONTEXT_APP_NAME, CONTEXT_TOOL_NAME, CONTEXT_COMPONENT
 from rvandroid.util.logging.manager import LoggingManager
 

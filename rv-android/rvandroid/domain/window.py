@@ -58,6 +58,8 @@ class Window:
         self.layout_file = ""
         self.widgets: Dict[str, Widget] = {}
         self.fields: Set[str] = set()
+        self.activity = ""  # Name of the Activity associated with this window
+        self.class_name = ""  # Class name of the Activity associated with this window
 
         self.logger.debug(f"Window created: {name}")
 
@@ -119,6 +121,16 @@ class Window:
 
         self.logger.debug(f"Widget '{widget_name}' not found")
         return None
+        
+    def get_widgets(self):
+        """
+        Get all widgets associated with this window.
+        
+        Returns:
+            List of all widgets in this window
+        """
+        self.logger.debug(f"Getting all widgets for window {self.name}, found {len(self.widgets)}")
+        return list(self.widgets.values())
 
     def to_json(self):
         """
@@ -130,6 +142,8 @@ class Window:
         return {
             "id": self.id,
             "name": self.name,
+            "activity": self.activity, 
+            "class_name": self.class_name,
             "type": self.type.name,
             "layout_file": self.layout_file,
             "widgets": [widget.to_json() for widget in self.widgets.values()],
@@ -207,6 +221,15 @@ class Windows:
         # Set window type and ID
         if window_name == "android.view.Menu":
             window.type = WindowType.OPTIONSMENU
+        elif window.type == WindowType.ACTIVITY:
+            # If it's an Activity, the window name is usually the fully qualified class name
+            window.activity = window_name
+            window.class_name = window_name
+        
+        # Set activity name if it appears to be an Android component
+        if "Activity" in window_name or window_name.startswith("com.") or window_name.startswith("android."):
+            window.activity = window_name
+            window.class_name = window_name
 
         if window_id:
             window.id = window_id
@@ -287,6 +310,16 @@ class Windows:
             self.logger.debug(f"Widget {widget_id} not found")
 
         return widget
+        
+    def get_windows(self):
+        """
+        Get all windows.
+        
+        Returns:
+            Set of all windows
+        """
+        self.logger.debug(f"Getting all windows, found {len(self.windows)}")
+        return self.windows
 
     def to_json(self):
         """

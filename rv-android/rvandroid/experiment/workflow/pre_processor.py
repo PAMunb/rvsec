@@ -115,8 +115,13 @@ class PreProcessor:
             )
 
     def _run_static_analysis(self):
-        """Run static analysis on all instrumented APKs."""
-        import rvandroid.analysis.static_analysis as static
+        """
+        Run static analysis on all instrumented APKs.
+        
+        Uses the StaticAnalyzer class to perform static analysis on APKs,
+        following the standardized analyzer pattern.
+        """
+        from rvandroid.analysis.static_analysis import StaticAnalyzer
 
         with self.logger.with_context(phase="static_analysis"):
             self.logger.info(LOG_START.format(operation="static analysis"))
@@ -140,12 +145,32 @@ class PreProcessor:
                         self.logger.info(LOG_START.format(
                             operation=f"static analysis for {app.name}"
                         ))
-                        static.run_static_analysis(app, gesda_file, gator_file, reach_file)
+                        
+                        # Create analyzer instance
+                        analyzer = StaticAnalyzer(app, output_dir=INSTRUMENTED_DIR)
+                        
+                        # Set custom output files if needed
+                        analyzer.gesda_file = gesda_file
+                        analyzer.gator_file = gator_file
+                        analyzer.reach_file = reach_file
+                        
+                        # Run analysis
+                        result = analyzer.analyze()
+                        
+                        # Get metrics for reporting
+                        metrics = analyzer.get_metrics()
+                        
+                        # Publish event with result data
                         self.event_bus.publish_analysis_event(
                             EventType.STATIC_ANALYSIS_COMPLETED,
-                            data={"app_name": app.name},
+                            data={
+                                "app_name": app.name,
+                                "success": result.success,
+                                "execution_times": result.execution_times
+                            },
                             source="PreProcessor"
                         )
+                        
                         self.logger.info(LOG_COMPLETE.format(
                             operation=f"static analysis for {app.name}"
                         ))

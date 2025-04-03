@@ -274,6 +274,10 @@ class DirectiveParser:
         """
         Parse JSON-formatted directives from response.
 
+        This method extracts structured directives from LLM responses using
+        multiple parsing strategies, prioritizing well-formatted JSON code blocks
+        and falling back to pattern matching for less structured formats.
+
         Args:
             response: LLM response text
 
@@ -282,18 +286,16 @@ class DirectiveParser:
         """
         directives = []
 
-        # Look for JSON blocks
-        json_pattern = r'```json\s*(.*?)\s*```|{(?:[^{}]|{[^{}]*})*}'
-        matches = re.finditer(json_pattern, response, re.DOTALL)
-
-        for match in matches:
-            json_str = match.group(1) if match.group(1) else match.group(0)
-
+        # Look for JSON blocks within code blocks (preferred format)
+        code_block_pattern = r'```(?:json)?\s*([\s\S]*?)```'
+        code_blocks = re.findall(code_block_pattern, response)
+        
+        for block in code_blocks:
             try:
-                # Clean up the JSON string
-                json_str = json_str.strip()
-
-                # Handle lists or individual objects
+                # Clean up the block content
+                json_str = block.strip()
+                
+                # Attempt to parse as JSON
                 if json_str.startswith('['):
                     json_data = json.loads(json_str)
                     if isinstance(json_data, list):
@@ -304,10 +306,48 @@ class DirectiveParser:
                     json_data = json.loads(json_str)
                     if isinstance(json_data, dict):
                         directives.append(json_data)
-
+                        
+                # If we successfully parsed directives, don't look for more patterns
+                if directives:
+                    self.logger.info(f"Successfully parsed JSON directives from code block: {len(directives)} found")
+                    return directives
+                    
             except json.JSONDecodeError as e:
-                self.logger.warning(f"Failed to parse JSON directive: {e}")
+                self.logger.warning(f"Failed to parse code block as JSON: {e}")
 
+        # If code blocks didn't yield results, look for standalone JSON patterns
+        json_pattern = r'{(?:[^{}]|{[^{}]*})*}'
+        matches = re.finditer(json_pattern, response)
+
+        for match in matches:
+            json_str = match.group(0).strip()
+            try:
+                json_data = json.loads(json_str)
+                if isinstance(json_data, dict):
+                    directives.append(json_data)
+            except json.JSONDecodeError:
+                pass
+                
+        # Look for JSON arrays not in code blocks as a last resort
+        array_pattern = r'\[\s*{.*?}\s*(?:,\s*{.*?}\s*)*\]'
+        matches = re.finditer(array_pattern, response, re.DOTALL)
+        
+        for match in matches:
+            try:
+                array_str = match.group(0)
+                json_data = json.loads(array_str)
+                if isinstance(json_data, list):
+                    for item in json_data:
+                        if isinstance(item, dict):
+                            directives.append(item)
+            except json.JSONDecodeError:
+                pass
+
+        if directives:
+            self.logger.info(f"Successfully parsed JSON directives: {len(directives)} found")
+        else:
+            self.logger.warning("No JSON directives found in response")
+            
         return directives
 
     def _parse_directive_sections(self, response: str) -> List[Dict[str, Any]]:

@@ -7,7 +7,13 @@ import json
 import os
 from typing import List, Optional
 
-from rvandroid.experiment.event.bus import EventBus, EventType
+from rvandroid.experiment.event import (
+    EventBus,
+    EventType,
+    get_event_bus,
+    EventHandler,
+    HandlerPriority
+)
 from rvandroid.experiment.task.task_storage import TaskStorage
 from rvandroid.experiment.workflow.workflow_factory import WorkflowFactory
 from rvandroid.tools.tool_spec import AbstractTool
@@ -34,10 +40,16 @@ class ExperimentController:
     - Facilitates proper resource management and experiment tracking
     """
 
-    def __init__(self):
-        """Initialize the experiment controller with modular components."""
-        # Get the event bus instance
-        self.event_bus = EventBus.get_instance()
+    def __init__(self, event_bus: Optional[EventBus] = None):
+        """
+        Initialize the experiment controller with modular components.
+        
+        Args:
+            event_bus: Optional event bus for event handling. If not provided,
+                      the default event bus will be used.
+        """
+        # Set up event bus (using dependency injection)
+        self.event_bus = event_bus or get_event_bus()
 
         # Set up experiment identifier
         self.experiment_id = f"experiment_{TIMESTAMP}"
@@ -91,47 +103,81 @@ class ExperimentController:
 
         def on_experiment_started(event):
             """Handle experiment start events"""
+            # Extract experiment_id from ExperimentEvent
+            experiment_id = event.experiment_id if hasattr(event, 'experiment_id') else self.experiment_id
+            
             with self.logger.with_context(phase="experiment_start"):
                 self.logger.info(LOG_START.format(
-                    operation=f"Experiment {event.experiment_id}"
+                    operation=f"Experiment {experiment_id}"
                 ))
 
         def on_experiment_completed(event):
             """Handle experiment completion events"""
+            # Extract experiment_id from ExperimentEvent
+            experiment_id = event.experiment_id if hasattr(event, 'experiment_id') else self.experiment_id
+            
             with self.logger.with_context(phase="experiment_completion"):
                 self.logger.info(LOG_COMPLETE.format(
-                    operation=f"Experiment {event.experiment_id}"
+                    operation=f"Experiment {experiment_id}"
                 ))
 
         def on_task_started(event):
             """Handle task start events"""
+            # Extract data from TaskEvent
+            task_id = event.task_id if hasattr(event, 'task_id') else "unknown"
+            task_config = event.task_config if hasattr(event, 'task_config') else {}
+            
             with self.logger.with_context(
-                    task_id=event.task_id,
+                    task_id=task_id,
                     phase="task_start",
-                    **event.task_config
+                    **task_config
             ):
                 self.logger.info(LOG_START.format(
-                    operation=f"Task {event.task_id} ({event.task_config.get('apk_name')}, "
-                              f"{event.task_config.get('tool_name')})"
+                    operation=f"Task {task_id} ({task_config.get('apk_name', 'unknown')}, "
+                              f"{task_config.get('tool_name', 'unknown')})"
                 ))
 
         def on_task_failed(event):
             """Handle task failure events"""
+            # Extract data from TaskEvent
+            task_id = event.task_id if hasattr(event, 'task_id') else "unknown"
+            details = event.details if hasattr(event, 'details') else {}
+            error = details.get('error', 'Unknown error')
+            
             with self.logger.with_context(
-                    task_id=event.task_id,
+                    task_id=task_id,
                     phase="task_failure",
-                    error=event.details.get('error', 'Unknown error')
+                    error=error
             ):
                 self.logger.error(LOG_ERROR.format(
-                    operation=f"Task {event.task_id}",
-                    error=event.details.get('error', 'Unknown error')
+                    operation=f"Task {task_id}",
+                    error=error
                 ))
 
-        # Register handlers
-        self.event_bus.subscribe(EventType.EXPERIMENT_STARTED, on_experiment_started)
-        self.event_bus.subscribe(EventType.EXPERIMENT_COMPLETED, on_experiment_completed)
-        self.event_bus.subscribe(EventType.TASK_STARTED, on_task_started)
-        self.event_bus.subscribe(EventType.TASK_FAILED, on_task_failed)
+        # Register handlers using new API with appropriate channels
+        self.event_bus.subscribe(
+            event_type=EventType.EXPERIMENT_STARTED, 
+            callback=on_experiment_started,
+            channel=EventBus.LIFECYCLE_CHANNEL
+        )
+        
+        self.event_bus.subscribe(
+            event_type=EventType.EXPERIMENT_COMPLETED, 
+            callback=on_experiment_completed,
+            channel=EventBus.LIFECYCLE_CHANNEL
+        )
+        
+        self.event_bus.subscribe(
+            event_type=EventType.TASK_STARTED, 
+            callback=on_task_started,
+            channel=EventBus.LIFECYCLE_CHANNEL
+        )
+        
+        self.event_bus.subscribe(
+            event_type=EventType.TASK_FAILED, 
+            callback=on_task_failed,
+            channel=EventBus.LIFECYCLE_CHANNEL
+        )
 
     def execute(self, repetitions: int, timeouts: List[int], tools: List[AbstractTool],
                 memory_file: str = "", generate_monitors: bool = True, instrument: bool = True,
@@ -169,10 +215,11 @@ class ExperimentController:
 
             # Publish experiment started event
             self.event_bus.publish_experiment_event(
-                EventType.EXPERIMENT_STARTED,
+                event_type=EventType.EXPERIMENT_STARTED,
                 experiment_id=self.experiment_id,
                 message="Starting experiment execution",
-                source="ExperimentController"
+                source="ExperimentController",
+                channel=EventBus.LIFECYCLE_CHANNEL
             )
 
             # Handle memory file for experiment resumption
@@ -208,10 +255,11 @@ class ExperimentController:
 
             # Publish experiment completed event
             self.event_bus.publish_experiment_event(
-                EventType.EXPERIMENT_COMPLETED,
+                event_type=EventType.EXPERIMENT_COMPLETED,
                 experiment_id=self.experiment_id,
                 message="Experiment execution completed",
-                source="ExperimentController"
+                source="ExperimentController",
+                channel=EventBus.LIFECYCLE_CHANNEL
             )
 
             self.logger.info(LOG_COMPLETE.format(operation="Experiment"))
@@ -268,6 +316,9 @@ class ExperimentController:
 def execute(tools: Optional[List[AbstractTool]] = None):
     """
     Execute experiment with configuration from the Configuration singleton.
+    
+    This function uses the Configuration singleton to configure and execute
+    an experiment using the ExperimentController.
 
     Args:
         tools: Provided list of tool objects to use (THESE WILL OVERRIDE CONFIGURATION)

@@ -1,11 +1,13 @@
 # rvandroid/config/component_configurator.py
 """
 Component configurator for managing component configurations.
+Provides a unified registration system and flexible component configuration.
 """
+import importlib
 import json
 import logging
 import os
-from typing import Dict, List, Any
+from typing import Dict, List, Any, Type, Optional, Callable, TypeVar, Generic
 
 from rvandroid.config.configuration import Configuration
 from rvandroid.config.configuration_manager import ConfigurationManager
@@ -14,6 +16,176 @@ from rvandroid.parser.screen.abstract_parser import AbstractScreenParser
 from rvandroid.parser.screen.parser_factory import ParserType
 from rvandroid.parser.screen.visitor.base_visitor import BaseScreenVisitor
 
+# Type variables for generic component types
+T = TypeVar('T')
+
+
+class ComponentRegistry(Generic[T]):
+    """
+    A generic registry for component types and their implementation classes.
+    Provides unified registration and discovery mechanisms.
+
+    ### Architectural Decisions:
+    - Implements a dynamic, type-safe registry for component registration
+    - Supports runtime component discovery and instantiation
+    - Enables centralized component management with validation
+    - Provides a consistent interface for component lookup and creation
+    """
+
+    def __init__(self, component_type: str):
+        """
+        Initialize the component registry.
+
+        Args:
+            component_type: Type of components stored in this registry
+        """
+        self.component_type = component_type
+        self._components: Dict[str, Dict[str, Any]] = {}
+        self.logger = logging.getLogger(f"{__name__}.{component_type}")
+
+    def register(self, name: str, implementation: Type[T], 
+                 module_path: str = None, metadata: Dict[str, Any] = None) -> None:
+        """
+        Register a component implementation with the registry.
+
+        Args:
+            name: Component name/identifier
+            implementation: Component class
+            module_path: Module path for lazy loading (optional)
+            metadata: Additional component metadata (optional)
+
+        Raises:
+            ValueError: If name is already registered with a different implementation
+        """
+        if name in self._components and implementation != self._components[name].get('implementation'):
+            raise ValueError(f"{self.component_type} '{name}' already registered with a different implementation")
+
+        self._components[name] = {
+            'implementation': implementation,
+            'module_path': module_path,
+            'metadata': metadata or {}
+        }
+        self.logger.debug(f"Registered {self.component_type} '{name}'")
+
+    def register_lazy(self, name: str, module_path: str, class_name: str, 
+                      metadata: Dict[str, Any] = None) -> None:
+        """
+        Register a component for lazy loading.
+
+        Args:
+            name: Component name/identifier
+            module_path: Module path for importing
+            class_name: Class name within the module
+            metadata: Additional component metadata (optional)
+        """
+        self._components[name] = {
+            'implementation': None,
+            'module_path': module_path,
+            'class_name': class_name,
+            'metadata': metadata or {}
+        }
+        self.logger.debug(f"Registered {self.component_type} '{name}' for lazy loading")
+
+    def get(self, name: str) -> Optional[Type[T]]:
+        """
+        Get a component implementation by name, loading it if necessary.
+
+        Args:
+            name: Component name/identifier
+
+        Returns:
+            Component implementation class or None if not found
+
+        Raises:
+            ImportError: If lazy loading fails
+        """
+        if name not in self._components:
+            return None
+
+        component = self._components[name]
+        implementation = component.get('implementation')
+
+        # Lazy load if necessary
+        if implementation is None and component.get('module_path'):
+            try:
+                module = importlib.import_module(component['module_path'])
+                implementation = getattr(module, component['class_name'])
+                component['implementation'] = implementation
+                self.logger.debug(f"Lazy loaded {self.component_type} '{name}'")
+            except (ImportError, AttributeError) as e:
+                self.logger.error(f"Failed to lazy load {self.component_type} '{name}': {e}")
+                raise ImportError(f"Could not load {self.component_type} '{name}': {str(e)}")
+
+        return implementation
+
+    def get_all(self) -> Dict[str, Type[T]]:
+        """
+        Get all registered component implementations, loading any lazy components.
+
+        Returns:
+            Dictionary of component names to implementation classes
+        """
+        result = {}
+        for name in self._components:
+            try:
+                implementation = self.get(name)
+                if implementation:
+                    result[name] = implementation
+            except ImportError:
+                pass  # Skip components that fail to load
+        return result
+
+    def get_names(self) -> List[str]:
+        """
+        Get names of all registered components.
+
+        Returns:
+            List of component names
+        """
+        return list(self._components.keys())
+
+    def get_metadata(self, name: str) -> Dict[str, Any]:
+        """
+        Get metadata for a component.
+
+        Args:
+            name: Component name/identifier
+
+        Returns:
+            Component metadata or empty dict if not found
+        """
+        if name not in self._components:
+            return {}
+        return self._components[name].get('metadata', {})
+
+    def has(self, name: str) -> bool:
+        """
+        Check if a component is registered.
+
+        Args:
+            name: Component name/identifier
+
+        Returns:
+            True if component is registered, False otherwise
+        """
+        return name in self._components
+
+    def unregister(self, name: str) -> bool:
+        """
+        Unregister a component.
+
+        Args:
+            name: Component name/identifier
+
+        Returns:
+            True if component was unregistered, False if not found
+        """
+        if name in self._components:
+            del self._components[name]
+            self.logger.debug(f"Unregistered {self.component_type} '{name}'")
+            return True
+        return False
+
 
 class ComponentConfigurator:
     """
@@ -21,6 +193,7 @@ class ComponentConfigurator:
 
     ### Architectural Decisions:
     - Implements a flexible, modular approach to component configuration
+    - Uses a centralized registry system for component management
     - Supports dynamic composition of language models, strategies, and parsing components
     - Provides a centralized mechanism for configuring experimental components
     - Enables runtime configuration and component selection
@@ -54,33 +227,12 @@ class ComponentConfigurator:
     - Enables efficient runtime configuration management
     """
 
-    # Component type registries
-    LLM_TYPES = {
-        "ollama": "OllamaLLM",
-        "huggingface": "HuggingFaceLLM",
-        "dspy": "DSPyLLM",
-        "langchain": "LangchainLLM",
-        "frontier": "FrontierModel"
-    }
-
-    STRATEGY_TYPES = {
-        "basic": "BasicPromptStrategy001",
-        "dspy": "DSPyPromptStrategy",
-        "single_action": "SingleActionPromptStrategy",
-        "dspy_single_action": "DSPySingleActionPromptStrategy",
-        "composable": "ComposablePromptStrategy",
-        "composable_single_action": "ComposableSingleActionStrategy"
-    }
-
-    PARSER_TYPES = {
-        "droidbot": "DroidBotParser",
-        "uiautomator": "UIAutomator2Parser"
-    }
-
-    VISITOR_TYPES = {
-        "basic": "BasicTextVisitor",
-        "enhanced": "TextVisitor",
-        "detailed": "EnhancedTextVisitor"
+    # Component registries
+    _registries = {
+        'llm': ComponentRegistry('LLM'),
+        'strategy': ComponentRegistry('Strategy'),
+        'parser': ComponentRegistry('Parser'),
+        'visitor': ComponentRegistry('Visitor')
     }
 
     # Model registries
@@ -91,6 +243,90 @@ class ComponentConfigurator:
         "langchain": ["meta-llama/Meta-Llama-3.1-8B-Instruct"],
         "frontier": ["claude-3-opus-20240229", "claude-3-sonnet-20240229"]
     }
+
+    @classmethod
+    def register_llm(cls, name: str, implementation=None, module_path=None, class_name=None, 
+                     metadata: Dict[str, Any] = None) -> None:
+        """
+        Register a language model implementation.
+
+        Args:
+            name: Model type name
+            implementation: Implementation class (optional if module_path is provided)
+            module_path: Module path for lazy loading (required if implementation is None)
+            class_name: Class name for lazy loading (required if implementation is None)
+            metadata: Additional metadata
+        """
+        registry = cls._registries['llm']
+        if implementation:
+            registry.register(name, implementation, metadata=metadata)
+        elif module_path and class_name:
+            registry.register_lazy(name, module_path, class_name, metadata=metadata)
+        else:
+            raise ValueError("Either implementation or module_path+class_name must be provided")
+
+    @classmethod
+    def register_strategy(cls, name: str, implementation=None, module_path=None, class_name=None,
+                          metadata: Dict[str, Any] = None) -> None:
+        """
+        Register a prompt strategy implementation.
+
+        Args:
+            name: Strategy type name
+            implementation: Implementation class (optional if module_path is provided)
+            module_path: Module path for lazy loading (required if implementation is None)
+            class_name: Class name for lazy loading (required if implementation is None)
+            metadata: Additional metadata
+        """
+        registry = cls._registries['strategy']
+        if implementation:
+            registry.register(name, implementation, metadata=metadata)
+        elif module_path and class_name:
+            registry.register_lazy(name, module_path, class_name, metadata=metadata)
+        else:
+            raise ValueError("Either implementation or module_path+class_name must be provided")
+
+    @classmethod
+    def register_parser(cls, name: str, implementation=None, module_path=None, class_name=None,
+                        metadata: Dict[str, Any] = None) -> None:
+        """
+        Register a parser implementation.
+
+        Args:
+            name: Parser type name
+            implementation: Implementation class (optional if module_path is provided)
+            module_path: Module path for lazy loading (required if implementation is None)
+            class_name: Class name for lazy loading (required if implementation is None)
+            metadata: Additional metadata
+        """
+        registry = cls._registries['parser']
+        if implementation:
+            registry.register(name, implementation, metadata=metadata)
+        elif module_path and class_name:
+            registry.register_lazy(name, module_path, class_name, metadata=metadata)
+        else:
+            raise ValueError("Either implementation or module_path+class_name must be provided")
+
+    @classmethod
+    def register_visitor(cls, name: str, implementation=None, module_path=None, class_name=None,
+                         metadata: Dict[str, Any] = None) -> None:
+        """
+        Register a visitor implementation.
+
+        Args:
+            name: Visitor type name
+            implementation: Implementation class (optional if module_path is provided)
+            module_path: Module path for lazy loading (required if implementation is None)
+            class_name: Class name for lazy loading (required if implementation is None)
+            metadata: Additional metadata
+        """
+        registry = cls._registries['visitor']
+        if implementation:
+            registry.register(name, implementation, metadata=metadata)
+        elif module_path and class_name:
+            registry.register_lazy(name, module_path, class_name, metadata=metadata)
+        else:
+            raise ValueError("Either implementation or module_path+class_name must be provided")
 
     def __init__(self, static_data=None):
         """
@@ -128,6 +364,50 @@ class ComponentConfigurator:
 
         # Initialize default configuration
         self._initialize_default_configuration()
+        
+        # Register built-in components if not already registered
+        self._initialize_registries()
+
+    def _initialize_registries(self):
+        """Initialize component registries with built-in components if not already registered."""
+        # Register LLM types
+        if not self._registries['llm'].get_names():
+            self._registries['llm'].register_lazy('ollama', 'rvandroid.llm.ollama_llm', 'OllamaLLM')
+            self._registries['llm'].register_lazy('huggingface', 'rvandroid.llm.huggingface_llm', 'HuggingFaceLLM')
+            self._registries['llm'].register_lazy('dspy', 'rvandroid.llm.dspy_llm', 'DSPyLLM')
+            self._registries['llm'].register_lazy('langchain', 'rvandroid.llm.langchain_llm', 'LangchainLLM')
+            self._registries['llm'].register_lazy('frontier', 'rvandroid.llm.frontier_models', 'FrontierModel')
+
+        # Register strategy types
+        if not self._registries['strategy'].get_names():
+            self._registries['strategy'].register_lazy(
+                'basic', 'rvandroid.llm.prompt.prompt_strategy_basic_001', 'BasicPromptStrategy001')
+            self._registries['strategy'].register_lazy(
+                'dspy', 'rvandroid.llm.prompt.prompt_strategy_dspy', 'DSPyPromptStrategy')
+            self._registries['strategy'].register_lazy(
+                'single_action', 'rvandroid.llm.prompt.single_action_prompt_strategy', 'SingleActionPromptStrategy')
+            self._registries['strategy'].register_lazy(
+                'dspy_single_action', 'rvandroid.llm.prompt.dspy_single_action_prompt_strategy', 'DSPySingleActionPromptStrategy')
+            self._registries['strategy'].register_lazy(
+                'composable', 'rvandroid.llm.prompt.composable_prompt_strategy', 'ComposablePromptStrategy')
+            self._registries['strategy'].register_lazy(
+                'composable_single_action', 'rvandroid.llm.prompt.composable_single_action_strategy', 'ComposableSingleActionStrategy')
+
+        # Register parser types
+        if not self._registries['parser'].get_names():
+            self._registries['parser'].register_lazy(
+                'droidbot', 'rvandroid.parser.screen.droidbot.droidbot_parser', 'DroidBotParser')
+            self._registries['parser'].register_lazy(
+                'uiautomator', 'rvandroid.parser.screen.uiautomator.uiautomator_parser', 'UIAutomator2Parser')
+
+        # Register visitor types
+        if not self._registries['visitor'].get_names():
+            self._registries['visitor'].register_lazy(
+                'basic', 'rvandroid.parser.screen.visitor.basic_visitor', 'BasicTextVisitor')
+            self._registries['visitor'].register_lazy(
+                'enhanced', 'rvandroid.parser.screen.visitor.text_visitor', 'TextVisitor')
+            self._registries['visitor'].register_lazy(
+                'detailed', 'rvandroid.parser.screen.visitor.enhanced_visitor', 'EnhancedTextVisitor')
 
     def _initialize_default_configuration(self):
         """Initialize default component configuration."""
@@ -145,18 +425,21 @@ class ComponentConfigurator:
 
     def set_llm(self, llm_type: str, model: str = None, **kwargs) -> 'ComponentConfigurator':
         """
-        Define o tipo de LLM e modelo a ser usado.
+        Set the language model type and model to be used.
 
         Args:
-            llm_type: Tipo de LLM (ollama, huggingface, dspy, langchain, frontier)
-            model: Nome do modelo
-            **kwargs: Parâmetros adicionais específicos do LLM
+            llm_type: Type of LLM (ollama, huggingface, dspy, langchain, frontier)
+            model: Name of the model
+            **kwargs: Additional LLM-specific parameters
 
         Returns:
-            Self para encadeamento de métodos
+            Self for method chaining
+
+        Raises:
+            ValueError: If LLM type is unknown
         """
-        if llm_type not in self.LLM_TYPES:
-            raise ValueError(f"Unknown LLM type: {llm_type}. Options: {list(self.LLM_TYPES.keys())}")
+        if not self._registries['llm'].has(llm_type):
+            raise ValueError(f"Unknown LLM type: {llm_type}. Options: {self._registries['llm'].get_names()}")
 
         # Update LLM configuration
         self.llm_config.model_type = llm_type
@@ -190,43 +473,29 @@ class ComponentConfigurator:
         Set the prompt strategy to be used.
 
         Args:
-            strategy_type: Type of strategy (basic, dspy, single_action)
+            strategy_type: Type of strategy (basic, dspy, single_action, etc.)
             **kwargs: Additional strategy parameters
 
         Returns:
             Self for method chaining
+
+        Raises:
+            ValueError: If strategy type is unknown
         """
-        if strategy_type not in self.STRATEGY_TYPES:
+        if not self._registries['strategy'].has(strategy_type):
             raise ValueError(
-                f"Unknown strategy type: {strategy_type}. Options: {list(self.STRATEGY_TYPES.keys())}"
+                f"Unknown strategy type: {strategy_type}. Options: {self._registries['strategy'].get_names()}"
             )
 
         # Update strategy configuration
         self.llm_config.strategy_type = strategy_type
 
         # Import the strategy class dynamically
-        # TODO remover
-        strategy_class_name = self.STRATEGY_TYPES[strategy_type]
-
-        # Import different strategies based on type
-        if strategy_type == "basic":
-            from rvandroid.llm.prompt.prompt_strategy_basic_001 import BasicPromptStrategy001
-            self.strategy_class = BasicPromptStrategy001
-        elif strategy_type == "dspy":
-            from rvandroid.llm.prompt.prompt_strategy_dspy import DSPyPromptStrategy
-            self.strategy_class = DSPyPromptStrategy
-        elif strategy_type == "single_action":
-            from rvandroid.llm.prompt.single_action_prompt_strategy import SingleActionPromptStrategy
-            self.strategy_class = SingleActionPromptStrategy
-        elif strategy_type == "dspy_single_action":
-            from rvandroid.llm.prompt.dspy_single_action_prompt_strategy import DSPySingleActionPromptStrategy
-            self.strategy_class = DSPySingleActionPromptStrategy
-        elif strategy_type == "composable":
-            from rvandroid.llm.prompt.composable_prompt_strategy import ComposablePromptStrategy
-            self.strategy_class = ComposablePromptStrategy
-        elif strategy_type == "composable_single_action":
-            from rvandroid.llm.prompt.composable_single_action_strategy import ComposableSingleActionStrategy
-            self.strategy_class = ComposableSingleActionStrategy
+        strategy_class = self._registries['strategy'].get(strategy_type)
+        if not strategy_class:
+            raise ValueError(f"Failed to load strategy class for '{strategy_type}'")
+        
+        self.strategy_class = strategy_class
 
         # Store strategy parameters
         self.strategy_kwargs = kwargs
@@ -243,17 +512,19 @@ class ComponentConfigurator:
 
         Returns:
             Self for method chaining
+
+        Raises:
+            ValueError: If parser type is unknown
         """
-        if parser_type not in self.PARSER_TYPES:
-            raise ValueError(f"Unknown parser type: {parser_type}. Options: {list(self.PARSER_TYPES.keys())}")
+        if not self._registries['parser'].has(parser_type):
+            raise ValueError(f"Unknown parser type: {parser_type}. Options: {self._registries['parser'].get_names()}")
 
         # Import the parser class dynamically
-        if parser_type == "droidbot":
-            from rvandroid.parser.screen.droidbot.droidbot_parser import DroidBotParser
-            self.parser_class = DroidBotParser
-        elif parser_type == "uiautomator":
-            from rvandroid.parser.screen.uiautomator.uiautomator_parser import UIAutomator2Parser
-            self.parser_class = UIAutomator2Parser
+        parser_class = self._registries['parser'].get(parser_type)
+        if not parser_class:
+            raise ValueError(f"Failed to load parser class for '{parser_type}'")
+        
+        self.parser_class = parser_class
 
         # Update parser type in LLM configuration
         if parser_type == "droidbot":
@@ -276,20 +547,19 @@ class ComponentConfigurator:
 
         Returns:
             Self for method chaining
+
+        Raises:
+            ValueError: If visitor type is unknown
         """
-        if visitor_type not in self.VISITOR_TYPES:
-            raise ValueError(f"Unknown visitor type: {visitor_type}. Options: {list(self.VISITOR_TYPES.keys())}")
+        if not self._registries['visitor'].has(visitor_type):
+            raise ValueError(f"Unknown visitor type: {visitor_type}. Options: {self._registries['visitor'].get_names()}")
 
         # Import the visitor class dynamically
-        if visitor_type == "basic":
-            from rvandroid.parser.screen.visitor.basic_visitor import BasicTextVisitor
-            self.visitor_class = BasicTextVisitor
-        elif visitor_type == "enhanced":
-            from rvandroid.parser.screen.visitor.text_visitor import TextVisitor
-            self.visitor_class = TextVisitor
-        elif visitor_type == "detailed":
-            from rvandroid.parser.screen.visitor.enhanced_visitor import EnhancedTextVisitor
-            self.visitor_class = EnhancedTextVisitor
+        visitor_class = self._registries['visitor'].get(visitor_type)
+        if not visitor_class:
+            raise ValueError(f"Failed to load visitor class for '{visitor_type}'")
+        
+        self.visitor_class = visitor_class
 
         # Store visitor parameters
         self.visitor_kwargs = kwargs
@@ -297,13 +567,33 @@ class ComponentConfigurator:
         return self
 
     def create_parser(self) -> AbstractScreenParser:
-        """Create an instance of the configured parser with the configured visitor."""
+        """
+        Create an instance of the configured parser with the configured visitor.
+
+        Returns:
+            AbstractScreenParser instance
+
+        Raises:
+            ValueError: If parser class is not configured
+        """
         if not self.parser_class:
             raise ValueError("Parser class not configured")
         return self.parser_class(self.visitor_class)
 
     def create_visitor(self, static_data=None, activity: str = "") -> BaseScreenVisitor:
-        """Create an instance of the configured visitor."""
+        """
+        Create an instance of the configured visitor.
+
+        Args:
+            static_data: Static analysis data (optional)
+            activity: Current activity name (optional)
+
+        Returns:
+            BaseScreenVisitor instance
+
+        Raises:
+            ValueError: If visitor class is not configured
+        """
         if not self.visitor_class:
             raise ValueError("Visitor class not configured")
 
@@ -314,7 +604,18 @@ class ComponentConfigurator:
         return self.visitor_class(static_data, activity, **kwargs)
 
     def create_strategy(self, static_data=None) -> Any:
-        """Create an instance of the configured prompt strategy."""
+        """
+        Create an instance of the configured prompt strategy.
+
+        Args:
+            static_data: Static analysis data (optional)
+
+        Returns:
+            Strategy instance
+
+        Raises:
+            ValueError: If strategy class is not configured
+        """
         if not self.strategy_class:
             raise ValueError("Strategy class not configured")
 
@@ -325,7 +626,16 @@ class ComponentConfigurator:
         return self.strategy_class(static_data, self.create_parser(), **kwargs)
 
     def create_llm(self):
-        """Create an LLM instance based on current configuration."""
+        """
+        Create an LLM instance based on current configuration.
+
+        Returns:
+            LanguageModel instance
+
+        Raises:
+            ValueError: If LLM creation fails
+        """
+        # Import dynamically to avoid circular imports
         from rvandroid.llm.model_factory import ModelFactory
 
         kwargs = self.llm_config.kwargs.copy()
@@ -360,20 +670,49 @@ class ComponentConfigurator:
             llm_kwargs["api_key"] = self.config.get_str("llm.api_key")
         if self.config.get("llm.temperature"):
             llm_kwargs["temperature"] = self.config.get("llm.temperature")
+        if self.config.get("llm.max_tokens"):
+            llm_kwargs["max_tokens"] = self.config.get("llm.max_tokens")
 
         self.set_llm(llm_type, llm_model, **llm_kwargs)
 
         # Configure strategy
-        strategy_type = self.config.get_str("strategy.type", "basic")
-        self.set_strategy(strategy_type)
+        strategy_type = self.config.get_str("strategy.type", "composable_single_action")
+        strategy_kwargs = {}
+        
+        # Extract strategy-specific configuration
+        strategy_section = self.config.get("strategy", {})
+        if isinstance(strategy_section, dict):
+            for key, value in strategy_section.items():
+                if key != "type":
+                    strategy_kwargs[key] = value
+                    
+        self.set_strategy(strategy_type, **strategy_kwargs)
 
         # Configure parser
         parser_type = self.config.get_str("parser.type", "droidbot")
-        self.set_parser(parser_type)
+        parser_kwargs = {}
+        
+        # Extract parser-specific configuration
+        parser_section = self.config.get("parser", {})
+        if isinstance(parser_section, dict):
+            for key, value in parser_section.items():
+                if key != "type":
+                    parser_kwargs[key] = value
+                    
+        self.set_parser(parser_type, **parser_kwargs)
 
         # Configure visitor
         visitor_type = self.config.get_str("visitor.type", "enhanced")
-        self.set_visitor(visitor_type)
+        visitor_kwargs = {}
+        
+        # Extract visitor-specific configuration
+        visitor_section = self.config.get("visitor", {})
+        if isinstance(visitor_section, dict):
+            for key, value in visitor_section.items():
+                if key != "type":
+                    visitor_kwargs[key] = value
+                    
+        self.set_visitor(visitor_type, **visitor_kwargs)
 
         return self
 
@@ -407,10 +746,22 @@ class ComponentConfigurator:
         }
 
     def _get_visitor_type_name(self) -> str:
-        """Get visitor type name from class."""
-        for name, cls_name in self.VISITOR_TYPES.items():
-            if self.visitor_class and self.visitor_class.__name__ == cls_name:
+        """
+        Get visitor type name from class.
+
+        Returns:
+            Visitor type name or default if not found
+        """
+        if not self.visitor_class:
+            return "enhanced"  # Default
+            
+        visitor_class_name = self.visitor_class.__name__
+        
+        for name in self._registries['visitor'].get_names():
+            visitor_class = self._registries['visitor'].get(name)
+            if visitor_class and visitor_class.__name__ == visitor_class_name:
                 return name
+                
         return "enhanced"  # Default
 
     def save_to_config_file(self, filename: str) -> bool:
@@ -467,20 +818,40 @@ class ComponentConfigurator:
         }
 
     def get_available_llm_types(self) -> List[str]:
-        """Return available LLM types."""
-        return list(self.LLM_TYPES.keys())
+        """
+        Return available LLM types.
+
+        Returns:
+            List of LLM type names
+        """
+        return self._registries['llm'].get_names()
 
     def get_available_strategy_types(self) -> List[str]:
-        """Return available strategy types."""
-        return list(self.STRATEGY_TYPES.keys())
+        """
+        Return available strategy types.
+
+        Returns:
+            List of strategy type names
+        """
+        return self._registries['strategy'].get_names()
 
     def get_available_parser_types(self) -> List[str]:
-        """Return available parser types."""
-        return list(self.PARSER_TYPES.keys())
+        """
+        Return available parser types.
+
+        Returns:
+            List of parser type names
+        """
+        return self._registries['parser'].get_names()
 
     def get_available_visitor_types(self) -> List[str]:
-        """Return available visitor types."""
-        return list(self.VISITOR_TYPES.keys())
+        """
+        Return available visitor types.
+
+        Returns:
+            List of visitor type names
+        """
+        return self._registries['visitor'].get_names()
 
     def get_available_models(self, llm_type: str) -> List[str]:
         """

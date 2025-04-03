@@ -4,204 +4,228 @@ GESDA analyzes Android applications to detect GUI elements and their properties.
 This module processes GESDA's JSON output to extract window and widget information.
 """
 
-import logging
 import os
-from typing import List, Set
+from typing import List, Optional
+from typing import Set
 
 import rvandroid.util.utils as utils
-from rvandroid.domain.classes import (
-    Classes
-)
+from rvandroid.domain.classes import Classes
 from rvandroid.domain.widget import WidgetEventType, WidgetEvent, WidgetType, Widget
-from rvandroid.domain.window import WindowType, Window, Windows
-
-logger = logging.getLogger(__name__)
-
-
-def parse_gesda_file(gesda_file: str, package: str, classes: Classes, windows: Windows) -> None:
-    """
-    Parse a GESDA output file to extract window and widget information.
-    
-    Args:
-        gesda_file: Path to the GESDA JSON output file
-        package: Android package name to filter relevant classes
-        classes: Collection of application classes
-        windows: Collection of application windows
-    """
-    logger.debug(f"Starting parse gesda file: {gesda_file}")
-    if not os.path.exists(gesda_file):
-        logger.error(f"File '{gesda_file}' not found!")
-        return
-    gesda_data = utils.read_json(gesda_file)
-    if gesda_data and "windows" in gesda_data:
-        for window in gesda_data["windows"]:
-            process_window(window, package, classes, windows)
+from rvandroid.domain.window import WindowType, Window
+from rvandroid.domain.window import Windows
+from rvandroid.parser.static.base_parser import BaseStaticAnalysisParser
 
 
-def process_window(window_dict: dict, package: str, classes: Classes, windows: Windows) -> None:
-    """
-    Process a single window entry from GESDA data.
-    
-    Args:
-        window: Dictionary containing window data
-        package: Android package name
-        classes: Collection of application classes
-        windows: Collection of application windows
-    """
-    class_name: str = window_dict["name"]
-    logger.debug(f"Processing window={class_name}")
+class GesdaParser(BaseStaticAnalysisParser):
 
-    if package and package not in class_name:
-        logger.warning(f"Class '{class_name}' not in package '{package}'")
-        return
+    def __init__(self):
+        """Initialize the Gesda parser."""
+        super().__init__("gesda")
 
-    if class_name not in classes.classes:
-        classes.add_clazz(window_dict["name"], True, window_dict["isMain"])
+    def parse_file(self, file_path: str, package: Optional[str], classes: Optional[Classes],
+                   windows: Optional[Windows]) -> Windows:
+        self.log_parse_start(file_path)
 
-    window = create_window(window_dict, windows)
-    if "widgets" in window_dict:
-        for widget in parse_widgets(window_dict["widgets"], window, windows):
-            window.add_widget(widget)
+        if not os.path.exists(file_path):
+            self.logger.warning(f"File {file_path} does not exist, returning empty windows")
+            return windows if windows is not None else Windows()
 
-    windows.add_window(window)
+        try:
+            windows = Windows()
 
+            gesda_data = utils.read_json(file_path)
+            if gesda_data and "windows" in gesda_data:
+                for window in gesda_data["windows"]:
+                    self.process_window(window, package, classes, windows)
 
-def create_window(window_dict: dict, windows: Windows) -> Window:
-    """
-    Create a Window object from GESDA window data.
-    
-    Args:
-        window: Dictionary containing window data
+            # Log successful parsing
+            stats = {
+                "windows": len(windows.windows),
+                "widgets": len(windows.widgets)
+            }
+            self.log_parse_complete(file_path, stats)
+
+            return windows
+        except Exception as e:
+            self.log_parse_error(file_path, e)
+            return Windows()
+
+    def process_window(self, window_dict: dict, package: str, classes: Classes, windows: Windows) -> None:
+        """
+        Process a single window entry from GESDA data.
+
+        Args:
+            window: Dictionary containing window data
+            package: Android package name
+            classes: Collection of application classes
+            windows: Collection of application windows
+        """
+        class_name: str = window_dict["name"]
+        self.logger.debug(f"Processing window={class_name}")
+
+        if package and package not in class_name:
+            self.logger.warning(f"Class '{class_name}' not in package '{package}'")
+            return
+
+        if class_name not in classes.classes:
+            classes.add_clazz(window_dict["name"], True, window_dict["isMain"])
+
+        window = self.create_window(window_dict, windows)
+        if "widgets" in window_dict:
+            for widget in self.parse_widgets(window_dict["widgets"], window, windows):
+                window.add_widget(widget)
+
+        windows.add_window(window)
+
+    def create_window(self, window_dict: dict, windows: Windows) -> Window:
+        """
+        Create a Window object from GESDA window data.
+
+        Args:
+            window: Dictionary containing window data
+
+        Returns:
+            Window object with populated properties
+        """
+        # print(f"*** window_dict={window_dict}")
+        window_name = window_dict["name"]
+        window = windows.get_window(window_name)
         
-    Returns:
-        Window object with populated properties
-    """
-    # print(f"*** window_dict={window_dict}")
-    window = windows.get_window(window_dict["name"])
-    if window is None:
-        logger.debug(f"Creating new window: {window_dict['name']}")
-        window = Window(window_dict["name"])
+        if window is None:
+            self.logger.debug(f"Creating new window: {window_name}")
+            window = Window(window_name)
 
-    window.type = WindowType.from_string(window_dict["type"])
+        window.type = WindowType.from_string(window_dict["type"])
 
-    if "layoutFileName" in window_dict:
-        window.layout_file = window_dict["layoutFileName"]
+        if "layoutFileName" in window_dict:
+            window.layout_file = window_dict["layoutFileName"]
+            
+        # Set activity name if this appears to be an Activity
+        is_main = window_dict.get("isMain", False)
+        if window.type == WindowType.ACTIVITY or "Activity" in window_name or is_main:
+            window.activity = window_name
+            window.class_name = window_name
+            self.logger.debug(f"Setting activity name for window {window_name}")
+            
+        # Update class_name from name
+        if not window.class_name and window_name:
+            window.class_name = window_name
 
-    return window
+        return window
 
+    def parse_widgets(self, widgets_list: List[dict], window: Window, windows: Windows) -> List[Widget]:
+        """
+        Parse widget entries from GESDA data.
 
-def parse_widgets(widgets_list: List[dict], window: Window, windows: Windows) -> List[Widget]:
-    """
-    Parse widget entries from GESDA data.
-    
-    Args:
-        widgets_list: List of dictionaries containing widget data
-        
-    Returns:
-        List of Widget objects
-    """
-    widgets: List[Widget] = []
+        Args:
+            widgets_list: List of dictionaries containing widget data
 
-    for widget_dict in widgets_list:
-        widget = get_or_create_widget(widget_dict, window, windows)
+        Returns:
+            List of Widget objects
+        """
+        widgets: List[Widget] = []
 
-        if "listeners" in widget_dict:
-            events = parse_listeners(widget_dict["listeners"])
-            for event in events:
-                widget.add_event(event)
+        for widget_dict in widgets_list:
+            widget = self.get_or_create_widget(widget_dict, window, windows)
 
-        widgets.append(widget)
+            if "listeners" in widget_dict:
+                events = self.parse_listeners(widget_dict["listeners"])
+                for event in events:
+                    widget.add_event(event)
 
-    return widgets
+            widgets.append(widget)
 
+        return widgets
 
-def get_or_create_widget(widget_dict: dict, window: Window, windows: Windows) -> Widget:
-    """
-    Create a Widget object from GESDA widget data.
-    
-    Args:
-        widget_dict: Dictionary containing widget data
-        
-    Returns:
-        Widget object with populated properties
-    """
-    widget = windows.get_widget(widget_dict["widgetId"])
-    if widget is None:
-        widget_type = WidgetType.from_string(widget_dict["type"])
-        # print(f"create_widget::type={type}")
-        logger.debug(f"Creating new widget: {widget_dict['widgetId']}")
-        widget = Widget(
-            str(widget_dict["widgetId"]),
-            widget_dict["name"] if "name" in widget_dict else "",
-            widget_type  # TODO rever tipo ...........................
-        )
-        # print(f"window ({type(window)})={window}")
-        windows.add_widget(window, widget)
+    def get_or_create_widget(self, widget_dict: dict, window: Window, windows: Windows) -> Widget:
+        """
+        Create a Widget object from GESDA widget data.
 
-    # Set optional properties
-    widget.field = widget_dict.get("field")
-    widget.text = widget_dict.get("text")
-    widget.hint = widget_dict.get("hint")
-    widget.entries = widget_dict.get("entries")
-    widget.input_type = widget_dict.get("inputType")
+        Args:
+            widget_dict: Dictionary containing widget data
 
-    return widget
+        Returns:
+            Widget object with populated properties
+        """
+        widget = windows.get_widget(widget_dict["widgetId"])
+        if widget is None:
+            widget_type = WidgetType.from_string(widget_dict["type"])
+            # print(f"create_widget::type={type}")
+            self.logger.debug(f"Creating new widget: {widget_dict['widgetId']}")
+            widget = Widget(
+                str(widget_dict["widgetId"]),
+                widget_dict["name"] if "name" in widget_dict else "",
+                widget_type  # TODO rever tipo ...........................
+            )
+            # print(f"window ({type(window)})={window}")
+            windows.add_widget(window, widget)
 
+        # Set optional properties
+        widget.field = widget_dict.get("field")
+        widget.text = widget_dict.get("text")
+        widget.hint = widget_dict.get("hint")
+        widget.entries = widget_dict.get("entries")
+        widget.input_type = widget_dict.get("inputType")
 
-def parse_listeners(events_list: List[dict]) -> Set[WidgetEvent]:
-    """
-    Parse event entries from GESDA widget data.
-    
-    Args:
-        events_list: List of dictionaries containing listener data
-        
-    Returns:
-        Set of WidgetEvent objects
-    """
-    events = set()
+        return widget
 
-    for listener_dict in events_list:
-        event_type = to_event(listener_dict["type"])
-        if event_type is WidgetEventType.OTHER:
-            continue
+    def parse_listeners(self, events_list: List[dict]) -> Set[WidgetEvent]:
+        """
+        Parse event entries from GESDA widget data.
 
-        callback = listener_dict["callbackMethod"]
-        event = WidgetEvent(
-            event_type,
-            callback["className"],
-            callback["name"],
-            callback["signature"]
-        )
-        events.add(event)
+        Args:
+            events_list: List of dictionaries containing listener data
 
-    return events
+        Returns:
+            Set of WidgetEvent objects
+        """
+        events = set()
 
+        for listener_dict in events_list:
+            event_type = self.to_event(listener_dict["type"])
+            if event_type is WidgetEventType.OTHER:
+                continue
 
-def to_event(event_str: str) -> WidgetEventType:
-    """
-    Convert GESDA listener type string to WidgetEventType.
-    
-    Args:
-        event_str: Listener type string from GESDA
-        
-    Returns:
-        Corresponding WidgetEventType enum value
-    """
-    event_map = {
-        "OnClickListener": WidgetEventType.CLICK,
-        "OnItemClickListener": WidgetEventType.CLICK,
-        "OnMenuItemClickListener": WidgetEventType.CLICK,
-        "OnCheckedChangeListener": WidgetEventType.CLICK,
-        "OnLongClickListener": WidgetEventType.LONG_CLICK,
-        "OnItemLongClickListener": WidgetEventType.LONG_CLICK,
-        "OnItemSelectedListener": WidgetEventType.SELECTION,
-        "OnScrollListener": WidgetEventType.SCROLL,
-        "OnGestureListener": WidgetEventType.GESTURE,
-        "OnDragListener": WidgetEventType.DRAG,
-        "OnHoverListener": WidgetEventType.HOVER,
-        "OnTouchListener": WidgetEventType.TOUCH,
-        "OnFocusChangeListener": WidgetEventType.FOCUS,
-        "OnKeyListener": WidgetEventType.KEY
-    }
+            callback = listener_dict["callbackMethod"]
+            event = WidgetEvent(
+                event_type,
+                callback["className"],
+                callback["name"],
+                callback["signature"]
+            )
+            events.add(event)
 
-    return event_map.get(event_str, WidgetEventType.OTHER)
+        return events
+
+    def to_event(self, event_str: str) -> WidgetEventType:
+        """
+        Convert GESDA listener type string to WidgetEventType.
+
+        Args:
+            event_str: Listener type string from GESDA
+
+        Returns:
+            Corresponding WidgetEventType enum value
+        """
+        event_map = {
+            "OnClickListener": WidgetEventType.CLICK,
+            "OnItemClickListener": WidgetEventType.CLICK,
+            "OnMenuItemClickListener": WidgetEventType.CLICK,
+            "OnCheckedChangeListener": WidgetEventType.CLICK,
+            "OnLongClickListener": WidgetEventType.LONG_CLICK,
+            "OnItemLongClickListener": WidgetEventType.LONG_CLICK,
+            "OnItemSelectedListener": WidgetEventType.SELECTION,
+            "OnScrollListener": WidgetEventType.SCROLL,
+            "OnGestureListener": WidgetEventType.GESTURE,
+            "OnDragListener": WidgetEventType.DRAG,
+            "OnHoverListener": WidgetEventType.HOVER,
+            "OnTouchListener": WidgetEventType.TOUCH,
+            "OnFocusChangeListener": WidgetEventType.FOCUS,
+            "OnKeyListener": WidgetEventType.KEY
+        }
+
+        return event_map.get(event_str, WidgetEventType.OTHER)
+
+def parse_gesda_file(gesda_file: str, package: str, classes: Classes, windows: Windows):
+    parser = GesdaParser()
+    parser.parse_file(gesda_file, package, classes, windows)

@@ -84,19 +84,45 @@ class StateAnalyzer:
         """
         action_ids = []
 
-        # We need to parse the screen to get action IDs
-        # This requires access to a parser, which we'll get from the component configurator
-        # For now, we'll use a placeholder implementation
-
-        # If screen_description is in the state, extract action IDs
+        # If available_actions is explicitly provided in the state, use that
         if "available_actions" in state:
             return state["available_actions"]
 
-        # Otherwise, try to extract from view_tree if present
+        # Extract action IDs from screen description items (preferred method)
+        # This data structure is built by the parser and used to generate the prompt
+        if "screen_description" in state and hasattr(state["screen_description"], "items"):
+            screen_description = state["screen_description"]
+            for item in screen_description.items:
+                for action in item.actions:
+                    action_ids.append(str(action.id))
+            
+            self.logger.debug(f"Extracted {len(action_ids)} action IDs from screen_description")
+            if action_ids:  # If we found actions, return them
+                return action_ids
+
+        # Otherwise, try to extract from items directly if present
+        # This handles when screen_description exists but doesn't have the expected structure
+        if "items" in state:
+            try:
+                items = state["items"]
+                for item in items:
+                    if "actions" in item:
+                        for action in item["actions"]:
+                            if "id" in action:
+                                action_ids.append(str(action["id"]))
+                
+                self.logger.debug(f"Extracted {len(action_ids)} action IDs from items")
+                if action_ids:  # If we found actions, return them
+                    return action_ids
+            except Exception as e:
+                self.logger.warning(f"Error extracting action IDs from items: {e}")
+
+        # As a last resort, try to extract from view_tree if present
         if "view_tree" in state:
             try:
                 # Extract clickable elements as potential actions
                 self._extract_clickable_elements(state["view_tree"], action_ids)
+                self.logger.debug(f"Extracted {len(action_ids)} action IDs from view_tree")
             except Exception as e:
                 self.logger.warning(f"Error extracting action IDs from view tree: {e}")
 
@@ -236,46 +262,105 @@ class StateAnalyzer:
         Args:
             state: State dictionary to enhance with static analysis
         """
-        if not self.static_data:
-            return
+        try:
+            if not self.static_data:
+                return
 
-        activity = state.get("activity", "unknown")
-        activity = activity.replace("/", "")
-        print(f"************* activity: {activity}")
+            activity = state.get("activity", "unknown")
+            activity = activity.replace("/", "")
+            self.logger.debug(f"Processing static insights for activity: {activity}")
 
-        # Create insights container
-        if "static_insights" not in state:
-            state["static_insights"] = {}
+            # Create insights container
+            if "static_insights" not in state:
+                state["static_insights"] = {}
 
-        insights = {}
+            insights = {}
 
-        # Get activity class data if available
-        activity_class = self.static_data.classes.get_clazz(activity)
-        print(f"************* activity_class: {activity_class}")
-        if activity_class:
-            # Count methods with different properties
-            reachable_methods = [m for m in activity_class.methods if m.reachable]
-            critical_methods = [m for m in activity_class.methods if m.reaches_mop]
-            direct_critical_methods = [m for m in activity_class.methods if m.directly_reaches_mop]
+            # Get activity class data if available
+            activity_class = None
+            try:
+                if hasattr(self.static_data, 'classes') and hasattr(self.static_data.classes, 'get_clazz'):
+                    activity_class = self.static_data.classes.get_clazz(activity)
+                    self.logger.debug(f"Found activity class: {activity_class}")
+            except Exception as e:
+                self.logger.warning(f"Error retrieving activity class for {activity}: {e}")
+                
+            if activity_class:
+                try:
+                    # Count methods with different properties
+                    reachable_methods = [m for m in activity_class.methods if hasattr(m, 'reachable') and m.reachable]
+                    critical_methods = [m for m in activity_class.methods if hasattr(m, 'reaches_mop') and m.reaches_mop]
+                    direct_critical_methods = [m for m in activity_class.methods if hasattr(m, 'directly_reaches_mop') and m.directly_reaches_mop]
 
-            # Add method statistics
-            insights["reachable_methods_count"] = len(reachable_methods)
-            insights["critical_methods_count"] = len(critical_methods)
-            insights["direct_critical_methods_count"] = len(direct_critical_methods)
+                    # Add method statistics
+                    insights["reachable_methods_count"] = len(reachable_methods)
+                    insights["critical_methods_count"] = len(critical_methods)
+                    insights["direct_critical_methods_count"] = len(direct_critical_methods)
 
-            # Add method examples for reference
-            if critical_methods:
-                insights["critical_methods_examples"] = [m.name for m in critical_methods[:5]]
+                    # Add method examples for reference
+                    if critical_methods:
+                        insights["critical_methods_examples"] = [
+                            m.name if hasattr(m, 'name') else str(m) 
+                            for m in critical_methods[:5]
+                        ]
+                except Exception as e:
+                    self.logger.warning(f"Error processing method information: {e}")
 
-        # Add window transition information
-        if self.static_data.wtg:
-            edges = [edge for edge in self.static_data.wtg.graph.edges()
-                     if edge[0].name == activity_class.name]
+            # Add window transition information if available
+            try:
+                if hasattr(self.static_data, 'wtg') and self.static_data.wtg:
+                    # Safely check edge format and access edge source properties
+                    edges = []
+                    
+                    # Check if graph has edges method
+                    if not hasattr(self.static_data.wtg, 'graph') or not hasattr(self.static_data.wtg.graph, 'edges'):
+                        self.logger.warning("WTG graph doesn't have expected structure")
+                    else:
+                        # Process edges safely
+                        for edge in self.static_data.wtg.graph.edges():
+                            # Check if edge elements are objects with name attribute or strings
+                            try:
+                                if not edge or len(edge) < 2:
+                                    continue
+                                    
+                                source = edge[0]
+                                # Handle both object with name attribute and string cases
+                                source_name = source.name if hasattr(source, 'name') else source
+                                
+                                if activity_class and hasattr(activity_class, 'name'):
+                                    if source_name == activity_class.name:
+                                        edges.append(edge)
+                                else:
+                                    # Match by activity name string comparison if activity_class is unavailable
+                                    if isinstance(source_name, str) and activity in source_name:
+                                        edges.append(edge)
+                            except Exception as e:
+                                self.logger.debug(f"Error processing edge: {e}")
+                                continue
 
-            if edges:
-                insights["possible_transitions_count"] = len(edges)
-                insights["possible_transitions"] = [edge[1].name for edge in edges[:5]]
+                        if edges:
+                            insights["possible_transitions_count"] = len(edges)
+                            
+                            # Safely extract target names
+                            transitions = []
+                            for edge in edges[:5]:
+                                try:
+                                    target = edge[1]
+                                    target_name = target.name if hasattr(target, 'name') else str(target)
+                                    transitions.append(target_name)
+                                except Exception as e:
+                                    self.logger.debug(f"Error extracting target name: {e}")
+                                    
+                            insights["possible_transitions"] = transitions
+            except Exception as e:
+                self.logger.warning(f"Error processing WTG information: {e}")
 
-        # Store insights in state
-        state["static_insights"] = insights
+            # Store insights in state
+            state["static_insights"] = insights
+            
+        except Exception as e:
+            self.logger.error(f"Error adding static analysis insights: {e}")
+            # Make sure we always have a valid static_insights object even if processing fails
+            if "static_insights" not in state:
+                state["static_insights"] = {}
        

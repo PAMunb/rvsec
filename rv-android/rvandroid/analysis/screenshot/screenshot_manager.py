@@ -11,13 +11,13 @@ import os
 import shutil
 import time
 from datetime import datetime
-from typing import Optional
+from typing import Optional, Dict, Any, List
 
+from rvandroid.analysis.base_analyzer import BaseRepository
 from rvandroid.util.logging.constants import CONTEXT_COMPONENT
-from rvandroid.util.logging.manager import LoggingManager
 
 
-class ScreenshotManager:
+class ScreenshotManager(BaseRepository):
     """
     Manages the capture and storage of screenshots during testing.
 
@@ -26,6 +26,7 @@ class ScreenshotManager:
     - Implements an efficient caching strategy to avoid excessive I/O
     - Provides cleanup functionality to manage disk usage
     - Supports structured organization of screenshots by test session
+    - Extends BaseRepository for consistent interface
 
     ### Role in the System:
     - Handles screenshot capture requests from different components
@@ -45,12 +46,7 @@ class ScreenshotManager:
             max_screenshots: Maximum number of screenshots to keep
             retention_time: Time in seconds to retain screenshots
         """
-        # Configure logging
-        logging_manager = LoggingManager.get_instance()
-        self.logger = logging_manager.get_logger(
-            "rvandroid.analysis.screenshot.manager",
-            {CONTEXT_COMPONENT: "ScreenshotManager"}
-        )
+        super().__init__(repository_name="screenshot")
 
         # Set base directory
         self.base_dir = base_dir or os.path.join(os.path.dirname(__file__), "screenshots")
@@ -66,7 +62,7 @@ class ScreenshotManager:
         self.retention_time = retention_time
 
         # Initialize tracking
-        self.screenshot_paths = []
+        self.screenshot_paths: List[str] = []
         self.screenshot_count = 0
 
         self.logger.info(f"Initialized screenshot manager with session dir: {self.session_dir}")
@@ -107,6 +103,9 @@ class ScreenshotManager:
             # Track this screenshot
             self.screenshot_paths.append(save_path)
             self.screenshot_count += 1
+            
+            # Log storage
+            self.log_storage_summary("screenshot", 1)
 
             # Check if we need to clean up
             if self.screenshot_count > self.max_screenshots:
@@ -209,6 +208,9 @@ class ScreenshotManager:
 
         # Update tracking list
         self.screenshot_paths = self.screenshot_paths[excess_count:]
+        
+        # Log cleanup
+        self.log_storage_summary("removed screenshots", excess_count)
 
     def _cleanup_old_screenshots(self) -> None:
         """
@@ -218,6 +220,7 @@ class ScreenshotManager:
         try:
             # Get current time
             current_time = time.time()
+            removed_count = 0
 
             # Look for session directories
             for item in os.listdir(self.base_dir):
@@ -236,7 +239,11 @@ class ScreenshotManager:
                     # Remove if older than retention time
                     if dir_age > self.retention_time:
                         shutil.rmtree(item_path)
+                        removed_count += 1
                         self.logger.info(f"Removed old screenshot directory: {item_path}")
+            
+            if removed_count > 0:
+                self.log_storage_summary("old screenshot directories", removed_count)
 
         except Exception as e:
             self.logger.error(f"Error cleaning up old screenshots: {e}")
@@ -252,3 +259,18 @@ class ScreenshotManager:
             return None
 
         return self.screenshot_paths[-1]
+        
+    def get_metrics(self) -> Dict[str, Any]:
+        """
+        Get metrics about the screenshot repository.
+        
+        Returns:
+            Dictionary with metrics
+        """
+        return {
+            "total_screenshots": self.screenshot_count,
+            "active_screenshots": len(self.screenshot_paths),
+            "session_directory": self.session_dir,
+            "max_screenshots": self.max_screenshots,
+            "retention_time_seconds": self.retention_time
+        }

@@ -60,7 +60,8 @@ class LangchainLLM(LanguageModel):
             base_url: str = "http://localhost:11434",
             api_key: Optional[str] = None,
             use_memory: bool = False,
-            use_json_parser: bool = True
+            use_json_parser: bool = True,
+            **kwargs
     ):
         """
         Initialize LangchainLLM with a model name and provider.
@@ -72,6 +73,7 @@ class LangchainLLM(LanguageModel):
             api_key: API key (not used in this version)
             use_memory: Whether to enable conversation memory
             use_json_parser: Whether to use JSON output parsing
+            **kwargs: Additional model parameters for generation
         """
         super().__init__(model_name)
         self.provider = provider
@@ -84,6 +86,7 @@ class LangchainLLM(LanguageModel):
         self._memory = None
         self._parser = SimpleJsonParser()  # Use our simple implementation
         self.logger = logger
+        self.kwargs = kwargs
 
         # Initialize components as needed
         if self.use_memory:
@@ -101,11 +104,21 @@ class LangchainLLM(LanguageModel):
             self.logger.info(f"Initializing LangChain with provider {self.provider}")
 
             try:
+                # Extract LangChain-specific parameters
+                model_kwargs = {
+                    "temperature": self.kwargs.get("temperature", 0.2)
+                }
+                
+                # Add other kwargs (excluding those already used)
+                for key, value in self.kwargs.items():
+                    if key not in ["temperature"] and key != "max_tokens":
+                        model_kwargs[key] = value
+                        
                 if self.provider == "ollama":
                     self._llm = Ollama(
                         model=self.model_name,
                         base_url=self.base_url,
-                        temperature=0.2  # Lower temperature for more focused responses
+                        **model_kwargs
                     )
                 else:
                     # For this version, we only support Ollama
@@ -113,7 +126,8 @@ class LangchainLLM(LanguageModel):
                         f"Provider {self.provider} not supported in this version, falling back to Ollama")
                     self._llm = Ollama(
                         model=self.model_name,
-                        base_url=self.base_url
+                        base_url=self.base_url,
+                        **model_kwargs
                     )
 
                 self.logger.info(f"Successfully initialized LangChain LLM with {self.provider}")

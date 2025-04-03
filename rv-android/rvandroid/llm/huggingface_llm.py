@@ -28,19 +28,21 @@ class HuggingFaceLLM(LanguageModel):
 
     MODELS = [LLAMA, DEEPSEEK, GEMMA, QWEN, PHI, GRANITE, FALCON, MISTRAL]
 
-    def __init__(self, model_name: str, device: str = "cuda"):
+    def __init__(self, model_name: str, device: str = "cuda", **kwargs):
         """
         Initialize the HuggingFaceLLM.
 
         Args:
             model_name: Name of the Hugging Face model
             device: Device to use for inference ('cuda' or 'cpu')
+            **kwargs: Additional model parameters for generation
         """
         super().__init__(model_name)
         self._model = None
         self._tokenizer = None
         self._device = device
         self.logger = logger
+        self.kwargs = kwargs
 
     @property
     def model(self) -> AutoModelForCausalLM:
@@ -147,12 +149,24 @@ class HuggingFaceLLM(LanguageModel):
             # Get the input length to identify only new tokens later
             input_length = inputs.shape[1]
 
+            # Configure generation parameters
+            generation_params = {
+                "attention_mask": attention_mask,
+                "max_new_tokens": max_new_tokens,
+                "temperature": self.kwargs.get("temperature", 0.2),
+                "do_sample": self.kwargs.get("do_sample", True),
+            }
+            
+            # Add other parameters from kwargs, excluding any that would conflict
+            for key, value in self.kwargs.items():
+                if key not in ["temperature", "do_sample"] and key != "max_tokens":
+                    generation_params[key] = value
+                    
             # Generate text
             with torch.no_grad():
                 outputs = self.model.generate(
-                    inputs,
-                    attention_mask=attention_mask,
-                    max_new_tokens=max_new_tokens
+                    inputs, 
+                    **generation_params
                 )
 
             # Extract only the newly generated tokens

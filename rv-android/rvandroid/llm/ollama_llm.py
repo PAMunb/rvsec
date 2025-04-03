@@ -60,13 +60,15 @@ class OllamaLLM(LanguageModel):
 
     MODELS = [LLAMA, DEEPSEEK, GEMMA, QWEN, PHI, GRANITE, MISTRAL, FALCON]
 
-    def __init__(self, model_name: str, base_url: str = "http://localhost:11434", temperature: float = 0.2):
+    def __init__(self, model_name: str, base_url: str = "http://localhost:11434", temperature: float = 0.2, **kwargs):
         """
         Initialize the OllamaLLM.
 
         Args:
             model_name: Name of the Ollama model
             base_url: Base URL for the Ollama API
+            temperature: Temperature for generation (randomness)
+            **kwargs: Additional model parameters that will be passed to Ollama
         """
         super().__init__(model_name)
         self.base_url = base_url
@@ -74,6 +76,7 @@ class OllamaLLM(LanguageModel):
         self.temperature = temperature
         self._client = None
         self.logger = logger
+        self.kwargs = kwargs
 
     @property
     def client(self) -> Client:
@@ -115,15 +118,27 @@ class OllamaLLM(LanguageModel):
             Exception: If generation fails
         """
         try:
+            # Configure Ollama-specific options
+            options = {
+                "temperature": self.temperature,
+            }
+            
+            # Add any other parameters passed during initialization
+            for key, value in self.kwargs.items():
+                if key != "max_tokens":  # Skip max_tokens as we use num_predict instead
+                    options[key] = value
+                    
             # Convert max_new_tokens to Ollama num_predict if needed
-            options = {}
             if max_new_tokens:
                 options["num_predict"] = max_new_tokens
 
             self.logger.debug(f"Generating with {self.model_name} using {len(messages)} messages")
             print(f"\n\nPROMPT: {messages}")
             for prompt in messages:
-                print(f"{prompt["role"]}:\n{prompt["content"]}")
+                print(f"{prompt['role']}:\n{prompt['content']}")
+                
+            self.logger.debug(f"Options for Ollama: {options}")
+            
             response: ChatResponse = self.client.chat(
                 model=self.model_name,
                 messages=messages,

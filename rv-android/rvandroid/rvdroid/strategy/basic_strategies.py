@@ -159,7 +159,7 @@ class RandomStrategy(Strategy):
                 # Get weight for this action type
                 weight = self.weights.get(action_type, 0.5)
 
-                # Boost weight for security operations
+                # Boost weight for operations reaching monitored methods
                 if action.reaches_mop:
                     weight *= 2.0
 
@@ -329,7 +329,7 @@ class SystematicStrategy(Strategy):
 
         # IMPROVEMENT: Create prioritized categories to ensure important elements are tested first
         categories = {
-            "high_value": [],  # Security-related, labeled buttons
+            "high_value": [],  # Operations reaching monitored methods, labeled buttons
             "medium_value": [],  # Other interactive elements
             "low_value": []  # Basic elements with no special properties
         }
@@ -347,7 +347,7 @@ class SystematicStrategy(Strategy):
                 if hasattr(action, 'target_view') and action.target_view:
                     element_text = action.target_view.get("text", "")
 
-                # Security-sensitive operations go to high_value category
+                # Operations that reach monitored methods go to high_value category
                 if action.reaches_mop or action.directly_reaches_mop:
                     categories["high_value"].append(action_entry)
                     continue
@@ -414,15 +414,15 @@ class SystematicStrategy(Strategy):
         # IMPROVEMENT: If we've explored a high percentage of actions, reset with a higher threshold
         # This ensures we eventually revisit all elements while still prioritizing new actions
         if len(self.explored_actions) > 100:  # Higher threshold
-            # Rather than clearing completely, keep track of security-sensitive operations
-            security_actions = set()
+            # Rather than clearing completely, keep track of operations reaching monitored methods
+            monitored_actions = set()
             for action_id in self.explored_actions:
                 # We don't have a way to check if an action reaches MOP by its ID alone
                 # This would require maintaining a separate mapping
                 pass
 
-            # Reset but keep security-sensitive operations marked
-            self.explored_actions = security_actions
+            # Reset but keep operations reaching monitored methods marked
+            self.explored_actions = monitored_actions
 
     def _get_action_type(self, action_text: str) -> str:
         """
@@ -448,26 +448,26 @@ class SystematicStrategy(Strategy):
             return "other"
 
 
-class SecurityFocusedStrategy(Strategy):
+class SpecificationFocusedStrategy(Strategy):
     """
-    Strategy that specifically targets security-sensitive operations.
+    Strategy that specifically targets monitored methods and operations of interest.
 
     ### Architectural Decisions:
-    - Implements a focused strategy that prioritizes security operations
-    - Uses static analysis data to identify potential security transitions
-    - Maintains persistent memory of security-sensitive elements
-    - Combines systematic and greedy approaches for security testing
+    - Implements a focused strategy that prioritizes operations of interest
+    - Uses static analysis data to identify potential paths to monitored methods
+    - Maintains persistent memory of elements that reach monitored methods
+    - Combines systematic and greedy approaches for specification-driven testing
 
     ### Role in the System:
-    - Provides specialized testing for security-critical functionality
-    - Complements general exploration strategies with security focus
-    - Maximizes coverage of security-sensitive code paths
-    - Enables targeted testing of high-risk application components
+    - Provides specialized testing for API specification monitoring
+    - Complements general exploration strategies with specification-focused exploration
+    - Maximizes coverage of monitored method code paths
+    - Enables targeted testing of operations with potential specification violations
     """
 
-    def __init__(self, static_data: Optional[StaticAnalysisData] = None, name: str = "SecurityFocusedStrategy"):
+    def __init__(self, static_data: Optional[StaticAnalysisData] = None, name: str = "SpecificationFocusedStrategy"):
         """
-        Initialize the security-focused strategy.
+        Initialize the specification-focused strategy.
 
         Args:
             static_data: Optional static analysis data
@@ -475,10 +475,10 @@ class SecurityFocusedStrategy(Strategy):
         """
         super().__init__(static_data, name)
 
-        # Track security operations
-        self.security_actions: Set[int] = set()
+        # Track operations of interest
+        self.monitored_actions: Set[int] = set()
         self.executed_actions: Set[int] = set()
-        self.security_states: Set[str] = set()
+        self.monitored_states: Set[str] = set()
 
         # Track labeled buttons
         self.labeled_buttons: Dict[int, str] = {}
@@ -489,7 +489,7 @@ class SecurityFocusedStrategy(Strategy):
     def generate_action(self, screen: ScreenDescription, state_data: Dict[str, Any],
                         history: Optional[List[Dict[str, Any]]] = None) -> Optional[ItemAction]:
         """
-        Generate an action focusing on security-sensitive operations.
+        Generate an action focusing on operations of interest and monitored methods.
 
         Args:
             screen: Parsed screen description
@@ -497,7 +497,7 @@ class SecurityFocusedStrategy(Strategy):
             history: Optional history of previous states and actions
 
         Returns:
-            Action prioritizing security operations or None if no actions available
+            Action prioritizing operations of interest or None if no actions available
         """
         if not screen.items:
             self.logger.warning("No UI elements available for interaction")
@@ -508,7 +508,7 @@ class SecurityFocusedStrategy(Strategy):
 
         # Build action candidate pools
         action_pools = {
-            "security": [],  # Security-sensitive operations
+            "monitored": [],  # Operations that reach monitored methods
             "labeled_buttons": [],  # Buttons with text labels
             "interactive": [],  # Other interactive elements
             "fallback": []  # Everything else
@@ -517,12 +517,12 @@ class SecurityFocusedStrategy(Strategy):
         # Process all available actions
         for item in screen.items:
             for action in item.actions:
-                # Check if this is a security operation
+                # Check if this action reaches monitored methods
                 if action.reaches_mop:
-                    action_pools["security"].append(action)
-                    self.security_actions.add(action.id)
-                    # Mark this state as having security operations
-                    self.security_states.add(current_state)
+                    action_pools["monitored"].append(action)
+                    self.monitored_actions.add(action.id)
+                    # Mark this state as having operations of interest
+                    self.monitored_states.add(current_state)
                     continue
 
                 # Check for element text/label
@@ -547,16 +547,16 @@ class SecurityFocusedStrategy(Strategy):
         # Decision logic for selecting action
         selected_action = None
 
-        # Priority 1: Unexplored security operations
-        unexplored_security = [a for a in action_pools["security"] if a.id not in self.executed_actions]
-        if unexplored_security:
-            self.logger.debug("Selecting unexplored security operation")
-            selected_action = self._select_best_from_pool(unexplored_security)
+        # Priority 1: Unexplored operations that reach monitored methods
+        unexplored_monitored = [a for a in action_pools["monitored"] if a.id not in self.executed_actions]
+        if unexplored_monitored:
+            self.logger.debug("Selecting unexplored operation that reaches monitored methods")
+            selected_action = self._select_best_from_pool(unexplored_monitored)
 
-        # Priority 2: Any security operation (even if explored)
-        elif action_pools["security"]:
-            self.logger.debug("Selecting security operation")
-            selected_action = self._select_best_from_pool(action_pools["security"])
+        # Priority 2: Any operation reaching monitored methods (even if explored)
+        elif action_pools["monitored"]:
+            self.logger.debug("Selecting operation that reaches monitored methods")
+            selected_action = self._select_best_from_pool(action_pools["monitored"])
 
         # Priority 3: Unexplored labeled buttons
         elif action_pools["labeled_buttons"]:
@@ -622,16 +622,17 @@ class SecurityFocusedStrategy(Strategy):
             if action.id not in self.executed_actions:
                 score *= 2.0
 
-            # Boost for directly reaching security operations
+            # Boost for directly reaching monitored methods
             if action.directly_reaches_mop:
                 score *= 1.5
 
-            # Boost for labeled buttons with security terms
+            # Boost for labeled buttons with API operation terms
             if action.id in self.labeled_buttons:
                 text = self.labeled_buttons[action.id].lower()
-                security_terms = ["message", "digest", "cipher", "encrypt", "decrypt",
-                                  "generate", "key", "hash", "security", "login", "password"]
-                if any(term in text for term in security_terms):
+                operation_terms = ["message", "digest", "cipher", "encrypt", "decrypt", "generate", 
+                                  "key", "hash", "iterator", "next", "hasNext", "compare", 
+                                  "check", "validate", "login", "password", "verify"]
+                if any(term in text for term in operation_terms):
                     score *= 1.8
 
             scored_actions.append((action, score))
@@ -669,24 +670,24 @@ class SecurityFocusedStrategy(Strategy):
 
         self.action_success_rates[action.id] = new_rate
 
-        # If this was a security operation, log it
-        if action.id in self.security_actions:
-            self.logger.info(f"Security operation executed: {action.id}, success: {success}")
+        # If this was an operation reaching monitored methods, log it
+        if action.id in self.monitored_actions:
+            self.logger.info(f"Operation reaching monitored method executed: {action.id}, success: {success}")
 
             # If we have a label, log it too
             if action.id in self.labeled_buttons:
-                self.logger.info(f"Security button label: '{self.labeled_buttons[action.id]}'")
+                self.logger.info(f"Operation button label: '{self.labeled_buttons[action.id]}'")
 
         # Reset after reaching a threshold of actions
         if len(self.executed_actions) > 100:
-            # Keep track of security actions and labeled buttons
-            security_actions = self.security_actions.copy()
+            # Keep track of operations of interest and labeled buttons
+            monitored_actions = self.monitored_actions.copy()
             labeled_buttons = self.labeled_buttons.copy()
             success_rates = self.action_success_rates.copy()
 
             # Reset executed actions but preserve critical knowledge
             self.executed_actions = set()
-            self.security_actions = security_actions
+            self.monitored_actions = monitored_actions
             self.labeled_buttons = labeled_buttons
             self.action_success_rates = success_rates
 
@@ -694,4 +695,4 @@ class SecurityFocusedStrategy(Strategy):
 # Register strategies with the registry
 StrategyRegistry.register(RandomStrategy)
 StrategyRegistry.register(SystematicStrategy)
-StrategyRegistry.register(SecurityFocusedStrategy)
+StrategyRegistry.register(SpecificationFocusedStrategy)
