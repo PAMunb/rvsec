@@ -1,0 +1,62 @@
+{
+  "name": "Plateau Analysis Configuration",
+  "description": "Example configuration for analyzing performance plateaus with different timeouts",
+  "repetitions": 2,
+  "use_enhanced_controller": true,
+  "orchestration_mode": "ADAPTIVE",
+  "generate_monitors": true,
+  "instrument": true,
+  "static_analysis": true,
+  "no_window": true,
+  "tools": [
+    {
+      "name": "rvandroid",
+      "variants": ["llama", "single_action"],
+      "params": {
+        "llm_type": "ollama",
+        "llm_model": "llama3.2:3b",
+        "temperature": 0.2,
+        "max_tokens": 800,
+        "parser_type": "droidbot",
+        "visitor_type": "enhanced",
+        "use_static_analysis": true,
+        "static_analysis_level": "detailed"
+      },
+      "timeouts": [60, 120, 180, 300, 600]
+    },
+    {
+      "name": "rvdroid",
+      "variants": ["llm_enabled", "detailed_ui"],
+      "params": {
+        "llm_type": "ollama",
+        "llm_model": "llama3.2:3b",
+        "temperature": 0.2,
+        "parser_type": "uiautomator",
+        "visitor_type": "enhanced",
+        "use_static_analysis": true,
+        "static_analysis_level": "standard",
+        "use_screenshot_analysis": true,
+        "screenshot_analysis_level": "standard",
+        "use_llm": true
+      },
+      "timeouts": [60, 120, 180, 300, 600]
+    }
+  ],
+  "analysis_options": {
+    "plateau_detection": {
+      "enabled": true,
+      "metrics": ["method_coverage", "activity_coverage", "screen_coverage", "mop_coverage"],
+      "improvement_threshold": 0.05,
+      "min_samples": 3,
+      "window_size": 2
+    },
+    "generate_visualizations": true,
+    "export_csv": true,
+    "export_excel": true,
+    "enhanced_export": true,
+    "detect_anomalies": true,
+    "anomaly_threshold": 2.0,
+    "analyze_correlations": true,
+    "generate_dashboard": true
+  }
+}

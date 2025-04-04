@@ -3,10 +3,32 @@ import json
 import logging
 from typing import List, Dict, Optional
 
-# Import only Ollama which is likely already installed
-from langchain.llms import Ollama
-# Basic imports that should work
-from langchain.memory import ConversationBufferMemory
+# Use try-except to handle langchain vs langchain-community imports
+try:
+    # Try the new recommended import
+    from langchain_community.llms import Ollama
+except ImportError:
+    # Fall back to the deprecated import
+    try:
+        from langchain.llms import Ollama
+    except ImportError:
+        # Define a stub if both imports fail
+        class Ollama:
+            def __init__(self, *args, **kwargs):
+                raise ImportError("Could not import Ollama from langchain or langchain_community")
+# Basic imports with fallback
+try:
+    # Try the new recommended import path
+    from langchain_community.memory import ConversationBufferMemory
+except ImportError:
+    try:
+        # Fall back to the deprecated import path
+        from langchain.memory import ConversationBufferMemory
+    except ImportError:
+        # Define a stub if both imports fail
+        class ConversationBufferMemory:
+            def __init__(self, *args, **kwargs):
+                raise ImportError("Could not import ConversationBufferMemory from langchain or langchain_community")
 
 from rvandroid.llm.llm import LanguageModel
 
@@ -43,7 +65,9 @@ class LangchainLLM(LanguageModel):
     Language model implementation using LangChain for generating text.
     Provides a unified interface to different LLM providers through LangChain.
     """
-
+    
+    NAME = "langchain"
+    
     # Models available for LangChain
     LLAMA = "llama3.2:3b"
     PHI = "phi3.5:3.8b"

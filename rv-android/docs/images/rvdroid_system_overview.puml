@@ -1,0 +1,72 @@
+@startuml rvdroid_system_overview
+!theme plain
+skinparam backgroundColor white
+skinparam componentStyle rectangle
+skinparam packageStyle rectangle
+skinparam ArrowColor black
+skinparam useBetaStyle true
+
+title RVDroid System Overview
+
+package "RVDroid Testing System" as RVDroid {
+  [Core Service] as Core
+  [Memory System] as Memory
+  [Strategy Framework] as Strategy
+  [LLM Integration] as LLM
+  [Execution Engine] as Execution
+  [Analysis Engine] as Analysis
+  [Orchestration] as Orchestration
+}
+
+package "Android Environment" as Android {
+  [Android Emulator] as Emulator
+  [UIAutomator] as UIAutomator
+  [Target Application] as App
+}
+
+package "External Resources" as External {
+  [LLM Services] as LLMService
+  [Static Analysis Results] as Static
+  [Monitoring API] as Monitor
+}
+
+package "Inputs" as Inputs {
+  [APK Files] as APK
+  [Test Configuration] as Config
+  [Target Specifications] as Specs
+}
+
+package "Outputs" as Outputs {
+  [Test Results] as Results
+  [Coverage Report] as Coverage
+  [Security Findings] as Security
+  [Behavior Analysis] as Behavior
+}
+
+Inputs -> RVDroid
+RVDroid -> Outputs
+
+Core --> Memory
+Core --> Strategy
+Core --> LLM
+Core --> Execution
+Core --> Analysis
+Core --> Orchestration
+
+Execution --> UIAutomator
+UIAutomator --> Emulator
+Emulator --> App
+
+Strategy <--> Memory
+Analysis <--> Memory
+LLM <--> Strategy
+LLM <--> Analysis
+LLM <--> LLMService
+
+Static --> Analysis
+APK --> Static
+
+App --> Monitor
+Monitor --> Results
+
+@enduml

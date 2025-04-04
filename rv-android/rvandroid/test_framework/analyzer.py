@@ -21,6 +21,7 @@ from matplotlib.figure import Figure
 
 from rvandroid.test_framework.config import ToolConfiguration, TestCase
 from rvandroid.test_framework.executor import TestResult
+from rvandroid.test_framework.plateau_analyzer import detect_plateau, find_optimal_timeout
 
 
 @dataclass
@@ -134,6 +135,7 @@ class ResultAnalyzer:
     - Aggregates results across test cases
     - Calculates metrics for configurations
     - Identifies optimal configurations
+    - Analyzes plateau in metrics over time
     - Generates reports and visualizations
     """
     
@@ -155,12 +157,16 @@ class ResultAnalyzer:
         # App information
         self.apps: Set[str] = set()
         
+        # Plateau analysis results
+        self.plateau_analysis: Dict[str, Any] = {}
+        
     def analyze(self) -> Dict[str, Any]:
         """
         Analyze test results.
         
         Calculates metrics for each configuration and identifies
         optimal configurations for different criteria.
+        Also performs plateau analysis when timeouts vary.
         
         Returns:
             Dictionary with analysis results
@@ -176,6 +182,9 @@ class ResultAnalyzer:
         # Identify best configurations
         best_configs = self._identify_best_configurations()
         
+        # Perform plateau analysis if timeout variations exist
+        plateau_results = self._analyze_plateau()
+        
         # Create analysis result
         analysis_result = {
             "timestamp": datetime.now().isoformat(),
@@ -187,6 +196,11 @@ class ResultAnalyzer:
                 for config_id, metrics in self.config_metrics.items()
             }
         }
+        
+        # Add plateau analysis results if available
+        if plateau_results:
+            analysis_result["plateau_analysis"] = plateau_results
+            self.plateau_analysis = plateau_results
         
         return analysis_result
     
@@ -429,6 +443,146 @@ class ResultAnalyzer:
         
         return report_file
     
+    def _analyze_plateau(self) -> Dict[str, Any]:
+        """
+        Analyze metrics for plateau detection when timeouts vary.
+        
+        Identifies if there are different timeout configurations and analyzes
+        the progression of metrics over time to detect plateaus.
+        
+        Returns:
+            Dictionary with plateau analysis results or empty dict if no timeout variations
+        """
+        # Group results by base configuration (excluding timeout from the ID)
+        base_config_results = {}
+        for result in self.results:
+            # Extract configuration excluding timeout
+            tool_config = result.test_case.tool_config
+            base_id = (f"{tool_config.tool_name}_{tool_config.llm_type}_{tool_config.llm_model.replace(':', '-')}_"
+                      f"{tool_config.strategy_type}_{tool_config.parser_type}_{tool_config.visitor_type}")
+            
+            if base_id not in base_config_results:
+                base_config_results[base_id] = []
+            
+            base_config_results[base_id].append(result)
+        
+        plateau_results = {}
+        
+        # Analyze each base configuration
+        for base_id, results in base_config_results.items():
+            # Group by timeout
+            timeout_results = {}
+            for result in results:
+                timeout = result.test_case.tool_config.timeout
+                if timeout not in timeout_results:
+                    timeout_results[timeout] = []
+                
+                timeout_results[timeout].append(result)
+            
+            # Only perform plateau analysis if multiple timeouts exist
+            if len(timeout_results) <= 1:
+                continue
+            
+            timeouts = sorted(timeout_results.keys())
+            
+            # Analyze key metrics
+            metrics = ["method_coverage", "activity_coverage", "mop_method_coverage"]
+            plateau_data = {
+                "timeouts": timeouts,
+                "metrics": {},
+                "plateau_points": {},
+                "optimal_timeouts": {}
+            }
+            
+            for metric in metrics:
+                metric_values = []
+                
+                # Calculate average metric value for each timeout
+                for timeout in timeouts:
+                    results_for_timeout = timeout_results[timeout]
+                    values = []
+                    
+                    for result in results_for_timeout:
+                        if result.status == "completed" and result.coverage_data and metric in result.coverage_data:
+                            values.append(result.coverage_data[metric])
+                    
+                    avg_value = sum(values) / len(values) if values else 0.0
+                    metric_values.append(avg_value)
+                
+                # Store metric values
+                plateau_data["metrics"][metric] = metric_values
+                
+                # Detect plateau
+                plateau_point = detect_plateau(timeouts, metric_values)
+                plateau_data["plateau_points"][metric] = plateau_point
+                
+                # Find optimal timeout
+                optimal_timeout = find_optimal_timeout(timeouts, metric_values)
+                plateau_data["optimal_timeouts"][metric] = optimal_timeout
+            
+            # Create visualization
+            self._create_plateau_visualization(base_id, timeouts, plateau_data)
+            
+            # Add to results
+            plateau_results[base_id] = plateau_data
+        
+        return plateau_results
+    
+    def _create_plateau_visualization(self, base_id: str, timeouts: List[int], plateau_data: Dict[str, Any]) -> None:
+        """
+        Create visualization for plateau analysis.
+        
+        Args:
+            base_id: Base configuration ID
+            timeouts: List of timeouts
+            plateau_data: Plateau analysis data
+        """
+        # Create figure
+        fig, ax = plt.subplots(figsize=(12, 8))
+        
+        # Plot each metric
+        for metric, values in plateau_data["metrics"].items():
+            # Format metric name for display
+            display_name = metric.replace("_", " ").title()
+            
+            # Plot metric values
+            ax.plot(timeouts, values, 'o-', label=f"{display_name}")
+            
+            # Mark plateau point if detected
+            plateau_point = plateau_data["plateau_points"].get(metric)
+            if plateau_point:
+                plateau_index = timeouts.index(plateau_point)
+                ax.axvline(x=plateau_point, color='gray', linestyle='--', alpha=0.5)
+                ax.plot(plateau_point, values[plateau_index], 'rx', markersize=10)
+            
+            # Mark optimal timeout
+            optimal_timeout = plateau_data["optimal_timeouts"].get(metric)
+            if optimal_timeout:
+                optimal_index = timeouts.index(optimal_timeout)
+                ax.plot(optimal_timeout, values[optimal_index], 'go', markersize=10)
+        
+        # Set chart properties
+        ax.set_xlabel('Timeout (seconds)')
+        ax.set_ylabel('Metric Value (%)')
+        ax.set_title(f'Metric Progression Over Time - {base_id}')
+        ax.legend()
+        ax.grid(True, linestyle='--', alpha=0.7)
+        
+        # Add annotation
+        ax.text(
+            0.02, 0.02,
+            "Red X: Plateau point\nGreen Circle: Optimal timeout (90% of max)",
+            transform=ax.transAxes,
+            bbox=dict(facecolor='white', alpha=0.8)
+        )
+        
+        # Save chart
+        safe_id = base_id.replace("/", "_")
+        output_file = os.path.join(self.output_dir, f"plateau_analysis_{safe_id}.png")
+        plt.tight_layout()
+        plt.savefig(output_file, dpi=100)
+        plt.close(fig)
+    
     def _create_visualizations(self) -> Dict[str, str]:
         """
         Create visualizations for the analysis.
@@ -457,6 +611,13 @@ class ResultAnalyzer:
         time_chart = os.path.join(self.output_dir, "execution_times.png")
         self._create_execution_time_chart(time_chart)
         chart_files["execution_times"] = time_chart
+        
+        # Add plateau visualizations if available
+        for base_id in self.plateau_analysis:
+            safe_id = base_id.replace("/", "_")
+            chart_path = os.path.join(self.output_dir, f"plateau_analysis_{safe_id}.png")
+            if os.path.exists(chart_path):
+                chart_files[f"plateau_{safe_id}"] = chart_path
         
         return chart_files
     
@@ -807,20 +968,45 @@ class ResultAnalyzer:
             <h2>Visualizations</h2>
         """
         
-        # Add each chart
-        for chart_name, chart_file in chart_files.items():
-            # Convert to relative path for HTML
-            rel_path = os.path.basename(chart_file)
-            
-            # Format chart title
-            title = chart_name.replace('_', ' ').title()
-            
-            html_content += f"""
-            <div class="chart-container">
-                <h3>{title}</h3>
-                <img class="chart" src="{rel_path}" alt="{title}">
-            </div>
+        # Add each standard chart first
+        standard_charts = ["overall_scores", "coverage_comparison", "tools_comparison", "execution_times"]
+        for chart_name in standard_charts:
+            if chart_name in chart_files:
+                # Convert to relative path for HTML
+                rel_path = os.path.basename(chart_files[chart_name])
+                
+                # Format chart title
+                title = chart_name.replace('_', ' ').title()
+                
+                html_content += f"""
+                <div class="chart-container">
+                    <h3>{title}</h3>
+                    <img class="chart" src="{rel_path}" alt="{title}">
+                </div>
+                """
+        
+        # Add plateau analysis section if available
+        plateau_charts = [name for name in chart_files if name.startswith("plateau_")]
+        if plateau_charts:
+            html_content += """
+            <h2>Plateau Analysis</h2>
+            <p>Analysis of metric progression over different timeouts showing when metrics reach a plateau.</p>
             """
+            
+            for chart_name in plateau_charts:
+                # Convert to relative path for HTML
+                rel_path = os.path.basename(chart_files[chart_name])
+                
+                # Extract configuration ID from chart name
+                config_id = chart_name.replace("plateau_", "")
+                title = f"Plateau Analysis - {config_id}"
+                
+                html_content += f"""
+                <div class="chart-container">
+                    <h3>{title}</h3>
+                    <img class="chart" src="{rel_path}" alt="{title}">
+                </div>
+                """
         
         html_content += """
         </div>

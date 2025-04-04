@@ -1,0 +1,93 @@
+@startuml tf_extension_points
+!theme plain
+skinparam backgroundColor white
+skinparam packageStyle rectangle
+skinparam componentStyle rectangle
+skinparam interfaceBackgroundColor white
+skinparam stereotypeCBackgroundColor white
+
+package "Test Framework Core" as Core {
+  component [Framework API] as API
+}
+
+interface "Tool Integration" as ITool
+interface "LLM Integration" as ILLM
+interface "Metrics Collection" as IMetrics
+interface "Analysis Algorithms" as IAnalysis
+interface "Visualization Types" as IVis
+interface "Export Formats" as IExport
+
+API -up- ITool
+API -up- ILLM
+API -right- IMetrics
+API -right- IAnalysis
+API -down- IVis
+API -down- IExport
+
+package "Tool Implementations" as Tools {
+  component [RVAndroid] as RVAndroid
+  component [RVDroid] as RVDroid
+  component [Custom Tool] as CustomTool
+  component [Future Tool] as FutureTool
+}
+
+package "LLM Implementations" as LLMs {
+  component [Ollama] as Ollama
+  component [Hugging Face] as HuggingFace
+  component [DSPy] as DSPy
+  component [Future LLM] as FutureLLM
+}
+
+package "Metric Collectors" as Metrics {
+  component [Coverage Metrics] as Coverage
+  component [Performance Metrics] as Performance
+  component [Custom Metrics] as CustomMetrics
+}
+
+package "Analysis Algorithms" as Analysis {
+  component [Plateau Analysis] as Plateau
+  component [Anomaly Detection] as Anomaly
+  component [Correlation Analysis] as Correlation
+  component [Custom Analysis] as CustomAnalysis
+}
+
+package "Visualizations" as Vis {
+  component [Charts] as Charts
+  component [Dashboards] as Dashboards
+  component [Custom Visualizations] as CustomVis
+}
+
+package "Export Formats" as Export {
+  component [CSV Export] as CSV
+  component [Excel Export] as Excel
+  component [Custom Export] as CustomExport
+}
+
+RVAndroid -up-> ITool
+RVDroid -up-> ITool
+CustomTool -up-> ITool
+FutureTool -up-> ITool : "Extensibility"
+
+Ollama -up-> ILLM
+HuggingFace -up-> ILLM
+DSPy -up-> ILLM
+FutureLLM -up-> ILLM : "Extensibility"
+
+Coverage -up-> IMetrics
+Performance -up-> IMetrics
+CustomMetrics -up-> IMetrics : "Extensibility"
+
+Plateau -up-> IAnalysis
+Anomaly -up-> IAnalysis
+Correlation -up-> IAnalysis
+CustomAnalysis -up-> IAnalysis : "Extensibility"
+
+Charts -up-> IVis
+Dashboards -up-> IVis
+CustomVis -up-> IVis : "Extensibility"
+
+CSV -up-> IExport
+Excel -up-> IExport
+CustomExport -up-> IExport : "Extensibility"
+
+@enduml

@@ -246,3 +246,71 @@ def analyze_plateau(results: List[TestResult],
     """
     analyzer = PlateauAnalyzer(results, output_dir)
     return analyzer.analyze_by_timeout(timeouts)
+
+
+def detect_plateau(timeouts: List[int], values: List[float], threshold: float = 0.02) -> Optional[int]:
+    """
+    Detect plateau point in metrics.
+    
+    A plateau is detected when the rate of change falls below the threshold.
+    
+    Args:
+        timeouts: List of timeouts
+        values: List of metric values
+        threshold: Threshold for plateau detection (relative change)
+        
+    Returns:
+        Timeout at which plateau is detected, or None if no plateau
+    """
+    if len(values) < 2:
+        return None
+    
+    # Calculate rates of change
+    rates = []
+    for i in range(1, len(values)):
+        # Calculate relative change
+        if values[i-1] == 0:
+            rate = 0.0 if values[i] == 0 else 1.0
+        else:
+            rate = (values[i] - values[i-1]) / values[i-1]
+        rates.append(rate)
+    
+    # Find first point where rate falls below threshold
+    for i, rate in enumerate(rates):
+        if abs(rate) < threshold:
+            # Return the timeout at this point
+            return timeouts[i+1]
+    
+    # No plateau detected
+    return None
+
+
+def find_optimal_timeout(timeouts: List[int], values: List[float]) -> int:
+    """
+    Find optimal timeout based on diminishing returns.
+    
+    Uses the "elbow method" to find the point of diminishing returns.
+    
+    Args:
+        timeouts: List of timeouts
+        values: List of metric values
+        
+    Returns:
+        Optimal timeout
+    """
+    if len(values) < 2:
+        return timeouts[-1] if timeouts else 0
+    
+    # Use simple approach: find where we achieve 90% of maximum value
+    max_value = max(values)
+    if max_value == 0:
+        return timeouts[0]
+    
+    threshold = 0.9 * max_value
+    
+    for i, value in enumerate(values):
+        if value >= threshold:
+            return timeouts[i]
+    
+    # If no point reaches 90%, return the last timeout
+    return timeouts[-1]

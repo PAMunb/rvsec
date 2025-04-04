@@ -1,0 +1,80 @@
+@startuml rvdroid_memory_exploration
+!theme plain
+skinparam backgroundColor white
+skinparam ArrowColor black
+skinparam useBetaStyle true
+
+title RVDroid Memory-Enhanced Exploration
+
+start
+
+:Capture current UI state;
+:Generate state fingerprint;
+
+if (State previously visited?) then (yes)
+  :Update state visit count;
+  :Retrieve past actions in this state;
+  :Evaluate past action effectiveness;
+  
+  if (Repeated state cycle detected?) then (yes)
+    :Apply cycle-breaking strategy;
+    :Adjust exploration parameters;
+    :Set higher randomness factor;
+  else (no)
+    :Compare new state with stored version;
+    if (Significant differences?) then (yes)
+      :Update stored state;
+      :Reset action history for state;
+    endif
+  endif
+else (no)
+  :Add state to memory;
+  :Mark all UI elements as unexplored;
+  :Set initial exploration parameters;
+endif
+
+:Access exploration optimization;
+:Determine current exploration phase;
+
+if (Current phase?) then (INITIAL)
+  :Focus on breadth exploration;
+  :Prioritize unexplored elements;
+  :Check minimal coverage thresholds;
+else if (TARGETED) then
+  :Prioritize paths to monitored methods;
+  :Use static analysis data;
+  :Focus on security-sensitive features;
+else if (DEEP) then
+  :Prioritize depth in promising areas;
+  :Focus on complex interactions;
+  :Accept higher revisit rates;
+else if (COVERAGE) then
+  :Balance exploration & exploitation;
+  :Prioritize coverage gaps;
+  :Use LLM guidance more heavily;
+else (REGRESSION)
+  :Revisit critical paths;
+  :Verify consistent behavior;
+  :Focus on high-value scenarios;
+endif
+
+:Select actions based on phase parameters;
+:Apply memory recommendations;
+:Apply pattern recognition insights;
+
+:Execute selected action;
+:Process result;
+:Update action effectiveness;
+
+:Check for phase transition;
+if (Should transition phase?) then (yes)
+  :Update exploration phase;
+  :Adjust all parameters;
+  :Clear any local optimization state;
+endif
+
+:Return memory-enhanced action;
+
+stop
+
+@enduml

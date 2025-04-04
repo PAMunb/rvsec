@@ -1,0 +1,87 @@
+@startuml rvdroid_extension_points
+!theme plain
+skinparam backgroundColor white
+skinparam componentStyle rectangle
+skinparam packageStyle rectangle
+skinparam ArrowColor black
+skinparam useBetaStyle true
+
+title RVDroid Extension Points
+
+package "Core System" as Core {
+  [RVDroidService] as Service
+}
+
+package "Extension Points" as Extensions {
+
+  package "Strategy Extensions" as StrategyExt {
+    [Strategy Interface] as StrategyIF
+    [Custom Strategies] as CustomStrat
+    [Strategy Factory] as StratFactory
+  }
+  
+  package "LLM Extensions" as LLMExt {
+    [LLM Provider Interface] as LLMIF
+    [Custom LLM Providers] as CustomLLM
+    [Prompt Strategy Interface] as PromptIF
+    [Custom Prompt Strategies] as CustomPrompt
+  }
+  
+  package "Analysis Extensions" as AnalysisExt {
+    [StateAnalyzer Interface] as StateIF
+    [Custom State Analyzers] as CustomState
+    [CustomContextAnalyzer] as CustomContext
+  }
+  
+  package "UI Extensions" as UIExt {
+    [UIAdapter Interface] as UIIF
+    [Custom UI Adapters] as CustomUI
+    [Interaction Strategy Interface] as InteractionIF
+    [Custom Interactions] as CustomInteraction
+  }
+  
+  package "Memory Extensions" as MemExt {
+    [StateRepresentation Interface] as StateRepIF
+    [Custom State Representations] as CustomStateRep
+    [Pattern Detector Interface] as PatternIF
+    [Custom Pattern Detectors] as CustomPattern
+  }
+  
+  package "Recovery Extensions" as RecoveryExt {
+    [RecoveryStrategy Interface] as RecoveryIF
+    [Custom Recovery Strategies] as CustomRecovery
+  }
+}
+
+Service --> StrategyIF : depends on
+Service --> LLMIF : depends on
+Service --> StateIF : depends on
+Service --> UIIF : depends on
+Service --> StateRepIF : depends on
+Service --> RecoveryIF : depends on
+
+StrategyIF <|-- CustomStrat : implements
+StratFactory ..> CustomStrat : creates
+
+LLMIF <|-- CustomLLM : implements
+PromptIF <|-- CustomPrompt : implements
+
+StateIF <|-- CustomState : implements
+CustomContext ..|> StateIF : uses
+
+UIIF <|-- CustomUI : implements
+InteractionIF <|-- CustomInteraction : implements
+
+StateRepIF <|-- CustomStateRep : implements
+PatternIF <|-- CustomPattern : implements
+
+RecoveryIF <|-- CustomRecovery : implements
+
+note bottom of Extensions
+  RVDroid provides well-defined extension points 
+  for customizing various aspects of the system.
+  All extension interfaces follow a modular design
+  with clear contracts.
+end note
+
+@enduml

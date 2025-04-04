@@ -21,6 +21,8 @@ class FrontierModel(LanguageModel):
     Language model implementation that uses frontier models like Claude, ChatGPT, Gemini, etc.
     Handles initialization and interaction with various API providers.
     """
+    
+    NAME = "frontier"
 
     # Available frontier models with consistent versioning
     CLAUDE_SONNET = "claude-3-5-sonnet-20241022"

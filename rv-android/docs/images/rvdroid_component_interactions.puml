@@ -1,0 +1,127 @@
+@startuml rvdroid_component_interactions
+!theme plain
+skinparam backgroundColor white
+skinparam SequenceArrowColor black
+skinparam useBetaStyle true
+
+title RVDroid Component Interactions
+
+participant "RVDroid Service" as Service
+participant "LifecycleManager" as Lifecycle
+participant "MemorySystem" as Memory
+participant "StateAnalyzer" as StateAn
+participant "StrategyBalancer" as Strategy
+participant "ActionExecutor" as Executor
+participant "UIAutomatorAdapter" as UI
+participant "LLMService" as LLM
+participant "RecoveryManager" as Recovery
+
+== Initialization Phase ==
+
+Service -> Lifecycle: start_testing()
+activate Lifecycle
+
+Lifecycle -> Memory: initialize()
+activate Memory
+Memory --> Lifecycle
+deactivate Memory
+
+Lifecycle -> UI: initialize()
+activate UI
+UI --> Lifecycle
+deactivate UI
+
+Lifecycle -> Service: transition_to(EXPLORATION)
+deactivate Lifecycle
+
+== Exploration Phase ==
+
+loop Testing Cycle
+  Service -> UI: get_current_state()
+  activate UI
+  UI --> Service: uiState
+  deactivate UI
+  
+  Service -> StateAn: analyze_state(uiState)
+  activate StateAn
+  StateAn --> Service: stateAnalysis
+  deactivate StateAn
+  
+  Service -> Memory: process_state(stateAnalysis)
+  activate Memory
+  Memory --> Service: memoryState
+  deactivate Memory
+  
+  Service -> Strategy: select_strategy(memoryState)
+  activate Strategy
+  Strategy --> Service: selectedStrategy
+  deactivate Strategy
+  
+  Service -> Strategy: select_action(selectedStrategy, memoryState)
+  activate Strategy
+  
+  alt LLM Consultation Needed
+    Strategy -> LLM: get_guidance(memoryState)
+    activate LLM
+    LLM --> Strategy: directives
+    deactivate LLM
+  end
+  
+  Strategy --> Service: selectedAction
+  deactivate Strategy
+  
+  Service -> Executor: execute_action(selectedAction)
+  activate Executor
+  
+  Executor -> UI: perform_action(selectedAction)
+  activate UI
+  
+  alt Action Succeeds
+    UI --> Executor: actionResult
+    deactivate UI
+    Executor --> Service: actionResult
+    deactivate Executor
+    
+    Service -> Memory: record_action(selectedAction, actionResult)
+    activate Memory
+    Memory --> Service
+    deactivate Memory
+    
+  else Action Fails
+    UI --> Executor: error
+    deactivate UI
+    Executor --> Service: error
+    deactivate Executor
+    
+    Service -> Recovery: handle_error(error)
+    activate Recovery
+    Recovery -> UI: perform_recovery()
+    activate UI
+    UI --> Recovery: recoveryResult
+    deactivate UI
+    Recovery --> Service: recoveryResult
+    deactivate Recovery
+  end
+  
+  Service -> Lifecycle: check_termination_conditions()
+  activate Lifecycle
+  
+  alt Termination Needed
+    Lifecycle -> Service: transition_to(TERMINATION)
+    deactivate Lifecycle
+  else Continue
+    Lifecycle --> Service: continue
+    deactivate Lifecycle
+  end
+end
+
+== Termination Phase ==
+
+Service -> Memory: persist_memory()
+activate Memory
+Memory --> Service
+deactivate Memory
+
+Service -> Service: generate_report()
+
+@enduml

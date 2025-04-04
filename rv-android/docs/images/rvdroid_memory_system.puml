@@ -1,0 +1,189 @@
+@startuml rvdroid_memory_system
+!theme plain
+skinparam backgroundColor white
+skinparam classAttributeIconSize 0
+skinparam ArrowColor black
+skinparam useBetaStyle true
+
+title RVDroid Memory System Architecture
+
+package "Memory System" {
+  class MemorySystem {
+    + initialize(): void
+    + process_state(state: UIState): MemoryState
+    + record_action(action: UIAction, result: ActionResult): void
+    + get_recommendations(state: UIState): ActionRecommendation[]
+    + recognize_patterns(state: UIState): Pattern[]
+    + optimize_exploration(): ExplorationStrategy
+    + persist_memory(): void
+    + load_memory(): void
+  }
+  
+  package "Short-Term Memory" {
+    class ShortTermMemory {
+      + recent_states: MemoryState[]
+      + recent_actions: MemoryAction[]
+      + transition_cache: Map<string, MemoryState>
+      + add_state(state: MemoryState): void
+      + add_action(action: MemoryAction): void
+      + get_recent_states(count: number): MemoryState[]
+      + get_recent_actions(count: number): MemoryAction[]
+      + find_similar_state(state: MemoryState): MemoryState
+      + clear_older_than(time: number): void
+    }
+    
+    class ActionHistory {
+      + actions: MemoryAction[]
+      + add_action(action: MemoryAction): void
+      + get_actions_for_state(state_id: string): MemoryAction[]
+      + get_successful_actions(): MemoryAction[]
+      + get_failed_actions(): MemoryAction[]
+    }
+    
+    class TransitionCache {
+      + transitions: Map<string, Map<string, MemoryState>>
+      + add_transition(from_id: string, action_id: string, to_state: MemoryState): void
+      + get_transition(from_id: string, action_id: string): MemoryState
+      + get_transitions_from(from_id: string): Map<string, MemoryState>
+    }
+  }
+  
+  package "Long-Term Memory" {
+    class LongTermMemory {
+      + state_graph: StateGraph
+      + action_effectiveness: ActionEffectiveness
+      + persistency_manager: PersistencyManager
+      + update_from_short_term(short_term: ShortTermMemory): void
+      + optimize(): void
+      + persist(): void
+      + load(): void
+    }
+    
+    class StateGraph {
+      + nodes: Map<string, MemoryState>
+      + edges: Map<string, Map<string, string>>
+      + add_node(state: MemoryState): void
+      + add_edge(from_id: string, action_id: string, to_id: string): void
+      + get_path(from_id: string, to_id: string): string[]
+      + get_neighbors(state_id: string): MemoryState[]
+    }
+    
+    class ActionEffectiveness {
+      + effectiveness_map: Map<string, Map<string, number>>
+      + update_effectiveness(state_id: string, action_id: string, score: number): void
+      + get_effectiveness(state_id: string, action_id: string): number
+      + get_best_actions(state_id: string, count: number): string[]
+    }
+  }
+  
+  package "State Management" {
+    class MemoryState {
+      + id: string
+      + timestamp: number
+      + ui_elements: UIElement[]
+      + activity_name: string
+      + text_content: string[]
+      + is_form: boolean
+      + find_element(predicate: function): UIElement
+      + get_interactive_elements(): UIElement[]
+      + get_text_summary(): string
+    }
+    
+    class StateFingerprinter {
+      + generate_fingerprint(state: UIState): string
+      + compare_states(state1: MemoryState, state2: MemoryState): number
+      + is_similar(state1: MemoryState, state2: MemoryState): boolean
+    }
+    
+    class StateDiffer {
+      + find_differences(state1: MemoryState, state2: MemoryState): StateDifference
+      + calculate_similarity_score(state1: MemoryState, state2: MemoryState): number
+      + is_significant_change(state1: MemoryState, state2: MemoryState): boolean
+    }
+  }
+  
+  package "Pattern Recognition" {
+    class PatternRecognizer {
+      + recognize_patterns(state: MemoryState, history: MemoryAction[]): Pattern[]
+      + detect_forms(state: MemoryState): FormPattern
+      + detect_lists(state: MemoryState): ListPattern
+      + detect_menus(state: MemoryState): MenuPattern
+    }
+    
+    class ActionSequenceDetector {
+      + detect_sequences(actions: MemoryAction[]): ActionSequence[]
+      + detect_repetitive_actions(actions: MemoryAction[]): RepetitivePattern
+      + find_effective_sequences(actions: MemoryAction[]): ActionSequence[]
+    }
+    
+    class CycleDetector {
+      + detect_cycles(states: MemoryState[]): StateCycle[]
+      + detect_ui_loops(states: MemoryState[]): UILoop[]
+      + is_in_cycle(current: MemoryState, history: MemoryState[]): boolean
+    }
+  }
+  
+  package "Exploration Optimization" {
+    class ExplorationOptimizer {
+      + current_phase: ExplorationPhase
+      + coverage_tracker: CoverageTracker
+      + phase_transition_thresholds: Map<ExplorationPhase, number>
+      + optimize_strategy(current_state: MemoryState): ExplorationStrategy
+      + get_phase_parameters(): ExplorationParameters
+      + should_transition_phase(): boolean
+      + update_phase(): void
+    }
+    
+    enum ExplorationPhase {
+      INITIAL
+      TARGETED
+      DEEP
+      COVERAGE
+      REGRESSION
+    }
+    
+    class ExplorationParameters {
+      + randomness_factor: number
+      + exploitation_factor: number
+      + depth_factor: number
+      + revisit_probability: number
+      + adapt_to_phase(phase: ExplorationPhase): void
+    }
+    
+    class CoverageTracker {
+      + visited_states: Set<string>
+      + visited_elements: Set<string>
+      + executed_actions: Set<string>
+      + track_state(state: MemoryState): void
+      + track_element(element: UIElement): void
+      + track_action(action: MemoryAction): void
+      + get_coverage_metrics(): CoverageMetrics
+    }
+  }
+}
+
+' Relationships
+MemorySystem --> ShortTermMemory: uses
+MemorySystem --> LongTermMemory: uses
+MemorySystem --> PatternRecognizer: uses
+MemorySystem --> ExplorationOptimizer: uses
+MemorySystem --> StateFingerprinter: uses
+
+ShortTermMemory --> ActionHistory: contains
+ShortTermMemory --> TransitionCache: uses
+
+LongTermMemory --> StateGraph: manages
+LongTermMemory --> ActionEffectiveness: tracks
+
+MemoryState --o StateGraph: stored in
+MemoryState <-- StateFingerprinter: creates id for
+MemoryState <-- StateDiffer: compares
+
+PatternRecognizer --> ActionSequenceDetector: uses
+PatternRecognizer --> CycleDetector: uses
+
+ExplorationOptimizer --> ExplorationPhase: tracks
+ExplorationOptimizer --> ExplorationParameters: configures
+ExplorationOptimizer --> CoverageTracker: uses
+
+@enduml

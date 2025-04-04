@@ -8,6 +8,7 @@ runtime coverage data, enabling comprehensive metrics for instrumented apps.
 import json
 import os
 import statistics
+import logging
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Dict, List, Any, Optional, Set, Union, TypeVar
@@ -115,16 +116,32 @@ class IntegratedCoverageMetrics:
     @classmethod
     def from_coverage_metrics(cls, coverage: CoverageMetrics) -> 'IntegratedCoverageMetrics':
         """Create from basic coverage metrics."""
+        # Get attributes safely with default values
+        coverage_dict = coverage.to_dict() if hasattr(coverage, 'to_dict') else {}
+        
+        # Get values with defaults
+        method_coverage = coverage_dict.get("method_coverage", 0)
+        activity_coverage = coverage_dict.get("activity_coverage", 0)
+        mop_method_coverage = coverage_dict.get("mop_method_coverage", 0)
+        
+        # Direct attributes
+        total_methods = getattr(coverage, "total_methods", 0)
+        called_methods = getattr(coverage, "called_methods", 0)
+        total_activities = getattr(coverage, "total_activities", 0)
+        called_activities = getattr(coverage, "called_activities", 0)
+        total_mop_methods = getattr(coverage, "total_mop_methods", 0)
+        called_mop_methods = getattr(coverage, "called_mop_methods", 0)
+        
         return cls(
-            method_coverage=coverage.method_coverage,
-            activity_coverage=coverage.activity_coverage,
-            mop_method_coverage=coverage.mop_method_coverage,
-            total_methods=coverage.total_methods,
-            called_methods=coverage.called_methods,
-            total_activities=coverage.total_activities,
-            visited_activities=coverage.visited_activities,
-            total_mop_methods=coverage.total_mop_methods,
-            called_mop_methods=coverage.called_mop_methods
+            method_coverage=method_coverage,
+            activity_coverage=activity_coverage,
+            mop_method_coverage=mop_method_coverage,
+            total_methods=total_methods,
+            called_methods=called_methods,
+            total_activities=total_activities,
+            visited_activities=called_activities,  # visits == calls in this context
+            total_mop_methods=total_mop_methods,
+            called_mop_methods=called_mop_methods
         )
 
 
@@ -255,6 +272,7 @@ class IntegratedMetricsCalculator:
         self.app_id = app_id
         self.static_data = None
         self.logcat_data = None
+        self.logger = logging.getLogger(__name__)
         
     def set_static_data(self, static_data: StaticAnalysisData) -> None:
         """
@@ -264,6 +282,17 @@ class IntegratedMetricsCalculator:
             static_data: Static analysis data from GESDA, GATOR, etc.
         """
         self.static_data = static_data
+        
+        # Log information about the static data
+        if static_data:
+            classes_count = len(static_data.classes.classes) if static_data.classes else 0
+            windows_count = len(static_data.windows.windows) if static_data.windows else 0
+            wtg_count = len(static_data.wtg.transitions) if (static_data.wtg and hasattr(static_data.wtg, 'transitions')) else 0
+            
+            self.logger.info(f"Static data set in calculator: classes={classes_count}, "
+                           f"windows={windows_count}, transitions={wtg_count}")
+        else:
+            self.logger.warning("Received None static_data in calculator")
         
     def set_logcat_data(self, logcat_data: LogcatRepository) -> None:
         """
@@ -281,6 +310,10 @@ class IntegratedMetricsCalculator:
         Returns:
             IntegratedAnalysisResult with comprehensive metrics
         """
+        self.logger.info(f"Calculating integrated metrics for {self.app_id}")
+        self.logger.info(f"Static data available: {bool(self.static_data)}")
+        self.logger.info(f"Logcat data available: {bool(self.logcat_data)}")
+        
         # Initialize metrics
         static_metrics = self._calculate_static_metrics()
         coverage_metrics = self._calculate_coverage_metrics()
@@ -322,42 +355,47 @@ class IntegratedMetricsCalculator:
         
         # Count components
         metrics.total_activities = sum(
-            1 for cls in classes.classes.values() if cls.is_activity
+            1 for cls in classes.classes.values() if getattr(cls, 'is_activity', False)
         )
         metrics.total_services = sum(
-            1 for cls in classes.classes.values() if cls.is_service
+            1 for cls in classes.classes.values() if getattr(cls, 'is_service', False)
         )
         metrics.total_receivers = sum(
-            1 for cls in classes.classes.values() if cls.is_receiver
+            1 for cls in classes.classes.values() if getattr(cls, 'is_receiver', False)
         )
         metrics.total_providers = sum(
-            1 for cls in classes.classes.values() if cls.is_provider
+            1 for cls in classes.classes.values() if getattr(cls, 'is_provider', False)
         )
         
         # Count MOP methods
         metrics.total_mop_methods = sum(
             1 for cls in classes.classes.values()
-            for method in cls.methods.values()
-            if method.reaches_mop
+            for method in cls.methods  # methods is a Set, not a Dict
+            if hasattr(method, 'reaches_mop') and method.reaches_mop
         )
         
         # Count windows and transitions
         metrics.total_windows = len(windows.windows) if windows else 0
-        metrics.total_transitions = len(wtg.edges) if wtg else 0
+        # WindowTransitionGraph doesn't have 'edges' attribute directly, it has 'transitions'
+        metrics.total_transitions = len(wtg.transitions) if wtg and hasattr(wtg, 'transitions') else 0
         
         # Count MOP specifications
         mop_specs = set()
         for cls in classes.classes.values():
-            for method in cls.methods.values():
-                if method.reaches_mop and method.mop_specs:
+            # methods is a Set, not a Dict
+            for method in cls.methods:
+                if (hasattr(method, 'reaches_mop') and method.reaches_mop and 
+                    hasattr(method, 'mop_specs') and method.mop_specs):
                     mop_specs.update(method.mop_specs)
         metrics.mop_specifications = len(mop_specs)
         
         # Count security methods by category
         security_methods = {}
         for cls in classes.classes.values():
-            for method in cls.methods.values():
-                if method.reaches_mop:
+            # methods is a Set, not a Dict
+            for method in cls.methods:
+                if (hasattr(method, 'reaches_mop') and method.reaches_mop and 
+                    hasattr(method, 'mop_specs') and method.mop_specs):
                     for spec in method.mop_specs:
                         category = spec.split('.')[0] if '.' in spec else spec
                         security_methods[category] = security_methods.get(category, 0) + 1
@@ -428,20 +466,26 @@ class IntegratedMetricsCalculator:
         if metrics.total_mop_methods == 0:
             metrics.total_mop_methods = sum(
                 1 for cls in static_data.classes.classes.values()
-                for method in cls.methods.values()
-                if method.reaches_mop
+                for method in cls.methods  # methods is a Set, not a Dict
+                if hasattr(method, 'reaches_mop') and method.reaches_mop
             )
         
         # Calculate window and transition coverage
         metrics.total_windows = len(static_data.windows.windows) if static_data.windows else 0
-        metrics.total_transitions = len(static_data.wtg.edges) if static_data.wtg else 0
+        # WindowTransitionGraph doesn't have 'edges' attribute directly, use 'transitions'
+        metrics.total_transitions = (
+            len(static_data.wtg.transitions) 
+            if static_data.wtg and hasattr(static_data.wtg, 'transitions') 
+            else 0
+        )
         
         # Calculate security method coverage
         security_methods = {}
         for cls in static_data.classes.classes.values():
-            for method_name, method in cls.methods.items():
-                if method.reaches_mop:
-                    method_id = f"{cls.name}.{method_name}"
+            # methods is a Set, not a Dict with items()
+            for method in cls.methods:
+                if hasattr(method, 'reaches_mop') and method.reaches_mop:
+                    method_id = f"{cls.name}.{method.name}" if hasattr(method, 'name') else f"{cls.name}.unknown"
                     security_methods[method_id] = method
         
         metrics.total_security_methods = len(security_methods)
@@ -497,8 +541,10 @@ class IntegratedMetricsCalculator:
             # Count MOP specifications
             mop_specs = set()
             for cls in self.static_data.classes.classes.values():
-                for method in cls.methods.values():
-                    if method.reaches_mop and method.mop_specs:
+                # methods is a Set, not a Dict with values()
+                for method in cls.methods:
+                    if (hasattr(method, 'reaches_mop') and method.reaches_mop and 
+                        hasattr(method, 'mop_specs') and method.mop_specs):
                         mop_specs.update(method.mop_specs)
             
             metrics.mop_specifications = len(mop_specs)
@@ -509,8 +555,9 @@ class IntegratedMetricsCalculator:
             # Count triggered specifications
             triggered_specs = set()
             for error in self.logcat_data.errors:
-                if error.mop_spec:
-                    triggered_specs.add(error.mop_spec)
+                # RvErrorLog has 'spec' attribute, not 'mop_spec'
+                if hasattr(error, 'spec') and error.spec:
+                    triggered_specs.add(error.spec)
             
             metrics.triggered_specifications = triggered_specs
             metrics.mop_triggers = len(self.logcat_data.errors)
@@ -519,8 +566,8 @@ class IntegratedMetricsCalculator:
             # Count vulnerability categories
             vulnerability_categories = {}
             for error in self.logcat_data.errors:
-                if error.type:
-                    category = error.type
+                if hasattr(error, 'error_type') and error.error_type:
+                    category = error.error_type
                     vulnerability_categories[category] = vulnerability_categories.get(category, 0) + 1
             
             metrics.vulnerability_categories = vulnerability_categories

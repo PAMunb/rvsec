@@ -1,0 +1,66 @@
+@startuml tf_execution_process
+!theme plain
+skinparam backgroundColor white
+skinparam sequenceArrowThickness 2
+skinparam roundcorner 10
+
+actor User
+participant "CLI" as CLI
+participant "TestFramework" as Framework
+participant "TestRunner" as Runner
+participant "TestExecutor" as Executor
+participant "Tool Configuration" as ToolConfig
+participant "App" as App
+participant "Emulator" as Emulator
+participant "Results Storage" as Storage
+
+User -> CLI : run test suite
+activate CLI
+
+CLI -> Framework : configure(apps, configs)
+activate Framework
+
+Framework -> Framework : validate configuration
+Framework -> Runner : run_test_suite()
+activate Runner
+
+loop for each app, config, repetition
+  Runner -> Executor : execute_test_case()
+  activate Executor
+  
+  Executor -> Emulator : initialize()
+  activate Emulator
+  
+  Executor -> App : install()
+  Executor -> ToolConfig : configure_tool()
+  
+  Executor -> Executor : execute_tool()
+  
+  Executor -> Storage : save_results()
+  
+  Executor -> Emulator : cleanup()
+  deactivate Emulator
+  
+  Executor --> Runner : return results
+  deactivate Executor
+end
+
+Runner -> Framework : return aggregated results
+deactivate Runner
+
+Framework -> CLI : return execution summary
+deactivate Framework
+
+alt --analyze flag set
+  CLI -> Framework : analyze()
+  activate Framework
+  Framework -> Framework : process results
+  Framework -> Storage : save_analysis()
+  Framework -> CLI : return analysis
+  deactivate Framework
+end
+
+CLI -> User : display results
+deactivate CLI
+
+@enduml

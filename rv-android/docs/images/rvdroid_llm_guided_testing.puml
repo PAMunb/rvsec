@@ -1,0 +1,78 @@
+@startuml rvdroid_llm_guided_testing
+!theme plain
+skinparam backgroundColor white
+skinparam ArrowColor black
+skinparam useBetaStyle true
+
+title RVDroid LLM-Guided Testing Process
+
+|Context Preparation|
+start
+:Check LLM consultation criteria;
+if (Consultation needed?) then (no)
+  stop
+endif
+
+:Create base context from UI state;
+note right: XML hierarchy, text, elements
+
+:Add screenshot description (if enabled);
+:Add current exploration status;
+:Add memory system insights;
+:Add testing goals and progress;
+:Add historical actions and results;
+:Add available UI elements;
+:Add monitored method status;
+
+|Prompt Generation|
+:Format context as structured prompt;
+:Add system instructions;
+:Add format requirements;
+:Add response examples;
+:Optimize for token usage;
+
+|LLM Consultation|
+:Select LLM model based on complexity;
+:Send prompt to LLM service;
+:Apply resource constraints;
+:Wait for response;
+
+|Response Processing|
+:Parse LLM response;
+:Extract structured data;
+:Validate response format;
+if (Valid response?) then (yes)
+  :Process valid response;
+else (no)
+  :Apply fallback strategy;
+  :Use simplified prompt;
+  :Retry or continue without LLM;
+endif
+
+|Directive Extraction|
+:Extract action directives;
+note right: Specific actions to take
+
+:Extract strategy directives;
+note right: Strategy adjustments
+
+:Extract exploration directives;
+note right: Areas to focus/avoid
+
+|Directive Application|
+:Convert action directives to UI actions;
+:Find matching UI elements;
+:Prioritize directive actions;
+:Apply strategy directives to balancer;
+:Update exploration parameters;
+:Track directive effectiveness;
+
+|Memory Update|
+:Update LLM guidance memory;
+:Store effective patterns;
+:Track guidance success/failure;
+:Update consultation frequency;
+
+stop
+
+@enduml

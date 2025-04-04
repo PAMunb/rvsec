@@ -1,0 +1,178 @@
+@startuml rvdroid_analysis_system
+!theme plain
+skinparam backgroundColor white
+skinparam classAttributeIconSize 0
+skinparam ArrowColor black
+skinparam useBetaStyle true
+
+title RVDroid Analysis System Architecture
+
+package "Analysis System" {
+  class StateAnalyzer {
+    + analyze_state(state: UIState): StateAnalysis
+    + compare_states(state1: UIState, state2: UIState): StateDifference
+    + extract_text_features(state: UIState): TextFeatures
+    + identify_interactive_elements(state: UIState): UIElement[]
+    + detect_screen_type(state: UIState): ScreenType
+    + get_state_complexity(state: UIState): ComplexityMetrics
+  }
+  
+  package "Context Analysis" {
+    class ContextAnalyzer {
+      + analyze_context(state: UIState, history: ActionHistory): ContextInfo
+      + identify_app_feature(state: UIState): AppFeature
+      + detect_navigation_pattern(history: ActionHistory): NavigationPattern
+      + get_task_context(state: UIState, history: ActionHistory): TaskContext
+      + assess_progress(context: ContextInfo): ProgressAssessment
+    }
+    
+    class AppFeature {
+      + name: string
+      + description: string
+      + related_activities: string[]
+      + ui_patterns: UIPattern[]
+      + priority: number
+    }
+    
+    class NavigationPattern {
+      + pattern_type: PatternType
+      + sequence: StateTransition[]
+      + frequency: number
+      + confidence: number
+    }
+    
+    class TaskContext {
+      + current_task: string
+      + completion_stage: number
+      + required_inputs: RequiredInput[]
+      + success_indicators: SuccessIndicator[]
+      + estimated_completion: number
+    }
+  }
+  
+  package "Opportunity Detection" {
+    class OpportunityDetector {
+      + detect_opportunities(state: UIState, context: ContextInfo): TestingOpportunity[]
+      + rate_opportunities(opportunities: TestingOpportunity[]): void
+      + get_top_opportunities(count: number): TestingOpportunity[]
+      + match_with_monitored_methods(opportunity: TestingOpportunity): MonitoredMethod[]
+    }
+    
+    class TestingOpportunity {
+      + type: OpportunityType
+      + target_elements: UIElement[]
+      + relevance_score: number
+      + input_requirements: InputRequirement[]
+      + expected_outcome: ExpectedOutcome
+      + monitored_methods: MonitoredMethod[]
+    }
+    
+    enum OpportunityType {
+      DATA_INPUT
+      NAVIGATION
+      AUTHENTICATION
+      DATA_PROCESSING
+      SECURITY_SENSITIVE
+      API_INTERACTION
+      FILE_SYSTEM
+      NETWORK
+      NOTIFICATION
+      GENERAL
+    }
+    
+    class ExpectedOutcome {
+      + state_change: boolean
+      + security_relevance: number
+      + monitoring_targets: string[]
+      + description: string
+    }
+  }
+  
+  package "Progress Tracking" {
+    class ProgressTracker {
+      + track_action(action: UIAction, result: ActionResult): void
+      + track_state(state: UIState): void
+      + calculate_coverage_metrics(): CoverageMetrics
+      + calculate_exploration_metrics(): ExplorationMetrics
+      + generate_progress_report(): ProgressReport
+      + detect_exploration_plateau(): PlateauAssessment
+    }
+    
+    class CoverageMetrics {
+      + activity_coverage: number
+      + ui_element_coverage: number
+      + monitored_method_coverage: number
+      + edge_coverage: number
+      + calculate_overall_coverage(): number
+    }
+    
+    class ExplorationMetrics {
+      + unique_states_count: number
+      + action_efficiency: number
+      + exploration_breadth: number
+      + exploration_depth: number
+      + repetition_rate: number
+    }
+    
+    class ProgressReport {
+      + elapsed_time: number
+      + total_actions: number
+      + successful_actions: number
+      + unique_states: number
+      + coverage_metrics: CoverageMetrics
+      + exploration_metrics: ExplorationMetrics
+      + monitored_methods_triggered: MonitoredMethod[]
+    }
+  }
+  
+  class StaticAnalyzer {
+    + analyze_apk(apk_path: string): StaticAnalysisResult
+    + extract_activities(): string[]
+    + extract_permissions(): string[]
+    + identify_monitored_methods(): MonitoredMethod[]
+    + generate_call_graph(): CallGraph
+    + estimate_complexity(): ComplexityMetrics
+  }
+  
+  class StateAnalysis {
+    + state_id: string
+    + ui_elements: UIElementInfo[]
+    + text_content: TextContent
+    + screen_type: ScreenType
+    + complexity: ComplexityMetrics
+    + security_relevance: number
+    + interactive_elements_count: number
+  }
+  
+  class MonitoredMethod {
+    + method_signature: string
+    + class_name: string
+    + security_relevance: number
+    + description: string
+    + possible_triggering_actions: ActionTemplate[]
+    + triggered: boolean
+    + trigger_count: number
+  }
+}
+
+' Relationships
+StateAnalyzer --> StateAnalysis : produces
+StateAnalyzer --> ContextAnalyzer : uses
+ContextAnalyzer --> AppFeature : identifies
+ContextAnalyzer --> NavigationPattern : detects
+ContextAnalyzer --> TaskContext : produces
+OpportunityDetector --> TestingOpportunity : generates
+TestingOpportunity --> OpportunityType : has
+TestingOpportunity --> ExpectedOutcome : defines
+ProgressTracker --> CoverageMetrics : calculates
+ProgressTracker --> ExplorationMetrics : calculates
+ProgressTracker --> ProgressReport : generates
+StaticAnalyzer --> MonitoredMethod : identifies
+OpportunityDetector --> MonitoredMethod : matches with
+
+ContextAnalyzer ..> StateAnalyzer : uses
+OpportunityDetector ..> ContextAnalyzer : uses
+ProgressTracker ..> StateAnalyzer : uses
+StateAnalyzer ..> StaticAnalyzer : uses
+
+@enduml

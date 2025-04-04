@@ -1,0 +1,75 @@
+@startuml tf_plateau_identification
+!theme plain
+skinparam backgroundColor white
+skinparam ArrowColor black
+skinparam useBetaStyle true
+
+title Plateau Identification Process
+
+package "Test Execution" {
+  [Timeout 1: 5 min] as Time1
+  [Timeout 2: 10 min] as Time2
+  [Timeout 3: 15 min] as Time3
+  [Timeout 4: 20 min] as Time4
+  [Timeout 5: 30 min] as Time5
+}
+
+package "Metric Tracking" {
+  [Coverage Tracker] as CoverageTrack
+  [Actions Tracker] as ActionsTrack
+  [Screens Tracker] as ScreensTrack
+  [Events Tracker] as EventsTrack
+}
+
+package "Plateau Detection" {
+  [Derivative Analysis] as Derivative
+  [Statistical Testing] as StatTest
+  [Change Point Detection] as ChangePoint
+  [Plateau Validator] as Validator
+}
+
+package "Optimization" {
+  [Optimal Timeout Selector] as OptimalTime
+  [Efficiency Calculator] as Efficiency
+  [Recommendations Generator] as Recommendations
+}
+
+Time1 --> CoverageTrack
+Time1 --> ActionsTrack
+Time1 --> ScreensTrack
+Time1 --> EventsTrack
+
+Time2 --> CoverageTrack
+Time2 --> ActionsTrack
+Time2 --> ScreensTrack
+Time2 --> EventsTrack
+
+Time3 --> CoverageTrack
+Time3 --> ActionsTrack
+Time3 --> ScreensTrack
+Time3 --> EventsTrack
+
+Time4 --> CoverageTrack
+Time4 --> ActionsTrack
+Time4 --> ScreensTrack
+Time4 --> EventsTrack
+
+Time5 --> CoverageTrack
+Time5 --> ActionsTrack
+Time5 --> ScreensTrack
+Time5 --> EventsTrack
+
+CoverageTrack --> Derivative : Coverage over time
+ActionsTrack --> Derivative : Actions over time
+ScreensTrack --> Derivative : Screens over time
+EventsTrack --> Derivative : Events over time
+
+Derivative --> StatTest : Rate of change
+StatTest --> ChangePoint : Significance tests
+ChangePoint --> Validator : Potential plateaus
+
+Validator --> OptimalTime : Validated plateaus
+OptimalTime --> Efficiency : Selected timeouts
+Efficiency --> Recommendations : Efficiency metrics
+
+@enduml

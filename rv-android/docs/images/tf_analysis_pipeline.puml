@@ -1,0 +1,47 @@
+@startuml tf_analysis_pipeline
+!theme plain
+skinparam backgroundColor white
+skinparam componentStyle rectangle
+skinparam packageStyle rectangle
+skinparam ArrowColor black
+skinparam useBetaStyle true
+
+title Test Result Analysis Pipeline
+
+package "Raw Results" {
+  [Test Execution Logs] as Logs
+  [Coverage Data] as Coverage
+  [Performance Metrics] as Perf
+  [Screenshots] as Screenshots
+}
+
+package "Analysis Pipeline" {
+  [ResultAnalyzer] as ResultAnalyzer
+  [MetricProcessor] as MetricProcessor
+  [PlateauAnalyzer] as PlateauAnalyzer
+  [StandardizationEngine] as StandardizationEngine
+  [StatisticalAnalyzer] as StatisticalAnalyzer
+}
+
+package "Processed Results" {
+  [Standardized Metrics] as StdMetrics
+  [Performance Plateaus] as Plateaus
+  [Statistical Insights] as Insights
+  [Comparative Data] as CompData
+}
+
+Logs --> ResultAnalyzer
+Coverage --> ResultAnalyzer
+Perf --> ResultAnalyzer
+Screenshots --> ResultAnalyzer
+
+ResultAnalyzer --> MetricProcessor : Raw metrics
+MetricProcessor --> PlateauAnalyzer : Processed metrics
+MetricProcessor --> StandardizationEngine : Processed metrics
+PlateauAnalyzer --> Plateaus
+StandardizationEngine --> StdMetrics
+StandardizationEngine --> StatisticalAnalyzer
+StatisticalAnalyzer --> Insights
+StatisticalAnalyzer --> CompData
+
+@enduml

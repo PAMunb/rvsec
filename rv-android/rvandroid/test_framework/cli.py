@@ -16,15 +16,21 @@ from tqdm import tqdm
 from rvandroid.test_framework import (
     TestFramework, TestSuite, ToolConfiguration, create_default_test_suite
 )
-from rvandroid.test_framework.plateau_analyzer import analyze_plateau
+from rvandroid.test_framework.config_validator import validate_configurations
+from rvandroid.test_framework.config_generator import (
+    create_minimal_test_suite, create_plateau_test_suite, create_comparative_test_suite,
+    ConfigurationGenerator
+)
 
 
-def load_test_suite(config_file: str) -> Optional[TestSuite]:
+def load_test_suite(config_file: str, validate: bool = True, skip_invalid: bool = False) -> Optional[TestSuite]:
     """
     Load a test suite from a configuration file.
     
     Args:
         config_file: Path to configuration file
+        validate: Whether to validate configurations after loading
+        skip_invalid: Whether to remove invalid configurations instead of returning None
         
     Returns:
         TestSuite if loading succeeds, None otherwise
@@ -37,7 +43,31 @@ def load_test_suite(config_file: str) -> Optional[TestSuite]:
         with open(config_file, 'r') as f:
             data = json.load(f)
         
-        return TestSuite.from_dict(data)
+        test_suite = TestSuite.from_dict(data)
+        
+        # Validate configurations if requested
+        if validate:
+            invalid_configs = validate_configurations(test_suite.tool_configurations)
+            if invalid_configs:
+                print(f"Warning: {len(invalid_configs)} invalid configurations detected in {config_file}:")
+                for config_id, errors in invalid_configs.items():
+                    print(f"  - {config_id}:")
+                    for error in errors:
+                        print(f"      * {error}")
+                
+                if skip_invalid:
+                    # Remove invalid configurations
+                    valid_configs = [
+                        config for config in test_suite.tool_configurations
+                        if config.get_id() not in invalid_configs
+                    ]
+                    test_suite.tool_configurations = valid_configs
+                    print(f"Removed {len(invalid_configs)} invalid configurations. Remaining: {len(valid_configs)}")
+                else:
+                    print("Use --skip-invalid to remove invalid configurations and continue.")
+                    return None
+        
+        return test_suite
     except Exception as e:
         print(f"Error loading test suite: {str(e)}")
         return None
@@ -56,7 +86,7 @@ def run_test_suite(args):
     # Load test suite if specified
     test_suite = None
     if args.config:
-        test_suite = load_test_suite(args.config)
+        test_suite = load_test_suite(args.config, validate=True, skip_invalid=args.skip_invalid)
         if not test_suite:
             return
     
@@ -79,7 +109,6 @@ def run_test_suite(args):
     # Configure test suite
     test_suite = framework.configure(
         apps=app_paths,
-        max_workers=args.workers,
         test_suite=test_suite,
         repetitions=args.repetitions
     )
@@ -134,19 +163,102 @@ def create_config(args):
     Args:
         args: Command line arguments
     """
-    # Create default test suite
-    test_suite = create_default_test_suite()
-    
-    # Update name and description
-    test_suite.name = args.name
-    test_suite.description = args.description
-    
-    # Save configuration
     try:
+        # Choose the right generator based on the configuration type
+        if args.type == "default":
+            test_suite = create_comparative_test_suite()
+        elif args.type == "minimal":
+            test_suite = create_minimal_test_suite()
+        elif args.type == "plateau":
+            timeouts = [int(t) for t in args.timeouts.split(",")]
+            test_suite = create_plateau_test_suite(args.tool, timeouts)
+        elif args.type == "custom":
+            # Create a generator
+            generator = ConfigurationGenerator()
+            
+            # Generate custom configurations
+            llm_types = args.llm_types.split(",") if args.llm_types else ["ollama"]
+            tools = args.tools.split(",") if args.tools else ["rvandroid", "rvdroid"]
+            
+            # Generate models dictionary
+            models = {}
+            if args.models:
+                for model_spec in args.models.split(";"):
+                    llm_type, model_list = model_spec.split(":")
+                    models[llm_type] = model_list.split(",")
+            else:
+                # Default models
+                models = {
+                    "ollama": ["llama3.2:3b"],
+                    "dspy": ["meta-llama/Meta-Llama-3.1-8B-Instruct"]
+                }
+            
+            # Get strategies
+            strategies = args.strategies.split(",") if args.strategies else ["composable_single_action"]
+            
+            # Get visitors
+            visitors = args.visitors.split(",") if args.visitors else ["enhanced"]
+            
+            # Generate all combinations
+            configs = generator.generate_all_combinations(
+                tools=tools,
+                llm_types=llm_types,
+                models=models,
+                strategy_types=strategies,
+                visitor_types=visitors
+            )
+            
+            # Create test suite
+            test_suite = TestSuite(
+                name=args.name,
+                description=args.description,
+                tool_configurations=configs,
+                apps=[],
+                output_dir="test_results",
+                repetitions=1
+            )
+        else:
+            print(f"Unknown configuration type: {args.type}")
+            return
+            
+        # Update name and description
+        if args.name:
+            test_suite.name = args.name
+        
+        if args.description:
+            test_suite.description = args.description
+        
+        # Validate the configurations
+        invalid_configs = validate_configurations(test_suite.tool_configurations)
+        if invalid_configs:
+            print(f"Warning: {len(invalid_configs)} invalid configurations detected:")
+            for config_id, errors in invalid_configs.items():
+                print(f"  - {config_id}:")
+                for error in errors:
+                    print(f"      * {error}")
+            
+            if args.skip_invalid:
+                # Remove invalid configurations
+                valid_configs = [
+                    config for config in test_suite.tool_configurations
+                    if config.get_id() not in invalid_configs
+                ]
+                test_suite.tool_configurations = valid_configs
+                print(f"Removed {len(invalid_configs)} invalid configurations. Remaining: {len(valid_configs)}")
+            else:
+                print("Aborting. Use --skip-invalid to remove invalid configurations.")
+                return
+        
+        # Ensure we have a valid output path
+        if not args.output:
+            args.output = "test_suite_config.json"  # Default name if empty
+            
+        # Save configuration (TestSuite.save_to_file will create directories as needed)
         test_suite.save_to_file(args.output)
         print(f"Test suite configuration saved to: {args.output}")
+        print(f"Generated {len(test_suite.tool_configurations)} valid configurations.")
     except Exception as e:
-        print(f"Error saving configuration: {str(e)}")
+        print(f"Error creating configuration: {str(e)}")
 
 
 def analyze_results(args):
@@ -167,53 +279,226 @@ def analyze_results(args):
     os.makedirs(args.output_dir, exist_ok=True)
     
     try:
-        # For now, we'll just print a message about manual analysis
-        # In the future, this could be implemented to load test results from files
-        print(f"To analyze results properly, please run tests with --analyze flag.")
-        print(f"Manual analysis options:")
-        print(f"1. Check the HTML report in the results directory")
-        print(f"2. View JSON analysis data in the results directory")
-        print(f"3. Use the plateau command for timeout analysis")
+        # Import the results loader
+        from rvandroid.test_framework.results_loader import ResultsLoader
+        
+        # Initialize the loader
+        loader = ResultsLoader(args.results_dir)
+        
+        # Load and analyze results
+        print("Loading and analyzing results...")
+        results = loader.load_and_analyze()
+        
+        if results.get("status") == "No results found":
+            print("No valid test results found in the specified directory.")
+            return
+            
+        # Output basic statistics
+        print("\nAnalysis Summary:")
+        print(f"  Total results: {results['total_results']}")
+        print(f"  Total configurations: {results['total_configs']}")
+        print(f"  Total applications: {results['total_apps']}")
+        
+        # Show top configurations
+        print("\nTop Configurations:")
+        top_configs = results.get('top_configurations', {})
+        for metric, configs in top_configs.items():
+            print(f"  {metric}:")
+            for i, config_id in enumerate(configs[:3], 1):
+                comparison = results['configuration_comparisons'][config_id]
+                value = comparison['avg_metrics'].get(metric, 0)
+                print(f"    {i}. {config_id}: {value:.2f}")
+        
+        # Detect anomalies if requested
+        if args.detect_anomalies:
+            print("\nDetecting anomalies in results...")
+            from rvandroid.test_framework.anomaly_detector import detect_anomalies
+            
+            anomaly_threshold = args.anomaly_threshold if args.anomaly_threshold else 2.0
+            anomaly_report = detect_anomalies(results, z_threshold=anomaly_threshold)
+            
+            # Add to results for dashboard
+            results['anomaly_report'] = anomaly_report
+            
+            # Show anomaly summary
+            print(f"\nAnomaly Detection Summary:")
+            print(f"  Total anomalies: {anomaly_report['total_anomalies']}")
+            
+            if anomaly_report['total_anomalies'] > 0:
+                # By type
+                print("  Anomalies by type:")
+                for type_name, count in anomaly_report['anomalies_by_type'].items():
+                    print(f"    {type_name}: {count}")
+                
+                # By severity
+                print("  Anomalies by severity:")
+                for severity, count in anomaly_report['anomalies_by_severity'].items():
+                    print(f"    {severity}: {count}")
+                
+                # Show top anomalies
+                print("\nTop anomalies:")
+                # Sort by severity and deviation
+                sorted_anomalies = sorted(
+                    anomaly_report['anomalies'], 
+                    key=lambda x: (
+                        0 if x['severity'] == 'high' else 1 if x['severity'] == 'medium' else 2,
+                        abs(x['deviation'])
+                    ), 
+                    reverse=True
+                )
+                
+                for anomaly in sorted_anomalies[:5]:  # Show top 5
+                    print(f"  - {anomaly['explanation']}")
+                
+                # Save anomaly report
+                anomaly_file = os.path.join(args.output_dir, "anomaly_report.json")
+                with open(anomaly_file, 'w') as f:
+                    json.dump(anomaly_report, f, indent=2)
+                print(f"\nAnomaly report saved to: {anomaly_file}")
+            else:
+                print("  No anomalies detected with the current threshold.")
+        
+        # Analyze correlations if requested
+        if args.analyze_correlations:
+            print("\nAnalyzing correlations between app characteristics and configurations...")
+            from rvandroid.test_framework.correlation_analyzer import analyze_correlations
+            
+            correlation_report = analyze_correlations(results)
+            
+            # Add to results for dashboard
+            results['correlation_report'] = correlation_report
+            
+            # Show correlation summary
+            print(f"\nCorrelation Analysis Summary:")
+            print(f"  Total correlations: {correlation_report['total_correlations']}")
+            print(f"  Apps analyzed: {correlation_report['app_count']}")
+            
+            if correlation_report['total_correlations'] > 0:
+                # Show top correlations
+                print("\nTop correlations:")
+                for i, corr in enumerate(correlation_report['top_correlations'][:5], 1):
+                    print(f"  {i}. {corr['explanation']}")
+                
+                # Show recommendations
+                if correlation_report['recommendations']:
+                    print("\nConfiguration recommendations:")
+                    for char_name, recs in list(correlation_report['recommendations'].items())[:3]:
+                        print(f"  For apps with {char_name.replace('_', ' ')}:")
+                        for rec in recs[:2]:
+                            print(f"    - {rec['config_id']}: {rec['explanation']}")
+                
+                # App-specific recommendations
+                if correlation_report['app_recommendations']:
+                    print("\nApp-specific recommendations:")
+                    for app_name, recs in list(correlation_report['app_recommendations'].items())[:3]:
+                        print(f"  {app_name}:")
+                        for rec in recs[:2]:
+                            print(f"    - {rec['config_id']}: {rec['reason']}")
+                
+                # Save correlation report
+                corr_file = os.path.join(args.output_dir, "correlation_report.json")
+                with open(corr_file, 'w') as f:
+                    json.dump(correlation_report, f, indent=2)
+                print(f"\nDetailed correlation report saved to: {corr_file}")
+            else:
+                print("  No significant correlations found in the results.")
+        
+        # Generate interactive dashboard if requested
+        if args.dashboard:
+            print("\nGenerating interactive dashboard...")
+            try:
+                from rvandroid.test_framework.dashboard import generate_dashboard, launch_dashboard
+                
+                dashboard_file = generate_dashboard(results, args.output_dir)
+                
+                if dashboard_file:
+                    print(f"Dashboard generated at: {dashboard_file}")
+                    
+                    # Launch dashboard in browser if requested
+                    if args.launch_dashboard:
+                        launch_dashboard(dashboard_file)
+                        print("Dashboard opened in browser.")
+                else:
+                    print("Error generating dashboard.")
+            except ImportError:
+                print("Dashboard module not available. Skipping dashboard generation.")
+        
+        # Save analysis results
+        output_file = os.path.join(args.output_dir, "analysis_results.json")
+        with open(output_file, 'w') as f:
+            json.dump(results, f, indent=2)
+        print(f"\nDetailed analysis results saved to: {output_file}")
+        
+        # Generate visualizations if needed
+        if args.visualize:
+            # Import visualization module
+            try:
+                from rvandroid.test_framework.visualization import generate_visualizations
+                
+                print("\nGenerating visualizations...")
+                vis_path = os.path.join(args.output_dir, "visualizations")
+                os.makedirs(vis_path, exist_ok=True)
+                
+                generate_visualizations(results, vis_path)
+                print(f"Visualizations saved to: {vis_path}")
+            except ImportError:
+                print("Visualization module not available. Skipping visualization generation.")
+        
+        # Export to CSV if needed
+        if args.export_csv:
+            try:
+                # Determine which CSV exporter to use
+                if args.enhanced_export:
+                    from rvandroid.test_framework.spreadsheet_exporter import export_to_enhanced_csv
+                    
+                    print("\nExporting results to enhanced CSV files...")
+                    csv_path = os.path.join(args.output_dir, "results_export.csv")
+                    
+                    success = export_to_enhanced_csv(results, csv_path)
+                    if success:
+                        print(f"Enhanced CSV exports saved to directory: {args.output_dir}")
+                    else:
+                        print("Error exporting to enhanced CSV.")
+                else:
+                    from rvandroid.test_framework.exporters import export_to_csv
+                    
+                    print("\nExporting results to CSV...")
+                    csv_path = os.path.join(args.output_dir, "results_export.csv")
+                    
+                    export_to_csv(results, csv_path)
+                    print(f"CSV export saved to: {csv_path}")
+            except ImportError as e:
+                print(f"CSV exporter module not available: {str(e)}. Skipping CSV export.")
+                
+        # Export to Excel if needed
+        if args.export_xlsx:
+            try:
+                # Determine which Excel exporter to use
+                if args.enhanced_export:
+                    from rvandroid.test_framework.spreadsheet_exporter import export_to_enhanced_excel
+                    
+                    print("\nExporting results to enhanced Excel workbook...")
+                    xlsx_path = os.path.join(args.output_dir, "results_export.xlsx")
+                    
+                    success = export_to_enhanced_excel(results, xlsx_path)
+                    if success:
+                        print(f"Enhanced Excel export saved to: {xlsx_path}")
+                    else:
+                        print("Error exporting to enhanced Excel.")
+                else:
+                    from rvandroid.test_framework.exporters import export_to_excel
+                    
+                    print("\nExporting results to Excel...")
+                    xlsx_path = os.path.join(args.output_dir, "results_export.xlsx")
+                    
+                    export_to_excel(results, xlsx_path)
+                    print(f"Excel export saved to: {xlsx_path}")
+            except ImportError as e:
+                print(f"Excel exporter module not available: {str(e)}. Skipping Excel export.")
     except Exception as e:
         print(f"Error analyzing results: {str(e)}")
 
 
-def run_plateau_analysis(args):
-    """
-    Run plateau analysis on results.
-    
-    Args:
-        args: Command line arguments
-    """
-    # Validate arguments
-    if not os.path.exists(args.results_dir):
-        print(f"Error: Results directory not found: {args.results_dir}")
-        return
-    
-    if not args.timeouts:
-        print("Error: No timeouts specified for plateau analysis.")
-        return
-    
-    print(f"Running plateau analysis with timeouts: {args.timeouts}")
-    
-    # Create output directory
-    os.makedirs(args.output_dir, exist_ok=True)
-    
-    try:
-        # Since we cannot directly access test results from files yet,
-        # provide instructions for running plateau analysis
-        print("\nPlateau Analysis Instructions:")
-        print("1. Run tests with multiple timeout configurations first")
-        print("   Example: python run_test_framework.py run --apps example.apk --config plateau_config_example.json")
-        print("\n2. View the results in the output directory:")
-        print(f"   {args.output_dir}")
-        print("\n3. After implementing file loading in the future, this command will:")
-        print("   - Analyze how metrics change across different timeouts")
-        print("   - Detect plateaus in coverage and other metrics")
-        print("   - Generate visualizations showing optimal timeout values")
-        print("   - Recommend optimal timeouts for different configurations")
-    except Exception as e:
-        print(f"Error running plateau analysis: {str(e)}")
 
 
 def main():
@@ -240,10 +525,6 @@ def main():
         help="Directory for test results"
     )
     run_parser.add_argument(
-        "--workers", "-w", type=int, default=1,
-        help="Maximum number of parallel test executions"
-    )
-    run_parser.add_argument(
         "--repetitions", "-r", type=int, default=1,
         help="Number of repetitions for each test case"
     )
@@ -254,6 +535,10 @@ def main():
     run_parser.add_argument(
         "--save-optimal", "-S", action="store_true",
         help="Save optimal configurations after analysis"
+    )
+    run_parser.add_argument(
+        "--skip-invalid", "-s", action="store_true",
+        help="Skip invalid configurations instead of aborting"
     )
     
     # Create config command
@@ -270,6 +555,46 @@ def main():
         "--output", "-o", default="test_suite_config.json",
         help="Output file for configuration"
     )
+    config_parser.add_argument(
+        "--type", "-t", default="default", choices=["default", "minimal", "plateau", "custom"],
+        help="Type of configuration to generate: default (comparative), minimal, plateau, or custom"
+    )
+    config_parser.add_argument(
+        "--skip-invalid", "-s", action="store_true",
+        help="Skip invalid configurations instead of aborting"
+    )
+    
+    # Plateau-specific options
+    config_parser.add_argument(
+        "--timeouts", default="60,120,180,300,600",
+        help="Comma-separated list of timeouts for plateau analysis (e.g., '60,120,300')"
+    )
+    config_parser.add_argument(
+        "--tool", default="rvandroid", choices=["rvandroid", "rvdroid"],
+        help="Tool to use for plateau analysis"
+    )
+    
+    # Custom configuration options
+    config_parser.add_argument(
+        "--tools", 
+        help="Comma-separated list of tools to include (e.g., 'rvandroid,rvdroid')"
+    )
+    config_parser.add_argument(
+        "--llm-types", 
+        help="Comma-separated list of LLM types to include (e.g., 'ollama,dspy')"
+    )
+    config_parser.add_argument(
+        "--models", 
+        help="LLM models specification (e.g., 'ollama:llama3.2:3b,gemma3:4b;dspy:meta-llama/Meta-Llama-3.1-8B-Instruct')"
+    )
+    config_parser.add_argument(
+        "--strategies", 
+        help="Comma-separated list of strategies (e.g., 'basic,composable_single_action')"
+    )
+    config_parser.add_argument(
+        "--visitors", 
+        help="Comma-separated list of visitors (e.g., 'basic,enhanced')"
+    )
     
     # Analyze command
     analyze_parser = subparsers.add_parser("analyze", help="Analyze results from a previous test run")
@@ -281,21 +606,43 @@ def main():
         "--output-dir", "-o", default="analysis_results",
         help="Directory for analysis output"
     )
+    analyze_parser.add_argument(
+        "--visualize", "-v", action="store_true",
+        help="Generate visualizations for result analysis"
+    )
+    analyze_parser.add_argument(
+        "--export-csv", "-e", action="store_true",
+        help="Export results to CSV format"
+    )
+    analyze_parser.add_argument(
+        "--export-xlsx", "-x", action="store_true",
+        help="Export results to Excel format"
+    )
+    analyze_parser.add_argument(
+        "--enhanced-export", "-E", action="store_true",
+        help="Use enhanced export with more detailed spreadsheets"
+    )
+    analyze_parser.add_argument(
+        "--detect-anomalies", "-a", action="store_true",
+        help="Detect anomalies in test results"
+    )
+    analyze_parser.add_argument(
+        "--anomaly-threshold", "-t", type=float, default=2.0,
+        help="Z-score threshold for anomaly detection (default: 2.0)"
+    )
+    analyze_parser.add_argument(
+        "--analyze-correlations", "-c", action="store_true",
+        help="Analyze correlations between app characteristics and configurations"
+    )
+    analyze_parser.add_argument(
+        "--dashboard", "-d", action="store_true",
+        help="Generate interactive dashboard for result visualization"
+    )
+    analyze_parser.add_argument(
+        "--launch-dashboard", "-l", action="store_true",
+        help="Launch dashboard in web browser after generation"
+    )
     
-    # Add plateau analysis command
-    plateau_parser = subparsers.add_parser("plateau", help="Analyze metric plateau for different timeouts")
-    plateau_parser.add_argument(
-        "--results-dir", "-r", required=True,
-        help="Directory containing test results"
-    )
-    plateau_parser.add_argument(
-        "--timeouts", "-t", type=int, nargs="+", default=[60, 120, 180, 300, 600],
-        help="Timeouts to analyze (in seconds)"
-    )
-    plateau_parser.add_argument(
-        "--output-dir", "-o", default="plateau_analysis",
-        help="Directory for analysis output"
-    )
     
     # Parse arguments
     args = parser.parse_args()
@@ -307,8 +654,6 @@ def main():
         create_config(args)
     elif args.command == "analyze":
         analyze_results(args)
-    elif args.command == "plateau":
-        run_plateau_analysis(args)
     else:
         parser.print_help()
 

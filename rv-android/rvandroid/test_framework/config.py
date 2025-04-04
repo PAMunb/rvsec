@@ -23,6 +23,9 @@ class ToolConfiguration:
     tool_name: str
     timeout: int = 300  # in seconds
     
+    # Emulator configuration
+    no_window: bool = False  # Whether to run emulator in headless mode
+    
     # LLM configuration
     llm_type: str = "ollama"
     llm_model: str = "llama3.2:3b"
@@ -63,6 +66,9 @@ class ToolConfiguration:
         tool_name = data.pop('tool_name')
         timeout = data.pop('timeout', 300)
         
+        # Extract emulator settings
+        no_window = data.pop('no_window', False)
+        
         # Extract LLM settings
         llm_type = data.pop('llm_type', 'ollama')
         llm_model = data.pop('llm_model', 'llama3.2:3b')
@@ -95,6 +101,7 @@ class ToolConfiguration:
         return cls(
             tool_name=tool_name,
             timeout=timeout,
+            no_window=no_window,
             llm_type=llm_type,
             llm_model=llm_model,
             temperature=temperature,
@@ -117,7 +124,8 @@ class ToolConfiguration:
         return (f"{self.tool_name}_{self.llm_type}_{self.llm_model.replace(':', '-')}_"
                 f"{self.strategy_type}_{self.parser_type}_{self.visitor_type}_"
                 f"sa-{self.static_analysis_level if self.use_static_analysis else 'off'}_"
-                f"ss-{self.screenshot_analysis_level if self.use_screenshot_analysis else 'off'}")
+                f"ss-{self.screenshot_analysis_level if self.use_screenshot_analysis else 'off'}_"
+                f"{'headless' if self.no_window else 'windowed'}")
 
 
 @dataclass
@@ -164,8 +172,22 @@ class TestSuite:
         )
     
     def save_to_file(self, filepath: str) -> None:
-        """Save to JSON file."""
-        os.makedirs(os.path.dirname(filepath), exist_ok=True)
+        """
+        Save to JSON file.
+        
+        Args:
+            filepath: Path where to save the file
+        """
+        # Handle empty or None filepath
+        if not filepath:
+            filepath = "test_suite_config.json"
+            
+        # Create directory if needed (only if there's a directory part)
+        dirname = os.path.dirname(filepath)
+        if dirname:
+            os.makedirs(dirname, exist_ok=True)
+            
+        # Save the file
         with open(filepath, 'w') as f:
             json.dump(self.to_dict(), f, indent=2)
     
@@ -218,122 +240,47 @@ class TestCase:
 
 
 def create_default_configurations() -> List[ToolConfiguration]:
-    """Create a set of diverse configurations to test various aspects of LLM and analysis."""
-    configurations = []
+    """
+    Create a set of diverse configurations to test various aspects of LLM and analysis.
     
-    # Different LLM providers
-    llm_types = ["ollama", "huggingface", "dspy", "langchain", "frontier"]
+    This is a legacy function that has been replaced by the ConfigurationGenerator.
+    It now delegates to the new implementation for better validation and flexibility.
     
-    # Different LLM models by provider
-    llm_models = {
-        "ollama": ["llama3.2:3b", "gemma3:4b", "phi3.5:3.8b"],
-        "huggingface": ["meta-llama/Meta-Llama-3.1-8B-Instruct"],
+    Returns:
+        List of tool configurations
+    """
+    from rvandroid.test_framework.config_generator import ConfigurationGenerator
+    
+    generator = ConfigurationGenerator()
+    
+    # Generate a comparative set with various configurations
+    llm_types = ["ollama", "dspy"]
+    models = {
+        "ollama": ["llama3.2:3b", "gemma3:4b"],
         "dspy": ["meta-llama/Meta-Llama-3.1-8B-Instruct"],
-        "langchain": ["meta-llama/Meta-Llama-3.1-8B-Instruct"],
-        "frontier": ["claude-3-opus-20240229", "claude-3-sonnet-20240229"]
     }
+    strategy_types = ["basic", "single_action", "composable_single_action"]
+    visitor_types = ["basic", "enhanced"]
     
-    # Different prompt strategies
-    strategy_types = [
-        "basic", 
-        "single_action", 
-        "composable_single_action", 
-        "dspy_single_action", 
-        "composable"
-    ]
-    
-    # Different parsers
-    parser_types = ["droidbot", "uiautomator"]
-    
-    # Different visitors
-    visitor_types = ["basic", "enhanced", "detailed"]
-    
-    # Static analysis levels
-    static_analysis_levels = ["basic", "standard", "detailed"]
-    
-    # Screenshot analysis
-    screenshot_options = [True, False]
-    screenshot_levels = ["basic", "standard", "detailed"]
-    
-    # Create default RVAndroid configurations
-    for llm_type in llm_types[:2]:  # Limit to first 2 LLM types for simplicity
-        for model in llm_models[llm_type][:1]:  # Take first model of each type
-            for strategy in strategy_types[:3]:  # Take first 3 strategies
-                for parser in parser_types:
-                    for visitor in visitor_types:
-                        for use_static in [True]:  # Always use static analysis
-                            for static_level in static_analysis_levels[:2]:  # First 2 levels
-                                for use_screenshot in screenshot_options:
-                                    if use_screenshot:
-                                        for ss_level in screenshot_levels[:1]:  # Just first level
-                                            configurations.append(ToolConfiguration(
-                                                tool_name="rvandroid",
-                                                llm_type=llm_type,
-                                                llm_model=model,
-                                                strategy_type=strategy,
-                                                parser_type=parser,
-                                                visitor_type=visitor,
-                                                use_static_analysis=use_static,
-                                                static_analysis_level=static_level,
-                                                use_screenshot_analysis=use_screenshot,
-                                                screenshot_analysis_level=ss_level
-                                            ))
-                                    else:
-                                        configurations.append(ToolConfiguration(
-                                            tool_name="rvandroid",
-                                            llm_type=llm_type,
-                                            llm_model=model,
-                                            strategy_type=strategy,
-                                            parser_type=parser,
-                                            visitor_type=visitor,
-                                            use_static_analysis=use_static,
-                                            static_analysis_level=static_level,
-                                            use_screenshot_analysis=False
-                                        ))
-    
-    # Create RVDroid configurations with LLM enabled
-    for llm_type in llm_types[:1]:  # Just the first LLM type
-        for model in llm_models[llm_type][:1]:  # Just the first model
-            for strategy in strategy_types[:2]:  # First 2 strategies
-                for visitor in visitor_types:
-                    for static_level in static_analysis_levels[:1]:  # Just first level
-                        configurations.append(ToolConfiguration(
-                            tool_name="rvdroid",
-                            llm_type=llm_type,
-                            llm_model=model,
-                            strategy_type=strategy,
-                            parser_type="uiautomator",  # RVDroid uses UIAutomator
-                            visitor_type=visitor,
-                            use_static_analysis=True,
-                            static_analysis_level=static_level,
-                            use_screenshot_analysis=False,
-                            extra_params={"use_llm": True}
-                        ))
-    
-    # Add RVDroid without LLM as baseline
-    configurations.append(ToolConfiguration(
-        tool_name="rvdroid",
-        llm_type="ollama",
-        llm_model="llama3.2:3b",
-        strategy_type="basic",
-        parser_type="uiautomator",
-        visitor_type="basic",
-        use_static_analysis=True,
-        static_analysis_level="basic",
-        use_screenshot_analysis=False,
-        extra_params={"use_llm": False}
-    ))
+    configurations = generator.generate_all_combinations(
+        llm_types=llm_types,
+        models=models,
+        strategy_types=strategy_types,
+        visitor_types=visitor_types
+    )
     
     return configurations
 
 
 def create_default_test_suite() -> TestSuite:
-    """Create a default test suite with various configurations for testing."""
-    return TestSuite(
-        name="Default Test Suite",
-        description="Test suite with diverse configurations of RVAndroid and RVDroid",
-        tool_configurations=create_default_configurations(),
-        apps=[],
-        output_dir="test_results",
-        repetitions=1
-    )
+    """
+    Create a default test suite with various configurations for testing.
+    
+    Uses the ConfigurationGenerator to create a diverse set of configurations.
+    
+    Returns:
+        TestSuite with diverse configurations
+    """
+    from rvandroid.test_framework.config_generator import create_comparative_test_suite
+    
+    return create_comparative_test_suite()

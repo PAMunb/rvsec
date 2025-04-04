@@ -1,0 +1,116 @@
+@startuml rvdroid_execution_system
+!theme plain
+skinparam backgroundColor white
+skinparam classAttributeIconSize 0
+skinparam ArrowColor black
+skinparam useBetaStyle true
+
+title RVDroid Execution System Architecture
+
+package "Execution System" {
+  class ActionExecutor {
+    + execute(action: UIAction): ActionResult
+    + get_available_actions(state: UIState): UIAction[]
+    + register_interaction_strategy(strategy: InteractionStrategy): void
+    + select_interaction_strategy(action: UIAction): InteractionStrategy
+    - _handle_action_failure(action: UIAction, error: Error): ActionResult
+    - _validate_action(action: UIAction): boolean
+  }
+  
+  interface InteractionStrategy {
+    + execute(action: UIAction, device: Device): ActionResult
+    + can_handle(action: UIAction): boolean
+    + get_priority(): number
+  }
+  
+  class StandardInteraction {
+    + execute(action: UIAction, device: Device): ActionResult
+    + can_handle(action: UIAction): boolean
+    + get_priority(): number
+    - _perform_click(element: UIElement): void
+    - _perform_text_input(element: UIElement, text: string): void
+    - _perform_scroll(direction: ScrollDirection): void
+  }
+  
+  class AdvancedInteraction {
+    + execute(action: UIAction, device: Device): ActionResult
+    + can_handle(action: UIAction): boolean
+    + get_priority(): number
+    - _perform_long_press(element: UIElement): void
+    - _perform_swipe(start: Point, end: Point): void
+    - _perform_multi_step_action(steps: UIAction[]): void
+  }
+  
+  class ResponseBasedInteraction {
+    + execute(action: UIAction, device: Device): ActionResult
+    + can_handle(action: UIAction): boolean
+    + get_priority(): number
+    - _handle_confirmation_dialogs(): void
+    - _handle_permission_requests(): void
+    - _handle_dynamic_content(): void
+  }
+  
+  class UIAutomatorAdapter {
+    + initialize(): void
+    + get_current_state(): UIState
+    + perform_action(action: UIAction): ActionResult
+    + get_device_info(): DeviceInfo
+    + take_screenshot(): Screenshot
+    - _convert_xml_to_ui_state(xml: string): UIState
+    - _execute_shell_command(command: string): string
+    - _handle_connection_error(error: Error): void
+  }
+  
+  class DeviceController {
+    + restart_app(): void
+    + clear_app_data(): void
+    + install_app(apk_path: string): void
+    + uninstall_app(package_name: string): void
+    + get_device_logs(): string[]
+    + set_device_settings(settings: DeviceSettings): void
+  }
+  
+  class ActionResult {
+    + success: boolean
+    + resulting_state: UIState
+    + timestamp: number
+    + execution_time: number
+    + error: Error
+    + screenshot: Screenshot
+  }
+  
+  class UIAction {
+    + type: ActionType
+    + target_element: UIElement
+    + parameters: Map<string, any>
+    + priority: number
+    + timeout: number
+    + validate(): boolean
+  }
+  
+  enum ActionType {
+    CLICK
+    LONG_PRESS
+    TEXT_INPUT
+    SWIPE
+    SCROLL
+    BACK
+    HOME
+    ROTATE
+    WAIT
+    CUSTOM
+  }
+}
+
+' Relationships
+ActionExecutor --> InteractionStrategy : uses
+InteractionStrategy <|.. StandardInteraction : implements
+InteractionStrategy <|.. AdvancedInteraction : implements
+InteractionStrategy <|.. ResponseBasedInteraction : implements
+ActionExecutor --> UIAutomatorAdapter : uses
+UIAutomatorAdapter --> DeviceController : uses
+ActionExecutor --> ActionResult : produces
+ActionExecutor --> UIAction : consumes
+UIAction --> ActionType : has
+
+@enduml

@@ -1,0 +1,117 @@
+@startuml rvdroid_high_level_architecture
+!theme plain
+skinparam backgroundColor white
+skinparam componentStyle rectangle
+skinparam packageStyle rectangle
+skinparam ArrowColor black
+skinparam useBetaStyle true
+
+title RVDroid High-Level Architecture
+
+package "Core" {
+  [RVDroidService] as Service
+  [RunnerModule] as Runner
+  [Configuration] as Config
+}
+
+package "Memory" {
+  [MemorySystem] as MemSys
+  [ShortTerm Memory] as ShortMem
+  [LongTerm Memory] as LongMem
+  [Pattern Recognition] as Pattern
+  [State Management] as StateMgmt
+  [Exploration Optimizer] as Explorer
+}
+
+package "Execution" {
+  [ActionExecutor] as Executor
+  [UIAutomatorAdapter] as UIAdapter
+  [InteractionStrategies] as Interaction
+}
+
+package "Analysis" {
+  [StateAnalyzer] as StateAnalysis
+  [ContextAnalyzer] as ContextAnalysis
+  [OpportunityDetector] as Opportunity
+  [ProgressTracker] as Progress
+  [StaticAnalyzer] as Static
+}
+
+package "Strategy" {
+  [StrategyBase] as StratBase
+  [BasicStrategies] as BasicStrat
+  [AdvancedStrategies] as AdvStrat
+  [AdaptiveStrategies] as AdptStrat
+  [VisualAwareStrategy] as VisualStrat
+  [StrategyBalancer] as StratBalance
+}
+
+package "LLM Integration" {
+  [LLMService] as LLMSvc
+  [ContextBuilder] as Context
+  [DirectiveParser] as Directive
+  [PromptProcessor] as Prompt
+  [ResponseProcessor] as Response
+  [ActionGenerator] as Action
+}
+
+package "Orchestration" {
+  [LifecycleManager] as Lifecycle
+  [RecoveryManager] as Recovery
+  [ResourceManager] as Resource
+}
+
+Service --> Runner
+Service --> Config
+
+Service --> MemSys
+Service --> Executor
+Service --> StateAnalysis
+Service --> StratBalance
+Service --> LLMSvc
+Service --> Lifecycle
+
+Runner --> StratBalance
+Runner --> Executor
+Runner --> StateAnalysis
+
+MemSys --> ShortMem
+MemSys --> LongMem
+MemSys --> Pattern
+MemSys --> StateMgmt
+MemSys --> Explorer
+
+StateAnalysis --> ContextAnalysis
+StateAnalysis --> Opportunity
+StateAnalysis --> Progress
+StateAnalysis --> Static
+
+StratBase <-- BasicStrat
+StratBase <-- AdvStrat
+StratBase <-- AdptStrat
+StratBase <-- VisualStrat
+StratBalance --> StratBase
+
+LLMSvc --> Context
+LLMSvc --> Directive
+LLMSvc --> Prompt
+LLMSvc --> Response
+LLMSvc --> Action
+
+Lifecycle --> Recovery
+Lifecycle --> Resource
+
+Executor --> UIAdapter
+Executor --> Interaction
+
+' Cross-module connections
+MemSys <--> StateAnalysis
+MemSys <--> StratBalance
+LLMSvc <--> StratBalance
+LLMSvc <--> StateAnalysis
+Executor <--> StateAnalysis
+Lifecycle <--> MemSys
+Recovery --> Executor
+Recovery --> StateAnalysis
+
+@enduml

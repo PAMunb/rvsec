@@ -52,9 +52,6 @@ class TestFramework:
             {CONTEXT_COMPONENT: 'TestFramework'}
         )
         
-        # Default settings
-        self.max_workers = 1
-        
         # Results storage
         self.current_test_suite: Optional[TestSuite] = None
         self.current_results: List[TestResult] = []
@@ -62,7 +59,6 @@ class TestFramework:
         
     def configure(self, 
                  apps: List[str], 
-                 max_workers: int = 1,
                  test_suite: Optional[TestSuite] = None,
                  repetitions: int = 1) -> TestSuite:
         """
@@ -70,15 +66,13 @@ class TestFramework:
         
         Args:
             apps: List of paths to APK files to test
-            max_workers: Maximum number of parallel test executions
             test_suite: Optional custom test suite
             repetitions: Number of repetitions for each test case
             
         Returns:
             Configured test suite
         """
-        self.max_workers = max_workers
-        self.logger.info(f"Configuring test framework with {len(apps)} apps and {max_workers} workers")
+        self.logger.info(f"Configuring test framework with {len(apps)} apps")
         
         # Use provided test suite or create default
         if test_suite:
@@ -122,7 +116,7 @@ class TestFramework:
         self.logger.info(f"Starting test suite: {self.current_test_suite.name}")
         
         # Create test runner
-        runner = TestRunner(max_workers=self.max_workers, output_dir=self.run_dir)
+        runner = TestRunner(output_dir=self.run_dir)
         
         # Run test suite
         self.current_results = runner.run_test_suite(

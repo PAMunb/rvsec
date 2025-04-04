@@ -28,6 +28,28 @@ class TaskStatus(Enum):
 
 
 @dataclass
+class TaskConfig:
+    """
+    Configuration parameters for a task execution.
+    
+    ### Architectural Decisions:
+    - Provides a simplified interface for task configuration compatible with test framework
+    - Serves as a bridge between the older TaskConfiguration and test framework executor
+    - Maintains compatibility with existing code while supporting new features
+    - Uses dataclass for concise definition and automatic implementation of common methods
+    
+    ### Role in the System:
+    - Configures timeout and device settings for task execution
+    - Supports the test framework's task execution requirements
+    - Enables clean integration between components
+    """
+    timeout: int = 300  # Default timeout of 5 minutes
+    device_id: str = "emulator-5554"  # Default device ID
+    no_window: bool = False  # Whether to run the emulator headless
+    clean_logcat: bool = True  # Whether to clear logcat before execution
+
+
+@dataclass
 class TaskConfiguration:
     """Configuration parameters for a task"""
     apk_name: str

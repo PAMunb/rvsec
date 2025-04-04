@@ -10,7 +10,8 @@ import os
 from typing import Dict, List, Any, Type, Optional, Callable, TypeVar, Generic
 
 from rvandroid.config.configuration import Configuration
-from rvandroid.config.configuration_manager import ConfigurationManager
+# Remove circular import
+# from rvandroid.config.configuration_manager import ConfigurationManager
 from rvandroid.llm.llm_config import LLMConfiguration
 from rvandroid.parser.screen.abstract_parser import AbstractScreenParser
 from rvandroid.parser.screen.parser_factory import ParserType
@@ -340,7 +341,7 @@ class ComponentConfigurator:
 
         # Initialize configuration systems
         self.config = Configuration.get_instance()
-        self.config_manager = ConfigurationManager()
+        self.config_manager = None
 
         # Component configurations
         self.llm_config = LLMConfiguration(
@@ -763,6 +764,19 @@ class ComponentConfigurator:
                 return name
                 
         return "enhanced"  # Default
+        
+    def _get_config_manager(self):
+        """
+        Get or initialize the configuration manager.
+        
+        Returns:
+            Initialized ConfigurationManager instance
+        """
+        if self.config_manager is None:
+            # Import locally to avoid circular import
+            from rvandroid.config.configuration_manager import ConfigurationManager
+            self.config_manager = ConfigurationManager()
+        return self.config_manager
 
     def save_to_config_file(self, filename: str) -> bool:
         """

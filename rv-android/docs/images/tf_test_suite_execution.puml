@@ -1,0 +1,71 @@
+@startuml tf_test_suite_execution
+!theme plain
+skinparam backgroundColor white
+skinparam ArrowColor black
+skinparam useBetaStyle true
+
+title Test Suite Execution Process
+
+start
+:Load Test Suite Configuration;
+
+:Initialize Test Framework;
+note right: Set up logging, resources, environment
+
+:Validate Environment Setup;
+
+if (Environment Valid?) then (yes)
+  :Prepare Test Candidates;
+  note right: Create test instances for each configuration
+  
+  :Initialize Results Storage;
+  
+  while (More Test Cases?) is (yes)
+    :Select Next Test Case;
+    
+    :Configure Testing Environment;
+    note right: Set up emulator with specific requirements
+    
+    :Prepare Application;
+    note right: Install APK, set state if needed
+    
+    :Execute Test with Tool;
+    note right: Run with timeout monitoring
+    
+    if (Execution Successful?) then (yes)
+      :Collect Results;
+      :Store Raw Results;
+    else (no)
+      :Log Execution Failure;
+      :Capture Error Details;
+    endif
+    
+    :Cleanup Test Environment;
+  endwhile (no)
+  
+  :Process All Results;
+  note right: Aggregate metrics
+  
+  :Perform Analysis;
+  
+  :Generate Reports;
+  
+  :Export Results;
+  note right: Spreadsheets, JSON, etc.
+  
+  if (Dashboard Enabled?) then (yes)
+    :Launch Interactive Dashboard;
+  else (no)
+  endif
+  
+else (no)
+  :Log Environment Setup Errors;
+  :Exit with Error;
+  stop
+endif
+
+:Test Suite Execution Complete;
+
+stop
+
+@enduml

@@ -1,0 +1,78 @@
+@startuml tf_component_interactions
+!theme plain
+skinparam backgroundColor white
+skinparam componentStyle rectangle
+skinparam arrowColor black
+skinparam linetype ortho
+
+component "CLI" as CLI {
+  [create-config] as CLICreate
+  [run] as CLIRun
+  [analyze] as CLIAnalyze
+}
+
+component "Framework" as Framework {
+  [TestFramework] as TF
+  [ConfigValidator] as CV
+  [ConfigGenerator] as CG
+}
+
+component "Executor" as Executor {
+  [TestRunner] as TR
+  [TestExecutor] as TE
+}
+
+component "Analyzer" as Analyzer {
+  [ResultAnalyzer] as RA
+  [PlateauAnalyzer] as PA
+  [AnomalyDetector] as AD
+  [CorrelationAnalyzer] as CA
+}
+
+component "Reporter" as Reporter {
+  [Visualizer] as VI
+  [Dashboard] as DA
+  [SpreadsheetExporter] as SE
+}
+
+database "Storage" as Storage {
+  [Configurations] as Config
+  [Results] as Results
+  [Analysis] as Analysis
+  [Reports] as Reports
+}
+
+' Command flows
+CLICreate --> CV : validate
+CLICreate --> CG : generate
+CLIRun --> TF : configure and run
+CLIAnalyze --> RA : analyze results
+
+' Framework flows
+CV --> Config : store valid configs
+CG --> Config : store generated configs
+TF --> Config : load configs
+TF --> TR : execute test suite
+
+' Executor flows
+TR --> TE : execute test cases
+TE --> Results : store results
+
+' Analyzer flows
+RA --> Results : load results
+RA --> PA : analyze plateaus
+RA --> AD : detect anomalies
+RA --> CA : analyze correlations
+PA --> Analysis : store plateau analysis
+AD --> Analysis : store anomaly report
+CA --> Analysis : store correlation report
+
+' Reporter flows
+VI --> Analysis : load data
+DA --> Analysis : load data
+SE --> Analysis : load data
+VI --> Reports : generate visualizations
+DA --> Reports : generate dashboard
+SE --> Reports : generate spreadsheets
+
+@enduml

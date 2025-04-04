@@ -1,0 +1,159 @@
+@startuml rvdroid_orchestration_system
+!theme plain
+skinparam backgroundColor white
+skinparam classAttributeIconSize 0
+skinparam ArrowColor black
+skinparam useBetaStyle true
+
+title RVDroid Orchestration System
+
+package "Orchestration System" {
+  class LifecycleManager {
+    + initialize(config: Configuration): void
+    + start_testing(): void
+    + stop_testing(): void
+    + pause_testing(): void
+    + resume_testing(): void
+    + get_current_phase(): TestingPhase
+    + transition_to_phase(phase: TestingPhase): void
+    + register_phase_handler(phase: TestingPhase, handler: PhaseHandler): void
+    - _handle_phase_transition(from: TestingPhase, to: TestingPhase): void
+    - _check_transition_conditions(): TestingPhase
+    - _validate_phase_transition(from: TestingPhase, to: TestingPhase): boolean
+  }
+  
+  interface PhaseHandler {
+    + can_handle(phase: TestingPhase): boolean
+    + on_enter(phase: TestingPhase): void
+    + on_exit(phase: TestingPhase): void
+    + execute(context: TestingContext): void
+  }
+  
+  class TestingContext {
+    + current_state: UIState
+    + memory_system: MemorySystem
+    + execution_engine: ActionExecutor
+    + strategy_system: StrategyBalancer
+    + llm_service: LLMService
+    + progress_tracker: ProgressTracker
+    + configuration: Configuration
+  }
+  
+  enum TestingPhase {
+    INITIALIZATION
+    EXPLORATION
+    CONSULTATION
+    ADAPTATION
+    RECOVERY
+    TERMINATION
+  }
+  
+  class RecoveryManager {
+    + handle_error(error: Error, context: TestingContext): boolean
+    + register_recovery_strategy(strategy: RecoveryStrategy): void
+    + get_appropriate_strategy(error: Error): RecoveryStrategy
+    + execute_recovery(strategy: RecoveryStrategy, context: TestingContext): boolean
+    + reset_application(): void
+    + reset_emulator(): void
+    - _classify_error(error: Error): ErrorType
+    - _escalate_recovery(context: TestingContext): boolean
+  }
+  
+  interface RecoveryStrategy {
+    + can_handle(error: Error): boolean
+    + get_strategy_name(): string
+    + get_strategy_impact(): number
+    + execute(context: TestingContext): boolean
+  }
+  
+  class RetryStrategy {
+    + can_handle(error: Error): boolean
+    + get_strategy_name(): string
+    + get_strategy_impact(): number
+    + execute(context: TestingContext): boolean
+    - _adjust_action_properties(action: UIAction): UIAction
+  }
+  
+  class AlternativeActionStrategy {
+    + can_handle(error: Error): boolean
+    + get_strategy_name(): string
+    + get_strategy_impact(): number
+    + execute(context: TestingContext): boolean
+    - _find_alternative_action(context: TestingContext): UIAction
+  }
+  
+  class BackNavigationStrategy {
+    + can_handle(error: Error): boolean
+    + get_strategy_name(): string
+    + get_strategy_impact(): number
+    + execute(context: TestingContext): boolean
+    - _get_previous_state(context: TestingContext): UIState
+  }
+  
+  class AppRestartStrategy {
+    + can_handle(error: Error): boolean
+    + get_strategy_name(): string
+    + get_strategy_impact(): number
+    + execute(context: TestingContext): boolean
+    - _restart_application(): boolean
+  }
+  
+  class EmulatorReconnectionStrategy {
+    + can_handle(error: Error): boolean
+    + get_strategy_name(): string
+    + get_strategy_impact(): number
+    + execute(context: TestingContext): boolean
+    - _restart_emulator(): boolean
+  }
+  
+  enum ErrorType {
+    UI_ELEMENT_NOT_FOUND
+    UI_INTERACTION_FAILED
+    APP_CRASH
+    APP_ANR
+    EMULATOR_ISSUE
+    CONNECTION_ISSUE
+    RESOURCE_ISSUE
+    UNKNOWN
+  }
+  
+  class ResourceManager {
+    + initialize(config: ResourceConfiguration): void
+    + allocate_resources(resource_type: ResourceType, amount: number): boolean
+    + release_resources(resource_type: ResourceType, amount: number): void
+    + get_available_resources(resource_type: ResourceType): number
+    + set_resource_limit(resource_type: ResourceType, limit: number): void
+    + is_resource_available(resource_type: ResourceType, amount: number): boolean
+    - _monitor_resource_usage(): void
+    - _handle_resource_shortage(): void
+  }
+  
+  enum ResourceType {
+    CPU
+    MEMORY
+    STORAGE
+    NETWORK
+    LLM_TOKENS
+    TIME
+  }
+}
+
+' Relationships
+LifecycleManager o-- TestingPhase : tracks
+LifecycleManager --> TestingContext : manages
+LifecycleManager --> PhaseHandler : uses
+
+RecoveryManager --> ErrorType : classifies
+RecoveryManager --> RecoveryStrategy : uses
+RecoveryStrategy <|.. RetryStrategy : implements
+RecoveryStrategy <|.. AlternativeActionStrategy : implements
+RecoveryStrategy <|.. BackNavigationStrategy : implements
+RecoveryStrategy <|.. AppRestartStrategy : implements
+RecoveryStrategy <|.. EmulatorReconnectionStrategy : implements
+
+ResourceManager o-- ResourceType : manages
+
+LifecycleManager --> RecoveryManager : uses
+LifecycleManager --> ResourceManager : uses
+
+@enduml

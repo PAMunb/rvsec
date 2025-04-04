@@ -762,11 +762,17 @@ class RVDroidService(Generic[T]):
             self.logger.info(f"Analyzing logcat file: {logcat_file}")
             
             try:
-                # Parse logcat for method coverage using LogcatRepository
-                from rvandroid.parser.log.logcat_parser import LogcatParser
+                # Parse logcat for method coverage using parse_logcat_file function
+                from rvandroid.parser.log.logcat_parser import parse_logcat_file
                 
-                parser = LogcatParser()
-                parsed_data = parser.parse_file(logcat_file)
+                # Use the parse_logcat_file function directly
+                repository = parse_logcat_file(logcat_file, self.static_data)
+                
+                # Create parsed_data dictionary from repository
+                parsed_data = {
+                    "coverage": repository.to_dict() if hasattr(repository, "to_dict") else {},
+                    "errors": repository.get_errors_dict() if hasattr(repository, "get_errors_dict") else {}
+                }
                 
                 if parsed_data:
                     # Extract coverage information

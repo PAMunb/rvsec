@@ -8,23 +8,30 @@ handling the execution of test cases and management of the testing process.
 import logging
 import os
 import time
-from concurrent.futures import ThreadPoolExecutor, as_completed
+import subprocess
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Dict, List, Any, Optional, Callable, Tuple
+from typing import Dict, List, Any, Optional, Callable, Tuple, ContextManager
 
 from rvandroid.app import App
+from rvandroid.android import Android
 from rvandroid.analysis.results.integrated_metrics import IntegratedMetricsCalculator
 from rvandroid.analysis.static_analysis import StaticAnalyzer
+from rvandroid.commands.command import Command
 from rvandroid.config.component_configurator import ComponentConfigurator
 from rvandroid.domain.static import StaticAnalysisData
 from rvandroid.experiment.task.task_model import Task, TaskResult, TaskConfig, TaskStatus
 from rvandroid.parser.log.logcat_parser import parse_logcat_file
+from rvandroid.parser.static.static_analysis_parser import StaticAnalysisParser
 from rvandroid.test_framework.config import TestCase, TestSuite, ToolConfiguration
 from rvandroid.tools.tool_factory import ToolFactory
-from rvandroid.tools.tool_spec import ToolSpec
+from rvandroid.tools.tool_spec import AbstractTool
+from rvandroid.util.emulator_manager import EmulatorManager
+from rvandroid.util.exceptions import EmulatorError
 from rvandroid.util.logging.constants import CONTEXT_COMPONENT, CONTEXT_PHASE
 from rvandroid.util.logging.manager import LoggingManager
+from rvandroid.util.logcat_manager import LogcatManager
 
 
 @dataclass
@@ -113,6 +120,12 @@ class TestExecutor:
         # Cache for static analysis data
         self.static_analysis_cache: Dict[str, StaticAnalysisData] = {}
         
+        # Emulator manager for handling emulator operations
+        self.emulator_manager = EmulatorManager()
+        
+        # Logcat manager for handling logcat capture
+        self.logcat_manager = LogcatManager()
+        
     def execute_test_case(self, test_case: TestCase) -> TestResult:
         """
         Execute a single test case.
@@ -172,32 +185,72 @@ class TestExecutor:
             # Set static data on task
             task.static_data = static_data
             
-            # Execute the task
-            logger.info(f"Executing tool: {test_case.tool_config.tool_name}")
-            tool.execute(task, app)
+            # Start emulator, run test, and clean up - similar to rv-android
+            logger.info(f"Starting emulator session for test case: {test_case.get_id()}")
             
-            # Process results
-            self._process_results(result, task, app)
-            
-            # Mark as completed
-            result.mark_completed()
-            logger.info(f"Test case completed: {test_case.get_id()}")
+            # Use the emulator manager to start an emulator for this test
+            try:
+                # Start a new emulator for this test (using context manager for cleanup)
+                with self.emulator_manager.start_emulator("RVSec", test_case.tool_config.no_window) as android:
+                    logger.info(f"Emulator started successfully")
+                    
+                    # Clear logcat buffer for clean logs
+                    logger.info(f"Clearing logcat buffer")
+                    self.emulator_manager.clear_logcat()
+                    
+                    # Start logcat capture to file
+                    logger.info(f"Starting logcat capture to {logcat_file}")
+                    if not self.logcat_manager.start_capture(logcat_file):
+                        logger.warning(f"Failed to start logcat capture, results may be incomplete")
+                    
+                    # Install the app
+                    logger.info(f"Installing app: {app.name}")
+                    if not self.emulator_manager.install_app(app):
+                        raise Exception(f"Failed to install app: {app.name}")
+                    
+                    try:
+                        # Execute the testing tool
+                        logger.info(f"Executing tool: {test_case.tool_config.tool_name}")
+                        tool.execute(task, app)
+                        
+                        logger.info(f"Tool execution completed")
+                    finally:
+                        # Stop logcat capture
+                        logger.info(f"Stopping logcat capture")
+                        self.logcat_manager.stop_capture()
+                    
+                    # Process results
+                    self._process_results(result, task, app)
+                
+                # Emulator will be automatically stopped by the context manager
+                logger.info(f"Emulator session completed for test case: {test_case.get_id()}")
+                
+                # Mark test as completed
+                result.mark_completed()
+                logger.info(f"Test case completed: {test_case.get_id()}")
+                
+            except Exception as emulator_error:
+                logger.error(f"Error in emulator session: {str(emulator_error)}")
+                # Mark as error but continue to next test
+                result.mark_error(str(emulator_error))
             
         except Exception as e:
             logger.error(f"Error executing test case: {str(e)}", exc_info=True)
             result.mark_error(str(e))
+            logger.info(f"Test case failed: {test_case.get_id()}")
         
         return result
     
     def _get_static_analysis_data(self, app: App, level: str, output_dir: str) -> Optional[StaticAnalysisData]:
         """
-        Get static analysis data for an app.
+        Get static analysis data for an app from pre-generated files.
         
-        Uses a cache to avoid duplicate static analysis runs.
+        Looks for existing static analysis files and parses them. 
+        The files should follow the naming pattern: apk_name.extension
         
         Args:
             app: App to analyze
-            level: Analysis level (basic, standard, detailed)
+            level: Analysis level (basic, standard, detailed) - used to determine which files to load
             output_dir: Output directory for analysis files
             
         Returns:
@@ -208,43 +261,152 @@ class TestExecutor:
         if cache_key in self.static_analysis_cache:
             return self.static_analysis_cache[cache_key]
         
-        # Set up analysis files
-        gesda_file = os.path.join(output_dir, f"{app.package_name}.gesda")
-        gator_file = os.path.join(output_dir, f"{app.package_name}.wtg")
-        reach_file = os.path.join(output_dir, f"{app.package_name}.reach")
+        # Get the base name of the APK file
+        apk_basename = os.path.basename(app.path)
+        app_dir = os.path.dirname(app.path)
         
-        # Create analyzer
-        analyzer = StaticAnalyzer(app, output_dir)
-        analyzer.gesda_file = gesda_file
-        analyzer.gator_file = gator_file
-        analyzer.reach_file = reach_file
+        # Define potential locations to search for static analysis files
+        search_dirs = [
+            app_dir,  # Same directory as APK
+            os.path.join(os.path.dirname(os.path.dirname(app.path)), "out"),  # out directory at project root
+            "/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec/rv-android/out",  # Hardcoded path to out
+            os.path.join(os.environ.get("HOME", ""), "out")  # out in user's home
+        ]
+        
+        # Define the file paths for static analysis results
+        # For each directory, try both naming formats (with and without .apk)
+        gesda_file = None
+        gator_file = None
+        reach_file = None
+        
+        # Look for files in each directory
+        for search_dir in search_dirs:
+            if not os.path.exists(search_dir):
+                continue
+                
+            # Try with and without .apk suffix
+            for file_basename in [apk_basename, f"{apk_basename}.apk"]:
+                potential_gesda = os.path.join(search_dir, f"{file_basename}.gesda")
+                potential_gator = os.path.join(search_dir, f"{file_basename}.wtg")
+                potential_reach = os.path.join(search_dir, f"{file_basename}.reach")
+                
+                # Set the file path if found
+                if os.path.exists(potential_gesda) and not gesda_file:
+                    gesda_file = potential_gesda
+                    self.logger.info(f"Found GESDA file: {gesda_file}")
+                    
+                if os.path.exists(potential_gator) and not gator_file:
+                    gator_file = potential_gator
+                    self.logger.info(f"Found GATOR file: {gator_file}")
+                    
+                if os.path.exists(potential_reach) and not reach_file:
+                    reach_file = potential_reach
+                    self.logger.info(f"Found REACH file: {reach_file}")
+        
+        # Check if files exist
+        missing_files = []
+        
+        # GESDA is always required
+        if not gesda_file:
+            missing_files.append("GESDA file not found in any search directory")
+            self.logger.warning("GESDA file not found in any search directory")
+        
+        # For standard level, we also need GATOR
+        if level in ["standard", "detailed"]:
+            if not gator_file:
+                self.logger.warning("GATOR file not found in any search directory")
+                if level == "standard":
+                    missing_files.append("GATOR file not found in any search directory")
+        
+        # For detailed level, we need REACH
+        if level == "detailed":
+            if not reach_file:
+                self.logger.warning("REACH file not found in any search directory")
+                missing_files.append("REACH file not found in any search directory")
+        
+        # For basic level, only GESDA is required
+        # For standard level, GESDA and GATOR are required
+        # For detailed level, all files are required
+        
+        # If any required files are missing (according to level), log an error and return None
+        if missing_files:
+            self.logger.error(f"Missing required static analysis files for {apk_basename}: {', '.join(missing_files)}")
+            if level != "basic":
+                self.logger.info(f"Consider using a lower analysis level (current: {level})")
+            return None
         
         try:
-            # For basic level, only run GESDA
-            if level == "basic":
-                analyzer._run_gesda()
-            # For standard level, run GESDA and GATOR
-            elif level == "standard":
-                analyzer._run_gesda()
-                analyzer._run_gator()
-            # For detailed level, run all analyzers
-            else:
-                analyzer.analyze()
+            # Parse the static analysis files based on the analysis level
+            parser = StaticAnalysisParser()
             
-            # Get static data
-            static_data = analyzer.get_static_data()
+            # Parse the files
+            self.logger.info(f"Loading static analysis data for {apk_basename} (level: {level})")
+            
+            # Print debug info about found files
+            self.logger.info(f"Static analysis files for {apk_basename}:")
+            self.logger.info(f"  GESDA file: {gesda_file} (found: {bool(gesda_file)})")
+            self.logger.info(f"  GATOR file: {gator_file} (found: {bool(gator_file)})")
+            self.logger.info(f"  REACH file: {reach_file} (found: {bool(reach_file)})")
+            
+            # Set up paths, using empty string as fallback for missing files
+            gesda_file_path = gesda_file if gesda_file else ""
+            gator_file_path = gator_file if gator_file else ""
+            reach_file_path = reach_file if reach_file else ""
+            
+            self.logger.info(f"Using files for parsing:")
+            self.logger.info(f"  GESDA: {gesda_file_path}")
+            self.logger.info(f"  GATOR: {gator_file_path}")
+            self.logger.info(f"  REACH: {reach_file_path}")
+            
+            # Parse with the available files
+            try:
+                # Try parsing with the reach file
+                static_data = parser.parse(
+                    reach_file=reach_file_path,
+                    gator_file=gator_file_path,
+                    gesda_file=gesda_file_path,
+                    package=app.package_name
+                )
+            except Exception as e:
+                self.logger.error(f"Error parsing with reach file: {str(e)}")
+                self.logger.info("Trying to parse without reach file")
+                
+                # Fallback: try parsing without reach file (using empty string)
+                try:
+                    static_data = parser.parse(
+                        reach_file="",
+                        gator_file=gator_file_path,
+                        gesda_file=gesda_file_path,
+                        package=app.package_name
+                    )
+                except Exception as fallback_error:
+                    self.logger.error(f"Fallback error: {str(fallback_error)}")
+                    # Last resort: try to create a minimal static data object
+                    from rvandroid.domain.classes import Classes
+                    from rvandroid.domain.window import Windows
+                    from rvandroid.domain.wtg import WindowTransitionGraph
+                    static_data = StaticAnalysisData(Classes(), Windows(), WindowTransitionGraph())
             
             # Cache results
             if static_data:
                 self.static_analysis_cache[cache_key] = static_data
+                # Add detailed logs about the loaded data
+                classes_count = len(static_data.classes.classes) if static_data.classes else 0
+                windows_count = len(static_data.windows.windows) if static_data.windows else 0
+                wtg_count = len(static_data.wtg.transitions) if (static_data.wtg and hasattr(static_data.wtg, 'transitions')) else 0
+                
+                self.logger.info(f"Successfully loaded static analysis data for {apk_basename}: "
+                               f"classes={classes_count}, windows={windows_count}, transitions={wtg_count}")
+            else:
+                self.logger.warning(f"Failed to create static analysis data for {apk_basename}")
             
             return static_data
             
         except Exception as e:
-            self.logger.error(f"Error in static analysis: {str(e)}", exc_info=True)
+            self.logger.error(f"Error parsing static analysis files: {str(e)}", exc_info=True)
             return None
     
-    def _configure_tool(self, tool_config: ToolConfiguration, static_data: Optional[StaticAnalysisData]) -> ToolSpec:
+    def _configure_tool(self, tool_config: ToolConfiguration, static_data: Optional[StaticAnalysisData]) -> AbstractTool:
         """
         Configure a tool based on test configuration.
         
@@ -258,11 +420,21 @@ class TestExecutor:
         Raises:
             ValueError: If tool configuration is invalid
         """
-        # Get tool from factory
-        tool = self.tool_factory.get_tool(tool_config.tool_name)
+        # Import ToolRegistry
+        from rvandroid.tools.registry import ToolRegistry
+        
+        # Get tool registry instance
+        registry = ToolRegistry.get_instance()
+        
+        # Get tool from registry
+        tool = registry.get_tool(tool_config.tool_name)
         
         if not tool:
             raise ValueError(f"Unknown tool: {tool_config.tool_name}")
+        
+        # Create a deep copy of the tool (to avoid modifying the original)
+        import copy
+        tool = copy.deepcopy(tool)
         
         # Create component configurator
         configurator = ComponentConfigurator(static_data)
@@ -306,7 +478,7 @@ class TestExecutor:
     
     def _create_task(self, 
                     app: App, 
-                    tool: ToolSpec,
+                    tool: AbstractTool,
                     result_dir: str,
                     trace_file: str,
                     logcat_file: str,
@@ -325,32 +497,30 @@ class TestExecutor:
         Returns:
             Task configured for execution
         """
-        # Create task configuration
-        task_config = TaskConfig(
+        from rvandroid.experiment.task.task_model import TaskConfiguration
+        
+        # Create task configuration with additional parameters
+        task_config = TaskConfiguration(
+            apk_name=app.package_name,
+            repetition=1,
             timeout=tool_config.timeout,
-            device_id="emulator-5554"  # Default device ID
+            tool_name=tool.name,
+            device_id="emulator-5554",
+            no_window=tool_config.no_window
         )
-        
-        # Create task result
-        task_result = TaskResult(
-            output_dir=result_dir,
-            trace_file=trace_file,
-            logcat_file=logcat_file
-        )
-        
-        # Create unique task ID
-        task_id = f"{app.package_name}_{tool.name}_{int(time.time())}"
         
         # Create task
-        task = Task(
-            id=task_id,
-            app_name=app.package_name,
-            app_path=app.path,
-            tool_name=tool.name,
-            config=task_config,
-            result=task_result,
-            status=TaskStatus.CREATED
-        )
+        task = Task(task_config)
+        
+        # Set result file paths
+        task.result.trace_file = trace_file
+        task.result.logcat_file = logcat_file
+        
+        # Set results directory
+        task.results_dir = result_dir
+        
+        # Set app instance
+        task.set_app(app)
         
         return task
     
@@ -366,16 +536,23 @@ class TestExecutor:
         try:
             # Check if logcat file exists
             if os.path.exists(task.result.logcat_file):
-                # Parse logcat file
-                logcat_data = parse_logcat_file(task.result.logcat_file)
+                # Parse logcat file WITH static data - this ensures the static data is
+                # properly initialized in the repository for coverage calculation
+                # This is critical - without passing static_data here, coverage will be 0%
+                logcat_data = parse_logcat_file(task.result.logcat_file, task.static_data)
                 
                 # Create integrated metrics calculator
                 calculator = IntegratedMetricsCalculator(app.package_name)
+                
+                # Set logcat data
                 calculator.set_logcat_data(logcat_data)
                 
-                # Set static data if available
+                # Set static data if available (although it's already used in logcat parsing)
                 if task.static_data:
+                    self.logger.info(f"Setting static data to calculator (has classes: {bool(task.static_data.classes)})")
                     calculator.set_static_data(task.static_data)
+                else:
+                    self.logger.warning("No static data available on task for metrics calculation")
                 
                 # Calculate metrics
                 analysis_result = calculator.calculate_metrics()
@@ -396,25 +573,22 @@ class TestRunner:
     """
     Runner for executing test suites.
     
-    Manages the execution of test suites, including parallel execution
-    of test cases and result aggregation.
+    Manages the execution of test suites sequentially
+    and aggregates results.
     
     ### Key Responsibilities:
     - Executes test suites
-    - Manages parallel test execution
     - Collects and aggregates test results
     - Provides progress monitoring and reporting
     """
     
-    def __init__(self, max_workers: int = 1, output_dir: str = "test_results"):
+    def __init__(self, output_dir: str = "test_results"):
         """
         Initialize the test runner.
         
         Args:
-            max_workers: Maximum number of parallel test executions
             output_dir: Directory for test results
         """
-        self.max_workers = max_workers
         self.output_dir = output_dir
         os.makedirs(output_dir, exist_ok=True)
         
@@ -433,7 +607,7 @@ class TestRunner:
     def run_test_suite(self, test_suite: TestSuite, 
                       progress_callback: Optional[Callable[[int, int, str], None]] = None) -> List[TestResult]:
         """
-        Run a complete test suite.
+        Run a complete test suite sequentially.
         
         Args:
             test_suite: Test suite to run
@@ -470,52 +644,31 @@ class TestRunner:
         suite_dir = os.path.join(self.output_dir, f"{test_suite.name}_{timestamp}")
         os.makedirs(suite_dir, exist_ok=True)
         
-        # Execute tests in parallel if multiple workers
-        if self.max_workers > 1:
-            with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
-                # Submit all test cases
-                future_to_test = {
-                    executor.submit(self.executor.execute_test_case, test_case): test_case
-                    for test_case in test_cases
-                }
-                
-                # Process results as they complete
-                completed = 0
-                for future in as_completed(future_to_test):
-                    test_case = future_to_test[future]
-                    try:
-                        result = future.result()
-                        results.append(result)
-                    except Exception as e:
-                        self.logger.error(f"Test case failed: {test_case.get_id()}: {str(e)}")
-                        # Create failure result
-                        result = TestResult(test_case=test_case)
-                        result.mark_error(str(e))
-                        results.append(result)
-                    
-                    # Update progress
-                    completed += 1
-                    if progress_callback:
-                        progress_callback(completed, total_tests, f"Completed: {test_case.get_id()}")
-        else:
-            # Execute tests sequentially
-            for i, test_case in enumerate(test_cases):
-                try:
-                    result = self.executor.execute_test_case(test_case)
-                    results.append(result)
-                except Exception as e:
-                    self.logger.error(f"Test case failed: {test_case.get_id()}: {str(e)}")
-                    # Create failure result
-                    result = TestResult(test_case=test_case)
-                    result.mark_error(str(e))
-                    results.append(result)
-                
-                # Update progress
-                if progress_callback:
-                    progress_callback(i + 1, total_tests, f"Completed: {test_case.get_id()}")
+        # Execute tests sequentially
+        for i, test_case in enumerate(test_cases):
+            try:
+                result = self.executor.execute_test_case(test_case)
+                results.append(result)
+            except Exception as e:
+                self.logger.error(f"Test case failed: {test_case.get_id()}: {str(e)}")
+                # Create failure result
+                result = TestResult(test_case=test_case)
+                result.mark_error(str(e))
+                results.append(result)
+            
+            # Update progress
+            if progress_callback:
+                progress_callback(i + 1, total_tests, f"Completed: {test_case.get_id()}")
         
         # Save results
         self.results = results
+        
+        # Export results to CSV
+        self.export_results_to_csv(self.output_dir)
+        
+        # Generate results summary
+        summary = self.get_results_summary()
+        self.logger.info(f"Test suite summary: {summary}")
         
         # Final progress update
         if progress_callback:
@@ -569,3 +722,88 @@ class TestRunner:
             "avg_execution_time": avg_execution_time,
             "tools": tool_results
         }
+        
+    def export_results_to_csv(self, output_dir: str = None) -> bool:
+        """
+        Export test results to CSV files.
+        
+        Args:
+            output_dir: Directory to save CSV files (defaults to self.output_dir)
+            
+        Returns:
+            True if export was successful, False otherwise
+        """
+        if not self.results:
+            self.logger.warning("No results to export")
+            return False
+            
+        if not output_dir:
+            output_dir = self.output_dir
+            
+        try:
+            # Create CSV files
+            coverage_file = os.path.join(output_dir, "coverage_data.csv")
+            error_file = os.path.join(output_dir, "error_data.csv")
+            
+            import csv
+            
+            # Create coverage CSV file
+            with open(coverage_file, 'w', newline='') as f:
+                writer = csv.writer(f)
+                # Write header
+                writer.writerow([
+                    "test_id", "tool", "app", "llm_model", "strategy", 
+                    "method_coverage", "activity_coverage", "execution_time", 
+                    "status", "timestamp"
+                ])
+                
+                # Write data
+                for result in self.results:
+                    test_id = result.test_case.get_id()
+                    tool = result.test_case.tool_config.tool_name
+                    app = os.path.basename(result.test_case.app_path)
+                    llm_model = result.test_case.tool_config.llm_model
+                    strategy = result.test_case.tool_config.strategy_type
+                    
+                    # Get coverage data
+                    method_coverage = result.coverage_data.get("method_coverage", 0) if hasattr(result, "coverage_data") and result.coverage_data else 0
+                    activity_coverage = result.coverage_data.get("activity_coverage", 0) if hasattr(result, "coverage_data") and result.coverage_data else 0
+                    
+                    # Write row
+                    writer.writerow([
+                        test_id, tool, app, llm_model, strategy,
+                        method_coverage, activity_coverage, result.execution_time,
+                        result.status, result.end_time.isoformat() if result.end_time else ""
+                    ])
+            
+            # Create error CSV file
+            with open(error_file, 'w', newline='') as f:
+                writer = csv.writer(f)
+                # Write header
+                writer.writerow([
+                    "test_id", "tool", "app", "error_message", 
+                    "execution_time", "status", "timestamp"
+                ])
+                
+                # Write data for error results
+                for result in self.results:
+                    if result.status != "error":
+                        continue
+                        
+                    test_id = result.test_case.get_id()
+                    tool = result.test_case.tool_config.tool_name
+                    app = os.path.basename(result.test_case.app_path)
+                    
+                    # Write row
+                    writer.writerow([
+                        test_id, tool, app, result.error_message,
+                        result.execution_time, result.status,
+                        result.end_time.isoformat() if result.end_time else ""
+                    ])
+                    
+            self.logger.info(f"Results exported to {coverage_file} and {error_file}")
+            return True
+            
+        except Exception as e:
+            self.logger.error(f"Error exporting results to CSV: {e}")
+            return False

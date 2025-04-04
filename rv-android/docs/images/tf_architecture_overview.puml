@@ -1,0 +1,57 @@
+@startuml tf_architecture_overview
+!theme plain
+skinparam backgroundColor white
+skinparam componentStyle rectangle
+skinparam packageStyle rectangle
+skinparam ArrowColor black
+skinparam useBetaStyle true
+
+package "RV-Android Ecosystem" {
+  package "Android Testing" {
+    [Emulator Manager] as Emulator
+    [App Installer] as Installer
+    [Coverage Monitor] as Coverage
+  }
+  
+  package "LLM Components" {
+    [LLM Models] as Models
+    [Prompt Strategies] as Prompts
+    [LLM Service] as LLMService
+  }
+  
+  package "Test Framework" as TF {
+    [Test Configuration] as Config
+    [Test Execution] as Exec
+    [Analysis Engine] as Analysis
+    [Visualization] as Vis
+    [Dashboard] as Dashboard
+  }
+  
+  package "Input" {
+    [Apps] as Apps
+    [Test Suites] as Suites
+  }
+  
+  package "Output" {
+    [Results] as Results
+    [Reports] as Reports
+    [Recommendations] as Recommendations
+  }
+  
+  Apps --> TF
+  Suites --> TF
+  
+  TF --> Results
+  TF --> Reports
+  TF --> Recommendations
+  
+  TF <--> Emulator
+  TF <--> Installer
+  TF <--> Coverage
+  
+  TF <--> Models
+  TF <--> Prompts
+  TF <--> LLMService
+}
+
+@enduml

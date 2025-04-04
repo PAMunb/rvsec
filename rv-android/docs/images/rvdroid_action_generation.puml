@@ -1,0 +1,67 @@
+@startuml rvdroid_action_generation
+!theme plain
+skinparam backgroundColor white
+skinparam ArrowColor black
+skinparam useBetaStyle true
+
+title RVDroid Action Generation Process
+
+|UI State Capture|
+start
+:Capture UI hierarchy via UIAutomator;
+:Parse XML structure;
+:Map to UI elements;
+:Take screenshot (if enabled);
+
+|State Analysis|
+:Analyze UI state;
+:Identify interactive elements;
+:Detect screen type;
+:Extract text features;
+:Evaluate security relevance;
+
+|Context Analysis|
+:Access memory system;
+:Retrieve state history;
+:Determine application context;
+:Identify current task;
+:Analyze navigation patterns;
+
+|Opportunity Detection|
+:Identify testing opportunities;
+:Match with monitored methods;
+:Rate opportunities by relevance;
+:Prioritize security-sensitive paths;
+
+|Strategy Selection|
+:Check LLM directives (if any);
+:Evaluate strategy effectiveness;
+:Select appropriate strategy;
+if (Strategy needs LLM guidance?) then (yes)
+  :Consult LLM for guidance;
+endif
+
+|Action Selection|
+:Strategy generates action candidates;
+:Apply memory-based recommendations;
+:Apply LLM directives (if any);
+:Evaluate each action's potential;
+:Select highest-value action;
+
+|Action Execution|
+:Prepare action parameters;
+:Select interaction method;
+:Execute on device via UIAutomator;
+:Monitor for completion;
+:Handle timeouts;
+
+|Result Processing|
+:Capture resulting state;
+:Determine action success;
+:Measure state changes;
+:Update memory system;
+:Track progress metrics;
+
+stop
+
+@enduml

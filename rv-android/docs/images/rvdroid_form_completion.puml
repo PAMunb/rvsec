@@ -1,0 +1,78 @@
+@startuml rvdroid_form_completion
+!theme plain
+skinparam backgroundColor white
+skinparam ArrowColor black
+skinparam useBetaStyle true
+
+title RVDroid Form Detection and Completion
+
+start
+
+:Detect UI state with potential form;
+
+:Analyze UI structure;
+
+if (Is a form?) then (yes)
+  :Identify form type;
+  
+  if (Form type?) then (Login Form)
+    :Extract username/email field;
+    :Extract password field;
+    :Identify submit button;
+    :Generate valid credentials;
+    note right: Use context-aware generation
+    
+  else if (Registration Form)
+    :Extract all required fields;
+    :Generate appropriate user data;
+    :Follow field validation rules;
+    :Prepare confirmation if needed;
+    
+  else if (Search Form)
+    :Identify search field;
+    :Generate relevant search terms;
+    :Identify search button;
+    
+  else if (Payment Form)
+    :Extract payment fields;
+    :Generate test payment data;
+    :Handle validation requirements;
+    
+  else (Generic Form)
+    :Identify all input fields;
+    :Classify field types;
+    :Generate appropriate values;
+  endif
+  
+  :Create form filling plan;
+  :Determine field order;
+  :Consider dependent fields;
+  
+  :Execute form filling actions;
+  
+  loop for each form field
+    :Select field;
+    :Enter appropriate value;
+    :Handle any immediate validation;
+  end
+  
+  :Identify submission element;
+  :Submit form;
+  
+  :Observe result;
+  
+  if (Validation errors?) then (yes)
+    :Analyze error messages;
+    :Adjust input values;
+    :Retry with corrected values;
+  endif
+  
+  :Record form completion success/failure;
+  
+else (no)
+  :Continue normal exploration;
+endif
+
+stop
+
+@enduml

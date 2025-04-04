@@ -59,7 +59,7 @@ def parse_logcat_file(log_file: str, static_data=None) -> LogcatRepository:
 def _initialize_repository_from_static_data(repository: LogcatRepository, static_data) -> None:
     """
     Initialize repository with data from static analysis.
-    
+
     Args:
         repository: LogcatRepository instance to initialize
         static_data: Static analysis data

@@ -1,0 +1,80 @@
+@startuml rvdroid_data_flow
+!theme plain
+skinparam backgroundColor white
+skinparam ArrowColor black
+skinparam useBetaStyle true
+
+title RVDroid Data Flow Diagram
+
+agent "Android Device" as Device
+agent "LLM Service" as LLM
+database "Memory System" as Memory {
+    storage "Short-term Memory" as ShortMem
+    storage "Long-term Memory" as LongMem
+}
+database "Static Analysis" as Static
+
+rectangle "UI Data Flow" as UIFlow {
+    control "UIAutomator" as UI
+    control "XML Parser" as XML
+    control "State Analyzer" as StateAn
+    control "State Fingerprinter" as Finger
+}
+
+rectangle "Action Data Flow" as ActionFlow {
+    control "Strategy Balancer" as Strategy
+    control "Action Generator" as ActGen
+    control "Action Executor" as ActExec
+    control "Result Processor" as Result
+}
+
+rectangle "LLM Data Flow" as LLMFlow {
+    control "Context Builder" as Context
+    control "Prompt Processor" as Prompt
+    control "Response Processor" as Response
+    control "Directive Parser" as Directive
+}
+
+rectangle "Analysis Data Flow" as AnalysisFlow {
+    control "Context Analyzer" as ContextAn
+    control "Opportunity Detector" as Opportunity
+    control "Progress Tracker" as Progress
+}
+
+' UI Data Flow
+Device --> UI : Raw UI hierarchy
+UI --> XML : XML representation
+XML --> StateAn : Parse UI structure
+StateAn --> Finger : Create state object
+Finger --> ShortMem : Store fingerprinted state
+
+' Action Data Flow
+ShortMem --> Strategy : Provide state history
+Strategy --> ActGen : Select strategy
+ActGen --> ActExec : Generate action
+ActExec --> Device : Execute on device
+Device --> Result : Capture result
+Result --> ShortMem : Store result
+Result --> LongMem : Update state graph
+
+' LLM Data Flow
+ShortMem --> Context : Provide current state
+LongMem --> Context : Provide exploration history
+Context --> Prompt : Build rich context
+Prompt --> LLM : Send prompt
+LLM --> Response : Receive response
+Response --> Directive : Process response
+Directive --> ActGen : Action directives
+Directive --> Strategy : Strategy directives
+
+' Analysis Data Flow
+ShortMem --> ContextAn : Recent states
+LongMem --> ContextAn : Historical patterns
+ContextAn --> Opportunity : Context information
+Static --> Opportunity : Monitored methods
+Opportunity --> ActGen : Testing opportunities
+ShortMem --> Progress : Current state
+LongMem --> Progress : Historical states
+Progress --> Context : Progress information
+
+@enduml

@@ -1,0 +1,154 @@
+@startuml rvdroid_llm_integration
+!theme plain
+skinparam backgroundColor white
+skinparam classAttributeIconSize 0
+skinparam ArrowColor black
+skinparam useBetaStyle true
+
+title RVDroid LLM Integration
+
+package "LLM Integration" {
+  class LLMService {
+    + initialize(config: LLMConfiguration): void
+    + get_guidance(state: UIState, context: ContextInfo): LLMResponse
+    + process_response(response: LLMResponse): DirectiveSet
+    + update_context(state: UIState, action: UIAction, result: ActionResult): void
+    + is_consultation_needed(): boolean
+    - _prepare_prompt(state: UIState, context: ContextInfo): string
+    - _handle_rate_limiting(): void
+  }
+  
+  package "Context" {
+    class ContextBuilder {
+      + build_context(state: UIState, history: ActionHistory): string
+      + add_progress_info(context: string, progress: ProgressInfo): string
+      + add_testing_goals(context: string, goals: TestingGoal[]): string
+      + build_image_context(screenshot: Screenshot): string
+      - _format_state_description(state: UIState): string
+      - _format_history(history: ActionHistory): string
+    }
+    
+    class StateContextualizer {
+      + contextualize_state(state: UIState): ContextualizedState
+      + extract_key_elements(state: UIState): UIElement[]
+      + highlight_interactive_elements(state: UIState): HighlightedState
+      + summarize_state(state: UIState): string
+      - _identify_important_text(state: UIState): string[]
+    }
+  }
+  
+  package "Directives" {
+    class DirectiveParser {
+      + parse_response(response: string): DirectiveSet
+      + extract_action_directives(response: string): ActionDirective[]
+      + extract_strategy_directives(response: string): StrategyDirective[]
+      + extract_exploration_directives(response: string): ExplorationDirective[]
+      - _parse_action_target(text: string): UIElement
+      - _parse_strategy_name(text: string): string
+    }
+    
+    class DirectiveSet {
+      + action_directives: ActionDirective[]
+      + strategy_directives: StrategyDirective[]
+      + exploration_directives: ExplorationDirective[]
+      + has_action_directives(): boolean
+      + has_strategy_directives(): boolean
+      + has_exploration_directives(): boolean
+      + get_primary_action_directive(): ActionDirective
+    }
+    
+    class ActionDirective {
+      + action_type: ActionType
+      + target_element: string
+      + parameters: Map<string, any>
+      + priority: number
+      + reasoning: string
+      + convert_to_ui_action(state: UIState): UIAction
+    }
+    
+    class StrategyDirective {
+      + strategy_name: string
+      + priority_adjustment: number
+      + exploration_parameters: Map<string, any>
+      + reasoning: string
+      + apply_to_strategy_balancer(balancer: StrategyBalancer): void
+    }
+    
+    class ExplorationDirective {
+      + focus_areas: string[]
+      + avoid_areas: string[]
+      + timeouts: Map<string, number>
+      + special_inputs: Map<string, string>
+      + reasoning: string
+      + apply_to_exploration(optimizer: ExplorationOptimizer): void
+    }
+  }
+  
+  package "Services" {
+    class PromptProcessor {
+      + process_prompt(prompt: string): string
+      + add_system_instruction(prompt: string): string
+      + add_examples(prompt: string, examples: Example[]): string
+      + format_for_model(prompt: string, model: string): string
+      - _optimize_token_usage(prompt: string): string
+      - _add_format_instructions(prompt: string): string
+    }
+    
+    class ResponseProcessor {
+      + process_response(response: string): string
+      + extract_structured_data(response: string): Map<string, any>
+      + validate_response(response: string): boolean
+      + handle_error_responses(response: string): string
+      - _clean_response(response: string): string
+      - _parse_json_blocks(response: string): any[]
+    }
+    
+    class ActionGenerator {
+      + generate_actions(directives: DirectiveSet, state: UIState): UIAction[]
+      + prioritize_actions(actions: UIAction[]): UIAction[]
+      + validate_generated_actions(actions: UIAction[]): UIAction[]
+      - _map_directive_to_action(directive: ActionDirective): UIAction
+      - _find_matching_element(selector: string, state: UIState): UIElement
+    }
+    
+    class LLMManager {
+      + initialize(config: LLMConfiguration): void
+      + get_model(): LLMModel
+      + send_prompt(prompt: string): string
+      + handle_rate_limiting(): void
+      + get_token_usage(): TokenUsage
+      + switch_model(model_name: string): void
+      - _validate_response(response: string): boolean
+      - _optimize_resources(): void
+    }
+    
+    class TransitionManager {
+      + should_consult_llm(state: UIState, context: ContextInfo): boolean
+      + update_consultation_frequency(success_rate: number): void
+      + get_consultation_threshold(): number
+      + track_consultation_effectiveness(directives: DirectiveSet, result: ActionResult): void
+      - _calculate_consultation_value(): number
+      - _adapt_to_resource_constraints(): void
+    }
+  }
+}
+
+' Relationships
+LLMService --> ContextBuilder : uses
+LLMService --> DirectiveParser : uses
+LLMService --> PromptProcessor : uses
+LLMService --> ResponseProcessor : uses
+LLMService --> LLMManager : uses
+LLMService --> TransitionManager : uses
+
+ContextBuilder --> StateContextualizer : uses
+DirectiveParser --> DirectiveSet : produces
+DirectiveSet o-- ActionDirective : contains
+DirectiveSet o-- StrategyDirective : contains
+DirectiveSet o-- ExplorationDirective : contains
+
+LLMService --> ActionGenerator : uses
+ActionGenerator --> DirectiveSet : consumes
+ActionGenerator ..> UIAction : produces
+
+@enduml

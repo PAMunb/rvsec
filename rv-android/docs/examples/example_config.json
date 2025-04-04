@@ -1,0 +1,89 @@
+{
+  "name": "Comprehensive Android Testing Experiment",
+  "description": "Comparing multiple testing tools with various configurations",
+  "repetitions": 3,
+  "timeouts": [60, 120, 300, 600],
+  "no_window": true,
+  "use_enhanced_controller": true,
+  "orchestration_mode": "ADAPTIVE",
+  "generate_monitors": true,
+  "instrument": true,
+  "static_analysis": true,
+  "tools": [
+    {
+      "name": "monkey",
+      "variant": "fixed_seed",
+      "params": {
+        "seed": 42,
+        "throttle": 100,
+        "pct_touch": 30,
+        "pct_motion": 20,
+        "pct_nav": 20
+      }
+    },
+    {
+      "name": "droidbot",
+      "variant": "dfs_greedy",
+      "params": {
+        "count": 1000,
+        "interval": 1.0,
+        "timeout_emulator": 120,
+        "humanoid": false
+      }
+    },
+    {
+      "name": "rvandroid",
+      "variants": ["llama", "single_action"],
+      "params": {
+        "temperature": 0.2,
+        "max_tokens": 800,
+        "model": "llama3.2:3b",
+        "parser_type": "droidbot",
+        "visitor_type": "enhanced",
+        "use_static_analysis": true
+      }
+    },
+    {
+      "name": "rvandroid",
+      "variants": ["gpt4", "composable"],
+      "params": {
+        "temperature": 0.2,
+        "max_tokens": 1000,
+        "model": "gpt-4",
+        "parser_type": "uiautomator",
+        "visitor_type": "enhanced",
+        "use_static_analysis": true
+      }
+    },
+    {
+      "name": "rvdroid",
+      "variants": ["llm_enabled", "detailed_ui"],
+      "params": {
+        "use_llm": true,
+        "llm_model": "llama3.2:3b",
+        "llm_temperature": 0.2,
+        "memory_capacity": 50,
+        "use_visual_analysis": true
+      }
+    },
+    {
+      "name": "fastbot",
+      "variant": "fast",
+      "params": {
+        "throttle": 50,
+        "running_minutes": 10,
+        "app_name": "app_under_test"
+      }
+    }
+  ],
+  "analysis_options": {
+    "generate_visualizations": true,
+    "export_csv": true,
+    "export_excel": true,
+    "enhanced_export": true,
+    "detect_anomalies": true,
+    "anomaly_threshold": 2.0,
+    "analyze_correlations": true,
+    "generate_dashboard": true
+  }
+}

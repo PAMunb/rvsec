@@ -1,0 +1,60 @@
+@startuml rvdroid_security_testing
+!theme plain
+skinparam backgroundColor white
+skinparam ArrowColor black
+skinparam useBetaStyle true
+
+title RVDroid Targeted Security Testing
+
+start
+
+:Perform static analysis of app;
+note right: Identify security-sensitive methods
+
+:Load security specifications;
+note right: Method signatures, entry points, risks
+
+:Build monitored method database;
+:Plan security exploration;
+
+fork
+  :Focus on authentication flows;
+  :Test with valid credentials;
+  :Test with invalid credentials;
+  :Test password recovery flows;
+  :Test session management;
+  :Test for credential storage;
+fork again
+  :Focus on data handling;
+  :Test data input validation;
+  :Test data storage security;
+  :Test data transmission security;
+  :Test for data leakage;
+fork again
+  :Focus on permissions;
+  :Test permission workflows;
+  :Test permission boundaries;
+  :Test permission escalation;
+  :Test for over-privileges;
+fork again
+  :Focus on crypto operations;
+  :Test crypto implementations;
+  :Test key management;
+  :Test for weak algorithms;
+  :Test for insecure parameters;
+end fork
+
+:Calculate coverage of security-sensitive methods;
+:Identify missed security flows;
+
+if (All security targets tested?) then (yes)
+  :Generate comprehensive security report;
+else (no)
+  :Optimize exploration for missed targets;
+  :Prioritize remaining security paths;
+  :Continue exploration;
+endif
+
+stop
+
+@enduml
