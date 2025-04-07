@@ -146,19 +146,35 @@ class IntegratedCoverageMetrics:
 
 
 @dataclass
-class SecurityMetrics:
+class MonitoredOperationsMetrics:
     """
-    Security-specific metrics for application analysis.
+    Metrics for monitored operations in application analysis.
     
-    Captures detailed metrics about security-relevant aspects of the application,
-    including vulnerabilities, MOP specifications, and potential issues.
+    Captures detailed metrics about operations being monitored by specifications,
+    including MOP specifications, violations, and patterns of monitored behavior.
+    
+    This class represents metrics for operations that are being monitored by
+    any type of specification, not limited to security specifications.
     """
+    # MOP specification metrics
     mop_specifications: int = 0
     mop_triggers: int = 0
     triggered_specifications: Set[str] = field(default_factory=set)
-    potential_vulnerabilities: int = 0
-    detected_vulnerabilities: int = 0
-    vulnerability_categories: Dict[str, int] = field(default_factory=dict)
+    
+    # Specification categories
+    spec_categories: Dict[str, int] = field(default_factory=dict)
+    
+    # Operation monitoring
+    monitored_operations_count: int = 0
+    monitored_operations_triggered: int = 0
+    
+    # Detailed specification data
+    spec_trigger_count: Dict[str, int] = field(default_factory=dict)
+    spec_operation_map: Dict[str, List[str]] = field(default_factory=dict)
+    
+    # Pattern analysis
+    operation_sequence_patterns: Dict[str, int] = field(default_factory=dict)
+    common_violation_contexts: Dict[str, int] = field(default_factory=dict)
     
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for serialization."""
@@ -169,7 +185,7 @@ class SecurityMetrics:
         return data
     
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> 'SecurityMetrics':
+    def from_dict(cls, data: Dict[str, Any]) -> 'MonitoredOperationsMetrics':
         """Create from dictionary."""
         # Handle special fields
         if 'triggered_specifications' in data and isinstance(data['triggered_specifications'], list):
@@ -177,19 +193,54 @@ class SecurityMetrics:
         else:
             triggered_specifications = set()
             
-        if 'vulnerability_categories' in data and isinstance(data['vulnerability_categories'], dict):
-            vulnerability_categories = data['vulnerability_categories']
+        if 'spec_categories' in data and isinstance(data['spec_categories'], dict):
+            spec_categories = data['spec_categories']
         else:
-            vulnerability_categories = {}
+            spec_categories = {}
+            
+        if 'spec_trigger_count' in data and isinstance(data['spec_trigger_count'], dict):
+            spec_trigger_count = data['spec_trigger_count']
+        else:
+            spec_trigger_count = {}
+            
+        if 'spec_operation_map' in data and isinstance(data['spec_operation_map'], dict):
+            spec_operation_map = data['spec_operation_map']
+        else:
+            spec_operation_map = {}
+            
+        if 'operation_sequence_patterns' in data and isinstance(data['operation_sequence_patterns'], dict):
+            operation_sequence_patterns = data['operation_sequence_patterns']
+        else:
+            operation_sequence_patterns = {}
+            
+        if 'common_violation_contexts' in data and isinstance(data['common_violation_contexts'], dict):
+            common_violation_contexts = data['common_violation_contexts']
+        else:
+            common_violation_contexts = {}
             
         return cls(
             mop_specifications=data.get('mop_specifications', 0),
             mop_triggers=data.get('mop_triggers', 0),
             triggered_specifications=triggered_specifications,
-            potential_vulnerabilities=data.get('potential_vulnerabilities', 0),
-            detected_vulnerabilities=data.get('detected_vulnerabilities', 0),
-            vulnerability_categories=vulnerability_categories
+            spec_categories=spec_categories,
+            monitored_operations_count=data.get('monitored_operations_count', 0),
+            monitored_operations_triggered=data.get('monitored_operations_triggered', 0),
+            spec_trigger_count=spec_trigger_count,
+            spec_operation_map=spec_operation_map,
+            operation_sequence_patterns=operation_sequence_patterns,
+            common_violation_contexts=common_violation_contexts
         )
+        
+    def get_monitored_operations_ratio(self) -> float:
+        """
+        Calculate the ratio of triggered monitored operations.
+        
+        Returns:
+            Ratio as a percentage (0-100)
+        """
+        if self.monitored_operations_count > 0:
+            return (self.monitored_operations_triggered / self.monitored_operations_count) * 100
+        return 0.0
 
 
 @dataclass
@@ -197,36 +248,69 @@ class IntegratedAnalysisResult:
     """
     Comprehensive integrated analysis result.
     
-    Combines static analysis metrics, runtime coverage, and security metrics
-    into a unified analysis result for a complete view of the application.
+    Combines static analysis metrics, runtime coverage, monitored operations metrics,
+    and error data into a unified analysis result for a complete view of the application.
+    
+    This class provides a holistic representation of an application's behavior,
+    including its structure, runtime coverage, monitored operations violations,
+    and overall performance characteristics.
     """
     app_id: str
     static_metrics: StaticAnalysisMetrics
     coverage: IntegratedCoverageMetrics
-    security: SecurityMetrics
+    monitored_operations: MonitoredOperationsMetrics
     performance: PerformanceMetrics = field(default_factory=PerformanceMetrics)
     errors: ErrorMetrics = field(default_factory=ErrorMetrics)
     timestamp: str = field(default_factory=lambda: datetime.now().isoformat())
     
     def to_dict(self) -> Dict[str, Any]:
-        """Convert to dictionary for serialization."""
+        """
+        Convert to dictionary for serialization.
+        
+        Returns:
+            Dictionary with all metrics for serialization
+        """
         return {
             'app_id': self.app_id,
             'timestamp': self.timestamp,
             'static_metrics': self.static_metrics.to_dict(),
             'coverage': self.coverage.to_dict(),
-            'security': self.security.to_dict(),
+            'monitored_operations': self.monitored_operations.to_dict(),
             'performance': self.performance.to_dict(),
             'errors': self.errors.to_dict()
         }
     
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> 'IntegratedAnalysisResult':
-        """Create from dictionary."""
+        """
+        Create from dictionary.
+        
+        Args:
+            data: Dictionary with serialized analysis data
+            
+        Returns:
+            IntegratedAnalysisResult instance
+        """
         # Convert component metrics
         static_metrics = StaticAnalysisMetrics.from_dict(data.get('static_metrics', {}))
         coverage = IntegratedCoverageMetrics.from_dict(data.get('coverage', {}))
-        security = SecurityMetrics.from_dict(data.get('security', {}))
+        
+        # Handle backward compatibility for security -> monitored_operations
+        if 'monitored_operations' in data:
+            monitored_operations = MonitoredOperationsMetrics.from_dict(data.get('monitored_operations', {}))
+        elif 'security' in data:
+            # Convert legacy security metrics to monitored operations
+            security_data = data.get('security', {})
+            monitored_data = {
+                'mop_specifications': security_data.get('mop_specifications', 0),
+                'mop_triggers': security_data.get('mop_triggers', 0),
+                'triggered_specifications': security_data.get('triggered_specifications', []),
+                'spec_categories': security_data.get('vulnerability_categories', {})
+            }
+            monitored_operations = MonitoredOperationsMetrics.from_dict(monitored_data)
+        else:
+            monitored_operations = MonitoredOperationsMetrics()
+            
         performance = PerformanceMetrics.from_dict(data.get('performance', {}))
         errors = ErrorMetrics.from_dict(data.get('errors', {}))
         
@@ -235,7 +319,7 @@ class IntegratedAnalysisResult:
             app_id=data.get('app_id', 'unknown'),
             static_metrics=static_metrics,
             coverage=coverage,
-            security=security,
+            monitored_operations=monitored_operations,
             performance=performance,
             errors=errors,
             timestamp=data.get('timestamp', datetime.now().isoformat())
@@ -307,6 +391,10 @@ class IntegratedMetricsCalculator:
         """
         Calculate integrated metrics from available data.
         
+        This method orchestrates the calculation of all metrics categories
+        including static metrics, coverage metrics, monitored operations metrics,
+        and error data, then combines them into a comprehensive result.
+        
         Returns:
             IntegratedAnalysisResult with comprehensive metrics
         """
@@ -317,14 +405,60 @@ class IntegratedMetricsCalculator:
         # Initialize metrics
         static_metrics = self._calculate_static_metrics()
         coverage_metrics = self._calculate_coverage_metrics()
-        security_metrics = self._calculate_security_metrics()
+        monitored_ops_metrics = self._calculate_monitored_operations_metrics()
+        
+        # Initialize error metrics
+        error_metrics = ErrorMetrics()
+        
+        # Populate error metrics from monitored operations data
+        if self.logcat_data and hasattr(self.logcat_data, 'errors'):
+            error_metrics.total_errors = len(self.logcat_data.errors)
+            
+            # Track MOP-specific errors
+            mop_errors = []
+            mop_error_types = {}
+            mop_specs_triggered = []
+            mop_specs_triggered_counts = {}
+            
+            # Populate MOP error data
+            for error in self.logcat_data.errors:
+                if hasattr(error, 'spec') and error.spec:
+                    mop_errors.append(error)
+                    mop_specs_triggered.append(error.spec)
+                    
+                    # Count occurrences of each specification
+                    mop_specs_triggered_counts[error.spec] = mop_specs_triggered_counts.get(error.spec, 0) + 1
+                    
+                    # Count error types
+                    if hasattr(error, 'error_type') and error.error_type:
+                        error_type = error.error_type
+                        mop_error_types[error_type] = mop_error_types.get(error_type, 0) + 1
+            
+            # Update error metrics
+            error_metrics.mop_error_count = len(mop_errors)
+            error_metrics.mop_unique_errors = len(set(mop_specs_triggered))
+            error_metrics.mop_error_categories = mop_error_types
+            error_metrics.mop_specs_triggered = list(set(mop_specs_triggered))
+            error_metrics.mop_specs_triggered_counts = mop_specs_triggered_counts
+            
+            # Transfer monitoring metrics
+            error_metrics.monitored_operations_count = monitored_ops_metrics.monitored_operations_count
+            error_metrics.monitored_operations_triggered = monitored_ops_metrics.monitored_operations_triggered
+            error_metrics.update_monitored_operations_ratio()
+            
+            # Calculate error rate if execution time is available
+            if hasattr(self.logcat_data, 'execution_time') and self.logcat_data.execution_time > 0:
+                error_metrics.error_rate = error_metrics.total_errors / self.logcat_data.execution_time
+                error_metrics.mop_error_rate = error_metrics.mop_error_count / self.logcat_data.execution_time
         
         # Create result
         result = IntegratedAnalysisResult(
             app_id=self.app_id,
             static_metrics=static_metrics,
             coverage=coverage_metrics,
-            security=security_metrics
+            monitored_operations=monitored_ops_metrics,
+            performance=PerformanceMetrics(),  # Default performance metrics
+            errors=error_metrics
         )
         
         return result
@@ -523,14 +657,18 @@ class IntegratedMetricsCalculator:
             
         return metrics
     
-    def _calculate_security_metrics(self) -> SecurityMetrics:
+    def _calculate_monitored_operations_metrics(self) -> MonitoredOperationsMetrics:
         """
-        Calculate security metrics from available data.
+        Calculate monitored operations metrics from available data.
+        
+        This method analyzes both static and runtime data to calculate metrics about
+        operations being monitored by specifications, including their violations
+        and patterns of behavior.
         
         Returns:
-            SecurityMetrics with security-specific information
+            MonitoredOperationsMetrics with monitored operations information
         """
-        metrics = SecurityMetrics()
+        metrics = MonitoredOperationsMetrics()
         
         # If no data available, return empty metrics
         if not self.static_data and not self.logcat_data:
@@ -540,36 +678,75 @@ class IntegratedMetricsCalculator:
         if self.static_data:
             # Count MOP specifications
             mop_specs = set()
+            spec_operation_map = {}
+            monitored_operations_count = 0
+            
             for cls in self.static_data.classes.classes.values():
                 # methods is a Set, not a Dict with values()
                 for method in cls.methods:
                     if (hasattr(method, 'reaches_mop') and method.reaches_mop and 
                         hasattr(method, 'mop_specs') and method.mop_specs):
+                        # Add to specifications set
                         mop_specs.update(method.mop_specs)
+                        
+                        # Track monitored operations
+                        monitored_operations_count += 1
+                        
+                        # Map specifications to operations
+                        method_id = f"{cls.name}.{method.name}" if hasattr(method, 'name') else f"{cls.name}.unknown"
+                        for spec in method.mop_specs:
+                            if spec not in spec_operation_map:
+                                spec_operation_map[spec] = []
+                            spec_operation_map[spec].append(method_id)
             
             metrics.mop_specifications = len(mop_specs)
-            metrics.potential_vulnerabilities = len(mop_specs)  # Assuming each spec represents a potential issue
+            metrics.spec_operation_map = spec_operation_map
+            metrics.monitored_operations_count = monitored_operations_count
         
         # Calculate metrics from logcat data
         if self.logcat_data:
             # Count triggered specifications
             triggered_specs = set()
+            spec_trigger_count = {}
+            spec_categories = {}
+            monitored_operations_triggered = 0
+            operation_sequence_patterns = {}
+            common_violation_contexts = {}
+            
             for error in self.logcat_data.errors:
                 # RvErrorLog has 'spec' attribute, not 'mop_spec'
                 if hasattr(error, 'spec') and error.spec:
-                    triggered_specs.add(error.spec)
+                    # Add to triggered specifications
+                    spec = error.spec
+                    triggered_specs.add(spec)
+                    
+                    # Count triggers per specification
+                    spec_trigger_count[spec] = spec_trigger_count.get(spec, 0) + 1
+                    
+                    # Count monitored operations triggered
+                    monitored_operations_triggered += 1
+                    
+                    # Count specification categories
+                    if hasattr(error, 'error_type') and error.error_type:
+                        category = error.error_type
+                        spec_categories[category] = spec_categories.get(category, 0) + 1
+                    
+                    # Track violation context if available
+                    if hasattr(error, 'context') and error.context:
+                        context = error.context
+                        common_violation_contexts[context] = common_violation_contexts.get(context, 0) + 1
+                        
+                    # Track operation sequence patterns if available
+                    if hasattr(error, 'operation_sequence') and error.operation_sequence:
+                        sequence = error.operation_sequence
+                        operation_sequence_patterns[sequence] = operation_sequence_patterns.get(sequence, 0) + 1
             
             metrics.triggered_specifications = triggered_specs
             metrics.mop_triggers = len(self.logcat_data.errors)
-            metrics.detected_vulnerabilities = len(triggered_specs)
-            
-            # Count vulnerability categories
-            vulnerability_categories = {}
-            for error in self.logcat_data.errors:
-                if hasattr(error, 'error_type') and error.error_type:
-                    category = error.error_type
-                    vulnerability_categories[category] = vulnerability_categories.get(category, 0) + 1
-            
-            metrics.vulnerability_categories = vulnerability_categories
+            metrics.spec_trigger_count = spec_trigger_count
+            metrics.spec_categories = spec_categories
+            metrics.monitored_operations_triggered = monitored_operations_triggered
+            metrics.operation_sequence_patterns = operation_sequence_patterns
+            metrics.common_violation_contexts = common_violation_contexts
             
         return metrics

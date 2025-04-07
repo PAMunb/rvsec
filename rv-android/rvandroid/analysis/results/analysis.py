@@ -175,23 +175,44 @@ class ErrorMetrics:
     
     ### Architectural Decisions:
     - Uses dataclass for type safety and serialization
-    - Encapsulates all relevant error metrics
-    - Provides clear, structured data representation
-    - Facilitates consistent metric tracking and reporting
+    - Encapsulates all relevant error metrics including MOP violations
+    - Provides clear, structured data representation for monitored operations
+    - Facilitates consistent metric tracking and reporting across tools
+    - Separates system errors from specification violations
     
     ### Role in the System:
     - Provides a comprehensive view of error characteristics
-    - Enables detailed error analysis and reporting
+    - Enables detailed MOP error analysis and reporting
     - Supports standardized error metric representation
     - Facilitates comparison between different tools/apps
+    - Captures monitored operation violations and patterns
     """
+    # General error metrics
     total_errors: int = 0
     unique_errors: int = 0
     error_categories: Dict[str, int] = field(default_factory=dict)
     error_rate: float = 0.0  # errors per unit time
+    
+    # System errors
     app_crash_count: int = 0
     tool_crash_count: int = 0
     system_crash_count: int = 0
+    
+    # MOP specific metrics
+    mop_error_count: int = 0
+    mop_unique_errors: int = 0
+    mop_error_categories: Dict[str, int] = field(default_factory=dict)
+    mop_error_rate: float = 0.0  # MOP errors per unit time
+    
+    # Detailed MOP metrics
+    mop_specs_triggered: List[str] = field(default_factory=list)
+    mop_specs_triggered_counts: Dict[str, int] = field(default_factory=dict)
+    mop_spec_categories: Dict[str, int] = field(default_factory=dict)
+    
+    # Operation monitoring metrics
+    monitored_operations_count: int = 0
+    monitored_operations_triggered: int = 0
+    monitored_operations_ratio: float = 0.0  # Triggered/total ratio
     
     def to_dict(self) -> Dict[str, Any]:
         """
@@ -200,7 +221,11 @@ class ErrorMetrics:
         Returns:
             Dictionary representation
         """
-        return {k: v for k, v in self.__dict__.items() if not k.startswith('_')}
+        data = {k: v for k, v in self.__dict__.items() if not k.startswith('_')}
+        # Convert lists to ensure JSON serialization
+        if 'mop_specs_triggered' in data and isinstance(data['mop_specs_triggered'], list):
+            data['mop_specs_triggered'] = list(data['mop_specs_triggered'])
+        return data
     
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> 'ErrorMetrics':
@@ -219,17 +244,67 @@ class ErrorMetrics:
         else:
             error_categories = {}
             
+        if 'mop_error_categories' in data and isinstance(data['mop_error_categories'], dict):
+            mop_error_categories = data['mop_error_categories']
+        else:
+            mop_error_categories = {}
+            
+        if 'mop_specs_triggered_counts' in data and isinstance(data['mop_specs_triggered_counts'], dict):
+            mop_specs_triggered_counts = data['mop_specs_triggered_counts']
+        else:
+            mop_specs_triggered_counts = {}
+            
+        if 'mop_spec_categories' in data and isinstance(data['mop_spec_categories'], dict):
+            mop_spec_categories = data['mop_spec_categories']
+        else:
+            mop_spec_categories = {}
+            
+        if 'mop_specs_triggered' in data and isinstance(data['mop_specs_triggered'], list):
+            mop_specs_triggered = data['mop_specs_triggered']
+        else:
+            mop_specs_triggered = []
+            
         result = cls(
+            # General errors
             total_errors=data.get('total_errors', 0),
             unique_errors=data.get('unique_errors', 0),
             error_categories=error_categories,
             error_rate=data.get('error_rate', 0.0),
+            
+            # System errors
             app_crash_count=data.get('app_crash_count', 0),
             tool_crash_count=data.get('tool_crash_count', 0),
-            system_crash_count=data.get('system_crash_count', 0)
+            system_crash_count=data.get('system_crash_count', 0),
+            
+            # MOP errors
+            mop_error_count=data.get('mop_error_count', 0),
+            mop_unique_errors=data.get('mop_unique_errors', 0),
+            mop_error_categories=mop_error_categories,
+            mop_error_rate=data.get('mop_error_rate', 0.0),
+            
+            # MOP details
+            mop_specs_triggered=mop_specs_triggered,
+            mop_specs_triggered_counts=mop_specs_triggered_counts,
+            mop_spec_categories=mop_spec_categories,
+            
+            # Monitored operations
+            monitored_operations_count=data.get('monitored_operations_count', 0),
+            monitored_operations_triggered=data.get('monitored_operations_triggered', 0),
+            monitored_operations_ratio=data.get('monitored_operations_ratio', 0.0)
         )
         
         return result
+        
+    def update_monitored_operations_ratio(self) -> None:
+        """
+        Update the monitored operations ratio based on current counts.
+        """
+        if self.monitored_operations_count > 0:
+            self.monitored_operations_ratio = (
+                self.monitored_operations_triggered / self.monitored_operations_count * 100
+            )
+        else:
+            self.monitored_operations_ratio = 0.0
 
 
 @dataclass

@@ -29,8 +29,16 @@ class ConfigurationMetrics:
     """
     Metrics for evaluating a specific configuration.
     
-    Captures performance metrics for a configuration across multiple test cases,
-    enabling comparison and ranking of different configurations.
+    Captures comprehensive performance metrics for a configuration across 
+    multiple test cases, enabling detailed comparison and ranking of different 
+    configurations based on coverage, monitored operations, and efficiency.
+    
+    ### Key Metrics:
+    - Execution metrics (success rate, execution time)
+    - Coverage metrics (method, activity, MOP methods)
+    - Monitored operations metrics
+    - MOP error detection metrics
+    - Component configuration details
     """
     config_id: str
     tool_name: str
@@ -53,6 +61,19 @@ class ConfigurationMetrics:
     total_errors: int = 0
     unique_errors: int = 0
     
+    # MOP error metrics
+    mop_error_count: int = 0
+    mop_unique_errors: int = 0
+    avg_mop_error_rate: float = 0.0
+    
+    # Monitored operations metrics
+    monitored_operations_count: int = 0
+    monitored_operations_triggered: int = 0
+    avg_monitored_operations_ratio: float = 0.0
+    
+    # MOP error categories
+    mop_error_categories: Dict[str, int] = field(default_factory=dict)
+    
     # Component information
     llm_type: str = ""
     llm_model: str = ""
@@ -67,13 +88,13 @@ class ConfigurationMetrics:
     screenshot_analysis_level: str = ""
     
     def to_dict(self) -> Dict[str, Any]:
-        """Convert to dictionary."""
+        """Convert to dictionary for serialization."""
         data = asdict(self)
         return data
     
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> 'ConfigurationMetrics':
-        """Create from dictionary."""
+        """Create metrics object from dictionary data."""
         return cls(**data)
     
     # This property stores the calculated score
@@ -83,6 +104,14 @@ class ConfigurationMetrics:
         """
         Calculate an overall score for this configuration.
         
+        The score combines multiple factors:
+        - Success rate: Percentage of tests completed successfully
+        - Method coverage: Percentage of methods executed
+        - Activity coverage: Percentage of activities visited
+        - MOP coverage: Percentage of MOP methods executed
+        - MOP detection: Ability to detect MOP violations
+        - Execution time: Speed of execution (lower is better)
+        
         Higher scores indicate better configurations.
         
         Returns:
@@ -90,10 +119,11 @@ class ConfigurationMetrics:
         """
         # Weights for different factors
         weights = {
-            "success_rate": 0.15,
-            "method_coverage": 0.25,
-            "activity_coverage": 0.25,
-            "mop_coverage": 0.25,
+            "success_rate": 0.10,
+            "method_coverage": 0.20,
+            "activity_coverage": 0.20,
+            "mop_coverage": 0.15,
+            "mop_detection": 0.25,  # Higher weight for MOP error detection
             "execution_time": 0.10,
         }
         
@@ -105,6 +135,10 @@ class ConfigurationMetrics:
         method_score = self.avg_method_coverage
         activity_score = self.avg_activity_coverage
         mop_score = self.avg_mop_method_coverage
+        
+        # Calculate MOP detection score
+        # Higher values of monitored_operations_ratio are better
+        mop_detection_score = self.avg_monitored_operations_ratio
         
         # For execution time, lower is better
         # We'll use a formula that gives 100 for very fast tests (< 60s)
@@ -118,6 +152,7 @@ class ConfigurationMetrics:
             weights["method_coverage"] * method_score +
             weights["activity_coverage"] * activity_score +
             weights["mop_coverage"] * mop_score +
+            weights["mop_detection"] * mop_detection_score +
             weights["execution_time"] * time_score
         )
         
@@ -227,7 +262,11 @@ class ResultAnalyzer:
     
     def _calculate_configuration_metrics(self, config_id: str, results: List[TestResult]) -> ConfigurationMetrics:
         """
-        Calculate metrics for a configuration.
+        Calculate comprehensive metrics for a configuration.
+        
+        This method aggregates metrics across all test results for a specific
+        configuration, including execution metrics, coverage metrics, and
+        monitored operations metrics.
         
         Args:
             config_id: Configuration identifier
@@ -275,24 +314,32 @@ class ResultAnalyzer:
         total_errors = 0
         unique_error_messages = set()
         
+        # MOP error tracking
+        mop_error_counts = []
+        mop_unique_error_counts = []
+        mop_error_rates = []
+        monitored_operations_ratios = []
+        mop_error_categories = {}
+        monitored_operations_counts = []
+        monitored_operations_triggered_counts = []
+        
         # Process each result
         for result in results:
-            if result.status != "completed":
-                continue
-            
             # Get app name
             app_path = result.test_case.app_path
             app_name = os.path.basename(app_path).split('.')[0]
             
-            # Process coverage data
-            if result.coverage_data:
+            # Process coverage data - even for failed tests we may have some coverage
+            if hasattr(result, "coverage_data") and result.coverage_data:
                 method_cov = result.coverage_data.get("method_coverage", 0.0)
                 activity_cov = result.coverage_data.get("activity_coverage", 0.0)
                 mop_cov = result.coverage_data.get("mop_method_coverage", 0.0)
                 
-                method_coverage.append(method_cov)
-                activity_coverage.append(activity_cov)
-                mop_coverage.append(mop_cov)
+                # Only add coverage for completed tests to avoid skewing averages
+                if result.status == "completed":
+                    method_coverage.append(method_cov)
+                    activity_coverage.append(activity_cov)
+                    mop_coverage.append(mop_cov)
                 
                 # Track app-specific coverage
                 if app_name not in app_coverage:
@@ -303,22 +350,53 @@ class ResultAnalyzer:
                         "count": 0
                     }
                 
-                app_data = app_coverage[app_name]
-                app_data["method_coverage"] += method_cov
-                app_data["activity_coverage"] += activity_cov
-                app_data["mop_coverage"] += mop_cov
-                app_data["count"] += 1
+                # Only count completed tests for app coverage
+                if result.status == "completed":
+                    app_data = app_coverage[app_name]
+                    app_data["method_coverage"] += method_cov
+                    app_data["activity_coverage"] += activity_cov
+                    app_data["mop_coverage"] += mop_cov
+                    app_data["count"] += 1
             
             # Process error data
-            if result.error_data:
-                errors = result.error_data.get("errors", [])
-                total_errors += len(errors)
+            if hasattr(result, "error_data") and result.error_data:
+                # General errors
+                total_errors += result.error_data.get("total_errors", 0)
                 
-                # Track unique error messages
-                for error in errors:
-                    message = error.get("message", "")
-                    if message:
-                        unique_error_messages.add(message)
+                # MOP specific errors
+                mop_error_count = result.error_data.get("mop_error_count", 0)
+                mop_error_counts.append(mop_error_count)
+                
+                mop_unique_errors = result.error_data.get("mop_unique_errors", 0)
+                mop_unique_error_counts.append(mop_unique_errors)
+                
+                mop_error_rate = result.error_data.get("mop_error_rate", 0.0)
+                if mop_error_rate > 0:
+                    mop_error_rates.append(mop_error_rate)
+                
+                # Monitored operations metrics
+                monitored_operations_count = result.error_data.get("monitored_operations_count", 0)
+                monitored_operations_counts.append(monitored_operations_count)
+                
+                monitored_operations_triggered = result.error_data.get("monitored_operations_triggered", 0)
+                monitored_operations_triggered_counts.append(monitored_operations_triggered)
+                
+                monitored_operations_ratio = result.error_data.get("monitored_operations_ratio", 0.0)
+                if monitored_operations_ratio > 0:
+                    monitored_operations_ratios.append(monitored_operations_ratio)
+                
+                # Aggregate MOP error categories
+                if "mop_error_categories" in result.error_data:
+                    categories = result.error_data.get("mop_error_categories", {})
+                    for category, count in categories.items():
+                        mop_error_categories[category] = mop_error_categories.get(category, 0) + count
+                
+                # Track unique general error messages
+                if "errors" in result.error_data:
+                    for error in result.error_data.get("errors", []):
+                        message = error.get("message", "")
+                        if message:
+                            unique_error_messages.add(message)
         
         # Calculate average coverage
         metrics.avg_method_coverage = sum(method_coverage) / len(method_coverage) if method_coverage else 0.0
@@ -337,15 +415,30 @@ class ResultAnalyzer:
         
         metrics.app_coverage = app_coverage
         
-        # Set error metrics
+        # Set general error metrics
         metrics.total_errors = total_errors
         metrics.unique_errors = len(unique_error_messages)
+        
+        # Set MOP error metrics
+        metrics.mop_error_count = sum(mop_error_counts)
+        metrics.mop_unique_errors = sum(mop_unique_error_counts)  # Sum across apps as they may have different errors
+        metrics.avg_mop_error_rate = sum(mop_error_rates) / len(mop_error_rates) if mop_error_rates else 0.0
+        metrics.mop_error_categories = mop_error_categories
+        
+        # Set monitored operations metrics
+        metrics.monitored_operations_count = sum(monitored_operations_counts)
+        metrics.monitored_operations_triggered = sum(monitored_operations_triggered_counts)
+        metrics.avg_monitored_operations_ratio = sum(monitored_operations_ratios) / len(monitored_operations_ratios) if monitored_operations_ratios else 0.0
         
         return metrics
     
     def _identify_best_configurations(self) -> Dict[str, List[str]]:
         """
         Identify the best configurations for different criteria.
+        
+        This method analyzes all configurations and ranks them based on various
+        metrics, including overall score, coverage metrics, MOP error detection,
+        and execution efficiency.
         
         Returns:
             Dictionary mapping criteria to lists of best configuration IDs
@@ -379,7 +472,7 @@ class ResultAnalyzer:
             )
             best_by_tool[tool_name] = [config_id for config_id, _ in sorted_tool_configs[:3]]
         
-        # Find best configurations by different criteria
+        # Find best configurations by different coverage criteria
         best_by_method_coverage = sorted(
             self.config_metrics.items(),
             key=lambda x: x[1].avg_method_coverage,
@@ -398,19 +491,61 @@ class ResultAnalyzer:
             reverse=True
         )
         
-        best_by_speed = sorted(
+        # Find best configurations by monitored operations metrics
+        best_by_mop_error_count = sorted(
             self.config_metrics.items(),
-            key=lambda x: x[1].avg_execution_time
+            key=lambda x: x[1].mop_error_count,
+            reverse=True
         )
         
-        # Return best configurations
+        best_by_mop_unique_errors = sorted(
+            self.config_metrics.items(),
+            key=lambda x: x[1].mop_unique_errors,
+            reverse=True
+        )
+        
+        best_by_monitored_operations_ratio = sorted(
+            self.config_metrics.items(),
+            key=lambda x: x[1].avg_monitored_operations_ratio,
+            reverse=True
+        )
+        
+        # Find best configurations by efficiency
+        best_by_speed = sorted(
+            self.config_metrics.items(),
+            key=lambda x: x[1].avg_execution_time  # Lower is better
+        )
+        
+        # Find configurations with best balance of speed and detection
+        # Higher score means better balance between speed and detection capability
+        best_balanced = sorted(
+            self.config_metrics.items(),
+            key=lambda x: (x[1].avg_monitored_operations_ratio * 0.7 + 
+                          (100 - min(100, x[1].avg_execution_time / 3)) * 0.3),
+            reverse=True
+        )
+        
+        # Return best configurations for all criteria
         return {
+            # Overall best
             "overall": [config_id for config_id, _ in sorted_configs[:5]],
+            
+            # Best by tool
             "by_tool": best_by_tool,
+            
+            # Coverage metrics
             "method_coverage": [config_id for config_id, _ in best_by_method_coverage[:5]],
             "activity_coverage": [config_id for config_id, _ in best_by_activity_coverage[:5]],
             "mop_coverage": [config_id for config_id, _ in best_by_mop_coverage[:5]],
-            "speed": [config_id for config_id, _ in best_by_speed[:5]]
+            
+            # Monitored operations metrics
+            "mop_error_detection": [config_id for config_id, _ in best_by_mop_error_count[:5]],
+            "mop_unique_errors": [config_id for config_id, _ in best_by_mop_unique_errors[:5]],
+            "monitored_operations_ratio": [config_id for config_id, _ in best_by_monitored_operations_ratio[:5]],
+            
+            # Efficiency metrics
+            "speed": [config_id for config_id, _ in best_by_speed[:5]],
+            "balanced_performance": [config_id for config_id, _ in best_balanced[:5]]
         }
     
     def generate_report(self) -> str:
@@ -587,6 +722,10 @@ class ResultAnalyzer:
         """
         Create visualizations for the analysis.
         
+        This method generates a comprehensive set of visualizations for analyzing
+        test results, including overall scores, coverage metrics, MOP error metrics,
+        and tool comparisons.
+        
         Returns:
             Dictionary mapping chart names to file paths
         """
@@ -612,6 +751,16 @@ class ResultAnalyzer:
         self._create_execution_time_chart(time_chart)
         chart_files["execution_times"] = time_chart
         
+        # Create MOP error metrics chart
+        mop_error_chart = os.path.join(self.output_dir, "mop_error_metrics.png")
+        self._create_mop_error_chart(mop_error_chart)
+        chart_files["mop_error_metrics"] = mop_error_chart
+        
+        # Create monitored operations chart
+        monitored_ops_chart = os.path.join(self.output_dir, "monitored_operations.png")
+        self._create_monitored_operations_chart(monitored_ops_chart)
+        chart_files["monitored_operations"] = monitored_ops_chart
+        
         # Add plateau visualizations if available
         for base_id in self.plateau_analysis:
             safe_id = base_id.replace("/", "_")
@@ -620,6 +769,192 @@ class ResultAnalyzer:
                 chart_files[f"plateau_{safe_id}"] = chart_path
         
         return chart_files
+        
+    def _create_mop_error_chart(self, output_file: str) -> None:
+        """
+        Create a chart visualizing MOP error metrics across configurations.
+        
+        Args:
+            output_file: Path to save the chart
+        """
+        # Get configurations sorted by MOP error count
+        sorted_configs = sorted(
+            self.config_metrics.items(),
+            key=lambda x: x[1].mop_error_count,
+            reverse=True
+        )
+        
+        # Limit to top 10 for readability
+        top_configs = sorted_configs[:10]
+        
+        # Prepare data
+        config_ids = [self._format_config_id(config_id) for config_id, _ in top_configs]
+        mop_error_counts = [metrics.mop_error_count for _, metrics in top_configs]
+        mop_unique_errors = [metrics.mop_unique_errors for _, metrics in top_configs]
+        monitored_ratios = [metrics.avg_monitored_operations_ratio for _, metrics in top_configs]
+        
+        # Create the figure with 2 subplots
+        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(16, 8))
+        
+        # First subplot: MOP error counts
+        bars1 = ax1.bar(config_ids, mop_error_counts, color='navy', alpha=0.7, label='Total MOP Errors')
+        bars2 = ax1.bar(config_ids, mop_unique_errors, color='cornflowerblue', alpha=0.7, label='Unique MOP Errors')
+        
+        # Add value labels
+        for bar in bars1:
+            height = bar.get_height()
+            if height > 0:
+                ax1.text(
+                    bar.get_x() + bar.get_width()/2.,
+                    height,
+                    f'{int(height)}',
+                    ha='center', va='bottom',
+                    fontsize=9
+                )
+        
+        # Set chart properties
+        ax1.set_title('MOP Error Detection by Configuration')
+        ax1.set_xlabel('Configuration')
+        ax1.set_ylabel('Error Count')
+        ax1.set_xticklabels(config_ids, rotation=45, ha='right')
+        ax1.legend()
+        ax1.grid(True, linestyle='--', alpha=0.5)
+        
+        # Second subplot: Monitored operations ratio
+        bars3 = ax2.bar(config_ids, monitored_ratios, color='teal', alpha=0.7)
+        
+        # Add value labels
+        for bar in bars3:
+            height = bar.get_height()
+            if height > 0:
+                ax2.text(
+                    bar.get_x() + bar.get_width()/2.,
+                    height,
+                    f'{height:.1f}%',
+                    ha='center', va='bottom',
+                    fontsize=9
+                )
+        
+        # Set chart properties
+        ax2.set_title('Monitored Operations Ratio by Configuration')
+        ax2.set_xlabel('Configuration')
+        ax2.set_ylabel('Ratio (%)')
+        ax2.set_xticklabels(config_ids, rotation=45, ha='right')
+        ax2.grid(True, linestyle='--', alpha=0.5)
+        
+        # Adjust layout and save
+        plt.tight_layout()
+        plt.savefig(output_file, dpi=100)
+        plt.close(fig)
+        
+    def _create_monitored_operations_chart(self, output_file: str) -> None:
+        """
+        Create a chart visualizing monitored operations metrics.
+        
+        Args:
+            output_file: Path to save the chart
+        """
+        # Get configurations with monitored operations data
+        configs_with_data = [
+            (config_id, metrics) for config_id, metrics in self.config_metrics.items()
+            if metrics.monitored_operations_count > 0
+        ]
+        
+        # If not enough data, create empty chart
+        if len(configs_with_data) < 3:
+            # Create empty figure
+            fig, ax = plt.subplots(figsize=(10, 6))
+            ax.text(0.5, 0.5, "Insufficient data for monitored operations analysis", 
+                   ha='center', va='center', fontsize=14)
+            ax.axis('off')
+            plt.savefig(output_file, dpi=100)
+            plt.close(fig)
+            return
+        
+        # Sort by monitored_operations_ratio
+        sorted_configs = sorted(
+            configs_with_data,
+            key=lambda x: x[1].avg_monitored_operations_ratio,
+            reverse=True
+        )
+        
+        # Limit to top 8 for readability
+        top_configs = sorted_configs[:8]
+        
+        # Prepare data
+        config_ids = [self._format_config_id(config_id) for config_id, _ in top_configs]
+        monitored_counts = [metrics.monitored_operations_count for _, metrics in top_configs]
+        triggered_counts = [metrics.monitored_operations_triggered for _, metrics in top_configs]
+        ratios = [metrics.avg_monitored_operations_ratio for _, metrics in top_configs]
+        
+        # Create the figure
+        fig, ax = plt.subplots(figsize=(12, 8))
+        
+        # Set width of bars
+        bar_width = 0.35
+        x = np.arange(len(config_ids))
+        
+        # Create bars
+        bars1 = ax.bar(x - bar_width/2, monitored_counts, bar_width, label='Monitored Operations', color='cadetblue')
+        bars2 = ax.bar(x + bar_width/2, triggered_counts, bar_width, label='Triggered Operations', color='indianred')
+        
+        # Create ratio line (secondary y-axis)
+        ax2 = ax.twinx()
+        ratio_line = ax2.plot(x, ratios, 'o-', color='darkgreen', linewidth=2, label='Ratio (%)')
+        
+        # Add labels for bars
+        for bar in bars1:
+            height = bar.get_height()
+            if height > 0:
+                ax.text(
+                    bar.get_x() + bar.get_width()/2.,
+                    height,
+                    f'{int(height)}',
+                    ha='center', va='bottom',
+                    fontsize=9
+                )
+                
+        for bar in bars2:
+            height = bar.get_height()
+            if height > 0:
+                ax.text(
+                    bar.get_x() + bar.get_width()/2.,
+                    height,
+                    f'{int(height)}',
+                    ha='center', va='bottom',
+                    fontsize=9,
+                    color='darkred'
+                )
+        
+        # Add ratio labels
+        for i, r in enumerate(ratios):
+            ax2.text(
+                x[i],
+                r + 2,
+                f'{r:.1f}%',
+                ha='center', va='bottom',
+                fontsize=9,
+                color='darkgreen'
+            )
+        
+        # Set chart properties
+        ax.set_xlabel('Configuration')
+        ax.set_ylabel('Operation Count')
+        ax2.set_ylabel('Ratio (%)')
+        ax.set_title('Monitored Operations Analysis by Configuration')
+        ax.set_xticks(x)
+        ax.set_xticklabels(config_ids, rotation=45, ha='right')
+        
+        # Add legends
+        lines, labels = ax.get_legend_handles_labels()
+        lines2, labels2 = ax2.get_legend_handles_labels()
+        ax.legend(lines + lines2, labels + labels2, loc='upper right')
+        
+        # Grid and layout
+        ax.grid(True, linestyle='--', alpha=0.5)
+        plt.tight_layout()
+        plt.savefig(output_file, dpi=100)
+        plt.close(fig)
     
     def _create_overall_scores_chart(self, output_file: str) -> None:
         """

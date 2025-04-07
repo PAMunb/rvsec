@@ -727,6 +727,12 @@ class TestRunner:
         """
         Export test results to CSV files.
         
+        Exports comprehensive test data to CSV files, including:
+        - coverage_data.csv: Coverage metrics for all tests
+        - error_data.csv: System error information
+        - mop_error_data.csv: Detailed MOP error metrics
+        - monitored_operations.csv: Monitored operations metrics
+        
         Args:
             output_dir: Directory to save CSV files (defaults to self.output_dir)
             
@@ -744,8 +750,11 @@ class TestRunner:
             # Create CSV files
             coverage_file = os.path.join(output_dir, "coverage_data.csv")
             error_file = os.path.join(output_dir, "error_data.csv")
+            mop_error_file = os.path.join(output_dir, "mop_error_data.csv")
+            monitored_ops_file = os.path.join(output_dir, "monitored_operations.csv")
             
             import csv
+            import json
             
             # Create coverage CSV file
             with open(coverage_file, 'w', newline='') as f:
@@ -753,8 +762,8 @@ class TestRunner:
                 # Write header
                 writer.writerow([
                     "test_id", "tool", "app", "llm_model", "strategy", 
-                    "method_coverage", "activity_coverage", "execution_time", 
-                    "status", "timestamp"
+                    "method_coverage", "activity_coverage", "mop_method_coverage",
+                    "execution_time", "status", "timestamp"
                 ])
                 
                 # Write data
@@ -768,12 +777,14 @@ class TestRunner:
                     # Get coverage data
                     method_coverage = result.coverage_data.get("method_coverage", 0) if hasattr(result, "coverage_data") and result.coverage_data else 0
                     activity_coverage = result.coverage_data.get("activity_coverage", 0) if hasattr(result, "coverage_data") and result.coverage_data else 0
+                    mop_method_coverage = result.coverage_data.get("mop_method_coverage", 0) if hasattr(result, "coverage_data") and result.coverage_data else 0
                     
                     # Write row
                     writer.writerow([
                         test_id, tool, app, llm_model, strategy,
-                        method_coverage, activity_coverage, result.execution_time,
-                        result.status, result.end_time.isoformat() if result.end_time else ""
+                        method_coverage, activity_coverage, mop_method_coverage,
+                        result.execution_time, result.status, 
+                        result.end_time.isoformat() if result.end_time else ""
                     ])
             
             # Create error CSV file
@@ -782,26 +793,125 @@ class TestRunner:
                 # Write header
                 writer.writerow([
                     "test_id", "tool", "app", "error_message", 
-                    "execution_time", "status", "timestamp"
+                    "execution_time", "status", "timestamp", 
+                    "total_errors", "unique_errors"
                 ])
                 
                 # Write data for error results
                 for result in self.results:
-                    if result.status != "error":
-                        continue
-                        
                     test_id = result.test_case.get_id()
                     tool = result.test_case.tool_config.tool_name
                     app = os.path.basename(result.test_case.app_path)
                     
+                    # Get error counts
+                    total_errors = 0
+                    unique_errors = 0
+                    
+                    if hasattr(result, "error_data") and result.error_data:
+                        total_errors = result.error_data.get("total_errors", 0)
+                        unique_errors = result.error_data.get("unique_errors", 0)
+                    
+                    # Only write system errors here if status is error
+                    if result.status == "error":
+                        # Write row
+                        writer.writerow([
+                            test_id, tool, app, result.error_message,
+                            result.execution_time, result.status,
+                            result.end_time.isoformat() if result.end_time else "",
+                            total_errors, unique_errors
+                        ])
+            
+            # Create MOP error CSV file for detailed MOP error data
+            with open(mop_error_file, 'w', newline='') as f:
+                writer = csv.writer(f)
+                # Write header
+                writer.writerow([
+                    "test_id", "tool", "app", "llm_model", "strategy",
+                    "mop_error_count", "mop_unique_errors", "mop_error_categories",
+                    "mop_error_rate", "monitored_operations_ratio", "status", "timestamp"
+                ])
+                
+                # Write data for all results with MOP errors
+                for result in self.results:
+                    test_id = result.test_case.get_id()
+                    tool = result.test_case.tool_config.tool_name
+                    app = os.path.basename(result.test_case.app_path)
+                    llm_model = result.test_case.tool_config.llm_model
+                    strategy = result.test_case.tool_config.strategy_type
+                    
+                    # Get MOP error data
+                    mop_error_count = 0
+                    mop_unique_errors = 0
+                    mop_error_categories = "{}"
+                    mop_error_rate = 0.0
+                    monitored_operations_ratio = 0.0
+                    
+                    if hasattr(result, "error_data") and result.error_data:
+                        mop_error_count = result.error_data.get("mop_error_count", 0)
+                        mop_unique_errors = result.error_data.get("mop_unique_errors", 0)
+                        
+                        # Convert dictionary to JSON string for storage in CSV
+                        if "mop_error_categories" in result.error_data:
+                            categories = result.error_data.get("mop_error_categories", {})
+                            if categories:
+                                mop_error_categories = json.dumps(categories)
+                        
+                        mop_error_rate = result.error_data.get("mop_error_rate", 0.0)
+                        monitored_operations_ratio = result.error_data.get("monitored_operations_ratio", 0.0)
+                    
                     # Write row
                     writer.writerow([
-                        test_id, tool, app, result.error_message,
-                        result.execution_time, result.status,
-                        result.end_time.isoformat() if result.end_time else ""
+                        test_id, tool, app, llm_model, strategy,
+                        mop_error_count, mop_unique_errors, mop_error_categories,
+                        mop_error_rate, monitored_operations_ratio,
+                        result.status, result.end_time.isoformat() if result.end_time else ""
+                    ])
+            
+            # Create monitored operations CSV file
+            with open(monitored_ops_file, 'w', newline='') as f:
+                writer = csv.writer(f)
+                # Write header
+                writer.writerow([
+                    "test_id", "tool", "app", "llm_model", "strategy",
+                    "mop_specifications", "mop_triggers", "triggered_specifications", 
+                    "monitored_operations_count", "monitored_operations_triggered",
+                    "status", "timestamp"
+                ])
+                
+                # Write data for all results
+                for result in self.results:
+                    test_id = result.test_case.get_id()
+                    tool = result.test_case.tool_config.tool_name
+                    app = os.path.basename(result.test_case.app_path)
+                    llm_model = result.test_case.tool_config.llm_model
+                    strategy = result.test_case.tool_config.strategy_type
+                    
+                    # Get monitored operations data
+                    mop_specifications = 0
+                    mop_triggers = 0
+                    triggered_specifications = "[]"
+                    monitored_operations_count = 0
+                    monitored_operations_triggered = 0
+                    
+                    # Extract from error_data (populated by IntegratedMetricsCalculator)
+                    if hasattr(result, "error_data") and result.error_data:
+                        monitored_operations_count = result.error_data.get("monitored_operations_count", 0)
+                        monitored_operations_triggered = result.error_data.get("monitored_operations_triggered", 0)
+                        
+                        if "mop_specs_triggered" in result.error_data:
+                            specs = result.error_data.get("mop_specs_triggered", [])
+                            if specs:
+                                triggered_specifications = json.dumps(specs)
+                    
+                    # Write row
+                    writer.writerow([
+                        test_id, tool, app, llm_model, strategy,
+                        mop_specifications, mop_triggers, triggered_specifications,
+                        monitored_operations_count, monitored_operations_triggered,
+                        result.status, result.end_time.isoformat() if result.end_time else ""
                     ])
                     
-            self.logger.info(f"Results exported to {coverage_file} and {error_file}")
+            self.logger.info(f"Results exported to {output_dir} (coverage, errors, MOP errors, monitored operations)")
             return True
             
         except Exception as e:

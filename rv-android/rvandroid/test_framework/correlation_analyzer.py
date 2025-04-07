@@ -4,6 +4,14 @@ Correlation analyzer module for test framework.
 This module provides functionality for analyzing correlations between
 app characteristics and optimal configurations, to help identify which
 configurations work best for specific app types.
+
+Note on terminology:
+    This module uses "monitored operations" terminology instead of "security"
+    to reflect that the system handles both security-specific specifications
+    (like cryptography) and general programming specifications (like Iterator usage).
+    Monitored operations refer to any operations that have MOP (Monitoring-Oriented
+    Programming) specifications associated with them, which can detect errors
+    during runtime verification.
 """
 
 import os
@@ -48,12 +56,14 @@ class CorrelationAnalyzer:
     Analyzer for correlations between app characteristics and configuration performance.
     
     Identifies which configurations work best for specific app types,
-    and provides recommendations based on app analysis.
+    and provides recommendations based on app analysis. Includes specific focus on
+    monitored operations characteristics such as cryptography, iterator usage, and I/O operations.
     
     ### Key Responsibilities:
     - Analyzes correlations between app characteristics and config performance
     - Identifies optimal configurations for different app types
-    - Provides recommendations based on app characteristics
+    - Provides recommendations based on app characteristics including monitored operations
+    - Tracks characteristics related to operations that have MOP specifications
     - Generates reports on app-configuration correlations
     """
     
@@ -77,9 +87,9 @@ class CorrelationAnalyzer:
             AppCharacteristic(
                 name="uses_encryption",
                 value=None,
-                category="security",
-                display_name="Uses Encryption",
-                description="App uses encryption-related APIs"
+                category="monitored_operations",
+                display_name="Uses Encryption APIs",
+                description="App uses encryption-related APIs that may have monitored specifications"
             ),
             AppCharacteristic(
                 name="uses_network",
@@ -140,9 +150,30 @@ class CorrelationAnalyzer:
             AppCharacteristic(
                 name="has_mop_specs",
                 value=None,
-                category="verification",
+                category="monitoring",
                 display_name="Has MOP Specs",
-                description="App has MOP specifications"
+                description="App has specifications for monitored operations"
+            ),
+            AppCharacteristic(
+                name="has_iterator_operations",
+                value=None,
+                category="monitored_operations",
+                display_name="Uses Iterators",
+                description="App uses Iterator-related APIs that may have monitored specifications"
+            ),
+            AppCharacteristic(
+                name="has_io_operations",
+                value=None,
+                category="monitored_operations",
+                display_name="Uses I/O Operations",
+                description="App uses I/O operations that may have monitored specifications"
+            ),
+            AppCharacteristic(
+                name="monitored_operations_density",
+                value=None,
+                category="monitoring",
+                display_name="Monitored Operations Density",
+                description="Ratio of methods with monitored operations to total methods"
             )
         ]
     
@@ -177,7 +208,7 @@ class CorrelationAnalyzer:
                 # Try to extract other characteristics from static analysis data
                 static_data = app_data.get('static_analysis', {})
                 
-                # Security features
+                # Monitored operations - Cryptography
                 characteristics['uses_encryption'] = (
                     static_data.get('uses_encryption', False) or
                     self._check_api_usage(static_data, ['javax.crypto', 'java.security'])
@@ -212,6 +243,24 @@ class CorrelationAnalyzer:
                     static_data.get('uses_database', False) or
                     self._check_api_usage(static_data, ['android.database.sqlite', 'androidx.room'])
                 )
+                
+                # Iterator operations - monitored operations
+                characteristics['has_iterator_operations'] = (
+                    static_data.get('has_iterator_operations', False) or
+                    self._check_api_usage(static_data, ['java.util.Iterator', 'java.util.ListIterator'])
+                )
+                
+                # I/O operations - monitored operations
+                characteristics['has_io_operations'] = (
+                    static_data.get('has_io_operations', False) or
+                    self._check_api_usage(static_data, ['java.io', 'java.nio', 'android.os.FileObserver'])
+                )
+                
+                # Monitored operations density
+                if 'mop_spec_count' in app_data and 'method_count' in app_data and app_data['method_count'] > 0:
+                    characteristics['monitored_operations_density'] = app_data['mop_spec_count'] / app_data['method_count']
+                else:
+                    characteristics['monitored_operations_density'] = 0.0
                 
                 # UI complexity
                 ui_data = static_data.get('ui_components', {})
@@ -263,7 +312,10 @@ class CorrelationAnalyzer:
                 'uses_camera': False,
                 'uses_audio': False,
                 'uses_database': False,
-                'complex_ui': False
+                'complex_ui': False,
+                'has_iterator_operations': False,
+                'has_io_operations': False,
+                'monitored_operations_density': 0.0
             }
             
             # Try to infer characteristics from app name and other data
@@ -284,6 +336,14 @@ class CorrelationAnalyzer:
                 
             if any(term in app_name.lower() for term in ['db', 'data', 'store']):
                 characteristics['uses_database'] = True
+            
+            # Try to infer iterator usage from app name
+            if any(term in app_name.lower() for term in ['list', 'iterator', 'collection']):
+                characteristics['has_iterator_operations'] = True
+                
+            # Try to infer I/O operations from app name
+            if any(term in app_name.lower() for term in ['file', 'io', 'storage', 'read', 'write']):
+                characteristics['has_io_operations'] = True
                 
             # Add to app characteristics
             app_characteristics[app_name] = characteristics
@@ -367,8 +427,17 @@ class CorrelationAnalyzer:
             return correlations
         
         # Extract metrics to correlate
-        metrics = ['avg_method_coverage', 'avg_activity_coverage', 'avg_mop_method_coverage', 
-                  'avg_execution_time', 'overall_score']
+        metrics = [
+            'avg_method_coverage',
+            'avg_activity_coverage',
+            'avg_mop_method_coverage',
+            'avg_mop_error_count',
+            'avg_mop_unique_errors',
+            'avg_monitored_operations_triggered',
+            'avg_monitored_operations_ratio',
+            'avg_execution_time',
+            'overall_score'
+        ]
         
         # For each configuration, analyze correlation with app characteristics
         for config_id, config_data in comparisons.items():
@@ -606,8 +675,10 @@ class CorrelationAnalyzer:
                 'overall_score': 1,
                 'avg_method_coverage': 2,
                 'avg_activity_coverage': 3,
-                'avg_mop_method_coverage': 4,
-                'avg_execution_time': 5
+                'avg_mop_method_coverage': 4,  # Monitored operations method coverage
+                'avg_mop_error_count': 5,      # Number of monitored operations violations detected
+                'avg_mop_unique_errors': 6,    # Number of unique monitored operations violations
+                'avg_execution_time': 7
             }
             
             sorted_corrs = sorted(corrs, key=lambda x: (
