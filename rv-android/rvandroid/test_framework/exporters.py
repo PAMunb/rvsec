@@ -3,6 +3,10 @@ Exporters module for test framework.
 
 This module provides functionality for exporting test
 results to various formats such as CSV and Excel.
+
+The exports include comprehensive metrics for monitoring-oriented programming (MOP)
+and monitored operations, providing detailed insights into specification violations
+and coverage across different testing configurations.
 """
 
 import os
@@ -47,7 +51,8 @@ def export_to_csv(results: Dict[str, Any], output_path: str) -> bool:
         header = [
             'configuration_id', 'result_count', 'app_count', 'error_count',
             'avg_method_coverage', 'avg_activity_coverage', 'avg_mop_method_coverage',
-            'avg_execution_time', 'overall_score'
+            'avg_mop_error_count', 'avg_mop_unique_errors', 'avg_monitored_operations_triggered',
+            'avg_monitored_operations_ratio', 'avg_execution_time', 'overall_score'
         ]
         
         # Prepare CSV data
@@ -63,7 +68,8 @@ def export_to_csv(results: Dict[str, Any], output_path: str) -> bool:
             # Add average metrics
             avg_metrics = data.get('avg_metrics', {})
             for metric in ['avg_method_coverage', 'avg_activity_coverage', 'avg_mop_method_coverage',
-                           'avg_execution_time', 'overall_score']:
+                          'avg_mop_error_count', 'avg_mop_unique_errors', 'avg_monitored_operations_triggered',
+                          'avg_monitored_operations_ratio', 'avg_execution_time', 'overall_score']:
                 row[metric] = avg_metrics.get(metric, 0)
                 
             csv_data.append(row)
@@ -125,7 +131,8 @@ def export_to_excel(results: Dict[str, Any], output_path: str) -> bool:
             # Add average metrics
             avg_metrics = data.get('avg_metrics', {})
             for metric in ['avg_method_coverage', 'avg_activity_coverage', 'avg_mop_method_coverage',
-                           'avg_execution_time', 'overall_score']:
+                          'avg_mop_error_count', 'avg_mop_unique_errors', 'avg_monitored_operations_triggered',
+                          'avg_monitored_operations_ratio', 'avg_execution_time', 'overall_score']:
                 row[metric] = avg_metrics.get(metric, 0)
                 
             excel_data.append(row)

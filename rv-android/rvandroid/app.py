@@ -11,11 +11,11 @@ class App(object):
     ### Architectural Decisions:
     - Uses Androguard to statically analyze APKs without requiring execution.
     - Maintains an object-oriented representation of app attributes for easy access.
-    - Supports retrieval of security-relevant properties for runtime monitoring.
+    - Supports retrieval of properties relevant for monitoring operations at runtime.
 
     ### Role in the System:
     - Serves as the primary interface for working with Android apps in experiments.
-    - Facilitates security and behavior analysis by providing structured metadata.
+    - Facilitates analysis of app behavior and monitored operations through structured metadata.
     - Enables automated decision-making regarding instrumentation and test execution.
     """
 

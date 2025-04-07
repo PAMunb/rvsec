@@ -65,7 +65,7 @@ The framework includes several advanced analysis capabilities:
 
 - **AnomalyDetector**: Identifies statistical anomalies in test results
 - **CorrelationAnalyzer**: Discovers relationships between app characteristics and configurations
-- **SpreadsheetExporter**: Generates comprehensive data exports for detailed analysis
+- **SpreadsheetExporter**: Generates comprehensive data exports for detailed analysis including MOP error metrics
 - **Dashboard**: Interactive web-based visualization of test results
 
 ![Advanced Analysis](images/tf_advanced_analysis.svg)
@@ -352,8 +352,7 @@ A `TestSuite` represents a complete experiment definition, containing multiple t
     }
   ],
   "apps": [
-    "/path/to/app1.apk",
-    "/path/to/app2.apk"
+    "/path/to/app_directory"
   ],
   "output_dir": "test_results",
   "repetitions": 3
@@ -368,7 +367,7 @@ A `TestCase` represents a specific combination of an application and a tool conf
 
 ```python
 {
-  "app_path": "/path/to/app1.apk",
+  "app_path": "/path/to/app_directory",
   "tool_config": {
     "tool_name": "rvdroid",
     "llm_type": "ollama",
@@ -480,6 +479,40 @@ These metrics are computed by the `ResultAnalyzer` and used to rank and compare 
 
 #### B.1.3 Analysis Outputs
 
+**MOPErrorMetrics**
+
+The `MOPErrorMetrics` class encapsulates information about violations of monitored operations specifications:
+
+```python
+{
+  "total_mop_errors": 14,
+  "unique_mop_errors": 7,
+  "mop_error_categories": {
+    "iterator_errors": 5,
+    "crypto_errors": 3,
+    "io_errors": 6
+  },
+  "mop_error_rate": 0.034,
+  "monitored_operations_ratio": 0.72,
+  "mop_errors": [
+    {
+      "type": "IteratorHasNextBeforeNext",
+      "method": "com.example.app.DataProcessor.processItems",
+      "line": 127,
+      "count": 3
+    },
+    {
+      "type": "WeakRandomNumber",
+      "method": "com.example.app.crypto.TokenGenerator.generateToken",
+      "line": 89,
+      "count": 2
+    }
+  ]
+}
+```
+
+These metrics provide detailed information about specification violations detected during testing. The framework tracks different types of violations, their frequency, and locations, enabling targeted improvements to both the application and the testing strategies.
+
 **PlateauAnalysis**
 
 Plateau analysis examines how metrics change over different timeouts to identify when longer execution times stop providing significant improvements.
@@ -566,6 +599,7 @@ The process of transforming configurations into executable tests involves severa
    - Configuration is loaded from JSON files or created via the API
    - Validation ensures all required parameters are present and valid
    - Default values are applied where needed
+   - Monitored operations specifications are identified
 
 2. **Test Case Generation**:
    - The TestSuite expands into individual TestCase instances
@@ -592,7 +626,8 @@ For LLM-based tools, a critical data flow is the transformation of static analys
 1. **Static Analysis Processing**:
    - Static analysis files (GESDA, GATOR, REACH) are parsed
    - Class structures, activity transitions, and method relationships are extracted
-   - Monitored methods are identified and flagged for special attention
+   - Monitored operations methods are identified and flagged for special attention
+   - MOP specifications for security and general programming rules are loaded
 
 2. **Screen State Capture**:
    - UIAutomator captures the current UI state
@@ -752,8 +787,7 @@ Configurations are stored in JSON format for human readability and easy modifica
     }
   ],
   "apps": [
-    "/path/to/app1.apk",
-    "/path/to/app2.apk"
+    "/path/to/app_directory"
   ],
   "output_dir": "test_results"
 }

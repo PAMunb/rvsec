@@ -90,21 +90,39 @@ def run_test_suite(args):
         if not test_suite:
             return
     
-    # Resolve app paths
+    # Resolve APK paths from command line if provided
     app_paths = []
-    for pattern in args.apps:
-        paths = glob.glob(pattern)
-        if not paths:
-            print(f"Warning: No apps found matching pattern: {pattern}")
-        app_paths.extend(paths)
     
+    if args.apks_dir:
+        for directory in args.apks_dir:
+            # Find all APK files in the specified directories
+            apk_pattern = os.path.join(directory, "*.apk")
+            apk_paths = glob.glob(apk_pattern)
+            
+            if not apk_paths:
+                print(f"Warning: No APK files found in directory: {directory}")
+            else:
+                # For each APK found, verify it has the necessary static analysis files
+                for apk_path in apk_paths:
+                    if os.path.isfile(apk_path):
+                        app_paths.append(apk_path)
+        
+        if app_paths:
+            print(f"Found {len(app_paths)} APK files from specified directories:")
+            for app in app_paths:
+                print(f"  - {app}")
+    
+    # If no APKs specified on command line but config file has apps, use those
+    if not app_paths and test_suite and test_suite.apps:
+        app_paths = test_suite.apps
+        print(f"Using {len(app_paths)} APK paths from configuration file:")
+        for app in app_paths:
+            print(f"  - {app}")
+    
+    # Check if we have any APKs to test
     if not app_paths:
-        print("Error: No apps found for testing.")
+        print("Error: No APK files found for testing. Specify directories with --apks-dir or apps in the configuration file.")
         return
-    
-    print(f"Found {len(app_paths)} apps for testing:")
-    for app in app_paths:
-        print(f"  - {os.path.basename(app)}")
     
     # Configure test suite
     test_suite = framework.configure(
@@ -513,8 +531,8 @@ def main():
     # Run command
     run_parser = subparsers.add_parser("run", help="Run a test suite")
     run_parser.add_argument(
-        "--apps", "-a", nargs="+", required=True,
-        help="APK files or glob patterns to test"
+        "--apks-dir", "-a", nargs="+",
+        help="Directory containing APK files and related static analysis files (optional if config file has apps defined)"
     )
     run_parser.add_argument(
         "--config", "-c", 

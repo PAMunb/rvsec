@@ -17,13 +17,31 @@ The test framework is part of the RV-Android system and does not require additio
 To run a simple test suite:
 
 ```bash
-python run_test_framework.py run --apps apks_examples/*.apk --analyze
+python run_test_framework.py run --apps out --analyze
 ```
 
 This command will:
-1. Run tests on all APKs in the `apks_examples/` directory
+1. Run tests on all APKs in the `out` directory
 2. Use default test configurations
 3. Analyze the results after completion
+
+You can specify either a directory containing APK files or individual APK files:
+
+```bash
+# Specify a directory containing APKs and their static analysis files
+python run_test_framework.py run --apps out --analyze
+
+# Specify individual APK files
+python run_test_framework.py run --apps apks_examples/*.apk --analyze
+```
+
+You can also use a configuration file that already contains app directory definitions:
+
+```bash
+python run_test_framework.py run --config my_config.json --analyze
+```
+
+When using a configuration file, the `--apps` parameter is optional. If provided, it will override the apps defined in the configuration file.
 
 ### 3.2 Creating a Custom Configuration
 
@@ -38,6 +56,12 @@ You can edit the `my_config.json` file to customize the test configurations as n
 ### 3.3 Running with Custom Configuration
 
 To run tests with a custom configuration:
+
+```bash
+python run_test_framework.py run --config my_config.json --analyze
+```
+
+You can override the apps defined in the configuration file:
 
 ```bash
 python run_test_framework.py run --apps apks_examples/*.apk --config my_config.json --analyze
@@ -139,6 +163,7 @@ After running tests, if the `--analyze` option is specified, an HTML report will
 
 - Overall score chart by configuration
 - Coverage comparison between configurations
+- MOP error metrics analysis
 - Performance comparison between tools
 - List of top configurations by category
 
@@ -150,6 +175,7 @@ Optimal configurations are identified based on different criteria:
 - **Method Coverage**: Highest method coverage
 - **Activity Coverage**: Highest activity coverage
 - **MOP Coverage**: Highest coverage of methods with MOP specifications
+- **MOP Error Detection**: Best at finding violations of monitored operations specifications
 - **Execution Speed**: Lowest execution time
 
 ### 5.3 Result Analysis Features
@@ -181,7 +207,8 @@ The anomaly detector identifies data points that significantly deviate from expe
 
 The correlation analyzer identifies relationships between app characteristics and configuration performance:
 
-- **App Characteristics**: Extracts app features like encryption usage, UI complexity, etc.
+- **App Characteristics**: Extracts app features like UI complexity, iterator operations, I/O operations, cryptographic API usage, etc.
+- **Monitored Operations Characteristics**: Identifies patterns of monitored specifications relevant to the app
 - **Performance Correlation**: Identifies which configurations work best for specific app types
 - **Recommendations**: Provides configuration recommendations based on app characteristics
 - **App-Specific Guidance**: Generates tailored recommendations for each analyzed app
@@ -196,6 +223,7 @@ The enhanced spreadsheet exporter provides comprehensive data exports:
 - **Configuration Analysis**: Detailed metrics for each configuration
 - **App-Specific Analysis**: Insights on how apps respond to different configurations
 - **Tool Comparison**: Performance metrics grouped by tool
+- **MOP Error Summary**: Detailed breakdown of monitored operations errors
 - **Correlation Data**: Exported correlation findings
 - **Anomaly Report**: Detailed information about detected anomalies
 - **Excel Formatting**: Enhanced readability with formatting in Excel workbooks
@@ -224,6 +252,14 @@ Using the standalone result analysis script:
 ```bash
 python examples/analyze_results.py --results-dir test_results --visualize --export-csv --export-excel --enhanced-export --detect-anomalies --analyze-correlations
 ```
+
+For a more focused analysis of MOP error metrics, you can use the custom analyzer that directly processes CSV files:
+
+```bash
+python custom_analyzer.py test_results/run_20250404_131009
+```
+
+This custom analyzer is specifically designed to highlight Monitored Operations (MOP) metrics, handling both cryptographic API specifications and general programming specifications.
 
 You can also run anomaly detection with a custom threshold:
 
@@ -263,10 +299,10 @@ python examples/analyze_results.py --results-dir test_results --visualize --expo
 python run_test_framework.py run --apps apks_examples/cryptoapp.apk --analyze
 ```
 
-### Example 2: Tool Comparison
+### Example 2: Tool Comparison with Configuration File
 
 ```bash
-python run_test_framework.py run --apps apks_examples/*.apk --config test_suite_example.json --repetitions 3 --analyze --save-optimal
+python run_test_framework.py run --config test_suite_example.json --repetitions 3 --analyze --save-optimal
 ```
 
 ### Example 3: Plateau Analysis with Multiple Timeouts
@@ -275,8 +311,11 @@ For plateau analysis, use a configuration file with multiple timeouts and run:
 
 ```bash
 python run_test_framework.py create-config --type plateau --timeouts 60,120,180,300,600 --tool rvandroid --output plateau_config.json
-python run_test_framework.py run --apps apks_examples/*.apk --config plateau_config.json --analyze
+# Edit the plateau_config.json file to set the "apps" field to point to your app directory
+python run_test_framework.py run --config plateau_config.json --analyze
 ```
+
+Note: After generating the configuration file, you need to update the "apps" field to point to your directory containing the APK(s) and their static analysis files.
 
 ### Example 4: Custom Configuration Generator
 
@@ -304,6 +343,23 @@ Based on previous experiments, here are some recommended configurations to start
 - Visitor: `enhanced`
 - Static Analysis: `standard`
 - Screenshot Analysis: `true` with level `standard`
+
+### Directory Structure
+For proper operation, the directory structure should contain:
+- APK file(s)
+- Static analysis files with the same base name as the APK file:
+  - `.gesda` file: Contains static analysis data for monitored methods
+  - `.reach` file: Contains reachability information
+  - `.wtg` file: Contains window transition graph
+
+Example directory structure:
+```
+out/
+  ├── cryptoapp.apk
+  ├── cryptoapp.apk.gesda
+  ├── cryptoapp.apk.reach
+  └── cryptoapp.apk.wtg
+```
 
 ## 9. Troubleshooting
 
@@ -394,6 +450,8 @@ from rvandroid.test_framework.dashboard import Dashboard
 
 # Create a custom dashboard instance
 dashboard = Dashboard()
+# Enable MOP metrics visualization
+dashboard.set_option("show_mop_metrics", True)
 # Generate dashboard with results
 dashboard_file = dashboard.generate_dashboard(results, "custom_dashboard")
 # Launch in browser

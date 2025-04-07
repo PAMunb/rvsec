@@ -728,9 +728,9 @@ def run_local():
     # Set configuration values
     config.set("repetitions", 1)
     config.set("timeouts", [60])
-    config.set("generate_monitors", True)
-    config.set("instrument", True)
-    config.set("static_analysis", True)
+    config.set("generate_monitors", False)
+    config.set("instrument", False)
+    config.set("static_analysis", False)
     config.set("skip_experiment", False)
     config.set("no_window", True)
     config.set("memory_file", "")
