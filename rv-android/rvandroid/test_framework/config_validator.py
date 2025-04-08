@@ -113,7 +113,7 @@ class ConfigurationValidator:
     MODEL_COMPATIBILITY = {
         OllamaLLM.NAME: OllamaLLM.MODELS,
         HuggingFaceLLM.NAME: HuggingFaceLLM.MODELS,
-        DSPyLLM.NAME: [HuggingFaceLLM.LLAMA],  # DSPy mainly uses HuggingFace models
+        DSPyLLM.NAME: DSPyLLM.MODELS,
         LANGCHAIN_NAME: LANGCHAIN_MODELS,
         FrontierModel.NAME: FrontierModel.MODELS
     }

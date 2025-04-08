@@ -25,7 +25,8 @@ class DSPyLLM(LanguageModel):
     QWEN = "qwen2.5:3b"
     MISTRAL = "mistral:7b"
 
-    MODELS = [LLAMA, PHI, QWEN, MISTRAL]
+    # MODELS = [LLAMA, PHI, QWEN, MISTRAL]
+    MODELS = [LLAMA, QWEN]
 
     def __init__(self, model_name: str, provider: str = "ollama", base_url: str = "http://localhost:11434",
                  use_cot: bool = True, **kwargs):

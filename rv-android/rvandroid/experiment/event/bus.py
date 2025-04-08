@@ -8,6 +8,8 @@ from typing import Dict, List, Any, Callable, Optional, Set, Union
 
 from rvandroid.experiment.event.handler import EventHandler, HandlerPriority
 from rvandroid.experiment.event.models import Event, EventType, TaskEvent, ExperimentEvent, AnalysisEvent
+from rvandroid.util.logging.constants import CONTEXT_COMPONENT
+from rvandroid.util.logging.manager import LoggingManager
 
 
 class EventBus:
@@ -81,7 +83,15 @@ class EventBus:
             worker_threads: Number of worker threads for async processing
             max_queue_size: Maximum size of the event queue
         """
-        self.logger = logging.getLogger(__name__)
+        # self.logger = logging.getLogger(__name__)
+        # Configure logging
+        logging_manager = LoggingManager.get_instance()
+        self.logger = logging_manager.get_logger(
+            "llm.action_service",
+            {
+                CONTEXT_COMPONENT: "EventBus"
+            }
+        )
         self.channel_subscribers: Dict[str, Dict[EventType, List[EventHandler]]] = {}
         self.history: List[Event] = []
         self.max_history_size = 1000

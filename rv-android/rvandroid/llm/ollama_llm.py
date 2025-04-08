@@ -58,7 +58,8 @@ class OllamaLLM(LanguageModel):
     MISTRAL = "mistral:7b"
     FALCON = "falcon3:3b"
 
-    MODELS = [LLAMA, DEEPSEEK, GEMMA, QWEN, PHI, GRANITE, MISTRAL, FALCON, "qwen2.5:3b"]
+    # MODELS = [LLAMA, DEEPSEEK, GEMMA, QWEN, PHI, GRANITE, MISTRAL, FALCON]
+    MODELS = [LLAMA, GEMMA, QWEN]
 
     def __init__(self, model_name: str, base_url: str = "http://localhost:11434", temperature: float = 0.2, **kwargs):
         """
@@ -72,7 +73,6 @@ class OllamaLLM(LanguageModel):
         """
         super().__init__(model_name)
         self.base_url = base_url
-        print(f"***** base_url={self.base_url}")
         self.temperature = temperature
         self._client = None
         self.logger = logger

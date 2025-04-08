@@ -21,6 +21,11 @@ from rvandroid.test_framework.config_generator import (
     create_minimal_test_suite, create_plateau_test_suite, create_comparative_test_suite,
     ConfigurationGenerator
 )
+from rvandroid.util.logging.manager import LoggingManager
+
+# Configure logging
+logging_manager = LoggingManager.get_instance()
+logger = logging_manager.get_logger("test_framework.cli")
 
 
 def load_test_suite(config_file: str, validate: bool = True, skip_invalid: bool = False) -> Optional[TestSuite]:
@@ -37,7 +42,7 @@ def load_test_suite(config_file: str, validate: bool = True, skip_invalid: bool 
     """
     try:
         if not os.path.exists(config_file):
-            print(f"Error: Configuration file not found: {config_file}")
+            logger.error(f"Error: Configuration file not found: {config_file}")
             return None
             
         with open(config_file, 'r') as f:
@@ -49,11 +54,11 @@ def load_test_suite(config_file: str, validate: bool = True, skip_invalid: bool 
         if validate:
             invalid_configs = validate_configurations(test_suite.tool_configurations)
             if invalid_configs:
-                print(f"Warning: {len(invalid_configs)} invalid configurations detected in {config_file}:")
+                logger.warning(f"Warning: {len(invalid_configs)} invalid configurations detected in {config_file}:")
                 for config_id, errors in invalid_configs.items():
-                    print(f"  - {config_id}:")
+                    logger.warning(f"  - {config_id}:")
                     for error in errors:
-                        print(f"      * {error}")
+                        logger.warning(f"      * {error}")
                 
                 if skip_invalid:
                     # Remove invalid configurations
@@ -62,14 +67,14 @@ def load_test_suite(config_file: str, validate: bool = True, skip_invalid: bool 
                         if config.get_id() not in invalid_configs
                     ]
                     test_suite.tool_configurations = valid_configs
-                    print(f"Removed {len(invalid_configs)} invalid configurations. Remaining: {len(valid_configs)}")
+                    logger.info(f"Removed {len(invalid_configs)} invalid configurations. Remaining: {len(valid_configs)}")
                 else:
-                    print("Use --skip-invalid to remove invalid configurations and continue.")
+                    logger.info("Use --skip-invalid to remove invalid configurations and continue.")
                     return None
         
         return test_suite
     except Exception as e:
-        print(f"Error loading test suite: {str(e)}")
+        logger.error(f"Error loading test suite: {str(e)}")
         return None
 
 
@@ -88,6 +93,7 @@ def run_test_suite(args):
     if args.config:
         test_suite = load_test_suite(args.config, validate=True, skip_invalid=args.skip_invalid)
         if not test_suite:
+            logger.error("Test suite loading failed.")
             return
     
     # Resolve APK paths from command line if provided
@@ -100,7 +106,7 @@ def run_test_suite(args):
             apk_paths = glob.glob(apk_pattern)
             
             if not apk_paths:
-                print(f"Warning: No APK files found in directory: {directory}")
+                logger.warning(f"No APK files found in directory: {directory}")
             else:
                 # For each APK found, verify it has the necessary static analysis files
                 for apk_path in apk_paths:
@@ -108,20 +114,20 @@ def run_test_suite(args):
                         app_paths.append(apk_path)
         
         if app_paths:
-            print(f"Found {len(app_paths)} APK files from specified directories:")
+            logger.info(f"Found {len(app_paths)} APK files from specified directories:")
             for app in app_paths:
-                print(f"  - {app}")
+                logger.debug(f"  - {app}")
     
     # If no APKs specified on command line but config file has apps, use those
     if not app_paths and test_suite and test_suite.apps:
         app_paths = test_suite.apps
-        print(f"Using {len(app_paths)} APK paths from configuration file:")
+        logger.info(f"Using {len(app_paths)} APK paths from configuration file:")
         for app in app_paths:
-            print(f"  - {app}")
+            logger.debug(f"  - {app}")
     
     # Check if we have any APKs to test
     if not app_paths:
-        print("Error: No APK files found for testing. Specify directories with --apks-dir or apps in the configuration file.")
+        logger.error("No APK files found for testing. Specify directories with --apks-dir or apps in the configuration file.")
         return
     
     # Configure test suite

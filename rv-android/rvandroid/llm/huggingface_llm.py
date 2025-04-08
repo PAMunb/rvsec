@@ -26,7 +26,8 @@ class HuggingFaceLLM(LanguageModel):
     FALCON = "tiiuae/Falcon3-3B-Instruct"
     MISTRAL = "mistralai/Mistral-7B-Instruct-v0.3"
 
-    MODELS = [LLAMA, DEEPSEEK, GEMMA, QWEN, PHI, GRANITE, FALCON, MISTRAL]
+    # MODELS = [LLAMA, DEEPSEEK, GEMMA, QWEN, PHI, GRANITE, FALCON, MISTRAL]
+    MODELS = [LLAMA, GEMMA, QWEN]
 
     def __init__(self, model_name: str, device: str = "cuda", **kwargs):
         """
