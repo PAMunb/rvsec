@@ -1,0 +1,96 @@
+@startuml llm_architecture_overview
+
+skinparam handwritten false
+skinparam monochrome false
+skinparam packageStyle rectangle
+skinparam shadowing false
+skinparam defaultFontName "Verdana"
+skinparam defaultFontSize 12
+
+' Define components
+package "LLM Integration System" {
+  package "Core Components" {
+    [LLMActionService] as LAS
+    [PromptProcessor] as PP
+    [LLMManager] as LM
+    [ResponseProcessor] as RP
+    [ActionGenerator] as AG
+    [StateAnalyzer] as SA
+    [TransitionManager] as TM
+  }
+  
+  package "Strategy Layer" {
+    [PromptStrategy] as PS
+    [PromptStrategyFactory] as PSF
+    [BasePromptStrategy] as BPS
+    [SpecializedStrategies] as SS
+  }
+  
+  package "Template System" {
+    [PromptTemplate] as PT
+    [TemplateFragment] as TF
+    [PromptLibrary] as PL
+  }
+  
+  package "Integration Points" {
+    [Screen Parsers] as ScrP
+    [ParserFactory] as PF
+    [Visitors] as V
+    [VisitorFactory] as VF
+  }
+}
+
+package "LLM Providers" {
+  [Ollama]
+  [DSPy]
+  [Frontier Models]
+}
+
+package "RV-Android Tools" {
+  [RVAndroid Tool]
+  [RVDroid Tool]
+  [Test Framework]
+}
+
+package "Static Analysis" {
+  [Monitored Operations Data]
+  [Activity Transitions]
+  [Method Reachability]
+}
+
+' Define relationships
+LAS --> PP : uses
+LAS --> LM : uses
+LAS --> RP : uses
+LAS --> AG : uses
+LAS --> SA : uses
+LAS --> TM : uses
+
+PP --> PS : creates
+PP --> PSF : uses
+
+PSF --> BPS : creates
+PSF --> SS : creates
+
+PS --> PT : uses
+PS --> TF : uses
+PS --> PL : accesses
+
+BPS <|-- SS : extends
+
+PS --> ScrP : uses
+PS --> V : uses
+
+Ollama <-- LM : connects to
+DSPy <-- LM : connects to
+[Frontier Models] <-- LM : connects to
+
+[Monitored Operations Data] --> PS : informs
+[Activity Transitions] --> PS : informs
+[Method Reachability] --> PS : informs
+
+[RVAndroid Tool] --> LAS : uses
+[RVDroid Tool] --> LAS : uses
+[Test Framework] --> LAS : configures
+
+@enduml

@@ -1,0 +1,97 @@
+@startuml llm_component_layers
+
+skinparam handwritten false
+skinparam monochrome false
+skinparam packageStyle rectangle
+skinparam shadowing false
+skinparam defaultFontName "Verdana"
+skinparam defaultFontSize 12
+
+' Define layer colors
+skinparam package {
+  BackgroundColor<<Strategy>> #C5E1A5
+  BackgroundColor<<Processing>> #BBDEFB
+  BackgroundColor<<Integration>> #FFE0B2
+  BackgroundColor<<Execution>> #E1BEE7
+}
+
+' Strategy layer
+package "Strategy Layer" <<Strategy>> {
+  [PromptStrategy] as PS
+  [BasePromptStrategy] as BPS
+  [SingleActionPromptStrategy] as SAPS
+  [ComposablePromptStrategy] as CPS
+  [PromptStrategyFactory] as PSF
+  
+  package "Template System" {
+    [PromptTemplate] as PT
+    [TemplateFragment] as TF
+    [PromptLibrary] as PL
+  }
+  
+  PS <|-- BPS
+  BPS <|-- SAPS
+  BPS <|-- CPS
+  PSF --> PS : creates
+  BPS --> PT : uses
+  BPS --> PL : accesses
+}
+
+' Processing layer
+package "Processing Layer" <<Processing>> {
+  [LLMActionService] as LAS
+  [PromptProcessor] as PP
+  [ResponseProcessor] as RP
+  [StateAnalyzer] as SA
+  [TransitionManager] as TM
+  
+  LAS --> PP : uses
+  LAS --> RP : uses
+  LAS --> SA : uses
+  LAS --> TM : uses
+  PP --> PS : uses
+}
+
+' Integration layer
+package "Integration Layer" <<Integration>> {
+  [LLMManager] as LM
+  [LanguageModel] as LanguageModel
+  [OllamaLLM] as OLLM
+  [DSPyLLM] as DLLM
+  [FrontierLLM] as FLLM
+  
+  [ScreenParser] as ScrP
+  [DroidBotParser] as DBP
+  [UIAutomatorParser] as UIAP
+  
+  LM --> LanguageModel : manages
+  LanguageModel <|-- OLLM
+  LanguageModel <|-- DLLM
+  LanguageModel <|-- FLLM
+  
+  ScrP <|-- DBP
+  ScrP <|-- UIAP
+}
+
+' Execution layer
+package "Execution Layer" <<Execution>> {
+  [ActionGenerator] as AG
+  [ItemAction] as IA
+  [ScreenDescription] as SD
+  [ActionExecutor] as AE
+  
+  AG --> IA : creates
+  AG --> SD : uses
+  AE --> IA : executes
+}
+
+' Cross-layer relationships
+LAS --> LM : uses
+LAS --> AG : uses
+PP --> ScrP : uses
+RP --> AG : passes data to
+BPS --> ScrP : references
+BPS --> SD : processes
+AG --> AE : provides actions to
+
+@enduml

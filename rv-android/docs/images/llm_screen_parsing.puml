@@ -1,0 +1,197 @@
+@startuml llm_screen_parsing
+
+skinparam handwritten false
+skinparam monochrome false
+skinparam packageStyle rectangle
+skinparam shadowing false
+skinparam defaultFontName "Verdana"
+skinparam defaultFontSize 12
+
+!define PRIMARY_COLOR #3F51B5
+!define SECONDARY_COLOR #FF9800
+!define ACCENT_COLOR #4CAF50
+
+skinparam class {
+  BackgroundColor White
+  BorderColor PRIMARY_COLOR
+  ArrowColor PRIMARY_COLOR
+}
+
+' Define the parser hierarchy
+abstract class AbstractScreenParser {
+  +{abstract} parse(state, static_data): ScreenDescription
+  +{abstract} get_activity_name(state): String
+}
+
+class DroidBotParser {
+  +parse(state, static_data): ScreenDescription
+  +get_activity_name(state): String
+  -_create_visitor(activity): BaseScreenVisitor
+}
+
+class UIAutomatorParser {
+  +parse(state, static_data): ScreenDescription
+  +get_activity_name(state): String
+  -_parse_xml_to_nodes(xml_string): Node
+  -_create_visitor(activity): BaseScreenVisitor
+}
+
+class GenericParser {
+  +parse(state, static_data): ScreenDescription
+  +get_activity_name(state): String
+}
+
+' Define the parser factory
+class ParserFactory {
+  +{static} create(parser_type): AbstractScreenParser
+}
+
+enum ParserType {
+  DROIDBOT
+  UIAUTOMATOR
+  GENERIC
+}
+
+' Define the visitor pattern
+abstract class BaseScreenVisitor {
+  #logger: Logger
+  #static_info: StaticAnalysisData
+  #activity: String
+  #window: Window
+  #counter: Counter
+  #items: List<ScreenItem>
+  #visited_nodes: Set<String>
+  #handlers: Map<UiElementType, ElementHandler>
+  
+  +visit(node): void
+  +get_screen_description(): ScreenDescription
+  +find_matching_widget(node_data): Widget
+  +get_possible_actions(node, counter): List<ItemAction>
+  #_register_default_handlers(): void
+  #_process_actionable_node(node): void
+  #_update_action_security_info(action, node): void
+}
+
+class ElementHandler {
+  +element_type: UiElementType
+  
+  +can_handle(node): Boolean
+  +handle(node, visitor): ScreenItem
+}
+
+class ScreenDescription {
+  +activity: String
+  +items: List<ScreenItem>
+  +events_by_id: Map<Integer, ItemAction>
+  
+  +_add_standard_back_action(): void
+  +description: String
+}
+
+class ScreenItem {
+  +view: Dict
+  +base_description: String
+  +actions: List<ItemAction>
+  
+  +description: String
+}
+
+class ItemAction {
+  +id: Integer
+  +text: String
+  +event: WidgetEventType
+  +reaches_mop: Boolean
+  +directly_reaches_mop: Boolean
+  +target_view: Dict
+  +coordinates: Tuple
+  
+  +action_type: String
+  +to_droidbot_action(params): Dict
+}
+
+class Node {
+  +data: Dict
+  +children: List<Node>
+  +parent: Node
+  +element_type: UiElementType
+  
+  +accept(visitor): void
+  +find_children_by_class(class_name): List<Node>
+  +get_center_coordinates(): Tuple
+  +get_unique_id(): String
+}
+
+' Define the specialized visitors
+class BasicVisitor {
+  -_get_basic_description(node): String
+}
+
+class EnhancedVisitor {
+  -_get_enhanced_description(node): String
+  -_process_form_elements(nodes): void
+}
+
+class TextVisitor {
+  -_extract_text_structure(node): String
+}
+
+class VisitorFactory {
+  +{static} create_visitor(visitor_type, static_info, activity): BaseScreenVisitor
+}
+
+enum UiElementType {
+  CONTAINER
+  BUTTON
+  TEXT_FIELD
+  TEXT_VIEW
+  CHECKBOX
+  TOGGLE
+  RADIO_BUTTON
+  SPINNER
+  SLIDER
+  IMAGE
+  UNKNOWN
+}
+
+' Define relationships
+AbstractScreenParser <|-- DroidBotParser
+AbstractScreenParser <|-- UIAutomatorParser
+AbstractScreenParser <|-- GenericParser
+
+ParserFactory --> AbstractScreenParser : creates
+ParserFactory --> ParserType : uses
+
+BaseScreenVisitor <|-- BasicVisitor
+BaseScreenVisitor <|-- EnhancedVisitor
+BaseScreenVisitor <|-- TextVisitor
+
+VisitorFactory --> BaseScreenVisitor : creates
+
+BaseScreenVisitor --> ElementHandler : uses
+BaseScreenVisitor --> ScreenDescription : creates
+ScreenDescription o--> ScreenItem : contains
+ScreenItem o--> ItemAction : contains
+
+BaseScreenVisitor --> Node : visits
+
+Node --> UiElementType : has type
+
+' Define connections to static analysis
+class StaticAnalysisData {
+  +classes: Classes
+  +windows: Windows
+  +wtg: WindowTransitionGraph
+}
+
+BaseScreenVisitor --> StaticAnalysisData : uses
+
+' Show connections to prompt strategies
+class BasePromptStrategy {
+  +process_screen(state): ScreenDescription
+  +_format_ui_elements(screen_description): String
+}
+
+BasePromptStrategy ..> AbstractScreenParser : uses
+BasePromptStrategy ..> ScreenDescription : processes
+
+@enduml
