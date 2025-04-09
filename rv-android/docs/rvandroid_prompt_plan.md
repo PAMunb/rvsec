@@ -246,6 +246,51 @@ The implementation will integrate with the test framework according to the evolu
 - [ ] Optimize prompt templates
 - [ ] Refine pattern detection thresholds
 
+For the "Fine-tune heuristics based on results" item:
+- Implement a subsystem called `HeuristicsOptimizer` that registers the success/failure of actions based on heuristics
+- Create a set of metrics specific to each heuristic type (e.g., form filling success rate, clickable element detection precision)
+- Develop an automatic adjustment mechanism that:
+  - Maintains a history of configurations and associated results
+  - Uses reinforcement learning techniques to adjust decision weights
+  - Implements gradual increments/decrements (+/-5%) in the numerical parameters of heuristics
+  - Conducts A/B testing between different parameter sets
+  - Stores results in a structured format (JSON) for later analysis
+- Create a feedback loop where the result of each action (success/failure) is used to update confidence in related heuristics
+- Implement a visualization dashboard to track the evolution of parameters and their impacts
+- Create a centralized configuration file (`heuristics_config.json`) that stores current and historical parameters
+
+For the "Optimize prompt templates" item:
+- Develop a `PromptVersioning` system that maintains different prompt versions and their performance statistics
+- Implement a `PromptEvaluation` mechanism that calculates metrics such as:
+  - Success rate (successful actions / total actions)
+  - MOP relevance (how many actions triggered MOPs of interest)
+  - Token efficiency (tokens used / successful actions)
+  - Response time (LLM latency per template)
+- Create a library of prompt components that can be combined and tested
+- Develop an automated process that tests prompt variations and selects the most effective ones
+- Implement a prompt failure categorization system that identifies specific error patterns
+- Create a specific A/B testing mechanism for prompt templates
+
+For the "Refine pattern detection thresholds" item:
+- Implement the `PatternDetectionCalibrator` module that:
+  - Stores all detection data, including confirmed false positives and negatives
+  - Analyzes which attributes/features contribute most to correct detections
+  - Uses statistical analysis to identify ideal threshold values
+  - Maintains separate configuration sets by application type (games, utilities, productivity)
+- Develop a visual tool (`ThresholdAnalyzerTool`) for sensitivity analysis that:
+  - Displays the ROC curve for different thresholds
+  - Allows interactive adjustment of thresholds with visual feedback
+  - Shows examples of true/false positives for each configuration
+- Create an auto-calibration mechanism that:
+  - Starts with conservative thresholds
+  - Gradually adjusts based on feedback
+  - Implements a "warm-up" period to collect sufficient data
+  - Uses a sliding window to adapt to UI changes
+- Develop a layered configuration system, allowing specific thresholds for:
+  - Application category
+  - Pattern type (form, list, etc.)
+  - Current application state (startup, login, main screen)
+
 ## 4. Detailed Component Specifications
 
 ### 4.1 UI Pattern Detector
@@ -530,26 +575,17 @@ rvandroid/
    - Reduce serialization overhead
 
 5. **Error Handling**:
-   - Implement robust error handling
-   - Add graceful degradation
-   - Provide clear error messages
-
-### 5.3 Testing Approach
-
-1. **Unit Testing**:
-   - Test individual components
-   - Verify pattern detection accuracy
-   - Validate sequence generation
-
-2. **Integration Testing**:
-   - Test component interactions
-   - Verify memory system integration
-   - Validate end-to-end flows
-
-3. **System Testing**:
-   - Test with real applications
-   - Measure performance metrics
-   - Validate MOP detection
+   - Utilize existing error handling components in rv-android:
+     - Leverage `rvandroid/util/error/error_handler.py` for standardized error management
+     - Integrate with `rvandroid/util/logging/manager.py` for consistent logging
+     - Use `rvandroid/experiment/event/bus.py` to publish coverage and MOP error events
+   - Apply existing decorators:
+     - Use `rvandroid/util/decorators.py` for task phases and logging
+     - Apply `rvandroid/util/error/decorators.py` for retry logic
+     - Leverage `rvandroid/util/diagnostics.py` for function instrumentation
+   - Utilize performance monitoring:
+     - Integrate with `rvandroid/util/performance_monitor.py` for metrics collection
+     - Apply `measure_time` context manager for performance critical sections
 
 ## 6. Detailed Flows
 
@@ -653,6 +689,52 @@ rvandroid/
    - 20-30% increase in MOP coverage
    - More focused testing of critical operations
 
+**Measurement Systems and Metrics Collection**:
+
+1. **Comprehensive Metrics System**:
+   - Integrate with existing `rvandroid/util/performance_monitor.py` for execution timing metrics
+   - Implement a dedicated `BatchMetricsCollector` subsystem that records batch-specific metrics:
+     - Average time per action (in and out of batches)
+     - Batch completion rate (completed batches / initiated batches)
+     - LLM inference overhead (total LLM time / total test time)
+     - Average time between LLM requests
+
+2. **Automated Comparative Analysis**:
+   - Develop `ComparisonAnalyzer` module that:
+     - Runs A/B tests between single-action and batch strategy
+     - Generates detailed comparative reports with statistical significance
+     - Calculates effective speedup for different application types
+     - Measures actual reduction in LLM calls to complete equivalent tasks
+
+3. **System Telemetry Integration**:
+   - Expand `DiagnosticTool` to collect system metrics during execution:
+     - Memory consumption by strategy
+     - CPU usage by processing phase
+     - Network latency for LLM calls
+     - Time spent in each pipeline component
+
+4. **MOP-Specific Metrics**:
+   - Implement specialized `MOPCoverageTracker` that:
+     - Calculates MOP coverage per unit time
+     - Measures detection efficiency (MOPs detected / actions executed)
+     - Quantifies improvement in activated MOP diversity
+     - Records time to first MOP violation
+
+5. **Real-Time Performance Dashboard**:
+   - Develop simple web interface using Dash or Streamlit that:
+     - Displays real-time metrics during tests
+     - Automatically compares against previous baselines
+     - Generates alerts when metrics fall below expected thresholds
+     - Enables offline analysis data export
+
+6. **Storage and Analysis Structure**:
+   - Create dedicated SQLite database for performance metrics storage
+   - Implement automated analysis scripts that generate:
+     - Comparative graphs of different strategies
+     - Trend analyses over time
+     - Regression reports to identify performance degradations
+     - Presentation-ready result compilations
+
 ### 7.2 User Experience Improvements
 
 1. **More Efficient Testing**:
@@ -679,8 +761,67 @@ rvandroid/
    - Mitigation: Robust scoring algorithms with fallback mechanisms
 
 2. **LLM Response Quality**:
-   - Risk: LLM may generate invalid actions in batch
-   - Mitigation: Progressive validation and fallback to single actions
+   - **Detailed Risk Description**:
+     - LLMs may generate invalid or inappropriate actions within a batch
+     - Failures in a single action can compromise the entire batch sequence
+     - Different models (Claude, GPT, Llama) have significant variations in response quality
+     - LLM hallucinations can lead to interactions that don't match the actual UI state
+     - Inconsistency in responses between similar executions can harm reproducibility
+     - Differences in context understanding between individual vs. batch requests
+     - Models may lose critical details when generating longer sequences
+
+   - **Mitigation Strategies**:
+     1. **Multi-Layer Validation System**:
+        - Implement syntactic validation to ensure correct action format
+        - Create semantic validation that verifies action viability in current context
+        - Develop consistency validator ensuring sequential actions make sense together
+        - Implement element verification confirming referenced elements exist in UI
+
+     2. **Progressive Fallback Mechanism**:
+        - Create gradual degradation system that:
+          - First attempts the complete batch
+          - If failed, tries executing batch subsets
+          - If still failing, reverts to individual actions
+          - Maintains tracking of which patterns have highest success rate with each approach
+
+     3. **Self-Correction and Reprompting**:
+        - Develop system analyzing failures and automatically generating corrected prompts
+        - Implement specific error feedback to the LLM, explaining why action failed
+        - Create fallback example library for each pattern type
+        - Maintain "correction memory" learning from previous errors
+
+     4. **Scenario-Based Temperature Calibration**:
+        - Implement dynamic temperature adjustment based on:
+          - UI pattern type (forms require lower temperature than free exploration)
+          - Success/failure history for current application
+          - Current screen complexity
+          - Testing phase (initial exploration vs. deeper functionality)
+
+     5. **Model Benchmarking and Selection**:
+        - Develop specific benchmark for response quality in Android actions
+        - Implement model rotation based on performance by application type
+        - Create evaluation system identifying which models excel for each pattern
+        - Maintain response quality metrics by model/temperature/application
+
+     6. **Prompting Strategy Diversification**:
+        - Implement different prompt strategies for specific scenarios:
+          - Chain-of-thought for complex actions
+          - Few-shot learning with high-quality examples
+          - Explicit structuring for forms
+          - Decomposition for complex navigation
+        - Develop system selecting optimal strategy based on current context
+
+     7. **Simulation and Pre-verification**:
+        - Implement "action simulator" logically verifying viability before execution
+        - Create internal UI state representation for pre-validation
+        - Develop state inconsistency detector identifying hallucinations
+        - Maintain "shadow model" of application to predict expected results
+
+     8. **Real-time Feedback System**:
+        - Create mechanism providing instant feedback on each action result
+        - Develop confidence metrics updated during execution
+        - Implement system learning which action types tend to fail
+        - Maintain failure pattern registry to improve future prompts
 
 3. **Performance Overhead**:
    - Risk: Pattern detection adds processing overhead
