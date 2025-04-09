@@ -84,6 +84,8 @@ Both tools will leverage the memory system, with appropriate abstractions:
 1. **Long-Term Memory**: Will be used by both RVAndroid and RVDroid
 2. **Pattern Recognition**: Shared component for detecting recurring patterns
 3. **Memory Interfaces**: Abstract interfaces will allow different implementations if needed
+4. **Dynamic WTG Integration**: Will leverage the existing `DynamicTransitionGraph` to track visited activities and transitions
+5. **Static + Dynamic Graph Combination**: Will combine static WTG (when available) with dynamic WTG to identify unexplored areas
 
 ### 2.5 DroidBot Integration
 
@@ -146,13 +148,20 @@ The implementation will integrate with the test framework according to the evolu
 - [ ] Add tab content exploration logic
 - [ ] Implement tab state tracking
 
-#### 3.2.4 Additional UI Patterns
+#### 3.2.4 Navigation Pattern Detection
+- [ ] Implement dynamic WTG-based navigation analysis
+- [ ] Integrate static WTG data when available
+- [ ] Create algorithms for identifying unexplored paths
+- [ ] Develop heuristics for prioritizing high-value navigation paths
+- [ ] Implement navigation sequence generation based on WTG analysis
+
+#### 3.2.5 Additional UI Patterns
 - [ ] Implement modal/dialog detection
 - [ ] Add carousel/slider pattern recognition
 - [ ] Implement complex field detection
 - [ ] Create navigation menu detection
 
-#### 3.2.5 Visual Error Detection
+#### 3.2.6 Visual Error Detection
 - [ ] Integrate with existing `ScreenshotImageAnalyzer`
 - [ ] Implement color-based error detection
 - [ ] Add text-based error recognition
@@ -388,19 +397,28 @@ The memory system will be extended to both RVAndroid and RVDroid:
 #### 4.3.2 Memory Utilization
 
 1. **Exploration Guidance**:
-   - Guide to unexplored states
-   - Track overall app coverage
-   - Focus on unexplored features
+   - Guide to unexplored states using dynamic and static WTG
+   - Track overall app coverage (activities, methods, transitions)
+   - Focus on unexplored features and paths
+   - Identify least visited activities for targeted exploration
 
 2. **Action Optimization**:
    - Prioritize successful actions
    - Avoid repetitively failing actions
    - Balance exploration and exploitation
+   - Use transition history to guide navigation
 
 3. **Pattern Learning**:
    - Learn effective interaction patterns
    - Identify productive workflows
    - Recognize problematic sequences
+   - Build usage patterns from successful transitions
+
+4. **WTG-Based Decision Making**:
+   - Use suggest_next_activity() from DynamicTransitionGraph
+   - Analyze least visited activities and transitions
+   - Combine with static WTG to identify unexplored potential paths
+   - Use get_actions_for_coverage() to target specific activities
 
 ### 4.4 Integration with Test Framework
 
@@ -422,6 +440,13 @@ The new batch strategy will be fully integrated with the test framework:
    - Pattern detection accuracy
    - Pattern utilization rate
    - Pattern success rate
+
+4. **Traditional Coverage Metrics**:
+   - Method coverage (called methods/total methods)
+   - Activity coverage (visited activities/total activities)
+   - Class coverage (called classes/total classes)
+   - Transition coverage (executed transitions/potential transitions)
+   - UI element coverage (interacted elements/total interactive elements)
 
 #### 4.4.2 Comparative Analysis
 
