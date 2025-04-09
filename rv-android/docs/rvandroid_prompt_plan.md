@@ -117,7 +117,7 @@ The implementation will integrate with the test framework according to the evolu
 - [ ] Extract essential components from RVDroid's memory system
 - [ ] Implement shared `LongTermMemory` class
 - [ ] Implement shared `PatternRecognition` class
-- [ ] Create adapters for memory integration in RVAndroid
+- [ ] Create adapters for memory integration in RVAndroid and RVDroid
 
 #### 3.1.3 UI Pattern Detection Core
 - [ ] Implement base `UIPatternDetector` class
@@ -128,20 +128,20 @@ The implementation will integrate with the test framework according to the evolu
 ### Phase 2: Pattern Detection Implementation (Weeks 3-4)
 
 #### 3.2.1 Form Pattern Detection
-- [ ] Implement DOM-based form detection algorithm
-- [ ] Implement visual cues analysis for forms
-- [ ] Create context-based form recognition
+- [ ] Implement DOM-based form detection algorithm using normalized Node structure
+- [ ] Integrate with Visitor pattern for pattern processing
+- [ ] Create context-based form recognition with DOM hierarchy analysis
 - [ ] Implement form field and submit button identification
 - [ ] Add validation of required fields
 
 #### 3.2.2 List Pattern Detection
-- [ ] Implement DOM-based list detection
+- [ ] Implement DOM-based list detection using normalized Node structure
 - [ ] Add support for different list types (vertical, horizontal, grid)
 - [ ] Create list item extraction and characterization
 - [ ] Implement list navigation action generation
 
 #### 3.2.3 Tab Pattern Detection
-- [ ] Implement tab layout detection
+- [ ] Implement tab layout detection using normalized Node structure
 - [ ] Create tab navigation action sequences
 - [ ] Add tab content exploration logic
 - [ ] Implement tab state tracking
@@ -219,8 +219,9 @@ The implementation will integrate with the test framework according to the evolu
 - [ ] Implement MOP effectiveness evaluation
 
 #### 3.5.2 Performance Optimization
-- [ ] Implement temperature optimization (0.1-0.2)
-- [ ] Add session persistence enhancements
+- [ ] Implement dynamic temperature adjustment system
+- [ ] Create TemperatureManager for pattern-specific temperature control
+- [ ] Define pattern-based temperature heuristics (forms: 0.1-0.2, lists: 0.3-0.5, error recovery: 0.7-0.8)
 - [ ] Optimize context window usage
 - [ ] Implement batch size tuning
 
@@ -245,7 +246,8 @@ The `UIPatternDetector` will be a core shared component that combines DOM analys
 #### 4.1.1 Pattern Detection Process
 
 1. **Extract Information**:
-   - Parse DOM hierarchy from screen state
+   - Work with normalized Node structure from both DroidBot and UIAutomator parsers
+   - Leverage existing Visitor pattern for DOM traversal
    - Analyze visual elements from screenshot
    - Retrieve pattern history from memory
 
@@ -481,22 +483,28 @@ rvandroid/
 
 ### 5.2 Coding Standards
 
-1. **Consistency with Existing Code**:
+1. **Complete Refactoring Approach**:
+   - Replace legacy code completely rather than adapting it
+   - Remove deprecated code and patterns entirely
+   - Do not implement adapters to maintain compatibility
+   - Update all dependent components to use new implementations
+
+2. **Consistency with Existing Code**:
    - Follow existing naming conventions
    - Maintain consistent documentation style
    - Use existing design patterns
 
-2. **Clear Abstractions**:
+3. **Clear Abstractions**:
    - Use interfaces for cross-tool components
    - Create clean separation of concerns
    - Implement dependency injection
 
-3. **Performance Considerations**:
+4. **Performance Considerations**:
    - Optimize pattern detection for speed
    - Minimize memory footprint
    - Reduce serialization overhead
 
-4. **Error Handling**:
+5. **Error Handling**:
    - Implement robust error handling
    - Add graceful degradation
    - Provide clear error messages
@@ -657,15 +665,15 @@ rvandroid/
 
 1. **Integration Complexity**:
    - Risk: Complex integration across multiple tools
-   - Mitigation: Clean interfaces and incremental implementation
+   - Mitigation: Clean interfaces and clear component boundaries
 
 2. **Testing Time**:
    - Risk: Extensive testing required across applications
    - Mitigation: Automated testing framework and incremental validation
 
-3. **Backward Compatibility**:
-   - Risk: Breaking changes to existing tools
-   - Mitigation: Careful interface design and parallel implementation
+3. **Complete Refactoring Issues**:
+   - Risk: Breaking changes causing widespread failures during migration
+   - Mitigation: Comprehensive test coverage and staged component testing
 
 ## 9. Conclusion
 
