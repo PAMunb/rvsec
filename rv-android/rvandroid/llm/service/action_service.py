@@ -43,6 +43,7 @@ class LLMActionService:
             static_data: Optional[StaticAnalysisData] = None,
             config: Optional[ComponentConfigurator] = None,
             dynamic_wtg_file: str = "dynamic_wtg.json",
+            use_batch_strategy: bool = True,
             **model_kwargs
     ):
         """
@@ -52,6 +53,7 @@ class LLMActionService:
             static_data: Static analysis data for the application (optional)
             config: ComponentConfigurator instance
             dynamic_wtg_file: File to store/load dynamic transition graph
+            use_batch_strategy: Whether to enable batch action strategy
             **model_kwargs: Additional arguments for the model constructor
         """
         # Initialize system services
@@ -78,6 +80,26 @@ class LLMActionService:
         self.state_analyzer = StateAnalyzer(static_data)
         self.response_processor = ResponseProcessor(config)
         self.action_generator = ActionGenerator(config, static_data)
+        
+        # Initialize memory system for pattern-based strategies
+        self.memory = None
+        try:
+            from rvandroid.core.memory.long_term_memory import LongTermMemory
+            app_package = model_kwargs.get("app_package", "unknown")
+            self.memory = LongTermMemory(app_package, static_data)
+            self.logger.info("Initialized long-term memory system")
+        except ImportError:
+            self.logger.warning("Long-term memory system not available")
+        
+        # Initialize batch action strategy if enabled
+        self.batch_strategy = None
+        if use_batch_strategy:
+            try:
+                from rvandroid.core.strategies.flow_based_batch_strategy import FlowBasedBatchActionStrategy
+                self.batch_strategy = FlowBasedBatchActionStrategy(static_data, self.memory)
+                self.logger.info("Initialized flow-based batch action strategy")
+            except ImportError:
+                self.logger.warning("Batch action strategy not available")
 
         # Record session creation event
         self.event_bus.publish_analysis_event(
@@ -87,9 +109,12 @@ class LLMActionService:
         )
 
         # Log initialization
+        strategy_info = f"strategy={config.strategy_class.__name__ if config and config.strategy_class else 'unknown'}"
+        batch_info = f", batch_strategy={'enabled' if self.batch_strategy else 'disabled'}"
+        
         self.logger.info(
             f"Initialized LLM Action Service with model={self.llm_manager.model_name}, "
-            f"strategy={config.strategy_class.__name__ if config and config.strategy_class else 'unknown'}"
+            f"{strategy_info}{batch_info}"
         )
 
     def process_state(self, state: Dict[str, Any]) -> List[Dict[str, Any]]:
@@ -98,6 +123,7 @@ class LLMActionService:
 
         This method coordinates specialized components to analyze the app state,
         generate prompts, interact with the LLM, parse responses, and produce actions.
+        It now supports both single-action and batch action generation based on UI patterns.
 
         Args:
             state: Dictionary representing the current application state
@@ -105,6 +131,11 @@ class LLMActionService:
         Returns:
             List of action dictionaries for test automation system execution
         """
+        # Clean up redundant state data
+        # Remove the 'views' list if we already have a view_tree, as it's duplicative
+        if 'view_tree' in state and 'views' in state:
+            self.logger.debug("Removing duplicate 'views' from state to reduce size")
+            del state['views']
         # Create context for performance monitoring
         app_package = state.get("package_name", "unknown")
         app_activity = state.get("activity", "unknown")
@@ -115,6 +146,29 @@ class LLMActionService:
         # Overall processing time measurement
         with self.performance_monitor.measure_time("state_processing_total", context):
             try:
+                # Parse the screen for pattern detection if using batch strategy
+                screen_description = None
+                if hasattr(self, 'batch_strategy') and self.batch_strategy is not None:
+                    with self.performance_monitor.measure_time("screen_parsing", context):
+                        screen_description = self.prompt_processor.parse_screen(state)
+                        state["screen_description"] = screen_description
+
+                # Check if we should use batch action generation
+                use_batch = False
+                if (hasattr(self, 'batch_strategy') and self.batch_strategy is not None and 
+                    screen_description is not None):
+                    with self.performance_monitor.measure_time("batch_detection", context):
+                        use_batch = self.batch_strategy.should_generate_batch(screen_description, state)
+                        if use_batch:
+                            self.logger.info("Using batch action generation strategy")
+                            self.performance_monitor.record_metric(
+                                name="batch_strategy_used",
+                                value=1,
+                                context=context
+                            )
+                        else:
+                            self.logger.debug("Using single action generation strategy")
+
                 # Update and analyze state
                 with self.performance_monitor.measure_time("state_analysis", context):
                     # Enrich state with transition guidance
@@ -127,6 +181,42 @@ class LLMActionService:
                     # Analyze state for enhanced context
                     self.state_analyzer.analyze_and_enhance_state(state)
 
+                # Try batch action generation if appropriate
+                if use_batch:
+                    with self.performance_monitor.measure_time("batch_generation", context):
+                        batch_actions = self.batch_strategy.generate_batch_actions(screen_description, state)
+                        
+                        if batch_actions and len(batch_actions) >= 2:
+                            self.logger.info(f"Generated {len(batch_actions)} batch actions")
+                            
+                            # Track which strategy was used
+                            self.last_used_strategy = "flow_based_batch_action"
+                            
+                            # Extract and store pattern information from the batch generation
+                            if hasattr(self.batch_strategy, 'get_last_pattern_info'):
+                                pattern_info = self.batch_strategy.get_last_pattern_info()
+                                if pattern_info:
+                                    self.logger.info(f"Detected UI pattern: {pattern_info.get('type')} (confidence: {pattern_info.get('confidence', 0)})")
+                                    self._last_pattern_info = pattern_info
+                            
+                            # Record batch metrics
+                            self.performance_monitor.record_metric(
+                                name="batch_size",
+                                value=len(batch_actions),
+                                context=context
+                            )
+                            
+                            # Update transition graph with batch actions
+                            with self.performance_monitor.measure_time("update_graph", context):
+                                self.transition_manager.update_with_actions(state, batch_actions)
+                                self.transition_manager.save()
+                            
+                            return batch_actions
+                        else:
+                            self.logger.info("Batch generation did not produce valid actions, falling back to single action")
+                
+                # If batch generation was not used or didn't produce valid results, use standard approach
+                
                 # Generate prompts
                 with self.performance_monitor.measure_time("prompt_generation", context):
                     messages = self.prompt_processor.generate_prompts(state)
@@ -151,6 +241,9 @@ class LLMActionService:
 
                 # Process response and generate actions
                 with self.performance_monitor.measure_time("action_generation", context):
+                    # Initialize strategy as single action
+                    self.last_used_strategy = "single_action"
+                    
                     # Parse LLM response into actions
                     available_action_ids = state.get("available_actions", [])
                     if not available_action_ids:
@@ -176,6 +269,11 @@ class LLMActionService:
 
                     # Convert to framework-compatible format
                     droidbot_actions = self.action_generator.create_actions(actions, state)
+                    
+                    # Update strategy based on number of actions generated
+                    if len(droidbot_actions) > 1:
+                        self.last_used_strategy = "flow_based_batch_action"
+                        self.logger.info(f"Setting batch strategy for {len(droidbot_actions)} actions")
 
                 # Update transition graph with chosen actions
                 with self.performance_monitor.measure_time("update_graph", context):
@@ -205,6 +303,157 @@ class LLMActionService:
                 # Generate fallback actions
                 return self.action_generator.generate_fallback_actions(state)
 
+    def get_current_strategy_type(self) -> str:
+        """
+        Get the current strategy type (single action or batch action).
+        Used by the server to include strategy metadata in responses.
+        
+        Returns:
+            String indicating the current strategy type
+        """
+        if hasattr(self, 'last_used_strategy') and self.last_used_strategy:
+            # Debug log to verify what's being returned
+            self.logger.debug(f"Returning last used strategy: {self.last_used_strategy}")
+            return self.last_used_strategy
+            
+        # For batch actions, there should be a batch_strategy attribute
+        if hasattr(self, 'batch_strategy') and self.batch_strategy is not None:
+            # Check if the batch actions were generated
+            if getattr(self, 'pending_batch_reports', None) or len(getattr(self, 'current_batch', [])) > 0:
+                self.logger.debug("Detected batch strategy was used based on pending batch reports")
+                return "flow_based_batch_action"
+            
+        # Default to single action
+        self.logger.debug("No specific strategy detected, defaulting to single_action")
+        return "single_action"
+        
+    def get_detected_pattern_info(self) -> Dict[str, Any]:
+        """
+        Get information about the most recently detected UI pattern.
+        Used by the server to include pattern metadata in responses.
+        
+        Returns:
+            Dictionary with pattern type and confidence information
+        """
+        # First, check if we have stored pattern info from a batch action
+        if hasattr(self, '_last_pattern_info') and self._last_pattern_info:
+            self.logger.debug(f"Using stored pattern info: {self._last_pattern_info}")
+            return self._last_pattern_info
+            
+        # Next, try to get pattern info from the batch strategy
+        if hasattr(self, 'batch_strategy') and self.batch_strategy is not None:
+            if hasattr(self.batch_strategy, 'get_last_pattern_info'):
+                pattern_info = self.batch_strategy.get_last_pattern_info()
+                if pattern_info:
+                    self.logger.debug(f"Using pattern info from batch strategy: {pattern_info}")
+                    # Store for future use
+                    self._last_pattern_info = pattern_info
+                    return pattern_info
+            
+        # If no pattern info is available, return a default based on strategy
+        if hasattr(self, 'last_used_strategy') and "batch" in self.last_used_strategy:
+            default_info = {
+                "type": "unknown",
+                "confidence": 0.5
+            }
+            self.logger.debug(f"Using default pattern info for batch strategy: {default_info}")
+            return default_info
+            
+        return None
+        
+    def handle_batch_action_error(self, error_data: Dict[str, Any]) -> None:
+        """
+        Handle error reports from batch action execution.
+        
+        Args:
+            error_data: Dictionary with error information
+        """
+        self.logger.warning(f"Received batch action error: {error_data.get('error_message')}")
+        
+        # Record error metrics
+        context = {
+            "batch_id": error_data.get("batch_id", "unknown"),
+            "action_index": error_data.get("action_index", -1),
+            "error_type": error_data.get("error_type", "unknown")
+        }
+        
+        self.performance_monitor.record_metric(
+            name="batch_action_error",
+            value=1,
+            context=context
+        )
+        
+        # Update memory system with execution failure if available
+        if hasattr(self, 'memory') and self.memory is not None:
+            batch_id = error_data.get("batch_id")
+            action = error_data.get("action")
+            
+            if batch_id and action:
+                self.memory.record_action_failure(
+                    batch_id=batch_id, 
+                    action_data=action,
+                    error_message=error_data.get("error_message")
+                )
+        
+    def handle_batch_execution_result(self, result_data: Dict[str, Any]) -> None:
+        """
+        Handle result reports from batch action execution.
+        
+        Args:
+            result_data: Dictionary with execution results
+        """
+        batch_id = result_data.get("batch_id", "unknown")
+        success_rate = result_data.get("success_rate", 0)
+        pattern_type = result_data.get("pattern_type", "unknown")
+        
+        self.logger.info(f"Received batch execution result: " +
+                   f"batch_id={batch_id}, success_rate={success_rate:.2f}, pattern={pattern_type}")
+        
+        # Record batch metrics
+        context = {
+            "batch_id": batch_id,
+            "pattern_type": pattern_type,
+            "total_actions": result_data.get("total_actions", 0),
+            "executed_actions": result_data.get("executed_actions", 0)
+        }
+        
+        self.performance_monitor.record_metric(
+            name="batch_execution_success_rate",
+            value=success_rate,
+            context=context
+        )
+        
+        # If batch had pattern info, record pattern-specific metrics
+        if pattern_type != "unknown":
+            self.performance_monitor.record_metric(
+                name=f"pattern_execution_success_{pattern_type}",
+                value=success_rate,
+                context=context
+            )
+            
+        # Update global batch statistics for pattern effectiveness analysis
+        if not hasattr(self, 'batch_statistics'):
+            self.batch_statistics = {
+                "total_batches": 0,
+                "successful_batches": 0,
+                "patterns": {}
+            }
+            
+        self.batch_statistics["total_batches"] += 1
+        if success_rate >= 0.9:  # Consider a batch successful if 90% of actions succeeded
+            self.batch_statistics["successful_batches"] += 1
+            
+        if pattern_type != "unknown":
+            if pattern_type not in self.batch_statistics["patterns"]:
+                self.batch_statistics["patterns"][pattern_type] = {
+                    "total": 0,
+                    "successful": 0
+                }
+                
+            self.batch_statistics["patterns"][pattern_type]["total"] += 1
+            if success_rate >= 0.9:
+                self.batch_statistics["patterns"][pattern_type]["successful"] += 1
+        
     def cleanup(self):
         """
         Clean up resources used by the service and all its components.
@@ -216,6 +465,23 @@ class LLMActionService:
 
         # Clean up LLM resources
         self.llm_manager.cleanup()
+        
+        # Log batch statistics if available
+        if hasattr(self, 'batch_statistics'):
+            total = self.batch_statistics["total_batches"]
+            successful = self.batch_statistics["successful_batches"]
+            success_rate = successful / total if total > 0 else 0
+            
+            self.logger.info(f"Batch action statistics: {successful}/{total} successful batches ({success_rate:.2f})")
+            
+            # Log pattern-specific statistics
+            for pattern, stats in self.batch_statistics["patterns"].items():
+                pattern_total = stats["total"]
+                pattern_successful = stats["successful"]
+                pattern_rate = pattern_successful / pattern_total if pattern_total > 0 else 0
+                
+                self.logger.info(f"Pattern '{pattern}' statistics: {pattern_successful}/{pattern_total} " +
+                           f"successful batches ({pattern_rate:.2f})")
 
         # Publish service shutdown event
         self.event_bus.publish_analysis_event(

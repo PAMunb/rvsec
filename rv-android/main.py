@@ -76,7 +76,9 @@ Available Tool Variants
 2. RVAndroid Variants:
   - LLM Variants: llama, gpt4, claude
   - Strategy Variants: single_action, composable
+  - Batch Strategy Variants: batch, llama_batch, gpt4_batch
   Example: python main.py -tools rvandroid:llama:single_action
+  Example: python main.py -tools rvandroid:llama_batch
   Example: python main.py -tools rvandroid@model=gpt-4,strategy=composable
 
 3. RVDroid Variants:
@@ -119,13 +121,29 @@ Configuration file example:
        },
        {
            "name": "rvandroid",
-           "variants": ["llama", "single_action"],
+           "variants": ["llama", "batch"],
            "params": {
                "temperature": 0.2
            }
        }
    ]
 }
+
+Batch Action Strategy
+--------------------
+The batch action strategy is a new feature that generates sequences of related actions based on UI patterns,
+rather than generating single actions. This reduces LLM overhead and improves testing efficiency.
+
+The batch strategy automatically detects UI patterns like forms and lists, and generates appropriate
+sequences of actions to interact with them. For example:
+- For forms: Fill in all fields, then submit
+- For lists: Scroll the list, then click on items
+- For tabs: Navigate through tab elements systematically
+
+To use the batch action strategy:
+   python main.py --no_window -tools rvandroid:batch
+   python main.py --no_window -tools rvandroid:llama_batch
+   python main.py --no_window -tools rvandroid@use_batch_strategy=true
 
 Continuing Experiments with Memory Files
 ---------------------------------------
@@ -150,7 +168,7 @@ RV_HUMANOID_URL       URL for Humanoid service
 RV_RVANDROID_URL      URL for RVAndroid service
 
 Examples:
-RV_TOOLS="rvandroid:llama:single_action" RV_NO_WINDOW=true python main.py
+RV_TOOLS="rvandroid:llama_batch" RV_NO_WINDOW=true python main.py
 
 Advanced Usage
 -------------
@@ -164,7 +182,10 @@ Advanced Usage
   python main.py --skip_monitors --skip_instrument -tools monkey -r 1 -t 120
 
 4. Comparing multiple tool variants:
-  python main.py -tools monkey:fixed_seed monkey:low_throttle droidbot:dfs_naive droidbot:dfs_greedy -r 3 -t 300
+  python main.py -tools rvandroid:llama:single_action rvandroid:llama_batch -r 3 -t 300
+
+5. Comparing batch vs. single action strategies:
+  python main.py -tools rvandroid:batch rvandroid:single_action -r 3 -t 300
 """
 
 program_description = '''
@@ -403,14 +424,41 @@ def register_default_variants(tool):
 
         # Register strategy variants
         registry.register_variant(tool.name, "single_action", {
-            "strategy": {"type": "single_action"}
+            "strategy": {"type": "single_action"},
+            "use_batch_strategy": False
         })
 
         registry.register_variant(tool.name, "composable", {
-            "strategy": {"type": "composable"}
+            "strategy": {"type": "composable"},
+            "use_batch_strategy": False
+        })
+        
+        # Register batch strategy variants
+        registry.register_variant(tool.name, "batch", {
+            "use_batch_strategy": True
+        })
+        
+        # Register combined variants
+        registry.register_variant(tool.name, "llama_batch", {
+            "llm": {
+                "model_type": OllamaLLM.NAME,
+                "model_name": OllamaLLM.LLAMA
+            },
+            "strategy": {"type": "single_action"},
+            "parser": {"type": "uiautomator_detailed"},
+            "visitor": {"type": "enhanced"},
+            "use_batch_strategy": True
+        })
+        
+        registry.register_variant(tool.name, "gpt4_batch", {
+            "llm": {
+                "model_type": "openai",
+                "model_name": "gpt-4"
+            },
+            "use_batch_strategy": True
         })
 
-        logger.debug(f"Registered LLM and strategy variants for tool '{tool.name}'")
+        logger.debug(f"Registered LLM, strategy and batch variants for tool '{tool.name}'")
 
     elif tool.name == "rvdroid":
         # Register RVDroid variants

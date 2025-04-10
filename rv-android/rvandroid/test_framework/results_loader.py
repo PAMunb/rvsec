@@ -265,6 +265,135 @@ class ResultsLoader:
         
         return comparisons
     
+    def load_test_results(self, result_dirs: Optional[List[str]] = None) -> List[TestResult]:
+        """
+        Load raw TestResult objects from specified directories.
+        
+        This method loads the original TestResult objects needed for advanced analysis
+        such as batch strategy analysis.
+        
+        Args:
+            result_dirs: List of result directory paths. If None, discover results.
+            
+        Returns:
+            List of TestResult objects
+        """
+        if result_dirs is None:
+            result_dirs = self.discover_results()
+        
+        test_results = []
+        
+        for result_dir in result_dirs:
+            try:
+                # Look for test_suite_config.json
+                config_file = os.path.join(result_dir, "test_suite_config.json")
+                if not os.path.exists(config_file):
+                    self.logger.warning(f"No test suite configuration found in {result_dir}")
+                    continue
+                
+                # Load test suite configuration
+                with open(config_file, 'r') as f:
+                    test_suite_data = json.load(f)
+                
+                # Create TestSuite object
+                test_suite = TestSuite.from_dict(test_suite_data)
+                
+                # Look for result directories
+                app_result_dirs = []
+                for item in os.listdir(result_dir):
+                    item_path = os.path.join(result_dir, item)
+                    if os.path.isdir(item_path) and not item.startswith('.'):
+                        app_result_dirs.append(item_path)
+                
+                # Process each result directory
+                for app_dir in app_result_dirs:
+                    dir_name = os.path.basename(app_dir)
+                    
+                    # Try to extract test case info from directory name
+                    parts = dir_name.split('_')
+                    if len(parts) < 3:
+                        continue
+                    
+                    app_name = parts[0]
+                    config_id = '_'.join(parts[1:])
+                    
+                    # Find the matching tool configuration
+                    tool_config = None
+                    for config in test_suite.tool_configurations:
+                        if config.get_id() == config_id:
+                            tool_config = config
+                            break
+                    
+                    if not tool_config:
+                        self.logger.warning(f"Configuration not found for {config_id}")
+                        continue
+                    
+                    # Find the app path
+                    app_path = None
+                    for app in test_suite.apps:
+                        if app_name in app:
+                            app_path = app
+                            break
+                    
+                    if not app_path:
+                        self.logger.warning(f"App path not found for {app_name}")
+                        # Use a placeholder
+                        app_path = f"/path/to/{app_name}.apk"
+                    
+                    # Create test case
+                    test_case = TestCase(
+                        app_path=app_path,
+                        tool_config=tool_config,
+                        result_dir=app_dir
+                    )
+                    
+                    # Look for result.json
+                    result_file = os.path.join(app_dir, "result.json")
+                    if not os.path.exists(result_file):
+                        self.logger.warning(f"No result file found in {app_dir}")
+                        continue
+                    
+                    # Load result data
+                    with open(result_file, 'r') as f:
+                        result_data = json.load(f)
+                    
+                    # Create TestResult object
+                    result = TestResult(
+                        test_case=test_case,
+                        status=result_data.get("status", "unknown"),
+                        execution_time=result_data.get("execution_time", 0),
+                        start_time=result_data.get("start_time", ""),
+                        end_time=result_data.get("end_time", ""),
+                        error_message=result_data.get("error_message", ""),
+                        output_dir=app_dir
+                    )
+                    
+                    # Load coverage data if available
+                    coverage_file = os.path.join(app_dir, "coverage_data.json")
+                    if os.path.exists(coverage_file):
+                        with open(coverage_file, 'r') as f:
+                            result.coverage_data = json.load(f)
+                    
+                    # Load error data if available
+                    error_file = os.path.join(app_dir, "error_data.json")
+                    if os.path.exists(error_file):
+                        with open(error_file, 'r') as f:
+                            result.error_data = json.load(f)
+                    
+                    # Look for batch metrics
+                    batch_file = os.path.join(app_dir, "batch_metrics.json")
+                    if os.path.exists(batch_file):
+                        with open(batch_file, 'r') as f:
+                            result.batch_metrics = json.load(f)
+                    
+                    test_results.append(result)
+                    
+            except Exception as e:
+                self.logger.error(f"Error loading test results from {result_dir}: {str(e)}")
+        
+        self.logger.info(f"Loaded {len(test_results)} test results")
+        return test_results
+    
     def load_and_analyze(self, result_dirs: Optional[List[str]] = None) -> Dict[str, Any]:
         """
         Load and analyze results from specified directories.

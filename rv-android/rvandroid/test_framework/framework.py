@@ -9,7 +9,7 @@ import json
 import os
 import logging
 from datetime import datetime
-from typing import Dict, List, Any, Optional, Callable, Set
+from typing import Dict, List, Any, Optional, Callable, Set, Tuple
 
 from rvandroid.test_framework.config import (
     TestSuite, TestCase, ToolConfiguration, create_default_test_suite
@@ -207,6 +207,64 @@ class TestFramework:
         
         return optimal_configs
     
+    def analyze_batch_strategies(self) -> Dict[str, Any]:
+        """
+        Analyze batch action strategies vs. single action approaches.
+        
+        Performs a comparative analysis between batch and single action strategies,
+        quantifying improvements in efficiency, coverage, and MOP detection.
+        
+        Returns:
+            Batch analysis results
+            
+        Raises:
+            ValueError: If no test results are available
+        """
+        if not self.current_results:
+            raise ValueError("No test results available. Call run() first.")
+        
+        self.logger.info("Analyzing batch action strategies")
+        
+        # Create batch analyzer
+        from rvandroid.test_framework.batch_analyzer import BatchAnalyzer
+        batch_analyzer = BatchAnalyzer(self.current_results, self.run_dir)
+        
+        # Generate report
+        report_file, batch_analysis = batch_analyzer.generate_report()
+        
+        self.logger.info(f"Batch analysis completed. Report saved to {report_file}")
+        
+        return batch_analysis
+        
+    def save_batch_analysis(self, output_file: str) -> str:
+        """
+        Save batch action analysis results to a JSON file.
+        
+        Args:
+            output_file: Path to save the analysis
+            
+        Returns:
+            Path to saved file
+            
+        Raises:
+            ValueError: If batch analysis has not been performed
+        """
+        # Run batch analysis if not already done
+        batch_analysis = self.analyze_batch_strategies()
+        
+        # Prepare serializable output (remove chart_files which are just paths)
+        output_data = dict(batch_analysis)
+        if "chart_files" in output_data:
+            del output_data["chart_files"]
+        
+        # Save to file
+        with open(output_file, 'w') as f:
+            json.dump(output_data, f, indent=2)
+        
+        self.logger.info(f"Batch analysis results saved to {output_file}")
+        
+        return output_file
+        
     def save_optimal_configurations(self, output_file: str) -> str:
         """
         Save optimal configurations to a JSON file.
@@ -247,3 +305,27 @@ class TestFramework:
         self.logger.info(f"Optimal configurations saved to {output_file}")
         
         return output_file
+        
+    def get_best_batch_configuration(self) -> Optional[ToolConfiguration]:
+        """
+        Get the best batch action strategy configuration.
+        
+        Returns:
+            Best batch configuration or None if no batch configurations found
+        """
+        # Run batch analysis if not already done
+        batch_analysis = self.analyze_batch_strategies()
+        
+        # Get the best batch configuration ID
+        best_batch_id = batch_analysis.get("best_batch_config")
+        
+        if not best_batch_id:
+            self.logger.warning("No batch action configurations found in results")
+            return None
+        
+        # Find the matching configuration
+        for config in self.current_test_suite.tool_configurations:
+            if config.get_id() == best_batch_id:
+                return config
+                
+        return None

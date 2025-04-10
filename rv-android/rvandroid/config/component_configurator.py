@@ -393,6 +393,8 @@ class ComponentConfigurator:
                 'composable', 'rvandroid.llm.prompt.composable_prompt_strategy', 'ComposablePromptStrategy')
             self._registries['strategy'].register_lazy(
                 'composable_single_action', 'rvandroid.llm.prompt.composable_single_action_strategy', 'ComposableSingleActionStrategy')
+            self._registries['strategy'].register_lazy(
+                'flow_based_batch_action', 'rvandroid.llm.prompt.flow_based_batch_action_strategy', 'FlowBasedBatchActionStrategy')
 
         # Register parser types
         if not self._registries['parser'].get_names():

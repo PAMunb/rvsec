@@ -188,6 +188,7 @@ The prompt strategies follow a clear inheritance hierarchy:
 - **SingleActionPromptStrategy**: Specialized for generating exactly one action with enhanced guidance
 - **ComposablePromptStrategy**: Uses a composition-based approach for flexible assembly of prompt components
 - **ComposableSingleActionStrategy**: Combines composable approach with single action focus
+- **FlowBasedBatchActionStrategy**: Generates logical sequences of related actions based on detected UI patterns
 - **Other Specialized Strategies**: Like BasicPromptStrategy001, DSPyPromptStrategy, FrontierPromptStrategy
 
 ### 4.2 Strategy Factory
@@ -644,7 +645,187 @@ The relationship between screen parsers and prompt strategies is bi-directional:
 
 This design enables flexible combination of different parsers and strategies to optimize for different testing scenarios.
 
-## 6. Monitored Operations Integration
+## 6. UI Pattern Detection and Batch Actions
+
+The LLM integration includes a sophisticated pattern detection system that identifies common UI patterns and generates batch actions for efficient testing.
+
+```
+docs/images/llm_batch_actions.puml
+```
+
+### 6.1 Pattern Detection System
+
+The pattern detection system uses both visual and structural analysis to identify UI patterns:
+
+```python
+class UIPatternDetector:
+    """Base class for UI pattern detectors."""
+    
+    def __init__(self, static_data: Optional[StaticAnalysisData] = None):
+        """Initialize with static analysis data."""
+        self.static_data = static_data
+        self.logger = logging.getLogger(self.__class__.__name__)
+        
+    @abstractmethod
+    def detect(self, screen_description: ScreenDescription) -> PatternDetectionResult:
+        """Detect patterns in the given screen."""
+        pass
+```
+
+Multiple specialized pattern detectors work together to identify common UI structures:
+
+- **FormDetector**: Identifies form structures and related fields
+- **ListDetector**: Detects list and grid layouts
+- **TabDetector**: Identifies tab-based navigation
+- **NavigationDetector**: Detects navigation elements (menus, drawers)
+- **DialogDetector**: Identifies dialog components
+
+Each detector produces a `PatternDetectionResult` with confidence scores and suggested batch actions.
+
+### 6.2 Batch Action Generation
+
+The `BatchActionGenerator` creates sequences of related actions based on detected patterns:
+
+```python
+class BatchActionGenerator:
+    """Generates batch actions based on detected UI patterns."""
+    
+    def __init__(self, detectors: List[UIPatternDetector]):
+        """Initialize with pattern detectors."""
+        self.detectors = detectors
+        self.logger = logging.getLogger(self.__class__.__name__)
+        
+    def generate_batch_actions(self, screen_description: ScreenDescription) -> List[BatchAction]:
+        """Generate batch actions for the current screen."""
+        batch_actions = []
+        
+        # Apply each detector
+        for detector in self.detectors:
+            result = detector.detect(screen_description)
+            if result.confidence >= CONFIDENCE_THRESHOLD:
+                # Generate batch actions based on pattern type
+                pattern_actions = self._create_actions_for_pattern(
+                    result.pattern_type,
+                    result.elements,
+                    screen_description
+                )
+                batch_actions.extend(pattern_actions)
+        
+        return batch_actions
+```
+
+### 6.3 Visual Error Detection
+
+The system includes comprehensive visual error detection capabilities:
+
+- **Color-based Detection**: Identifies red and orange elements associated with errors
+- **Text-based Detection**: Uses OCR to recognize error messages
+- **Icon-based Detection**: Detects common error icons
+- **Pattern-based Detection**: Recognizes dialog patterns common in error presentations
+
+Error detection is integrated with batch action generation to create intelligent recovery sequences.
+
+### 6.4 Prompt Strategy Integration
+
+The `FlowBasedBatchActionStrategy` integrates pattern detection with LLM prompting:
+
+```python
+class FlowBasedBatchActionStrategy(BasePromptStrategy):
+    """Strategy for generating batches of related actions."""
+    
+    def __init__(self, static_data: Optional[StaticAnalysisData] = None,
+                 parser: Union[ParserType, AbstractScreenParser, None] = None):
+        """Initialize with detectors."""
+        super().__init__(static_data, parser)
+        
+        # Initialize pattern detectors
+        self.form_detector = FormDetector(static_data)
+        self.list_detector = ListDetector(static_data)
+        self.tab_detector = TabDetector(static_data)
+        self.navigation_detector = NavigationDetector(static_data)
+        self.dialog_detector = DialogDetector(static_data)
+        
+        # Create batch action generator
+        self.batch_generator = BatchActionGenerator([
+            self.form_detector,
+            self.list_detector,
+            self.tab_detector,
+            self.navigation_detector,
+            self.dialog_detector
+        ])
+        
+    def generate_system_prompt(self) -> str:
+        """Generate a system prompt for batch action generation."""
+        # Customize the system prompt for batch action generation
+        exploration_goal = ("Analyzing UI patterns and generating logical sequences "
+                           "of related actions for complete workflow testing")
+        
+        # Use batch action response format
+        response_format = PromptLibrary.batch_action_format()
+        
+        # Add additional guidelines
+        additional_guidelines = (
+            "IMPORTANT: Analyze the UI to identify patterns like forms, lists, tabs, "
+            "navigation elements, and dialogs. Then generate a LOGICAL SEQUENCE of "
+            "actions that test complete workflows within the identified pattern.\n\n"
+            "FOR EACH PATTERN:\n"
+            "1. Begin with a clear pattern identification\n"
+            "2. List 2-5 related actions that form a cohesive testing sequence\n"
+            "3. Explain the testing objective for this sequence"
+        )
+        
+        # Render template
+        return self.system_template.render({
+            "exploration_goal": exploration_goal,
+            "response_format": response_format,
+            "additional_guidelines": additional_guidelines
+        })
+```
+
+### 6.5 Action Execution Integration
+
+Batch actions are executed through the `BatchActionExecutor` which handles sequences appropriately:
+
+```python
+class BatchActionExecutor:
+    """Executes batches of related actions."""
+    
+    def __init__(self, action_executor: ActionExecutor):
+        """Initialize with an action executor."""
+        self.action_executor = action_executor
+        self.logger = logging.getLogger(self.__class__.__name__)
+        
+    def execute_batch(self, batch_action: BatchAction) -> BatchActionResult:
+        """Execute a batch of actions and return the result."""
+        results = []
+        
+        # Execute each action in the batch sequentially
+        for action in batch_action.actions:
+            # Execute action
+            result = self.action_executor.execute(action)
+            results.append(result)
+            
+            # Stop if action failed
+            if not result.success:
+                self.logger.warning(f"Batch execution stopped after action {action.id} failed")
+                break
+                
+            # Capture intermediate state if needed
+            if action != batch_action.actions[-1]:
+                # Wait for UI to update
+                time.sleep(1)
+        
+        # Return overall batch result
+        return BatchActionResult(
+            batch_action=batch_action,
+            action_results=results,
+            success=all(r.success for r in results)
+        )
+```
+
+This integration allows RVDroid to efficiently handle complex UI workflows with fewer LLM queries, improving both testing efficiency and coverage.
+
+## 7. Monitored Operations Integration
 
 A key feature of the LLM integration is its ability to incorporate information about monitored operations from formal specifications.
 

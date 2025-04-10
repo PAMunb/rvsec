@@ -171,6 +171,38 @@ def run_test_suite(args):
                 config_file = os.path.join(args.output_dir, "optimal_configurations.json")
                 framework.save_optimal_configurations(config_file)
                 print(f"Optimal configurations saved to: {config_file}")
+                
+        # Analyze batch strategies
+        if args.analyze_batch:
+            print("\nAnalyzing batch action strategies...")
+            try:
+                batch_analysis = framework.analyze_batch_strategies()
+                print("\nBatch analysis completed.")
+                
+                # Find best batch configuration
+                best_batch_config = framework.get_best_batch_configuration()
+                if best_batch_config:
+                    print(f"\nBest batch strategy configuration: {best_batch_config.get_id()}")
+                    print(f"  Tool: {best_batch_config.tool_name}")
+                    print(f"  LLM: {best_batch_config.llm_type}/{best_batch_config.llm_model}")
+                    print(f"  Strategy: {best_batch_config.strategy_type}")
+                
+                # Show key improvements
+                if "improvements" in batch_analysis:
+                    improvements = batch_analysis["improvements"]
+                    print("\nKey improvements from batch processing:")
+                    for metric, value in improvements.items():
+                        # Format metric name for display
+                        display_name = metric.replace('_', ' ').title()
+                        print(f"  {display_name}: {value:.1f}%")
+                
+                # Save batch analysis results
+                if args.save_batch:
+                    batch_file = os.path.join(args.output_dir, "batch_analysis_results.json")
+                    framework.save_batch_analysis(batch_file)
+                    print(f"\nBatch analysis results saved to: {batch_file}")
+            except Exception as e:
+                print(f"\nError analyzing batch strategies: {str(e)}")
         
     except KeyboardInterrupt:
         pbar.close()
@@ -519,6 +551,64 @@ def analyze_results(args):
                     print(f"Excel export saved to: {xlsx_path}")
             except ImportError as e:
                 print(f"Excel exporter module not available: {str(e)}. Skipping Excel export.")
+                
+        # Perform batch analysis if requested
+        if args.batch_analysis:
+            try:
+                # Initialize the test framework with the results directory
+                from rvandroid.test_framework.framework import TestFramework
+                from rvandroid.test_framework.results_loader import ResultsLoader
+                from rvandroid.test_framework.batch_analyzer import BatchAnalyzer
+                
+                print("\nAnalyzing batch action strategies...")
+                
+                # Initialize the framework
+                framework = TestFramework(output_dir=args.output_dir)
+                
+                # Load the results using the loader
+                loader = ResultsLoader(args.results_dir)
+                test_results = loader.load_test_results()
+                
+                if not test_results:
+                    print("No valid test results found for batch analysis.")
+                    return
+                
+                # Use the batch analyzer directly
+                batch_analyzer = BatchAnalyzer(test_results, args.output_dir)
+                report_file, batch_analysis = batch_analyzer.generate_report()
+                
+                print(f"\nBatch analysis completed. Report saved to: {report_file}")
+                
+                # Save batch analysis results
+                batch_output = os.path.join(args.output_dir, args.batch_output)
+                with open(batch_output, 'w') as f:
+                    # Remove chart files from JSON (they're just paths)
+                    output_data = dict(batch_analysis)
+                    if "chart_files" in output_data:
+                        del output_data["chart_files"]
+                    json.dump(output_data, f, indent=2)
+                
+                print(f"Batch analysis results saved to: {batch_output}")
+                
+                # Show key improvements
+                if "improvements" in batch_analysis:
+                    improvements = batch_analysis["improvements"]
+                    print("\nKey improvements from batch processing:")
+                    for metric, value in improvements.items():
+                        # Format metric name for display
+                        display_name = metric.replace('_', ' ').title()
+                        print(f"  {display_name}: {value:.1f}%")
+                
+                # Show best patterns
+                if "pattern_effectiveness" in batch_analysis and "best_by_effectiveness" in batch_analysis["pattern_effectiveness"]:
+                    best_patterns = batch_analysis["pattern_effectiveness"]["best_by_effectiveness"]
+                    if best_patterns:
+                        print("\nMost effective UI patterns:")
+                        for i, pattern in enumerate(best_patterns[:3], 1):
+                            print(f"  {i}. {pattern.title()}")
+                
+            except Exception as e:
+                print(f"Error performing batch analysis: {str(e)}")
     except Exception as e:
         print(f"Error analyzing results: {str(e)}")
 
@@ -559,6 +649,14 @@ def main():
     run_parser.add_argument(
         "--save-optimal", "-S", action="store_true",
         help="Save optimal configurations after analysis"
+    )
+    run_parser.add_argument(
+        "--analyze-batch", "-B", action="store_true",
+        help="Analyze batch action strategies and compare with single action approaches"
+    )
+    run_parser.add_argument(
+        "--save-batch", "-b", action="store_true",
+        help="Save batch analysis results after analysis"
     )
     run_parser.add_argument(
         "--skip-invalid", "-s", action="store_true",
@@ -665,6 +763,14 @@ def main():
     analyze_parser.add_argument(
         "--launch-dashboard", "-l", action="store_true",
         help="Launch dashboard in web browser after generation"
+    )
+    analyze_parser.add_argument(
+        "--batch-analysis", "-b", action="store_true",
+        help="Analyze batch action strategies and compare with single action approaches"
+    )
+    analyze_parser.add_argument(
+        "--batch-output", default="batch_analysis_results.json",
+        help="Output file for batch analysis results"
     )
     
     

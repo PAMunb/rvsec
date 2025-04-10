@@ -288,7 +288,13 @@ class ScreenshotAnalyzer(BaseAnalyzer[ScreenshotAnalysisResult]):
     
     def _detect_error_indicators(self, original_image) -> List[Dict[str, Any]]:
         """
-        Detect error indicators typically shown in red.
+        Detect error indicators in Android UI.
+        
+        This method identifies potential error indicators through multiple techniques:
+        1. Color detection (red and orange error indicators)
+        2. Text-based detection of error messages
+        3. Common error icon detection
+        4. Visual error pattern recognition
         
         Args:
             original_image: Original color image
@@ -296,35 +302,105 @@ class ScreenshotAnalyzer(BaseAnalyzer[ScreenshotAnalysisResult]):
         Returns:
             List of error indicator characteristics
         """
+        error_indicators = []
+        
+        # 1. Color-based error detection (red and orange colors common in errors)
+        color_indicators = self._detect_color_error_indicators(original_image)
+        error_indicators.extend(color_indicators)
+        
+        # 2. Text-based error detection
+        text_indicators = self._detect_text_error_indicators(original_image)
+        error_indicators.extend(text_indicators)
+        
+        # 3. Icon-based error detection
+        icon_indicators = self._detect_icon_error_indicators(original_image)
+        error_indicators.extend(icon_indicators)
+        
+        # 4. Pattern-based error detection
+        pattern_indicators = self._detect_error_patterns(original_image)
+        error_indicators.extend(pattern_indicators)
+        
+        # Add error type classification to each indicator
+        for indicator in error_indicators:
+            # Check for existing type, otherwise infer type from detection method
+            if 'error_type' not in indicator:
+                if 'text' in indicator:
+                    indicator['error_type'] = 'text_error'
+                elif 'icon_match' in indicator:
+                    indicator['error_type'] = 'icon_error'
+                elif 'red_intensity' in indicator and indicator['red_intensity'] > 150:
+                    indicator['error_type'] = 'color_error'
+                elif 'pattern_match' in indicator:
+                    indicator['error_type'] = 'visual_pattern_error'
+                else:
+                    indicator['error_type'] = 'unknown_error'
+        
+        return error_indicators
+    
+    def _detect_color_error_indicators(self, original_image) -> List[Dict[str, Any]]:
+        """
+        Detect error indicators based on color (red and orange).
+        
+        Args:
+            original_image: Original color image
+            
+        Returns:
+            List of color-based error indicators
+        """
         # Convert to HSV for better color detection
         hsv_image = cv2.cvtColor(original_image, cv2.COLOR_BGR2HSV)
         
-        # Define red color ranges in HSV
+        error_indicators = []
+        
+        # Define color ranges in HSV
+        
+        # Red color (wraps around hue spectrum)
         lower_red1 = np.array([0, 100, 100])
         upper_red1 = np.array([10, 255, 255])
         lower_red2 = np.array([160, 100, 100])
         upper_red2 = np.array([180, 255, 255])
         
-        # Create masks for red color ranges
+        # Orange color
+        lower_orange = np.array([11, 100, 100])
+        upper_orange = np.array([25, 255, 255])
+        
+        # Process red color (which wraps around the hue spectrum)
         mask1 = cv2.inRange(hsv_image, lower_red1, upper_red1)
         mask2 = cv2.inRange(hsv_image, lower_red2, upper_red2)
         red_mask = cv2.bitwise_or(mask1, mask2)
         
-        # Find contours of red regions
+        # Process orange color
+        orange_mask = cv2.inRange(hsv_image, lower_orange, upper_orange)
+        
+        # Combine masks
+        combined_mask = cv2.bitwise_or(red_mask, orange_mask)
+        
+        # Apply morphological operations to reduce noise
+        kernel = np.ones((3, 3), np.uint8)
+        combined_mask = cv2.morphologyEx(combined_mask, cv2.MORPH_OPEN, kernel)
+        combined_mask = cv2.morphologyEx(combined_mask, cv2.MORPH_CLOSE, kernel)
+        
+        # Find contours of colored regions
         contours, _ = cv2.findContours(
-            red_mask,
+            combined_mask,
             cv2.RETR_EXTERNAL,
             cv2.CHAIN_APPROX_SIMPLE
         )
         
-        error_indicators = []
+        # Process contours
         for contour in contours:
             area = cv2.contourArea(contour)
             if 50 < area < 5000:  # Adjust as needed
                 x, y, w, h = cv2.boundingRect(contour)
                 
-                # Calculate red intensity
-                red_intensity = np.mean(original_image[y:y + h, x:x + w, 2])
+                # Get region of interest (ROI)
+                roi = original_image[y:y + h, x:x + w]
+                
+                # Calculate color intensity for classification
+                red_intensity = np.mean(roi[:, :, 2])
+                
+                # Calculate aspect ratio to help with classification
+                aspect_ratio = w / h if h > 0 else 0
                 
                 error_indicators.append({
                     'x': x,
@@ -332,8 +408,261 @@ class ScreenshotAnalyzer(BaseAnalyzer[ScreenshotAnalysisResult]):
                     'width': w,
                     'height': h,
                     'area': area,
-                    'red_intensity': float(red_intensity)
+                    'red_intensity': float(red_intensity),
+                    'aspect_ratio': float(aspect_ratio),
+                    'detection_method': 'color',
+                    'confidence': 0.7 if area > 200 else 0.5  # Higher confidence for larger areas
                 })
+        
+        return error_indicators
+    
+    def _detect_text_error_indicators(self, original_image) -> List[Dict[str, Any]]:
+        """
+        Detect error indicators based on error message text.
+        
+        Args:
+            original_image: Original color image
+            
+        Returns:
+            List of text-based error indicators
+        """
+        # Preprocess for optimal text extraction
+        gray_image = self._preprocess_grayscale(original_image)
+        
+        error_indicators = []
+        
+        # Error keywords commonly found in Android UIs
+        error_keywords = [
+            "error", "failed", "exception", "invalid", "not found", 
+            "problem", "warning", "alert", "incorrect", "denied",
+            "unable to", "cannot", "retry", "wrong", "expired",
+            "crashed", "not available", "timeout", "sorry",
+            "not valid", "required", "rejected", "fault"
+        ]
+        
+        try:
+            # Extract text with high precision configuration
+            config = r'--oem 3 --psm 6 -c preserve_interword_spaces=1'
+            text_data = pytesseract.image_to_data(
+                gray_image,
+                output_type=pytesseract.Output.DICT,
+                config=config
+            )
+            
+            # Check each text element for error keywords
+            for i in range(len(text_data['text'])):
+                text = text_data['text'][i].strip().lower()
+                
+                # Skip empty or low confidence text
+                if not text or int(text_data['conf'][i]) < 60:
+                    continue
+                
+                # Check if any error keyword is in the text
+                for keyword in error_keywords:
+                    if keyword in text:
+                        # Extract position and dimensions
+                        x = int(text_data['left'][i])
+                        y = int(text_data['top'][i])
+                        w = int(text_data['width'][i])
+                        h = int(text_data['height'][i])
+                        
+                        # Calculate a confidence score (0.0-1.0)
+                        # Higher for more exact matches and higher OCR confidence
+                        base_confidence = int(text_data['conf'][i]) / 100.0
+                        
+                        # Higher confidence for exact matches of error terms
+                        keyword_match_score = 0.7
+                        if text == keyword:
+                            keyword_match_score = 1.0
+                        elif text.startswith(keyword) or text.endswith(keyword):
+                            keyword_match_score = 0.9
+                        
+                        confidence = min(1.0, (base_confidence * 0.5) + (keyword_match_score * 0.5))
+                        
+                        error_indicators.append({
+                            'x': x,
+                            'y': y,
+                            'width': w,
+                            'height': h,
+                            'text': text,
+                            'error_keyword': keyword,
+                            'ocr_confidence': int(text_data['conf'][i]),
+                            'detection_method': 'text',
+                            'confidence': confidence,
+                            'error_type': 'text_error'
+                        })
+                        break  # No need to check other keywords
+        
+        except Exception as e:
+            self.logger.warning(f"Text-based error detection failed: {e}")
+        
+        return error_indicators
+    
+    def _detect_icon_error_indicators(self, original_image) -> List[Dict[str, Any]]:
+        """
+        Detect error indicators based on common error icons.
+        
+        Args:
+            original_image: Original color image
+            
+        Returns:
+            List of icon-based error indicators
+        """
+        error_indicators = []
+        
+        # Load or create template features for common error icons
+        # This uses simple shape detection since we don't have template images
+        
+        # Convert to grayscale
+        gray = cv2.cvtColor(original_image, cv2.COLOR_BGR2GRAY)
+        
+        # Apply edge detection to identify shapes
+        edges = cv2.Canny(gray, 50, 150)
+        
+        # Find contours from edges
+        contours, _ = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        
+        # Identify circles (common in error icons like exclamation in circle)
+        for contour in contours:
+            area = cv2.contourArea(contour)
+            
+            # Filter by reasonable icon sizes
+            if 100 < area < 2000:
+                # Get bounding rectangle
+                x, y, w, h = cv2.boundingRect(contour)
+                
+                # Calculate circularity (4π × area / perimeter²)
+                perimeter = cv2.arcLength(contour, True)
+                circularity = 0
+                if perimeter > 0:
+                    circularity = 4 * np.pi * area / (perimeter * perimeter)
+                
+                # Check if shape is approximately circular (common for error icons)
+                if 0.7 < circularity < 1.3:
+                    # Verify aspect ratio (roughly square)
+                    aspect_ratio = w / h if h > 0 else 0
+                    if 0.8 < aspect_ratio < 1.2:
+                        # Check color inside potential icon
+                        roi = original_image[y:y + h, x:x + w]
+                        red_mean = np.mean(roi[:, :, 2])
+                        
+                        confidence = min(0.9, circularity * 0.7)
+                        
+                        # Higher confidence for red circular shapes
+                        if red_mean > 150:
+                            confidence += 0.1
+                        
+                        error_indicators.append({
+                            'x': x,
+                            'y': y,
+                            'width': w,
+                            'height': h,
+                            'area': area,
+                            'circularity': float(circularity),
+                            'detection_method': 'icon',
+                            'icon_match': 'circular_icon',
+                            'confidence': confidence,
+                            'error_type': 'icon_error'
+                        })
+                
+                # Check for exclamation mark-like contours
+                elif w < h * 0.5 and h > 30:
+                    # More likely to be an exclamation mark if vertical and narrow
+                    error_indicators.append({
+                        'x': x,
+                        'y': y,
+                        'width': w,
+                        'height': h,
+                        'detection_method': 'icon',
+                        'icon_match': 'exclamation_mark',
+                        'confidence': 0.6,
+                        'error_type': 'icon_error'
+                    })
+        
+        return error_indicators
+    
+    def _detect_error_patterns(self, original_image) -> List[Dict[str, Any]]:
+        """
+        Detect error indicators based on visual patterns common in Android errors.
+        
+        Args:
+            original_image: Original color image
+            
+        Returns:
+            List of pattern-based error indicators
+        """
+        error_indicators = []
+        
+        # Get image dimensions
+        height, width = original_image.shape[:2]
+        
+        # 1. Dialog pattern detection (common for error alerts)
+        # Check for semi-transparent overlay with a centered rectangle
+        
+        # Convert to grayscale
+        gray = cv2.cvtColor(original_image, cv2.COLOR_BGR2GRAY)
+        
+        # Apply threshold to identify potential dialog boundaries
+        _, thresh = cv2.threshold(gray, 200, 255, cv2.THRESH_BINARY)
+        
+        # Apply morphological operations
+        kernel = np.ones((5, 5), np.uint8)
+        closed = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, kernel)
+        
+        # Find contours
+        contours, _ = cv2.findContours(closed, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        
+        # Look for rectangular contours that could be dialogs
+        for contour in contours:
+            area = cv2.contourArea(contour)
+            
+            # Filter by area - dialog usually takes significant screen space
+            min_dialog_area = width * height * 0.1  # At least 10% of screen
+            max_dialog_area = width * height * 0.7  # At most 70% of screen
+            
+            if min_dialog_area < area < max_dialog_area:
+                x, y, w, h = cv2.boundingRect(contour)
+                
+                # Calculate center offset from screen center
+                center_x = x + w/2
+                center_y = y + h/2
+                screen_center_x = width/2
+                screen_center_y = height/2
+                
+                # Calculate how centered the rectangle is (0-1)
+                x_centering = 1.0 - min(1.0, abs(center_x - screen_center_x) / (width/2))
+                y_centering = 1.0 - min(1.0, abs(center_y - screen_center_y) / (height/2))
+                centering = (x_centering + y_centering) / 2
+                
+                # Dialog is more likely if centered
+                confidence = centering * 0.6
+                
+                # Check for title bar (often darker at top of dialog)
+                if y > 20 and h > 100:
+                    title_region = original_image[y:y+30, x:x+w]
+                    main_region = original_image[y+30:y+h, x:x+w]
+                    
+                    title_brightness = np.mean(title_region)
+                    main_brightness = np.mean(main_region)
+                    
+                    # If title is darker than main content, more likely a dialog
+                    if title_brightness < main_brightness * 0.9:
+                        confidence += 0.2
+                
+                # Only add if confidence is reasonable
+                if confidence > 0.5:
+                    error_indicators.append({
+                        'x': x,
+                        'y': y,
+                        'width': w,
+                        'height': h,
+                        'area': area,
+                        'centering': float(centering),
+                        'detection_method': 'pattern',
+                        'pattern_match': 'dialog_pattern',
+                        'confidence': confidence,
+                        'error_type': 'dialog_error'
+                    })
         
         return error_indicators
     

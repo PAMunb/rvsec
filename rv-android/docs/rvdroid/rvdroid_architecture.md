@@ -120,6 +120,8 @@ The strategy subsystem implements various testing approaches:
 - **AdvancedStrategies**:
   - **SpecificationFocusedStrategy**: Targets monitored methods
   - **FormCompletionStrategy**: Specializes in form detection and completion
+  - **FlowBasedBatchStrategy**: Generates logical sequences of related actions based on UI patterns
+  - **BatchActionStrategy**: Executes multiple related actions as a cohesive unit
 - **AdaptiveStrategies**:
   - **LearningStrategy**: Adapts based on past effectiveness
   - **CoverageOptimizedStrategy**: Focuses on improving coverage
@@ -317,7 +319,24 @@ The data flow through the RVDroid system:
 
 ## 5. Advanced Features
 
-### 5.1 Adaptive Strategy Selection
+### 5.1 Flow-Based Batch Action Strategy
+
+The Flow-Based Batch Action Strategy enhances testing efficiency by identifying logical sequences of related actions:
+
+- **UI Pattern Detection**: Automatically detects common UI patterns such as:
+  - Forms and input fields
+  - Lists and grid layouts
+  - Navigation elements (tabs, menus, drawers)
+  - Dialog components
+  - Dropdown selections
+  
+- **Batch Action Generation**: Creates logical sequences of actions to test complete workflows
+- **Pattern-Specific Testing**: Applies specialized testing techniques for different UI patterns
+- **Visual Error Recognition**: Detects error states through color-based, text-based, icon-based, and pattern-based analysis
+- **MOP-Aware Sequencing**: Prioritizes action sequences that reach monitored operations
+- **Reduced LLM Overhead**: Decreases the number of LLM queries by generating multiple actions from a single query
+
+### 5.2 Adaptive Strategy Selection
 
 The system dynamically selects testing strategies based on:
 
@@ -330,7 +349,7 @@ The system dynamically selects testing strategies based on:
 - Application characteristics
 - Testing goals
 
-### 5.2 Intelligent Form Detection and Completion
+### 5.3 Intelligent Form Detection and Completion
 
 The system can detect and complete forms by:
 
@@ -342,7 +361,7 @@ The system can detect and complete forms by:
 - Handling validation errors
 - Detecting successful submission
 
-### 5.3 Targeted Security Testing
+### 5.4 Targeted Security Testing
 
 For security-focused testing:
 

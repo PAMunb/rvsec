@@ -22,6 +22,7 @@ from matplotlib.figure import Figure
 from rvandroid.test_framework.config import ToolConfiguration, TestCase
 from rvandroid.test_framework.executor import TestResult
 from rvandroid.test_framework.plateau_analyzer import detect_plateau, find_optimal_timeout
+from rvandroid.test_framework.batch_analyzer import BatchAnalyzer
 
 
 @dataclass

@@ -17,12 +17,14 @@ class PromptProcessor:
     - Delegates specific prompt strategy implementations to strategy classes
     - Provides a consistent interface for prompt generation
     - Enables custom prompt strategies through configuration
+    - Supports both traditional prompt generation and screen parsing for pattern detection
 
     ### Role in the System:
     - Generates prompts based on application state and configuration
     - Applies prompt strategies to create effective LLM inputs
     - Formats prompts according to the required LLM interface
     - Handles context management for prompt generation
+    - Parses screen state for pattern detection and batch action generation
     """
 
     def __init__(self, config: ComponentConfigurator, static_data: Optional[StaticAnalysisData] = None):
@@ -53,6 +55,42 @@ class PromptProcessor:
         strategy_name = self.strategy.__class__.__name__ if self.strategy else "unknown"
         self.logger.info(f"Prompt processor initialized with strategy: {strategy_name}")
 
+    def parse_screen(self, state: Dict[str, Any]):
+        """
+        Parse the screen from state data.
+        
+        This method is used by batch action strategies to get the parsed screen
+        without generating full prompts.
+        
+        Args:
+            state: Current application state
+            
+        Returns:
+            ScreenDescription or None if parsing fails
+        """
+        self.logger.debug("Parsing screen for pattern detection")
+        
+        try:
+            # Use the strategy to process the screen
+            screen_description = self.strategy.process_screen(state)
+            
+            if screen_description:
+                # Extract available action IDs and add to state
+                available_action_ids = []
+                for item in screen_description.items:
+                    for action in item.actions:
+                        available_action_ids.append(str(action.id))
+                
+                # Update state with screen data
+                state["available_actions"] = available_action_ids
+                self.logger.debug(f"Added {len(available_action_ids)} available action IDs to state")
+            
+            return screen_description
+            
+        except Exception as e:
+            self.logger.error(f"Error parsing screen: {e}", exc_info=True)
+            return None
+
     def generate_prompts(self, state: Dict[str, Any]) -> List[Dict[str, str]]:
         """
         Generate prompts for the given application state.
@@ -66,23 +104,26 @@ class PromptProcessor:
         self.logger.debug(f"Generating prompts using {self.strategy.__class__.__name__}")
 
         try:
-            # Use the strategy to process the screen - this handles the parsing internally
-            # and will populate the necessary data structures including available actions
-            screen_description = self.strategy.process_screen(state)
+            # Check if we already have a parsed screen in state
+            screen_description = state.get("screen_description")
             
-            # Store the screen description in state for later use by response processor
-            if screen_description:
-                state["screen_description"] = screen_description
+            # If no parsed screen, parse it now
+            if not screen_description:
+                screen_description = self.strategy.process_screen(state)
                 
-                # Extract available action IDs and add to state
-                # This ensures action_ids are available for validation later
-                available_action_ids = []
-                for item in screen_description.items:
-                    for action in item.actions:
-                        available_action_ids.append(str(action.id))
-                
-                state["available_actions"] = available_action_ids
-                self.logger.debug(f"Added {len(available_action_ids)} available action IDs to state")
+                # Store the screen description in state for later use
+                if screen_description:
+                    state["screen_description"] = screen_description
+                    
+                    # Extract available action IDs and add to state if not already present
+                    if "available_actions" not in state:
+                        available_action_ids = []
+                        for item in screen_description.items:
+                            for action in item.actions:
+                                available_action_ids.append(str(action.id))
+                        
+                        state["available_actions"] = available_action_ids
+                        self.logger.debug(f"Added {len(available_action_ids)} available action IDs to state")
             
             # Generate prompts using the strategy
             messages = self.strategy.generate_prompts(state)

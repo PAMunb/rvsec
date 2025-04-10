@@ -54,6 +54,7 @@ class TestResult:
     # Analysis results
     coverage_data: Dict[str, Any] = field(default_factory=dict)
     error_data: Dict[str, Any] = field(default_factory=dict)
+    batch_metrics: Dict[str, Any] = field(default_factory=dict)
     
     # Performance metrics
     execution_time: float = 0.0

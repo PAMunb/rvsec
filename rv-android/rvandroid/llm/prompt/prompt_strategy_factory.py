@@ -91,6 +91,7 @@ class PromptStrategyFactory:
         from rvandroid.llm.prompt.prompt_strategy_dspy import DSPyPromptStrategy
         from rvandroid.llm.prompt.prompt_strategy_frontier import FrontierPromptStrategy
         from rvandroid.llm.prompt.single_action_prompt_strategy import SingleActionPromptStrategy
+        from rvandroid.llm.prompt.flow_based_batch_action_strategy import FlowBasedBatchActionStrategy
         
         return {
             "basic": BasicPromptStrategy001,
@@ -99,7 +100,8 @@ class PromptStrategyFactory:
             "frontier": FrontierPromptStrategy,
             "dspy_single_action": DSPySingleActionPromptStrategy,
             "composable": ComposablePromptStrategy,
-            "composable_single_action": ComposableSingleActionStrategy
+            "composable_single_action": ComposableSingleActionStrategy,
+            "flow_based_batch_action": FlowBasedBatchActionStrategy
         }
 
     @classmethod

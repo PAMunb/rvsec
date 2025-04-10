@@ -164,19 +164,119 @@ class Server:
 
                 # Validate actions format for DroidBot compatibility
                 validated_actions = self.validate_actions_for_droidbot(actions)
-
-                response = jsonify({
+                
+                # Get strategy type and additional metadata
+                strategy_type = self.service.get_current_strategy_type()
+                pattern_info = self.service.get_detected_pattern_info() if hasattr(self.service, 'get_detected_pattern_info') else None
+                
+                # Create response with metadata
+                response_data = {
                     "actions": validated_actions,
-                    "status": "success"
-                })
-
-                self.logger.info(f"Returning {len(validated_actions)} actions")
+                    "status": "success",
+                    "strategy_type": strategy_type
+                }
+                
+                # Add batch metadata if multiple actions are returned
+                # IMPROVED LOGIC: Consider ANY multiple actions as a batch operation
+                if len(validated_actions) > 1:
+                    # Always set strategy_type to batch when returning multiple actions
+                    response_data["strategy_type"] = "flow_based_batch_action"
+                    
+                    # Generate a batch ID if not already present
+                    import uuid
+                    batch_id = f"batch_{uuid.uuid4().hex[:8]}"
+                    response_data["batch_id"] = batch_id
+                    
+                    # Add pattern metadata if available
+                    if pattern_info:
+                        pattern_type = pattern_info.get("type", "unknown")
+                        # Convert to uppercase if needed to match LLM format
+                        if isinstance(pattern_type, str) and pattern_type.islower():
+                            pattern_type = pattern_type.upper()
+                        response_data["pattern_type"] = pattern_type
+                        response_data["pattern_confidence"] = pattern_info.get("confidence", 0.5)
+                    else:
+                        # Use a default FORM pattern type if no specific pattern detected
+                        response_data["pattern_type"] = "FORM"
+                        response_data["pattern_confidence"] = 0.7
+                        
+                    # Log that we're treating this as a batch operation
+                    self.logger.info(f"Sending {len(validated_actions)} actions as a batch operation")
+                
+                response = jsonify(response_data)
+                self.logger.info(f"Returning {len(validated_actions)} actions with strategy_type={strategy_type}")
 
                 # Return response
                 return response
 
             except Exception as e:
                 self.logger.error(f"Error processing request: {e}", exc_info=True)
+                return jsonify({"error": str(e)}), 500
+                
+        @self.app.route('/api/report_batch_error', methods=['POST'])
+        def report_batch_error():
+            """
+            Endpoint to receive batch action execution error reports.
+            Used by DroidBot to report errors in batch action execution.
+            """
+            try:
+                # Get JSON data from request
+                data = request.json
+                if not data:
+                    return jsonify({"error": "No error data provided"}), 400
+                    
+                # Log the error
+                batch_id = data.get("batch_id", "unknown")
+                action_index = data.get("action_index", -1)
+                error_message = data.get("error_message", "Unknown error")
+                error_type = data.get("error_type", "Unknown")
+                
+                self.logger.warning(f"Batch action error reported: " +
+                              f"batch_id={batch_id}, action_index={action_index}, " +
+                              f"error_type={error_type}, message={error_message}")
+                
+                # Forward error to the service if it has a batch error handler
+                if hasattr(self.service, 'handle_batch_action_error') and callable(getattr(self.service, 'handle_batch_action_error')):
+                    self.service.handle_batch_action_error(data)
+                
+                return jsonify({"status": "error_reported"})
+                
+            except Exception as e:
+                self.logger.error(f"Error processing batch error report: {e}", exc_info=True)
+                return jsonify({"error": str(e)}), 500
+                
+        @self.app.route('/api/report_batch_result', methods=['POST'])
+        def report_batch_result():
+            """
+            Endpoint to receive batch action execution results.
+            Used by DroidBot to report overall batch execution status.
+            """
+            try:
+                # Get JSON data from request
+                data = request.json
+                if not data:
+                    return jsonify({"error": "No result data provided"}), 400
+                    
+                # Log the result
+                batch_id = data.get("batch_id", "unknown")
+                total_actions = data.get("total_actions", 0)
+                executed_actions = data.get("executed_actions", 0)
+                success_rate = data.get("success_rate", 0)
+                strategy_type = data.get("strategy_type", "unknown")
+                pattern_type = data.get("pattern_type", "unknown")
+                
+                self.logger.info(f"Batch result reported: " +
+                           f"batch_id={batch_id}, executed={executed_actions}/{total_actions}, " +
+                           f"success_rate={success_rate:.2f}, pattern_type={pattern_type}")
+                
+                # Forward result to the service if it has a batch result handler
+                if hasattr(self.service, 'handle_batch_execution_result') and callable(getattr(self.service, 'handle_batch_execution_result')):
+                    self.service.handle_batch_execution_result(data)
+                
+                return jsonify({"status": "result_recorded"})
+                
+            except Exception as e:
+                self.logger.error(f"Error processing batch result report: {e}", exc_info=True)
                 return jsonify({"error": str(e)}), 500
 
     def start(self) -> bool:

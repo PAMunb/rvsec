@@ -175,6 +175,8 @@ Each tool can have several variants that modify its behavior:
 #### RVDroid Variants
 - `llm_enabled`: Enables LLM-guided testing
 - `detailed_ui`: Uses detailed UI parser
+- `batch_action`: Enables Flow-Based Batch Action Strategy
+- `flow_based`: Alias for batch_action strategy
 
 #### Monkey Variants
 - `fixed_seed`: Uses a fixed seed (42)

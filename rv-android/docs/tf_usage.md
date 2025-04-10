@@ -67,7 +67,22 @@ You can override the apps defined in the configuration file:
 python run_test_framework.py run --apps apks_examples/*.apk --config my_config.json --analyze
 ```
 
-### 3.4 Analyzing Previous Results
+### 3.4 Running Tests with Batch Action Analysis
+
+To run tests with batch action analysis:
+
+```bash
+python run_test_framework.py run --config my_config.json --analyze-batch --save-batch
+```
+
+This command will:
+1. Run tests using the configurations in your JSON file
+2. Analyze batch action strategies compared to single action approaches
+3. Save the batch analysis results to a JSON file
+
+You should include both batch and single action strategies in your configuration file to enable comparative analysis. Batch strategies should include terms like "batch", "flow", or "sequence" in their strategy_type.
+
+### 3.5 Analyzing Previous Results
 
 To analyze results from a previous test run:
 
@@ -85,6 +100,14 @@ This command will:
 7. Analyze correlations between app characteristics and configurations if `--analyze-correlations` is specified
 8. Generate an interactive dashboard if `--dashboard` is specified
 9. Launch the dashboard in a web browser if `--launch-dashboard` is specified
+
+You can also analyze batch action strategies from previous results:
+
+```bash
+python run_test_framework.py analyze --results-dir test_results --batch-analysis
+```
+
+This will generate batch analysis reports comparing batch action strategies with single action approaches.
 
 You can also adjust the anomaly detection threshold:
 
@@ -148,7 +171,7 @@ The configuration file is a JSON document with the following structure:
 | `llm_model` | Model name | Depends on `llm_type` |
 | `temperature` | Generation temperature | Float between 0.0 and 1.0 |
 | `max_tokens` | Maximum tokens in response | Integer |
-| `strategy_type` | Prompt strategy | `basic`, `single_action`, `composable_single_action`, etc. |
+| `strategy_type` | Prompt strategy | `basic`, `single_action`, `composable_single_action`, `batch_action`, `flow_based`, `flow_based_batch_action`, `sequence_generation`, etc. (strategies with "batch", "flow", or "sequence" enable batch action analysis) |
 | `parser_type` | Parser type | `droidbot`, `uiautomator` |
 | `visitor_type` | Visitor type | `basic`, `enhanced`, `detailed` |
 | `use_static_analysis` | Use static analysis | `true`, `false` |
@@ -191,8 +214,21 @@ The test framework provides several analysis features:
 - **Correlation Analysis**: Analyze relationships between different metrics
 - **Anomaly Detection**: Identify configurations and apps with unusual behavior
 - **App-Configuration Correlation**: Find relationships between app characteristics and optimal configurations
+- **Batch Action Analysis**: Compare batch and single action approaches for efficiency and effectiveness
 
-#### 5.3.1 Anomaly Detection
+#### 5.3.1 Batch Action Analysis
+
+The batch action analyzer compares batch action strategies with traditional single action approaches:
+
+- **Efficiency Metrics**: Quantifies improvements in execution time, LLM call reduction, and token usage efficiency
+- **Pattern Analysis**: Identifies which UI patterns (forms, lists, tabs, etc.) benefit most from batch approaches
+- **Performance Comparison**: Directly compares metrics between batch and single action strategies
+- **Visualizations**: Generates charts showing efficiency gains and pattern-specific performance
+- **HTML Reports**: Produces comprehensive HTML reports with detailed analysis
+- **Best Batch Configuration**: Identifies the most effective batch configuration from test results
+- **Key Findings**: Highlights the most significant improvements and optimizations
+
+#### 5.3.2 Anomaly Detection
 
 The anomaly detector identifies data points that significantly deviate from expected patterns:
 
@@ -203,7 +239,7 @@ The anomaly detector identifies data points that significantly deviate from expe
 - **Statistical Analysis**: Uses Z-scores to identify significant deviations
 - **Contextual Grouping**: Groups configurations by tool, LLM type for proper comparison
 
-#### 5.3.2 App-Configuration Correlation
+#### 5.3.3 App-Configuration Correlation
 
 The correlation analyzer identifies relationships between app characteristics and configuration performance:
 
@@ -215,7 +251,7 @@ The correlation analyzer identifies relationships between app characteristics an
 - **Configuration Insights**: Explains why certain configurations may work better with specific app types
 - **Statistical Analysis**: Uses correlation coefficients to identify significant relationships
 
-#### 5.3.3 Enhanced Spreadsheet Export
+#### 5.3.4 Enhanced Spreadsheet Export
 
 The enhanced spreadsheet exporter provides comprehensive data exports:
 
@@ -229,7 +265,7 @@ The enhanced spreadsheet exporter provides comprehensive data exports:
 - **Excel Formatting**: Enhanced readability with formatting in Excel workbooks
 - **CSV Collection**: Multiple CSV files for different analysis perspectives
 
-#### 5.3.4 Interactive Dashboard
+#### 5.3.5 Interactive Dashboard
 
 The interactive dashboard provides a web-based visualization environment for exploring test results:
 
@@ -317,7 +353,19 @@ python run_test_framework.py run --config plateau_config.json --analyze
 
 Note: After generating the configuration file, you need to update the "apps" field to point to your directory containing the APK(s) and their static analysis files.
 
-### Example 4: Custom Configuration Generator
+### Example 4: Batch Action Analysis
+
+For comparing batch and single action strategies:
+
+```bash
+# Create a configuration with both batch and single action strategies
+python run_test_framework.py create-config --type custom --tools rvdroid --llm-types ollama --models "ollama:llama3.2:3b" --strategies single_action,batch_action --visitors enhanced --output batch_test_config.json
+
+# Run the test with batch analysis enabled
+python run_test_framework.py run --config batch_test_config.json --apps apks_examples/cryptoapp.apk --analyze-batch --save-batch
+```
+
+### Example 5: Custom Configuration Generator
 
 To generate a custom configuration with specific LLM types and models:
 
@@ -336,12 +384,20 @@ Based on previous experiments, here are some recommended configurations to start
 - Visitor: `enhanced`
 - Static Analysis: `detailed`
 
-### RVDroid
+### RVDroid (Single Action)
 - LLM: `ollama` with `llama3.2:3b`
 - Strategy: `composable_single_action`
 - Parser: `uiautomator` (only available)
 - Visitor: `enhanced`
 - Static Analysis: `standard`
+- Screenshot Analysis: `true` with level `standard`
+
+### RVDroid (Batch Action)
+- LLM: `ollama` with `llama3.2:3b`
+- Strategy: `batch_action` or `flow_based_batch_action`
+- Parser: `uiautomator`
+- Visitor: `enhanced`
+- Static Analysis: `detailed`
 - Screenshot Analysis: `true` with level `standard`
 
 ### Directory Structure
@@ -385,6 +441,8 @@ from rvandroid.test_framework.visualization import generate_visualizations
 from rvandroid.test_framework.anomaly_detector import detect_anomalies
 from rvandroid.test_framework.correlation_analyzer import analyze_correlations
 from rvandroid.test_framework.dashboard import generate_dashboard, launch_dashboard
+from rvandroid.test_framework.batch_analyzer import BatchAnalyzer
+from rvandroid.test_framework.batch_metrics import BatchMetricsCollector, BatchActionMetrics
 
 # Load and analyze results
 loader = ResultsLoader("test_results")
@@ -456,4 +514,44 @@ dashboard.set_option("show_mop_metrics", True)
 dashboard_file = dashboard.generate_dashboard(results, "custom_dashboard")
 # Launch in browser
 dashboard.launch_dashboard(dashboard_file)
+
+# Advanced batch action analysis
+# Load test results with batch metrics
+loader = ResultsLoader("test_results")
+test_results = loader.load_test_results()
+
+# Create and use batch analyzer directly
+batch_analyzer = BatchAnalyzer(test_results, "batch_analysis_output")
+report_file, batch_analysis = batch_analyzer.generate_report()
+
+# Access batch metrics for specific configurations
+for config_id, metrics in batch_analysis["batch_metrics"].items():
+    print(f"Configuration: {config_id}")
+    print(f"  Average Batch Size: {metrics['average_batch_size']:.2f}")
+    print(f"  LLM Overhead Reduction: {metrics['llm_overhead_reduction']:.2f}%")
+    print(f"  Time Per Effective Action: {metrics['time_per_effective_action']:.2f}s")
+    
+# Analyze pattern effectiveness
+for pattern, stats in batch_analysis["pattern_effectiveness"]["pattern_metrics"].items():
+    print(f"Pattern: {pattern}")
+    print(f"  Success Rate: {stats['avg_success_rate']:.2f}%")
+    print(f"  Efficiency: {stats['efficiency']:.2f} actions/second")
+    
+# Manual batch metrics collection
+collector = BatchMetricsCollector()
+
+# Record a batch execution
+collector.record_batch_execution({
+    "pattern_type": "form",
+    "batch_size": 5,
+    "execution_time": 8.5,
+    "success": True,
+    "actions_completed": 5,
+    "mops_triggered": 3,
+    "token_usage": 1200
+})
+
+# Calculate and analyze metrics
+metrics = collector.calculate_metrics()
+print(f"LLM Overhead Reduction: {metrics['llm_overhead_reduction']:.2f}%")
 ```

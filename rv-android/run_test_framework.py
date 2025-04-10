@@ -13,11 +13,17 @@ Examples:
     # Run tests with a specific configuration file
     python run_test_framework.py run --apks-dir ./out --config ./tf_configs/basic_config.json
 
+    # Run tests and analyze batch strategies
+    python run_test_framework.py run --apks-dir ./out --config ./tf_configs/basic_config.json --analyze-batch
+
     # Create a test configuration
     python run_test_framework.py create-config --output my_config.json
 
     # Analyze previous test results
     python run_test_framework.py analyze --results-dir ./test_results/run_20250407_114438
+    
+    # Analyze batch strategies in previous results
+    python run_test_framework.py analyze --results-dir ./test_results/run_20250407_114438 --batch-analysis
 """
 
 import sys

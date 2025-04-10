@@ -67,6 +67,7 @@ The framework includes several advanced analysis capabilities:
 - **CorrelationAnalyzer**: Discovers relationships between app characteristics and configurations
 - **SpreadsheetExporter**: Generates comprehensive data exports for detailed analysis including MOP error metrics
 - **Dashboard**: Interactive web-based visualization of test results
+- **UIPatternDetector**: Detects UI patterns for enhanced batch action generation
 
 ![Advanced Analysis](images/tf_advanced_analysis.svg)
 
@@ -146,6 +147,34 @@ The Test Framework is designed to be extensible at several key points:
 - **Analysis Algorithms**: Implement new analysis techniques
 - **Visualization Types**: Add new visualization methods
 - **Export Formats**: Support additional export formats
+- **Strategy Integration**: Implement new testing strategies like Flow-Based Batch Action Strategy
+
+### 6.1 Batch Action Strategy Integration
+
+The Test Framework includes integrated support for analyzing batch action strategies compared to traditional single action approaches:
+
+#### 6.1.1 Batch Metrics Collection
+
+The `BatchMetricsCollector` class tracks metrics specific to batch action execution:
+
+- **Execution Metrics**: Batch execution counts, success rates, completion rates
+- **Performance Metrics**: Execution times, time per effective action
+- **Efficiency Metrics**: LLM call reduction, token usage efficiency
+- **Pattern Metrics**: Success rates for different UI patterns (forms, lists, tabs, etc.)
+- **MOP Coverage**: Monitored operations triggered in batch vs. single mode
+
+The framework tracks detailed metrics during execution, enabling a comprehensive analysis of batch action effectiveness.
+
+#### 6.1.2 Batch Analysis
+
+The `BatchAnalyzer` component specializes in comparing batch and single action approaches:
+
+- **Comparative Analysis**: Quantifies improvements in efficiency, coverage, and MOP detection
+- **Pattern Effectiveness Analysis**: Identifies which UI patterns benefit most from batch approaches
+- **Visualization Generation**: Creates visualizations highlighting key performance differences
+- **Report Generation**: Produces comprehensive HTML reports with analysis findings
+
+Batch analysis can be triggered with the `--analyze-batch` flag during test execution or when analyzing previous results.
 
 ## 7. Implementation Structure
 
@@ -160,6 +189,8 @@ rvandroid/
    ├─ framework.py             # Main framework class
    ├─ executor.py              # Test execution
    ├─ analyzer.py              # Basic result analysis
+   ├─ batch_metrics.py         # Batch action metrics collection
+   ├─ batch_analyzer.py        # Batch vs. single action analysis
    ├─ plateau_analyzer.py      # Plateau detection
    ├─ results_loader.py        # Results loading and reconstruction
    ├─ exporters.py             # Basic CSV/Excel export
@@ -206,6 +237,23 @@ rvandroid/
 2. Test with various configurations
 3. Correlate characteristics with configuration performance
 4. Generate recommendations for similar apps
+
+### 8.5 Batch Strategy Analysis
+
+The framework supports comparative analysis between batch action strategies and single action approaches:
+
+1. Define test configurations with both batch and single action strategies
+2. Execute tests across a variety of apps
+3. Collect batch metrics during execution
+4. Analyze the results to quantify efficiency gains:
+   - LLM call reduction (typically 60-80%)
+   - Execution time improvements (typically 30-50%)
+   - Improved coverage for related UI elements (10-30%)
+   - Pattern-specific performance analysis
+5. Generate visualizations comparing metrics
+6. Produce an HTML report with findings
+
+This analysis helps identify which UI patterns benefit most from batch processing and quantifies the overall efficiency gains of batch action strategies. It also provides insights for optimizing pattern detection and batch generation algorithms based on real-world performance data.
 
 ## 9. Conclusion
 
@@ -478,6 +526,75 @@ The `ConfigurationMetrics` class aggregates results across multiple test cases f
 These metrics are computed by the `ResultAnalyzer` and used to rank and compare different configurations. The overall score is a weighted combination of coverage metrics, success rate, and execution efficiency. Configuration metrics are used to generate visualizations and identify optimal configurations.
 
 #### B.1.3 Analysis Outputs
+
+**BatchActionMetrics**
+
+The `BatchActionMetrics` class captures metrics specific to batch action strategies:
+
+```python
+{
+  "config_id": "rvdroid_ollama_llama3.2-3b_batch_action_uiautomator_enhanced",
+  "tool_name": "rvdroid",
+  "llm_type": "ollama",
+  "llm_model": "llama3.2:3b",
+  "strategy_type": "batch_action",
+  
+  "total_batch_executions": 32,
+  "successful_batch_executions": 28,
+  "batch_success_rate": 87.5,
+  "average_batch_size": 4.8,
+  
+  "total_actions": 153,
+  "successful_actions": 142,
+  "action_success_rate": 92.8,
+  
+  "avg_batch_execution_time": 8.5,
+  "avg_single_action_time": 2.1,
+  "time_per_effective_action": 1.8,
+  "tokens_per_effective_action": 156.3,
+  "llm_call_count": 38,
+  "llm_token_usage": 22195,
+  "llm_overhead_reduction": 75.2,
+  "action_throughput": 0.53,
+  
+  "batch_mop_triggered_count": 48,
+  "single_mop_triggered_count": 12,
+  "mop_coverage": 0.64,
+  
+  "pattern_distributions": {
+    "form": 14,
+    "list": 8,
+    "tabs": 4,
+    "navigation": 5,
+    "dialog": 1
+  },
+  
+  "pattern_success_rates": {
+    "form": {
+      "success_rate": 92.9,
+      "avg_batch_size": 5.2,
+      "avg_execution_time": 8.7,
+      "mops_triggered": 27
+    },
+    "list": {
+      "success_rate": 87.5,
+      "avg_batch_size": 6.3,
+      "avg_execution_time": 9.3,
+      "mops_triggered": 14
+    }
+  },
+  
+  "batch_completion_rates": {
+    "form": 94.2,
+    "list": 89.7,
+    "tabs": 92.1,
+    "navigation": 85.4,
+    "dialog": 78.3
+  }
+}
+```
+
+This structure provides comprehensive metrics on batch action performance, including efficiency gains, pattern-specific success rates, and MOP coverage improvements. These metrics are computed by the `BatchAnalyzer` and used to quantify the advantages of batch strategies over single action approaches. The BatchActionMetrics also provides methods to calculate efficiency and effectiveness scores for ranking configuration performance.
 
 **MOPErrorMetrics**
 

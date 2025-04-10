@@ -31,7 +31,7 @@ def parse_arguments():
                         help='URL base para o servidor Ollama')
 
     # Estratégia, Parser e Visitor
-    parser.add_argument('--strategy', choices=['basic', 'dspy', 'single_action', 'frontier'],
+    parser.add_argument('--strategy', choices=['basic', 'dspy', 'single_action', 'frontier', 'flow_based_batch_action'],
                         default='single_action', help='Estratégia de prompt')
     parser.add_argument('--parser', choices=['droidbot', 'uiautomator'],
                         default='droidbot', help='Parser de tela')
@@ -42,7 +42,7 @@ def parse_arguments():
     parser.add_argument('--provider', help='Provider para frontier models ou langchain/dspy')
     parser.add_argument('--api-key', help='API key para serviços remotos')
     parser.add_argument('--preset',
-                        choices=['ollama', 'huggingface', 'dspy', 'langchain', 'claude', 'openai', 'amazon', 'google'],
+                        choices=['ollama', 'huggingface', 'dspy', 'langchain', 'claude', 'openai', 'amazon', 'google', 'batch_action'],
                         help='Preset de configuração para facilitar uso')
 
     args = parser.parse_args()
@@ -60,6 +60,16 @@ def setup_preset_config(args, configurator):
             base_url="http://localhost:11434"
         )
         configurator.set_strategy("single_action")
+        configurator.set_parser("droidbot")
+        configurator.set_visitor("enhanced")
+        
+    elif preset == "batch_action":
+        configurator.set_llm(
+            llm_type=OllamaLLM.NAME,
+            model=OllamaLLM.LLAMA,
+            base_url="http://localhost:11434"
+        )
+        configurator.set_strategy("flow_based_batch_action")
         configurator.set_parser("droidbot")
         configurator.set_visitor("enhanced")
 
@@ -220,15 +230,25 @@ if __name__ == '__main__':
         # configurator.set_parser("droidbot")
         # configurator.set_visitor("enhanced")
 
-        # # OLLAMA
+        # FLOW-BASED BATCH ACTION
         configurator.set_llm(
             llm_type=OllamaLLM.NAME,
-            model=OllamaLLM.QWEN,
+            model=OllamaLLM.LLAMA,
             base_url="http://localhost:11434"
         )
-        configurator.set_strategy("single_action")
+        configurator.set_strategy("flow_based_batch_action")
         configurator.set_parser("droidbot")
         configurator.set_visitor("enhanced")
+
+        # # # OLLAMA
+        # configurator.set_llm(
+        #     llm_type=OllamaLLM.NAME,
+        #     model=OllamaLLM.QWEN,
+        #     base_url="http://localhost:11434"
+        # )
+        # configurator.set_strategy("single_action")
+        # configurator.set_parser("droidbot")
+        # configurator.set_visitor("enhanced")
 
         # # HUGGING FACE
         # configurator.set_llm(
@@ -308,6 +328,9 @@ if __name__ == '__main__':
 # # Usar DSPy com modelo phi3.5:3.8b e estratégia DSPy
 # python teste_run_server.py --llm dspy --model phi3.5:3.8b --strategy dspy
 #
+# # Usar estratégia de batch actions baseada em fluxo
+# python teste_run_server.py --strategy flow_based_batch_action
+#
 # # Usar Hugging Face com modelo Phi-3.5
 # python teste_run_server.py --llm huggingface --model microsoft/Phi-3.5-mini-instruct
 #
@@ -322,6 +345,7 @@ if __name__ == '__main__':
 #
 # # Usar presets para configuração mais fácil
 # python teste_run_server.py --preset ollama
+# python teste_run_server.py --preset batch_action  # Estratégia de batch actions baseada em fluxo
 # python teste_run_server.py --preset huggingface
 # python teste_run_server.py --preset dspy
 # python teste_run_server.py --preset langchain

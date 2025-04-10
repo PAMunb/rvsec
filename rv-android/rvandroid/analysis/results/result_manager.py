@@ -282,23 +282,41 @@ class ResultManager:
                         continue
 
                     # Load the result
-                    result_class = self.result_types[result_type]
-                    result = result_class.load_from_file(file_path)
+                    try:
+                        result_class = self.result_types[result_type]
+                        
+                        # Try to load the file
+                        with open(file_path, 'r') as f:
+                            data = json.load(f)
+                            
+                        # Filter out unexpected keyword arguments
+                        if result_type == "coverage" and "tasks" in data:
+                            del data["tasks"]
+                        
+                        if result_type == "error" and "errors_by_app" in data:
+                            del data["errors_by_app"]
+                            
+                        # Create the object with filtered data
+                        result = result_class.from_dict(data)
 
-                    # Add to storage
-                    if app_id not in self.results:
-                        self.results[app_id] = {}
-                    if result_type not in self.results[app_id]:
-                        self.results[app_id][result_type] = []
+                        # Add to storage
+                        if app_id not in self.results:
+                            self.results[app_id] = {}
+                        if result_type not in self.results[app_id]:
+                            self.results[app_id][result_type] = []
 
-                    self.results[app_id][result_type].append(result)
+                        self.results[app_id][result_type].append(result)
 
-                    # Add to aggregator
-                    if result_type in self.aggregators:
-                        try:
-                            self.aggregators[result_type].add_result(result)
-                        except TypeError:
-                            self.logger.warning(f"Failed to add result to aggregator for type {result_type}")
+                        # Add to aggregator
+                        if result_type in self.aggregators:
+                            try:
+                                self.aggregators[result_type].add_result(result)
+                            except TypeError:
+                                self.logger.warning(f"Failed to add result to aggregator for type {result_type}")
+                    except json.JSONDecodeError:
+                        self.logger.warning(f"Failed to parse JSON from {file_path}")
+                    except KeyError as ke:
+                        self.logger.warning(f"Missing key in result data: {ke}")
 
                 except Exception as e:
                     self.logger.warning(f"Failed to load result from {file_path}: {e}")
