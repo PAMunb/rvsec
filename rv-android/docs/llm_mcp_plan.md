@@ -183,6 +183,64 @@ The MCP implementation will touch several key components:
    - Refactored strategies to eliminate duplication
    - Strategy factory with configuration support
 
+### 2.5 Integration with Test Framework
+
+The MCP implementation will be integrated with the RV-Android Test Framework in a transparent manner:
+
+1. **Seamless Integration**:
+   - MCP will work "behind the scenes" without requiring changes to the Test Framework
+   - Existing test configurations (TestSuite, ToolConfiguration, TestCase) will continue to work
+   - No need to modify configuration files or test scripts
+
+2. **Configuration Adaptation**:
+   - Implement adapters to translate Test Framework configurations into MCP configurations
+   - Preserve the existing API for test definition and execution
+   - Ensure backward compatibility with existing test configurations
+
+3. **Performance Metrics Collection**:
+   - Integrate MCP-specific metrics with the Test Framework's analytics
+   - Track and compare the performance of different MCP configurations
+   - Analyze the impact of MCP implementation on testing effectiveness
+
+4. **Test Framework Usage**:
+   - Leverage existing Test Framework for comparative evaluation of MCP approaches
+   - Use the framework's visualization and reporting capabilities for MCP analysis
+   - Enable A/B testing between legacy and MCP-based implementations during transition
+
+### 2.6 Template Versioning System
+
+The MCP implementation will include a comprehensive template versioning system:
+
+1. **Semantic Versioning**:
+   - Templates will follow semantic versioning (MAJOR.MINOR.PATCH)
+   - MAJOR: Incremented for incompatible changes
+   - MINOR: Incremented for backward-compatible additions
+   - PATCH: Incremented for backward-compatible fixes
+
+2. **Template Storage and Retrieval**:
+   - Templates stored in a hierarchical structure
+   - Centralized repository for authorized templates
+   - Version history tracking for each template
+   - Ability to retrieve specific versions
+
+3. **Template Derivation**:
+   - Create new template versions derived from existing ones
+   - Inheritance mechanism to extend base templates
+   - Override capabilities for customization
+   - Clear tracking of template lineage
+
+4. **Template Selection**:
+   - Runtime selection of template versions
+   - Default to latest compatible version
+   - Explicit version pinning when needed
+   - Compatibility checking between templates and fragments
+
+5. **Fragment Versioning**:
+   - Independent versioning for template fragments
+   - Compatibility tracking between templates and fragments
+   - Fragment composition with version awareness
+   - Reusable fragment library across template versions
+
 ## 3. Implementation Plan
 
 ### Phase 1: Core MCP Infrastructure (Week 1)
@@ -387,6 +445,7 @@ class LanguageModel(ABC):
 - [ ] Map MCP configuration to Ollama parameters
 - [ ] Implement response parsing and validation
 - [ ] Update `OllamaLLM` to use the adapter
+- [ ] Use Ollama Community library to avoid warning logs
 
 #### 3.2.2 DSPy Adapter
 
@@ -491,7 +550,7 @@ class MCPPromptTemplate:
 - [ ] Implement `PromptLibrary` for template storage and retrieval
 - [ ] Create hierarchical organization for templates
 - [ ] Develop template inheritance system
-- [ ] Implement template version management
+- [ ] Implement template version management using semantic versioning
 - [ ] Create utilities for template creation and modification
 
 ```python
@@ -523,25 +582,111 @@ class PromptLibrary:
         # Implementation for loading fragments
         pass
     
-    def get_template(self, name: str) -> MCPPromptTemplate:
-        """Get a template by name"""
+    def get_template(self, name: str, version: str = None) -> MCPPromptTemplate:
+        """Get a template by name and optional version"""
         if name not in self.templates:
             raise ValueError(f"Template '{name}' not found")
-        return self.templates[name]
-    
-    def register_template(self, name: str, template: MCPPromptTemplate):
-        """Register a template in the library"""
-        self.templates[name] = template
+            
+        if version is None:
+            # Return latest version
+            latest_version = self._get_latest_version(name)
+            return self.templates[name][latest_version]
         
-    def get_fragment(self, name: str) -> TemplateFragment:
-        """Get a fragment by name"""
+        if version not in self.templates[name]:
+            raise ValueError(f"Version '{version}' of template '{name}' not found")
+            
+        return self.templates[name][version]
+    
+    def _get_latest_version(self, name: str) -> str:
+        """Get the latest version of a template"""
+        if name not in self.templates or not self.templates[name]:
+            raise ValueError(f"Template '{name}' not found or has no versions")
+            
+        # Sort versions semantically and return the latest
+        versions = list(self.templates[name].keys())
+        # Semantic versioning comparison logic here
+        return versions[-1]
+    
+    def register_template(self, name: str, template: MCPPromptTemplate, version: str):
+        """Register a template in the library with version"""
+        if name not in self.templates:
+            self.templates[name] = {}
+            
+        # Validate semantic version format
+        self._validate_semantic_version(version)
+            
+        self.templates[name][version] = template
+        
+    def get_fragment(self, name: str, version: str = None) -> TemplateFragment:
+        """Get a fragment by name and optional version"""
         if name not in self.fragments:
             raise ValueError(f"Fragment '{name}' not found")
-        return self.fragments[name]
+            
+        if version is None:
+            # Return latest version
+            latest_version = self._get_latest_fragment_version(name)
+            return self.fragments[name][latest_version]
+        
+        if version not in self.fragments[name]:
+            raise ValueError(f"Version '{version}' of fragment '{name}' not found")
+            
+        return self.fragments[name][version]
     
-    def register_fragment(self, fragment: TemplateFragment):
-        """Register a fragment in the library"""
-        self.fragments[fragment.name] = fragment
+    def _get_latest_fragment_version(self, name: str) -> str:
+        """Get the latest version of a fragment"""
+        if name not in self.fragments or not self.fragments[name]:
+            raise ValueError(f"Fragment '{name}' not found or has no versions")
+            
+        # Sort versions semantically and return the latest
+        versions = list(self.fragments[name].keys())
+        # Semantic versioning comparison logic here
+        return versions[-1]
+    
+    def register_fragment(self, name: str, fragment: TemplateFragment, version: str):
+        """Register a fragment in the library with version"""
+        if name not in self.fragments:
+            self.fragments[name] = {}
+            
+        # Validate semantic version format
+        self._validate_semantic_version(version)
+            
+        self.fragments[name][version] = fragment
+        
+    def _validate_semantic_version(self, version: str) -> None:
+        """Validate that a version string follows semantic versioning"""
+        import re
+        pattern = r'^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$'
+        if not re.match(pattern, version):
+            raise ValueError(f"Invalid semantic version: {version}")
+        
+    def derive_template(self, name: str, base_name: str, base_version: str = None,
+                       modifications: Dict[str, Any] = None) -> MCPPromptTemplate:
+        """Create a new template version derived from an existing one"""
+        # Get base template
+        base_template = self.get_template(base_name, base_version)
+        
+        # Calculate new version (increment minor by default)
+        if base_version is None:
+            base_version = self._get_latest_version(base_name)
+        
+        # Parse version components
+        major, minor, patch = map(int, base_version.split('.', 3)[:3])
+        new_version = f"{major}.{minor + 1}.0"
+        
+        # Create derived template
+        derived_data = dict(base_template.template_data)
+        
+        # Apply modifications
+        if modifications:
+            for key, value in modifications.items():
+                if key in derived_data:
+                    derived_data[key] = value
+                    
+        # Create and register new template
+        derived_template = MCPPromptTemplate(derived_data, parent=base_template)
+        self.register_template(name, derived_template, new_version)
+        
+        return derived_template
 ```
 
 #### 3.3.3 Fragment Repository
@@ -559,40 +704,52 @@ def initialize_core_fragments():
     library = PromptLibrary.get_instance()
     
     # System role fragments
-    library.register_fragment(TemplateFragment(
+    library.register_fragment(
         name="system_introduction",
-        content=[
-            MCPTextContent(
-                text="You are an AI assistant helping to test Android applications by generating appropriate UI actions."
-            )
-        ]
-    ))
+        fragment=TemplateFragment(
+            name="system_introduction",
+            content=[
+                MCPTextContent(
+                    text="You are an AI assistant helping to test Android applications by generating appropriate UI actions."
+                )
+            ]
+        ),
+        version="1.0.0"
+    )
     
     # Form pattern fragments
-    library.register_fragment(TemplateFragment(
+    library.register_fragment(
         name="form_pattern_instructions",
-        content=[
-            MCPTextContent(
-                text="This screen contains a form with input fields. Focus on properly filling out the form by:"
-                     "\n1. Filling required fields first"
-                     "\n2. Using appropriate values based on field types"
-                     "\n3. Submitting the form after filling required fields"
-            )
-        ]
-    ))
+        fragment=TemplateFragment(
+            name="form_pattern_instructions",
+            content=[
+                MCPTextContent(
+                    text="This screen contains a form with input fields. Focus on properly filling out the form by:"
+                         "\n1. Filling required fields first"
+                         "\n2. Using appropriate values based on field types"
+                         "\n3. Submitting the form after filling required fields"
+                )
+            ]
+        ),
+        version="1.0.0"
+    )
     
     # List pattern fragments
-    library.register_fragment(TemplateFragment(
+    library.register_fragment(
         name="list_pattern_instructions",
-        content=[
-            MCPTextContent(
-                text="This screen contains a scrollable list. Consider these actions:"
-                     "\n1. Scroll to explore more items"
-                     "\n2. Click on items to navigate to details"
-                     "\n3. Look for search or filter options"
-            )
-        ]
-    ))
+        fragment=TemplateFragment(
+            name="list_pattern_instructions",
+            content=[
+                MCPTextContent(
+                    text="This screen contains a scrollable list. Consider these actions:"
+                         "\n1. Scroll to explore more items"
+                         "\n2. Click on items to navigate to details"
+                         "\n3. Look for search or filter options"
+                )
+            ]
+        ),
+        version="1.0.0"
+    )
 ```
 
 #### 3.3.4 Template Composition Utilities
@@ -709,13 +866,13 @@ class BasePromptStrategy(ABC):
 
 #### 3.5.4 Test Framework Integration
 
-- [ ] Update test framework for MCP compatibility
-- [ ] Implement MCP-aware configuration validation
-- [ ] Create test utilities for MCP operations
-- [ ] Update metrics collection for MCP-based actions
-- [ ] Develop visualization for MCP-based testing
+- [ ] Create transparent integration with the existing Test Framework
+- [ ] Implement configuration adapters to convert Test Framework configurations to MCP configurations
+- [ ] Ensure backward compatibility with existing test configurations
+- [ ] Add MCP-specific performance metrics collection
+- [ ] Enable comparative analysis between different MCP configurations
 
-### Phase 6: Documentation and Testing (Week 6)
+### Phase 6: Documentation and Configuration (Week 6)
 
 #### 3.6.1 MCP Documentation
 
@@ -733,13 +890,13 @@ class BasePromptStrategy(ABC):
 - [ ] Write documentation for template composition
 - [ ] Create examples of MCP template usage
 
-#### 3.6.3 Testing Infrastructure
+#### 3.6.3 Configuration and Dependencies
 
-- [ ] Implement unit tests for MCP core components
-- [ ] Create integration tests for adapters
-- [ ] Develop template testing framework
-- [ ] Implement strategy testing utilities
-- [ ] Create end-to-end tests for MCP functionality
+- [ ] Create comprehensive dependency specification
+- [ ] Document Python package requirements with version constraints
+- [ ] Document system requirements (Ubuntu/Linux packages)
+- [ ] Provide installation instructions for all dependencies
+- [ ] Create adapter-specific dependency documentation
 
 ## 4. Detailed Component Specifications
 
@@ -806,12 +963,14 @@ The `MCPPromptTemplate` class generates MCP messages from templates:
   - `parent`: Optional parent template
   - `required_vars`: Variables required for rendering
   - `fragments`: Fragment definitions for this template
+  - `version`: Semantic version of this template
 
 - **Methods**:
   - `render(variables)`: Render template with variables
   - `render_section(section, variables)`: Render specific section
   - `include_fragment(name, variables)`: Include fragment in rendering
   - `process_conditionals(content, variables)`: Process conditional sections
+  - `create_derived(name, modifications, version_increment)`: Create a new derived template
 
 #### 4.2.2 TemplateFragment
 
@@ -827,22 +986,25 @@ The `TemplateFragment` class represents reusable template components:
   - `validate()`: Validate fragment structure
   - `to_dict()`: Convert to dictionary representation
   - `from_dict(data)`: Create from dictionary
+  - `create_derived(modifications, version_increment)`: Create a new derived fragment
 
 #### 4.2.3 PromptLibrary
 
 The `PromptLibrary` class manages templates and fragments:
 
 - **Properties**:
-  - `templates`: Dictionary of named templates
-  - `fragments`: Dictionary of named fragments
+  - `templates`: Dictionary of named templates with version history
+  - `fragments`: Dictionary of named fragments with version history
   - `categories`: Organizational categories for templates
 
 - **Methods**:
-  - `get_template(name)`: Get template by name
-  - `register_template(name, template)`: Register a template
-  - `get_fragment(name)`: Get fragment by name
-  - `register_fragment(fragment)`: Register a fragment
+  - `get_template(name, version)`: Get template by name and optional version
+  - `register_template(name, template, version)`: Register a template with version
+  - `get_fragment(name, version)`: Get fragment by name and optional version
+  - `register_fragment(name, fragment, version)`: Register a fragment with version
   - `get_templates_by_category(category)`: Get templates in a category
+  - `derive_template(name, base_name, base_version, modifications)`: Create a derived template
+  - `derive_fragment(name, base_name, base_version, modifications)`: Create a derived fragment
 
 ### 4.3 Strategy Components
 
@@ -889,9 +1051,161 @@ Each specialized strategy will implement:
   - Action extraction based on strategy goals
   - Validation and error handling
 
-## 5. Migration Strategy
+### 4.4 Test Framework Integration Components
 
-### 5.1 Template Migration
+#### 4.4.1 Configuration Adapter
+
+The `TestFrameworkConfigAdapter` will handle the translation of Test Framework configurations to MCP:
+
+- **Properties**:
+  - `tool_config`: Reference to the Test Framework's ToolConfiguration
+  - `mcp_config`: Generated MCPConfiguration for use with MCP
+
+- **Methods**:
+  - `convert_to_mcp_config()`: Convert TestFramework config to MCP config
+  - `convert_from_mcp_config(mcp_config)`: Update TestFramework config from MCP config
+  - `get_appropriate_adapter()`: Determine which MCP adapter to use
+  - `get_appropriate_templates()`: Determine which templates to use
+
+#### 4.4.2 MCP Metrics Collector
+
+The `MCPMetricsCollector` will collect performance metrics for MCP:
+
+- **Properties**:
+  - `metrics`: Dictionary of collected metrics
+  - `adapter_metrics`: Adapter-specific performance statistics
+  - `template_metrics`: Template-specific performance statistics
+
+- **Methods**:
+  - `collect_adapter_metrics(adapter, operation, time)`: Record adapter performance
+  - `collect_template_metrics(template, render_time)`: Record template performance
+  - `generate_report()`: Generate performance report
+  - `export_to_test_framework()`: Export metrics to Test Framework format
+
+## a5. Dependencies and Installation
+
+### 5.1 System Requirements
+
+- **Operating System**: Ubuntu 22.04 LTS or later
+- **Python**: 3.9 or later
+- **RAM**: 16GB minimum (32GB recommended)
+- **CPU**: 4+ cores recommended
+- **Disk Space**: 20GB for base installation (more for model storage)
+
+### 5.2 Python Dependencies
+
+```
+# Core dependencies
+pip install -r requirements.txt
+
+# Python package requirements
+pandas>=1.5.3
+numpy>=1.24.3
+pydantic>=2.0.0
+pillow>=9.5.0
+requests>=2.31.0
+aiohttp>=3.8.5
+```
+
+### 5.3 System Dependencies (Ubuntu/Debian)
+
+```bash
+# Install required system packages
+sudo apt update
+sudo apt install -y \
+  python3-dev \
+  python3-pip \
+  python3-venv \
+  build-essential \
+  libffi-dev \
+  libssl-dev
+```
+
+### 5.4 Model-Specific Dependencies
+
+#### 5.4.1 Ollama Dependencies
+
+```bash
+# Install Ollama
+curl -fsSL https://ollama.com/install.sh | sh
+
+# Python dependencies
+pip install ollama-community>=0.1.2
+```
+
+#### 5.4.2 HuggingFace Dependencies
+
+```bash
+# Python dependencies
+pip install transformers>=4.31.0
+pip install torch>=2.0.1
+pip install accelerate>=0.21.0
+```
+
+#### 5.4.3 DSPy Dependencies
+
+```bash
+# Python dependencies
+pip install dspy-ai>=2.3.0
+```
+
+#### 5.4.4 Langchain Dependencies
+
+```bash
+# Python dependencies
+pip install langchain>=0.0.267
+pip install langchain-openai>=0.0.2
+```
+
+### 5.5 Installation Steps
+
+1. **Clone the repository**:
+   ```bash
+   git clone https://github.com/your-org/rv-android.git
+   cd rv-android
+   ```
+
+2. **Create a virtual environment** (optional but recommended):
+   ```bash
+   python -m venv venv
+   source venv/bin/activate
+   ```
+
+3. **Install dependencies**:
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+4. **Install system dependencies**:
+   ```bash
+   sudo apt update
+   sudo apt install -y python3-dev python3-pip python3-venv build-essential libffi-dev libssl-dev
+   ```
+
+5. **Install model-specific dependencies** (based on your needs):
+   ```bash
+   # For Ollama
+   curl -fsSL https://ollama.com/install.sh | sh
+   pip install ollama-community>=0.1.2
+   
+   # For HuggingFace
+   pip install transformers>=4.31.0 torch>=2.0.1 accelerate>=0.21.0
+   
+   # For DSPy
+   pip install dspy-ai>=2.3.0
+   
+   # For Langchain
+   pip install langchain>=0.0.267 langchain-openai>=0.0.2
+   ```
+
+6. **Verify installation**:
+   ```bash
+   python -c "from rvandroid.mcp.mcp_data_structures import MCPMessage; print('MCP successfully installed')"
+   ```
+
+## 6. Migration Strategy
+
+### 6.1 Template Migration
 
 The migration of templates from string-based to MCP-based will follow these steps:
 
@@ -918,7 +1232,7 @@ The migration of templates from string-based to MCP-based will follow these step
    - Create a registry for template discovery
    - Develop utilities for template management
 
-### 5.2 Model Migration
+### 6.2 Model Migration
 
 The migration of language model implementations will include:
 
@@ -940,7 +1254,7 @@ The migration of language model implementations will include:
    - Develop error handling for model responses
    - Implement usage tracking for models
 
-### 5.3 Strategy Migration
+### 6.3 Strategy Migration
 
 The migration of prompt strategies will involve:
 
@@ -962,9 +1276,28 @@ The migration of prompt strategies will involve:
    - Implement MCP-based execution
    - Create consistent logging and monitoring
 
-## 6. Key Advantages and Benefits
+### 6.4 Test Framework Integration
 
-### 6.1 Standardization Benefits
+The transparent integration with the existing Test Framework will follow these steps:
+
+1. **Configuration Adaptation**:
+   - Create configuration adapters that translate between Test Framework and MCP formats
+   - Ensure all ToolConfiguration parameters are properly mapped to MCPConfiguration
+   - Maintain backward compatibility for existing test suites
+
+2. **Service Integration**:
+   - Modify the service layer to use MCP internally while presenting the same interface to the Test Framework
+   - Implement the necessary conversions between Test Framework data structures and MCP data structures
+   - Ensure consistent error handling and logging
+
+3. **Performance Metrics**:
+   - Extend the Test Framework's metrics collection to include MCP-specific metrics
+   - Implement metrics exporters that provide insights into MCP performance
+   - Enable comparative analysis between different MCP configurations
+
+## 7. Key Advantages and Benefits
+
+### 7.1 Standardization Benefits
 
 1. **Consistent Message Format**:
    - Same format across all model implementations
@@ -984,7 +1317,7 @@ The migration of prompt strategies will involve:
    - Fragment-based reusability
    - Version-controlled templates
 
-### 6.2 Development Productivity
+### 7.2 Development Productivity
 
 1. **Reduced Duplication**:
    - Elimination of duplicate template code
@@ -1004,7 +1337,7 @@ The migration of prompt strategies will involve:
    - Streamlined strategy development
    - Modular component architecture
 
-### 6.3 Runtime Benefits
+### 7.3 Runtime Benefits
 
 1. **Type Safety and Validation**:
    - Structured message validation
@@ -1024,9 +1357,9 @@ The migration of prompt strategies will involve:
    - Enhanced error reporting
    - Uniform usage tracking
 
-## 7. Risks and Mitigations
+## 8. Risks and Mitigations
 
-### 7.1 Migration Risks
+### 8.1 Migration Risks
 
 1. **Breaking Changes**:
    - **Risk**: Complete removal of legacy code may disrupt ongoing experiments
@@ -1044,7 +1377,7 @@ The migration of prompt strategies will involve:
    - **Risk**: Changes could impact support for different specification sets
    - **Mitigation**: Ensure all template changes preserve references to monitored operations in a generic way
 
-### 7.2 Implementation Challenges
+### 8.2 Implementation Challenges
 
 1. **Model-Specific Quirks**:
    - **Risk**: Some models may have unique formatting requirements
@@ -1058,7 +1391,7 @@ The migration of prompt strategies will involve:
    - **Risk**: Existing code may rely on string-based templates
    - **Mitigation**: Provide transition utilities, implement compatibility layers where needed, and clear documentation
 
-### 7.3 Risk Management
+### 8.3 Risk Management
 
 1. **Phased Implementation**:
    - Implement core components first
@@ -1066,29 +1399,22 @@ The migration of prompt strategies will involve:
    - Migrate strategies iteratively
    - Test thoroughly at each phase, ensuring monitored operations tracking is preserved
 
-2. **Comprehensive Testing**:
-   - Create extensive unit tests for core components
-   - Implement integration tests for each model
-   - Develop end-to-end tests for complete workflows
-   - Test with both JCA cryptography and general programming specification sets
-   - Utilize existing error handling components in rv-android
-
-3. **Documentation and Code Standards**:
+2. **Documentation and Code Standards**:
    - Maintain detailed class and method documentation in English
    - Follow existing documentation standards as seen in EventBus, ExecutionManager, and TaskExecutor
    - Add detailed architectural comments at critical points
    - Comply with RV-Android code style guidelines
    - Leverage existing components like error_handler.py and logging.manager.py
 
-4. **Existing Utility Integration**:
+3. **Existing Utility Integration**:
    - Integrate with rvandroid/util/error/error_handler.py for error management
    - Use rvandroid/util/logging/manager.py for consistent logging
    - Apply appropriate decorators from rvandroid/util/decorators.py
    - Leverage other existing utility components
 
-## 8. Future Directions
+## 9. Future Directions
 
-### 8.1 Advanced Template Features
+### 9.1 Advanced Template Features
 
 1. **Template Parameterization**:
    - Advanced parameter-based template generation
@@ -1102,7 +1428,7 @@ The migration of prompt strategies will involve:
    - Feedback-based template improvements
    - A/B testing for template effectiveness
 
-### 8.2 Enhanced Model Capabilities
+### 9.2 Enhanced Model Capabilities
 
 1. **Multimodal Support**:
    - Structured support for image analysis
@@ -1116,7 +1442,7 @@ The migration of prompt strategies will involve:
    - Tool-augmented reasoning
    - Verification and validation workflows
 
-### 8.3 Performance Optimization
+### 9.3 Performance Optimization
 
 1. **Caching and Optimization**:
    - Implement response caching for templates
@@ -1130,7 +1456,7 @@ The migration of prompt strategies will involve:
    - Memory optimization for large models
    - Load balancing across models
 
-## 9. Conclusion
+## 10. Conclusion
 
 The Model Context Protocol (MCP) implementation represents a significant architectural improvement for the RV-Android system. By standardizing the interface between the system and language models, eliminating duplicate code, and enhancing template management, this initiative will result in a more maintainable, extensible, and robust system.
 
