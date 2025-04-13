@@ -638,16 +638,49 @@ class ComponentConfigurator:
         Raises:
             ValueError: If LLM creation fails
         """
-        # Import dynamically to avoid circular imports
-        from rvandroid.llm.model_factory import ModelFactory
-
         kwargs = self.llm_config.kwargs.copy()
 
         # Add standard parameters
         model_type = self.llm_config.model_type
         model_name = self.llm_config.model_name
 
-        return ModelFactory.create(model_type, model_name, **kwargs)
+        # Get LLM implementation from registry
+        llm_registry = self._registries['llm']
+        model_class = llm_registry.get(model_type)
+        
+        if not model_class:
+            raise ValueError(f"Unknown model type: {model_type}. Available types: {llm_registry.get_names()}")
+
+        self.logger.info(f"Creating {model_type} model: {model_name}")
+
+        # Handle specific parameters based on model type
+        if model_type == "huggingface":
+            import torch
+            device = kwargs.pop('device', "cuda" if torch.cuda.is_available() else "cpu")
+            return model_class(model_name, device=device, **kwargs)
+
+        elif model_type == "ollama":
+            base_url = kwargs.pop('base_url', "http://localhost:11434")
+            return model_class(model_name, base_url=base_url, **kwargs)
+
+        elif model_type == "langchain":
+            provider = kwargs.pop('provider', "ollama")
+            base_url = kwargs.pop('base_url', "http://localhost:11434")
+            return model_class(model_name, provider=provider, base_url=base_url, **kwargs)
+
+        elif model_type == "dspy":
+            provider = kwargs.pop('provider', "ollama")
+            base_url = kwargs.pop('base_url', "http://localhost:11434")
+            return model_class(model_name, provider=provider, base_url=base_url, **kwargs)
+
+        elif model_type in ["anthropic", "openai", "google", "amazon", "frontier"]:
+            # For frontier models, infer provider from model type if not provided
+            provider = kwargs.pop('provider', model_type if model_type != "frontier" else None)
+            api_key = kwargs.pop('api_key', None)
+            return model_class(model_name, provider=provider, api_key=api_key, **kwargs)
+
+        # Default case
+        return model_class(model_name, **kwargs)
 
     def from_config(self, config_file: str = None) -> 'ComponentConfigurator':
         """

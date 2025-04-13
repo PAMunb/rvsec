@@ -633,45 +633,57 @@ The MCP system in RV-Android includes adapters for multiple LLM providers:
 
 Each adapter follows the same pattern but handles the specific format requirements of its provider.
 
-### 4.5 Model Factory and Registration
+### 4.5 Component Configurator and Registration
 
-The `ModelFactory` centralizes model creation and discovery:
+The `ComponentConfigurator` centralizes component creation and configuration:
 
 ```python
-class ModelFactory:
+class ComponentConfigurator:
     """
-    Factory for creating language model instances.
+    A sophisticated configuration management system for dynamically configuring 
+    and composing experimental components.
     """
     
-    @staticmethod
-    def create(model_type: str, model_name: str, **kwargs) -> LanguageModel:
+    @classmethod
+    def register_llm(cls, name: str, implementation=None, module_path=None, 
+                    class_name=None, metadata=None) -> None:
         """
-        Create a language model instance.
-        
+        Register a language model implementation.
+
         Args:
-            model_type: Type of model ('huggingface', 'ollama', etc.)
-            model_name: Name of the model
-            **kwargs: Additional arguments for the model constructor
-                
+            name: Model type name
+            implementation: Implementation class (optional if module_path is provided)
+            module_path: Module path for lazy loading (required if implementation is None)
+            class_name: Class name for lazy loading (required if implementation is None)
+            metadata: Additional metadata
+        """
+        registry = cls._registries['llm']
+        if implementation:
+            registry.register(name, implementation, metadata=metadata)
+        elif module_path and class_name:
+            registry.register_lazy(name, module_path, class_name, metadata=metadata)
+        else:
+            raise ValueError("Either implementation or module_path+class_name must be provided")
+            
+    def create_llm(self):
+        """
+        Create an LLM instance based on current configuration.
+
         Returns:
             LanguageModel instance
+
+        Raises:
+            ValueError: If LLM creation fails
         """
         # Get LLM implementation from registry
-        llm_registry = ComponentConfigurator._registries['llm']
-        model_class = llm_registry.get(model_type)
+        llm_registry = self._registries['llm']
+        model_class = llm_registry.get(self.llm_config.model_type)
         
         if not model_class:
-            # Fall back to legacy registration if model type not in registry
-            legacy_registry = ModelFactory._get_legacy_registry()
-            if model_type in legacy_registry:
-                model_class = legacy_registry[model_type]
-                # Register for future use
-                ComponentConfigurator.register_llm(model_type, model_class)
-            else:
-                raise ValueError(f"Unknown model type: {model_type}")
-        
-        # Create model instance
-        return model_class(model_name, **kwargs)
+            raise ValueError(f"Unknown model type: {self.llm_config.model_type}")
+            
+        # Create model instance with appropriate parameters
+        return model_class(self.llm_config.model_name, **self.llm_config.kwargs)
 ```
 
 ## 5. Template System
@@ -1107,7 +1119,8 @@ def validate_model_configuration(config):
         raise ValidationError("Temperature must be between 0 and 2")
     
     # Check for supported model types
-    supported_model_types = ModelFactory.get_available_types()
+    from rvandroid.config.component_configurator import ComponentConfigurator
+    supported_model_types = ComponentConfigurator._registries['llm'].get_names()
     if config.model_type not in supported_model_types:
         raise ValidationError(
             f"Unsupported model type: {config.model_type}. "
@@ -1115,30 +1128,37 @@ def validate_model_configuration(config):
         )
     
     # Validate model name based on type
-    available_models = ModelFactory.get_available_models(config.model_type)
-    if config.model_type in available_models and available_models[config.model_type]:
-        if config.model_name not in available_models[config.model_type]:
+    model_class = ComponentConfigurator._registries['llm'].get(config.model_type)
+    if model_class and hasattr(model_class, 'models'):
+        available_models = model_class.models()
+        if available_models and config.model_name not in available_models:
             raise ValidationError(
                 f"Unknown model name '{config.model_name}' for type '{config.model_type}'. "
-                f"Available models: {', '.join(available_models[config.model_type])}"
+                f"Available models: {', '.join(available_models)}"
             )
 ```
 
 ### 7.3 Model Creation in Test Framework
 
-The Test Framework uses the ModelFactory to create model instances:
+The Test Framework uses the ComponentConfigurator to create model instances:
 
 ```python
 def create_model_from_config(config):
     """Create a model instance from configuration."""
     try:
-        # Create model using factory
-        model = ModelFactory.create(
-            model_type=config.model_type,
-            model_name=config.model_name,
+        # Create configurator
+        configurator = ComponentConfigurator()
+        
+        # Configure LLM
+        configurator.set_llm(
+            config.model_type,
+            config.model_name,
             temperature=config.temperature,
             max_tokens=config.max_tokens
         )
+        
+        # Create model using configurator
+        model = configurator.create_llm()
         
         logger.info(f"Created {config.model_type} model: {config.model_name}")
         return model
@@ -1170,13 +1190,8 @@ class RVAndroidTool(ConfigurableTool):
         
     def execute(self, task, app):
         """Execute RVAndroid with MCP configuration."""
-        # Create model using MCP factory
-        model = ModelFactory.create(
-            model_type=self.component_config.model_type,
-            model_name=self.component_config.model_name,
-            temperature=self.component_config.temperature,
-            max_tokens=self.component_config.max_tokens
-        )
+        # Get model using component configurator
+        model = self.component_config.create_llm()
         
         # Create prompt strategy
         strategy = PromptStrategyFactory.create(
@@ -1229,7 +1244,7 @@ def compare_model_configurations(configurations, app_path):
 
 ```python
 from rvandroid.llm.data_structures import MCPMessage, MCPRole, MCPTextContent
-from rvandroid.llm.model_factory import ModelFactory
+from rvandroid.config.component_configurator import ComponentConfigurator
 
 # Create MCP messages
 system_message = MCPMessage(
@@ -1242,12 +1257,14 @@ user_message = MCPMessage(
     content=[MCPTextContent(text="Suggest a test action for the login screen.")]
 )
 
-# Create model
-model = ModelFactory.create(
-    model_type="ollama",
-    model_name="llama3.2:3b",
+# Create model using configurator
+configurator = ComponentConfigurator()
+configurator.set_llm(
+    "ollama", 
+    "llama3.2:3b", 
     temperature=0.3
 )
+model = configurator.create_llm()
 
 # Generate response
 response = model.generate_sync([system_message, user_message])
@@ -1263,7 +1280,7 @@ print(f"Model response: {response_text}")
 from rvandroid.llm.templates.template import PromptTemplate
 from rvandroid.llm.templates.library import PromptLibrary
 from rvandroid.llm.data_structures import MCPMessage, MCPRole, MCPTextContent
-from rvandroid.llm.model_factory import ModelFactory
+from rvandroid.config.component_configurator import ComponentConfigurator
 
 # Define a template
 template = PromptTemplate(
@@ -1296,7 +1313,9 @@ user_message = MCPMessage(
 )
 
 # Create model and generate response
-model = ModelFactory.create("ollama", "llama3.2:3b")
+configurator = ComponentConfigurator()
+configurator.set_llm("ollama", "llama3.2:3b")
+model = configurator.create_llm()
 response = model.generate_sync([user_message])
 
 print(f"Response: {response.content[0].text}")
@@ -1306,13 +1325,16 @@ print(f"Response: {response.content[0].text}")
 
 ```python
 from rvandroid.llm.prompt.flow_based_batch_action_strategy import FlowBasedBatchActionStrategy
-from rvandroid.llm.model_factory import ModelFactory
+from rvandroid.config.component_configurator import ComponentConfigurator
 
 # Create strategy
 strategy = FlowBasedBatchActionStrategy(static_data)
 
-# Create model
-model = ModelFactory.create("ollama", "llama3.2:3b")
+# Create configurator and model
+configurator = ComponentConfigurator(static_data)
+configurator.set_llm("ollama", "llama3.2:3b")
+configurator.set_strategy("flow_based_batch_action")
+model = configurator.create_llm()
 
 # Get current app state
 state = get_current_state()  # Implementation-specific
@@ -1416,10 +1438,12 @@ class CustomModel(LanguageModel):
         # Implementation details
 
 # Register the custom model
-ModelFactory.register_model_type("custom", CustomModel)
+ComponentConfigurator.register_llm("custom", CustomModel)
 
 # Use the custom model
-model = ModelFactory.create("custom", "my-custom-model")
+configurator = ComponentConfigurator()
+configurator.set_llm("custom", "my-custom-model")
+model = configurator.create_llm()
 ```
 
 ### 8.5 Test Framework Configuration
@@ -1503,8 +1527,8 @@ To add support for a new LLM provider to the MCP system:
 
 3. **Register the Model**:
    ```python
-   # Register with model factory
-   ModelFactory.register_model_type("new_provider", NewProviderModel)
+   # Register with component configurator
+   ComponentConfigurator.register_llm("new_provider", NewProviderModel)
    ```
 
 ### 9.2 Creating Custom Templates
@@ -1580,7 +1604,9 @@ To implement a custom prompt strategy:
    strategy = PromptStrategyFactory.create("custom_strategy", static_data)
    
    # Use in testing
-   model = ModelFactory.create("ollama", "llama3.2:3b")
+   configurator = ComponentConfigurator(static_data)
+   configurator.set_llm("ollama", "llama3.2:3b")
+   model = configurator.create_llm()
    messages = strategy.generate_messages(state)
    response = model.generate_sync(messages)
    actions = strategy.process_response(response, state)

@@ -433,9 +433,15 @@ class LLMConfiguration:
             List of compatible model names
         """
         # Import here to avoid circular imports
-        from rvandroid.llm.model_factory import ModelFactory
+        from rvandroid.config.component_configurator import ComponentConfigurator
         
         try:
-            return ModelFactory.get_available_models(self.model_type).get(self.model_type, [])
-        except ValueError:
+            # Get the registry for this model type
+            registry = ComponentConfigurator._registries['llm']
+            if registry.has(self.model_type):
+                model_class = registry.get(self.model_type)
+                if model_class and hasattr(model_class, 'models'):
+                    return model_class.models()
+            return []
+        except Exception:
             return []

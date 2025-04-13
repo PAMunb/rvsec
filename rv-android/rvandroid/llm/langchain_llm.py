@@ -1,7 +1,7 @@
 # rvandroid/llm/langchain_llm.py
 import json
 import logging
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Any
 
 # Use try-except to handle langchain vs langchain-community imports
 try:
@@ -30,7 +30,10 @@ except ImportError:
             def __init__(self, *args, **kwargs):
                 raise ImportError("Could not import ConversationBufferMemory from langchain or langchain_community")
 
-from rvandroid.llm.llm import LanguageModel
+from rvandroid.llm.language_model import LanguageModel
+from rvandroid.llm.data_structures import MCPMessage, MCPConfiguration
+from rvandroid.llm.adapters.langchain_adapter import LangchainAdapter
+from rvandroid.util.error.error_handler import ErrorHandler
 
 logger = logging.getLogger(__name__)
 
@@ -62,11 +65,9 @@ class SimpleJsonParser:
 
 class LangchainLLM(LanguageModel):
     """
-    Language model implementation using LangChain for generating text.
+    Language model implementation using LangChain for generating text using MCP.
     Provides a unified interface to different LLM providers through LangChain.
     """
-    
-    NAME = "langchain"
     
     # Models available for LangChain
     LLAMA = "llama3.2:3b"
@@ -99,7 +100,10 @@ class LangchainLLM(LanguageModel):
             use_json_parser: Whether to use JSON output parsing
             **kwargs: Additional model parameters for generation
         """
+        # Initialize the language model base class
         super().__init__(model_name)
+        
+        # Set up model properties
         self.provider = provider
         self.base_url = base_url
         self.api_key = api_key
@@ -111,10 +115,22 @@ class LangchainLLM(LanguageModel):
         self._parser = SimpleJsonParser()  # Use our simple implementation
         self.logger = logger
         self.kwargs = kwargs
+        self.error_handler = ErrorHandler.get_instance()
 
+        # Add base_url to kwargs for the adapter
+        self.kwargs["base_url"] = base_url
+        
         # Initialize components as needed
         if self.use_memory:
             self._memory = ConversationBufferMemory(return_messages=True)
+
+    def _get_model_type(self) -> str:
+        """Get model type string."""
+        return "langchain"
+
+    def _get_adapter(self):
+        """Get the appropriate MCP adapter for this model."""
+        return LangchainAdapter()
 
     @property
     def llm(self):
@@ -156,51 +172,74 @@ class LangchainLLM(LanguageModel):
 
                 self.logger.info(f"Successfully initialized LangChain LLM with {self.provider}")
             except Exception as e:
-                self.logger.error(f"Error initializing LangChain LLM: {e}")
+                error_msg = f"Error initializing LangChain LLM: {str(e)}"
+                self.logger.error(error_msg)
+                from rvandroid.util.exceptions import RVAndroidError
+                error = RVAndroidError(error_msg)
+                self.error_handler.handle_error(error)
                 raise
 
         return self._llm
 
-    def generate(self, messages: List[Dict[str, str]], max_new_tokens: int = 800) -> str:
+    async def generate(self, messages: List[MCPMessage], config: Optional[MCPConfiguration] = None) -> MCPMessage:
+        """Generate a response using the language model asynchronously."""
+        # Use synchronous implementation for now
+        return self.generate_sync(messages, config)
+
+    def generate_sync(self, messages: List[MCPMessage], config: Optional[MCPConfiguration] = None) -> MCPMessage:
         """
-        Generates text based on the given messages.
+        Generate text based on the input messages synchronously using MCP.
 
         Args:
-            messages: List of message dictionaries
-            max_new_tokens: Maximum number of tokens to generate
+            messages: List of MCPMessage objects
+            config: Optional MCPConfiguration object
 
         Returns:
-            Generated text
+            MCPMessage with the generated response
         """
+        # Use provided config or default
+        _config = config or self.config
+        
         try:
-            # Get LLM and ensure it's initialized
+            # Get MCP adapter
+            adapter = self._get_adapter()
+            
+            # Validate request
+            if not adapter.validate_request(messages, _config):
+                error_msg = "Invalid request for Langchain model"
+                self.logger.error(error_msg)
+                self.error_handler.handle_error("langchain_invalid_request", error_msg)
+                raise ValueError(error_msg)
+            
+            # Format messages using the adapter
+            request_data = adapter.prepare_messages(messages)
+            prompt = request_data.get("prompt", "")
+            
+            # Format configuration using the adapter
+            lc_config = adapter.prepare_config(_config)
+            
+            # Generate with Langchain
             llm = self.llm
-
-            # Extract system and user content for simplicity
-            system_content = next((m["content"] for m in messages if m["role"] == "system"), "")
-            user_content = next((m["content"] for m in messages if m["role"] == "user"), "")
-
-            # Combine prompts in a format that Ollama understands
-            combined_prompt = f"{system_content}\n\n{user_content}"
-
-            # Generate with simple approach
-            response = llm(combined_prompt)
-
+            response = llm(prompt)
+            
             # Parse JSON if needed
             if self.use_json_parser and ("[" in response or "{" in response):
                 try:
                     parsed = self._parser.parse(response)
-                    return json.dumps(parsed)
+                    response = json.dumps(parsed)
                 except Exception as e:
                     self.logger.warning(f"JSON parsing failed: {e}, returning raw response")
-
-            return response
-
+                
+            # Parse response using the adapter
+            return adapter.parse_response(response)
+            
         except Exception as e:
-            self.logger.error(f"Error generating text with LangChain: {e}")
+            error_msg = f"Error generating text with LangChain: {str(e)}"
+            self.logger.error(error_msg)
+            self.error_handler.handle_error("langchain_generation_error", error_msg)
             raise
 
-    def clean(self) -> None:
+    def cleanup(self) -> None:
         """
         Clean up resources.
         """

@@ -20,7 +20,8 @@ from rvandroid.rvdroid.analysis.progress.progress_tracker import ProgressTracker
 from rvandroid.rvdroid.analysis.state_analyzer import StateAnalyzer
 from rvandroid.rvdroid.executor.action_executor import ActionExecutor
 from rvandroid.rvdroid.llm.llm_service import LLMService
-from rvandroid.rvdroid.llm.service.llm_manager import ResourceAwareLLMManager
+# Import ResourceAwareLLMManager conditionally in the initialization method 
+# to support dynamic selection between MCP and legacy implementations
 from rvandroid.rvdroid.memory.memory_system import MemorySystem
 from rvandroid.rvdroid.orchestration.lifecycle import LifecycleManager, ExecutionPhase
 from rvandroid.rvdroid.orchestration.recovery import RecoveryManager
@@ -30,6 +31,7 @@ from rvandroid.rvdroid.uiautomator.adapter import UIAutomator2Adapter
 from rvandroid.util.logging.constants import CONTEXT_COMPONENT
 from rvandroid.util.logging.manager import LoggingManager
 from rvandroid.util.performance_monitor import PerformanceMonitor
+from rvandroid.util.error.error_handler import ErrorHandler
 
 # Type variable for test result
 T = TypeVar('T')
@@ -177,7 +179,20 @@ class RVDroidService(Generic[T]):
             self._set_preferred_strategy(self.preferred_strategy_name)
 
         # Initialize LLM service with resource-aware manager if needed
-        self.llm_manager = ResourceAwareLLMManager(static_data) if use_llm else None
+        if use_llm:
+            try:
+                # Try to use the MCP implementation
+                from rvandroid.mcp.service.llm_manager import ResourceAwareLLMManager as MCPResourceManager
+                self.logger.info("Using MCP-based LLM manager")
+                self.llm_manager = MCPResourceManager(static_data)
+            except ImportError:
+                # Fall back to legacy implementation
+                self.logger.warning("MCP LLM manager not available, falling back to legacy implementation")
+                from rvandroid.rvdroid.llm.service.llm_manager import ResourceAwareLLMManager
+                self.llm_manager = ResourceAwareLLMManager(static_data)
+        else:
+            self.llm_manager = None
+            
         self.llm_service = self.llm_manager.llm_service if self.llm_manager else None
         self.last_llm_guidance_time = 0
         self.llm_guidance_interval = 60  # Get new guidance every minute
@@ -1856,7 +1871,17 @@ class RVDroidService(Generic[T]):
             self.logger.debug(f"Received LLM feedback for action {action.id}")
 
         except Exception as e:
-            self.logger.error(f"Error getting LLM action feedback: {e}")
+            self.logger.error(f"Error getting LLM action feedback: {e}", exc_info=True)
+            error_handler = ErrorHandler.get_instance()
+            error_handler.handle_error(
+                "llm_action_feedback_error", 
+                str(e),
+                context={
+                    "action_id": action.id if hasattr(action, 'id') else 'unknown',
+                    "app_package": self.app_package_name,
+                    "phase": "action_feedback"
+                }
+            )
 
     def _get_llm_guidance(self, state_analysis: Dict[str, Any]) -> None:
         """
@@ -1901,16 +1926,35 @@ class RVDroidService(Generic[T]):
             self.stats["llm_guidance_count"] += 1
 
             # Log resource metrics
-            resource_metrics = self.llm_manager.get_metrics()
-            if int(self.stats["llm_guidance_count"]) % 5 == 0:  # Log every 5 guidance requests
-                self.logger.info(f"LLM resource metrics - Memory: {resource_metrics['resource_status']['memory_usage']}, " +
-                                f"CPU: {resource_metrics['resource_status']['cpu_usage']}, " +
-                                f"Throttling: {resource_metrics['resource_status']['throttling_level']}")
+            try:
+                resource_metrics = self.llm_manager.get_metrics()
+                if int(self.stats["llm_guidance_count"]) % 5 == 0:  # Log every 5 guidance requests
+                    # Check if using MCP or legacy format for resource metrics
+                    if 'resource_status' in resource_metrics:
+                        # Legacy format
+                        self.logger.info(f"LLM resource metrics - Memory: {resource_metrics['resource_status']['memory_usage']}, " +
+                                        f"CPU: {resource_metrics['resource_status']['cpu_usage']}, " +
+                                        f"Throttling: {resource_metrics['resource_status']['throttling_level']}")
+                    else:
+                        # MCP format may have different structure
+                        self.logger.info(f"LLM resource metrics: {resource_metrics}")
+            except Exception as metrics_error:
+                # Don't let metrics logging failure break the main functionality
+                self.logger.warning(f"Error getting resource metrics: {metrics_error}")
 
             self.logger.info("Applied LLM strategic guidance")
 
         except Exception as e:
-            self.logger.error(f"Error getting LLM guidance: {e}")
+            self.logger.error(f"Error getting LLM guidance: {e}", exc_info=True)
+            error_handler = ErrorHandler.get_instance()
+            error_handler.handle_error(
+                "llm_guidance_error", 
+                str(e),
+                context={
+                    "app_package": self.app_package_name,
+                    "phase": "llm_guidance"
+                }
+            )
 
     def _analyze_state(self) -> Dict[str, Any]:
         """

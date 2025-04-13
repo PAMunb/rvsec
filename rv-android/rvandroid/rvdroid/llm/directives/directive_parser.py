@@ -165,9 +165,10 @@ class DirectiveParser:
                 "model": "model-based",
                 "model-based": "model-based",
                 "modelbased": "model-based",
-                "security": "security-focused",
-                "security-focused": "security-focused",
-                "securityfocused": "security-focused"
+                "monitored": "monitored-operations-focused",
+                "monitored-operations": "monitored-operations-focused", 
+                "monitoredoperations": "monitored-operations-focused",
+                "mop": "monitored-operations-focused"
             }
 
             if strategy_name in strategy_mapping:
@@ -201,15 +202,15 @@ class DirectiveParser:
 
         return strategy
 
-    def parse_security_interpretation(self, response: str) -> Dict[str, Any]:
+    def parse_monitored_operations_interpretation(self, response: str) -> Dict[str, Any]:
         """
-        Parse security interpretation from an LLM response.
+        Parse monitored operations interpretation from an LLM response.
 
         Args:
             response: LLM response text
 
         Returns:
-            Security interpretation dictionary
+            Monitored operations interpretation dictionary
         """
         interpretation = {
             "risk_level": "unknown",
@@ -217,7 +218,7 @@ class DirectiveParser:
         }
 
         # Try to extract risk level
-        risk_pattern = r"(?:risk level|security level|risk|security|vulnerability)\s*:?\s*(low|medium|high|critical)"
+        risk_pattern = r"(?:risk level|interest level|priority level|risk|interest|vulnerability)\s*:?\s*(low|medium|high|critical)"
         match = re.search(risk_pattern, response, re.IGNORECASE)
         if match:
             interpretation["risk_level"] = match.group(1).lower()
@@ -510,7 +511,7 @@ class DirectiveParser:
                 return False
 
             # Check if strategy name is valid
-            valid_strategies = ["random", "systematic", "greedy", "model-based", "security-focused"]
+            valid_strategies = ["random", "systematic", "greedy", "model-based", "monitored-operations-focused"]
             if directive["name"].lower() not in valid_strategies:
                 # Try to map to valid strategy
                 directive["name"] = self._map_to_valid_strategy(directive["name"])
@@ -596,9 +597,12 @@ class DirectiveParser:
             "modelbased": "model-based",
             "model-based": "model-based",
             "model": "model-based",
-            "security": "security-focused",
-            "security-focused": "security-focused",
-            "securityfocused": "security-focused",
+            "monitored": "monitored-operations-focused",
+            "monitored-operations": "monitored-operations-focused",
+            "monitored-operations-focused": "monitored-operations-focused",
+            "monitoredoperations": "monitored-operations-focused",
+            "mop": "monitored-operations-focused",
+            "mop-focused": "monitored-operations-focused",
             "exploration": "random",
             "exploit": "greedy",
             "balanced": "model-based"

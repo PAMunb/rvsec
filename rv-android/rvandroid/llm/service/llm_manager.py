@@ -90,13 +90,14 @@ class LLMManager:
                 # Use configurator-based creation if available
                 self.llm = self.configurator.create_llm()
             else:
-                # Use direct factory-based creation with LLMConfiguration
-                from rvandroid.llm.model_factory import ModelFactory
-                self.llm = ModelFactory.create(
+                # Create a temporary configurator to create the LLM
+                temp_configurator = ComponentConfigurator()
+                temp_configurator.set_llm(
                     self.model_type, 
                     self.model_name, 
                     **self.model_kwargs
                 )
+                self.llm = temp_configurator.create_llm()
                 
             self.logger.info(f"Successfully initialized {self.model_type} model")
 

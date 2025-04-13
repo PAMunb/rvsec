@@ -2,7 +2,7 @@
 import json
 import logging
 import os
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Any
 
 import boto3
 import google.generativeai as genai
@@ -10,7 +10,10 @@ import openai
 # Import model providers
 from anthropic import Anthropic
 
-from rvandroid.llm.llm import LanguageModel
+from rvandroid.llm.language_model import LanguageModel
+from rvandroid.llm.data_structures import MCPMessage, MCPConfiguration
+from rvandroid.llm.adapters.frontier_adapter import FrontierAdapter
+from rvandroid.util.error.error_handler import ErrorHandler
 
 # Configure logger
 logger = logging.getLogger(__name__)
@@ -19,11 +22,9 @@ logger = logging.getLogger(__name__)
 class FrontierModel(LanguageModel):
     """
     Language model implementation that uses frontier models like Claude, ChatGPT, Gemini, etc.
-    Handles initialization and interaction with various API providers.
+    Handles initialization and interaction with various API providers using MCP.
     """
     
-    NAME = "frontier"
-
     # Available frontier models with consistent versioning
     CLAUDE_SONNET = "claude-3-5-sonnet-20241022"
     CLAUDE_OPUS = "claude-3-opus-20240229"
@@ -58,20 +59,34 @@ class FrontierModel(LanguageModel):
             api_key: API key for the service (optional, can also use environment variables)
             **kwargs: Additional model configuration parameters
         """
-        super().__init__(model_name)
-
         # Determine provider if not specified
         if provider is None:
             provider = self._infer_provider(model_name)
-
+            
+        # Initialize the language model with model_name
+        super().__init__(model_name)
+        
+        # Store provider and API key
         self.provider = provider
         self.api_key = api_key
         self._client = None
         self.kwargs = kwargs
         self.logger = logger
+        self.error_handler = ErrorHandler.get_instance()
+        
+        # Add provider to kwargs for adapter
+        self.kwargs["provider"] = provider
 
         # Log initialization
         self.logger.info(f"Initializing FrontierModel with {provider} provider and model {model_name}")
+
+    def _get_model_type(self) -> str:
+        """Get model type string."""
+        return "frontier"
+
+    def _get_adapter(self):
+        """Get the appropriate MCP adapter for this model."""
+        return FrontierAdapter()
 
     def _infer_provider(self, model_name: str) -> str:
         """
@@ -156,99 +171,128 @@ class FrontierModel(LanguageModel):
 
         return self._client
 
-    def generate(self, messages: List[Dict[str, str]], max_new_tokens: int = 800) -> str:
+    async def generate(self, messages: List[MCPMessage], config: Optional[MCPConfiguration] = None) -> MCPMessage:
+        """Generate a response using the language model asynchronously."""
+        # Use synchronous implementation for now (could be updated to use async later)
+        return self.generate_sync(messages, config)
+
+    def generate_sync(self, messages: List[MCPMessage], config: Optional[MCPConfiguration] = None) -> MCPMessage:
         """
-        Generate text based on the input messages.
+        Generate text based on the input messages synchronously.
 
         Args:
-            messages: List of message dictionaries with 'role' and 'content'
-            max_new_tokens: Maximum number of tokens to generate
+            messages: List of MCPMessage objects
+            config: Optional MCPConfiguration object
 
         Returns:
-            Generated text
-
-        Raises:
-            Exception: If generation fails
+            MCPMessage with the generated response
         """
+        # Use provided config or default
+        _config = config or self.config
+        
         try:
+            # Get MCP adapter
+            adapter = self._get_adapter()
+            
+            # Validate request
+            if not adapter.validate_request(messages, _config):
+                error_msg = "Invalid request for frontier model"
+                self.logger.error(error_msg)
+                from rvandroid.util.exceptions import RVAndroidError
+                error = RVAndroidError(error_msg)
+                self.error_handler.handle_error(error)
+                raise ValueError(error_msg)
+            
+            # Format messages using the adapter
+            formatted_messages = adapter.prepare_messages(messages)["messages"]
+            
+            # Format configuration using the adapter
+            model_kwargs = adapter.prepare_config(_config)
+            max_tokens = model_kwargs.pop("max_tokens", 800)
+            
             # Call appropriate provider's generation method
             if self.provider == "anthropic":
-                return self._generate_anthropic(messages, max_new_tokens)
+                response = self._generate_anthropic(formatted_messages, max_tokens, model_kwargs)
             elif self.provider == "openai":
-                return self._generate_openai(messages, max_new_tokens)
+                response = self._generate_openai(formatted_messages, max_tokens, model_kwargs)
             elif self.provider == "google":
-                return self._generate_google(messages, max_new_tokens)
+                response = self._generate_google(formatted_messages, max_tokens, model_kwargs)
             elif self.provider == "amazon":
-                return self._generate_amazon(messages, max_new_tokens)
+                response = self._generate_amazon(formatted_messages, max_tokens, model_kwargs)
             else:
                 raise ValueError(f"Unsupported provider: {self.provider}")
+                
+            # Parse response using the adapter
+            return adapter.parse_response(response)
+            
         except Exception as e:
-            self.logger.error(f"Error generating text with {self.provider}: {e}")
+            error_msg = f"Error generating text with {self.provider}: {str(e)}"
+            self.logger.error(error_msg)
+            from rvandroid.util.exceptions import RVAndroidError
+            error = RVAndroidError(error_msg)
+            self.error_handler.handle_error(error)
             raise
 
-    def _generate_anthropic(self, messages: List[Dict[str, str]], max_new_tokens: int) -> str:
+    def _generate_anthropic(self, messages: List[Dict[str, str]], max_tokens: int, model_kwargs: Dict[str, Any]) -> str:
         """
         Generate text using Anthropic's Claude models.
 
         Args:
             messages: List of message dictionaries
-            max_new_tokens: Maximum number of tokens to generate
+            max_tokens: Maximum number of tokens to generate
+            model_kwargs: Additional model parameters
 
         Returns:
             Generated text
         """
-        temperature = self.kwargs.get("temperature", 0.7)
-
         try:
             message = self.client.messages.create(
                 model=self.model_name,
-                max_tokens=max_new_tokens,
-                temperature=temperature,
-                messages=messages
+                max_tokens=max_tokens,
+                messages=messages,
+                **model_kwargs
             )
             return message.content[0].text
         except Exception as e:
             self.logger.error(f"Anthropic API error: {e}")
             raise
 
-    def _generate_openai(self, messages: List[Dict[str, str]], max_new_tokens: int) -> str:
+    def _generate_openai(self, messages: List[Dict[str, str]], max_tokens: int, model_kwargs: Dict[str, Any]) -> str:
         """
         Generate text using OpenAI models.
 
         Args:
             messages: List of message dictionaries
-            max_new_tokens: Maximum number of tokens to generate
+            max_tokens: Maximum number of tokens to generate
+            model_kwargs: Additional model parameters
 
         Returns:
             Generated text
         """
-        temperature = self.kwargs.get("temperature", 0.7)
-
         try:
             response = self.client.chat.completions.create(
                 model=self.model_name,
                 messages=messages,
-                max_tokens=max_new_tokens,
-                temperature=temperature
+                max_tokens=max_tokens,
+                **model_kwargs
             )
             return response.choices[0].message.content
         except Exception as e:
             self.logger.error(f"OpenAI API error: {e}")
             raise
 
-    def _generate_google(self, messages: List[Dict[str, str]], max_new_tokens: int) -> str:
+    def _generate_google(self, messages: List[Dict[str, str]], max_tokens: int, model_kwargs: Dict[str, Any]) -> str:
         """
         Generate text using Google Gemini models.
 
         Args:
             messages: List of message dictionaries
-            max_new_tokens: Maximum number of tokens to generate
+            max_tokens: Maximum number of tokens to generate
+            model_kwargs: Additional model parameters
 
         Returns:
             Generated text
         """
-        temperature = self.kwargs.get("temperature", 0.7)
-
         try:
             # Adapt messages format for Gemini
             gemini_messages = []
@@ -258,12 +302,12 @@ class FrontierModel(LanguageModel):
 
             model = self.client.GenerativeModel(
                 model_name=self.model_name,
-                generation_config={"temperature": temperature}
+                generation_config={"temperature": model_kwargs.get("temperature", 0.7)}
             )
 
             response = model.generate_content(
                 gemini_messages,
-                generation_config={"max_output_tokens": max_new_tokens}
+                generation_config={"max_output_tokens": max_tokens}
             )
 
             return response.text
@@ -271,36 +315,41 @@ class FrontierModel(LanguageModel):
             self.logger.error(f"Google API error: {e}")
             raise
 
-    def _generate_amazon(self, messages: List[Dict[str, str]], max_new_tokens: int) -> str:
+    def _generate_amazon(self, messages: List[Dict[str, str]], max_tokens: int, model_kwargs: Dict[str, Any]) -> str:
         """
         Generate text using Amazon Bedrock models.
 
         Args:
             messages: List of message dictionaries
-            max_new_tokens: Maximum number of tokens to generate
+            max_tokens: Maximum number of tokens to generate
+            model_kwargs: Additional model parameters
 
         Returns:
             Generated text
         """
-        temperature = self.kwargs.get("temperature", 0.7)
-
         try:
             # Format request body based on underlying model provider
             if self.model_name.startswith("anthropic."):
                 # Format for Claude models on Bedrock
                 request_body = {
                     "anthropic_version": "bedrock-2023-05-31",
-                    "max_tokens": max_new_tokens,
-                    "temperature": temperature,
+                    "max_tokens": max_tokens,
                     "messages": messages
                 }
+                
+                # Add other kwargs
+                for key, value in model_kwargs.items():
+                    request_body[key] = value
             else:
                 # Generic fallback (this may need customization for other model types)
                 request_body = {
-                    "max_tokens": max_new_tokens,
-                    "temperature": temperature,
+                    "max_tokens": max_tokens,
                     "messages": messages
                 }
+                
+                # Add other kwargs
+                for key, value in model_kwargs.items():
+                    request_body[key] = value
 
             # Invoke the model
             response = self.client.invoke_model(
@@ -322,7 +371,7 @@ class FrontierModel(LanguageModel):
             self.logger.error(f"Amazon Bedrock API error: {e}")
             raise
 
-    def clean(self) -> None:
+    def cleanup(self):
         """
         Clean up resources by clearing client references.
         """

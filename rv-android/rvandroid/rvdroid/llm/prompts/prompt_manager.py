@@ -1,34 +1,38 @@
-# rvandroid/rvdroid/llm/prompts/prompt_manager.py
 """
-Prompt manager for RVDroid LLM integration.
+Prompt manager for RVDroid LLM integration with MCP support.
 
 This module provides functionality to manage and generate prompts for
-the LLM, handling prompt templates, selection, and optimization.
+the LLM, handling prompt templates, selection, and optimization,
+with support for the Model Context Protocol (MCP).
 """
 
 import json
 import os
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 
+from rvandroid.llm.data_structures import MCPMessage, MCPRole, MCPTextContent
 from rvandroid.util.logging.constants import CONTEXT_COMPONENT
 from rvandroid.util.logging.manager import LoggingManager
+from rvandroid.util.error.error_handler import ErrorHandler
 
 
 class PromptManager:
     """
-    Manages the selection and generation of prompts for LLM interaction.
+    Manages the selection and generation of prompts for LLM interaction with MCP support.
 
     ### Architectural Decisions:
     - Separates prompt management from LLM interaction logic
     - Uses template-based approach for flexibility and maintainability
     - Supports dynamic prompt selection based on context
     - Provides prompt optimization mechanisms
+    - Integrates with MCP data structures for standardized LLM interactions
 
     ### Role in the System:
     - Generates appropriate prompts for different guidance needs
     - Tailors prompts based on application context
     - Optimizes prompts for token efficiency
     - Evaluates and improves prompt effectiveness
+    - Supports both MCP and legacy formats for backward compatibility
     """
 
     def __init__(self, prompt_dir: Optional[str] = None):
@@ -44,6 +48,9 @@ class PromptManager:
             "rvdroid.llm.prompts.manager",
             {CONTEXT_COMPONENT: "PromptManager"}
         )
+
+        # Initialize error handler
+        self.error_handler = ErrorHandler.get_instance()
 
         # Load prompt templates
         self.prompt_dir = prompt_dir or os.path.join(
@@ -82,6 +89,12 @@ class PromptManager:
                 self.logger.info(f"Created default prompt templates in {self.prompt_dir}")
             except Exception as e:
                 self.logger.error(f"Error creating default templates: {e}")
+                from rvandroid.util.exceptions import RVAndroidError
+                error = RVAndroidError(f"Template creation error: {str(e)}")
+                self.error_handler.handle_error(
+                    error,
+                    context={"prompt_dir": self.prompt_dir}
+                )
             
             return templates
 
@@ -104,6 +117,12 @@ class PromptManager:
 
         except Exception as e:
             self.logger.error(f"Error loading templates: {e}")
+            from rvandroid.util.exceptions import RVAndroidError
+            error = RVAndroidError(f"Template loading error: {str(e)}")
+            self.error_handler.handle_error(
+                error,
+                context={"prompt_dir": self.prompt_dir}
+            )
             return self._get_default_templates()
 
     def _get_default_templates(self) -> Dict[str, Dict[str, Any]]:
@@ -175,10 +194,10 @@ CURRENT SCREEN:
 {current_screen}
 
 MONITORED OPERATIONS:
-{security_operations}
+{monitored_operations}
 
 STATIC ANALYSIS INSIGHTS:
-{security_insights}
+{monitored_ops_insights}
 
 Based on this information, what operations of interest might exist in the current screen, and what specific tests should I perform to detect potential specification violations?""",
                 "max_tokens": 800
@@ -315,7 +334,7 @@ CURRENT STATE:
 TESTING STATISTICS:
 - Screens explored: {screens_explored}
 - Actions executed: {actions_executed}
-- Monitored operations identified: {security_areas}
+- Monitored operations identified: {monitored_areas}
 - Exploration phase: {exploration_phase}
 
 What general guidance can you provide to improve my testing approach, especially for finding specification violations and API misuse?""",
@@ -325,7 +344,7 @@ What general guidance can you provide to improve my testing approach, especially
 
     def generate_prompt(self, prompt_type: str, context: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Generate a prompt based on type and context.
+        Generate a prompt based on type and context in legacy format.
 
         Args:
             prompt_type: Type of prompt to generate
@@ -369,12 +388,51 @@ What general guidance can you provide to improve my testing approach, especially
 
         except Exception as e:
             self.logger.error(f"Error generating prompt: {e}")
+            from rvandroid.util.exceptions import RVAndroidError
+            error = RVAndroidError(f"Prompt generation error: {str(e)}")
+            self.error_handler.handle_error(
+                error,
+                context={"prompt_type": prompt_type}
+            )
             # Fall back to a simple prompt
             return {
                 "system": template["system"],
                 "user": f"Provide guidance based on context: {str(context)[:200]}...",
                 "max_tokens": template.get("max_tokens", 500)
             }
+
+    def generate_mcp_messages(self, prompt_type: str, context: Dict[str, Any]) -> List[MCPMessage]:
+        """
+        Generate prompts in MCP format based on type and context.
+
+        Args:
+            prompt_type: Type of prompt to generate
+            context: Context information for prompt generation
+
+        Returns:
+            List of MCPMessage objects for the conversation
+        """
+        # Get formatted prompts
+        prompt_dict = self.generate_prompt(prompt_type, context)
+        
+        # Convert to MCP messages
+        messages = []
+        
+        # System message
+        if "system" in prompt_dict:
+            messages.append(MCPMessage(
+                role=MCPRole.SYSTEM,
+                content=[MCPTextContent(text=prompt_dict["system"])]
+            ))
+            
+        # User message
+        if "user" in prompt_dict:
+            messages.append(MCPMessage(
+                role=MCPRole.USER,
+                content=[MCPTextContent(text=prompt_dict["user"])]
+            ))
+            
+        return messages
 
     def _safe_format(self, template_str: str, context: Dict[str, Any]) -> str:
         """
@@ -402,51 +460,17 @@ What general guidance can you provide to improve my testing approach, especially
 
         return result
 
-    # def optimize_prompt(self, prompt_type: str, success_rate: float) -> None:
-    #     """
-    #     Optimize a prompt based on its success rate.
-    #
-    #     Args:
-    #         prompt_type: Type of prompt to optimize
-    #         success_rate: Rate of successful responses (0.0 to 1.0)
-    #     """
-    #     # Update success stats
-    #     if prompt_type in self.prompt_stats:
-    #         self.prompt_stats[prompt_type]["successful_responses"] += 1 if success_rate > 0.5 else 0
-    #
-    #         # Calculate overall success rate
-    #         usage_count = self.prompt_stats[prompt_type]["usage_count"]
-    #         successful_responses = self.prompt_stats[prompt_type]["successful_responses"]
-    #         overall_success_rate = successful_responses / usage_count if usage_count > 0 else 0
-    #
-    #         self.logger.info(f"Prompt {prompt_type} success rate: {overall_success_rate:.2f}")
-    #
-    # def get_template_info(self) -> Dict[str, Any]:
-    #     """
-    #     Get information about available templates and their usage.
-    #
-    #     Returns:
-    #         Dictionary with template information
-    #     """
-    #     template_info = {}
-    #
-    #     for template_name, template in self.templates.items():
-    #         # Get stats if available
-    #         stats = self.prompt_stats.get(template_name, {
-    #             "usage_count": 0,
-    #             "token_estimate": 0,
-    #             "successful_responses": 0
-    #         })
-    #
-    #         # Calculate success rate
-    #         usage_count = stats["usage_count"]
-    #         successful_responses = stats["successful_responses"]
-    #         success_rate = successful_responses / usage_count if usage_count > 0 else 0
-    #
-    #         template_info[template_name] = {
-    #             "usage_count": usage_count,
-    #             "avg_token_estimate": stats["token_estimate"],
-    #             "success_rate": success_rate
-    #         }
-    #
-    #     return template_info
+    def get_max_tokens(self, prompt_type: str) -> int:
+        """
+        Get the maximum tokens for a prompt type.
+
+        Args:
+            prompt_type: Type of prompt
+
+        Returns:
+            Maximum tokens for the prompt type
+        """
+        template = self.templates.get(prompt_type)
+        if not template:
+            return 500
+        return template.get("max_tokens", 500)

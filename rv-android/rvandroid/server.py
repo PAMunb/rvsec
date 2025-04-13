@@ -349,6 +349,14 @@ class Server:
                     self._server_thread.join(timeout=5.0)
                     self._server_thread = None
 
+                # Clean up service resources if available
+                if self.service and hasattr(self.service, 'model') and hasattr(self.service.model, 'cleanup'):
+                    try:
+                        self.logger.info("Cleaning up LLM resources")
+                        self.service.model.cleanup()
+                    except Exception as cleanup_error:
+                        self.logger.warning(f"Error during LLM cleanup: {cleanup_error}")
+                
                 self._is_running = False
                 self.logger.info("Server stopped successfully")
                 return True

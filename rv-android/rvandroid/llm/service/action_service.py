@@ -1,16 +1,20 @@
-# rvandroid/llm/action_service.py
-from typing import Dict, List, Any, Optional
+# rvandroid/llm/service/action_service.py
+"""LLM Action Service implementation using MCP framework."""
 
+from typing import Dict, List, Any, Optional
+import logging
+
+from rvandroid.config.component_configurator import ComponentConfigurator
+from rvandroid.domain.static import StaticAnalysisData
+from rvandroid.experiment.event.bus import EventBus, EventType
+from rvandroid.llm.language_model import LanguageModel
+from rvandroid.llm.data_structures import MCPConfiguration, MCPMessage, MCPRole, MCPTextContent
 from rvandroid.llm.service.action_generator import ActionGenerator
-from rvandroid.llm.service.llm_manager import LLMManager
 from rvandroid.llm.service.prompt_processor import PromptProcessor
 from rvandroid.llm.service.response_processor import ResponseProcessor
 from rvandroid.llm.service.state_analyzer import StateAnalyzer
 from rvandroid.llm.service.transition_manager import TransitionManager
-
-from rvandroid.config.component_configurator import ComponentConfigurator
-from rvandroid.experiment.event.bus import EventBus, EventType
-from rvandroid.domain.static import StaticAnalysisData
+from rvandroid.util.error.error_handler import ErrorHandler
 from rvandroid.util.logging.constants import CONTEXT_COMPONENT
 from rvandroid.util.logging.manager import LoggingManager
 from rvandroid.util.performance_monitor import PerformanceMonitor
@@ -25,17 +29,13 @@ class LLMActionService:
     - Follows the Single Responsibility Principle by delegating specialized functions
     - Maintains minimal direct dependencies through component-based approach
     - Enables configurability through dependency injection
+    - Uses MCP framework for standardized LLM interactions
 
     ### Role in the System:
     - Provides a unified interface for state processing and action generation
     - Coordinates the flow between state analysis, LLM interaction, and action generation
     - Manages lifecycle of AI-driven testing operations
     - Integrates with system-wide services like event bus and performance monitoring
-
-    ### Integration Strategy:
-    - Each specialized component handles a distinct responsibility
-    - Communications through well-defined interfaces
-    - Leverages system-wide services for cross-cutting concerns
     """
 
     def __init__(
@@ -59,6 +59,7 @@ class LLMActionService:
         # Initialize system services
         self.event_bus = EventBus.get_instance()
         self.performance_monitor = PerformanceMonitor.get_instance()
+        self.error_handler = ErrorHandler.get_instance()
 
         # Configure logging
         logging_manager = LoggingManager.get_instance()
@@ -75,11 +76,30 @@ class LLMActionService:
 
         # Create specialized components
         self.transition_manager = TransitionManager(dynamic_wtg_file)
-        self.llm_manager = LLMManager(config, **model_kwargs)
-        self.prompt_processor = PromptProcessor(config, static_data)
         self.state_analyzer = StateAnalyzer(static_data)
+        self.prompt_processor = PromptProcessor(config, static_data)
         self.response_processor = ResponseProcessor(config)
         self.action_generator = ActionGenerator(config, static_data)
+        
+        # Create language model using MCP
+        self.logger.info("Creating MCP-based language model")
+        try:
+            self.model = self.config.create_llm()
+            self.logger.info(f"Created {self.model.__class__.__name__} with model {self.model.model_name}")
+        except Exception as e:
+            self.logger.error(f"Error creating language model: {e}", exc_info=True)
+            from rvandroid.util.exceptions import RVAndroidError
+            llm_error = RVAndroidError(f"LLM initialization error: {str(e)}")
+            self.error_handler.handle_error(llm_error, context={"service": "LLMActionService"})
+            raise
+        
+        # Create model configuration
+        self.model_config = MCPConfiguration(
+            temperature=self.config.llm_config.temperature,
+            max_tokens=self.config.llm_config.max_tokens,
+            model_type=self.config.llm_config.model_type,
+            model_name=self.config.llm_config.model_name
+        )
         
         # Initialize memory system for pattern-based strategies
         self.memory = None
@@ -104,7 +124,7 @@ class LLMActionService:
         # Record session creation event
         self.event_bus.publish_analysis_event(
             EventType.EXPERIMENT_STARTED,
-            data={"service": "LLMActionService", "model": self.llm_manager.model_name},
+            data={"service": "LLMActionService", "model": self.model.model_name},
             source="LLMActionService"
         )
 
@@ -113,7 +133,7 @@ class LLMActionService:
         batch_info = f", batch_strategy={'enabled' if self.batch_strategy else 'disabled'}"
         
         self.logger.info(
-            f"Initialized LLM Action Service with model={self.llm_manager.model_name}, "
+            f"Initialized LLM Action Service with model={self.model.model_name}, "
             f"{strategy_info}{batch_info}"
         )
 
@@ -217,27 +237,42 @@ class LLMActionService:
                 
                 # If batch generation was not used or didn't produce valid results, use standard approach
                 
-                # Generate prompts
+                # Generate prompts using MCP format
                 with self.performance_monitor.measure_time("prompt_generation", context):
-                    messages = self.prompt_processor.generate_prompts(state)
+                    raw_messages = self.prompt_processor.generate_prompts(state)
+                    
+                    # Convert to MCP messages
+                    messages = []
+                    for msg in raw_messages:
+                        role = MCPRole.SYSTEM if msg['role'] == 'system' else MCPRole.USER
+                        content = [MCPTextContent(text=msg['content'])]
+                        messages.append(MCPMessage(role=role, content=content))
 
                     # Record prompt metrics
                     self.performance_monitor.record_metric(
                         name="prompt_length_system",
-                        value=len(messages[0]['content']),
+                        value=len(raw_messages[0]['content']),
                         unit="chars",
                         context=context
                     )
                     self.performance_monitor.record_metric(
                         name="prompt_length_user",
-                        value=len(messages[1]['content']),
+                        value=len(raw_messages[1]['content']),
                         unit="chars",
                         context=context
                     )
 
-                # Call the LLM
+                # Call the LLM using MCP
                 with self.performance_monitor.measure_time("llm_call", context):
-                    response = self.llm_manager.generate(messages)
+                    try:
+                        response_message = self.model.generate_sync(messages, self.model_config)
+                        response = response_message.get_text_content()
+                    except Exception as e:
+                        self.logger.error(f"LLM call failed: {e}", exc_info=True)
+                        from rvandroid.util.exceptions import RVAndroidError
+                        llm_error = RVAndroidError(f"LLM generation error: {str(e)}")
+                        self.error_handler.handle_error(llm_error, context=context)
+                        raise
 
                 # Process response and generate actions
                 with self.performance_monitor.measure_time("action_generation", context):
@@ -292,6 +327,9 @@ class LLMActionService:
 
             except Exception as e:
                 self.logger.error(f"Error processing state: {e}", exc_info=True)
+                from rvandroid.util.exceptions import RVAndroidError
+                error = RVAndroidError(f"State processing error: {str(e)}")
+                self.error_handler.handle_error(error, context=context)
 
                 # Record error metrics
                 self.performance_monitor.record_metric(
@@ -453,7 +491,25 @@ class LLMActionService:
             self.batch_statistics["patterns"][pattern_type]["total"] += 1
             if success_rate >= 0.9:
                 self.batch_statistics["patterns"][pattern_type]["successful"] += 1
+    
+    def update_config(self, 
+                     temperature: Optional[float] = None,
+                     max_tokens: Optional[int] = None) -> None:
+        """
+        Update configuration parameters.
         
+        Args:
+            temperature: Optional new temperature value
+            max_tokens: Optional new max_tokens value
+        """
+        if temperature is not None:
+            self.model_config.temperature = temperature
+            self.logger.info(f"Updated temperature to {temperature}")
+            
+        if max_tokens is not None:
+            self.model_config.max_tokens = max_tokens
+            self.logger.info(f"Updated max_tokens to {max_tokens}")
+    
     def cleanup(self):
         """
         Clean up resources used by the service and all its components.
@@ -462,9 +518,6 @@ class LLMActionService:
 
         # Save transition data
         self.transition_manager.save()
-
-        # Clean up LLM resources
-        self.llm_manager.cleanup()
         
         # Log batch statistics if available
         if hasattr(self, 'batch_statistics'):
@@ -483,6 +536,14 @@ class LLMActionService:
                 self.logger.info(f"Pattern '{pattern}' statistics: {pattern_successful}/{pattern_total} " +
                            f"successful batches ({pattern_rate:.2f})")
 
+        # Clean up the model if it has a cleanup method
+        if hasattr(self, 'model') and self.model is not None and hasattr(self.model, 'cleanup'):
+            try:
+                self.logger.info("Cleaning up LLM model")
+                self.model.cleanup()
+            except Exception as e:
+                self.logger.warning(f"Error cleaning up model: {e}")
+                
         # Publish service shutdown event
         self.event_bus.publish_analysis_event(
             EventType.EXPERIMENT_COMPLETED,

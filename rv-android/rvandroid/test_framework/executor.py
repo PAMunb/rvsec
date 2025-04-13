@@ -409,7 +409,7 @@ class TestExecutor:
     
     def _configure_tool(self, tool_config: ToolConfiguration, static_data: Optional[StaticAnalysisData]) -> AbstractTool:
         """
-        Configure a tool based on test configuration.
+        Configure a tool based on test configuration using the MCP architecture.
         
         Args:
             tool_config: Tool configuration
@@ -437,18 +437,36 @@ class TestExecutor:
         import copy
         tool = copy.deepcopy(tool)
         
-        # Create component configurator
+        # Create component configurator for MCP
         configurator = ComponentConfigurator(static_data)
         
-        # Configure LLM
+        # Import MCP data structures
+        from rvandroid.mcp.mcp_data_structures import MCPConfiguration
+        
+        # Create MCP configuration
+        mcp_config = MCPConfiguration(
+            temperature=tool_config.temperature,
+            max_tokens=tool_config.max_tokens,
+            model_type=tool_config.llm_type,
+            model_name=tool_config.llm_model
+        )
+        
+        # Add any additional MCP-specific configuration
+        for key, value in tool_config.mcp_config.items():
+            if hasattr(mcp_config, key):
+                setattr(mcp_config, key, value)
+        
+        # Configure LLM using MCP
         configurator.set_llm(
             tool_config.llm_type,
             tool_config.llm_model,
             temperature=tool_config.temperature,
-            max_tokens=tool_config.max_tokens
+            max_tokens=tool_config.max_tokens,
+            mcp_config=mcp_config,
+            use_mcp=True
         )
         
-        # Configure strategy
+        # Configure strategy with MCP parameters
         configurator.set_strategy(tool_config.strategy_type, **tool_config.strategy_params)
         
         # Configure parser
@@ -467,6 +485,10 @@ class TestExecutor:
         if tool_config.use_screenshot_analysis:
             tool_specific_config["use_screenshot_analysis"] = True
             tool_specific_config["screenshot_analysis_level"] = tool_config.screenshot_analysis_level
+        
+        # Add monitored operations configuration
+        tool_specific_config["monitored_operations_focus"] = tool_config.monitored_operations_focus
+        tool_specific_config["monitored_operations_priority"] = tool_config.monitored_operations_priority
         
         # Add any extra parameters
         tool_specific_config.update(tool_config.extra_params)
@@ -764,7 +786,7 @@ class TestRunner:
                 writer.writerow([
                     "test_id", "tool", "app", "llm_model", "strategy", 
                     "method_coverage", "activity_coverage", "mop_method_coverage",
-                    "execution_time", "status", "timestamp"
+                    "execution_time", "status", "timestamp", "mop_focus", "mop_priority"
                 ])
                 
                 # Write data
@@ -774,6 +796,8 @@ class TestRunner:
                     app = os.path.basename(result.test_case.app_path)
                     llm_model = result.test_case.tool_config.llm_model
                     strategy = result.test_case.tool_config.strategy_type
+                    mop_focus = result.test_case.tool_config.monitored_operations_focus
+                    mop_priority = result.test_case.tool_config.monitored_operations_priority
                     
                     # Get coverage data
                     method_coverage = result.coverage_data.get("method_coverage", 0) if hasattr(result, "coverage_data") and result.coverage_data else 0
@@ -785,7 +809,8 @@ class TestRunner:
                         test_id, tool, app, llm_model, strategy,
                         method_coverage, activity_coverage, mop_method_coverage,
                         result.execution_time, result.status, 
-                        result.end_time.isoformat() if result.end_time else ""
+                        result.end_time.isoformat() if result.end_time else "",
+                        mop_focus, mop_priority
                     ])
             
             # Create error CSV file
@@ -829,7 +854,8 @@ class TestRunner:
                 writer.writerow([
                     "test_id", "tool", "app", "llm_model", "strategy",
                     "mop_error_count", "mop_unique_errors", "mop_error_categories",
-                    "mop_error_rate", "monitored_operations_ratio", "status", "timestamp"
+                    "mop_error_rate", "monitored_operations_ratio", "status", "timestamp",
+                    "mop_focus", "mop_priority"
                 ])
                 
                 # Write data for all results with MOP errors
@@ -839,6 +865,8 @@ class TestRunner:
                     app = os.path.basename(result.test_case.app_path)
                     llm_model = result.test_case.tool_config.llm_model
                     strategy = result.test_case.tool_config.strategy_type
+                    mop_focus = result.test_case.tool_config.monitored_operations_focus
+                    mop_priority = result.test_case.tool_config.monitored_operations_priority
                     
                     # Get MOP error data
                     mop_error_count = 0
@@ -865,7 +893,8 @@ class TestRunner:
                         test_id, tool, app, llm_model, strategy,
                         mop_error_count, mop_unique_errors, mop_error_categories,
                         mop_error_rate, monitored_operations_ratio,
-                        result.status, result.end_time.isoformat() if result.end_time else ""
+                        result.status, result.end_time.isoformat() if result.end_time else "",
+                        mop_focus, mop_priority
                     ])
             
             # Create monitored operations CSV file
@@ -876,7 +905,7 @@ class TestRunner:
                     "test_id", "tool", "app", "llm_model", "strategy",
                     "mop_specifications", "mop_triggers", "triggered_specifications", 
                     "monitored_operations_count", "monitored_operations_triggered",
-                    "status", "timestamp"
+                    "status", "timestamp", "mop_focus", "mop_priority"
                 ])
                 
                 # Write data for all results
@@ -886,6 +915,8 @@ class TestRunner:
                     app = os.path.basename(result.test_case.app_path)
                     llm_model = result.test_case.tool_config.llm_model
                     strategy = result.test_case.tool_config.strategy_type
+                    mop_focus = result.test_case.tool_config.monitored_operations_focus
+                    mop_priority = result.test_case.tool_config.monitored_operations_priority
                     
                     # Get monitored operations data
                     mop_specifications = 0
@@ -909,7 +940,8 @@ class TestRunner:
                         test_id, tool, app, llm_model, strategy,
                         mop_specifications, mop_triggers, triggered_specifications,
                         monitored_operations_count, monitored_operations_triggered,
-                        result.status, result.end_time.isoformat() if result.end_time else ""
+                        result.status, result.end_time.isoformat() if result.end_time else "",
+                        mop_focus, mop_priority
                     ])
                     
             self.logger.info(f"Results exported to {output_dir} (coverage, errors, MOP errors, monitored operations)")

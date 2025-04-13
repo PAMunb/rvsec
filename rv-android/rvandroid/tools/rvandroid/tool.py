@@ -10,12 +10,12 @@ from rvandroid.config.component_configurator import ComponentConfigurator
 from rvandroid.config.configuration import Configuration
 from rvandroid.experiment.task.task_model import Task
 from rvandroid.server import Server
-from rvandroid.llm.service.action_service import LLMActionService
 from rvandroid.tools.configurable_tool import ConfigurableTool
 from rvandroid.experiment.event.bus import EventBus
 from rvandroid.experiment.event.models import EventType
 from rvandroid.util.logging.constants import CONTEXT_TASK_ID, CONTEXT_APP_NAME, CONTEXT_TOOL_NAME, CONTEXT_COMPONENT
 from rvandroid.util.logging.manager import LoggingManager
+from rvandroid.util.error.error_handler import ErrorHandler
 
 
 class ToolSpec(ConfigurableTool):
@@ -27,6 +27,7 @@ class ToolSpec(ConfigurableTool):
     - Utilizes component configurator for flexible AI strategy configuration
     - Supports dynamic server initialization for AI action generation
     - Provides a standardized interface for AI-driven test execution
+    - Integrates with MCP framework for standardized LLM communication
 
     ### Role in the System:
     - Serves as the primary tool for AI-guided Android application testing
@@ -50,7 +51,7 @@ class ToolSpec(ConfigurableTool):
 
         # Set default LLM configuration
         self.component_config.set_llm("ollama", "llama3.2:3b")
-        self.component_config.set_strategy("composable_single_action")
+        self.component_config.set_strategy("flow_based_batch_action")
         self.component_config.set_visitor("enhanced")
         self.component_config.set_parser("droidbot")
 
@@ -80,10 +81,15 @@ class ToolSpec(ConfigurableTool):
             }
         )
 
+        # Initialize error handler
+        error_handler = ErrorHandler.get_instance()
+
         # Log configuration
         logger.info(f"RVAndroid tool using configuration: {self.component_config.describe_configuration()}")
 
-        # Create service
+        # Create MCP-based service
+        logger.info("Creating MCP-based LLM action service")
+        from rvandroid.llm.service.action_service import LLMActionService
         service = LLMActionService(task.static_data, config=self.component_config)
 
         # Publish tool start event
@@ -110,9 +116,29 @@ class ToolSpec(ConfigurableTool):
                     exec_cmd.invoke(stdout=trace)
             else:
                 logger.error("Server failed to start")
+                from rvandroid.util.exceptions import RVAndroidError
+                error = RVAndroidError("Failed to start RVAndroid server")
+                error_handler.handle_error(
+                    error,
+                    context={
+                        "task_id": task.id,
+                        "app_name": app.name,
+                        "tool_name": self.name
+                    }
+                )
 
         except Exception as e:
             logger.error(f"Error running RVAndroid tool: {e}", exc_info=True)
+            from rvandroid.util.exceptions import RVAndroidError
+            error = RVAndroidError(f"RVAndroid execution error: {str(e)}")
+            error_handler.handle_error(
+                error,
+                context={
+                    "task_id": task.id,
+                    "app_name": app.name,
+                    "tool_name": self.name
+                }
+            )
             raise
 
         finally:
@@ -120,7 +146,8 @@ class ToolSpec(ConfigurableTool):
             server.stop()
 
             # Clean up service resources
-            service.cleanup()
+            if hasattr(service, 'cleanup'):
+                service.cleanup()
 
             # Publish tool end event
             EventBus.get_instance().publish_task_event(

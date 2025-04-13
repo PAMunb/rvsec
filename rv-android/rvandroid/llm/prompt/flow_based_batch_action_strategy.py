@@ -53,15 +53,14 @@ class FlowBasedBatchActionStrategy(ComposablePromptStrategy):
             Processed response with actions and metadata
         """
         import json
-        from rvandroid.util.json_helpers import safe_json_loads
-        
+
         # Store the raw response for pattern info extraction
         self._last_llm_response = response_text
         
         try:
             # Parse JSON response
-            response_data = safe_json_loads(response_text)
-            
+            response_data = json.loads(response_text)
+
             # Extract and store pattern information
             if response_data and "pattern_type" in response_data:
                 pattern_type = response_data["pattern_type"]

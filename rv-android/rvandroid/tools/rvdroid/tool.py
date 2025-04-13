@@ -7,7 +7,8 @@ import json
 
 from rvandroid.app import App
 from rvandroid.commands.command import Command
-from rvandroid.config.component_configurator import ComponentConfigurator
+# Import ComponentConfigurator only when needed, not at module level
+# from rvandroid.config.component_configurator import ComponentConfigurator
 from rvandroid.experiment.event.bus import EventBus, EventType
 from rvandroid.experiment.task.task_model import Task, TaskConfig, TaskResult, TaskStatus
 from rvandroid.rvdroid.core.service import RVDroidService
@@ -44,13 +45,6 @@ class RVDroidTool(ConfigurableTool):
             "br.unb.cic.rvsec"
         )
 
-        # Initialize component configurator
-        self.component_config = ComponentConfigurator()
-
-        # Set defaults
-        self.component_config.set_parser("uiautomator")
-        self.component_config.set_visitor("enhanced")
-
         # Default configuration
         self.config = {
             "use_llm": False,  # Default to no LLM guidance
@@ -58,6 +52,9 @@ class RVDroidTool(ConfigurableTool):
             "use_screenshot_analysis": True,
             "screenshot_analysis_level": "standard",
         }
+        
+        # We'll initialize component_config lazily
+        self.component_config = None
 
     def configure_tool_specific(self, config):
         """Configure RVDroid-specific parameters."""
@@ -93,6 +90,16 @@ class RVDroidTool(ConfigurableTool):
         
         # Log execution configuration
         logger.info(f"Executing {self.name} with configuration: {self.config}")
+        
+        # Initialize component_config if not already done
+        if self.component_config is None:
+            # Import here to avoid circular import
+            from rvandroid.config.component_configurator import ComponentConfigurator
+            self.component_config = ComponentConfigurator()
+            # Set defaults
+            self.component_config.set_parser("uiautomator")
+            self.component_config.set_visitor("enhanced")
+            
         logger.info(f"RVDroid tool initialized with configuration: {self.component_config.describe_configuration()}")
 
         # Publish tool start event
@@ -180,6 +187,15 @@ class RVDroidTool(ConfigurableTool):
             use_llm = self.config.get("use_llm", True)
             preferred_strategy = self.config.get("preferred_strategy", "VisualAwareStrategy")
             use_screenshot_analysis = self.config.get("use_screenshot_analysis", True)
+            
+            # Lazily initialize the component configurator if needed
+            if self.component_config is None:
+                # Import here to avoid circular import
+                from rvandroid.config.component_configurator import ComponentConfigurator
+                self.component_config = ComponentConfigurator()
+                # Set defaults
+                self.component_config.set_parser("uiautomator")
+                self.component_config.set_visitor("enhanced")
             
             # Create RVDroid service with configured options
             service = RVDroidService(

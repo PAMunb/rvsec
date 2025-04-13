@@ -2,7 +2,7 @@
 Configuration validator module for test framework.
 
 This module provides validation services for test framework configurations,
-ensuring that configurations are valid and compatible.
+ensuring that configurations are valid and compatible with the MCP architecture.
 """
 
 from typing import Dict, List, Set, Tuple, Any, Optional
@@ -48,33 +48,34 @@ class ConfigurationValidator:
     Validator for tool configurations.
     
     Ensures that tool configurations are valid and compatible with
-    the rv-android system requirements.
+    the Model Context Protocol (MCP) architecture.
     
     ### Key Responsibilities:
     - Validates configuration parameters against defined rules
     - Checks compatibility between components
+    - Validates MCP-specific configuration parameters
     - Provides detailed error messages for invalid configurations
     - Prevents execution of incompatible configurations
     """
     
-    # Import LLM classes for constants
-    from rvandroid.llm.ollama_llm import OllamaLLM
-    from rvandroid.llm.huggingface_llm import HuggingFaceLLM
-    from rvandroid.llm.dspy_llm import DSPyLLM  
+    # MCP adapters and models
+    from rvandroid.llm.adapters.ollama_adapter import OllamaAdapter
+    from rvandroid.llm.adapters.dspy_adapter import DSPyAdapter
     
-    # Define constants for LangchainLLM and FrontierModel to avoid import errors
-    LANGCHAIN_NAME = "langchain"
+    # Define MCP model types
+    MCP_OLLAMA = "ollama"
+    MCP_DSPY = "dspy"
+    
+    # MCP models
+    MCP_OLLAMA_MODELS = ["llama3.2:3b", "llama3.2:8b", "phi3.5:3.8b", "qwen2.5:3b", "mistral:7b"]
+    MCP_DSPY_MODELS = ["llama3.2:3b", "llama3.2:8b", "phi3.5:3.8b", "qwen2.5:3b", "mistral:7b"]
+    
+    # Define constants for Frontier and other model types
     FRONTIER_NAME = "frontier"
+    FRONTIER_MODELS = ["claude-3-sonnet-20240229", "claude-3-opus-20240229"]
     
-    # Import FrontierModel if possible
-    try:
-        from rvandroid.llm.frontier_models import FrontierModel
-    except ImportError:
-        # Create a stub class if import fails
-        class FrontierModel:
-            NAME = FRONTIER_NAME
-            CLAUDE_SONNET = "claude-3-sonnet-20240229"
-            MODELS = [CLAUDE_SONNET]
+    LANGCHAIN_NAME = "langchain"
+    LANGCHAIN_MODELS = ["llama3.2:3b", "phi3.5:3.8b", "qwen2.5:3b", "mistral:7b"]
     
     # Define known compatibility rules
     TOOL_PARSER_COMPATIBILITY = {
@@ -87,35 +88,31 @@ class ConfigurationValidator:
         "uiautomator": ["basic", "enhanced", "detailed", "text"]
     }
     
-    VALID_LLM_TYPES = [
-        OllamaLLM.NAME, 
-        HuggingFaceLLM.NAME, 
-        DSPyLLM.NAME, 
-        LANGCHAIN_NAME, 
-        FrontierModel.NAME
+    # MCP strategy types
+    VALID_STRATEGY_TYPES = [
+        "single_action_strategy",
+        "flow_based_batch_strategy", 
+        "composable_strategy"
     ]
     
-    VALID_STRATEGY_TYPES = [
-        "basic", 
-        "single_action", 
-        "composable_single_action", 
-        "dspy_single_action", 
-        "composable"
+    # Valid LLM types
+    VALID_LLM_TYPES = [
+        MCP_OLLAMA,
+        MCP_DSPY,
+        LANGCHAIN_NAME,
+        FRONTIER_NAME
     ]
     
     VALID_STATIC_ANALYSIS_LEVELS = ["basic", "standard", "detailed"]
     VALID_SCREENSHOT_ANALYSIS_LEVELS = ["basic", "standard", "detailed"]
-    
-    # Define default models for LangchainLLM
-    LANGCHAIN_MODELS = ["llama3.2:3b", "phi3.5:3.8b", "qwen2.5:3b", "mistral:7b"]
+    VALID_MONITORED_OPERATIONS_PRIORITIES = ["high", "medium", "low"]
     
     # Model-specific validation
     MODEL_COMPATIBILITY = {
-        OllamaLLM.NAME: OllamaLLM.MODELS,
-        HuggingFaceLLM.NAME: HuggingFaceLLM.MODELS,
-        DSPyLLM.NAME: DSPyLLM.MODELS,
+        MCP_OLLAMA: MCP_OLLAMA_MODELS,
+        MCP_DSPY: MCP_DSPY_MODELS,
         LANGCHAIN_NAME: LANGCHAIN_MODELS,
-        FrontierModel.NAME: FrontierModel.MODELS
+        FRONTIER_NAME: FRONTIER_MODELS
     }
     
     def __init__(self):
@@ -176,12 +173,21 @@ class ConfigurationValidator:
             errors.append(f"Invalid screenshot analysis level: {config.screenshot_analysis_level}. "
                          f"Valid levels: {self.VALID_SCREENSHOT_ANALYSIS_LEVELS}")
         
+        # Check monitored operations priority
+        if config.monitored_operations_priority not in self.VALID_MONITORED_OPERATIONS_PRIORITIES:
+            errors.append(f"Invalid monitored operations priority: {config.monitored_operations_priority}. "
+                         f"Valid priorities: {self.VALID_MONITORED_OPERATIONS_PRIORITIES}")
+        
         # Validate numeric parameters
         if config.temperature < 0.0 or config.temperature > 1.0:
             errors.append(f"Invalid temperature: {config.temperature}. Must be between 0.0 and 1.0")
         
         if config.max_tokens <= 0:
             errors.append(f"Invalid max_tokens: {config.max_tokens}. Must be greater than 0")
+        
+        # Validate MCP configuration
+        if not config.use_mcp:
+            errors.append("MCP must be enabled for all configurations. Legacy LLM implementations are no longer supported.")
         
         # Specific tool validations
         if config.tool_name == "rvdroid" and config.use_screenshot_analysis:

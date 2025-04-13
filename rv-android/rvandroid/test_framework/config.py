@@ -8,11 +8,20 @@ that evaluates different configurations of RVAndroid and RVDroid tools.
 import json
 import os
 from dataclasses import dataclass, field, asdict
-from typing import Dict, List, Any
+from typing import Dict, List, Any, Optional
 
-from rvandroid.llm.ollama_llm import OllamaLLM
-from rvandroid.llm.huggingface_llm import HuggingFaceLLM
-from rvandroid.llm.dspy_llm import DSPyLLM
+# Import LLM implementations for constants
+try:
+    # Try to import MCP-based implementations first
+    from rvandroid.mcp.adapters.ollama_adapter import OllamaAdapter
+    from rvandroid.mcp.adapters.dspy_adapter import DSPyAdapter
+    USE_MCP = True
+except ImportError:
+    # Fall back to legacy implementations if necessary
+    from rvandroid.llm.ollama_llm import OllamaLLM
+    from rvandroid.llm.huggingface_llm import HuggingFaceLLM
+    from rvandroid.llm.dspy_llm import DSPyLLM
+    USE_MCP = False
 
 
 @dataclass
@@ -22,6 +31,8 @@ class ToolConfiguration:
     
     Represents settings for a specific testing tool (RVAndroid or RVDroid),
     including parameters for LLM, parsing strategy, etc.
+    
+    Uses the Model Context Protocol (MCP) for standardized LLM interactions.
     """
     # Basic settings
     tool_name: str
@@ -30,24 +41,28 @@ class ToolConfiguration:
     # Emulator configuration
     no_window: bool = True  # Whether to run emulator in headless mode
 
-    # LLM configuration
-    llm_type: str = OllamaLLM.NAME
-    llm_model: str = OllamaLLM.LLAMA
+    # LLM configuration using MCP-compatible types
+    llm_type: str = "ollama"  # ollama, dspy, etc.
+    llm_model: str = "llama3.2:3b"  # Based on available MCP-compatible models
     temperature: float = 0.2
     max_tokens: int = 800
+    
+    # MCP-specific configuration
+    use_mcp: bool = True  # Use MCP for all LLM operations
+    mcp_config: Dict[str, Any] = field(default_factory=dict)
 
     # Strategy configuration
-    # Options: basic, single_action, dspy, frontier, dspy_single_action, composable, composable_single_action
-    strategy_type: str = "single_action"
+    # Options: single_action_strategy, flow_based_batch_strategy, composable_strategy
+    strategy_type: str = "single_action_strategy"
     strategy_params: Dict[str, Any] = field(default_factory=dict)
 
     # Parser configuration
-    parser_type: str = "droidbot"
+    parser_type: str = "uiautomator"  # Default for RVDroid
     parser_params: Dict[str, Any] = field(default_factory=dict)
 
     # Visitor configuration
-    # Options: basic, default, detailed
-    visitor_type: str = "basic"
+    # Options: basic, enhanced, detailed
+    visitor_type: str = "enhanced"
     visitor_params: Dict[str, Any] = field(default_factory=dict)
 
     # Static analysis configuration
@@ -55,8 +70,12 @@ class ToolConfiguration:
     static_analysis_level: str = "detailed"  # basic, standard, detailed
 
     # Screenshot analysis configuration
-    use_screenshot_analysis: bool = False
+    use_screenshot_analysis: bool = True
     screenshot_analysis_level: str = "standard"  # basic, standard, detailed
+
+    # Monitored operations configuration
+    monitored_operations_focus: bool = True  # Whether to focus on monitored operations
+    monitored_operations_priority: str = "high"  # high, medium, low
 
     # Extra params
     extra_params: Dict[str, Any] = field(default_factory=dict)
@@ -73,24 +92,28 @@ class ToolConfiguration:
         timeout = data.pop('timeout', 300)
 
         # Extract emulator settings
-        no_window = data.pop('no_window', False)
+        no_window = data.pop('no_window', True)
 
         # Extract LLM settings
-        llm_type = data.pop('llm_type', OllamaLLM.NAME)
-        llm_model = data.pop('llm_model', OllamaLLM.LLAMA)
+        llm_type = data.pop('llm_type', 'ollama')
+        llm_model = data.pop('llm_model', 'llama3.2:3b')
         temperature = data.pop('temperature', 0.2)
         max_tokens = data.pop('max_tokens', 800)
+        
+        # Extract MCP settings
+        use_mcp = data.pop('use_mcp', True)
+        mcp_config = data.pop('mcp_config', {})
 
         # Extract strategy settings
-        strategy_type = data.pop('strategy_type', 'single_action')
+        strategy_type = data.pop('strategy_type', 'single_action_strategy')
         strategy_params = data.pop('strategy_params', {})
 
         # Extract parser settings
-        parser_type = data.pop('parser_type', 'droidbot')
+        parser_type = data.pop('parser_type', 'uiautomator')
         parser_params = data.pop('parser_params', {})
 
         # Extract visitor settings
-        visitor_type = data.pop('visitor_type', 'basic')
+        visitor_type = data.pop('visitor_type', 'enhanced')
         visitor_params = data.pop('visitor_params', {})
 
         # Extract static analysis settings
@@ -98,8 +121,12 @@ class ToolConfiguration:
         static_analysis_level = data.pop('static_analysis_level', 'detailed')
 
         # Extract screenshot analysis settings
-        use_screenshot_analysis = data.pop('use_screenshot_analysis', False)
+        use_screenshot_analysis = data.pop('use_screenshot_analysis', True)
         screenshot_analysis_level = data.pop('screenshot_analysis_level', 'standard')
+        
+        # Extract monitored operations settings
+        monitored_operations_focus = data.pop('monitored_operations_focus', True)
+        monitored_operations_priority = data.pop('monitored_operations_priority', 'high')
 
         # Remaining settings go to extra_params
         extra_params = data
@@ -112,6 +139,8 @@ class ToolConfiguration:
             llm_model=llm_model,
             temperature=temperature,
             max_tokens=max_tokens,
+            use_mcp=use_mcp,
+            mcp_config=mcp_config,
             strategy_type=strategy_type,
             strategy_params=strategy_params,
             parser_type=parser_type,
@@ -122,6 +151,8 @@ class ToolConfiguration:
             static_analysis_level=static_analysis_level,
             use_screenshot_analysis=use_screenshot_analysis,
             screenshot_analysis_level=screenshot_analysis_level,
+            monitored_operations_focus=monitored_operations_focus,
+            monitored_operations_priority=monitored_operations_priority,
             extra_params=extra_params
         )
 

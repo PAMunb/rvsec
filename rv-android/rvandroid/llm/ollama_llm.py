@@ -1,9 +1,16 @@
+# rvandroid/llm/ollama_llm.py
+"""Ollama language model implementation using the Model Context Protocol (MCP)."""
 import logging
-from typing import List, Dict
+from typing import List, Optional, ClassVar
 
-from ollama import ChatResponse, Client
+# Use official ollama library
+from ollama import AsyncClient
 
-from rvandroid.llm.llm import LanguageModel
+from rvandroid.config.component_configurator import ComponentConfigurator
+from rvandroid.llm.adapter import AdapterRegistry
+from rvandroid.llm.adapters.ollama_adapter import OllamaAdapter
+from rvandroid.llm.data_structures import MCPMessage, MCPConfiguration, MCPTextContent, MCPRole
+from rvandroid.llm.language_model import LanguageModel
 
 logger = logging.getLogger(__name__)
 
@@ -33,7 +40,7 @@ class OllamaLLM(LanguageModel):
     - Provides efficient model pulling and initialization mechanisms
 
     ### Integration Strategy:
-    - Deeply integrated with the RV-Android language model abstraction
+    - Implements the Model Context Protocol for standardized communication
     - Compatible with multiple local AI model providers
     - Supports dynamic model selection and configuration
     - Enables seamless swapping of AI backends
@@ -49,121 +56,276 @@ class OllamaLLM(LanguageModel):
     NAME = "ollama"
 
     # Available model definitions
-    LLAMA = "llama3.2:3b"
-    DEEPSEEK = "deepseek-r1:1.5B"
-    GEMMA = "gemma3:4b"
-    QWEN = "qwen2.5:3b"
-    PHI = "phi3.5:3.8b"
-    GRANITE = "granite3.1-dense:8b"
-    MISTRAL = "mistral:7b"
-    FALCON = "falcon3:3b"
+    LLAMA: ClassVar[str] = "llama3.2:3b"
+    DEEPSEEK: ClassVar[str] = "deepseek-r1:1.5B"
+    GEMMA: ClassVar[str] = "gemma3:4b"
+    QWEN: ClassVar[str] = "qwen2.5:3b"
+    PHI: ClassVar[str] = "phi3.5:3.8b"
+    GRANITE: ClassVar[str] = "granite3.1-dense:8b"
+    MISTRAL: ClassVar[str] = "mistral:7b"
+    FALCON: ClassVar[str] = "falcon3:3b"
 
-    # MODELS = [LLAMA, DEEPSEEK, GEMMA, QWEN, PHI, GRANITE, MISTRAL, FALCON]
-    MODELS = [LLAMA, GEMMA, QWEN]
+    # Define available models (subset for better performance)
+    MODELS: ClassVar[List[str]] = [LLAMA, GEMMA, QWEN]
 
-    def __init__(self, model_name: str, base_url: str = "http://localhost:11434", temperature: float = 0.2, **kwargs):
+    def __init__(self, model_name: str = LLAMA, **kwargs):
         """
-        Initialize the OllamaLLM.
-
+        Initialize Ollama language model.
+        
         Args:
-            model_name: Name of the Ollama model
-            base_url: Base URL for the Ollama API
-            temperature: Temperature for generation (randomness)
-            **kwargs: Additional model parameters that will be passed to Ollama
+            model_name: Name of the Ollama model to use
+            **kwargs: Additional arguments including:
+                api_base: Base URL for Ollama API (default: http://localhost:11434)
+                temperature: Sampling temperature (default: 0.7)
+                max_tokens: Maximum tokens to generate (default: None)
         """
-        super().__init__(model_name)
-        self.base_url = base_url
-        self.temperature = temperature
+        self.api_base = kwargs.pop("api_base", "http://localhost:11434")
+        super().__init__(model_name, **kwargs)
+        # We don't create the client here, instead create it on demand in generate
         self._client = None
-        self.logger = logger
-        self.kwargs = kwargs
+        self.logger.info(f"Initialized Ollama with model {model_name} at {self.api_base}")
 
     @property
-    def client(self) -> Client:
+    def client(self):
+        """Get a fresh client for each request to avoid event loop issues."""
+        # Always create a new client to avoid async loop sharing issues
+        return AsyncClient(host=self.api_base)
+
+    def _get_model_type(self) -> str:
+        """Get model type string."""
+        return self.NAME
+
+    def _get_adapter(self) -> OllamaAdapter:
+        """Get the appropriate MCP adapter for this model."""
+        return OllamaAdapter()
+
+    async def generate(self,
+                       messages: List[MCPMessage],
+                       config: Optional[MCPConfiguration] = None) -> MCPMessage:
         """
-        Get or initialize the Ollama client.
-
-        Returns:
-            Ollama Client instance
-        """
-        print(f"***** client={self.base_url}")
-        if not self._client:
-            print("iniciando .....................")
-            self.logger.info(f"Initializing Ollama client with base URL: {self.base_url}")
-            try:
-                self._client = Client(host=self.base_url)
-                print(f"client iniciado ..................... {self._client}")
-                # Pull model to ensure it's available (this is non-blocking if already pulled)
-                self.logger.info(f"Ensuring model {self.model_name} is available")
-                self._client.pull(self.model_name)
-                self.logger.info(f"Model {self.model_name} is ready")
-            except Exception as e:
-                self.logger.error(f"Error initializing Ollama client: {e}")
-                raise
-
-        return self._client
-
-    def generate(self, messages: List[Dict[str, str]], max_new_tokens: int = 800) -> str:
-        """
-        Generate text using the Ollama model.
-
+        Generate a response using Ollama.
+        
         Args:
-            messages: List of message dictionaries with 'role' and 'content'
-            max_new_tokens: Maximum number of tokens to generate (not directly used by Ollama)
-
+            messages: List of MCP messages representing the conversation
+            config: Optional configuration parameters that override instance config
+            
         Returns:
-            Generated text
-
+            MCPMessage containing the generated response
+            
         Raises:
-            Exception: If generation fails
+            ValueError: If the request is invalid for Ollama
+            Exception: If an error occurs during generation
         """
-        try:
-            # Configure Ollama-specific options
-            options = {
-                "temperature": self.temperature,
-            }
-            
-            # Add any other parameters passed during initialization
-            for key, value in self.kwargs.items():
-                if key != "max_tokens":  # Skip max_tokens as we use num_predict instead
-                    options[key] = value
-                    
-            # Convert max_new_tokens to Ollama num_predict if needed
-            if max_new_tokens:
-                options["num_predict"] = max_new_tokens
+        # Use provided config or instance config
+        use_config = config or self.config
 
-            self.logger.debug(f"Generating with {self.model_name} using {len(messages)} messages")
-            print(f"\n\nPROMPT: {messages}")
-            for prompt in messages:
-                print(f"{prompt['role']}:\n{prompt['content']}")
-                
-            self.logger.debug(f"Options for Ollama: {options}")
-            
-            response: ChatResponse = self.client.chat(
-                model=self.model_name,
-                messages=messages,
-                options=options,
-                keep_alive=True  # Keep model loaded for potential subsequent requests
+        # Validate request using adapter
+        if not self.adapter.validate_request(messages, use_config):
+            raise ValueError("Invalid request for Ollama")
+
+        # Prepare messages using adapter
+        prepared_messages = self.adapter.prepare_messages(messages)
+        print(f"prepared_messages={prepared_messages}")
+
+        # Prepare configuration using adapter
+        prepared_config = self.adapter.prepare_config(use_config)
+
+        try:
+            # Generate response using Ollama
+            response = await self.client.generate(
+                model=prepared_config.pop("model"),
+                prompt=prepared_messages["prompt"],
+                options=prepared_config
             )
-            print(f"\nRESPONSE: {response.message.content}\n")
-            return response.message.content
+            print(f"\n\nresponse={response}")
+
+            # Parse response using adapter
+            return self.adapter.parse_response(response)
+
         except Exception as e:
-            self.logger.error(f"Error generating text with Ollama: {e}")
+            self.logger.error(f"Ollama request error: {e}")
             raise
 
-    def clean(self) -> None:
+    def generate_sync(self,
+                      messages: List[MCPMessage],
+                      config: Optional[MCPConfiguration] = None) -> MCPMessage:
         """
-        Clean up resources by releasing the client.
-        """
-        self._client = None
-        self.logger.info("Ollama client released")
-
-    @staticmethod
-    def models() -> List[str]:
-        """
-        Returns a list of available models.
-
+        Generate a response synchronously.
+        
+        Args:
+            messages: List of MCP messages representing the conversation
+            config: Optional configuration parameters
+            
         Returns:
-            List of model identifiers
+            MCPMessage containing the generated response
         """
-        return OllamaLLM.MODELS
+        # Use a completely isolated approach that works under any circumstance
+        import multiprocessing
+        import json
+        import tempfile
+        import os
+
+        # Helper function to format the messages into a simpler format for cross-process communication
+        def _prepare_data():
+            """Convert MCP data to a simple dict format for cross-process communication."""
+            # Prepare messages in a simple format
+            formatted_msgs = []
+            for msg in messages:
+                role = msg.role.value  # e.g., "system", "user"
+                content = msg.get_text_content()
+                formatted_msgs.append({"role": role, "content": content})
+
+            # Prepare config
+            use_config = config or self.config
+            cfg_dict = {}
+            if use_config:
+                cfg_dict = {
+                    "temperature": use_config.temperature,
+                    "max_tokens": use_config.max_tokens,
+                    "model_name": use_config.model_name,
+                    "model_type": use_config.model_type
+                }
+
+            return {
+                "messages": formatted_msgs,
+                "config": cfg_dict,
+                "model_name": self.model_name,
+                "api_base": self.api_base
+            }
+
+        # Helper function that runs in a subprocess and calls Ollama directly
+        def _run_ollama_call(data_dict, result_file):
+            """Execute the Ollama call in a separate process."""
+            try:
+                import sys
+                import os
+                from ollama import Client
+
+                # Extract the data needed for the call
+                model_name = data_dict["model_name"]
+                api_base = data_dict["api_base"]
+                messages = data_dict["messages"]
+                cfg = data_dict["config"]
+
+                # Create a synchronous client
+                client = Client(host=api_base)
+
+                # Format prompt for the Ollama model
+                prompt = ""
+                for msg in messages:
+                    if msg["role"] == "system":
+                        prompt += f"<|system|>\n{msg['content']}\n"
+                    elif msg["role"] == "user":
+                        prompt += f"<|user|>\n{msg['content']}\n"
+                    elif msg["role"] == "assistant":
+                        prompt += f"<|assistant|>\n{msg['content']}\n"
+                prompt += "<|assistant|>\n"
+                print(f"\nprompt={prompt}")
+
+                # Prepare options from config
+                options = {}
+                if "temperature" in cfg and cfg["temperature"] is not None:
+                    options["temperature"] = cfg["temperature"]
+                if "max_tokens" in cfg and cfg["max_tokens"] is not None:
+                    options["num_predict"] = cfg["max_tokens"]
+
+                # Call Ollama synchronously
+                response = client.generate(
+                    model=model_name,
+                    prompt=prompt,
+                    options=options
+                )
+                print(f"\n\nresponse={response}")
+
+                # Write the result to the file
+                result = {"success": True, "content": response["response"]}
+                with open(result_file, 'w') as f:
+                    json.dump(result, f)
+
+            except Exception as e:
+                # If an error occurs, write it to the result file
+                err_result = {"success": False, "error": str(e)}
+                with open(result_file, 'w') as f:
+                    json.dump(err_result, f)
+
+        # Prepare the data for cross-process communication
+        data = _prepare_data()
+
+        # Create a temporary file for the result
+        with tempfile.NamedTemporaryFile(delete=False, mode="w") as temp:
+            result_path = temp.name
+
+        try:
+            # Create and start a process for the Ollama call
+            process = multiprocessing.Process(
+                target=_run_ollama_call,
+                args=(data, result_path)
+            )
+            process.start()
+
+            # Wait for the process to finish (with timeout)
+            process.join(timeout=60)  # 60 second timeout
+
+            # If the process didn't finish, terminate it
+            if process.is_alive():
+                process.terminate()
+                process.join(timeout=5)
+                if process.is_alive():
+                    process.kill()
+                raise TimeoutError("Ollama call timed out after 60 seconds")
+
+            # Read the result from the file
+            with open(result_path, 'r') as f:
+                result_data = json.load(f)
+
+            # Process the result
+            if result_data["success"]:
+                # Create an MCP message from the response
+                response_content = result_data["content"]
+                mcp_response = MCPMessage(
+                    role=MCPRole.ASSISTANT,
+                    content=[MCPTextContent(text=response_content)]
+                )
+                return mcp_response
+            else:
+                # If there was an error, raise it
+                raise RuntimeError(f"Ollama error: {result_data['error']}")
+
+        finally:
+            # Clean up the temporary file
+            try:
+                os.unlink(result_path)
+            except (OSError, PermissionError):
+                # Ignore errors during cleanup
+                pass
+
+    @classmethod
+    def models(cls) -> List[str]:
+        """
+        Get a list of available models for this type.
+        
+        Returns:
+            List of available model names
+        """
+        return cls.MODELS
+
+    def cleanup(self):
+        """
+        Clean up any resources. Called when the service is shutting down.
+        """
+        # Nothing to clean up in this implementation since we use a subprocess approach
+        # that isolates each request in its own process
+        self.logger.info("Cleaning up Ollama LLM resources")
+
+
+# Register the model and adapter - will be called after the adapter class is defined
+def register():
+    """Register Ollama model with the configurator and registry."""
+    # Check if this LLM is already registered
+    if OllamaLLM.NAME in ComponentConfigurator._registries.get('llm', {}).get_names():
+        # Already registered, skip registration
+        return
+
+    # Register the LLM and adapter
+    ComponentConfigurator.register_llm(OllamaLLM.NAME, OllamaLLM)
+    AdapterRegistry.get_instance().register_adapter(OllamaLLM.NAME, OllamaAdapter)

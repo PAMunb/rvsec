@@ -184,14 +184,14 @@ class ContextBuilder:
             "elements_count": len(elements)
         }
 
-    def build_security_context(self, state_data: Dict[str, Any],
-                               security_operations: List[Dict[str, Any]]) -> Dict[str, Any]:
+    def build_monitored_operations_context(self, state_data: Dict[str, Any],
+                                     monitored_operations: List[Dict[str, Any]]) -> Dict[str, Any]:
         """
-        Build context for security interpretation queries.
+        Build context for monitored operations interpretation queries.
 
         Args:
             state_data: Current application state data
-            security_operations: List of security operations available in current state
+            monitored_operations: List of operations being monitored in the current state
 
         Returns:
             Dictionary with formatted context
@@ -201,9 +201,9 @@ class ContextBuilder:
         elements = state_data.get("elements", [])
         current_screen = self._build_screen_description(activity, elements)
 
-        # Format security operations
+        # Format monitored operations
         formatted_operations = []
-        for operation in security_operations:
+        for operation in monitored_operations:
             op_id = operation.get("id", "unknown")
             op_type = operation.get("type", "unknown")
             op_desc = operation.get("description", "")
@@ -216,15 +216,15 @@ class ContextBuilder:
             formatted_operations = formatted_operations[:self.max_actions]
 
         # Join operations into a string
-        operations_str = "\n".join(formatted_operations) if formatted_operations else "No security operations available"
+        operations_str = "\n".join(formatted_operations) if formatted_operations else "No monitored operations available"
 
-        # Get security insights from static analysis if available
-        security_insights = self._get_security_insights(activity)
+        # Get static insights about monitored operations from static analysis if available
+        monitored_ops_insights = self._get_monitored_operations_insights(activity)
 
         return {
             "current_screen": current_screen,
-            "security_operations": operations_str,
-            "security_insights": security_insights,
+            "monitored_operations": operations_str,
+            "monitored_ops_insights": monitored_ops_insights,
             "elements_count": len(elements)
         }
 
@@ -542,10 +542,10 @@ class ContextBuilder:
                 directly_reaches_mop = sum(1 for m in activity_class.methods if m.directly_reaches_mop)
 
                 insights["total_methods"] = total_methods
-                insights["security_methods"] = reaches_mop_methods
-                insights["direct_security_methods"] = directly_reaches_mop
+                insights["monitored_methods"] = reaches_mop_methods
+                insights["direct_monitored_methods"] = directly_reaches_mop
                 insights[
-                    "security_ratio"] = f"{(reaches_mop_methods / total_methods) * 100:.1f}%" if total_methods > 0 else "0%"
+                    "monitored_ratio"] = f"{(reaches_mop_methods / total_methods) * 100:.1f}%" if total_methods > 0 else "0%"
 
         # Get window transition information if available
         if hasattr(self.static_data, 'wtg'):
@@ -555,25 +555,25 @@ class ContextBuilder:
 
         return insights
 
-    def _get_security_insights(self, activity: str) -> Dict[str, Any]:
+    def _get_monitored_operations_insights(self, activity: str) -> Dict[str, Any]:
         """
-        Get security insights from static analysis for an activity.
+        Get insights about monitored operations from static analysis for an activity.
 
         Args:
             activity: Activity name
 
         Returns:
-            Dictionary with security insights
+            Dictionary with monitored operations insights
         """
         # Start with general insights
         insights = self._get_static_insights(activity)
 
-        # Add security-specific insights
+        # Add monitored operations-specific insights
         if not self.static_data:
             return insights
 
-        # Check if this activity handles sensitive operations
-        sensitive_operations = []
+        # Check if this activity handles monitored operations
+        monitored_methods = []
 
         if hasattr(self.static_data, 'classes'):
             # Find the class for this activity
@@ -584,15 +584,15 @@ class ContextBuilder:
                     break
 
             if activity_class:
-                # Look for sensitive methods
+                # Look for methods that are monitored or that reach monitored operations
                 for method in activity_class.methods:
                     if method.reaches_mop or method.directly_reaches_mop:
                         op_type = "Direct" if method.directly_reaches_mop else "Indirect"
-                        sensitive_operations.append(f"{op_type}: {method.name}")
+                        monitored_methods.append(f"{op_type}: {method.name}")
 
-        if sensitive_operations:
-            insights["sensitive_operations"] = sensitive_operations[:5]  # Limit to 5 operations
-            if len(sensitive_operations) > 5:
-                insights["sensitive_operations"].append(f"...and {len(sensitive_operations) - 5} more")
+        if monitored_methods:
+            insights["monitored_methods"] = monitored_methods[:5]  # Limit to 5 operations
+            if len(monitored_methods) > 5:
+                insights["monitored_methods"].append(f"...and {len(monitored_methods) - 5} more")
 
         return insights

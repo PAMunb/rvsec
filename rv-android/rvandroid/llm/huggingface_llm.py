@@ -1,21 +1,25 @@
+# rvandroid/llm/huggingface_llm.py
 import logging
-from typing import List, Dict
+from typing import List, Dict, Optional
 
 import torch
 from transformers import AutoTokenizer, AutoModelForCausalLM, BitsAndBytesConfig
 
-from rvandroid.llm.llm import LanguageModel
+from rvandroid.llm.language_model import LanguageModel
+from rvandroid.llm.data_structures import MCPMessage, MCPConfiguration
+from rvandroid.llm.adapters.huggingface_adapter import HuggingFaceAdapter
+from rvandroid.config.component_configurator import ComponentConfigurator
+from rvandroid.util.error.error_handler import ErrorHandler
 
 logger = logging.getLogger(__name__)
 
 
 class HuggingFaceLLM(LanguageModel):
     """
-    A class for interacting with Hugging Face language models.
+    A class for interacting with Hugging Face language models using MCP.
     Provides efficient loading and generation with quantization support.
     """
-    NAME = "huggingface"
-
+    
     # Available model definitions
     LLAMA = "meta-llama/Meta-Llama-3.1-8B-Instruct"
     DEEPSEEK = "deepseek-ai/DeepSeek-R1-Distill-Qwen-7B"
@@ -38,12 +42,27 @@ class HuggingFaceLLM(LanguageModel):
             device: Device to use for inference ('cuda' or 'cpu')
             **kwargs: Additional model parameters for generation
         """
+        # Initialize the language model base class
         super().__init__(model_name)
+        
+        # Set up model properties
         self._model = None
         self._tokenizer = None
         self._device = device
         self.logger = logger
         self.kwargs = kwargs
+        self.error_handler = ErrorHandler.get_instance()
+        
+        # Store device in kwargs for the adapter
+        self.kwargs["device"] = device
+
+    def _get_model_type(self) -> str:
+        """Get model type string."""
+        return "huggingface"
+
+    def _get_adapter(self):
+        """Get the appropriate MCP adapter for this model."""
+        return HuggingFaceAdapter()
 
     @property
     def model(self) -> AutoModelForCausalLM:
@@ -85,7 +104,11 @@ class HuggingFaceLLM(LanguageModel):
 
                 self.logger.info(f"Successfully loaded model {self.model_name}")
             except Exception as e:
-                self.logger.error(f"Error loading model: {e}")
+                error_msg = f"Error loading model: {str(e)}"
+                self.logger.error(error_msg)
+                from rvandroid.util.exceptions import RVAndroidError
+                error = RVAndroidError(error_msg)
+                self.error_handler.handle_error(error)
                 raise
 
         return self._model
@@ -115,29 +138,63 @@ class HuggingFaceLLM(LanguageModel):
                 self._tokenizer = tokenizer
                 self.logger.info(f"Successfully loaded tokenizer for {self.model_name}")
             except Exception as e:
-                self.logger.error(f"Error loading tokenizer: {e}")
+                error_msg = f"Error loading tokenizer: {str(e)}"
+                self.logger.error(error_msg)
+                from rvandroid.util.exceptions import RVAndroidError
+                error = RVAndroidError(error_msg)
+                self.error_handler.handle_error(error)
                 raise
 
         return self._tokenizer
 
-    def generate(self, messages: List[Dict[str, str]], max_new_tokens: int = 800) -> str:
+    async def generate(self, messages: List[MCPMessage], config: Optional[MCPConfiguration] = None) -> MCPMessage:
+        """Generate a response using the language model asynchronously."""
+        # Use synchronous implementation for now
+        return self.generate_sync(messages, config)
+
+    def generate_sync(self, messages: List[MCPMessage], config: Optional[MCPConfiguration] = None) -> MCPMessage:
         """
-        Generates text based on the given messages.
+        Generate text based on the input messages synchronously using MCP.
 
         Args:
-            messages: List of message dictionaries with 'role' and 'content'
-            max_new_tokens: Maximum number of tokens to generate
+            messages: List of MCPMessage objects
+            config: Optional MCPConfiguration object
 
         Returns:
-            Generated text
-
-        Raises:
-            Exception: If generation fails
+            MCPMessage with the generated response
         """
+        # Use provided config or default
+        _config = config or self.config
+        
         try:
+            # Get MCP adapter
+            adapter = self._get_adapter()
+            
+            # Validate request
+            if not adapter.validate_request(messages, _config):
+                error_msg = "Invalid request for HuggingFace model"
+                self.logger.error(error_msg)
+                from rvandroid.util.exceptions import RVAndroidError
+                error = RVAndroidError(error_msg)
+                self.error_handler.handle_error(error)
+                raise ValueError(error_msg)
+            
+            # Format messages using the adapter
+            hf_messages = []
+            for message in messages:
+                content = message.get_text_content()
+                hf_messages.append({
+                    "role": message.role.value,
+                    "content": content
+                })
+            
+            # Format configuration using the adapter
+            generation_config = adapter.prepare_config(_config)
+            max_new_tokens = generation_config.pop("max_new_tokens", 800)
+            
             # Apply chat template to format the messages
             encoded_input = self.tokenizer.apply_chat_template(
-                messages, return_tensors="pt", add_generation_prompt=True
+                hf_messages, return_tensors="pt", add_generation_prompt=True
             )
 
             # Create attention mask (all tokens are attended to)
@@ -154,15 +211,9 @@ class HuggingFaceLLM(LanguageModel):
             generation_params = {
                 "attention_mask": attention_mask,
                 "max_new_tokens": max_new_tokens,
-                "temperature": self.kwargs.get("temperature", 0.2),
-                "do_sample": self.kwargs.get("do_sample", True),
+                **generation_config
             }
-            
-            # Add other parameters from kwargs, excluding any that would conflict
-            for key, value in self.kwargs.items():
-                if key not in ["temperature", "do_sample"] and key != "max_tokens":
-                    generation_params[key] = value
-                    
+                
             # Generate text
             with torch.no_grad():
                 outputs = self.model.generate(
@@ -177,14 +228,19 @@ class HuggingFaceLLM(LanguageModel):
             del inputs, outputs, attention_mask
             if self._device == "cuda":
                 torch.cuda.empty_cache()
-
-            return result
-
+                
+            # Parse response using the adapter
+            return adapter.parse_response(result)
+            
         except Exception as e:
-            self.logger.error(f"Error generating text: {e}")
+            error_msg = f"Error generating text: {str(e)}"
+            self.logger.error(error_msg)
+            from rvandroid.util.exceptions import RVAndroidError
+            error = RVAndroidError(error_msg)
+            self.error_handler.handle_error(error)
             raise
 
-    def clean(self) -> None:
+    def cleanup(self):
         """
         Unloads the model and tokenizer from memory to free resources.
         """
@@ -210,3 +266,17 @@ class HuggingFaceLLM(LanguageModel):
             List of model identifiers
         """
         return HuggingFaceLLM.MODELS
+
+
+# Register the model
+def register():
+    """Register HuggingFace model with the configurator."""
+    # Check if this LLM is already registered
+    if "huggingface" in ComponentConfigurator._registries.get('llm', {}).get_names():
+        # Already registered, skip registration
+        return
+        
+    # Register the LLM
+    ComponentConfigurator.register_llm("huggingface", HuggingFaceLLM)
+    # Register adapter if needed
+    # AdapterRegistry.get_instance().register_adapter("huggingface", HuggingFaceAdapter)

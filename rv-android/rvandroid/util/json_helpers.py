@@ -26,6 +26,36 @@ def safe_parse_json(text: str) -> Tuple[Optional[Any], Optional[str]]:
         return json.loads(text), None
     except json.JSONDecodeError as e:
         return None, str(e)
+        
+        
+def safe_json_parse(text: str, default: Any = None) -> Any:
+    """
+    Safely parse JSON and return a default value on error.
+    
+    Args:
+        text: JSON string to parse
+        default: Default value to return if parsing fails
+        
+    Returns:
+        Parsed JSON object or default value if parsing fails
+    """
+    if not text or not isinstance(text, str):
+        return default
+        
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError as e:
+        logger.warning(f"JSON parse error: {e}")
+        
+        # Try to repair and parse again
+        try:
+            repaired = repair_json(text)
+            if repaired:
+                return json.loads(repaired)
+        except Exception:
+            pass
+            
+        return default
 
 
 def extract_json_array(text: str) -> Tuple[Optional[str], Optional[str]]:
