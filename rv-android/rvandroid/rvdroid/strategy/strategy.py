@@ -12,6 +12,7 @@ from typing import Dict, Any, List, Optional
 
 from rvandroid.domain.static import StaticAnalysisData
 from rvandroid.parser.screen.visitor.base_visitor import ScreenDescription, ItemAction
+from rvandroid.util.error.decorators import handle_error
 from rvandroid.util.logging.constants import CONTEXT_COMPONENT
 from rvandroid.util.logging.manager import LoggingManager
 
@@ -19,9 +20,19 @@ from rvandroid.util.logging.manager import LoggingManager
 class Strategy(ABC):
     """
     Abstract base class for all exploration strategies.
-
-    Defines the interface that all strategies must implement, including
-    methods for action generation, feedback processing, and metadata access.
+    
+    ### Architectural Decisions:
+    - Defines the core interface for all testing strategies
+    - Establishes consistent method signatures for action generation
+    - Provides standardized feedback processing functionality
+    - Enables flexible implementation of specialized strategies
+    - Integrates with monitoring and logging infrastructure
+    
+    ### Role in the System:
+    - Serves as the base for all specialized exploration strategies
+    - Enables modular and interchangeable testing approaches
+    - Supports dynamic adaptation to application characteristics
+    - Facilitates strategy implementation and evolution
     """
 
     def __init__(self, static_data: Optional[StaticAnalysisData] = None, name: str = "BaseStrategy"):
@@ -42,8 +53,27 @@ class Strategy(ABC):
         # Store static data
         self.static_data = static_data
         self.name = name
+        
+        # Strategy configuration
+        self.config: Dict[str, Any] = {}
+        
+        # Strategy state
+        self.execution_count = 0
+        self.success_count = 0
+        self.new_state_count = 0
 
         self.logger.info(f"Initialized {name} strategy")
+        
+    @handle_error(level="WARN")
+    def configure(self, config: Dict[str, Any]) -> None:
+        """
+        Configure the strategy with specific parameters.
+        
+        Args:
+            config: Configuration parameters
+        """
+        self.config.update(config)
+        self.logger.debug(f"Updated configuration for {self.name}")
 
     @abstractmethod
     def generate_action(self, screen: ScreenDescription, state_data: Dict[str, Any],
@@ -70,7 +100,14 @@ class Strategy(ABC):
             action: Action that was executed
             result: Execution result with success status and state change info
         """
-        pass
+        # Update statistics
+        self.execution_count += 1
+        
+        if result.get("success", False):
+            self.success_count += 1
+            
+        if result.get("new_state", False):
+            self.new_state_count += 1
 
     def get_metadata(self) -> Dict[str, Any]:
         """
@@ -81,16 +118,35 @@ class Strategy(ABC):
         """
         return {
             "name": self.name,
-            "type": self.__class__.__name__
+            "type": self.__class__.__name__,
+            "execution_count": self.execution_count,
+            "success_count": self.success_count,
+            "new_state_count": self.new_state_count,
+            "success_rate": self.success_count / max(1, self.execution_count)
         }
+        
+    def reset_statistics(self) -> None:
+        """Reset strategy statistics."""
+        self.execution_count = 0
+        self.success_count = 0
+        self.new_state_count = 0
 
 
 class StrategyRegistry:
     """
     Registry for available strategies.
-
-    Maintains a collection of registered strategy classes and provides
-    methods for strategy discovery and instantiation.
+    
+    ### Architectural Decisions:
+    - Implements a central registry for strategy class discovery
+    - Provides efficient strategy resolution with fallback mechanisms
+    - Enables dynamic strategy registration at runtime
+    - Supports flexible instantiation with configuration parameters
+    
+    ### Role in the System:
+    - Maintains a collection of registered strategy classes
+    - Provides methods for strategy discovery and instantiation
+    - Facilitates dynamic strategy selection
+    - Supports the StrategyManager with strategy creation
     """
 
     _strategies: Dict[str, type] = {}
@@ -108,7 +164,10 @@ class StrategyRegistry:
 
         class_name = strategy_class.__name__
         cls._strategies[class_name] = strategy_class
-        print(f"Registered strategy: {class_name}")  # Debug print
+        # Use logger instead of print
+        logging_manager = LoggingManager.get_instance()
+        logger = logging_manager.get_logger("rvdroid.strategy.registry")
+        logger.info(f"Registered strategy: {class_name}")
 
     @classmethod
     def get_strategy(cls, strategy_name: str) -> Optional[type]:
@@ -139,6 +198,7 @@ class StrategyRegistry:
         return None
 
     @classmethod
+    @handle_error(level="WARN")
     def create_strategy(cls, strategy_name: str, static_data: Optional[StaticAnalysisData] = None,
                         **kwargs) -> Optional[Strategy]:
         """
@@ -154,13 +214,19 @@ class StrategyRegistry:
         """
         strategy_class = cls.get_strategy(strategy_name)
         if not strategy_class:
-            print(f"Strategy not found: {strategy_name}, available: {list(cls._strategies.keys())}")  # Debug print
+            # Use logger instead of print
+            logging_manager = LoggingManager.get_instance()
+            logger = logging_manager.get_logger("rvdroid.strategy.registry")
+            logger.warning(f"Strategy not found: {strategy_name}, available: {list(cls._strategies.keys())}")
             return None
 
         try:
             return strategy_class(static_data=static_data, **kwargs)
         except Exception as e:
-            print(f"Error creating strategy {strategy_name}: {e}")  # Debug print
+            # Use logger instead of print
+            logging_manager = LoggingManager.get_instance()
+            logger = logging_manager.get_logger("rvdroid.strategy.registry")
+            logger.error(f"Error creating strategy {strategy_name}: {e}")
             return None
 
     @classmethod
@@ -172,13 +238,3 @@ class StrategyRegistry:
             List of strategy names
         """
         return list(cls._strategies.keys())
-
-
-# from rvandroid.rvdroid.strategy.basic_strategies import RandomStrategy, SystematicStrategy, SpecificationFocusedStrategy
-# from rvandroid.rvdroid.strategy.visual_aware_strategy import VisualAwareStrategy
-#
-# # Pre-register essential strategies
-# StrategyRegistry.register(RandomStrategy)
-# StrategyRegistry.register(SystematicStrategy)
-# StrategyRegistry.register(SpecificationFocusedStrategy)
-# StrategyRegistry.register(VisualAwareStrategy)

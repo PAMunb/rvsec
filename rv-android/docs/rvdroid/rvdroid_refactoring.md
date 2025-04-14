@@ -29,9 +29,9 @@ This refactoring plan **ONLY** affects the RVDroid component and should not modi
    - Error handling (`rvandroid/util/error/error_handler.py`)
    - Logging (`rvandroid/util/logging/manager.py`) 
    - LLM integration (`rvandroid/llm/`)
-   - Event Bus (`rvandroid/experiment/event/bus.py`) to listen for events (coverage, mop errors, etc.) if needed
+   - Event Bus (`rvandroid/experiment/event/bus.py`) to listen for events (coverage, mop errors, etc.) if needed. remembering that the main metrics to be treated are those related to mop errors found, together with traditional coverage metrics and those defined in the plan.
    - Decorators: rvandroid/util/decorators.py, rvandroid/util/error/decorators.py, rvandroid/experiment/event/decorators.py
-   - Performance monitoring: rvandroid/util/performance_monitor.py
+   - Performance monitoring (especially for LLM): rvandroid/util/performance_monitor.py
 3. **Complete Migrations**: Do not use adapter patterns or compatibility layers to maintain legacy code. Completely update all code to the new architecture and remove legacy approaches.
 4. **English Documentation**: All code comments and documentation must be in English.
 5. **Detailed Comments**: Include detailed architectural comments at key points in the code, following the established template pattern (as seen in EventBus, ExecutionManager, TaskExecutor).

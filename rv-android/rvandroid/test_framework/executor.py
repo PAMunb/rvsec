@@ -441,7 +441,7 @@ class TestExecutor:
         configurator = ComponentConfigurator(static_data)
         
         # Import MCP data structures
-        from rvandroid.mcp.mcp_data_structures import MCPConfiguration
+        from rvandroid.llm.data_structures import MCPConfiguration
         
         # Create MCP configuration
         mcp_config = MCPConfiguration(

@@ -72,8 +72,8 @@ class MemoryState:
         self.outgoing_transitions: Dict[str, Set[int]] = {}  # target_state -> action_ids
         self.incoming_transitions: Dict[str, Set[int]] = {}  # source_state -> action_ids
 
-        # Security operations
-        self.security_operations: Set[int] = set()
+        # Monitored operations (formerly security operations)
+        self.monitored_operations: Set[int] = set()
 
         # Screenshot path (if available)
         self.screenshot_path = None
@@ -159,7 +159,7 @@ class MemoryState:
                 source: list(actions)
                 for source, actions in self.incoming_transitions.items()
             },
-            "security_operations": list(self.security_operations),
+            "monitored_operations": list(self.monitored_operations),
             "screenshot_path": self.screenshot_path,
             "properties": self.properties
         }
@@ -194,9 +194,13 @@ class MemoryState:
         for source, actions in data["incoming_transitions"].items():
             state.incoming_transitions[source] = set(actions)
 
-        state.security_operations = set(data["security_operations"])
+        # Handle both new and old format for backward compatibility
+        if "monitored_operations" in data:
+            state.monitored_operations = set(data["monitored_operations"])
+        elif "security_operations" in data:
+            state.monitored_operations = set(data["security_operations"])
+        
         state.screenshot_path = data["screenshot_path"]
         state.properties = data["properties"]
 
         return state
-   

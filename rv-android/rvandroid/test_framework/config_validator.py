@@ -6,6 +6,8 @@ ensuring that configurations are valid and compatible with the MCP architecture.
 """
 
 from typing import Dict, List, Set, Tuple, Any, Optional
+
+from rvandroid.llm.ollama_llm import OllamaLLM
 from rvandroid.test_framework.config import ToolConfiguration
 
 
@@ -67,7 +69,7 @@ class ConfigurationValidator:
     MCP_DSPY = "dspy"
     
     # MCP models
-    MCP_OLLAMA_MODELS = ["llama3.2:3b", "llama3.2:8b", "phi3.5:3.8b", "qwen2.5:3b", "mistral:7b"]
+    MCP_OLLAMA_MODELS = OllamaLLM.MODELS
     MCP_DSPY_MODELS = ["llama3.2:3b", "llama3.2:8b", "phi3.5:3.8b", "qwen2.5:3b", "mistral:7b"]
     
     # Define constants for Frontier and other model types
@@ -90,9 +92,11 @@ class ConfigurationValidator:
     
     # MCP strategy types
     VALID_STRATEGY_TYPES = [
-        "single_action_strategy",
-        "flow_based_batch_strategy", 
-        "composable_strategy"
+        "basic",
+        "single_action",
+        "flow_based_batch_action",
+        "composable",
+        "composable_single_action"
     ]
     
     # Valid LLM types

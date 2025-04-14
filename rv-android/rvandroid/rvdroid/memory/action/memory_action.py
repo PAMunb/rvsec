@@ -29,7 +29,7 @@ class MemoryAction:
     ### Role in the System:
     - Provides a unified action representation across memory systems
     - Enables efficient tracking of action execution and outcomes
-    - Supports analysis of action effectiveness and security implications
+    - Supports analysis of action effectiveness and monitored operations impact
     - Facilitates prediction of action outcomes in similar states
     """
 
@@ -63,7 +63,7 @@ class MemoryAction:
         # State transitions
         self.state_transitions: Dict[str, Dict[str, int]] = {}  # from_state -> {to_state -> count}
 
-        # Security properties
+        # Monitored operations properties
         self.reaches_mop = False
         self.directly_reaches_mop = False
 
@@ -127,13 +127,13 @@ class MemoryAction:
             return self.success_count / self.execution_count
         return 0.0
 
-    def set_security_properties(self, reaches_mop: bool, directly_reaches_mop: bool) -> None:
+    def set_monitored_operation_properties(self, reaches_mop: bool, directly_reaches_mop: bool) -> None:
         """
-        Set security properties of this action.
+        Set monitored operation properties of this action.
 
         Args:
-            reaches_mop: Whether this action reaches a MOP method
-            directly_reaches_mop: Whether this action directly reaches a MOP method
+            reaches_mop: Whether this action reaches a monitored operation
+            directly_reaches_mop: Whether this action directly reaches a monitored operation
         """
         self.reaches_mop = reaches_mop
         self.directly_reaches_mop = directly_reaches_mop
@@ -230,8 +230,8 @@ class MemoryAction:
             action_type=action_type
         )
 
-        # Extract security properties
-        memory_action.set_security_properties(
+        # Extract monitored operation properties
+        memory_action.set_monitored_operation_properties(
             reaches_mop=getattr(action, 'reaches_mop', False),
             directly_reaches_mop=getattr(action, 'directly_reaches_mop', False)
         )

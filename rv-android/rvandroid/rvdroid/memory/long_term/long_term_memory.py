@@ -73,12 +73,12 @@ class LongTermMemory:
         # Activity tracking
         self.activities: Dict[str, Dict[str, Any]] = {}  # activity_name -> info
 
-        # Security operations tracking
-        self.security_operations: Dict[int, Dict[str, Any]] = {}  # action_id -> info
+        # Monitored operations tracking (formerly security operations)
+        self.monitored_operations: Dict[int, Dict[str, Any]] = {}  # action_id -> info
 
         # Prioritized state tracking
         self.unexplored_states: Set[str] = set()  # States with unexplored actions
-        self.security_states: Set[str] = set()  # States with security operations
+        self.monitored_op_states: Set[str] = set()  # States with monitored operations
         self.error_states: Set[str] = set()  # States with error conditions
 
         # Transition tracking for navigation
@@ -90,7 +90,7 @@ class LongTermMemory:
             "states_visited": 0,
             "activities_visited": 0,
             "actions_executed": 0,
-            "security_operations_executed": 0,
+            "monitored_operations_executed": 0,
             "new_states_discovered": 0,
             "errors_detected": 0
         }
@@ -157,13 +157,13 @@ class LongTermMemory:
         # Update statistics
         self.session_stats["actions_executed"] += 1
 
-        # Track security operations
+        # Track monitored operations
         if action.reaches_mop:
-            self.session_stats["security_operations_executed"] += 1
-            self.security_states.add(state_fingerprint)
+            self.session_stats["monitored_operations_executed"] += 1
+            self.monitored_op_states.add(state_fingerprint)
 
-            # Record security operation details
-            self.security_operations[action.id] = {
+            # Record monitored operation details
+            self.monitored_operations[action.id] = {
                 "timestamp": time.time(),
                 "state": state_fingerprint,
                 "success": success,
@@ -175,7 +175,6 @@ class LongTermMemory:
             # Action exists, just update execution info
             existing_action = self.actions[action.id]
             # Update record will happen in transition record
-            # TODO
         else:
             # New action
             self.actions[action.id] = action
@@ -262,9 +261,9 @@ class LongTermMemory:
                 "states": {fp: state.to_dict() for fp, state in self.states.items()},
                 "actions": {str(aid): action.to_dict() for aid, action in self.actions.items()},
                 "activities": self._serialize_activities(),
-                "security_operations": self.security_operations,
+                "monitored_operations": self.monitored_operations,
                 "unexplored_states": list(self.unexplored_states),
-                "security_states": list(self.security_states),
+                "monitored_op_states": list(self.monitored_op_states),
                 "error_states": list(self.error_states)
             }
 
@@ -322,11 +321,20 @@ class LongTermMemory:
 
             # Load special state sets
             self.unexplored_states = set(memory_data.get("unexplored_states", []))
-            self.security_states = set(memory_data.get("security_states", []))
+            
+            # Handle both new and old terminology for backward compatibility
+            if "monitored_op_states" in memory_data:
+                self.monitored_op_states = set(memory_data.get("monitored_op_states", []))
+            elif "security_states" in memory_data:
+                self.monitored_op_states = set(memory_data.get("security_states", []))
+                
             self.error_states = set(memory_data.get("error_states", []))
 
-            # Load security operations
-            self.security_operations = memory_data.get("security_operations", {})
+            # Handle both new and old terminology for backward compatibility
+            if "monitored_operations" in memory_data:
+                self.monitored_operations = memory_data.get("monitored_operations", {})
+            elif "security_operations" in memory_data:
+                self.monitored_operations = memory_data.get("security_operations", {})
 
             # Load transition graph if available
             if "transition_graph" in memory_data and hasattr(self.transition_graph, 'from_dict'):
@@ -364,9 +372,9 @@ class LongTermMemory:
         """
         try:
             # Calculate additional metrics
-            security_ratio = 0
+            monitored_op_ratio = 0
             if self.session_stats["actions_executed"] > 0:
-                security_ratio = (self.session_stats["security_operations_executed"] /
+                monitored_op_ratio = (self.session_stats["monitored_operations_executed"] /
                                   self.session_stats["actions_executed"])
 
             transitions_count = 0
@@ -377,13 +385,13 @@ class LongTermMemory:
                 "states_count": len(self.states),
                 "activities_count": len(self.activities),
                 "actions_count": len(self.actions),
-                "security_operations_count": len(self.security_operations),
+                "monitored_operations_count": len(self.monitored_operations),
                 "unexplored_states_count": len(self.unexplored_states),
-                "security_states_count": len(self.security_states),
+                "monitored_op_states_count": len(self.monitored_op_states),
                 "error_states_count": len(self.error_states),
                 "transitions_count": transitions_count,
                 "session_duration": time.time() - self.session_stats["start_time"],
-                "security_ratio": security_ratio,
+                "monitored_op_ratio": monitored_op_ratio,
                 "session_stats": self.session_stats
             }
 

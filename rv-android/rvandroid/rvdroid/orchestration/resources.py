@@ -86,7 +86,9 @@ class ResourceManager:
         # Initialize resource trackers
         self.current_resources = {
             "memory_percent": 0.0,
+            "system_memory_percent": 0.0,  # Add system memory percentage
             "cpu_percent": 0.0,
+            "system_cpu_percent": 0.0,     # Add system CPU percentage
             "disk_percent": 0.0,
             "thread_count": 0,
             "io_counters": None,
@@ -391,6 +393,16 @@ class ResourceManager:
             "throttle_logging": False
         }
         
+        # Ensure all required keys exist in resources
+        if 'system_memory_percent' not in resources:
+            # Initialize with safe default values if monitoring hasn't started yet
+            self.logger.warning("System memory percent not found in resources, initializing with default values")
+            resources['system_memory_percent'] = 0.0
+            resources['system_cpu_percent'] = 0.0
+            # If we're initializing these values, make sure we also initialize them in current_resources
+            self.current_resources['system_memory_percent'] = 0.0
+            self.current_resources['system_cpu_percent'] = 0.0
+            
         # Check for critical resource conditions
         if resources['system_memory_percent'] >= ResourceThreshold.MEMORY_CRITICAL:
             recommendations["reduce_history_size"] = True

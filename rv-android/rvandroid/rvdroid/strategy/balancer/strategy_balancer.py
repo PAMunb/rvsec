@@ -133,6 +133,8 @@ class StrategyBalancer:
             self._normalize_weights()
         else:
             self.logger.critical("NO STRATEGIES COULD BE CREATED - TESTING WILL FAIL")
+            # Initialize resource_history to avoid KeyError later
+            self.resource_history = []
             # TODO throw exception
 
         # Initialize preferred strategy
