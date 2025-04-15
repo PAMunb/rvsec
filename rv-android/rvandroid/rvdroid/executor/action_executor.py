@@ -12,7 +12,7 @@ import time
 from typing import Dict, Any, Optional, List, Tuple, Union
 
 from rvandroid.domain.widget import WidgetEventType
-from rvandroid.parser.screen.visitor.base_visitor import ItemAction
+from rvandroid.parser.screen.visitor.model import ItemAction
 from rvandroid.rvdroid.executor.interaction_strategies import StrategySelector
 from rvandroid.rvdroid.ui.uiautomator import UIAutomator2Adapter
 from rvandroid.util.decorators import task_phase

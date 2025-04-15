@@ -11,7 +11,7 @@ import time
 from typing import List, Dict, Any, Optional, Set, Tuple
 
 from rvandroid.domain.static import StaticAnalysisData
-from rvandroid.parser.screen.visitor.base_visitor import ScreenDescription, ItemAction
+from rvandroid.parser.screen.visitor.model import ItemAction, ScreenDescription
 from rvandroid.rvdroid.strategy.strategy import Strategy, StrategyRegistry
 
 

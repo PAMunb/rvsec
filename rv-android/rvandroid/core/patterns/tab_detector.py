@@ -9,9 +9,9 @@ It identifies tab layouts, tab elements, and associated content to enable system
 from typing import Dict, Any, List, Optional, Set, Tuple
 
 from rvandroid.core.patterns.ui_pattern_detector import (
-    IPatternDetector, PatternType, PatternResult, PatternElement, PatternDetectorFactory,
-    ScreenItem, ScreenDescription
+    IPatternDetector, PatternType, PatternResult, PatternElement, PatternDetectorFactory
 )
+from rvandroid.parser.screen.visitor.model import ScreenItem, ScreenDescription
 from rvandroid.util.logging.constants import CONTEXT_COMPONENT
 from rvandroid.util.logging.manager import LoggingManager
 

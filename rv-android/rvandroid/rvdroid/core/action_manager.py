@@ -11,7 +11,7 @@ import time
 import random
 from typing import Dict, Any, Optional, List, Set, Tuple
 
-from rvandroid.parser.screen.visitor.base_visitor import ScreenDescription, ItemAction
+from rvandroid.parser.screen.visitor.model import ItemAction, ScreenDescription
 from rvandroid.domain.static import StaticAnalysisData
 from rvandroid.domain.widget import WidgetEventType
 from rvandroid.rvdroid.core.component import Component

@@ -4,10 +4,12 @@ from typing import List, Optional, Set
 
 from rvandroid.domain.static import StaticAnalysisData
 from rvandroid.domain.widget import WidgetEventType  # Import the enum
-from rvandroid.parser.screen.visitor.base_visitor import BaseScreenVisitor, Node, ScreenItem, ItemAction
+from rvandroid.parser.screen.visitor.abstract_visitor import AbstractScreenVisitor
+from rvandroid.parser.screen.visitor.model import ItemAction, ScreenItem, Node
 
 
-class GenericScreenVisitor(BaseScreenVisitor):
+# deprecated
+class GenericScreenVisitor:  # (AbstractScreenVisitor):
     """
     Generic implementation of screen visitor for processing UI hierarchies.
 
@@ -162,7 +164,7 @@ class GenericScreenVisitor(BaseScreenVisitor):
 
         # Update security information
         for action in actions:
-            self._update_action_security_info(action, node)
+            self._update_action_mop_related_info(action, node)
 
         return actions
 
@@ -201,7 +203,7 @@ class GenericScreenVisitor(BaseScreenVisitor):
 
         # Update security information
         for action in actions:
-            self._update_action_security_info(action, node)
+            self._update_action_mop_related_info(action, node)
 
         return actions
 
@@ -254,7 +256,7 @@ class GenericScreenVisitor(BaseScreenVisitor):
 
         # Update security information
         for action in actions:
-            self._update_action_security_info(action, node)
+            self._update_action_mop_related_info(action, node)
 
         return actions
 
@@ -278,7 +280,7 @@ class GenericScreenVisitor(BaseScreenVisitor):
                 target_view=node.data,
                 coordinates=node.get_center_coordinates()
             )
-            self._update_action_security_info(action, node)
+            self._update_action_mop_related_info(action, node)
             return [action]
         return []
 
@@ -307,7 +309,7 @@ class GenericScreenVisitor(BaseScreenVisitor):
 
         # Update security information
         for action in actions:
-            self._update_action_security_info(action, node)
+            self._update_action_mop_related_info(action, node)
 
         return actions
 
@@ -347,7 +349,7 @@ class GenericScreenVisitor(BaseScreenVisitor):
 
         # Update security information
         for action in actions:
-            self._update_action_security_info(action, node)
+            self._update_action_mop_related_info(action, node)
 
         return actions
 

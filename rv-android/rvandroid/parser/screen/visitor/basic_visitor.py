@@ -4,11 +4,11 @@ from typing import List, Optional, Set
 
 from rvandroid.domain.static import StaticAnalysisData
 from rvandroid.domain.widget import WidgetEventType
-from rvandroid.parser.screen.visitor.base_visitor import BaseScreenVisitor, ItemAction, ScreenItem, Node, Counter, \
-    ScreenDescription
+from rvandroid.parser.screen.visitor.abstract_visitor import AbstractScreenVisitor
+from rvandroid.parser.screen.visitor.model import ItemAction, ScreenItem, ScreenDescription, Counter, Node
 
 
-class BasicTextVisitor(BaseScreenVisitor):
+class BasicTextVisitor(AbstractScreenVisitor):
     """
     Basic visitor implementation for generating simplified text descriptions of Android UI elements.
     This visitor provides minimal descriptions focusing only on essential information,
@@ -104,7 +104,7 @@ class BasicTextVisitor(BaseScreenVisitor):
             node: The button node to visit
         """
         actions = self.get_possible_actions(node, self.counter)
-        text = node.view_text if node.view_text else "Button"
+        text = f"Button \"{node.view_text if node.view_text else ""}\""
         item = ScreenItem(node.data, text, actions)
         self.items.append(item)
         self.window_info["interactive_elements"] += 1
@@ -310,87 +310,87 @@ class BasicTextVisitor(BaseScreenVisitor):
         self.items.append(item)
         self.window_info["interactive_elements"] += 1
 
-    def get_possible_actions(self, node: Node, counter: Counter, inherit_click: bool = False,
-                             prioritize_check: bool = False) -> List[ItemAction]:
-        """
-        Get possible actions for a node with minimal information.
-
-        Args:
-            node: The node to get actions for
-            counter: Counter for generating unique IDs
-            inherit_click: Whether to add click action from parent
-            prioritize_check: Whether to prioritize check/uncheck over click
-
-        Returns:
-            List of possible actions
-        """
-        actions = []
-        node_data = node.data
-
-        # Extract coordinates from node
-        coordinates = node.get_center_coordinates()
-
-        # Handle check/uncheck actions with priority if needed
-        if prioritize_check and node.checkable:
-            action_text = "UNCHECK" if node.checked else "CHECK"
-            actions.append(ItemAction(
-                id=counter.inc(),
-                text=f"{action_text} ({counter.get()})",
-                event=WidgetEventType.CLICK,
-                reaches_mop=False,
-                directly_reaches_mop=False,
-                target_view=node_data,
-                coordinates=coordinates
-            ))
-            return actions
-
-        # Handle click actions
-        if node.clickable or inherit_click:
-            actions.append(ItemAction(
-                id=counter.inc(),
-                text=f"CLICK ({counter.get()})",
-                event=WidgetEventType.CLICK,
-                reaches_mop=False,
-                directly_reaches_mop=False,
-                target_view=node_data,
-                coordinates=coordinates
-            ))
-
-        # Handle long click actions
-        if node.long_clickable:
-            actions.append(ItemAction(
-                id=counter.inc(),
-                text=f"LONG_CLICK ({counter.get()})",
-                event=WidgetEventType.LONG_CLICK,
-                reaches_mop=False,
-                directly_reaches_mop=False,
-                target_view=node_data,
-                coordinates=coordinates
-            ))
-
-        # Handle scroll actions
-        if node.scrollable:
-            for direction in ["UP", "DOWN", "LEFT", "RIGHT"]:
-                actions.append(ItemAction(
-                    id=counter.inc(),
-                    text=f"SCROLL {direction} ({counter.get()})",
-                    event=WidgetEventType.SCROLL,
-                    reaches_mop=False,
-                    directly_reaches_mop=False,
-                    target_view=node_data,
-                    coordinates=coordinates
-                ))
-
-        # Handle text input actions
-        if node.editable:
-            actions.append(ItemAction(
-                id=counter.inc(),
-                text=f"SET_TEXT ({counter.get()})",
-                event=WidgetEventType.TEXT_CHANGE,
-                reaches_mop=False,
-                directly_reaches_mop=False,
-                target_view=node_data,
-                coordinates=coordinates
-            ))
-
-        return actions
+    # def get_possible_actions(self, node: Node, counter: Counter, inherit_click: bool = False,
+    #                          prioritize_check: bool = False) -> List[ItemAction]:
+    #     """
+    #     Get possible actions for a node with minimal information.
+    #
+    #     Args:
+    #         node: The node to get actions for
+    #         counter: Counter for generating unique IDs
+    #         inherit_click: Whether to add click action from parent
+    #         prioritize_check: Whether to prioritize check/uncheck over click
+    #
+    #     Returns:
+    #         List of possible actions
+    #     """
+    #     actions = []
+    #     node_data = node.data
+    #
+    #     # Extract coordinates from node
+    #     coordinates = node.get_center_coordinates()
+    #
+    #     # Handle check/uncheck actions with priority if needed
+    #     if prioritize_check and node.checkable:
+    #         action_text = "UNCHECK" if node.checked else "CHECK"
+    #         actions.append(ItemAction(
+    #             id=counter.inc(),
+    #             text=f"{action_text} ({counter.get()})",
+    #             event=WidgetEventType.CLICK,
+    #             reaches_mop=False,
+    #             directly_reaches_mop=False,
+    #             target_view=node_data,
+    #             coordinates=coordinates
+    #         ))
+    #         return actions
+    #
+    #     # Handle click actions
+    #     if node.clickable or inherit_click:
+    #         actions.append(ItemAction(
+    #             id=counter.inc(),
+    #             text=f"CLICK ({counter.get()})",
+    #             event=WidgetEventType.CLICK,
+    #             reaches_mop=False,
+    #             directly_reaches_mop=False,
+    #             target_view=node_data,
+    #             coordinates=coordinates
+    #         ))
+    #
+    #     # Handle long click actions
+    #     if node.long_clickable:
+    #         actions.append(ItemAction(
+    #             id=counter.inc(),
+    #             text=f"LONG_CLICK ({counter.get()})",
+    #             event=WidgetEventType.LONG_CLICK,
+    #             reaches_mop=False,
+    #             directly_reaches_mop=False,
+    #             target_view=node_data,
+    #             coordinates=coordinates
+    #         ))
+    #
+    #     # Handle scroll actions
+    #     if node.scrollable:
+    #         for direction in ["UP", "DOWN", "LEFT", "RIGHT"]:
+    #             actions.append(ItemAction(
+    #                 id=counter.inc(),
+    #                 text=f"SCROLL {direction} ({counter.get()})",
+    #                 event=WidgetEventType.SCROLL,
+    #                 reaches_mop=False,
+    #                 directly_reaches_mop=False,
+    #                 target_view=node_data,
+    #                 coordinates=coordinates
+    #             ))
+    #
+    #     # Handle text input actions
+    #     if node.editable:
+    #         actions.append(ItemAction(
+    #             id=counter.inc(),
+    #             text=f"SET_TEXT ({counter.get()})",
+    #             event=WidgetEventType.TEXT_CHANGE,
+    #             reaches_mop=False,
+    #             directly_reaches_mop=False,
+    #             target_view=node_data,
+    #             coordinates=coordinates
+    #         ))
+    #
+    #     return actions

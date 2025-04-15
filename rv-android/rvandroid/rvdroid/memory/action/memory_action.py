@@ -10,7 +10,7 @@ supporting both short-term and long-term tracking of action execution.
 import time
 from typing import Dict, Any, Optional
 
-from rvandroid.parser.screen.visitor.base_visitor import ItemAction
+from rvandroid.parser.screen.visitor.model import ItemAction
 from rvandroid.util.logging.constants import CONTEXT_COMPONENT
 from rvandroid.util.logging.manager import LoggingManager
 

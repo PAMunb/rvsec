@@ -39,7 +39,8 @@ class ToolConfiguration:
     timeout: int = 300  # in seconds
 
     # Emulator configuration
-    no_window: bool = True  # Whether to run emulator in headless mode
+    # TODO voltar para true
+    no_window: bool = False  # Whether to run emulator in headless mode
 
     # LLM configuration using MCP-compatible types
     llm_type: str = "ollama"  # ollama, dspy, etc.

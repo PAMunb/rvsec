@@ -3,7 +3,8 @@ from typing import Dict, Any, Optional, Type
 
 from rvandroid.domain.static import StaticAnalysisData
 from rvandroid.parser.screen.abstract_parser import AbstractScreenParser
-from rvandroid.parser.screen.visitor.base_visitor import ScreenDescription, BaseScreenVisitor, Node
+from rvandroid.parser.screen.visitor.abstract_visitor import AbstractScreenVisitor
+from rvandroid.parser.screen.visitor.model import ScreenDescription, Node
 
 
 class DroidBotParser(AbstractScreenParser):
@@ -12,7 +13,7 @@ class DroidBotParser(AbstractScreenParser):
     Converts DroidBot state data into a ScreenDescription.
     """
 
-    def __init__(self, visitor_class: Optional[Type[BaseScreenVisitor]] = None):
+    def __init__(self, visitor_class: Optional[Type[AbstractScreenVisitor]] = None):
         """
         Initialize the DroidBot parser.
 

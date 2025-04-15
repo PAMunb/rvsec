@@ -15,7 +15,7 @@ from rvandroid.config.configuration import Configuration
 from rvandroid.llm.llm_config import LLMConfiguration
 from rvandroid.parser.screen.abstract_parser import AbstractScreenParser
 from rvandroid.parser.screen.parser_factory import ParserType
-from rvandroid.parser.screen.visitor.base_visitor import BaseScreenVisitor
+from rvandroid.parser.screen.visitor.abstract_visitor import AbstractScreenVisitor
 
 # Type variables for generic component types
 T = TypeVar('T')
@@ -408,9 +408,9 @@ class ComponentConfigurator:
             self._registries['visitor'].register_lazy(
                 'basic', 'rvandroid.parser.screen.visitor.basic_visitor', 'BasicTextVisitor')
             self._registries['visitor'].register_lazy(
-                'enhanced', 'rvandroid.parser.screen.visitor.text_visitor', 'TextVisitor')
+                'default', 'rvandroid.parser.screen.visitor.default_visitor', 'DefaultTextVisitor')
             self._registries['visitor'].register_lazy(
-                'detailed', 'rvandroid.parser.screen.visitor.enhanced_visitor', 'EnhancedTextVisitor')
+                'enhanced', 'rvandroid.parser.screen.visitor.enhanced_visitor', 'EnhancedTextVisitor')
 
     def _initialize_default_configuration(self):
         """Initialize default component configuration."""
@@ -419,12 +419,12 @@ class ComponentConfigurator:
         self.parser_class = DroidBotParser
 
         # Set default visitor class
-        from rvandroid.parser.screen.visitor.text_visitor import TextVisitor
-        self.visitor_class = TextVisitor
+        from rvandroid.parser.screen.visitor.default_visitor import DefaultTextVisitor
+        self.visitor_class = DefaultTextVisitor
 
         # Set default strategy class
-        from rvandroid.llm.prompt.prompt_strategy_basic_001 import BasicPromptStrategy001
-        self.strategy_class = BasicPromptStrategy001
+        from rvandroid.llm.prompt.flow_based_batch_action_strategy import FlowBasedBatchActionStrategy
+        self.strategy_class = FlowBasedBatchActionStrategy
 
     def set_llm(self, llm_type: str, model: str = None, **kwargs) -> 'ComponentConfigurator':
         """
@@ -554,6 +554,7 @@ class ComponentConfigurator:
         Raises:
             ValueError: If visitor type is unknown
         """
+        print(f"self._registries['visitor']={self._registries['visitor'].get_names()}")
         if not self._registries['visitor'].has(visitor_type):
             raise ValueError(f"Unknown visitor type: {visitor_type}. Options: {self._registries['visitor'].get_names()}")
 
@@ -583,7 +584,7 @@ class ComponentConfigurator:
             raise ValueError("Parser class not configured")
         return self.parser_class(self.visitor_class)
 
-    def create_visitor(self, static_data=None, activity: str = "") -> BaseScreenVisitor:
+    def create_visitor(self, static_data=None, activity: str = "") -> AbstractScreenVisitor:
         """
         Create an instance of the configured visitor.
 
@@ -592,7 +593,7 @@ class ComponentConfigurator:
             activity: Current activity name (optional)
 
         Returns:
-            BaseScreenVisitor instance
+            AbstractScreenVisitor instance
 
         Raises:
             ValueError: If visitor class is not configured

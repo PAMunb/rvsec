@@ -9,7 +9,7 @@ transitions during testing.
 from typing import Dict, Any, List, Optional, Set
 
 from rvandroid.domain.static import StaticAnalysisData
-from rvandroid.parser.screen.visitor.base_visitor import ScreenDescription
+from rvandroid.parser.screen.visitor.model import ScreenDescription
 from rvandroid.util.logging.constants import CONTEXT_COMPONENT
 from rvandroid.util.logging.manager import LoggingManager
 

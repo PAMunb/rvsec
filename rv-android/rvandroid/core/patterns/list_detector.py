@@ -11,7 +11,7 @@ from typing import Dict, Any, List, Optional, Set, Tuple
 from rvandroid.core.patterns.ui_pattern_detector import (
     IPatternDetector, PatternType, PatternResult, PatternElement, PatternDetectorFactory
 )
-from rvandroid.parser.screen.visitor.base_visitor import ScreenDescription, ScreenItem
+from rvandroid.parser.screen.visitor.model import ScreenItem, ScreenDescription
 from rvandroid.util.logging.constants import CONTEXT_COMPONENT
 from rvandroid.util.logging.manager import LoggingManager
 

@@ -61,6 +61,7 @@ class UIAutomatorNode:
         return self.data.get(key, default)
 
     def get_standard_property_map(self) -> Dict[str, Any]:
+        # TODO: esta em uso?
         """
         Get properties mapped to standard format used by Node class.
 

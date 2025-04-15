@@ -10,7 +10,7 @@ offering a unified interface for state tracking, action recording, and pattern d
 from typing import Dict, Any, List, Optional
 
 from rvandroid.domain.static import StaticAnalysisData
-from rvandroid.parser.screen.visitor.base_visitor import ScreenDescription, ItemAction
+from rvandroid.parser.screen.visitor.model import ItemAction, ScreenDescription
 from rvandroid.rvdroid.memory.action.memory_action import MemoryAction
 from rvandroid.rvdroid.memory.exploration.exploration_optimizer import ExplorationOptimizer
 from rvandroid.rvdroid.memory.long_term.long_term_memory import LongTermMemory

@@ -867,6 +867,10 @@ def run_local():
 
 
 if __name__ == '__main__':
+    # Register models to resolve circular import issue
+    from rvandroid.llm import register_models
+    register_models()
+    
     load_tools()
 
     # Use CLI by default

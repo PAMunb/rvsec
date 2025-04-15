@@ -7,7 +7,8 @@ from abc import ABC, abstractmethod
 from typing import Dict, Any, Optional, Type, TypeVar, Generic
 
 from rvandroid.domain.static import StaticAnalysisData
-from rvandroid.parser.screen.visitor.base_visitor import ScreenDescription, BaseScreenVisitor, Node
+from rvandroid.parser.screen.visitor.abstract_visitor import AbstractScreenVisitor
+from rvandroid.parser.screen.visitor.model import ScreenDescription, Node
 from rvandroid.util.logging.manager import LoggingManager
 
 # Generic type for the return type of parsers
@@ -23,7 +24,7 @@ class BaseScreenParser(Generic[T], ABC):
     Each specific parser should implement the abstract methods.
     """
 
-    def __init__(self, parser_name: str, visitor_class: Optional[Type[BaseScreenVisitor]] = None):
+    def __init__(self, parser_name: str, visitor_class: Optional[Type[AbstractScreenVisitor]] = None):
         """
         Initialize the parser with a name for logging purposes.
         
@@ -38,8 +39,8 @@ class BaseScreenParser(Generic[T], ABC):
 
         # If no visitor_class is provided, use default visitor
         if self.visitor_class is None:
-            from rvandroid.parser.screen.visitor.generic_visitor import GenericScreenVisitor
-            self.visitor_class = GenericScreenVisitor
+            from rvandroid.parser.screen.visitor.default_visitor import DefaultTextVisitor
+            self.visitor_class = DefaultTextVisitor
 
     def parse_screen(self, state_data: Dict[str, Any],
                     static_data: Optional[StaticAnalysisData] = None) -> T:
@@ -88,7 +89,7 @@ class BaseScreenParser(Generic[T], ABC):
         """
         pass
 
-    def create_visitor(self, static_data: Optional[StaticAnalysisData], activity: str) -> BaseScreenVisitor:
+    def create_visitor(self, static_data: Optional[StaticAnalysisData], activity: str) -> AbstractScreenVisitor:
         """
         Create a visitor instance based on configured visitor class.
         
@@ -97,9 +98,10 @@ class BaseScreenParser(Generic[T], ABC):
             activity: Current activity name
             
         Returns:
-            BaseScreenVisitor instance
+            AbstractScreenVisitor instance
         """
         self.logger.debug(f"Creating visitor: class={self.visitor_class.__name__}, activity={activity}")
+        print(f"Creating visitor: class={self.visitor_class.__name__}, activity={activity}")
         return self.visitor_class(static_data, activity)
         
     @abstractmethod

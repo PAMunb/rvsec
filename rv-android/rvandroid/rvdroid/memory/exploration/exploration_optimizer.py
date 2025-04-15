@@ -9,7 +9,7 @@ runtime insights, and adaptive exploration strategies.
 from typing import Dict, Any, List, Optional, Set, Tuple
 
 from rvandroid.domain.static import StaticAnalysisData
-from rvandroid.parser.screen.visitor.base_visitor import ScreenDescription, ItemAction
+from rvandroid.parser.screen.visitor.model import ItemAction, ScreenDescription
 from rvandroid.rvdroid.memory.short_term.short_term_memory import ShortTermMemory
 from rvandroid.rvdroid.memory.long_term.long_term_memory import LongTermMemory
 from rvandroid.rvdroid.memory.patterns.pattern_recognition import PatternRecognition

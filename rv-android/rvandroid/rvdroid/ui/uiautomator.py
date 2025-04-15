@@ -16,8 +16,8 @@ import uiautomator2 as u2
 
 from rvandroid.domain.static import StaticAnalysisData
 from rvandroid.parser.screen.uiautomator.uiautomator_parser import UIAutomator2Parser
-from rvandroid.parser.screen.visitor.base_visitor import ScreenDescription
-from rvandroid.parser.screen.visitor.generic_visitor import GenericScreenVisitor
+from rvandroid.parser.screen.visitor.model import ScreenDescription
+from rvandroid.parser.screen.visitor.default_visitor import DefaultTextVisitor
 from rvandroid.rvdroid.core.component import Component
 from rvandroid.rvdroid.ui.adapter import UIAdapter
 from rvandroid.util.decorators import task_phase
@@ -71,7 +71,7 @@ class UIAutomator2Adapter(UIAdapter):
         self.screenshot_manager = self._initialize_screenshot_manager()
         
         # Initialize parser
-        self.parser = UIAutomator2Parser(GenericScreenVisitor)
+        self.parser = UIAutomator2Parser(DefaultTextVisitor)
         
         # Stop any existing UIAutomator processes before connecting
         self._stop_existing_uiautomator()

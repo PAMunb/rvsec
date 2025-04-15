@@ -18,7 +18,7 @@ from rvandroid.core.patterns.ui_pattern_detector import (
     PatternElement,
     PatternDetectorFactory
 )
-from rvandroid.parser.screen.visitor.base_visitor import ScreenDescription
+from rvandroid.parser.screen.visitor.model import ScreenDescription
 from rvandroid.rvdroid.core.component import Component
 from rvandroid.util.error.decorators import handle_error
 from rvandroid.util.logging.constants import CONTEXT_COMPONENT

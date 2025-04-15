@@ -4,11 +4,11 @@ from typing import List, Optional, Set, Dict, Any
 
 from rvandroid.domain.static import StaticAnalysisData
 from rvandroid.domain.widget import WidgetEventType
-from rvandroid.parser.screen.visitor.base_visitor import BaseScreenVisitor, ItemAction, ScreenItem, Node, Counter, \
-    ScreenDescription
+from rvandroid.parser.screen.visitor.abstract_visitor import AbstractScreenVisitor
+from rvandroid.parser.screen.visitor.model import ItemAction, ScreenItem, ScreenDescription, Counter, Node
 
 
-class EnhancedTextVisitor(BaseScreenVisitor):
+class EnhancedTextVisitor(AbstractScreenVisitor):
     """
     Highly detailed visitor implementation for generating comprehensive text descriptions of Android UI elements.
     This visitor provides extensive details about UI elements, their properties, relationships, and accessibility information.
@@ -36,64 +36,6 @@ class EnhancedTextVisitor(BaseScreenVisitor):
         }
         self.logger = logging.getLogger(__name__)
         self.logger.debug(f"Initialized NewEnhancedTextVisitor for activity: {activity}")
-
-    def get_screen_description(self) -> ScreenDescription:
-        """
-        Create a comprehensive screen description including element relationships
-        and screen structure information.
-
-        Returns:
-            ScreenDescription object with detailed information
-        """
-        # Add screen structure overview as the first item
-        structure_desc = (
-            f"Screen Overview: Activity {self.activity} with "
-            f"{self.screen_structure['element_count']} elements "
-            f"({self.screen_structure['actionable_count']} actionable), "
-            f"hierarchy depth: {self.screen_structure['hierarchy_depth']}, "
-            f"form elements: {len(self.screen_structure['form_elements'])}"
-        )
-
-        # Add form detection
-        if self.screen_structure['form_elements']:
-            form_types = set(elem['type'] for elem in self.screen_structure['form_elements'])
-            form_desc = f"Form detected with: {', '.join(form_types)}"
-            structure_item = ScreenItem(
-                {"special": "screen_structure"},
-                f"{structure_desc}. {form_desc}",
-                []
-            )
-        else:
-            structure_item = ScreenItem(
-                {"special": "screen_structure"},
-                structure_desc,
-                []
-            )
-
-        # Insert as the first item
-        self.items.insert(0, structure_item)
-
-        # Add a default BACK action to the screen description
-        back_action = ItemAction(
-            self.counter.inc(),
-            f"BACK ({self.counter.get()})",
-            WidgetEventType.KEY,
-            False,
-            False,
-            target_view={"special": "back_button"}
-        )
-
-        # Create a back button item
-        back_item = ScreenItem(
-            {"special": "back_button"},
-            "System back button",
-            [back_action]
-        )
-
-        self.items.append(back_item)
-        self.logger.info(f"Generated comprehensive screen description with {len(self.items)} items")
-
-        return ScreenDescription(self.activity, self.items)
 
     def visit_node(self, node: Node) -> None:
         """
@@ -826,7 +768,7 @@ class EnhancedTextVisitor(BaseScreenVisitor):
                     coordinates=coordinates
                 )
                 # Update security information
-                self._update_action_security_info(action, node)
+                self._update_action_mop_related_info(action, node)
                 actions.append(action)
             else:
                 action = ItemAction(
@@ -839,7 +781,7 @@ class EnhancedTextVisitor(BaseScreenVisitor):
                     coordinates=coordinates
                 )
                 # Update security information
-                self._update_action_security_info(action, node)
+                self._update_action_mop_related_info(action, node)
                 actions.append(action)
 
         # Handle click actions
@@ -858,7 +800,7 @@ class EnhancedTextVisitor(BaseScreenVisitor):
                 coordinates=coordinates
             )
             # Update security information
-            self._update_action_security_info(action, node)
+            self._update_action_mop_related_info(action, node)
             actions.append(action)
 
         # Handle long click actions
@@ -877,7 +819,7 @@ class EnhancedTextVisitor(BaseScreenVisitor):
                 coordinates=coordinates
             )
             # Update security information
-            self._update_action_security_info(action, node)
+            self._update_action_mop_related_info(action, node)
             actions.append(action)
 
         # Handle check/uncheck actions with normal priority
@@ -893,7 +835,7 @@ class EnhancedTextVisitor(BaseScreenVisitor):
                     coordinates=coordinates
                 )
                 # Update security information
-                self._update_action_security_info(action, node)
+                self._update_action_mop_related_info(action, node)
                 actions.append(action)
             else:
                 action = ItemAction(
@@ -906,7 +848,7 @@ class EnhancedTextVisitor(BaseScreenVisitor):
                     coordinates=coordinates
                 )
                 # Update security information
-                self._update_action_security_info(action, node)
+                self._update_action_mop_related_info(action, node)
                 actions.append(action)
 
         # Handle scroll actions with better description
@@ -931,7 +873,7 @@ class EnhancedTextVisitor(BaseScreenVisitor):
                     coordinates=coordinates
                 )
                 # Update security information
-                self._update_action_security_info(action, node)
+                self._update_action_mop_related_info(action, node)
                 actions.append(action)
 
         # Handle text input actions with better hints
@@ -956,7 +898,7 @@ class EnhancedTextVisitor(BaseScreenVisitor):
                 coordinates=coordinates
             )
             # Update security information
-            self._update_action_security_info(action, node)
+            self._update_action_mop_related_info(action, node)
             actions.append(action)
 
         return actions
@@ -969,6 +911,7 @@ class EnhancedTextVisitor(BaseScreenVisitor):
         Returns:
             ScreenDescription object with detailed information
         """
+        print("*************************** get_screen_description")
         # Add screen structure overview as the first item
         structure_desc = (
             f"Screen Overview: Activity {self.activity} with "
@@ -1038,9 +981,9 @@ class EnhancedTextVisitor(BaseScreenVisitor):
 
         return depth
 
-    def _update_action_security_info(self, action: ItemAction, node: Node) -> None:
+    def _update_action_mop_related_info(self, action: ItemAction, node: Node) -> None:
         """
-        Update an action with detailed security information from static analysis.
+        Update an action with detailed monitored operations information from static analysis.
 
         Args:
             action: The action to update
@@ -1059,9 +1002,9 @@ class EnhancedTextVisitor(BaseScreenVisitor):
 
                 # Add more detailed info to action text if it reaches MOP
                 if action.directly_reaches_mop:
-                    action.text += " [CRITICAL SECURITY OPERATION]"
+                    action.text += " [CRITICAL MONITORED OPERATION]"
                 elif action.reaches_mop:
-                    action.text += " [SECURITY SENSITIVE]"
+                    action.text += " [MONITORED OPERATION]"
 
                 return
 
@@ -1078,9 +1021,9 @@ class EnhancedTextVisitor(BaseScreenVisitor):
         has_sensitive = any(action.reaches_mop for action in item.actions)
 
         if has_critical:
-            item.base_description += " [CRITICAL SECURITY ELEMENT]"
+            item.base_description += " [CRITICAL SPECIFICATION RELATED ELEMENT]"
         elif has_sensitive:
-            item.base_description += " [SECURITY SENSITIVE]"
+            item.base_description += " [SPECIFICATION SENSITIVE]"
 
     def _add_widget_info(self, item: ScreenItem, widget) -> None:
         """
@@ -1629,83 +1572,3 @@ class EnhancedTextVisitor(BaseScreenVisitor):
             validation_info += " [expects numbers only]"
 
         return validation_info
-
-    def _with_text(self, node: Node) -> str:
-        """
-        Format node text description with additional detail.
-
-        Args:
-            node: The node to describe
-
-        Returns:
-            Formatted text description
-        """
-        if not hasattr(node, 'view_text') or not node.view_text:
-            return "with no text"
-
-        text = node.view_text
-
-        # Add truncation indicator for long text
-        if len(text) > 50:
-            return f"with text '{text[:50]}...' (truncated)"
-
-        return f"with text '{text}'"
-
-    def _has_focus(self, node: Node) -> str:
-        """
-        Format node focus description with additional context.
-
-        Args:
-            node: The node to describe
-
-        Returns:
-            Formatted focus description
-        """
-        if not hasattr(node, 'focused'):
-            return ""
-
-        return " that is currently focused" if node.focused else ""
-
-    def _with_description(self, node: Node) -> str:
-        """
-        Format node content description with additional detail.
-
-        Args:
-            node: The node to describe
-
-        Returns:
-            Formatted content description
-        """
-        if not hasattr(node, 'content_description') or not node.content_description:
-            return ""
-
-        content_desc = node.content_description
-
-        # Add truncation indicator for long descriptions
-        if len(content_desc) > 50:
-            return f" with description '{content_desc[:50]}...' (truncated)"
-
-        return f" with description '{content_desc}'"
-
-    def _with_resource_id(self, node: Node) -> str:
-        """
-        Format node resource ID with additional context.
-
-        Args:
-            node: The node to describe
-
-        Returns:
-            Formatted resource ID description
-        """
-        if not hasattr(node, 'resource_id') or not node.resource_id:
-            return ""
-
-        resource_id = node.resource_id
-
-        # Extract just the ID part for clarity
-        if "/" in resource_id:
-            parts = resource_id.split("/")
-            if len(parts) > 1:
-                return f" (id: {parts[1]})"
-
-        return f" (id: {resource_id})"

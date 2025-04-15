@@ -12,7 +12,7 @@ from typing import Dict, Any, List, Optional, Tuple
 
 from rvandroid.analysis.base_analyzer import BaseAnalyzer
 from rvandroid.analysis.screenshot_analyzer import ScreenshotAnalyzer
-from rvandroid.parser.screen.visitor.base_visitor import ScreenDescription, ItemAction, Counter
+from rvandroid.parser.screen.visitor.model import ItemAction, ScreenItem, ScreenDescription, Counter
 from rvandroid.domain.static import StaticAnalysisData
 
 
@@ -312,7 +312,6 @@ class ScreenshotActionComplementor(BaseAnalyzer[ScreenDescription]):
         Returns:
             ScreenItem representing the visual button
         """
-        from rvandroid.parser.screen.visitor.base_visitor import ScreenItem
 
         # Create view data
         button_x = button_data.get("x", 0)
@@ -373,7 +372,7 @@ class ScreenshotActionComplementor(BaseAnalyzer[ScreenDescription]):
         Returns:
             ScreenItem representing the visual text button
         """
-        from rvandroid.parser.screen.visitor.base_visitor import ScreenItem
+        from rvandroid.parser.screen.visitor.model import ScreenItem
 
         # Extract text info
         text = text_data.get("text", "Button")
@@ -540,7 +539,7 @@ class ScreenshotActionComplementor(BaseAnalyzer[ScreenDescription]):
         Returns:
             ScreenItem representing the visual error indicator
         """
-        from rvandroid.parser.screen.visitor.base_visitor import ScreenItem
+        from rvandroid.parser.screen.visitor.model import ScreenItem
 
         # Extract error info
         error_x = error_data.get("x", 0)

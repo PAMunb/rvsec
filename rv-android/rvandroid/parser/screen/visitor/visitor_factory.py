@@ -2,10 +2,10 @@
 from typing import Dict, Type, Optional, List
 
 from rvandroid.domain.static import StaticAnalysisData
-from rvandroid.parser.screen.visitor.base_visitor import BaseScreenVisitor
+from rvandroid.parser.screen.visitor.abstract_visitor import AbstractScreenVisitor
 from rvandroid.parser.screen.visitor.basic_visitor import BasicTextVisitor
 from rvandroid.parser.screen.visitor.enhanced_visitor import EnhancedTextVisitor
-from rvandroid.parser.screen.visitor.text_visitor import TextVisitor
+from rvandroid.parser.screen.visitor.default_visitor import DefaultTextVisitor
 
 
 class VisitorFactory:
@@ -15,9 +15,9 @@ class VisitorFactory:
     """
 
     # Registry of visitor types and their implementations
-    _REGISTRY: Dict[str, Type[BaseScreenVisitor]] = {
+    _REGISTRY: Dict[str, Type[AbstractScreenVisitor]] = {
         "basic": BasicTextVisitor,
-        "default": TextVisitor,
+        "default": DefaultTextVisitor,
         "detailed": EnhancedTextVisitor,
         # Add other visitor implementations as needed
     }
@@ -29,7 +29,7 @@ class VisitorFactory:
             static_data: Optional[StaticAnalysisData] = None,
             activity: str = "",
             **kwargs
-    ) -> BaseScreenVisitor:
+    ) -> AbstractScreenVisitor:
         """
         Create a visitor instance of the specified type.
 
@@ -52,7 +52,7 @@ class VisitorFactory:
         return visitor_class(static_data, activity, **kwargs)
 
     @classmethod
-    def get_visitor_class(cls, visitor_type: str = "default") -> Type[BaseScreenVisitor]:
+    def get_visitor_class(cls, visitor_type: str = "default") -> Type[AbstractScreenVisitor]:
         """
         Get the visitor class for a specified type.
 
@@ -71,7 +71,7 @@ class VisitorFactory:
         return cls._REGISTRY[visitor_type]
 
     @staticmethod
-    def register_visitor_type(name: str, visitor_class: Type[BaseScreenVisitor]) -> None:
+    def register_visitor_type(name: str, visitor_class: Type[AbstractScreenVisitor]) -> None:
         """
         Register a new visitor type.
 
@@ -80,15 +80,15 @@ class VisitorFactory:
             visitor_class: Visitor implementation class
 
         Raises:
-            TypeError: If visitor is not a subclass of BaseScreenVisitor
+            TypeError: If visitor is not a subclass of AbstractScreenVisitor
         """
-        if not issubclass(visitor_class, BaseScreenVisitor):
-            raise TypeError(f"Visitor class must be a subclass of BaseScreenVisitor")
+        if not issubclass(visitor_class, AbstractScreenVisitor):
+            raise TypeError("Visitor class must be a subclass of AbstractScreenVisitor")
 
         VisitorFactory._REGISTRY[name] = visitor_class
 
     @staticmethod
-    def get_available_types() -> Dict[str, Type[BaseScreenVisitor]]:
+    def get_available_types() -> Dict[str, Type[AbstractScreenVisitor]]:
         """
         Get all available visitor types.
 

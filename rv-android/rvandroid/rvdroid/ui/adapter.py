@@ -11,7 +11,7 @@ from abc import ABC, abstractmethod
 from typing import Dict, Any, Optional, Tuple, List
 
 from rvandroid.domain.static import StaticAnalysisData
-from rvandroid.parser.screen.visitor.base_visitor import ScreenDescription
+from rvandroid.parser.screen.visitor.model import ScreenDescription
 from rvandroid.rvdroid.core.component import Component
 
 

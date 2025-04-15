@@ -10,7 +10,7 @@ including state tracking, transition detection, and state comparison.
 import time
 from typing import Dict, Any, Optional, List, Set
 
-from rvandroid.parser.screen.visitor.base_visitor import ScreenDescription
+from rvandroid.parser.screen.visitor.model import ScreenDescription
 from rvandroid.domain.static import StaticAnalysisData
 from rvandroid.util.error.decorators import handle_error
 from rvandroid.util.logging.constants import CONTEXT_COMPONENT

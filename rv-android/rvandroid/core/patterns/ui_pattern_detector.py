@@ -14,7 +14,7 @@ from enum import Enum
 from typing import Dict, Any, List, Optional, Set, Tuple, Type, ClassVar
 
 from rvandroid.domain.static import StaticAnalysisData
-from rvandroid.parser.screen.visitor.base_visitor import ScreenDescription, ItemAction, ScreenItem
+from rvandroid.parser.screen.visitor.model import ItemAction, ScreenItem, ScreenDescription
 from rvandroid.util.logging.constants import CONTEXT_COMPONENT
 from rvandroid.util.logging.manager import LoggingManager
 

@@ -356,7 +356,8 @@ class ResourceAwareLLMManager:
         # Get minimum interval based on resource status
         if self.adaptive_interval:
             # Adjust interval based on throttling level
-            throttling_level = self.resource_manager.resource_status["throttling_level"]
+            # throttling_level = self.resource_manager.resource_status["throttling_level"]
+            throttling_level = self.resource_manager.throttling_level
             if throttling_level == 1:
                 min_interval = self.min_query_interval * 1.5
             elif throttling_level == 2:

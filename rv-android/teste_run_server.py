@@ -238,7 +238,7 @@ if __name__ == '__main__':
         )
         configurator.set_strategy("flow_based_batch_action")
         configurator.set_parser("droidbot")
-        configurator.set_visitor("enhanced")
+        configurator.set_visitor("default")
 
         # # # OLLAMA
         # configurator.set_llm(

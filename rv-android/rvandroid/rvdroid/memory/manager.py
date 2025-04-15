@@ -10,7 +10,7 @@ short-term and long-term memory operations while interfacing with other system c
 from typing import Dict, Any, List, Optional, Set, Tuple
 
 from rvandroid.domain.static import StaticAnalysisData
-from rvandroid.parser.screen.visitor.base_visitor import ScreenDescription, ItemAction
+from rvandroid.parser.screen.visitor.model import ItemAction, ScreenDescription
 from rvandroid.rvdroid.core.component import Component
 from rvandroid.rvdroid.memory.action.memory_action import MemoryAction
 from rvandroid.rvdroid.memory.long_term.long_term_memory import LongTermMemory

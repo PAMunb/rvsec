@@ -7,9 +7,10 @@ This module implements the element handler pattern for processing different UI e
 from typing import Optional
 
 from rvandroid.domain.widget import WidgetEventType
-from rvandroid.parser.screen.visitor.base_visitor import (
-    ElementHandler, UiElementType, ScreenItem, Node, BaseScreenVisitor
+from rvandroid.parser.screen.visitor.abstract_visitor import (
+    ElementHandler, AbstractScreenVisitor
 )
+from rvandroid.parser.screen.visitor.model import ScreenItem, UiElementType, Node
 
 
 class ButtonHandler(ElementHandler):
@@ -18,7 +19,7 @@ class ButtonHandler(ElementHandler):
     def __init__(self):
         super().__init__(UiElementType.BUTTON)
 
-    def handle(self, node: Node, visitor: BaseScreenVisitor) -> Optional[ScreenItem]:
+    def handle(self, node: Node, visitor: AbstractScreenVisitor) -> Optional[ScreenItem]:
         """Process a button node."""
         actions = visitor.get_possible_actions(node, visitor.counter)
         if not actions:
@@ -40,7 +41,7 @@ class TextFieldHandler(ElementHandler):
     def __init__(self):
         super().__init__(UiElementType.TEXT_FIELD)
 
-    def handle(self, node: Node, visitor: BaseScreenVisitor) -> Optional[ScreenItem]:
+    def handle(self, node: Node, visitor: AbstractScreenVisitor) -> Optional[ScreenItem]:
         """Process a text field node."""
         actions = visitor.get_possible_actions(node, visitor.counter)
         if not actions:
@@ -69,7 +70,7 @@ class CheckboxHandler(ElementHandler):
     def __init__(self):
         super().__init__(UiElementType.CHECKBOX)
 
-    def handle(self, node: Node, visitor: BaseScreenVisitor) -> Optional[ScreenItem]:
+    def handle(self, node: Node, visitor: AbstractScreenVisitor) -> Optional[ScreenItem]:
         """Process a checkbox node."""
         actions = visitor.get_possible_actions(node, visitor.counter, prioritize_check=True)
         if not actions:
@@ -92,7 +93,7 @@ class SpinnerHandler(ElementHandler):
     def __init__(self):
         super().__init__(UiElementType.SPINNER)
 
-    def handle(self, node: Node, visitor: BaseScreenVisitor) -> Optional[ScreenItem]:
+    def handle(self, node: Node, visitor: AbstractScreenVisitor) -> Optional[ScreenItem]:
         """Process a spinner node."""
         # For spinners, we need custom actions
         actions = []

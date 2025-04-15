@@ -10,7 +10,7 @@ strategic guidance, action feedback, and directive processing.
 import time
 from typing import Dict, Any, Optional, List, Tuple
 
-from rvandroid.parser.screen.visitor.base_visitor import ItemAction
+from rvandroid.parser.screen.visitor.model import ItemAction
 from rvandroid.domain.static import StaticAnalysisData
 from rvandroid.rvdroid.core.component import Component
 from rvandroid.rvdroid.llm.llm_service import LLMService

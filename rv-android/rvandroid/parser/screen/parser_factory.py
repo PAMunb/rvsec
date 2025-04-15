@@ -3,7 +3,7 @@ from enum import Enum
 from typing import Dict, Type, Optional
 
 from rvandroid.parser.screen.base_parser import BaseScreenParser
-from rvandroid.parser.screen.visitor.base_visitor import BaseScreenVisitor
+from rvandroid.parser.screen.visitor.abstract_visitor import AbstractScreenVisitor
 
 
 class ParserType(Enum):
@@ -34,7 +34,7 @@ class ParserFactory:
     def create(
             cls,
             parser_type: ParserType,
-            visitor_class: Optional[Type[BaseScreenVisitor]] = None
+            visitor_class: Optional[Type[AbstractScreenVisitor]] = None
     ) -> BaseScreenParser:
         """
         Create a parser instance of the specified type.

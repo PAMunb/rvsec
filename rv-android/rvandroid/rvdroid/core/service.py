@@ -13,7 +13,7 @@ import traceback
 
 from rvandroid.config.component_configurator import ComponentConfigurator
 from rvandroid.domain.static import StaticAnalysisData
-from rvandroid.parser.screen.visitor.base_visitor import ScreenDescription, ItemAction
+from rvandroid.parser.screen.visitor.model import ItemAction, ScreenDescription
 from rvandroid.rvdroid.analysis.context.context_analyzer import ContextAnalyzer
 from rvandroid.rvdroid.analysis.opportunity.opportunity_detector import OpportunityDetector
 from rvandroid.rvdroid.analysis.progress.progress_tracker import ProgressTracker
@@ -1233,7 +1233,7 @@ class RVDroidService(Generic[T]):
         
         try:
             # Create a back action
-            from rvandroid.parser.screen.visitor.base_visitor import ItemAction
+            from rvandroid.parser.screen.visitor.model import ItemAction
             from rvandroid.domain.widget import WidgetEventType
             
             back_action = ItemAction(

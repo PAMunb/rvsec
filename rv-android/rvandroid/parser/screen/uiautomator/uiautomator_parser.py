@@ -5,7 +5,8 @@ from typing import Dict, Any, Optional, Type
 
 from rvandroid.domain.static import StaticAnalysisData
 from rvandroid.parser.screen.abstract_parser import AbstractScreenParser
-from rvandroid.parser.screen.visitor.base_visitor import BaseScreenVisitor, Node, ScreenDescription
+from rvandroid.parser.screen.visitor.abstract_visitor import AbstractScreenVisitor
+from rvandroid.parser.screen.visitor.model import ScreenDescription, Node
 from rvandroid.util.decorators import task_phase
 from rvandroid.util.logging.constants import CONTEXT_COMPONENT
 
@@ -22,7 +23,7 @@ class UIAutomator2Parser(AbstractScreenParser):
     - Maintains compatibility with RV-Android's parser architecture
     """
 
-    def __init__(self, visitor_class: Optional[Type[BaseScreenVisitor]] = None):
+    def __init__(self, visitor_class: Optional[Type[AbstractScreenVisitor]] = None):
         """
         Initialize the UIAutomator2 parser.
 

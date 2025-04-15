@@ -11,7 +11,7 @@ import random
 import time
 from typing import Dict, Any, Optional
 
-from rvandroid.parser.screen.visitor.base_visitor import ItemAction
+from rvandroid.parser.screen.visitor.model import ItemAction
 
 
 class BaseInteractionStrategy:

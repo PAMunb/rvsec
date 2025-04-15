@@ -16,7 +16,7 @@ from rvandroid.llm.prompt.prompt_template import PromptTemplate, PromptLibrary, 
 from rvandroid.domain.static import StaticAnalysisData
 from rvandroid.parser.screen.abstract_parser import AbstractScreenParser
 from rvandroid.parser.screen.parser_factory import ParserType
-from rvandroid.parser.screen.visitor.base_visitor import ScreenDescription
+from rvandroid.parser.screen.visitor.model import ScreenDescription
 
 
 class ComposablePromptStrategy(BasePromptStrategy):

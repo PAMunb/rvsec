@@ -3,16 +3,12 @@ from typing import List, Optional, Set
 
 from rvandroid.domain.static import StaticAnalysisData
 from rvandroid.domain.widget import WidgetEventType
-from rvandroid.parser.screen.visitor.base_visitor import BaseScreenVisitor, ItemAction, ScreenItem, Node, Counter, \
-    ScreenDescription
+from rvandroid.parser.screen.visitor.abstract_visitor import AbstractScreenVisitor
+from rvandroid.parser.screen.visitor.model import ItemAction, ScreenItem, ScreenDescription, Counter, Node
 
 
-class TextVisitor(BaseScreenVisitor):
-    """
-    Enhanced visitor implementation for generating text descriptions of Android UI elements.
-    This visitor traverses the UI hierarchy and creates human-readable descriptions
-    of interactive elements like buttons, text fields, checkboxes, etc.
-    """
+class DefaultTextVisitor(AbstractScreenVisitor):
+
 
     def __init__(self, static_info: Optional[StaticAnalysisData], activity: str):
         """
@@ -84,7 +80,7 @@ class TextVisitor(BaseScreenVisitor):
                 # This container has actions that aren't handled by children
                 actions = self.get_possible_actions(node, self.counter)
                 if actions:
-                    text = f"Container {node.view_class} {self.__with_resource_id(node)}{self.__with_description(node)}"
+                    text = f"Container {node.view_class} {self._with_resource_id(node)}{self._with_description(node)}"
                     item = ScreenItem(node.data, text, actions)
                     self.items.append(item)
                     self.window_info["interactive_elements"] += 1
@@ -113,7 +109,7 @@ class TextVisitor(BaseScreenVisitor):
 
         if is_actionable and node_id not in self.processed_parents:
             actions = self.get_possible_actions(leaf_node, self.counter, inherit_click=parent_clickable)
-            text = f"Element {leaf_node.view_class} {self.__with_text(leaf_node)}{self.__has_focus(leaf_node)}{self.__with_description(leaf_node)}{self.__with_resource_id(leaf_node)}"
+            text = f"Element {leaf_node.view_class} {self._with_text(leaf_node)}{self._has_focus(leaf_node)}{self._with_description(leaf_node)}{self._with_resource_id(leaf_node)}"
             item = ScreenItem(leaf_node.data, text, actions)
             self.items.append(item)
             self.window_info["interactive_elements"] += 1
@@ -165,10 +161,10 @@ class TextVisitor(BaseScreenVisitor):
         if widget and hasattr(widget, 'input_type') and widget.input_type:
             input_type = f" for {widget.input_type}"
 
-        text = f"Editable text field{input_type} {self.__with_text(node)}{self.__has_focus(node)}{self.__with_description(node)}{self.__with_resource_id(node)}"
+        text = f"Editable text field{input_type} {self._with_text(node)}{self._has_focus(node)}{self._with_description(node)}{self._with_resource_id(node)}"
 
         if node.is_password:
-            text = f"Password field {self.__with_text(node)}{self.__has_focus(node)}{self.__with_description(node)}{self.__with_resource_id(node)}"
+            text = f"Password field {self._with_text(node)}{self._has_focus(node)}{self._with_description(node)}{self._with_resource_id(node)}"
 
         item = ScreenItem(node.data, text, actions)
         self.items.append(item)
@@ -196,7 +192,7 @@ class TextVisitor(BaseScreenVisitor):
 
         # Only add if it has text content or is interactive
         if node.view_text or actions:
-            text = f"Text view {self.__with_text(node)}{self.__with_description(node)}{self.__with_resource_id(node)}"
+            text = f"Text view {self._with_text(node)}{self._with_description(node)}{self._with_resource_id(node)}"
             item = ScreenItem(node.data, text, actions)
             self.items.append(item)
             if actions:
@@ -214,7 +210,7 @@ class TextVisitor(BaseScreenVisitor):
         actions = self.get_possible_actions(node, self.counter, prioritize_check=True)
 
         checked = " that is checked" if node.checked else " that is unchecked"
-        text = f"Checkbox{checked} {self.__with_text(node)}{self.__with_description(node)}{self.__has_focus(node)}{self.__with_resource_id(node)}"
+        text = f"Checkbox{checked} {self._with_text(node)}{self._with_description(node)}{self._has_focus(node)}{self._with_resource_id(node)}"
 
         item = ScreenItem(node.data, text, actions)
         self.items.append(item)
@@ -231,7 +227,7 @@ class TextVisitor(BaseScreenVisitor):
         actions = self.get_possible_actions(node, self.counter, prioritize_check=True)
 
         checked = " that is checked" if node.checked else " that is unchecked"
-        text = f"Checkable text{checked} {self.__with_text(node)}{self.__with_description(node)}{self.__has_focus(node)}{self.__with_resource_id(node)}"
+        text = f"Checkable text{checked} {self._with_text(node)}{self._with_description(node)}{self._has_focus(node)}{self._with_resource_id(node)}"
 
         item = ScreenItem(node.data, text, actions)
         self.items.append(item)
@@ -248,7 +244,7 @@ class TextVisitor(BaseScreenVisitor):
         widget = self.find_matching_widget(node.data)
         actions = self.get_possible_actions(node, self.counter)
 
-        text = f"Image button {self.__with_text(node)}{self.__with_description(node)}{self.__with_resource_id(node)}"
+        text = f"Image button {self._with_text(node)}{self._with_description(node)}{self._with_resource_id(node)}"
 
         item = ScreenItem(node.data, text, actions)
         self.items.append(item)
@@ -276,7 +272,7 @@ class TextVisitor(BaseScreenVisitor):
 
         # Only include interactive images or those with descriptions
         if actions or node.content_description:
-            text = f"Image {self.__with_text(node)}{self.__with_description(node)}{self.__with_resource_id(node)}"
+            text = f"Image {self._with_text(node)}{self._with_description(node)}{self._with_resource_id(node)}"
             item = ScreenItem(node.data, text, actions)
             self.items.append(item)
             if actions:
@@ -294,7 +290,7 @@ class TextVisitor(BaseScreenVisitor):
         actions = self.get_possible_actions(node, self.counter, prioritize_check=True)
 
         state = " that is ON" if node.checked else " that is OFF"
-        text = f"Toggle button{state} {self.__with_text(node)}{self.__with_description(node)}{self.__has_focus(node)}{self.__with_resource_id(node)}"
+        text = f"Toggle button{state} {self._with_text(node)}{self._with_description(node)}{self._has_focus(node)}{self._with_resource_id(node)}"
 
         item = ScreenItem(node.data, text, actions)
         self.items.append(item)
@@ -312,7 +308,7 @@ class TextVisitor(BaseScreenVisitor):
         actions = self.get_possible_actions(node, self.counter, prioritize_check=True)
 
         state = " that is ON" if node.checked else " that is OFF"
-        text = f"Switch{state} {self.__with_text(node)}{self.__with_description(node)}{self.__has_focus(node)}{self.__with_resource_id(node)}"
+        text = f"Switch{state} {self._with_text(node)}{self._with_description(node)}{self._has_focus(node)}{self._with_resource_id(node)}"
 
         item = ScreenItem(node.data, text, actions)
         self.items.append(item)
@@ -330,7 +326,7 @@ class TextVisitor(BaseScreenVisitor):
         actions = self.get_possible_actions(node, self.counter, prioritize_check=True)
 
         selected = " that is selected" if node.selected else " that is not selected"
-        text = f"Radio button{selected} {self.__with_text(node)}{self.__with_description(node)}{self.__has_focus(node)}{self.__with_resource_id(node)}"
+        text = f"Radio button{selected} {self._with_text(node)}{self._with_description(node)}{self._has_focus(node)}{self._with_resource_id(node)}"
 
         item = ScreenItem(node.data, text, actions)
         self.items.append(item)
@@ -374,7 +370,7 @@ class TextVisitor(BaseScreenVisitor):
                 options_list += f", and {len(widget.entries) - 3} more options"
             options = f" with options: {options_list}"
 
-        text = f"Dropdown spinner{options} {self.__with_text(node)}{self.__with_description(node)}{self.__with_resource_id(node)}"
+        text = f"Dropdown spinner{options} {self._with_text(node)}{self._with_description(node)}{self._with_resource_id(node)}"
 
         item = ScreenItem(node.data, text, actions)
         self.items.append(item)
@@ -393,7 +389,7 @@ class TextVisitor(BaseScreenVisitor):
         # Process group itself if actionable
         if node.actionable:
             actions = self.get_possible_actions(node, self.counter)
-            text = f"Radio button group {self.__with_description(node)}{self.__with_resource_id(node)}"
+            text = f"Radio button group {self._with_description(node)}{self._with_resource_id(node)}"
             item = ScreenItem(node.data, text, actions)
             self.items.append(item)
 
@@ -456,200 +452,11 @@ class TextVisitor(BaseScreenVisitor):
             ))
 
         current_percent = int((node.progress / node.max) * 100) if node.max > 0 else 0
-        text = f"Slider currently at {current_percent}% {self.__with_text(node)}{self.__with_description(node)}{self.__with_resource_id(node)}"
+        text = f"Slider currently at {current_percent}% {self._with_text(node)}{self._with_description(node)}{self._with_resource_id(node)}"
 
         item = ScreenItem(node.data, text, actions)
         self.items.append(item)
         self.window_info["interactive_elements"] += 1
-
-    def get_possible_actions(self, node: Node, counter: Counter, inherit_click: bool = False,
-                             prioritize_check: bool = False) -> List[ItemAction]:
-        """
-        Get possible actions for a node with enhanced security awareness.
-
-        Args:
-            node: The node to get actions for
-            counter: Counter for generating unique IDs
-            inherit_click: Whether to add click action from parent
-            prioritize_check: Whether to prioritize check/uncheck over click
-
-        Returns:
-            List of possible actions with security information
-        """
-        actions = []
-
-        # Store the node data for later use in the ItemAction
-        node_data = node.data
-
-        # Extract coordinates from node
-        coordinates = None
-        if hasattr(node, 'get_center_coordinates'):
-            coordinates = node.get_center_coordinates()
-        elif 'bounds' in node_data:
-            bounds = node_data['bounds']
-            if bounds and len(bounds) == 2:
-                x = (bounds[0][0] + bounds[1][0]) // 2
-                y = (bounds[0][1] + bounds[1][1]) // 2
-                coordinates = (x, y)
-
-        # Handle check/uncheck actions with priority if needed
-        if prioritize_check and node.checkable:
-            if node.checked:
-                action = ItemAction(
-                    id=counter.inc(),
-                    text=f"UNCHECK ({counter.get()})",
-                    event=WidgetEventType.CLICK,
-                    reaches_mop=False,
-                    directly_reaches_mop=False,
-                    target_view=node_data,
-                    coordinates=coordinates
-                )
-                # Update security information
-                self._update_action_security_info(action, node)
-                actions.append(action)
-            else:
-                action = ItemAction(
-                    id=counter.inc(),
-                    text=f"CHECK ({counter.get()})",
-                    event=WidgetEventType.CLICK,
-                    reaches_mop=False,
-                    directly_reaches_mop=False,
-                    target_view=node_data,
-                    coordinates=coordinates
-                )
-                # Update security information
-                self._update_action_security_info(action, node)
-                actions.append(action)
-
-        # Handle click actions
-        elif (node.clickable or inherit_click) and not (prioritize_check and node.checkable):
-            action = ItemAction(
-                id=counter.inc(),
-                text=f"CLICK ({counter.get()})",
-                event=WidgetEventType.CLICK,
-                reaches_mop=False,
-                directly_reaches_mop=False,
-                target_view=node_data,
-                coordinates=coordinates
-            )
-            # Update security information
-            self._update_action_security_info(action, node)
-            actions.append(action)
-
-        # Handle long click actions
-        if node.long_clickable:
-            action = ItemAction(
-                id=counter.inc(),
-                text=f"LONG_CLICK ({counter.get()})",
-                event=WidgetEventType.LONG_CLICK,
-                reaches_mop=False,
-                directly_reaches_mop=False,
-                target_view=node_data,
-                coordinates=coordinates
-            )
-            # Update security information
-            self._update_action_security_info(action, node)
-            actions.append(action)
-
-        # Handle check/uncheck actions with normal priority
-        if not prioritize_check and node.checkable:
-            if node.checked:
-                action = ItemAction(
-                    id=counter.inc(),
-                    text=f"UNCHECK ({counter.get()})",
-                    event=WidgetEventType.CLICK,
-                    reaches_mop=False,
-                    directly_reaches_mop=False,
-                    target_view=node_data,
-                    coordinates=coordinates
-                )
-                # Update security information
-                self._update_action_security_info(action, node)
-                actions.append(action)
-            else:
-                action = ItemAction(
-                    id=counter.inc(),
-                    text=f"CHECK ({counter.get()})",
-                    event=WidgetEventType.CLICK,
-                    reaches_mop=False,
-                    directly_reaches_mop=False,
-                    target_view=node_data,
-                    coordinates=coordinates
-                )
-                # Update security information
-                self._update_action_security_info(action, node)
-                actions.append(action)
-
-        # Handle scroll actions with better description
-        if node.scrollable:
-            # Infer scrollable directions based on the widget type and content
-            directions = ["UP", "DOWN", "LEFT", "RIGHT"]
-
-            # Filter directions for certain widget types
-            if node.view_class in ["android.widget.ListView", "android.widget.ScrollView"]:
-                directions = ["UP", "DOWN"]
-            elif node.view_class in ["android.widget.HorizontalScrollView"]:
-                directions = ["LEFT", "RIGHT"]
-
-            for direction in directions:
-                action = ItemAction(
-                    id=counter.inc(),
-                    text=f"SCROLL {direction} ({counter.get()})",
-                    event=WidgetEventType.SCROLL,
-                    reaches_mop=False,
-                    directly_reaches_mop=False,
-                    target_view=node_data,
-                    coordinates=coordinates
-                )
-                # Update security information
-                self._update_action_security_info(action, node)
-                actions.append(action)
-
-        # Handle text input actions with better hints
-        if node.editable:
-            hint = ""
-            if node.view_text:
-                hint = f" [current: '{node.view_text}']"
-            elif node.content_description:
-                hint = f" [hint: '{node.content_description}']"
-
-            action = ItemAction(
-                id=counter.inc(),
-                text=f"SET_TEXT ({counter.get()}){hint}",
-                event=WidgetEventType.TEXT_CHANGE,
-                reaches_mop=False,
-                directly_reaches_mop=False,
-                target_view=node_data,
-                coordinates=coordinates
-            )
-            # Update security information
-            self._update_action_security_info(action, node)
-            actions.append(action)
-
-        return actions
-
-    def _update_action_security_info(self, action: ItemAction, node: Node) -> None:
-        """
-        Update an action with security information from static analysis.
-        
-        Args:
-            action: The action to update
-            node: The node associated with the action
-        """
-        widget = self.find_matching_widget(node.data)
-        if not widget:
-            return
-
-        # Find matching event type
-        for event in widget.events:
-            if event.type == action.event:
-                # Check if method reaches or directly reaches MOP
-                action.reaches_mop = self._check_method_reaches_mop(event.signature)
-                action.directly_reaches_mop = self._check_method_directly_reaches_mop(event.signature)
-                if action.reaches_mop or action.directly_reaches_mop:
-                    self.logger.debug(
-                        f"Action {action.id} security info updated: reaches_mop={action.reaches_mop}, directly_reaches_mop={action.directly_reaches_mop}")
-                return
 
     def __default_message(self, node: Node, prefix: str) -> str:
         """
@@ -662,56 +469,4 @@ class TextVisitor(BaseScreenVisitor):
         Returns:
             Formatted description string
         """
-        return f"{prefix}{self.__with_text(node)}{self.__has_focus(node)}{self.__with_description(node)}{self.__with_resource_id(node)}"
-
-    def __with_text(self, node: Node) -> str:
-        """
-        Format node text description.
-
-        Args:
-            node: The node to describe
-
-        Returns:
-            Formatted text description
-        """
-        return f"with text '{node.view_text}'" if node.view_text else "with no text"
-
-    def __has_focus(self, node: Node) -> str:
-        """
-        Format node focus description.
-
-        Args:
-            node: The node to describe
-
-        Returns:
-            Formatted focus description
-        """
-        return " that is focused" if node.focused else ""
-
-    def __with_description(self, node: Node) -> str:
-        """
-        Format node content description.
-
-        Args:
-            node: The node to describe
-
-        Returns:
-            Formatted content description
-        """
-        return f" with description '{node.content_description}'" if node.content_description else ""
-
-    def __with_resource_id(self, node: Node) -> str:
-        """
-        Format node resource ID description.
-
-        Args:
-            node: The node to describe
-
-        Returns:
-            Formatted resource ID description
-        """
-        # if node.resource_id:
-        #     parts = node.resource_id.split("/")
-        #     if len(parts) > 1:
-        #         return f" with id={parts[1]}"
-        return ""
+        return f"{prefix}{self._with_text(node)}{self._has_focus(node)}{self._with_description(node)}{self._with_resource_id(node)}"

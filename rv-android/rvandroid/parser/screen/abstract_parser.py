@@ -3,7 +3,8 @@ from typing import Dict, Any, Optional, Type
 
 from rvandroid.domain.static import StaticAnalysisData
 from rvandroid.parser.screen.base_parser import BaseScreenParser
-from rvandroid.parser.screen.visitor.base_visitor import ScreenDescription, BaseScreenVisitor, Node
+from rvandroid.parser.screen.visitor.abstract_visitor import AbstractScreenVisitor
+from rvandroid.parser.screen.visitor.model import ScreenDescription, Node
 
 
 class AbstractScreenParser(BaseScreenParser[ScreenDescription]):
@@ -14,7 +15,7 @@ class AbstractScreenParser(BaseScreenParser[ScreenDescription]):
     This class provides backward compatibility with existing code, extending the new BaseScreenParser.
     """
 
-    def __init__(self, visitor_class: Optional[Type[BaseScreenVisitor]] = None):
+    def __init__(self, visitor_class: Optional[Type[AbstractScreenVisitor]] = None):
         """
         Initialize the parser.
 
