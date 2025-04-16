@@ -4,7 +4,7 @@ import pytest
 from unittest.mock import MagicMock, patch
 
 from rvandroid.analysis.screenshot.screenshot_action_complementor import ScreenshotActionComplementor
-from rvandroid.parser.screen.visitor.base_visitor import ScreenDescription, ScreenItem, ItemAction
+from rvandroid.parser.screen.visitor.model import ScreenDescription, ScreenItem, ItemAction
 
 
 class TestScreenshotActionComplementor:
