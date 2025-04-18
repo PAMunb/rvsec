@@ -103,7 +103,10 @@ class OllamaLLM(LanguageModel):
                        messages: List[MCPMessage],
                        config: Optional[MCPConfiguration] = None) -> MCPMessage:
         """
-        Generate a response using Ollama.
+        Generate a response using Ollama's chat API.
+        
+        Updated implementation uses Ollama's chat API which provides better 
+        handling of conversation contexts and message formatting.
         
         Args:
             messages: List of MCP messages representing the conversation
@@ -124,21 +127,19 @@ class OllamaLLM(LanguageModel):
             raise ValueError("Invalid request for Ollama")
 
         # Prepare messages using adapter
-        prepared_messages = self.adapter.prepare_messages(messages)
-        print(f"prepared_messages={prepared_messages}")
-
+        prepared_data = self.adapter.prepare_messages(messages)
+        
         # Prepare configuration using adapter
         prepared_config = self.adapter.prepare_config(use_config)
 
         try:
-            # Generate response using Ollama
-            response = await self.client.generate(
+            # Use chat API instead of generate API
+            response = await self.client.chat(
                 model=prepared_config.pop("model"),
-                prompt=prepared_messages["prompt"],
+                messages=prepared_data["messages"],
                 options=prepared_config
             )
-            print(f"\n\nresponse={response}")
-
+            
             # Parse response using adapter
             return self.adapter.parse_response(response)
 
@@ -150,7 +151,10 @@ class OllamaLLM(LanguageModel):
                       messages: List[MCPMessage],
                       config: Optional[MCPConfiguration] = None) -> MCPMessage:
         """
-        Generate a response synchronously.
+        Generate a response synchronously using Ollama's chat API.
+        
+        Updated implementation uses Ollama's chat API which provides better 
+        handling of conversation contexts and message formatting.
         
         Args:
             messages: List of MCP messages representing the conversation
@@ -171,7 +175,7 @@ class OllamaLLM(LanguageModel):
             # Prepare messages in a simple format
             formatted_msgs = []
             for msg in messages:
-                role = msg.role.value  # e.g., "system", "user"
+                role = msg.role.value  # e.g., "system", "user", "assistant"
                 content = msg.get_text_content()
                 formatted_msgs.append({"role": role, "content": content})
 
@@ -195,7 +199,7 @@ class OllamaLLM(LanguageModel):
 
         # Helper function that runs in a subprocess and calls Ollama directly
         def _run_ollama_call(data_dict, result_file):
-            """Execute the Ollama call in a separate process."""
+            """Execute the Ollama call in a separate process using chat API."""
             try:
                 import sys
                 import os
@@ -210,18 +214,6 @@ class OllamaLLM(LanguageModel):
                 # Create a synchronous client
                 client = Client(host=api_base)
 
-                # Format prompt for the Ollama model
-                prompt = ""
-                for msg in messages:
-                    if msg["role"] == "system":
-                        prompt += f"<|system|>\n{msg['content']}\n"
-                    elif msg["role"] == "user":
-                        prompt += f"<|user|>\n{msg['content']}\n"
-                    elif msg["role"] == "assistant":
-                        prompt += f"<|assistant|>\n{msg['content']}\n"
-                prompt += "<|assistant|>\n"
-                print(f"\nprompt={prompt}")
-
                 # Prepare options from config
                 options = {}
                 if "temperature" in cfg and cfg["temperature"] is not None:
@@ -229,16 +221,20 @@ class OllamaLLM(LanguageModel):
                 if "max_tokens" in cfg and cfg["max_tokens"] is not None:
                     options["num_predict"] = cfg["max_tokens"]
 
-                # Call Ollama synchronously
-                response = client.generate(
+                print(f"Calling Ollama with model: {model_name}, options: {options}")
+                for msg in messages:
+                    print(f"Message: {msg}")
+
+                # Call Ollama chat API synchronously
+                response = client.chat(
                     model=model_name,
-                    prompt=prompt,
+                    messages=messages,
                     options=options
                 )
-                print(f"\n\nresponse={response}")
 
                 # Write the result to the file
-                result = {"success": True, "content": response["response"]}
+                result = {"success": True, "content": response["message"]["content"]}
+                print(f"\nResponse: {response}")
                 with open(result_file, 'w') as f:
                     json.dump(result, f)
 

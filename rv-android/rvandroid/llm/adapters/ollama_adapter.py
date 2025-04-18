@@ -20,40 +20,28 @@ class OllamaAdapter(MCPAdapter):
 
     def prepare_messages(self, messages: List[MCPMessage]) -> Dict[str, Any]:
         """
-        Convert MCP messages to Ollama format.
+        Convert MCP messages to Ollama format for chat API.
         
-        Ollama uses a specific prompt format with special tokens to
-        delimit different message roles and parts of the conversation.
+        This updated implementation formats messages for Ollama's chat API
+        instead of the generate API, letting Ollama handle message formatting.
         
         Args:
             messages: List of MCP messages to convert
             
         Returns:
-            Dictionary with "prompt" key containing formatted prompt string
+            Dictionary with "messages" key containing formatted message objects
         """
-        # Ollama uses a simple prompt format
-        prompt = ""
-
+        ollama_messages = []
+        
         for message in messages:
-            role_str = message.role.value.capitalize()
             content = message.get_text_content()
-
-            # Format based on role
-            if message.role == MCPRole.SYSTEM:
-                prompt += f"<s>[INST] <<SYS>>\n{content}\n<</SYS>>\n\n"
-            elif message.role == MCPRole.USER:
-                if prompt:  # Not the first message
-                    prompt += f"{content} [/INST]"
-                else:
-                    prompt += f"<s>[INST] {content} [/INST]"
-            elif message.role == MCPRole.ASSISTANT:
-                prompt += f" {content} </s><s>[INST] "
-
-        # Complete the final formatting if needed
-        if not prompt.endswith("[/INST] "):
-            prompt += " [/INST] "
-
-        return {"prompt": prompt}
+            
+            ollama_messages.append({
+                "role": message.role.value,
+                "content": content
+            })
+            
+        return {"messages": ollama_messages}
 
     def prepare_config(self, config: MCPConfiguration) -> Dict[str, Any]:
         """
@@ -85,8 +73,7 @@ class OllamaAdapter(MCPAdapter):
         """
         Parse Ollama response into MCP message.
         
-        Handles different possible response formats from Ollama
-        and converts them to a standardized MCP message.
+        Updated to handle both generate and chat API response formats.
         
         Args:
             response: Response from Ollama API
@@ -95,12 +82,23 @@ class OllamaAdapter(MCPAdapter):
             MCPMessage with parsed response
         """
         if isinstance(response, dict):
-            text = response.get("response", "")
+            # Handle chat API format
+            if "message" in response:
+                content = response.get("message", {}).get("content", "")
+                return MCPMessage(
+                    role=MCPRole.ASSISTANT,
+                    content=[MCPTextContent(text=content)]
+                )
+            # Handle generate API format (legacy)
+            elif "response" in response:
+                text = response.get("response", "")
+            else:
+                text = str(response)
         elif isinstance(response, str):
             text = response
         else:
             text = str(response)
-
+            
         return MCPMessage(
             role=MCPRole.ASSISTANT,
             content=[MCPTextContent(text=text)]

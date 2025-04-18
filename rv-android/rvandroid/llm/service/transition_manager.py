@@ -1,8 +1,8 @@
 # rvandroid/llm/service/transition_manager.py
 from typing import Dict, List, Any
 
-from rvandroid.experiment.event.bus import EventBus
 from rvandroid.domain.dynamic_wtg import DynamicTransitionGraph
+from rvandroid.experiment.event.bus import EventBus
 from rvandroid.util.logging.constants import CONTEXT_COMPONENT
 from rvandroid.util.logging.manager import LoggingManager
 from rvandroid.util.performance_monitor import PerformanceMonitor
@@ -25,30 +25,22 @@ class TransitionManager:
     - Supports intelligent test navigation decisions
     """
 
-    def __init__(self, dynamic_wtg_file: str = "dynamic_wtg.json"):
+    def __init__(self):
         """
         Initialize the transition manager.
 
-        Args:
-            dynamic_wtg_file: File to store/load dynamic transition graph
         """
-        # Get system services
-        self.event_bus = EventBus.get_instance()
-        self.performance_monitor = PerformanceMonitor.get_instance()
-        logging_manager = LoggingManager.get_instance()
-
         # Configure logging
+        logging_manager = LoggingManager.get_instance()
         self.logger = logging_manager.get_logger(
             "llm.service.transition_manager",
             {CONTEXT_COMPONENT: "TransitionManager"}
         )
 
-        # Initialize dynamic transition graph or load from file
-        self.dynamic_wtg_file = dynamic_wtg_file
-        saved_graph = DynamicTransitionGraph.load_from_file(dynamic_wtg_file)
-        self.dynamic_wtg = saved_graph if saved_graph else DynamicTransitionGraph()
+        # Initialize dynamic transition graph
+        self.dynamic_wtg = DynamicTransitionGraph()
 
-        self.logger.info(f"Transition manager initialized with graph file: {dynamic_wtg_file}")
+        self.logger.info("Transition manager initialized")
 
     def update_transitions(self, state: Dict[str, Any], executed_action: Dict[str, Any] = None) -> None:
         """
@@ -171,12 +163,3 @@ class TransitionManager:
             self.logger.error(f"Error getting transition guidance: {e}", exc_info=True)
 
         return guidance
-
-    def save(self) -> bool:
-        """
-        Save the dynamic transition graph to file.
-
-        Returns:
-            True if successful, False otherwise
-        """
-        return self.dynamic_wtg.save_to_file(self.dynamic_wtg_file)
