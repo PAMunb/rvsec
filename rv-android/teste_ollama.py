@@ -5,17 +5,39 @@ import sys
 
 from rvandroid.app import App
 from rvandroid.config.component_configurator import ComponentConfigurator
+from rvandroid.llm.constants import LLMType, PromptStrategyType, ScreenParserType, VisitorType
 from rvandroid.llm.ollama_llm import OllamaLLM
-from rvandroid.llm.prompt.prompt_strategy_basic_001 import BasicPromptStrategy001
 from rvandroid.llm.service.action_service import LLMActionService
-from rvandroid.parser.screen.droidbot.droidbot_parser import DroidBotParser
-from rvandroid.parser.screen.visitor.text_visitor import EnhancedTextVisitor
 from rvandroid.parser.static import static_analysis_parser
-
+from ollama import Client
 
 def read_droidbot_state(filename):
     with open(filename, 'r') as file:
         return json.load(file)
+
+
+def tmp_simple():
+    client = Client(host="http://192.168.0.18:11434")
+
+    # Prepare options from config
+    options = {}
+    options["temperature"] = 0.2
+    options["num_predict"] = 200
+
+    messages = [
+        {"role": "system", "content": "You are a helpful assistant."},
+        {"role": "user", "content": "What is the capital of Brazil?"}
+    ]
+
+    # Call Ollama chat API synchronously
+    response = client.chat(
+        model=OllamaLLM.LLAMA,
+        messages=messages,
+        options=options
+    )
+
+    print(f"response={response}")
+    print(f"*** Response: {response['message']['content']}")
 
 
 if __name__ == '__main__':
@@ -26,6 +48,9 @@ if __name__ == '__main__':
     logging.getLogger("rvandroid.model.window.Window").setLevel(logging.WARNING)
     # rvandroid.parser.static.gesda_parser
     logging.info("Starting...")
+
+    # tmp_simple()
+    # exit(1)
 
     screenshots_folder = "/home/pedro/desenvolvimento/RV_ANDROID/teste_llm/screenshots"
     apk = "cryptoapp.apk"
@@ -38,16 +63,15 @@ if __name__ == '__main__':
     static_data = static_analysis_parser.read_static_analysis_files(app_folder, apk, package)
     screen_info = read_droidbot_state(info_file)
 
-    # TODO agrupar tudo no component config
     configurator = ComponentConfigurator(static_data)
     configurator.set_llm(
-        llm_type=OllamaLLM.NAME,
-        model=OllamaLLM.GEMMA,
-        base_url="http://localhost:11434"
+        llm_type=LLMType.OLLAMA,
+        model=OllamaLLM.LLAMA,
+        base_url="http://192.168.0.18:11434"
     )
-    configurator.set_strategy("single_action")
-    configurator.set_parser("droidbot")
-    configurator.set_visitor("enhanced")
+    configurator.set_strategy(PromptStrategyType.STANDARD)
+    configurator.set_parser(ScreenParserType.DROIDBOT)
+    configurator.set_visitor(VisitorType.BASIC)
 
     config = configurator.describe_configuration()
     print("\n=== Configuração do RV-Android ===")

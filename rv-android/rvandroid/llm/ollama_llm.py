@@ -79,7 +79,9 @@ class OllamaLLM(LanguageModel):
                 temperature: Sampling temperature (default: 0.7)
                 max_tokens: Maximum tokens to generate (default: None)
         """
-        self.api_base = kwargs.pop("api_base", "http://localhost:11434")
+        print(f"OllamaLLM ::: {kwargs}")
+        self.api_base = kwargs.pop("base_url", "http://localhost:11434")
+        print(f"OllamaLLM ::: base_url={self.api_base}")
         super().__init__(model_name, **kwargs)
         # We don't create the client here, instead create it on demand in generate
         self._client = None
@@ -209,9 +211,12 @@ class OllamaLLM(LanguageModel):
 
                 # Extract the data needed for the call
                 model_name = data_dict["model_name"]
+                print(f"model_name={model_name}")
                 api_base = data_dict["api_base"]
+                print(f"api_base={api_base}")
                 messages = data_dict["messages"]
                 cfg = data_dict["config"]
+                print(f"cfg={cfg}")
 
                 # Create a synchronous client
                 client = Client(host=api_base)

@@ -649,6 +649,7 @@ class ComponentConfigurator:
             ValueError: If LLM creation fails
         """
         kwargs = self.llm_config.kwargs.copy()
+        print(f"copia do kwargs={kwargs}")
 
         # Add standard parameters
         model_type = self.llm_config.model_type
@@ -670,6 +671,7 @@ class ComponentConfigurator:
             return model_class(model_name, device=device, **kwargs)
 
         elif model_type == "ollama":
+            # print(f"ollama kwargs={kwargs.pop('base_url')}")
             base_url = kwargs.pop('base_url', "http://localhost:11434")
             return model_class(model_name, base_url=base_url, **kwargs)
 

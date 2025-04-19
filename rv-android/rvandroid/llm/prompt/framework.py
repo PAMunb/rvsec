@@ -290,6 +290,7 @@ class PromptFramework:
         try:
             self.logger.debug(f"Sending {len(messages)} messages to LLM")
             response = self.model.generate_sync(messages)
+            # response = self.model.generate(messages)
             return response
         except Exception as e:
             self.logger.error(f"Error generating LLM response: {e}", exc_info=True)
