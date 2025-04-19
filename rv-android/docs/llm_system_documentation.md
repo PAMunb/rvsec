@@ -1,1760 +1,1273 @@
-# Model Context Protocol (MCP) in RV-Android
+# LLM Integration in RV-Android
 
-This document provides comprehensive documentation of the Model Context Protocol (MCP) integration within the RV-Android platform, detailing its architecture, components, and usage patterns.
+This document describes the integration of Large Language Models (LLMs) in the RV-Android system, detailing the unified architecture, components, and examples of usage.
 
 ## Table of Contents
 
 1. [Introduction](#1-introduction)
-2. [Architecture Overview](#2-architecture-overview)
-3. [Core Components](#3-core-components)
-4. [Model Adapters](#4-model-adapters)
-5. [Template System](#5-template-system)
-6. [Prompt Strategies](#6-prompt-strategies)
-7. [Integration with Test Framework](#7-integration-with-test-framework)
+2. [Consolidated Architecture](#2-consolidated-architecture)
+3. [Information Layer](#3-information-layer)
+4. [Template Layer](#4-template-layer)
+5. [Strategy Layer](#5-strategy-layer)
+6. [Unified Framework](#6-unified-framework)
+7. [Service Integration](#7-service-integration)
 8. [Usage Examples](#8-usage-examples)
-9. [Extending the System](#9-extending-the-system)
-10. [Troubleshooting](#10-troubleshooting)
+9. [System Extension](#9-system-extension)
+10. [Modular Template System](#10-modular-template-system)
 
 ## 1. Introduction
 
-### 1.1 What is Model Context Protocol (MCP)?
+### 1.1 LLM Integration Overview
 
-The Model Context Protocol (MCP) is a standardized interface for interacting with Large Language Models (LLMs) in the RV-Android system. It provides a unified approach to message representation, formatting, and exchange across different LLM providers, ensuring consistency and modularity.
+The RV-Android system uses a sophisticated and consolidated architecture for integrating Large Language Models (LLMs) into the Android application testing process. The architecture provides essential features:
 
-MCP addresses several critical challenges in LLM integration:
+1. **Externalized Templates**: XML templates with CDATA sections for easy editing without code changes
+2. **Modular Information**: Fragment system that collects and formats information from different sources
+3. **Flexible Strategies**: Different approaches for prompt generation as needed
+4. **UI Pattern Detection**: Identification of common patterns for better test targeting
+5. **Visual Analysis**: Integration of screenshot information to enrich prompts
+6. **Monitored Operations**: Tracking of critical operations (formerly called "security operations")
 
-1. **Standardized Message Format**: Provides a consistent message structure across all LLM providers
-2. **Model-Agnostic Communication**: Abstracts away provider-specific message formats
-3. **Structured Template System**: Enables type-safe template generation and composition
-4. **Adapter-Based Design**: Facilitates easy integration of new LLM providers
-5. **Centralized Configuration**: Unifies configuration across different models
+### 1.2 Benefits of the Consolidated Architecture
 
-### 1.2 Benefits of Using MCP
+The consolidated architecture offers several advantages:
 
-The adoption of MCP in RV-Android offers several significant benefits:
+1. **Elimination of Duplication**: All prompt formatting code is centralized
+2. **Improved Maintainability**: XML templates are easily editable
+3. **Extensibility**: Easy addition of new fragments and strategies
+4. **Multimodal Integration**: Combination of textual and visual information
+5. **Consistent Configuration**: Standardized configuration parameters
+6. **Scalability**: Layered architecture for sustainable growth
+7. **Modular Templates**: Template inheritance and fragment inclusion for reusability
 
-1. **Reduced Duplication**: Eliminates duplicated format handling code across model implementations
-2. **Enhanced Maintainability**: Centralizes message formatting logic in adapters
-3. **Improved Extensibility**: Simplifies adding support for new LLM providers
-4. **Type Safety**: Provides structured data types for messages and content
-5. **Versioned Templates**: Enables systematic template management and evolution
-6. **Consistent Configuration**: Standardizes configuration parameters across models
+### 1.3 Terminology and Concepts
 
-### 1.3 Limitations and Considerations
+Key concepts in the architecture:
 
-While MCP provides significant advantages, it's important to be aware of its limitations:
+1. **Information Fragment**: Modular component that generates a specific part of a prompt
+2. **Information Manager**: Coordinates composition and prioritization of fragments
+3. **Prompt Template**: Defines the structure of a prompt with support for variables and conditionals
+4. **Template Repository**: Manages externalized templates in XML files
+5. **Template Fragments**: Reusable pieces of prompt content that can be included in multiple templates
+6. **Prompt Strategy**: Defines how prompts are generated for specific scenarios
+7. **Strategy Registry**: Coordinates available strategies and their usage
+8. **Unified Framework**: Facade that integrates all layers of the system
 
-1. **Additional Layer of Abstraction**: Introduces a translation layer between application code and LLM APIs
-2. **Potential Performance Overhead**: The adapter conversion process adds some computational overhead
-3. **Least Common Denominator Effect**: The standardized interface may not expose all provider-specific features
-4. **Learning Curve**: Requires understanding the MCP structures and adapter system
+## 2. Consolidated Architecture
 
-### 1.4 MCP in the Context of Monitored Operations
+### 2.1 Three-Layer Architecture
 
-The MCP implementation in RV-Android is designed to support the system's approach of using different specification sets in separate experiments, particularly for testing:
-
-1. **Cryptography-related specifications**: Detecting misuse of Java Cryptography Architecture (JCA)
-2. **General programming specifications**: Enforcing proper API usage patterns (like Iterator hasNext/next validation)
-
-Throughout the MCP system, we use the term "monitored operations" to refer to operations being tracked by any specification, without assuming a security-specific context.
-
-## 2. Architecture Overview
-
-### 2.1 High-Level Architecture
-
-The MCP architecture follows a clean layered design with clear separation of concerns:
+The new LLM integration architecture follows a three-layer design with clear separation of responsibilities:
 
 ```
-┌───────────────────────────────────────────────────────────┐
-│                     Application Layer                     │
-│ ┌─────────────────┐ ┌─────────────────┐ ┌───────────────┐ │
-│ │  Prompt Strategy │ │  Test Framework │ │    RV Tools   │ │
-│ └─────────────────┘ └─────────────────┘ └───────────────┘ │
-└───────────────────────────────────────────────────────────┘
-                            │
-┌───────────────────────────▼───────────────────────────────┐
-│                        MCP Layer                          │
-│ ┌─────────────────┐ ┌─────────────────┐ ┌───────────────┐ │
-│ │  Data Structures│ │ Template System │ │Language Model │ │
-│ └─────────────────┘ └─────────────────┘ └───────────────┘ │
-└───────────────────────────────────────────────────────────┘
-                            │
-┌───────────────────────────▼───────────────────────────────┐
-│                      Adapter Layer                        │
-│ ┌─────────────────┐ ┌─────────────────┐ ┌───────────────┐ │
-│ │  Ollama Adapter │ │  DSPy Adapter   │ │ Other Adapters│ │
-│ └─────────────────┘ └─────────────────┘ └───────────────┘ │
-└───────────────────────────────────────────────────────────┘
-                            │
-┌───────────────────────────▼───────────────────────────────┐
-│                      Provider Layer                       │
-│ ┌─────────────────┐ ┌─────────────────┐ ┌───────────────┐ │
-│ │  Ollama Models  │ │  HuggingFace    │ │ Frontier LLMs │ │
-│ └─────────────────┘ └─────────────────┘ └───────────────┘ │
-└───────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────┐
+│                       Unified Framework                             │
+└───────────────────────────────┬─────────────────────────────────────┘
+                                │
+┌───────────────────────────────▼─────────────────────────────────────┐
+│                        Strategy Layer                               │
+│ ┌────────────────────┐  ┌────────────────────┐  ┌────────────────┐  │
+│ │ StandardStrategy   │  │ BatchActionStrategy │  │ Other          │  │
+│ │                    │  │                    │  │ Strategies      │  │
+│ └────────────────────┘  └────────────────────┘  └────────────────┘  │
+└───────────────────────────────┬─────────────────────────────────────┘
+                                │
+┌───────────────────────────────▼─────────────────────────────────────┐
+│                        Template Layer                               │
+│ ┌────────────────────┐  ┌────────────────────┐  ┌────────────────┐  │
+│ │ XMLTemplate        │  │ XMLTemplateRepo    │  │ XML Templates  │  │
+│ │                    │  │                    │  │ with CDATA     │  │
+│ └────────────────────┘  └────────────────────┘  └────────────────┘  │
+└───────────────────────────────┬─────────────────────────────────────┘
+                                │
+┌───────────────────────────────▼─────────────────────────────────────┐
+│                       Information Layer                             │
+│ ┌────────────────────┐  ┌────────────────────┐  ┌────────────────┐  │
+│ │ InformationFragment│  │ InformationManager │  │ Specialized    │  │
+│ │                    │  │                    │  │ Fragments      │  │
+│ └────────────────────┘  └────────────────────┘  └────────────────┘  │
+└─────────────────────────────────────────────────────────────────────┘
 ```
 
-### 2.2 Key Components and Relations
+### 2.2 Key Components and Their Relationships
 
-The MCP system is composed of several interconnected components:
+The system is composed of several interconnected components:
 
-1. **Core Data Structures** (`data_structures.py`):
-   - Defines fundamental message and content representations
-   - Provides the structural foundation for the entire protocol
+1. **Information Layer** (`information/`):
+   - Defines how information is collected and formatted
+   - Implements fragments for different information sources
+   - Manages the composition of information for prompts
 
-2. **Adapter System** (`adapter.py`, `adapters/`):
-   - Defines the adapter interface for model-specific conversions
-   - Implements concrete adapters for each supported LLM provider
+2. **Template Layer** (`template/`):
+   - Defines the structure of messages for LLMs
+   - Manages templates stored in external XML files with CDATA sections
+   - Supports variables, conditionals, and transformations
+   - Includes reusable template fragments for modular prompt construction
 
-3. **Language Model Interface** (`language_model.py`):
-   - Provides a standardized interface for all LLM implementations
-   - Utilizes adapters for format conversion
+3. **Strategy Layer** (`strategy/`):
+   - Coordinates the prompt generation process
+   - Implements strategies for different testing scenarios
+   - Connects information and templates with the language model
 
-4. **Template System** (`templates/`):
-   - Implements a structured, type-safe template system
-   - Supports versioning, inheritance, and composition
-
-5. **Model Factory** (`model_factory.py`):
-   - Creates model instances based on configuration
-   - Handles model registration and discovery
-
-The relationship between these components is hierarchical and well-defined:
-
-- Application code interacts primarily with the Language Model interface
-- Language Model implementations use Adapters for format conversion
-- Adapters convert between MCP structures and provider-specific formats
-- Templates generate structured MCP messages
-- Data Structures provide the foundational types for all components
+4. **Unified Framework** (`framework.py`):
+   - Provides a unified facade for the entire system
+   - Simplifies initialization and configuration
+   - Manages the lifecycle of all components
 
 ### 2.3 Design Patterns
 
-The MCP implementation leverages several design patterns:
+The implementation leverages several design patterns:
 
-1. **Adapter Pattern**: Core to the model-specific format conversion
-2. **Factory Pattern**: Used in model instantiation and configuration
-3. **Strategy Pattern**: Applied in different template strategies
-4. **Decorator Pattern**: Employed for message enrichment
-5. **Builder Pattern**: Used in message and content construction
+1. **Strategy Pattern**: Applied in different prompt strategies
+2. **Composite Pattern**: Used in the composition of fragments
+3. **Factory Pattern**: Used in the instantiation of components
+4. **Facade Pattern**: Applied in the unified framework
+5. **Template Method Pattern**: Used in information fragments
 6. **Repository Pattern**: Applied in template management
+7. **Inheritance Pattern**: Used in template hierarchies for reusability
 
-## 3. Core Components
+## 3. Information Layer
 
-### 3.1 MCP Data Structures
+### 3.1 Information Fragments
 
-The foundation of the MCP system is a set of standardized data structures defined in `data_structures.py`:
-
-```python
-from enum import Enum
-from typing import List, Dict, Any, Optional, Union
-from dataclasses import dataclass
-
-class MCPRole(Enum):
-    SYSTEM = "system"
-    USER = "user"
-    ASSISTANT = "assistant"
-    TOOL = "tool"
-    
-@dataclass
-class MCPTextContent:
-    text: str
-    
-@dataclass
-class MCPImageContent:
-    url: str
-    detail: Optional[str] = "auto"
-    
-MCPContentType = Union[MCPTextContent, MCPImageContent]
-
-@dataclass
-class MCPMessage:
-    role: MCPRole
-    content: List[MCPContentType]
-    name: Optional[str] = None
-    tool_calls: Optional[List[Dict[str, Any]]] = None
-    tool_call_id: Optional[str] = None
-    
-@dataclass
-class MCPConfiguration:
-    model_name: str
-    model_type: str
-    temperature: float = 0.7
-    max_tokens: Optional[int] = None
-    top_p: float = 1.0
-    frequency_penalty: float = 0.0
-    presence_penalty: float = 0.0
-    stop: Optional[List[str]] = None
-```
-
-Key features of the data structures:
-
-1. **Role Enumeration**: Standardizes message roles (system, user, assistant, tool)
-2. **Content Types**: Supports both text and image content
-3. **Structured Messages**: Provides a consistent message format with optional attributes
-4. **Configuration Parameters**: Standardizes model configuration options
-
-### 3.2 Creating and Using MCP Messages
-
-Working with MCP messages is straightforward:
+The foundation of the information layer is the abstract `InformationFragment` class:
 
 ```python
-# Create text content
-system_content = MCPTextContent(
-    text="You are an AI assistant helping to test Android applications."
-)
-
-# Create a system message
-system_message = MCPMessage(
-    role=MCPRole.SYSTEM,
-    content=[system_content]
-)
-
-# Create user content with both text and image
-user_text = MCPTextContent(
-    text="Analyze this screen and suggest possible actions."
-)
-user_image = MCPImageContent(
-    url="file:///path/to/screenshot.png"
-)
-
-# Create a user message with mixed content
-user_message = MCPMessage(
-    role=MCPRole.USER,
-    content=[user_text, user_image]
-)
-
-# Create a conversation
-messages = [system_message, user_message]
-
-# Create model configuration
-config = MCPConfiguration(
-    model_name="llama3.2",
-    model_type="ollama",
-    temperature=0.3,
-    max_tokens=800
-)
-```
-
-### 3.3 The MCP Adapter Interface
-
-The `MCPAdapter` interface defines the contract for model-specific adapters:
-
-```python
-from abc import ABC, abstractmethod
-from typing import Dict, Any, List
-
-class MCPAdapter(ABC):
-    @abstractmethod
-    def prepare_messages(self, messages: List[MCPMessage]) -> Dict[str, Any]:
-        """Convert MCP messages to model-specific format"""
+class InformationFragment(abc.ABC):
+    """Base class for all information fragments."""
+    
+    def __init__(self, name: str, priority: int = 100):
+        """Initialize the information fragment."""
+        self.name = name
+        self.priority = priority
+        self.logger = # logger configuration
+        self.error_handler = ErrorHandler.get_instance()
+    
+    @abc.abstractmethod
+    def generate(self, state: Dict[str, Any], context: Optional[Dict[str, Any]] = None) -> Any:
+        """Generate the formatted information from the given state and context."""
         pass
     
-    @abstractmethod
-    def prepare_config(self, config: MCPConfiguration) -> Dict[str, Any]:
-        """Convert MCP configuration to model-specific parameters"""
-        pass
+    def should_include(self, state: Dict[str, Any], context: Optional[Dict[str, Any]] = None) -> bool:
+        """Determine if this fragment should be included in the current prompt."""
+        return True
     
-    @abstractmethod
-    def parse_response(self, response: Any) -> MCPMessage:
-        """Parse model response into MCP message"""
-        pass
-    
-    @abstractmethod
-    def validate_request(self, messages: List[MCPMessage], config: MCPConfiguration) -> bool:
-        """Validate that messages and config are compatible with this adapter"""
-        pass
-```
-
-The adapter interface ensures that:
-1. MCP messages can be converted to model-specific formats
-2. Configuration parameters are properly mapped
-3. Model responses are converted back to MCP format
-4. Request compatibility is validated before submission
-
-### 3.4 Language Model Interface
-
-The `LanguageModel` abstract base class defines the standard interface for all LLM implementations:
-
-```python
-from abc import ABC, abstractmethod
-from typing import List, Dict, Any, Optional, Type, ClassVar
-
-class LanguageModel(ABC):
-    """
-    Base class for language model implementations using the Model Context Protocol.
-    """
-
-    def __init__(self, model_name: str, **kwargs):
-        """
-        Initialize language model.
-        """
-        self.model_name = model_name
-        self.adapter = self._get_adapter()
-        self.config = MCPConfiguration(
-            model_name=model_name,
-            model_type=self._get_model_type()
-        )
-
-        # Update config with kwargs
-        for key, value in kwargs.items():
-            if hasattr(self.config, key):
-                setattr(self.config, key, value)
-
-        self.logger = logging.getLogger(f"{__name__}.{self.__class__.__name__}")
-
-    @abstractmethod
-    def _get_model_type(self) -> str:
-        """Get model type string."""
-        pass
-
-    @abstractmethod
-    def _get_adapter(self) -> MCPAdapter:
-        """Get the appropriate MCP adapter for this model."""
-        pass
-
-    @abstractmethod
-    async def generate(self,
-                      messages: List[MCPMessage],
-                      config: Optional[MCPConfiguration] = None) -> MCPMessage:
-        """Generate a response using the language model."""
-        pass
-
-    @abstractmethod
-    def generate_sync(self,
-                     messages: List[MCPMessage],
-                     config: Optional[MCPConfiguration] = None) -> MCPMessage:
-        """Generate a response synchronously."""
-        pass
-        
-    @classmethod
-    def models(cls) -> List[str]:
-        """
-        Get a list of available models for this type.
-        """
-        # Default implementation - subclasses should override
-        return getattr(cls, "MODELS", [])
-```
-
-This interface ensures that:
-1. All model implementations follow a consistent pattern
-2. Both synchronous and asynchronous generation is supported
-3. Model-specific adapters are properly utilized
-4. Configuration is handled uniformly
-5. Models can report their available variants
-
-## 4. Model Adapters
-
-### 4.1 Adapter System Overview
-
-The adapter system is responsible for translating between MCP's standardized structures and model-specific formats. Each adapter handles the conversion for a particular LLM provider.
-
-```
-┌─────────────────┐      ┌──────────────┐     ┌─────────────────┐
-│                 │      │              │     │                 │
-│  MCP Structures ├─────►│ MCP Adapter  ├────►│ Provider Format │
-│                 │      │              │     │                 │
-└─────────────────┘      └──────────────┘     └─────────────────┘
-        ▲                       │                     │
-        │                       │                     │
-        │                       ▼                     ▼
-┌─────────────────┐      ┌──────────────┐     ┌─────────────────┐
-│                 │      │              │     │                 │
-│  MCP Message    │◄─────┤ Parse        │◄────┤ Provider Response│
-│                 │      │ Response     │     │                 │
-└─────────────────┘      └──────────────┘     └─────────────────┘
-```
-
-### 4.2 Ollama Adapter Implementation
-
-Here's an example of a concrete adapter implementation for Ollama:
-
-```python
-from typing import Dict, Any, List
-import logging
-from rvandroid.llm.adapter import MCPAdapter
-from rvandroid.llm.data_structures import MCPMessage, MCPRole, MCPTextContent, MCPConfiguration
-
-class OllamaAdapter(MCPAdapter):
-    """
-    Adapter for converting between MCP format and Ollama API format.
-    """
-    
-    def __init__(self):
-        """Initialize the Ollama adapter."""
-        self.logger = logging.getLogger(f"{__name__}.{self.__class__.__name__}")
-    
-    def prepare_messages(self, messages: List[MCPMessage]) -> Dict[str, Any]:
-        """
-        Convert MCP messages to Ollama format.
-        
-        Args:
-            messages: List of MCP messages
+    def get_info(self, state: Dict[str, Any], context: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        """Get the information from this fragment if it should be included."""
+        try:
+            if not self.should_include(state, context):
+                return {}
             
-        Returns:
-            Dictionary with Ollama-specific message format
-        """
-        ollama_messages = []
-        
-        for message in messages:
-            # Extract text content from message
-            text_content = ""
-            for content_item in message.content:
-                if isinstance(content_item, MCPTextContent):
-                    text_content += content_item.text
-            
-            # Map MCP role to Ollama role
-            role = message.role.value
-            
-            # Create Ollama message
-            ollama_message = {
-                "role": role,
-                "content": text_content
-            }
-            
-            # Add name if present
-            if message.name:
-                ollama_message["name"] = message.name
+            result = self.generate(state, context)
+            if result is None:
+                return {}
                 
-            ollama_messages.append(ollama_message)
-        
-        return {"messages": ollama_messages}
-    
-    def prepare_config(self, config: MCPConfiguration) -> Dict[str, Any]:
-        """
-        Convert MCP configuration to Ollama parameters.
-        
-        Args:
-            config: MCP configuration
-            
-        Returns:
-            Dictionary with Ollama-specific parameters
-        """
-        ollama_config = {
-            "model": config.model_name,
-            "temperature": config.temperature,
-            "top_p": config.top_p
-        }
-        
-        # Add optional parameters if present
-        if config.max_tokens:
-            ollama_config["num_predict"] = config.max_tokens
-        
-        if config.stop:
-            ollama_config["stop"] = config.stop
-            
-        return ollama_config
-    
-    def parse_response(self, response: Dict[str, Any]) -> MCPMessage:
-        """
-        Parse Ollama response into MCP message.
-        
-        Args:
-            response: Ollama response dictionary
-            
-        Returns:
-            MCPMessage containing the response
-        """
-        try:
-            # Extract response content
-            content_text = response.get("response", "")
-            
-            # Create MCP message
-            return MCPMessage(
-                role=MCPRole.ASSISTANT,
-                content=[MCPTextContent(text=content_text)]
-            )
+            return {self.name: result}
         except Exception as e:
-            self.logger.error(f"Error parsing Ollama response: {e}")
-            # Return empty message on error
-            return MCPMessage(
-                role=MCPRole.ASSISTANT,
-                content=[MCPTextContent(text="")]
-            )
-    
-    def validate_request(self, messages: List[MCPMessage], config: MCPConfiguration) -> bool:
-        """
-        Validate that messages and config are compatible with Ollama.
-        
-        Args:
-            messages: List of MCP messages
-            config: MCP configuration
-            
-        Returns:
-            True if the request is valid for Ollama
-        """
-        # Check if model name is valid
-        if not config.model_name:
-            self.logger.error("Model name is required for Ollama")
-            return False
-        
-        # Check if messages are valid
-        if not messages:
-            self.logger.error("At least one message is required")
-            return False
-        
-        # Ollama doesn't support image content
-        for message in messages:
-            for content in message.content:
-                if not isinstance(content, MCPTextContent):
-                    self.logger.warning("Ollama adapter will ignore non-text content")
-        
-        return True
+            # error handling
+            return {}
 ```
 
-### 4.3 DSPy Adapter Implementation
+### 3.2 Specialized Fragments
 
-The adapter for DSPy demonstrates a different integration approach:
+The system includes various specialized fragments:
+
+#### UIElementsFragment
 
 ```python
-from typing import Dict, Any, List
-import logging
-from rvandroid.llm.adapter import MCPAdapter
-from rvandroid.llm.data_structures import MCPMessage, MCPRole, MCPTextContent, MCPConfiguration
+class UIElementsFragment(InformationFragment):
+    """Fragment for extracting and formatting UI element information."""
+    
+    def __init__(self, name: str = FragmentType.UI_ELEMENTS, priority: int = 200):
+        super().__init__(name, priority)
+    
+    def generate(self, state: Dict[str, Any], context: Optional[Dict[str, Any]] = None) -> str:
+        """Generate formatted UI element information."""
+        # Format UI elements from the screen state
+        # Return a structured text representation of the UI
+```
 
-class DSPyAdapter(MCPAdapter):
-    """
-    Adapter for converting between MCP format and DSPy format.
-    """
+#### UIPatternFragment
+
+```python
+class UIPatternFragment(InformationFragment):
+    """Fragment for extracting and formatting UI pattern information."""
+    
+    def __init__(self, name: str = FragmentType.UI_PATTERNS, priority: int = 150):
+        super().__init__(name, priority)
+    
+    def generate(self, state: Dict[str, Any], context: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        """Generate UI pattern information."""
+        # Detect UI patterns like login forms, settings pages, etc.
+        # Return structured information about these patterns
+```
+
+#### MonitoredOperationsFragment
+
+```python
+class MonitoredOperationsFragment(InformationFragment):
+    """Fragment for extracting and formatting monitored operations information."""
+    
+    def __init__(self, name: str = FragmentType.MONITORED_OPERATIONS, priority: int = 300):
+        super().__init__(name, priority)
+    
+    def generate(self, state: Dict[str, Any], context: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        """Generate monitored operations information."""
+        # Process information about monitored operations (crypto, network, etc.)
+        # Format this information for inclusion in prompts
+```
+
+### 3.3 Information Manager
+
+The `InformationManager` coordinates fragments and composes complete information:
+
+```python
+class InformationManager:
+    """Manages information fragments and composes information for prompt generation."""
     
     def __init__(self):
-        """Initialize the DSPy adapter."""
-        self.logger = logging.getLogger(f"{__name__}.{self.__class__.__name__}")
+        self.fragments: Dict[str, InformationFragment] = {}
+        self.logger = # logger configuration
+        self.error_handler = ErrorHandler.get_instance()
     
-    def prepare_messages(self, messages: List[MCPMessage]) -> Dict[str, Any]:
-        """
-        Convert MCP messages to DSPy format.
-        
-        Args:
-            messages: List of MCP messages
-            
-        Returns:
-            Dictionary with DSPy-specific message format
-        """
-        # DSPy doesn't use a standard chat format but expects a single prompt
-        # We'll concatenate everything into a single prompt text
-        prompt_text = ""
-        
-        for message in messages:
-            # Add role prefix
-            role_prefix = f"{message.role.value.upper()}: "
-            
-            # Extract text content
-            message_text = ""
-            for content_item in message.content:
-                if isinstance(content_item, MCPTextContent):
-                    message_text += content_item.text
-            
-            # Add to prompt
-            prompt_text += f"{role_prefix}{message_text}\n\n"
-        
-        # Add final assistant prompt
-        prompt_text += "ASSISTANT: "
-        
-        return {"prompt": prompt_text}
+    def configure(self, config: ComponentConfigurator) -> None:
+        """Configure the InformationManager with the given configuration."""
+        # Configuration logic
     
-    def prepare_config(self, config: MCPConfiguration) -> Dict[str, Any]:
-        """
-        Convert MCP configuration to DSPy parameters.
-        
-        Args:
-            config: MCP configuration
-            
-        Returns:
-            Dictionary with DSPy-specific parameters
-        """
-        dspy_config = {
-            "temperature": config.temperature,
-            "top_p": config.top_p
-        }
-        
-        # Add optional parameters if present
-        if config.max_tokens:
-            dspy_config["max_tokens"] = config.max_tokens
-        
-        return dspy_config
+    def register_fragment(self, fragment: InformationFragment) -> None:
+        """Register an information fragment."""
+        self.fragments[fragment.name] = fragment
     
-    def parse_response(self, response: str) -> MCPMessage:
-        """
-        Parse DSPy response into MCP message.
-        
-        Args:
-            response: DSPy response text
-            
-        Returns:
-            MCPMessage containing the response
-        """
-        try:
-            # DSPy returns raw text
-            return MCPMessage(
-                role=MCPRole.ASSISTANT,
-                content=[MCPTextContent(text=response)]
-            )
-        except Exception as e:
-            self.logger.error(f"Error parsing DSPy response: {e}")
-            # Return empty message on error
-            return MCPMessage(
-                role=MCPRole.ASSISTANT,
-                content=[MCPTextContent(text="")]
-            )
+    def register_fragments(self, fragments: List[InformationFragment]) -> None:
+        """Register multiple information fragments."""
+        for fragment in fragments:
+            self.register_fragment(fragment)
     
-    def validate_request(self, messages: List[MCPMessage], config: MCPConfiguration) -> bool:
-        """
-        Validate that messages and config are compatible with DSPy.
-        
-        Args:
-            messages: List of MCP messages
-            config: MCP configuration
-            
-        Returns:
-            True if the request is valid for DSPy
-        """
-        # Check if messages are valid
-        if not messages:
-            self.logger.error("At least one message is required")
-            return False
-        
-        # DSPy doesn't support image content
-        for message in messages:
-            for content in message.content:
-                if not isinstance(content, MCPTextContent):
-                    self.logger.warning("DSPy adapter will ignore non-text content")
-        
-        return True
+    def compose_information(
+        self, 
+        state: Dict[str, Any], 
+        context: Optional[Dict[str, Any]] = None,
+        requested_fragments: Optional[List[str]] = None
+    ) -> Dict[str, Any]:
+        """Compose information from all relevant fragments."""
+        # Get fragments ordered by priority
+        # Collect information from each fragment
+        # Combine all information into a single dictionary
 ```
 
-### 4.4 Implementing Other Adapters
+## 4. Template Layer
 
-The MCP system in RV-Android includes adapters for multiple LLM providers:
+### 4.1 XML Templates
 
-1. **Ollama**: Local models through Ollama API
-2. **DSPy**: DSPy-compatible models
-3. **HuggingFace**: Models from the Hugging Face ecosystem
-4. **Frontier**: Models from commercial providers like OpenAI and Anthropic
-5. **Langchain**: Models accessed through the Langchain framework
-
-Each adapter follows the same pattern but handles the specific format requirements of its provider.
-
-### 4.5 Component Configurator and Registration
-
-The `ComponentConfigurator` centralizes component creation and configuration:
+The `XMLTemplate` class manages variable substitution and rendering:
 
 ```python
-class ComponentConfigurator:
-    """
-    A sophisticated configuration management system for dynamically configuring 
-    and composing experimental components.
-    """
+class XMLTemplate:
+    """Template for generating prompt messages with variable substitution."""
+    
+    # Regex patterns for template syntax parsing
+    VARIABLE_PATTERN = r"\{([a-zA-Z0-9_\.]+)(?:\|([a-zA-Z0-9_]+))?\}"
+    CONDITIONAL_START_PATTERN = r"\{#if ([a-zA-Z0-9_\.]+)\}"
+    CONDITIONAL_END_PATTERN = r"\{#endif\}"
+    ITERATION_START_PATTERN = r"\{#for ([a-zA-Z0-9_\.]+) as ([a-zA-Z0-9_]+)\}"
+    ITERATION_END_PATTERN = r"\{#endfor\}"
+    INCLUDE_PATTERN = r"\{#include ([a-zA-Z0-9_]+)\}"
+    
+    def __init__(
+        self, 
+        template_text: str,
+        name: str,
+        required_variables: Optional[List[str]] = None,
+        transformers: Optional[Dict[str, Callable[[Any], str]]] = None
+    ):
+        """Initialize an XML template."""
+        self.template_text = template_text
+        self.name = name
+        self.required_variables = set(required_variables or [])
+        self.transformers = transformers or {}
+        # Logging and error handling configuration
+        # Extraction of variables from the template
+    
+    def render(self, data: Dict[str, Any]) -> str:
+        """Render the template with the given data."""
+        try:
+            # Check required variables
+            # Process include directives
+            # Process conditional sections
+            # Process iteration sections
+            # Substitute variables
+            # Return the rendered template
+        except Exception as e:
+            # error handling
+            return self.template_text  # Return the original template as fallback
+```
+
+### 4.2 XML Template Repository
+
+The `XMLTemplateRepository` manages externalized XML templates:
+
+```python
+class XMLTemplateRepository:
+    """Repository for managing XML prompt templates."""
+    
+    def __init__(self, template_dir: Optional[str] = None, fragment_dir: Optional[str] = None):
+        """Initialize the template repository."""
+        self.template_dir = template_dir or os.path.join(
+            os.path.dirname(__file__), "templates")
+        self.fragment_dir = fragment_dir or os.path.join(
+            os.path.dirname(__file__), "fragments")
+        
+        # Ensure the directories exist
+        os.makedirs(self.template_dir, exist_ok=True)
+        os.makedirs(self.fragment_dir, exist_ok=True)
+        
+        # Initialize template and fragment caches
+        self.templates: Dict[str, Dict[str, Any]] = {}
+        self.template_objects: Dict[str, XMLTemplate] = {}
+        self.fragments: Dict[str, str] = {}
+        
+        # Load templates and fragments
+        self._load_templates()
+        self._load_fragments()
+    
+    def configure(self, config: ComponentConfigurator) -> None:
+        """Configure the template repository with the given configuration."""
+        # Check if custom directories are specified
+    
+    def _load_templates(self) -> None:
+        """Load templates from XML files in the template directory."""
+        # Load all XML template files
+        # Create template objects for each role (system, user, assistant)
+    
+    def _load_fragments(self) -> None:
+        """Load fragments from XML files in the fragment directory."""
+        # Load fragments from fragment directory and subdirectories
+    
+    def _create_default_templates(self) -> None:
+        """Create default templates if the template directory is empty."""
+        # Create default templates for exploration, feedback, etc.
+    
+    def get_template(self, name: str) -> Optional[Dict[str, Any]]:
+        """Get a template by name."""
+        return self.templates.get(name)
+    
+    def get_template_object(self, name: str, role: str) -> Optional[XMLTemplate]:
+        """Get a template object by name and role."""
+        template_key = f"{name}.{role}"
+        return self.template_objects.get(template_key)
+    
+    def get_fragment(self, name: str) -> Optional[str]:
+        """Get a fragment by name."""
+        return self.fragments.get(name)
+    
+    def update_template(self, name: str, template_data: Dict[str, Any]) -> None:
+        """Update or create a template."""
+        # Save template data
+        # Create template objects for each role
+        # Write the template to a file
+    
+    def create_messages(
+        self, 
+        template_name: str, 
+        variables: Dict[str, Any]
+    ) -> List[Dict[str, str]]:
+        """Create a list of messages using the specified template."""
+        # Get the template
+        # Create messages for each role in the template
+        # Render the content with fragment inclusion
+        # Return formatted message list
+```
+
+### 4.3 XML Template Examples
+
+Templates are stored in XML files with CDATA sections for easy editing. Example:
+
+```xml
+<template name="standard">
+  <s><![CDATA[
+You are an Android testing assistant. Your task is to help test the Android application by identifying UI elements and suggesting testing actions.
+
+The current screen contains the following UI elements:
+{screen_description}
+
+{#if ui_patterns}I've identified the following UI patterns:
+{ui_patterns}
+
+{#endif}{#if monitored_operations}Pay attention to monitored operations:
+{monitored_operations.summary}
+
+{#endif}
+  ]]></s>
+  <user><![CDATA[
+Based on the current screen, suggest ONE testing action that would help explore the application functionality and potentially trigger monitored operations.{#if additional_guidelines}
+
+{additional_guidelines}{#endif}
+  ]]></user>
+  <required_variables>
+    <variable>screen_description</variable>
+  </required_variables>
+  <metadata>
+    <max_tokens>300</max_tokens>
+  </metadata>
+</template>
+```
+
+## 5. Strategy Layer
+
+### 5.1 Prompt Strategy
+
+The base `PromptStrategy` class defines the interface for all strategies:
+
+```python
+class PromptStrategy(abc.ABC):
+    """Base class for all prompt generation strategies."""
+    
+    DEFAULT_TEMPLATE = "standard"
+    
+    def __init__(
+        self, 
+        name: str,
+        information_manager: Optional[InformationManager] = None,
+        template_repository: Optional[XMLTemplateRepository] = None
+    ):
+        """Initialize the prompt strategy."""
+        self.name = name
+        self.information_manager = information_manager
+        self.template_repository = template_repository
+        self.logger = # logger configuration
+        self.error_handler = ErrorHandler.get_instance()
+    
+    def configure(self, config: ComponentConfigurator) -> None:
+        """Configure the strategy with the given configuration."""
+        self.logger.info(f"Configuring strategy: {self.name}")
+        # Specific configuration logic
+    
+    @abc.abstractmethod
+    def generate_prompt(
+        self, 
+        state: Dict[str, Any], 
+        context: Optional[Dict[str, Any]] = None
+    ) -> List[Dict[str, str]]:
+        """Generate a prompt for the given state and context."""
+        pass
+        
+    def generate_mcp_prompt(
+        self, 
+        state: Dict[str, Any], 
+        context: Optional[Dict[str, Any]] = None
+    ) -> List[MCPMessage]:
+        """Generate an MCP prompt for the given state and context."""
+        # Convert standard prompt to MCP format
+```
+
+### 5.2 Specialized Strategies
+
+The system includes various specialized strategies:
+
+#### StandardStrategy
+
+```python
+class StandardStrategy(PromptStrategy):
+    """Standard prompt generation strategy that generates exactly one action per response."""
+    
+    DEFAULT_TEMPLATE = "standard"
+    
+    def __init__(
+        self,
+        name: str = PromptStrategyType.STANDARD,
+        information_manager: Optional[InformationManager] = None,
+        template_repository: Optional[XMLTemplateRepository] = None
+    ):
+        """Initialize the standard strategy."""
+        super().__init__(name, information_manager, template_repository)
+    
+    def generate_prompt(
+        self, 
+        state: Dict[str, Any], 
+        context: Optional[Dict[str, Any]] = None
+    ) -> List[Dict[str, str]]:
+        """Generate a prompt for the given state and context."""
+        # Determine which template to use based on context
+        # Get information from fragments
+        # Combine information with context
+        # Generate messages from the template
+```
+
+#### BatchActionStrategy
+
+```python
+class BatchActionStrategy(PromptStrategy):
+    """Batch action prompt generation strategy for generating multiple actions at once."""
+    
+    DEFAULT_TEMPLATE = "batch_action"
+    
+    def __init__(
+        self,
+        name: str = PromptStrategyType.BATCH_ACTION,
+        information_manager: Optional[InformationManager] = None,
+        template_repository: Optional[XMLTemplateRepository] = None,
+        min_actions: int = 3,
+        max_actions: int = 10
+    ):
+        """Initialize the batch action strategy."""
+        super().__init__(name, information_manager, template_repository)
+        self.min_actions = min_actions
+        self.max_actions = max_actions
+    
+    def generate_prompt(
+        self, 
+        state: Dict[str, Any], 
+        context: Optional[Dict[str, Any]] = None
+    ) -> List[Dict[str, str]]:
+        """Generate a batch action prompt for the given state and context."""
+        # Always use the batch_action template
+        # Get information from fragments
+        # Extract test history from context
+        # Add specific guidelines for batches
+        # Generate messages from the template
+        
+    def should_use_batch(self, state: Dict[str, Any]) -> bool:
+        """Determine if batch action strategy should be used for this state."""
+        # Check if UI patterns are detected that benefit from batch actions
+        # Check if state has complex form or multi-step workflow
+```
+
+### 5.3 Strategy Registry
+
+The `StrategyRegistry` manages available strategies:
+
+```python
+class StrategyRegistry:
+    """Registry for prompt generation strategies."""
+    
+    def __init__(self):
+        """Initialize the strategy registry."""
+        self.strategies: Dict[str, PromptStrategy] = {}
+        self.default_strategy: Optional[str] = None
+        self.logger = # logger configuration
+        self.error_handler = ErrorHandler.get_instance()
+    
+    def configure(self, config: ComponentConfigurator) -> None:
+        """Configure the strategy registry with the given configuration."""
+        # Configure registered strategies
+        # Set default strategy if specified
+    
+    def register_strategy(self, strategy: PromptStrategy) -> None:
+        """Register a prompt generation strategy."""
+        self.strategies[strategy.name] = strategy
+        # If this is the first strategy, set it as default
+    
+    def get_strategy(self, name: Optional[str] = None) -> Optional[PromptStrategy]:
+        """Get a registered strategy by name."""
+        # Return strategy by name or the default strategy
+```
+
+## 6. Unified Framework
+
+### 6.1 PromptFramework Class
+
+The `PromptFramework` class serves as a facade for the entire system:
+
+```python
+class PromptFramework:
+    """Unified framework for prompt generation."""
+    
+    def __init__(
+        self, 
+        information_manager: InformationManager,
+        template_repository: XMLTemplateRepository,
+        strategy_registry: StrategyRegistry,
+        model: Optional[LanguageModel] = None
+    ):
+        """Initialize the prompt framework."""
+        self.information_manager = information_manager
+        self.template_repository = template_repository
+        self.strategy_registry = strategy_registry
+        self.model = model
+        self.logger = # logger configuration
+        self.error_handler = ErrorHandler.get_instance()
     
     @classmethod
-    def register_llm(cls, name: str, implementation=None, module_path=None, 
-                    class_name=None, metadata=None) -> None:
-        """
-        Register a language model implementation.
-
-        Args:
-            name: Model type name
-            implementation: Implementation class (optional if module_path is provided)
-            module_path: Module path for lazy loading (required if implementation is None)
-            class_name: Class name for lazy loading (required if implementation is None)
-            metadata: Additional metadata
-        """
-        registry = cls._registries['llm']
-        if implementation:
-            registry.register(name, implementation, metadata=metadata)
-        elif module_path and class_name:
-            registry.register_lazy(name, module_path, class_name, metadata=metadata)
-        else:
-            raise ValueError("Either implementation or module_path+class_name must be provided")
-            
-    def create_llm(self):
-        """
-        Create an LLM instance based on current configuration.
-
-        Returns:
-            LanguageModel instance
-
-        Raises:
-            ValueError: If LLM creation fails
-        """
-        # Get LLM implementation from registry
-        llm_registry = self._registries['llm']
-        model_class = llm_registry.get(self.llm_config.model_type)
-        
-        if not model_class:
-            raise ValueError(f"Unknown model type: {self.llm_config.model_type}")
-            
-        # Create model instance with appropriate parameters
-        return model_class(self.llm_config.model_name, **self.llm_config.kwargs)
+    def create(cls, config: Optional[ComponentConfigurator] = None) -> 'PromptFramework':
+        """Create and configure a new prompt framework."""
+        # Create and configure components
+        # Register default fragments and strategies
+        pass
+    
+    def generate_prompt(
+        self, 
+        strategy_name: Optional[str], 
+        state: Dict[str, Any], 
+        context: Optional[Dict[str, Any]] = None
+    ) -> List[Dict[str, str]]:
+        """Generate a prompt using the specified strategy."""
+        # Implementation for generating prompts
+        pass
+    
+    def generate_with_llm(
+        self, 
+        strategy_name: Optional[str], 
+        state: Dict[str, Any], 
+        context: Optional[Dict[str, Any]] = None
+    ) -> Optional[Any]:
+        """Generate a prompt and send it to the LLM for a response."""
+        # Implementation for LLM interaction
+        pass
 ```
 
-## 5. Template System
+## 7. Service Integration
 
-### 5.1 Template System Overview
+### 7.1 LLMActionService
 
-The MCP template system provides a structured approach to generating prompts:
-
-```
-┌─────────────────┐      ┌──────────────┐     ┌─────────────────┐
-│                 │      │              │     │                 │
-│ Template Library├─────►│ Templates    ├────►│ MCP Messages    │
-│                 │      │              │     │                 │
-└─────────────────┘      └──────────────┘     └─────────────────┘
-        ▲                       │                     │
-        │                       │                     │
-        │                       ▼                     ▼
-┌─────────────────┐      ┌──────────────┐     ┌─────────────────┐
-│                 │      │              │     │                 │
-│ Template        │      │ Fragments    │     │ Language Model  │
-│ Repository      │      │              │     │                 │
-└─────────────────┘      └──────────────┘     └─────────────────┘
-```
-
-Key components include:
-1. **PromptTemplate**: The core template class for rendering content
-2. **TemplateFragment**: Reusable components for template composition
-3. **TemplateLibrary**: Central repository for template management
-4. **TemplateRepository**: Storage for shared fragments
-
-### 5.2 Template Definition and Usage
-
-Templates are defined using a structured format and can include variables, conditionals, and fragments:
+The `LLMActionService` has been updated to use the unified framework:
 
 ```python
-from rvandroid.llm.templates.template import PromptTemplate
-from rvandroid.llm.templates.library import PromptLibrary
-from rvandroid.llm.data_structures import MCPRole, MCPTextContent, MCPMessage
-
-# Define a system prompt template
-system_template = PromptTemplate(
-    template_text="""You are an AI assistant helping to test Android applications. Your task is to analyze the current app state and suggest the MOST EFFECTIVE NEXT ACTION to take for testing the application thoroughly.
-
-Focus on:
-1. {exploration_goal}
-2. Maximizing code coverage by targeting untested UI elements
-3. Prioritizing testing of methods of interest that directly or indirectly affect monitored operations
-4. Testing complete workflows from start to finish
-
-{response_format}
-
-{#if additional_guidelines}{additional_guidelines}{#endif}""",
-    name="system_base",
-    version="1.0",
-    required_variables=["exploration_goal", "response_format"]
-)
-
-# Register template in library
-PromptLibrary.register_template(system_template, "system")
-
-# Create a fragment for dropdown guidelines
-dropdown_guidelines = PromptTemplate(
-    template_text="""DROPDOWN GUIDELINES:
-1. Test selecting different options from dropdowns
-2. Verify the app's behavior after each selection
-3. Try selecting the first, last, and a middle option""",
-    name="dropdown_guidelines",
-    version="1.0"
-)
-
-# Register fragment
-PromptLibrary.register_template(dropdown_guidelines, "guidelines")
-
-# Using templates to generate MCP messages
-def generate_system_message(exploration_goal, additional_guidelines=None):
-    # Get template from library
-    template = PromptLibrary.get_template("system_base")
+class LLMActionService:
+    """
+    Orchestrates the AI-driven test action generation system.
     
-    # Prepare variables
-    variables = {
-        "exploration_goal": exploration_goal,
-        "response_format": "RESPONSE FORMAT: JSON with 'action_id' and 'reason'",
-        "additional_guidelines": additional_guidelines
-    }
-    
-    # Render template
-    rendered_text = template.render(variables)
-    
-    # Create MCP message
-    return MCPMessage(
-        role=MCPRole.SYSTEM,
-        content=[MCPTextContent(text=rendered_text)]
-    )
+    This service coordinates the entire process of generating testing actions
+    from the current application state, including:
+    - Enriching the state with additional information
+    - Selecting the appropriate prompt strategy
+    - Generating prompts using the PromptFramework
+    - Processing LLM responses into executable actions
+    """
 ```
 
-### 5.3 Template Inheritance and Versioning
+### 7.2 LLMConsultationManager
 
-Templates support inheritance and versioning to enable easy specialization:
+The `LLMConsultationManager` has also been updated:
 
 ```python
-# Get base template
-base_template = PromptLibrary.get_template("system_base")
-
-# Create a specialized template through inheritance
-specialized_template = base_template.derive(
-    template_text=base_template.template_text + "\n\n{#include dropdown_guidelines}",
-    name="dropdown_system",
-    version="1.1"
-)
-
-# Register the specialized template
-PromptLibrary.register_template(specialized_template, "system")
-
-# Create a newer version with additional content
-advanced_template = specialized_template.derive(
-    template_text=specialized_template.template_text + "\n\nIMPORTANT: Focus on actions that could lead to monitored operations.",
-    name="monitored_ops_system",
-    version="1.2"
-)
-
-# Register the advanced template
-PromptLibrary.register_template(advanced_template, "system")
-
-# Get the latest version of a template
-latest_template = PromptLibrary.get_template("system_base")  # Gets the most recent version
-
-# Get a specific version
-specific_template = PromptLibrary.get_template("system_base", version="1.0")
-```
-
-### 5.4 Conditional Logic and Fragment Inclusion
-
-Templates support conditional sections and fragment inclusion:
-
-```python
-# Template with conditional sections and fragment inclusion
-advanced_template = PromptTemplate(
-    template_text="""You are a specialized Android tester.
-
-{#if focus_on_mop}
-FOCUS ON MONITORED OPERATIONS: Your primary goal is to test paths that lead to monitored operations.
-{#else}
-FOCUS ON EXPLORATION: Your primary goal is to explore the application completely.
-{#endif}
-
-{#include base_guidelines}
-
-{#if has_forms}
-{#include form_guidelines}
-{#endif}
-
-{#if has_dropdowns}
-{#include dropdown_guidelines}
-{#endif}""",
-    name="conditional_template",
-    version="1.0"
-)
-
-# Using conditional template
-variables = {
-    "focus_on_mop": True,
-    "has_forms": True,
-    "has_dropdowns": False
-}
-
-# Render with conditions
-rendered_text = advanced_template.render(variables)
-```
-
-### 5.5 Type-Safe Message Generation
-
-The template system can directly generate MCP messages:
-
-```python
-# Template that produces MCP messages
-def render_conversation(variables):
-    # Get system template
-    system_template = PromptLibrary.get_template("system_base")
+class LLMConsultationManager(Component):
+    """
+    Manager for LLM consultation in RVDroid.
     
-    # Get user template
-    user_template = PromptLibrary.get_template("user_base")
-    
-    # Render system message
-    system_message = MCPMessage(
-        role=MCPRole.SYSTEM,
-        content=[MCPTextContent(text=system_template.render(variables))]
-    )
-    
-    # Render user message
-    user_message = MCPMessage(
-        role=MCPRole.USER,
-        content=[MCPTextContent(text=user_template.render(variables))]
-    )
-    
-    # Return message sequence
-    return [system_message, user_message]
-```
-
-## 6. Prompt Strategies
-
-The MCP system integrates with RV-Android's prompt strategies, providing a standardized approach to generating LLM interactions.
-
-### 6.1 Strategy Hierarchy
-
-The prompt strategies follow a clear inheritance hierarchy with MCP integration:
-
-```
-BasePromptStrategy
-├── SingleActionPromptStrategy
-├── ComposablePromptStrategy
-│   └── ComposableSingleActionStrategy
-└── FlowBasedBatchActionStrategy
-```
-
-### 6.2 Base Prompt Strategy with MCP
-
-The `BasePromptStrategy` incorporates MCP for message generation:
-
-```python
-class BasePromptStrategy:
-    """Base class for prompt strategies using MCP."""
-    
-    def __init__(self, static_data=None, parser=None):
-        """Initialize with MCP integration."""
-        self.static_data = static_data
-        self.parser = parser_factory.get_parser(parser) if isinstance(parser, str) else parser
-        
-        # Initialize templates from library
-        self.system_template = PromptLibrary.get_template("system_base")
-        self.user_template = PromptLibrary.get_template("user_base")
-        
-        self.logger = logging.getLogger(f"{__name__}.{self.__class__.__name__}")
-    
-    def generate_messages(self, state: Dict[str, Any]) -> List[MCPMessage]:
-        """Generate MCP messages for the given context."""
-        try:
-            # Generate system message
-            system_message = MCPMessage(
-                role=MCPRole.SYSTEM,
-                content=[MCPTextContent(text=self.generate_system_prompt())]
-            )
-            
-            # Generate user message
-            user_message = MCPMessage(
-                role=MCPRole.USER,
-                content=[MCPTextContent(text=self.generate_user_prompt(state))]
-            )
-            
-            # Return message sequence
-            return [system_message, user_message]
-        except Exception as e:
-            self.logger.error(f"Error generating MCP messages: {e}", exc_info=True)
-            # Fallback to simple messages
-            return self._generate_fallback_messages(state)
-    
-    def generate_system_prompt(self) -> str:
-        """Generate system prompt using the template."""
-        # Prepare variables
-        variables = {
-            "exploration_goal": "Exploring the application thoroughly and systematically",
-            "response_format": PromptLibrary.get_template("response_format").render({})
-        }
-        
-        # Render the template
-        return self.system_template.render(variables)
-    
-    def generate_user_prompt(self, state: Dict[str, Any]) -> str:
-        """Generate user prompt using the template."""
-        try:
-            # Process screen description
-            screen_description = self.process_screen(state)
-            
-            # Format UI elements for the prompt
-            ui_elements = self._format_ui_elements(screen_description, state)
-            
-            # Get activity name
-            activity = self.parser.get_activity_name(state)
-            
-            # Format action history
-            action_history = self._format_action_history(state)
-            
-            # Render the template with variables
-            return self.user_template.render({
-                "activity": activity,
-                "ui_elements": ui_elements,
-                "action_history": action_history
-            })
-        except Exception as e:
-            self.logger.error(f"Error generating user prompt: {e}", exc_info=True)
-            return "Analyze the current screen and suggest the next testing action."
-```
-
-### 6.3 Flow-Based Batch Strategy with MCP
-
-The `FlowBasedBatchActionStrategy` leverages MCP for generating batch actions:
-
-```python
-class FlowBasedBatchActionStrategy(BasePromptStrategy):
-    """Strategy for generating batches of related actions using MCP."""
-    
-    def __init__(self, static_data=None, parser=None):
-        """Initialize with pattern detection."""
-        super().__init__(static_data, parser)
-        
-        # Initialize pattern detectors
-        self.form_detector = FormDetector(static_data)
-        self.list_detector = ListDetector(static_data)
-        self.tab_detector = TabDetector(static_data)
-        self.navigation_detector = NavigationDetector(static_data)
-        
-        # Use specialized templates
-        self.system_template = PromptLibrary.get_template("batch_system")
-        self.user_template = PromptLibrary.get_template("batch_user")
-    
-    def generate_system_prompt(self) -> str:
-        """Generate a system prompt for batch action generation."""
-        # Customize for batch action generation
-        exploration_goal = ("Analyzing UI patterns and generating logical sequences "
-                          "of related actions for complete workflow testing")
-        
-        # Use batch action response format
-        response_format = PromptLibrary.get_template("batch_format").render({})
-        
-        # Add guidelines based on detected patterns
-        additional_guidelines = (
-            "Generate logical sequences of 2-5 related actions that form a cohesive "
-            "testing workflow. Focus on completing forms, exploring lists, and "
-            "navigating through tabs."
-        )
-        
-        # Render template
-        return self.system_template.render({
-            "exploration_goal": exploration_goal,
-            "response_format": response_format,
-            "additional_guidelines": additional_guidelines
-        })
-    
-    def generate_user_prompt(self, state: Dict[str, Any]) -> str:
-        """Generate a user prompt with pattern detection."""
-        try:
-            # Process screen description
-            screen_description = self.process_screen(state)
-            
-            # Detect UI patterns
-            patterns = self._detect_patterns(screen_description)
-            
-            # Format UI elements
-            ui_elements = self._format_ui_elements(screen_description, state)
-            
-            # Get activity name
-            activity = self.parser.get_activity_name(state)
-            
-            # Format patterns for the prompt
-            pattern_descriptions = self._format_patterns(patterns)
-            
-            # Render template with pattern information
-            return self.user_template.render({
-                "activity": activity,
-                "ui_elements": ui_elements,
-                "patterns": pattern_descriptions
-            })
-        except Exception as e:
-            self.logger.error(f"Error generating batch user prompt: {e}", exc_info=True)
-            return "Analyze the UI patterns and suggest sequences of related actions."
-```
-
-### 6.4 Using Strategies with Language Models
-
-The prompt strategies work seamlessly with language models using MCP:
-
-```python
-async def generate_actions(strategy, model, state):
-    """Generate actions using a strategy and model with MCP."""
-    try:
-        # Generate MCP messages
-        messages = strategy.generate_messages(state)
-        
-        # Get language model response
-        response = await model.generate(messages)
-        
-        # Process response
-        return strategy.process_response(response, state)
-    except Exception as e:
-        logger.error(f"Error generating actions: {e}")
-        return []
-```
-
-## 7. Integration with Test Framework
-
-### 7.1 Test Framework Configuration
-
-The RV-Android Test Framework integrates with MCP through its configuration system:
-
-```python
-class ToolConfiguration:
-    """Defines how a testing tool should be configured for execution."""
-    
-    def __init__(self, tool_name: str, **kwargs):
-        """Initialize with tool name and parameters."""
-        self.tool_name = tool_name
-        
-        # MCP model configuration
-        self.model_type = kwargs.get("model_type", "ollama")
-        self.model_name = kwargs.get("model_name", "llama3.2:3b")
-        self.temperature = kwargs.get("temperature", 0.2)
-        self.max_tokens = kwargs.get("max_tokens", 800)
-        
-        # Strategy configuration
-        self.strategy_type = kwargs.get("strategy_type", "single_action")
-        self.parser_type = kwargs.get("parser_type", "uiautomator")
-        
-        # Other parameters
-        # [implementation details]
-```
-
-### 7.2 Configuration Validation
-
-The framework enforces MCP usage through validation:
-
-```python
-def validate_model_configuration(config):
-    """Validate model configuration for MCP compatibility."""
-    # Check model type
-    if not config.model_type:
-        raise ValidationError("Model type is required")
-    
-    # Check model name
-    if not config.model_name:
-        raise ValidationError("Model name is required")
-    
-    # Check temperature range
-    if config.temperature < 0 or config.temperature > 2:
-        raise ValidationError("Temperature must be between 0 and 2")
-    
-    # Check for supported model types
-    from rvandroid.config.component_configurator import ComponentConfigurator
-    supported_model_types = ComponentConfigurator._registries['llm'].get_names()
-    if config.model_type not in supported_model_types:
-        raise ValidationError(
-            f"Unsupported model type: {config.model_type}. "
-            f"Supported types: {', '.join(supported_model_types)}"
-        )
-    
-    # Validate model name based on type
-    model_class = ComponentConfigurator._registries['llm'].get(config.model_type)
-    if model_class and hasattr(model_class, 'models'):
-        available_models = model_class.models()
-        if available_models and config.model_name not in available_models:
-            raise ValidationError(
-                f"Unknown model name '{config.model_name}' for type '{config.model_type}'. "
-                f"Available models: {', '.join(available_models)}"
-            )
-```
-
-### 7.3 Model Creation in Test Framework
-
-The Test Framework uses the ComponentConfigurator to create model instances:
-
-```python
-def create_model_from_config(config):
-    """Create a model instance from configuration."""
-    try:
-        # Create configurator
-        configurator = ComponentConfigurator()
-        
-        # Configure LLM
-        configurator.set_llm(
-            config.model_type,
-            config.model_name,
-            temperature=config.temperature,
-            max_tokens=config.max_tokens
-        )
-        
-        # Create model using configurator
-        model = configurator.create_llm()
-        
-        logger.info(f"Created {config.model_type} model: {config.model_name}")
-        return model
-    except Exception as e:
-        logger.error(f"Error creating model: {e}")
-        raise
-```
-
-### 7.4 Tool Integration
-
-The Test Framework tools integrate with MCP:
-
-```python
-class RVAndroidTool(ConfigurableTool):
-    """RVAndroid tool implementation with MCP integration."""
-    
-    def __init__(self):
-        """Initialize the RVAndroid tool."""
-        super().__init__(
-            "rvandroid",
-            "AI-driven Android testing tool using LLM guidance",
-            "br.unb.cic.rvsec"
-        )
-        
-        # Set default MCP configuration
-        self.component_config.set_model_type("ollama")
-        self.component_config.set_model_name("llama3.2:3b")
-        self.component_config.set_strategy("composable_single_action")
-        
-    def execute(self, task, app):
-        """Execute RVAndroid with MCP configuration."""
-        # Get model using component configurator
-        model = self.component_config.create_llm()
-        
-        # Create prompt strategy
-        strategy = PromptStrategyFactory.create(
-            strategy_type=self.component_config.strategy_type,
-            static_data=task.static_data
-        )
-        
-        # Create action service with MCP components
-        service = LLMActionService(
-            model=model,
-            strategy=strategy,
-            static_data=task.static_data
-        )
-        
-        # Execute testing
-        # [implementation details]
-```
-
-### 7.5 Comparative Analysis
-
-The Test Framework enables comparative analysis of different MCP configurations:
-
-```python
-def compare_model_configurations(configurations, app_path):
-    """Compare different MCP model configurations."""
-    results = []
-    
-    for config in configurations:
-        # Create test case with this configuration
-        test_case = TestCase(
-            name=f"{config.model_type}_{config.model_name}_{config.strategy_type}",
-            app_path=app_path,
-            tool_config=config
-        )
-        
-        # Execute test case
-        result = executor.run_test_case(test_case)
-        results.append(result)
-    
-    # Generate comparative analysis
-    analyzer = ComparativeAnalyzer(results)
-    report = analyzer.generate_report()
-    
-    return report
+    This component provides strategic guidance and action feedback through
+    LLM consultation, using the PromptFramework for consistent interactions.
+    """
 ```
 
 ## 8. Usage Examples
 
-### 8.1 Basic MCP Usage
+### 8.1 Basic Framework Usage
 
 ```python
-from rvandroid.llm.data_structures import MCPMessage, MCPRole, MCPTextContent
 from rvandroid.config.component_configurator import ComponentConfigurator
+from rvandroid.llm.prompt.framework import PromptFramework
+from rvandroid.llm.constants import StateEntry, PromptStrategyType
 
-# Create MCP messages
-system_message = MCPMessage(
-    role=MCPRole.SYSTEM,
-    content=[MCPTextContent(text="You are an AI assistant for Android testing.")]
+# Criar configuração
+config = ComponentConfigurator()
+config.set_llm(
+    llm_type="ollama",
+    model="llama3",
+    temperature=0.3,
+    max_tokens=800,
+    base_url="http://localhost:11434"
 )
 
-user_message = MCPMessage(
-    role=MCPRole.USER,
-    content=[MCPTextContent(text="Suggest a test action for the login screen.")]
-)
+# Criar e inicializar o framework
+framework = PromptFramework.create(config)
 
-# Create model using configurator
-configurator = ComponentConfigurator()
-configurator.set_llm(
-    "ollama", 
-    "llama3.2:3b", 
-    temperature=0.3
-)
-model = configurator.create_llm()
+# Criar estado de teste
+state = {
+    StateEntry.PACKAGE_NAME: "com.example.testapp",
+    StateEntry.ACTIVITY: "com.example.testapp.MainActivity",
+    StateEntry.SCREEN_DESCRIPTION: "The screen shows a login form with username and password fields, and a Login button.",
+    StateEntry.SCREEN: {
+        "title": "Login",
+        "components": [
+            {
+                "type": "EditText",
+                "text": "",
+                "resource_id": "username_field",
+                "hint": "Username",
+                "clickable": True,
+                "bounds": {"left": 50, "top": 100, "right": 300, "bottom": 150}
+            },
+            {
+                "type": "EditText",
+                "text": "",
+                "resource_id": "password_field",
+                "hint": "Password",
+                "clickable": True,
+                "bounds": {"left": 50, "top": 200, "right": 300, "bottom": 250}
+            },
+            {
+                "type": "Button",
+                "text": "Login",
+                "resource_id": "login_button",
+                "clickable": True,
+                "bounds": {"left": 50, "top": 300, "right": 300, "bottom": 350}
+            }
+        ]
+    }
+}
 
-# Generate response
-response = model.generate_sync([system_message, user_message])
+# Definir contexto adicional
+context = {
+    "additional_guidelines": "Focus on testing the login functionality."
+}
 
-# Access response content
-response_text = response.content[0].text
-print(f"Model response: {response_text}")
+# Gerar prompt usando estratégia padrão
+messages = framework.generate_prompt(PromptStrategyType.STANDARD, state, context)
+
+# Enviar para LLM e obter resposta
+response = framework.generate_with_llm(PromptStrategyType.STANDARD, state, context)
+print(f"LLM Response: {response.get_text_content() if hasattr(response, 'get_text_content') else response}")
 ```
 
-### 8.2 Using Templates with MCP
+### 8.2 Custom Fragments
 
 ```python
-from rvandroid.llm.templates.template import PromptTemplate
-from rvandroid.llm.templates.library import PromptLibrary
-from rvandroid.llm.data_structures import MCPMessage, MCPRole, MCPTextContent
+from rvandroid.llm.prompt.information.base_fragment import InformationFragment
+from rvandroid.llm.prompt.framework import PromptFramework
+from rvandroid.llm.constants import StateEntry, PromptStrategyType
+from typing import Dict, Any, Optional
+
+# Criar fragmento personalizado
+class CustomFragment(InformationFragment):
+    """Custom information fragment."""
+    
+    def __init__(self, name: str = "custom_info", priority: int = 100):
+        super().__init__(name, priority)
+    
+    def generate(self, state: Dict[str, Any], context: Optional[Dict[str, Any]] = None) -> str:
+        # Extrair informações personalizadas do estado
+        package_name = state.get(StateEntry.PACKAGE_NAME, "unknown")
+        activity = state.get(StateEntry.ACTIVITY, "unknown")
+        
+        return f"Testing app: {package_name}\nCurrent activity: {activity}\nAdditional custom information to include in prompts."
+    
+    def should_include(self, state: Dict[str, Any], context: Optional[Dict[str, Any]] = None) -> bool:
+        # Incluir apenas se o estado tiver dados do pacote
+        return StateEntry.PACKAGE_NAME in state
+
+# Criar framework
+framework = PromptFramework.create()
+
+# Registrar fragmento personalizado
+framework.register_information_fragment(CustomFragment())
+
+# Usar o framework com o fragmento personalizado
+messages = framework.generate_prompt(PromptStrategyType.STANDARD, state, context)
+```
+
+### 8.3 Using with LLMActionService
+
+```python
 from rvandroid.config.component_configurator import ComponentConfigurator
+from rvandroid.llm.service.action_service import LLMActionService
+from rvandroid.llm.constants import StateEntry
 
-# Define a template
-template = PromptTemplate(
-    template_text="""You are an Android testing assistant.
+# Criar configuração
+config = ComponentConfigurator()
+config.set_llm(
+    llm_type="ollama",
+    model="llama3",
+    temperature=0.3,
+    max_tokens=800,
+    base_url="http://localhost:11434"
+)
 
-CURRENT SCREEN: {screen_name}
+# Criar serviço de ação
+service = LLMActionService(config=config)
 
-UI ELEMENTS:
+# Processar estado e gerar ações
+state = {
+    StateEntry.PACKAGE_NAME: "com.example.testapp",
+    StateEntry.ACTIVITY: "com.example.testapp.MainActivity",
+    StateEntry.SCREEN_DESCRIPTION: "The screen shows a login form with username and password fields, and a Login button.",
+    StateEntry.SCREENSHOT_PATH: "/path/to/screenshot.png",
+    StateEntry.SCREEN: {
+        "title": "Login",
+        "components": [
+            # UI components as before
+        ]
+    }
+}
+
+actions = service.process_state(state)
+for action in actions:
+    print(f"Action: {action}")
+```
+
+### 8.4 Using with LLMConsultationManager
+
+```python
+from rvandroid.config.component_configurator import ComponentConfigurator
+from rvandroid.rvdroid.core.llm_consultation_manager import LLMConsultationManager
+
+# Criar configuração
+config = {
+    "static_data": static_data,
+    "memory_system": memory_system,
+    "use_llm": True
+}
+
+# Configurar modelo Ollama para o consultation manager 
+# (A configuração será usada pelo PromptFramework criado internamente)
+component_config = ComponentConfigurator(static_data=static_data)
+component_config.set_llm(
+    llm_type="ollama",
+    model="llama3",
+    temperature=0.3,
+    max_tokens=800,
+    base_url="http://localhost:11434"
+)
+
+# Adicionar a configuração de componente na configuração do consultation manager
+config["component_configurator"] = component_config
+
+# Criar consultation manager
+consultation_manager = LLMConsultationManager(config)
+consultation_manager.initialize()
+consultation_manager.start()
+
+# Obter orientação estratégica
+```
+
+### 8.5 Using Custom Template with Fragments
+
+```python
+from rvandroid.llm.prompt.framework import PromptFramework
+from rvandroid.llm.constants import StateEntry, PromptStrategyType
+
+# Create a custom template file with fragment inclusion
+custom_template_content = """<?xml version="1.0" encoding="UTF-8"?>
+<template name="security_template" version="1.0" extends="system_base">
+  <metadata>
+    <description>Template for security testing</description>
+    <created>2025-04-18</created>
+    <author>RV-Android Team</author>
+  </metadata>
+  <variables>
+    <required>screen_elements</required>
+    <optional>data_usage</optional>
+  </variables>
+  <roles>
+    <s>
+      <variable name="strategy_specific_instructions">
+        <![CDATA[
+Your task is to analyze the current state for potential security vulnerabilities.
+
+{#include security_testing_guidelines}
+        ]]>
+      </variable>
+      <variable name="response_format_instructions">
+        <![CDATA[
+{#include standard_format}
+        ]]>
+      </variable>
+    </s>
+    <user><![CDATA[
+Current Activity: {activity}
+
+{#if data_usage}{data_usage}
+
+{#endif}Current UI Elements:
+{screen_elements}
+
+Your task is to identify the single most critical security test for this screen.
+    ]]></user>
+  </roles>
+</template>
+"""
+
+# In a real example, you would write this to a file
+# Here we'll just create a framework with our custom fragment
+
+# Register the custom fragment and template
+framework = PromptFramework.create()
+
+# Use the framework with our custom template
+state = {
+    StateEntry.PACKAGE_NAME: "com.example.bankapp",
+    StateEntry.ACTIVITY: "com.example.bankapp.LoginActivity",
+    StateEntry.SCREEN_DESCRIPTION: "Login screen with username and password fields.",
+}
+
+context = {
+    "template": "security_template",  # This would normally select our custom template
+}
+
+# Generate messages
+messages = framework.generate_prompt(PromptStrategyType.STANDARD, state, context)
+```
+
+## 9. System Extension
+
+### 9.1 Creating New Fragments
+
+Para criar um novo fragment de informação:
+
+```python
+from rvandroid.llm.prompt.information.base_fragment import InformationFragment
+from rvandroid.llm.constants import FragmentType, StateEntry
+from typing import Dict, Any, Optional, List
+
+class HistoryFragment(InformationFragment):
+    """Fragment for providing action history information."""
+    
+    def __init__(self, name: str = "action_history", priority: int = 150):
+        super().__init__(name, priority)
+        self.action_history = []
+    
+    def generate(self, state: Dict[str, Any], context: Optional[Dict[str, Any]] = None) -> str:
+        """Generate information about action history in the current state."""
+        # Obter informações atuais do app
+        package_name = state.get(StateEntry.PACKAGE_NAME, "unknown")
+        activity = state.get(StateEntry.ACTIVITY, "unknown")
+        
+        # Formatar texto do histórico
+        if not self.action_history:
+            return "No previous actions recorded."
+        
+        history_text = "Previous actions:\n"
+        for i, action in enumerate(self.action_history[-5:], 1):
+            result_text = "✓" if action.get("success", False) else "✗"
+            history_text += f"{i}. {action.get('type', 'unknown')}: {action.get('target', 'unknown')} - {result_text}\n"
+        
+        return history_text
+    
+    def add_action(self, action: Dict[str, Any], result: bool) -> None:
+        """Add a new action to the history."""
+        self.action_history.append({
+            "type": action.get("type"),
+            "target": action.get("target"),
+            "success": result
+        })
+        # Manter histórico em tamanho razoável
+        if len(self.action_history) > 20:
+            self.action_history = self.action_history[-20:]
+    
+    def should_include(self, state: Dict[str, Any], context: Optional[Dict[str, Any]] = None) -> bool:
+        # Incluir apenas se tivermos algum histórico
+        return len(self.action_history) > 0
+```
+
+### 9.2 Creating New Strategies
+
+Para criar uma nova estratégia de prompt:
+
+```python
+from rvandroid.llm.prompt.strategy.base_strategy import PromptStrategy
+from rvandroid.llm.constants import PromptStrategyType
+from rvandroid.llm.prompt.information.fragment_manager import InformationManager
+from rvandroid.llm.prompt.template.xml_repository import XMLTemplateRepository
+from typing import Dict, Any, Optional, List
+
+class ExplorationStrategy(PromptStrategy):
+    """Strategy focused on exploration breadth."""
+    
+    DEFAULT_TEMPLATE = "exploration"
+    
+    def __init__(
+        self,
+        name: str = "exploration",
+        information_manager: Optional[InformationManager] = None,
+        template_repository: Optional[XMLTemplateRepository] = None
+    ):
+        """Initialize the exploration strategy."""
+        super().__init__(name, information_manager, template_repository)
+    
+    def generate_prompt(
+        self, 
+        state: Dict[str, Any], 
+        context: Optional[Dict[str, Any]] = None
+    ) -> List[Dict[str, str]]:
+        """Generate an exploration-focused prompt."""
+        if context is None:
+            context = {}
+        
+        try:
+            # Usar template de exploração
+            template_name = self.get_template_name(context) or self.DEFAULT_TEMPLATE
+            
+            # Obter informações com fragments padrão
+            info = {}
+            if self.information_manager:
+                info = self.information_manager.compose_information(state, context)
+            
+            # Adicionar diretrizes de exploração
+            if "additional_guidelines" not in context:
+                context["additional_guidelines"] = (
+                    "Focus on exploring new screens and UI elements that haven't been visited before. "
+                    "Prioritize breadth of exploration rather than depth."
+                )
+            
+            # Gerar mensagens a partir do template
+            variables = {**info, **context}
+            
+            if self.template_repository:
+                messages = self.template_repository.create_messages(template_name, variables)
+                return messages or self._create_fallback_messages(state)
+            else:
+                return self._create_fallback_messages(state)
+                
+        except Exception as e:
+            self.logger.error(f"Error generating exploration prompt: {e}", exc_info=True)
+            return self._create_fallback_messages(state)
+    
+    def _create_fallback_messages(self, state: Dict[str, Any]) -> List[Dict[str, str]]:
+        """Create fallback messages if template generation fails."""
+        return [
+            {
+                "role": "system",
+                "content": "You are an Android testing assistant focused on exploration."
+            },
+            {
+                "role": "user",
+                "content": "Suggest an action that would help explore new parts of the app."
+            }
+        ]
+```
+
+### 9.3 Creating New XML Templates
+
+Para criar um novo template XML:
+
+```python
+import os
+from rvandroid.llm.prompt.template.xml_utils import create_template_xml_string
+
+# Criar conteúdo do template
+template_content = create_template_xml_string(
+    name="exploration",
+    version="1.0",
+    description="Template for exploration-focused prompts",
+    author="RV-Android Team",
+    created="2025-04-18",
+    required_vars=["screen_description"],
+    optional_vars=["ui_patterns", "history", "additional_guidelines"],
+    system_content="""
+You are an Android exploration assistant. Your job is to discover new screens and functionality in the app.
+
+The current screen contains:
+${screen_description}
+
+${#if ui_patterns}I've identified these UI patterns:
+${ui_patterns}
+
+${#endif}${#if history}Previous actions:
+${history}
+
+${#endif}
+""",
+    user_content="""
+Suggest ONE action that would help explore a new part of this application that hasn't been seen before.${#if additional_guidelines}
+
+${additional_guidelines}${#endif}
+"""
+)
+
+# Escrever em arquivo de template
+template_dir = "/path/to/templates"
+os.makedirs(template_dir, exist_ok=True)
+with open(os.path.join(template_dir, "exploration.xml"), "w") as f:
+    f.write(template_content)
+
+# Carregar no repositório de templates
+from rvandroid.llm.prompt.template.xml_repository import XMLTemplateRepository
+repository = XMLTemplateRepository(template_dir)
+repository._load_templates()
+```
+
+## 10. Modular Template System
+
+### 10.1 Template Inheritance
+
+The template system supports inheritance through the `extends` attribute, allowing templates to build upon a base template:
+
+```xml
+<template name="standard" version="1.0" extends="system_base">
+  <metadata>
+    <description>Standard template for Android testing</description>
+    <created>2025-04-17</created>
+    <author>RV-Android Team</author>
+  </metadata>
+  <variables>
+    <required>screen_elements</required>
+    <optional>additional_guidelines</optional>
+  </variables>
+  <roles>
+    <s>
+      <variable name="strategy_specific_instructions">
+        <!-- Specific instructions that override the parent template -->
+        <![CDATA[
+IMPORTANT: You will be provided with a list of possible actions, each with a unique action_id. Your job is to select exactly ONE action to perform. Choose the most effective action for thorough testing.
+        ]]>
+      </variable>
+      <variable name="response_format_instructions">
+        <!-- Format instructions that override the parent template -->
+        <![CDATA[
+Format your response as a valid JSON object following this schema:
+{
+  "action_id": "5",  
+  "params": {},  
+  "explanation": "Detailed explanation of why this action was chosen"
+}
+
+For actions that require parameters (like SET_TEXT), you must include appropriate values:
+{
+  "action_id": "5",  
+  "params": {"text": "test@example.com"},  
+  "explanation": "Entering a valid email address in the email field"
+}
+
+DO NOT include any additional text outside of the JSON object. Your response must be valid JSON that can be parsed directly.
+        ]]>
+      </variable>
+    </s>
+    <user><![CDATA[
+Current Activity: {activity}
+
+{static_context}
+
+Current UI Elements and Available Actions:
 {ui_elements}
 
-Suggest the best next action to take for testing this screen thoroughly.""",
-    name="testing_template",
-    version="1.0",
-    required_variables=["screen_name", "ui_elements"]
-)
+{#if action_history}{action_history}
 
-# Register template
-PromptLibrary.register_template(template, "user")
+{#endif}SUMMARY: You are testing the {activity} screen. Select ONE action from the available options above that would be most effective for testing this screen. Remember to return your answer as a JSON object using the action_id values provided.{#if additional_guidelines}
 
-# Render template with variables
-rendered_text = template.render({
-    "screen_name": "LoginActivity",
-    "ui_elements": "1. Username field\n2. Password field\n3. Login button"
-})
-
-# Create MCP message
-user_message = MCPMessage(
-    role=MCPRole.USER,
-    content=[MCPTextContent(text=rendered_text)]
-)
-
-# Create model and generate response
-configurator = ComponentConfigurator()
-configurator.set_llm("ollama", "llama3.2:3b")
-model = configurator.create_llm()
-response = model.generate_sync([user_message])
-
-print(f"Response: {response.content[0].text}")
+{additional_guidelines}{#endif}
+    ]]></user>
+  </roles>
+</template>
 ```
 
-### 8.3 Advanced Strategy Integration
+### 10.2 Template Fragments
 
-```python
-from rvandroid.llm.prompt.flow_based_batch_action_strategy import FlowBasedBatchActionStrategy
-from rvandroid.config.component_configurator import ComponentConfigurator
+The system uses template fragments to create reusable pieces of prompt content:
 
-# Create strategy
-strategy = FlowBasedBatchActionStrategy(static_data)
-
-# Create configurator and model
-configurator = ComponentConfigurator(static_data)
-configurator.set_llm("ollama", "llama3.2:3b")
-configurator.set_strategy("flow_based_batch_action")
-model = configurator.create_llm()
-
-# Get current app state
-state = get_current_state()  # Implementation-specific
-
-# Generate messages using strategy
-messages = strategy.generate_messages(state)
-
-# Generate response
-response = model.generate_sync(messages)
-
-# Process response using strategy
-actions = strategy.process_response(response, state)
-
-# Execute actions
-for action in actions:
-    execute_action(action)  # Implementation-specific
+```xml
+<!-- fragments/ui_patterns/form_pattern.xml -->
+<fragment name="form_pattern">
+  <![CDATA[
+For FORM patterns:
+- Enter text in all text fields, starting from top to bottom
+- Text values should match the expected format (emails, passwords, etc.)
+- Select appropriate options in dropdown menus/spinners
+- Check or uncheck checkboxes based on context
+- Toggle switches appropriately
+- ALWAYS fill all required fields BEFORE clicking submit/save buttons
+- Test validation by intentionally providing invalid inputs occasionally
+  ]]>
+</fragment>
 ```
 
-### 8.4 Custom Adapter Creation
+These fragments can be included in templates using the `{#include fragment_name}` directive:
+
+```xml
+<template name="batch_action_modular" version="1.0" extends="system_base">
+  <metadata>
+    <description>Template for generating batches of testing actions (modular version)</description>
+    <created>2025-04-18</created>
+    <author>RV-Android Team</author>
+  </metadata>
+  <variables>
+    <required>screen_elements</required>
+    <optional>additional_guidelines</optional>
+    <optional>ui_patterns</optional>
+    <optional>monitored_operations</optional>
+    <optional>testing_history</optional>
+  </variables>
+  <roles>
+    <s>
+      <variable name="strategy_specific_instructions">
+        <![CDATA[
+{#include batch_instructions}
+        ]]>
+      </variable>
+      <variable name="response_format_instructions">
+        <![CDATA[
+{#include batch_format}
+        ]]>
+      </variable>
+      <variable name="additional_guidelines">
+        <![CDATA[
+{#include batch_guidelines}
+        ]]>
+      </variable>
+    </s>
+    <user><![CDATA[
+{#include user_base}
+{#include batch_ui_pattern_detection}
+{#if workflow_guidance}{workflow_guidance}
+
+{#endif}{#include batch_critical_task}{#if additional_guidelines}
+
+{additional_guidelines}{#endif}
+    ]]></user>
+  </roles>
+</template>
+```
+
+### 10.3 Fragment Categories
+
+The fragment system organizes fragments into logical categories:
+
+1. **UI Patterns** (`fragments/ui_patterns/`):
+   - `form_pattern.xml`: Guidance for testing forms
+   - `list_pattern.xml`: Guidance for testing lists
+   - `tabs_pattern.xml`: Guidance for testing tabbed interfaces
+
+2. **System Role Fragments** (`fragments/`):
+   - `system_intro.xml`: Introduction for system prompts
+   - `system_guidelines.xml`: Common guidelines for action selection
+   - `standard_instructions.xml`: Instructions for single action strategy
+   - `standard_format.xml`: JSON format for single action responses
+   - `batch_instructions.xml`: Instructions for batch action strategy
+   - `batch_format.xml`: JSON format for batch action responses
+   - `batch_guidelines.xml`: Guidelines specific to batch action generation
+   - `standard_guidelines.xml`: Additional guidelines for standard strategy
+
+3. **User Role Fragments** (`fragments/`):
+   - `user_base.xml`: Common structure for user prompts (current activity, static context, UI elements)
+   - `standard_summary.xml`: Summary for standard strategy user prompts
+   - `batch_ui_pattern_detection.xml`: UI pattern identification for batch strategy
+   - `batch_critical_task.xml`: Critical task definition for batch action generation
+
+This modular organization makes it easy to combine and reuse fragments across different templates while maintaining consistency in the prompt language.
+
+### 10.4 Template Processor Implementation
+
+The template processor implements fragment inclusion as part of the rendering process:
 
 ```python
-from typing import Dict, Any, List
-import logging
-from rvandroid.llm.adapter import MCPAdapter
-from rvandroid.llm.data_structures import MCPMessage, MCPRole, MCPTextContent, MCPConfiguration
-
-class CustomAdapter(MCPAdapter):
-    """Custom adapter for a new LLM provider."""
+def _process_includes(self, template: str, fragments: Dict[str, str]) -> str:
+    """
+    Process fragment includes in the template.
     
-    def __init__(self):
-        """Initialize the custom adapter."""
-        self.logger = logging.getLogger(f"{__name__}.{self.__class__.__name__}")
-    
-    def prepare_messages(self, messages: List[MCPMessage]) -> Dict[str, Any]:
-        """Convert MCP messages to custom format."""
-        # Implementation for your specific provider
-        custom_format = {"messages": []}
+    Args:
+        template: The template text
+        fragments: Dictionary of fragment name to fragment content
         
-        for message in messages:
-            # Extract text content
-            text = "".join(c.text for c in message.content if isinstance(c, MCPTextContent))
+    Returns:
+        Template with includes resolved
+    """
+    include_pattern = r"\{#include ([a-zA-Z0-9_]+)\}"
+    
+    while True:
+        match = re.search(include_pattern, template)
+        if not match:
+            break
             
-            # Add to custom format
-            custom_format["messages"].append({
-                "type": message.role.value,
-                "content": text
-            })
+        fragment_name = match.group(1)
+        fragment_content = fragments.get(fragment_name)
         
-        return custom_format
-    
-    def prepare_config(self, config: MCPConfiguration) -> Dict[str, Any]:
-        """Convert MCP configuration to custom parameters."""
-        # Map configuration parameters
-        return {
-            "model": config.model_name,
-            "temp": config.temperature,
-            "max_length": config.max_tokens
-        }
-    
-    def parse_response(self, response: Any) -> MCPMessage:
-        """Parse custom response into MCP message."""
-        # Extract response text
-        if isinstance(response, dict) and "output" in response:
-            text = response["output"]
+        if fragment_content:
+            template = template.replace(match.group(0), fragment_content)
         else:
-            text = str(response)
-        
-        # Create MCP message
-        return MCPMessage(
-            role=MCPRole.ASSISTANT,
-            content=[MCPTextContent(text=text)]
-        )
+            self.logger.warning(f"Fragment not found: {fragment_name}")
+            template = template.replace(match.group(0), "")
     
-    def validate_request(self, messages: List[MCPMessage], config: MCPConfiguration) -> bool:
-        """Validate that messages and config are compatible."""
-        # Implement validation logic
-        return len(messages) > 0 and config.model_name != ""
-
-# Register adapter with a custom model
-class CustomModel(LanguageModel):
-    """Custom model implementation."""
-    
-    def __init__(self, model_name: str, **kwargs):
-        """Initialize custom model."""
-        super().__init__(model_name, **kwargs)
-        
-    def _get_model_type(self) -> str:
-        """Get model type."""
-        return "custom"
-    
-    def _get_adapter(self) -> MCPAdapter:
-        """Get custom adapter."""
-        return CustomAdapter()
-    
-    async def generate(self, messages: List[MCPMessage], config=None) -> MCPMessage:
-        """Generate asynchronously."""
-        # Implementation details
-        
-    def generate_sync(self, messages: List[MCPMessage], config=None) -> MCPMessage:
-        """Generate synchronously."""
-        # Implementation details
-
-# Register the custom model
-ComponentConfigurator.register_llm("custom", CustomModel)
-
-# Use the custom model
-configurator = ComponentConfigurator()
-configurator.set_llm("custom", "my-custom-model")
-model = configurator.create_llm()
+    return template
 ```
 
-### 8.5 Test Framework Configuration
+This approach enables highly modular templates with efficient reuse of prompt components, making the system more maintainable and consistent.
 
-```json
-{
-  "name": "MCP Model Comparison",
-  "description": "Compare different MCP model configurations",
-  "apps": ["path/to/app1.apk", "path/to/app2.apk"],
-  "repetitions": 3,
-  "tools": [
-    {
-      "name": "rvandroid",
-      "timeout": 300,
-      "model_type": "ollama",
-      "model_name": "llama3.2:3b",
-      "temperature": 0.2,
-      "strategy_type": "single_action"
-    },
-    {
-      "name": "rvandroid",
-      "timeout": 300,
-      "model_type": "ollama",
-      "model_name": "llama3.2:8b",
-      "temperature": 0.2,
-      "strategy_type": "single_action"
-    },
-    {
-      "name": "rvandroid",
-      "timeout": 300,
-      "model_type": "frontier",
-      "model_name": "claude-3-haiku",
-      "temperature": 0.2,
-      "strategy_type": "flow_based_batch"
-    }
-  ]
-}
-```
-
-## 9. Extending the System
-
-### 9.1 Adding New Model Types
-
-To add support for a new LLM provider to the MCP system:
-
-1. **Create an Adapter**:
-   ```python
-   class NewProviderAdapter(MCPAdapter):
-       """Adapter for new provider."""
-       
-       def prepare_messages(self, messages):
-           # Convert MCP messages to provider format
-           
-       def prepare_config(self, config):
-           # Convert MCP config to provider parameters
-           
-       def parse_response(self, response):
-           # Parse provider response to MCP message
-           
-       def validate_request(self, messages, config):
-           # Validate request for provider
-   ```
-
-2. **Implement Language Model**:
-   ```python
-   class NewProviderModel(LanguageModel):
-       """Model implementation for new provider."""
-       
-       def _get_model_type(self):
-           return "new_provider"
-           
-       def _get_adapter(self):
-           return NewProviderAdapter()
-           
-       async def generate(self, messages, config=None):
-           # Async generation implementation
-           
-       def generate_sync(self, messages, config=None):
-           # Sync generation implementation
-   ```
-
-3. **Register the Model**:
-   ```python
-   # Register with component configurator
-   ComponentConfigurator.register_llm("new_provider", NewProviderModel)
-   ```
-
-### 9.2 Creating Custom Templates
-
-To create custom templates for the MCP system:
-
-1. **Define Template**:
-   ```python
-   custom_template = PromptTemplate(
-       template_text="""Custom template content with {variable} placeholders
-   and {#if condition}conditional sections{#endif}
-   and {#include fragment} inclusions.""",
-       name="custom_template",
-       version="1.0",
-       required_variables=["variable"]
-   )
-   ```
-
-2. **Register Template**:
-   ```python
-   PromptLibrary.register_template(custom_template, "custom")
-   ```
-
-3. **Use in Strategies**:
-   ```python
-   class CustomStrategy(BasePromptStrategy):
-       """Custom strategy with specialized templates."""
-       
-       def __init__(self, static_data=None, parser=None):
-           super().__init__(static_data, parser)
-           self.specialized_template = PromptLibrary.get_template("custom_template")
-   ```
-
-### 9.3 Creating Custom Prompt Strategies
-
-To implement a custom prompt strategy:
-
-1. **Extend Base Strategy**:
-   ```python
-   class CustomStrategy(BasePromptStrategy):
-       """Custom prompt strategy implementation."""
-       
-       def __init__(self, static_data=None, parser=None):
-           """Initialize custom strategy."""
-           super().__init__(static_data, parser)
-           # Custom initialization
-           
-       def generate_system_prompt(self):
-           """Generate custom system prompt."""
-           # Custom implementation
-           
-       def generate_user_prompt(self, state):
-           """Generate custom user prompt."""
-           # Custom implementation
-           
-       def process_response(self, response, state):
-           """Process response in custom way."""
-           # Custom implementation
-   ```
-
-2. **Register Strategy**:
-   ```python
-   PromptStrategyFactory.register_strategy(
-       "custom_strategy", 
-       CustomStrategy,
-       metadata={"description": "Custom strategy implementation"}
-   )
-   ```
-
-3. **Use Strategy**:
-   ```python
-   # Create strategy instance
-   strategy = PromptStrategyFactory.create("custom_strategy", static_data)
-   
-   # Use in testing
-   configurator = ComponentConfigurator(static_data)
-   configurator.set_llm("ollama", "llama3.2:3b")
-   model = configurator.create_llm()
-   messages = strategy.generate_messages(state)
-   response = model.generate_sync(messages)
-   actions = strategy.process_response(response, state)
-   ```
-
-### 9.4 Extending the Test Framework
-
-To extend the Test Framework with new MCP capabilities:
-
-1. **Create Custom Tool Configuration**:
-   ```python
-   class CustomToolConfiguration(ToolConfiguration):
-       """Custom tool configuration with enhanced MCP properties."""
-       
-       def __init__(self, tool_name, **kwargs):
-           super().__init__(tool_name, **kwargs)
-           self.custom_mcp_property = kwargs.get("custom_mcp_property")
-   ```
-
-2. **Add Custom Metrics Collection**:
-   ```python
-   class MCPMetricsCollector:
-       """Collects MCP-specific metrics during testing."""
-       
-       def __init__(self):
-           self.metrics = {}
-           
-       def record_generation_metrics(self, model_type, model_name, tokens, latency):
-           # Record generation metrics
-           
-       def record_prompt_metrics(self, strategy_type, prompt_size, tokens):
-           # Record prompt metrics
-           
-       def generate_report(self):
-           # Generate metrics report
-   ```
-
-3. **Add Custom Analysis**:
-   ```python
-   class MCPPerformanceAnalyzer:
-       """Analyzes MCP performance across test runs."""
-       
-       def __init__(self, results):
-           self.results = results
-           
-       def analyze_model_performance(self):
-           # Analyze model performance
-           
-       def analyze_strategy_performance(self):
-           # Analyze strategy performance
-           
-       def generate_report(self):
-           # Generate analysis report
-   ```
-
-## 10. Troubleshooting
-
-### 10.1 Common MCP Issues
-
-1. **Adapter Conversion Errors**:
-   - **Symptom**: Error in `prepare_messages` or `prepare_config`
-   - **Solution**: Ensure adapter properly converts MCP to provider format
-   - **Example**: Implement more robust error handling in adapters
-
-2. **Model Generation Failures**:
-   - **Symptom**: Exception during model generation
-   - **Solution**: Check model configuration and API access
-   - **Example**: Validate API keys and endpoints
-
-3. **Template Rendering Errors**:
-   - **Symptom**: Error during template rendering
-   - **Solution**: Ensure all required variables are provided
-   - **Example**: Add default values for optional variables
-
-4. **Invalid Response Format**:
-   - **Symptom**: Error parsing model response
-   - **Solution**: Enhance response parsing robustness
-   - **Example**: Add fallback parsing strategies
-
-### 10.2 Debugging MCP
-
-To debug MCP issues:
-
-1. **Enable Detailed Logging**:
-   ```python
-   import logging
-   logging.basicConfig(level=logging.DEBUG)
-   ```
-
-2. **Inspect MCP Messages**:
-   ```python
-   messages = strategy.generate_messages(state)
-   for msg in messages:
-       print(f"Role: {msg.role.value}")
-       for content in msg.content:
-           print(f"Content: {content}")
-   ```
-
-3. **Test Adapter Conversions**:
-   ```python
-   adapter = model._get_adapter()
-   provider_format = adapter.prepare_messages(messages)
-   print(f"Provider format: {provider_format}")
-   ```
-
-4. **Validate Template Rendering**:
-   ```python
-   template = PromptLibrary.get_template("template_name")
-   rendered = template.render(variables)
-   print(f"Rendered template: {rendered}")
-   ```
-
-### 10.3 Performance Considerations
-
-When working with MCP, keep these performance considerations in mind:
-
-1. **Message Conversion Overhead**:
-   - The adapter conversion process adds computational overhead
-   - For high-frequency operations, consider caching common message patterns
-
-2. **Template Rendering Performance**:
-   - Complex templates with many conditionals can be expensive to render
-   - Consider pre-rendering common templates
-
-3. **Response Parsing Efficiency**:
-   - Response parsing can be expensive for complex responses
-   - Consider streaming responses when possible
-
-4. **Model Selection Trade-offs**:
-   - Larger models provide better reasoning but have higher latency
-   - Choose model size based on the complexity of your testing tasks
-
-### 10.4 Compatibility Issues
-
-When encountering compatibility issues:
-
-1. **Model Capability Differences**:
-   - Not all models support the same features (images, tools, etc.)
-   - Adapters should handle graceful degradation
-
-2. **Version Compatibility**:
-   - MCP structures may evolve over time
-   - Ensure adapters are updated for API changes
-
-3. **Provider API Changes**:
-   - LLM provider APIs frequently change
-   - Monitor for breaking changes and update adapters accordingly
-
-4. **Template Compatibility**:
-   - Templates may depend on specific model capabilities
-   - Use conditional sections to handle model-specific features
+Com esses componentes implementados, o sistema RV-Android possui uma arquitetura unificada e extensível para integração com LLM que elimina duplicação de código, simplifica a manutenção e proporciona comportamento consistente em todas as operações de teste baseadas em IA.

@@ -8,6 +8,7 @@ from rvandroid.util.logging.manager import LoggingManager
 from rvandroid.util.performance_monitor import PerformanceMonitor
 
 
+# TODO: usar no actionService ... deve ter perdido em algum refactoring
 class StateAnalyzer:
     """
     Analyzes and enhances application state for more effective testing.

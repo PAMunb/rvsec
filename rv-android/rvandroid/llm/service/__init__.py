@@ -9,13 +9,15 @@ of the LLM-based action generation workflow:
 - llm_manager.py: Manages language model instances and interactions
 - prompt_processor.py: Handles prompt creation and management
 - response_processor.py: Processes and validates LLM responses
+- state_enricher.py: Enriches application state with UI information
 - state_analyzer.py: Analyzes application state and context
 - transition_manager.py: Manages application navigation models
 """
 
 from rvandroid.llm.service.action_generator import ActionGenerator
 from rvandroid.llm.service.llm_manager import LLMManager
-from rvandroid.llm.service.prompt_processor import PromptProcessor
+# from rvandroid.llm.service.prompt_processor import PromptProcessor
+from rvandroid.llm.service.state_enricher import StateEnricher
 from rvandroid.llm.service.response_processor import ResponseProcessor
 from rvandroid.llm.service.state_analyzer import StateAnalyzer
 from rvandroid.llm.service.transition_manager import TransitionManager
@@ -23,7 +25,8 @@ from rvandroid.llm.service.transition_manager import TransitionManager
 __all__ = [
     'ActionGenerator',
     'LLMManager',
-    'PromptProcessor',
+    # 'PromptProcessor',
+    'StateEnricher',
     'ResponseProcessor',
     'StateAnalyzer',
     'TransitionManager'

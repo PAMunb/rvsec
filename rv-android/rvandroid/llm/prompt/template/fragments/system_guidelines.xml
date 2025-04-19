@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<fragment name="system_guidelines">
+  <![CDATA[
+GUIDELINES FOR ACTION SELECTION:
+1. ORDERING MATTERS - arrange actions in a logical testing sequence (e.g., fill a form before submitting it)
+2. If an action leads to a screen transition, it should typically be the last action in your sequence
+3. For text inputs, generate contextually appropriate values based on the field type (email, password, etc.)
+4. Prioritize actions that trigger operations of interest (marked as [CRITICAL] or [IMPORTANT])
+5. Ensure your suggested actions form a coherent testing strategy
+6. For login forms: first fill username, then password, THEN click login button
+7. For registration forms: fill ALL fields in a logical order before submission
+8. If a screen has a primary action (OK, NEXT, CONTINUE), it should be the LAST action
+9. For dropdowns/spinners: click to open them first, then select an option
+10. For checkboxes in a form: handle them BEFORE clicking submit buttons
+  ]]>
+</fragment>

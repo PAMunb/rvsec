@@ -13,12 +13,15 @@ class VisitorFactory:
     Factory for creating screen visitor instances.
     Centralizes the creation of different visitor types.
     """
+    BASIC = "basic"
+    DEFAULT = "default"
+    DETAILED = "detailed"
 
     # Registry of visitor types and their implementations
     _REGISTRY: Dict[str, Type[AbstractScreenVisitor]] = {
-        "basic": BasicTextVisitor,
-        "default": DefaultTextVisitor,
-        "detailed": EnhancedTextVisitor,
+        BASIC: BasicTextVisitor,
+        DEFAULT: DefaultTextVisitor,
+        DETAILED: EnhancedTextVisitor,
         # Add other visitor implementations as needed
     }
 

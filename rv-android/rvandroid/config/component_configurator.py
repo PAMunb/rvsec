@@ -7,9 +7,10 @@ import importlib
 import json
 import logging
 import os
-from typing import Dict, List, Any, Type, Optional, Callable, TypeVar, Generic
+from typing import Dict, List, Any, Type, Optional, TypeVar, Generic
 
 from rvandroid.config.configuration import Configuration
+from rvandroid.llm.constants import PromptStrategyType
 # Remove circular import
 # from rvandroid.config.configuration_manager import ConfigurationManager
 from rvandroid.llm.llm_config import LLMConfiguration
@@ -44,7 +45,7 @@ class ComponentRegistry(Generic[T]):
         self._components: Dict[str, Dict[str, Any]] = {}
         self.logger = logging.getLogger(f"{__name__}.{component_type}")
 
-    def register(self, name: str, implementation: Type[T], 
+    def register(self, name: str, implementation: Type[T],
                  module_path: str = None, metadata: Dict[str, Any] = None) -> None:
         """
         Register a component implementation with the registry.
@@ -68,7 +69,7 @@ class ComponentRegistry(Generic[T]):
         }
         self.logger.debug(f"Registered {self.component_type} '{name}'")
 
-    def register_lazy(self, name: str, module_path: str, class_name: str, 
+    def register_lazy(self, name: str, module_path: str, class_name: str,
                       metadata: Dict[str, Any] = None) -> None:
         """
         Register a component for lazy loading.
@@ -246,7 +247,7 @@ class ComponentConfigurator:
     }
 
     @classmethod
-    def register_llm(cls, name: str, implementation=None, module_path=None, class_name=None, 
+    def register_llm(cls, name: str, implementation=None, module_path=None, class_name=None,
                      metadata: Dict[str, Any] = None) -> None:
         """
         Register a language model implementation.
@@ -365,7 +366,7 @@ class ComponentConfigurator:
 
         # Initialize default configuration
         self._initialize_default_configuration()
-        
+
         # Register built-in components if not already registered
         self._initialize_registries()
 
@@ -382,19 +383,26 @@ class ComponentConfigurator:
         # Register strategy types
         if not self._registries['strategy'].get_names():
             self._registries['strategy'].register_lazy(
-                'basic', 'rvandroid.llm.prompt.prompt_strategy_basic_001', 'BasicPromptStrategy001')
+                PromptStrategyType.STANDARD, 'rvandroid.llm.prompt.strategy.strategies.standard_strategy', 'StandardStrategy')
             self._registries['strategy'].register_lazy(
-                'dspy', 'rvandroid.llm.prompt.prompt_strategy_dspy', 'DSPyPromptStrategy')
-            self._registries['strategy'].register_lazy(
-                'single_action', 'rvandroid.llm.prompt.single_action_prompt_strategy', 'SingleActionPromptStrategy')
-            self._registries['strategy'].register_lazy(
-                'dspy_single_action', 'rvandroid.llm.prompt.dspy_single_action_prompt_strategy', 'DSPySingleActionPromptStrategy')
-            self._registries['strategy'].register_lazy(
-                'composable', 'rvandroid.llm.prompt.composable_prompt_strategy', 'ComposablePromptStrategy')
-            self._registries['strategy'].register_lazy(
-                'composable_single_action', 'rvandroid.llm.prompt.composable_single_action_strategy', 'ComposableSingleActionStrategy')
-            self._registries['strategy'].register_lazy(
-                'flow_based_batch_action', 'rvandroid.llm.prompt.flow_based_batch_action_strategy', 'FlowBasedBatchActionStrategy')
+                PromptStrategyType.BATCH_ACTION, 'rvandroid.llm.prompt.strategy.strategies.batch_action_strategy', 'BatchActionStrategy')
+            # self._registries['strategy'].register_lazy(
+            #     'basic', 'rvandroid.llm.prompt.prompt_strategy_basic_001', 'BasicPromptStrategy001')
+            # self._registries['strategy'].register_lazy(
+            #     'dspy', 'rvandroid.llm.prompt.prompt_strategy_dspy', 'DSPyPromptStrategy')
+            # self._registries['strategy'].register_lazy(
+            #     'single_action', 'rvandroid.llm.prompt.single_action_prompt_strategy', 'SingleActionPromptStrategy')
+            # self._registries['strategy'].register_lazy(
+            #     'dspy_single_action', 'rvandroid.llm.prompt.dspy_single_action_prompt_strategy',
+            #     'DSPySingleActionPromptStrategy')
+            # self._registries['strategy'].register_lazy(
+            #     'composable', 'rvandroid.llm.prompt.composable_prompt_strategy', 'ComposablePromptStrategy')
+            # self._registries['strategy'].register_lazy(
+            #     'composable_single_action', 'rvandroid.llm.prompt.composable_single_action_strategy',
+            #     'ComposableSingleActionStrategy')
+            # self._registries['strategy'].register_lazy(
+            #     'flow_based_batch_action', 'rvandroid.llm.prompt.flow_based_batch_action_strategy',
+            #     'FlowBasedBatchActionStrategy')
 
         # Register parser types
         if not self._registries['parser'].get_names():
@@ -423,8 +431,8 @@ class ComponentConfigurator:
         self.visitor_class = DefaultTextVisitor
 
         # Set default strategy class
-        from rvandroid.llm.prompt.flow_based_batch_action_strategy import FlowBasedBatchActionStrategy
-        self.strategy_class = FlowBasedBatchActionStrategy
+        from rvandroid.llm.prompt.strategy.strategies.standard_strategy import StandardStrategy
+        self.strategy_class = StandardStrategy
 
     def set_llm(self, llm_type: str, model: str = None, **kwargs) -> 'ComponentConfigurator':
         """
@@ -497,7 +505,7 @@ class ComponentConfigurator:
         strategy_class = self._registries['strategy'].get(strategy_type)
         if not strategy_class:
             raise ValueError(f"Failed to load strategy class for '{strategy_type}'")
-        
+
         self.strategy_class = strategy_class
 
         # Store strategy parameters
@@ -526,7 +534,7 @@ class ComponentConfigurator:
         parser_class = self._registries['parser'].get(parser_type)
         if not parser_class:
             raise ValueError(f"Failed to load parser class for '{parser_type}'")
-        
+
         self.parser_class = parser_class
 
         # Update parser type in LLM configuration
@@ -556,13 +564,14 @@ class ComponentConfigurator:
         """
         print(f"self._registries['visitor']={self._registries['visitor'].get_names()}")
         if not self._registries['visitor'].has(visitor_type):
-            raise ValueError(f"Unknown visitor type: {visitor_type}. Options: {self._registries['visitor'].get_names()}")
+            raise ValueError(
+                f"Unknown visitor type: {visitor_type}. Options: {self._registries['visitor'].get_names()}")
 
         # Import the visitor class dynamically
         visitor_class = self._registries['visitor'].get(visitor_type)
         if not visitor_class:
             raise ValueError(f"Failed to load visitor class for '{visitor_type}'")
-        
+
         self.visitor_class = visitor_class
 
         # Store visitor parameters
@@ -648,7 +657,7 @@ class ComponentConfigurator:
         # Get LLM implementation from registry
         llm_registry = self._registries['llm']
         model_class = llm_registry.get(model_type)
-        
+
         if not model_class:
             raise ValueError(f"Unknown model type: {model_type}. Available types: {llm_registry.get_names()}")
 
@@ -715,40 +724,40 @@ class ComponentConfigurator:
         # Configure strategy
         strategy_type = self.config.get_str("strategy.type", "composable_single_action")
         strategy_kwargs = {}
-        
+
         # Extract strategy-specific configuration
         strategy_section = self.config.get("strategy", {})
         if isinstance(strategy_section, dict):
             for key, value in strategy_section.items():
                 if key != "type":
                     strategy_kwargs[key] = value
-                    
+
         self.set_strategy(strategy_type, **strategy_kwargs)
 
         # Configure parser
         parser_type = self.config.get_str("parser.type", "droidbot")
         parser_kwargs = {}
-        
+
         # Extract parser-specific configuration
         parser_section = self.config.get("parser", {})
         if isinstance(parser_section, dict):
             for key, value in parser_section.items():
                 if key != "type":
                     parser_kwargs[key] = value
-                    
+
         self.set_parser(parser_type, **parser_kwargs)
 
         # Configure visitor
         visitor_type = self.config.get_str("visitor.type", "enhanced")
         visitor_kwargs = {}
-        
+
         # Extract visitor-specific configuration
         visitor_section = self.config.get("visitor", {})
         if isinstance(visitor_section, dict):
             for key, value in visitor_section.items():
                 if key != "type":
                     visitor_kwargs[key] = value
-                    
+
         self.set_visitor(visitor_type, **visitor_kwargs)
 
         return self
@@ -791,16 +800,16 @@ class ComponentConfigurator:
         """
         if not self.visitor_class:
             return "enhanced"  # Default
-            
+
         visitor_class_name = self.visitor_class.__name__
-        
+
         for name in self._registries['visitor'].get_names():
             visitor_class = self._registries['visitor'].get(name)
             if visitor_class and visitor_class.__name__ == visitor_class_name:
                 return name
-                
+
         return "enhanced"  # Default
-        
+
     def _get_config_manager(self):
         """
         Get or initialize the configuration manager.

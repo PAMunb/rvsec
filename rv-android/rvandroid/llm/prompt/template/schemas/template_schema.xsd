@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified">
+  <!-- Root element -->
+  <xs:element name="template">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="metadata" type="metadataType"/>
+        <xs:element name="variables" type="variablesType"/>
+        <xs:element name="roles" type="rolesType"/>
+      </xs:sequence>
+      <xs:attribute name="name" type="xs:string" use="required"/>
+      <xs:attribute name="version" type="xs:string" use="required"/>
+    </xs:complexType>
+  </xs:element>
+
+  <!-- Metadata Type -->
+  <xs:complexType name="metadataType">
+    <xs:sequence>
+      <xs:element name="description" type="xs:string"/>
+      <xs:element name="created" type="xs:date"/>
+      <xs:element name="author" type="xs:string"/>
+      <xs:element name="last_modified" type="xs:date" minOccurs="0"/>
+      <xs:element name="tags" type="tagsType" minOccurs="0"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <!-- Tags Type -->
+  <xs:complexType name="tagsType">
+    <xs:sequence>
+      <xs:element name="tag" type="xs:string" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <!-- Variables Type -->
+  <xs:complexType name="variablesType">
+    <xs:sequence>
+      <xs:element name="required" type="xs:string" minOccurs="0" maxOccurs="unbounded"/>
+      <xs:element name="optional" type="xs:string" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <!-- Roles Type -->
+  <xs:complexType name="rolesType">
+    <xs:sequence>
+      <xs:element name="s" type="xs:string" minOccurs="0"/>
+      <xs:element name="user" type="xs:string"/>
+      <xs:element name="assistant" type="xs:string" minOccurs="0"/>
+    </xs:sequence>
+  </xs:complexType>
+</xs:schema>

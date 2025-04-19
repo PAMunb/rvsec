@@ -13,11 +13,13 @@ from typing import Dict, Any, Optional, List, Tuple
 from rvandroid.parser.screen.visitor.model import ItemAction
 from rvandroid.domain.static import StaticAnalysisData
 from rvandroid.rvdroid.core.component import Component
-from rvandroid.rvdroid.llm.llm_service import LLMService
+from rvandroid.llm.prompt.framework import PromptFramework
+from rvandroid.llm.constants import ContextEntry, PromptStrategyType, StateEntry
 from rvandroid.util.error.decorators import handle_error
 from rvandroid.util.error.error_handler import ErrorHandler
 from rvandroid.util.logging.constants import CONTEXT_COMPONENT
 from rvandroid.util.logging.manager import LoggingManager
+from rvandroid.util.performance_monitor import PerformanceMonitor
 
 
 class LLMConsultationManager(Component):
@@ -30,6 +32,7 @@ class LLMConsultationManager(Component):
     - Implements resource-aware LLM usage with adaptive throttling
     - Processes and applies LLM guidance to testing strategies
     - Manages feedback loop from testing to improve guidance
+    - Uses unified PromptFramework for consistent LLM interactions
     
     ### Role in the System:
     - Provides strategic guidance for test exploration
@@ -54,8 +57,8 @@ class LLMConsultationManager(Component):
         self.strategy_balancer = config.get("strategy_balancer")
         
         # Initialize components
-        self.llm_manager = None
-        self.llm_service = None
+        self.prompt_framework = None
+        self.model = None
         
         # LLM usage settings
         self.guidance_interval = config.get("guidance_interval", 60)  # Default: once per minute
@@ -80,6 +83,12 @@ class LLMConsultationManager(Component):
             "total_directives_applied": 0
         }
         
+        # Get performance monitor
+        self.performance_monitor = PerformanceMonitor.get_instance()
+        
+        # Get error handler
+        self.error_handler = ErrorHandler.get_instance()
+        
     @handle_error(level="ERROR")
     def initialize(self) -> bool:
         """
@@ -97,34 +106,22 @@ class LLMConsultationManager(Component):
             self.initialized = True
             return True
         
-        # Initialize LLM manager based on availability
+        # Initialize PromptFramework
         try:
-            # Try to use the MCP implementation first
-            try:
-                from rvandroid.mcp.service.llm_manager import ResourceAwareLLMManager as MCPResourceManager
-                self.logger.info("Using MCP-based LLM manager")
-                self.llm_manager = MCPResourceManager(self.static_data)
-            except ImportError:
-                # Fall back to legacy implementation
-                self.logger.warning("MCP LLM manager not available, falling back to legacy implementation")
-                from rvandroid.rvdroid.llm.service.llm_manager import ResourceAwareLLMManager
-                self.llm_manager = ResourceAwareLLMManager(self.static_data)
-                
-            # Get LLM service from manager
-            self.llm_service = self.llm_manager.llm_service if self.llm_manager else None
+            from rvandroid.config.component_configurator import ComponentConfigurator
+            framework_config = ComponentConfigurator(static_data=self.static_data)
             
-            if not self.llm_service:
-                raise Exception("Failed to get LLM service from manager")
+            # Configure the framework with appropriate parameters
+            self.prompt_framework = PromptFramework.create(framework_config)
+            self.model = self.prompt_framework.model
+            
+            if not self.model:
+                raise Exception("Failed to create language model")
                 
+            self.logger.info(f"Created PromptFramework with model: {self.model.model_name}")
         except Exception as e:
-            self.logger.error(f"Failed to initialize LLM components: {e}")
-            # Create a minimal LLM service directly if manager fails
-            try:
-                self.llm_service = LLMService(self.static_data)
-                self.logger.info("Created basic LLM service as fallback")
-            except Exception as e2:
-                self.logger.error(f"Failed to create fallback LLM service: {e2}")
-                return False
+            self.logger.error(f"Failed to initialize PromptFramework: {e}")
+            return False
         
         # Reset statistics and tracking
         self.last_llm_guidance_time = 0
@@ -162,8 +159,8 @@ class LLMConsultationManager(Component):
         self.logger.info("Starting LLM consultation manager")
         
         # Verify required components
-        if not self.llm_service and not self.llm_manager:
-            self.logger.error("Cannot start: missing LLM service or manager")
+        if not self.prompt_framework or not self.model:
+            self.logger.error("Cannot start: missing PromptFramework or model")
             return False
             
         self.running = True
@@ -193,24 +190,16 @@ class LLMConsultationManager(Component):
         """
         self.logger.info("Cleaning up LLM consultation manager")
         
-        # Clean up LLM manager if available
-        if self.llm_manager:
+        # Clean up model if available
+        if self.model:
             try:
-                if hasattr(self.llm_manager, 'cleanup'):
-                    self.llm_manager.cleanup()
+                if hasattr(self.model, 'cleanup'):
+                    self.model.cleanup()
             except Exception as e:
-                self.logger.warning(f"Error during LLM manager cleanup: {e}")
+                self.logger.warning(f"Error during model cleanup: {e}")
         
-        # Clean up LLM service if available and not managed by manager
-        if self.llm_service and not self.llm_manager:
-            try:
-                if hasattr(self.llm_service, 'cleanup'):
-                    self.llm_service.cleanup()
-            except Exception as e:
-                self.logger.warning(f"Error during LLM service cleanup: {e}")
-        
-        self.llm_manager = None
-        self.llm_service = None
+        self.prompt_framework = None
+        self.model = None
         self.last_llm_guidance = None
         
         self.initialized = False
@@ -236,8 +225,8 @@ class LLMConsultationManager(Component):
         
         # Check if LLM is enabled
         use_llm = self.config.get("use_llm", True)
-        if not use_llm or not self.llm_manager:
-            self.logger.warning("LLM guidance is disabled or manager not available")
+        if not use_llm or not self.prompt_framework:
+            self.logger.warning("LLM guidance is disabled or framework not available")
             return {"error": "LLM guidance disabled"}
             
         # Check throttling interval
@@ -255,10 +244,39 @@ class LLMConsultationManager(Component):
             # Update statistics
             self.stats["strategic_guidance_requests"] += 1
             
-            # Get guidance from LLM manager
+            # Create enhanced state with guidance context
+            enhanced_state = state.copy()
+            # Add context_type to state
+            enhanced_state["guidance_context_type"] = context_type
+            # Add exploration context information
+            enhanced_state["exploration_metrics"] = exploration_context.get("metrics", {})
+            enhanced_state["memory_stats"] = exploration_context.get("memory_stats", {})
+            enhanced_state["identified_patterns"] = exploration_context.get("patterns", {})
+            
+            # Add prompt context
+            prompt_context = self._create_prompt_context(enhanced_state, context_type)
+            
+            # Measure request time for resource monitoring
             start_time = time.time()
-            guidance = self.llm_manager.get_strategic_guidance(context_type, state, exploration_context)
+            
+            # Use PromptFramework to generate response
+            with self.performance_monitor.measure_time("strategic_guidance_generation"):
+                response = self.prompt_framework.generate_with_llm(
+                    PromptStrategyType.STANDARD, enhanced_state, prompt_context
+                )
+            
             request_time = time.time() - start_time
+            
+            # Process response into guidance format
+            if not response:
+                self.logger.error("No response from LLM for strategic guidance")
+                return {"error": "No response from LLM", "directives": []}
+            
+            # Extract text content from response
+            response_text = response.get_text_content() if hasattr(response, 'get_text_content') else str(response)
+            
+            # Parse directives from response text
+            guidance = self._parse_directives_from_response(response_text, context_type)
             
             # Store guidance and timestamp
             self.last_llm_guidance = guidance
@@ -278,11 +296,11 @@ class LLMConsultationManager(Component):
             self.stats["failed_guidance_requests"] += 1
             
             # Log error with handler
-            error_handler = ErrorHandler.get_instance()
-            error_handler.handle_error(
-                "llm_strategic_guidance_error", 
-                str(e),
+            self.error_handler.handle_error(
+                e,
                 context={
+                    "component": "LLMConsultationManager",
+                    "function": "get_strategic_guidance",
                     "context_type": context_type,
                     "phase": "strategic_guidance"
                 }
@@ -311,18 +329,44 @@ class LLMConsultationManager(Component):
         
         # Check if LLM is enabled
         use_llm = self.config.get("use_llm", True)
-        if not use_llm or not self.llm_manager:
-            self.logger.warning("LLM guidance is disabled or manager not available")
+        if not use_llm or not self.prompt_framework:
+            self.logger.warning("LLM guidance is disabled or framework not available")
             return {"error": "LLM guidance disabled"}
         
         try:
             # Update statistics
             self.stats["action_feedback_requests"] += 1
             
-            # Get feedback from LLM manager
+            # Create enhanced state with action feedback context
+            enhanced_state = state.copy()
+            enhanced_state["action_data"] = action_data
+            enhanced_state["action_result"] = result
+            enhanced_state["feedback_request"] = True
+            
+            # Add prompt context
+            prompt_context = self._create_prompt_context(enhanced_state, "action_feedback")
+            
+            # Measure request time for resource monitoring
             start_time = time.time()
-            feedback = self.llm_manager.get_action_feedback(action_data, result, state)
+            
+            # Use PromptFramework to generate response
+            with self.performance_monitor.measure_time("action_feedback_generation"):
+                response = self.prompt_framework.generate_with_llm(
+                    PromptStrategyType.STANDARD, enhanced_state, prompt_context
+                )
+            
             request_time = time.time() - start_time
+            
+            # Process response into feedback format
+            if not response:
+                self.logger.error("No response from LLM for action feedback")
+                return {"error": "No response from LLM", "suggestions": []}
+            
+            # Extract text content from response
+            response_text = response.get_text_content() if hasattr(response, 'get_text_content') else str(response)
+            
+            # Parse suggestions from response text
+            feedback = self._parse_suggestions_from_response(response_text)
             
             # Update resource metrics
             self._update_resource_metrics(request_time)
@@ -334,11 +378,11 @@ class LLMConsultationManager(Component):
             self.logger.error(f"Error getting LLM action feedback: {e}")
             
             # Log error with handler
-            error_handler = ErrorHandler.get_instance()
-            error_handler.handle_error(
-                "llm_action_feedback_error", 
-                str(e),
+            self.error_handler.handle_error(
+                e,
                 context={
+                    "component": "LLMConsultationManager",
+                    "function": "get_action_feedback",
                     "action_id": action_data.get("id", "unknown"),
                     "phase": "action_feedback"
                 }
@@ -414,14 +458,6 @@ class LLMConsultationManager(Component):
         Returns:
             Dictionary with resource metrics
         """
-        # Try to get metrics from manager first
-        if self.llm_manager and hasattr(self.llm_manager, 'get_metrics'):
-            try:
-                return self.llm_manager.get_metrics()
-            except Exception as e:
-                self.logger.warning(f"Error getting metrics from LLM manager: {e}")
-                
-        # Fall back to internal metrics
         return {
             "resource_status": self.resource_metrics,
             "request_stats": {
@@ -443,8 +479,256 @@ class LLMConsultationManager(Component):
             **self.stats,
             "last_guidance_time": self.last_llm_guidance_time,
             "time_since_last_guidance": time.time() - self.last_llm_guidance_time if self.last_llm_guidance_time > 0 else 0,
-            "resource_metrics": self.get_resource_metrics()
+            "resource_metrics": self.get_resource_metrics(),
+            "model_name": self.model.model_name if self.model else "unknown"
         }
+        
+    def _create_prompt_context(self, state: Dict[str, Any], context_type: str) -> Dict[str, Any]:
+        """
+        Create context dictionary for prompt generation.
+        
+        Args:
+            state: Current application state
+            context_type: Type of prompt context
+            
+        Returns:
+            Context dictionary with relevant information
+        """
+        app_package = state.get(StateEntry.PACKAGE_NAME, "")
+        app_activity = state.get(StateEntry.ACTIVITY, "")
+        
+        context = {
+            ContextEntry.APP_PACKAGE: app_package,
+            ContextEntry.APP_ACTIVITY: app_activity,
+            "context_type": context_type
+        }
+        
+        # Add testing history if available
+        if "testing_history" in state:
+            context[ContextEntry.TESTING_HISTORY] = state["testing_history"]
+            
+        # Add guidance-specific context
+        if context_type == "exploration":
+            context["exploration_focus"] = "monitored_operations"
+            if "exploration_metrics" in state:
+                context["exploration_metrics"] = state["exploration_metrics"]
+                
+            # Set RVDroid exploration template
+            context[ContextEntry.TEMPLATE] = "rvdroid:exploration"
+        elif context_type == "action_feedback":
+            context["action_feedback"] = True
+            
+            # Set RVDroid action feedback template
+            context[ContextEntry.TEMPLATE] = "rvdroid:action_feedback"
+        elif context_type == "strategy":
+            # Set RVDroid strategy template
+            context[ContextEntry.TEMPLATE] = "rvdroid:strategy"
+        elif context_type == "context_detection":
+            # Set RVDroid context detection template
+            context[ContextEntry.TEMPLATE] = "rvdroid:context_detection"
+        elif context_type == "monitored_operations":
+            # Set RVDroid monitored operations template
+            context[ContextEntry.TEMPLATE] = "rvdroid:monitored_operations"
+        else:
+            # For other contexts, use the general template
+            context[ContextEntry.TEMPLATE] = "rvdroid:general"
+            
+        return context
+        
+    def _parse_directives_from_response(self, response_text: str, context_type: str) -> Dict[str, Any]:
+        """
+        Parse directives from LLM response text.
+        
+        Args:
+            response_text: Raw response text from LLM
+            context_type: Type of guidance context
+            
+        Returns:
+            Guidance dictionary with parsed directives
+        """
+        directives = []
+        insights = []
+        
+        # Simple parsing - look for sections
+        lines = response_text.split('\n')
+        current_section = None
+        current_item = {}
+        
+        for line in lines:
+            line = line.strip()
+            if not line:
+                continue
+                
+            # Check for directive section headers
+            if line.lower().startswith("directive:") or line.lower().startswith("directive "):
+                if current_item and "type" in current_item:
+                    directives.append(current_item)
+                current_item = {}
+                current_section = "directive"
+                
+                # Try to extract directive type from the header
+                if ":" in line:
+                    type_part = line.split(":", 1)[1].strip()
+                    if " " in type_part:
+                        directive_type = type_part.split(" ", 1)[0].lower()
+                        if directive_type in ["strategy", "focus", "explore"]:
+                            current_item["type"] = directive_type
+                
+            elif line.lower().startswith("insight:") or line.lower().startswith("insight "):
+                if current_item and "type" in current_item:
+                    directives.append(current_item)
+                current_item = {}
+                current_section = "insight"
+                
+                # Start a new insight
+                insight_text = line.split(":", 1)[1].strip() if ":" in line else line
+                insights.append(insight_text)
+                
+            elif current_section == "directive":
+                # Process directive details
+                if "type:" in line.lower():
+                    directive_type = line.split(":", 1)[1].strip().lower()
+                    if directive_type in ["strategy", "focus", "explore"]:
+                        current_item["type"] = directive_type
+                elif "target:" in line.lower() or "name:" in line.lower():
+                    key = "target" if "target:" in line.lower() else "name"
+                    value = line.split(":", 1)[1].strip()
+                    current_item[key] = value
+                elif "priority:" in line.lower():
+                    try:
+                        priority_str = line.split(":", 1)[1].strip()
+                        # Handle priorities as words or numbers
+                        if priority_str.lower() in ["high", "critical"]:
+                            current_item["priority"] = 3
+                        elif priority_str.lower() == "medium":
+                            current_item["priority"] = 2
+                        elif priority_str.lower() == "low":
+                            current_item["priority"] = 1
+                        else:
+                            current_item["priority"] = int(priority_str)
+                    except ValueError:
+                        current_item["priority"] = 2  # Default to medium
+                elif "description:" in line.lower() or ":" not in line:
+                    # Either explicit description or just descriptive text
+                    description = line.split(":", 1)[1].strip() if ":" in line else line
+                    if "description" in current_item:
+                        current_item["description"] += " " + description
+                    else:
+                        current_item["description"] = description
+                        
+            elif current_section == "insight" and line and ":" not in line.lower():
+                # Append to last insight
+                if insights:
+                    insights[-1] += " " + line
+        
+        # Add the last item if it exists
+        if current_item and "type" in current_item:
+            directives.append(current_item)
+            
+        # Make sure each directive has at least a description
+        for directive in directives:
+            if "description" not in directive:
+                if "target" in directive:
+                    directive["description"] = f"Focus on {directive['target']}"
+                elif "name" in directive:
+                    directive["description"] = f"Use {directive['name']} strategy"
+                else:
+                    directive["description"] = "LLM directive"
+        
+        # Create the final guidance dictionary
+        guidance = {
+            "directives": directives,
+            "insights": insights,
+            "context_type": context_type,
+            "timestamp": time.time()
+        }
+        
+        return guidance
+        
+    def _parse_suggestions_from_response(self, response_text: str) -> Dict[str, Any]:
+        """
+        Parse suggestions from LLM response text for action feedback.
+        
+        Args:
+            response_text: Raw response text from LLM
+            
+        Returns:
+            Feedback dictionary with parsed suggestions
+        """
+        suggestions = []
+        analysis = ""
+        
+        # Simple parsing - look for sections
+        lines = response_text.split('\n')
+        current_section = None
+        current_item = {}
+        
+        for line in lines:
+            line = line.strip()
+            if not line:
+                continue
+                
+            # Check for section headers
+            if line.lower().startswith("suggestion:") or line.lower().startswith("suggestion "):
+                if current_item and "text" in current_item:
+                    suggestions.append(current_item)
+                current_item = {}
+                current_section = "suggestion"
+                
+                # Extract suggestion text from the header
+                if ":" in line:
+                    suggestion_text = line.split(":", 1)[1].strip()
+                    current_item["text"] = suggestion_text
+                
+            elif line.lower().startswith("analysis:") or line.lower().startswith("analysis "):
+                if current_item and "text" in current_item:
+                    suggestions.append(current_item)
+                current_item = {}
+                current_section = "analysis"
+                
+                # Start the analysis text
+                analysis_text = line.split(":", 1)[1].strip() if ":" in line else line
+                analysis = analysis_text
+                
+            elif current_section == "suggestion":
+                # Process suggestion details
+                if "priority:" in line.lower():
+                    try:
+                        priority_str = line.split(":", 1)[1].strip()
+                        # Handle priorities as words or numbers
+                        if priority_str.lower() in ["high", "critical"]:
+                            current_item["priority"] = 3
+                        elif priority_str.lower() == "medium":
+                            current_item["priority"] = 2
+                        elif priority_str.lower() == "low":
+                            current_item["priority"] = 1
+                        else:
+                            current_item["priority"] = int(priority_str)
+                    except ValueError:
+                        current_item["priority"] = 2  # Default to medium
+                elif ":" not in line:
+                    # Continuation of suggestion text
+                    if "text" in current_item:
+                        current_item["text"] += " " + line
+                    else:
+                        current_item["text"] = line
+                        
+            elif current_section == "analysis" and ":" not in line:
+                # Append to analysis text
+                analysis += " " + line
+        
+        # Add the last item if it exists
+        if current_item and "text" in current_item:
+            suggestions.append(current_item)
+            
+        # Create the feedback dictionary
+        feedback = {
+            "suggestions": suggestions,
+            "analysis": analysis,
+            "timestamp": time.time()
+        }
+        
+        return feedback
         
     def _apply_strategy_directive(self, directive: Dict[str, Any]) -> bool:
         """
@@ -602,30 +886,6 @@ class LLMConsultationManager(Component):
         self.resource_metrics["request_count"] += 1
         self.resource_metrics["last_latency"] = request_time
         
-        # Try to get metrics from manager
-        if self.llm_manager and hasattr(self.llm_manager, 'get_metrics'):
-            try:
-                manager_metrics = self.llm_manager.get_metrics()
-                
-                # Check if using MCP or legacy format for resource metrics
-                if 'resource_status' in manager_metrics:
-                    # Legacy format
-                    status = manager_metrics['resource_status']
-                    self.resource_metrics["memory_usage"] = status.get("memory_usage", 0.0)
-                    self.resource_metrics["cpu_usage"] = status.get("cpu_usage", 0.0)
-                    self.resource_metrics["throttling_level"] = status.get("throttling_level", 0)
-                else:
-                    # MCP format may have different structure
-                    # Try to extract metrics from different formats
-                    resource_status = manager_metrics.get('resources', manager_metrics)
-                    self.resource_metrics["memory_usage"] = resource_status.get("memory_usage", 0.0)
-                    self.resource_metrics["cpu_usage"] = resource_status.get("cpu_usage", 0.0)
-                    self.resource_metrics["throttling_level"] = resource_status.get("throttling_level", 0)
-                    
-            except Exception as metrics_error:
-                # Don't let metrics logging failure break the main functionality
-                self.logger.warning(f"Error getting resource metrics: {metrics_error}")
-                
         # Simple adaptive throttling based on request time
         # Longer requests may indicate system is under load
         if request_time > 5.0:  # More than 5 seconds

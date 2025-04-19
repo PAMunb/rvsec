@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<fragment name="batch_format">
+  <![CDATA[
+Your response MUST follow this schema - a JSON object with the following structure:
+{
+  "pattern_type": "form|list|tabs|dialog|navigation|custom",
+  "actions": [
+    {
+      "action_id": "5",  
+      "params": {},  
+      "explanation": "Why this action is included in the batch"
+    },
+    {
+      "action_id": "8",
+      "params": {},
+      "explanation": "Why this action logically follows the previous one"
+    }
+    // Additional related actions...
+  ],
+  "batch_explanation": "Overall explanation of why these actions form a logical batch"
+}
+
+DO NOT include any additional text outside of the JSON object. Your response must be valid JSON that can be parsed directly.
+  ]]>
+</fragment>

@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<template name="batch_action_modular" version="1.0" extends="system_base">
+  <metadata>
+    <description>Template for generating batches of testing actions (modular version)</description>
+    <created>2025-04-18</created>
+    <author>RV-Android Team</author>
+  </metadata>
+  <variables>
+    <required>ui_elements</required>
+    <optional>additional_guidelines</optional>
+    <optional>ui_patterns</optional>
+    <optional>monitored_operations</optional>
+    <optional>testing_history</optional>
+  </variables>
+  <roles>
+    <s>
+      <variable name="strategy_specific_instructions">
+        <![CDATA[
+{#include batch_instructions}
+        ]]>
+      </variable>
+      <variable name="response_format_instructions">
+        <![CDATA[
+{#include batch_format}
+        ]]>
+      </variable>
+      <variable name="additional_guidelines">
+        <![CDATA[
+{#include batch_guidelines}
+        ]]>
+      </variable>
+    </s>
+    <user><![CDATA[
+{#include user_base}
+{#include batch_ui_pattern_detection}
+{#if workflow_guidance}{workflow_guidance}
+
+{#endif}{#include batch_critical_task}{#if additional_guidelines}
+
+{additional_guidelines}{#endif}
+    ]]></user>
+  </roles>
+</template>

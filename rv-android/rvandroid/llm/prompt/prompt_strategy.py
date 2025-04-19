@@ -18,7 +18,7 @@ import os
 from rvandroid.domain.static import StaticAnalysisData
 from rvandroid.parser.screen.abstract_parser import AbstractScreenParser
 from rvandroid.parser.screen.parser_factory import ParserType, ParserFactory
-from rvandroid.llm.prompt.prompt_template import PromptTemplate, PromptLibrary
+from rvandroid.llm.prompt.template.prompt_template import PromptTemplate
 from rvandroid.util.diagnostics import log_wrapper
 
 

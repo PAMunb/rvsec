@@ -7,6 +7,7 @@ ensuring that configurations are valid and compatible with the MCP architecture.
 
 from typing import Dict, List, Set, Tuple, Any, Optional
 
+from rvandroid.llm.constants import ScreenParserType, VisitorType, PromptStrategyType, LLMType
 from rvandroid.llm.ollama_llm import OllamaLLM
 from rvandroid.test_framework.config import ToolConfiguration
 
@@ -60,12 +61,8 @@ class ConfigurationValidator:
     - Prevents execution of incompatible configurations
     """
     
-    # MCP adapters and models
-    from rvandroid.llm.adapters.ollama_adapter import OllamaAdapter
-    from rvandroid.llm.adapters.dspy_adapter import DSPyAdapter
-    
     # Define MCP model types
-    MCP_OLLAMA = "ollama"
+    MCP_OLLAMA = OllamaLLM.NAME
     MCP_DSPY = "dspy"
     
     # MCP models
@@ -81,33 +78,23 @@ class ConfigurationValidator:
     
     # Define known compatibility rules
     TOOL_PARSER_COMPATIBILITY = {
-        "rvandroid": ["droidbot"],
-        "rvdroid": ["uiautomator"]
+        "rvandroid": [ScreenParserType.DROIDBOT],
+        "rvdroid": [ScreenParserType.UIAUTOMATOR]
     }
     
     PARSER_VISITOR_COMPATIBILITY = {
-        "droidbot": ["basic", "enhanced", "detailed", "text"],
-        "uiautomator": ["basic", "enhanced", "detailed", "text"]
+        ScreenParserType.DROIDBOT: [VisitorType.BASIC, VisitorType.DEFAULT, VisitorType.DETAILED],
+        ScreenParserType.UIAUTOMATOR: [VisitorType.BASIC, VisitorType.DEFAULT, VisitorType.DETAILED]
     }
     
     # MCP strategy types
-    VALID_STRATEGY_TYPES = [
-        "basic",
-        "single_action",
-        "flow_based_batch_action",
-        "composable",
-        "composable_single_action"
-    ]
+    VALID_STRATEGY_TYPES = PromptStrategyType.ALL
     
     # Valid LLM types
-    VALID_LLM_TYPES = [
-        MCP_OLLAMA,
-        MCP_DSPY,
-        LANGCHAIN_NAME,
-        FRONTIER_NAME
-    ]
+    # VALID_LLM_TYPES = [ LLMType.OLLAMA, LLMType.DSPY, LLMType.LANGCHAIN, LLMType.FRONTIER, LLMType.HUGGINGFACE]
+    VALID_LLM_TYPES = [LLMType.OLLAMA]
     
-    VALID_STATIC_ANALYSIS_LEVELS = ["basic", "standard", "detailed"]
+    VALID_STATIC_ANALYSIS_LEVELS = ["basic", "standard", "detailed"]  # TODO remover
     VALID_SCREENSHOT_ANALYSIS_LEVELS = ["basic", "standard", "detailed"]
     VALID_MONITORED_OPERATIONS_PRIORITIES = ["high", "medium", "low"]
     

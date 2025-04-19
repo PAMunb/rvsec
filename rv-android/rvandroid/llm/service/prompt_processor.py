@@ -8,6 +8,7 @@ from rvandroid.util.logging.constants import CONTEXT_COMPONENT
 from rvandroid.util.logging.manager import LoggingManager
 
 
+# deprecated
 class PromptProcessor:
     """
     Handles the creation and management of prompts for LLM interaction.

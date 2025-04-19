@@ -1,20 +1,21 @@
 # teste_run_server.py
-import json
+import argparse
 import logging
 import os
 import sys
 import time
-import argparse
 
 from rvandroid.app import App
-from rvandroid.llm.ollama_llm import OllamaLLM
-from rvandroid.llm.frontier_models import FrontierModel
-from rvandroid.llm.langchain_llm import LangchainLLM
-from rvandroid.server import Server
-from rvandroid.parser.static import static_analysis_parser
 from rvandroid.config.component_configurator import ComponentConfigurator
+from rvandroid.llm.constants import PromptStrategyType, ScreenParserType
+from rvandroid.llm.frontier_models import FrontierModel
 from rvandroid.llm.huggingface_llm import HuggingFaceLLM
+from rvandroid.llm.langchain_llm import LangchainLLM
+from rvandroid.llm.ollama_llm import OllamaLLM
 from rvandroid.llm.service.action_service import LLMActionService
+from rvandroid.parser.screen.visitor.visitor_factory import VisitorFactory
+from rvandroid.parser.static import static_analysis_parser
+from rvandroid.server import Server
 
 
 def parse_arguments():
@@ -42,7 +43,8 @@ def parse_arguments():
     parser.add_argument('--provider', help='Provider para frontier models ou langchain/dspy')
     parser.add_argument('--api-key', help='API key para serviços remotos')
     parser.add_argument('--preset',
-                        choices=['ollama', 'huggingface', 'dspy', 'langchain', 'claude', 'openai', 'amazon', 'google', 'batch_action'],
+                        choices=['ollama', 'huggingface', 'dspy', 'langchain', 'claude', 'openai', 'amazon', 'google',
+                                 'batch_action'],
                         help='Preset de configuração para facilitar uso')
 
     args = parser.parse_args()
@@ -62,7 +64,7 @@ def setup_preset_config(args, configurator):
         configurator.set_strategy("single_action")
         configurator.set_parser("droidbot")
         configurator.set_visitor("enhanced")
-        
+
     elif preset == "batch_action":
         configurator.set_llm(
             llm_type=OllamaLLM.NAME,
@@ -233,12 +235,12 @@ if __name__ == '__main__':
         # FLOW-BASED BATCH ACTION
         configurator.set_llm(
             llm_type=OllamaLLM.NAME,
-            model=OllamaLLM.LLAMA,
+            model=OllamaLLM.QWEN,
             base_url="http://localhost:11434"
         )
-        configurator.set_strategy("flow_based_batch_action")
-        configurator.set_parser("droidbot")
-        configurator.set_visitor("default")
+        configurator.set_strategy(PromptStrategyType.BATCH_ACTION)
+        configurator.set_parser(ScreenParserType.DROIDBOT)
+        configurator.set_visitor(VisitorFactory.DEFAULT)
 
         # # # OLLAMA
         # configurator.set_llm(

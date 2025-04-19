@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<fragment name="batch_critical_task">
+  <![CDATA[
+CRITICAL TASK: Analyze the current UI, identify the primary UI pattern present, and generate a batch of related actions that efficiently test this pattern.
+
+{#if detected_pattern == "form"}{#include form_pattern}
+{#elif detected_pattern == "list"}{#include list_pattern}{#endif}
+
+Your response must include:
+1. The identified pattern type
+2. A sequence of 2-10 related actions with their IDs
+3. An explanation for each action and the overall batch logic
+
+RESPOND WITH VALID JSON ONLY containing the pattern_type, actions array, and batch_explanation.
+  ]]>
+</fragment>

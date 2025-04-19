@@ -1,0 +1,155 @@
+"""Base prompt strategy for the prompt system.
+
+This module defines the base PromptStrategy class that all specialized strategies
+should inherit from, providing a standardized interface for prompt generation.
+"""
+
+import abc
+import logging
+from typing import Any, Dict, List, Optional
+
+from rvandroid.config.component_configurator import ComponentConfigurator
+from rvandroid.llm.constants import ContextEntry, PromptStrategyType
+from rvandroid.llm.data_structures import MCPMessage, MCPRole, MCPTextContent
+from rvandroid.util.error.error_handler import ErrorHandler
+from rvandroid.util.logging.constants import CONTEXT_COMPONENT
+from rvandroid.util.logging.manager import LoggingManager
+
+
+class PromptStrategy(abc.ABC):
+    """Base class for all prompt generation strategies.
+    
+    Prompt strategies are responsible for coordinating the prompt generation
+    process, deciding which information to include and which templates to use
+    based on the current state and context.
+    """
+    
+    # Default template to use if none specified - should be overridden by subclasses
+    DEFAULT_TEMPLATE = None
+    
+    def __init__(
+        self, 
+        name: str,
+        information_manager = None,
+        template_repository = None
+    ):
+        """Initialize the prompt strategy.
+        
+        Args:
+            name: A unique identifier for the strategy.
+            information_manager: The information manager to use.
+            template_repository: The template repository to use.
+        """
+        self.name = name
+        self.information_manager = information_manager
+        self.template_repository = template_repository
+        self.config = None
+        
+        # Set up logging
+        logging_manager = LoggingManager.get_instance()
+        self.logger = logging_manager.get_logger(
+            f"llm.prompt.strategy.{name}",
+            {CONTEXT_COMPONENT: f"PromptStrategy:{name}"}
+        )
+        
+        # Set up error handling
+        self.error_handler = ErrorHandler.get_instance()
+    
+    def configure(self, config: ComponentConfigurator) -> None:
+        """Configure the strategy with the given configuration.
+        
+        Args:
+            config: The configuration to use.
+        """
+        self.logger.info(f"Configuring strategy: {self.name}")
+        self.config = config
+        # Any configuration specific logic can be added here
+    
+    def get_template_name(self, context: Optional[Dict[str, Any]] = None) -> str:
+        """Get the template name to use for prompt generation.
+        
+        Template selection priority:
+        1. Context-specified template
+        2. Configuration-specified template
+        3. Strategy default template
+        
+        Args:
+            context: Optional context with template override
+            
+        Returns:
+            Template name to use
+        """
+        if context is not None and ContextEntry.TEMPLATE in context:
+            # First priority: context-specified template
+            return context[ContextEntry.TEMPLATE]
+        
+        if self.config is not None and hasattr(self.config, 'template_name'):
+            # Second priority: configuration-specified template
+            return self.config.template_name
+        
+        # Third priority: strategy default template
+        if self.DEFAULT_TEMPLATE is not None:
+            return self.DEFAULT_TEMPLATE
+            
+        # Fallback
+        self.logger.warning(f"No template specified for strategy {self.name}, using 'standard'")
+        return PromptStrategyType.STANDARD
+
+    # TODO deprecated ... deve retornar lista de mensgaens MCP
+    @abc.abstractmethod
+    def generate_prompt(
+        self, 
+        state: Dict[str, Any], 
+        context: Optional[Dict[str, Any]] = None
+    ) -> List[Dict[str, str]]:
+        """Generate a prompt for the given state and context.
+        
+        Args:
+            state: The current state (e.g., app UI state, test state).
+            context: Additional contextual information.
+            
+        Returns:
+            A list of message dictionaries with role and content.
+        """
+        pass
+        
+    def generate_mcp_prompt(
+        self, 
+        state: Dict[str, Any], 
+        context: Optional[Dict[str, Any]] = None
+    ) -> List[MCPMessage]:
+        """Generate MCPMessage objects for the given state and context.
+        
+        This method converts the dictionary messages from generate_prompt
+        to MCPMessage objects. Subclasses can override this for custom behavior.
+        
+        Args:
+            state: The current state (e.g., app UI state, test state).
+            context: Additional contextual information.
+            
+        Returns:
+            A list of MCPMessage objects.
+        """
+        # Get dictionary messages
+        dict_messages = self.generate_prompt(state, context)
+        
+        if not dict_messages:
+            return []
+        
+        # Convert to MCPMessage objects
+        mcp_messages = []
+        for msg in dict_messages:
+            role_value = msg["role"]
+            content_text = msg["content"]
+            
+            # Convert role string to MCPRole enum
+            role = MCPRole(role_value)
+            
+            # Create MCPMessage object
+            mcp_message = MCPMessage(
+                role=role,
+                content=[MCPTextContent(text=content_text)]
+            )
+            mcp_messages.append(mcp_message)
+        
+        return mcp_messages

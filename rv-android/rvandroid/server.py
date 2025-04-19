@@ -146,17 +146,19 @@ class Server:
                 # Get JSON data from request
                 data = request.json
                 if not data:
+                    self.logger.info("No data provided in the request.")
                     return jsonify({"error": "No state data provided"}), 400
 
                 self.logger.info(f"Received request for app: {data.get('package_name')}")
                 print(f"********************* DATA: {data}")
 
                 # Add request timestamp and handling info
-                self.logger.info(f"State has activity: {data.get('activity')}")
-                self.logger.info(f"Processing request at {time.strftime('%Y-%m-%d %H:%M:%S')}")
+                self.logger.debug(f"State has activity: {data.get('activity')}")
+                self.logger.debug(f"Processing request at {time.strftime('%Y-%m-%d %H:%M:%S')}")
 
                 # Ensure service is initialized
                 if not self.service:
+                    self.logger.warning("Service not initialized")
                     return jsonify({"error": "Service not initialized"}), 500
 
                 # Process state and get actions

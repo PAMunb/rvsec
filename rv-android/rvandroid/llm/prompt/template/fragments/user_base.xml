@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<fragment name="user_base">
+  <![CDATA[
+Current Activity: {activity}
+
+{static_context}
+
+Current UI Elements and Available Actions:
+{ui_elements}
+
+{#if action_history}{action_history}
+
+{#endif}
+  ]]>
+</fragment>

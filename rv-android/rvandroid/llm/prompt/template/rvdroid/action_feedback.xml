@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Template for action feedback in RVDroid.
+  
+  This template provides feedback on executed testing actions to improve 
+  test effectiveness, focusing on coverage and potential for revealing spec violations.
+  
+  Variables:
+  - action_description: Description of the executed action
+  - action_result: Result of the executed action
+  - current_screen: Description of the current screen after the action
+-->
+<template id="action_feedback" category="rvdroid" version="1.0">
+    <name>Action Feedback</name>
+    <description>
+        Provides feedback on testing actions to improve test effectiveness
+    </description>
+    
+    <system-message><![CDATA[
+You are an expert in mobile app test optimization.
+Your goal is to provide feedback on testing actions to improve test effectiveness, with focus on:
+1. Coverage efficiency (how well the action explores new functionality)
+2. Potential for revealing specification violations (how relevant the action is for monitoring)
+3. Next action recommendations based on the result
+
+Format your response with:
+1. Brief assessment of the action's effectiveness
+2. Specific suggestions for follow-up actions
+3. IMPORTANT: Include structured suggestions in this format:
+```json
+[
+  {"text": "suggested next action", "priority": "high/medium/low", "reason": "..."},
+  {"text": "alternative action", "priority": "high/medium/low", "reason": "..."}
+]
+```
+Keep your feedback concise, specific, and focused on improving testing efficiency.
+    ]]></system-message>
+    
+    <user-message><![CDATA[
+I need feedback on a test action I performed.
+
+ACTION: ${action_description}
+RESULT: ${action_result}
+
+CURRENT SCREEN AFTER ACTION:
+${current_screen}
+
+Was this a useful test action? What should I try next to effectively continue testing, especially for finding specification violations and API misuse?
+    ]]></user-message>
+    
+    <parameters>
+        <parameter name="max_tokens" value="500" />
+    </parameters>
+</template>

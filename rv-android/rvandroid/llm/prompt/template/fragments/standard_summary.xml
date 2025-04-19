@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<fragment name="standard_summary">
+  <![CDATA[
+SUMMARY: You are testing the {activity} screen. Select ONE action from the available options above that would be most effective for testing this screen. Remember to return your answer as a JSON object using the action_id values provided.
+  ]]>
+</fragment>

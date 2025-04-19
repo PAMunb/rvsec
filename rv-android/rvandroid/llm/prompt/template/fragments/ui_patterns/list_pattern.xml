@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<fragment name="list_pattern">
+  <![CDATA[
+For LIST patterns:
+- Test scrolling behavior (both up and down)
+- Test item selection, focusing on different positions in the list
+- Test searching/filtering if available
+- Test sorting options if available
+- Verify content of list items for accuracy
+- Test long-press actions on list items
+  ]]>
+</fragment>

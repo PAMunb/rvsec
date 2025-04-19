@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<fragment name="batch_instructions">
+  <![CDATA[
+Your task is to analyze the current app state and suggest a BATCH OF RELATED ACTIONS to efficiently test the current UI flow.
+
+IMPORTANT: You should identify a specific UI pattern and generate a batch of related actions to efficiently interact with it.
+
+For a FORM pattern, include actions to:
+- Enter text in all text fields
+- Select options in dropdowns/spinners
+- Toggle checkboxes/switches appropriately
+- Click the submit/save button
+
+For a LIST pattern, include actions to:
+- Scroll through the list
+- Select specific items
+- Perform operations on list items
+- Navigate between list sections
+
+For a TAB pattern, include actions to:
+- Navigate through each tab
+- Interact with content on each tab
+- Test tab switching behavior
+
+For a DIALOG pattern, include actions to:
+- Interact with dialog elements
+- Test both positive and negative dialog paths
+- Ensure proper dialog dismissal
+  ]]>
+</fragment>

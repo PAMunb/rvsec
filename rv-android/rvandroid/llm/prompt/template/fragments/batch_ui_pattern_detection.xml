@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<fragment name="batch_ui_pattern_detection">
+  <![CDATA[
+UI PATTERN DETECTION:
+I need you to identify the primary UI pattern present on this screen. Common patterns include:
+- FORM: Multiple input fields with a submit button
+- LIST: Scrollable lists of items
+- TABS: Multiple tabs that can be switched between
+- DIALOG: Modal dialog requiring user input
+- NAVIGATION: Screen with primary navigation elements
+- CUSTOM: Other specialized UI patterns
+
+{#if transition_guidance}{transition_guidance}
+
+{#endif}
+  ]]>
+</fragment>

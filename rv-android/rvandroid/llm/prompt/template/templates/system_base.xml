@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<template name="system_base" version="1.0">
+  <metadata>
+    <description>Base system template for Android testing</description>
+    <created>2025-04-18</created>
+    <author>RV-Android Team</author>
+  </metadata>
+  <variables>
+    <required>strategy_specific_instructions</required>
+    <required>response_format_instructions</required>
+    <optional>additional_guidelines</optional>
+  </variables>
+  <roles>
+    <s><![CDATA[
+{#include system_intro}
+
+{strategy_specific_instructions}
+
+{response_format_instructions}
+
+{#include system_guidelines}
+
+{additional_guidelines}
+    ]]></s>
+  </roles>
+</template>

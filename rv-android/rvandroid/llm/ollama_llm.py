@@ -172,6 +172,8 @@ class OllamaLLM(LanguageModel):
         # Helper function to format the messages into a simpler format for cross-process communication
         def _prepare_data():
             """Convert MCP data to a simple dict format for cross-process communication."""
+            print(f" ***** generate_sync: messages: {type(messages)} ::: {messages}")
+            print(f" ***** generate_sync: config: {type(config)} ::: {config}")
             # Prepare messages in a simple format
             formatted_msgs = []
             for msg in messages:
