@@ -42,7 +42,7 @@ class PromptFramework:
         information_manager: InformationManager,
         template_repository: XMLTemplateRepository,
         strategy_registry: StrategyRegistry,
-        model: Optional[LanguageModel] = None
+        config: ComponentConfigurator
     ):
         """Initialize the prompt framework.
         
@@ -50,13 +50,13 @@ class PromptFramework:
             information_manager: Manager for information fragments.
             template_repository: Repository for templates.
             strategy_registry: Registry for prompt strategies.
-            model: Language model for generating responses (optional).
+            config: Component configuration.
         """
         # Store components
         self.information_manager = information_manager
         self.template_repository = template_repository
         self.strategy_registry = strategy_registry
-        self.model = model
+        self.config = config
         
         # Set up logging
         logging_manager = LoggingManager.get_instance()
@@ -69,7 +69,7 @@ class PromptFramework:
         self.error_handler = ErrorHandler.get_instance()
     
     @classmethod
-    def create(cls, config: Optional[ComponentConfigurator] = None) -> 'PromptFramework':
+    def create(cls, config: ComponentConfigurator) -> 'PromptFramework':
         """Create and configure a new prompt framework with default components.
         
         Args:
@@ -110,21 +110,17 @@ class PromptFramework:
         
         for strategy in strategies:
             strategy_registry.register_strategy(strategy)
-        
+
         # Create language model (if configured)
-        model = None
-        if config is not None and hasattr(config, 'llm_config'):
-            try:
-                model = config.create_llm()
-            except Exception as e:
-                logging.error(f"Error creating language model: {e}", exc_info=True)
+        if config is None:
+            config = ComponentConfigurator()
         
         # Create framework
         framework = cls(
             information_manager=information_manager,
             template_repository=template_repository,
             strategy_registry=strategy_registry,
-            model=model
+            config=config
         )
         
         # Configure components if configuration provided
@@ -140,6 +136,7 @@ class PromptFramework:
             config: Configuration for components.
         """
         self.logger.info("Configuring PromptFramework")
+        self.config = config
         
         # Configure components
         if self.information_manager:
@@ -168,77 +165,80 @@ class PromptFramework:
         """
         if self.strategy_registry:
             self.strategy_registry.register_strategy(strategy)
-    
-    def generate_prompt(
-        self, 
-        strategy_name: Optional[str], 
-        state: Dict[str, Any], 
-        context: Optional[Dict[str, Any]] = None
-    ) -> List[Dict[str, str]]:
-        """Generate a prompt using the specified strategy.
-        
-        Args:
-            strategy_name: Name of the strategy to use (or None for default).
-            state: Current application state.
-            context: Additional context information.
-            
-        Returns:
-            List of message dictionaries with role and content.
-        """
-        try:
-            # Get the appropriate strategy
-            strategy = self.strategy_registry.get_strategy(strategy_name)
-            
-            if strategy is None:
-                self.logger.error(f"Strategy not found: {strategy_name}")
-                # Fall back to standard strategy
-                strategy = self.strategy_registry.get_strategy(PromptStrategyType.STANDARD)
-                
-                if strategy is None:
-                    self.logger.error("No strategy available")
-                    return []
-            
-            self.logger.debug(f"Using strategy: {strategy.name}")
-            
-            # Generate the prompt using the strategy
-            # TODO converter em mensagens MCP ... aqui?
-            return strategy.generate_prompt(state, context)
-        except Exception as e:
-            self.logger.error(f"Error generating prompt: {e}", exc_info=True)
-            self.error_handler.handle_error(
-                e,
-                context={
-                    "component": "PromptFramework",
-                    "function": "generate_prompt",
-                    "strategy": strategy_name
-                }
-            )
-            return []
+
+    # TODO deprecated
+    # def generate_prompt(
+    #     self,
+    #     strategy_name: Optional[str],
+    #     state: Dict[str, Any],
+    #     context: Optional[Dict[str, Any]] = None
+    # ) -> List[Dict[str, str]]:
+    #     """Generate a prompt using the specified strategy.
+    #
+    #     Args:
+    #         strategy_name: Name of the strategy to use (or None for default).
+    #         state: Current application state.
+    #         context: Additional context information.
+    #
+    #     Returns:
+    #         List of message dictionaries with role and content.
+    #     """
+    #     try:
+    #         # Get the appropriate strategy
+    #         strategy = self.strategy_registry.get_strategy(strategy_name)
+    #
+    #         if strategy is None:
+    #             self.logger.error(f"Strategy not found: {strategy_name}")
+    #             # Fall back to standard strategy
+    #             strategy = self.strategy_registry.get_strategy(PromptStrategyType.STANDARD)
+    #
+    #             if strategy is None:
+    #                 self.logger.error("No strategy available")
+    #                 return []
+    #
+    #         self.logger.debug(f"Using strategy: {strategy.name}")
+    #
+    #         # Generate the prompt using the strategy
+    #         # TODO converter em mensagens MCP ... aqui?
+    #         return strategy.generate_prompt(state, context)
+    #     except Exception as e:
+    #         self.logger.error(f"Error generating prompt: {e}", exc_info=True)
+    #         self.error_handler.handle_error(
+    #             e,
+    #             context={
+    #                 "component": "PromptFramework",
+    #                 "function": "generate_prompt",
+    #                 "strategy": strategy_name
+    #             }
+    #         )
+    #         return []
     
     def generate_mcp_prompt(
-        self, 
-        strategy_name: Optional[str], 
+        self,
         state: Dict[str, Any], 
         context: Optional[Dict[str, Any]] = None
     ) -> List[MCPMessage]:
         """Generate an MCP prompt using the specified strategy.
         
         Args:
-            strategy_name: Name of the strategy to use (or None for default).
             state: Current application state.
             context: Additional context information.
             
         Returns:
             List of MCPMessage objects.
         """
+        # Get the appropriate strategy
+        if self.config and self.config.llm_config:
+            strategy_name = self.config.llm_config.strategy_type
+        else:
+            strategy_name = PromptStrategyType.DEFAULT
         try:
-            # Get the appropriate strategy
             strategy = self.strategy_registry.get_strategy(strategy_name)
             
             if strategy is None:
                 self.logger.error(f"Strategy not found: {strategy_name}")
                 # Fall back to standard strategy
-                strategy = self.strategy_registry.get_strategy(PromptStrategyType.STANDARD)
+                strategy = self.strategy_registry.get_strategy(PromptStrategyType.DEFAULT)
                 
                 if strategy is None:
                     self.logger.error("No strategy available")
@@ -261,65 +261,65 @@ class PromptFramework:
             return []
 
     # TODO deprecated ... pode usar o llm manager
-    def generate_with_llm(
-        self, 
-        strategy_name: Optional[str], 
-        state: Dict[str, Any], 
-        context: Optional[Dict[str, Any]] = None
-    ) -> Optional[Any]:
-        """Generate a prompt and send it to the LLM for a response.
-        
-        Args:
-            strategy_name: Name of the strategy to use (or None for default).
-            state: Current application state.
-            context: Additional context information.
-            
-        Returns:
-            LLM response, or None if an error occurred.
-        """
-        if self.model is None:
-            self.logger.error("No language model configured")
-            return None
-        
-        messages = self.generate_mcp_prompt(strategy_name, state, context)
-        
-        if not messages:
-            self.logger.error("No messages generated")
-            return None
-        
-        try:
-            self.logger.debug(f"Sending {len(messages)} messages to LLM")
-            response = self.model.generate_sync(messages)
-            # response = self.model.generate(messages)
-            return response
-        except Exception as e:
-            self.logger.error(f"Error generating LLM response: {e}", exc_info=True)
-            self.error_handler.handle_error(
-                e,
-                context={
-                    "component": "PromptFramework",
-                    "function": "generate_with_llm",
-                    "strategy": strategy_name
-                }
-            )
-            return None
-
-    # TODO deprecated
-    def select_strategy_for_state(self, state: Dict[str, Any]) -> str:
-        """Select the appropriate strategy for the given state.
-        
-        Args:
-            state: Current application state.
-            
-        Returns:
-            Name of the selected strategy.
-        """
-        # Try to get the batch action strategy
-        batch_strategy = self.strategy_registry.get_strategy(PromptStrategyType.BATCH_ACTION)
-        
-        # If batch strategy is available and should be used, return it
-        if batch_strategy and hasattr(batch_strategy, 'should_use_batch') and batch_strategy.should_use_batch(state):
-            return PromptStrategyType.BATCH_ACTION
-        
-        # Otherwise, return the standard strategy
-        return PromptStrategyType.STANDARD
+    # def generate_with_llm(
+    #     self,
+    #     strategy_name: Optional[str],
+    #     state: Dict[str, Any],
+    #     context: Optional[Dict[str, Any]] = None
+    # ) -> Optional[Any]:
+    #     """Generate a prompt and send it to the LLM for a response.
+    #
+    #     Args:
+    #         strategy_name: Name of the strategy to use (or None for default).
+    #         state: Current application state.
+    #         context: Additional context information.
+    #
+    #     Returns:
+    #         LLM response, or None if an error occurred.
+    #     """
+    #     if self.model is None:
+    #         self.logger.error("No language model configured")
+    #         return None
+    #
+    #     messages = self.generate_mcp_prompt(strategy_name, state, context)
+    #
+    #     if not messages:
+    #         self.logger.error("No messages generated")
+    #         return None
+    #
+    #     try:
+    #         self.logger.debug(f"Sending {len(messages)} messages to LLM")
+    #         response = self.model.generate_sync(messages)
+    #         # response = self.model.generate(messages)
+    #         return response
+    #     except Exception as e:
+    #         self.logger.error(f"Error generating LLM response: {e}", exc_info=True)
+    #         self.error_handler.handle_error(
+    #             e,
+    #             context={
+    #                 "component": "PromptFramework",
+    #                 "function": "generate_with_llm",
+    #                 "strategy": strategy_name
+    #             }
+    #         )
+    #         return None
+    #
+    # # TODO deprecated
+    # def select_strategy_for_state(self, state: Dict[str, Any]) -> str:
+    #     """Select the appropriate strategy for the given state.
+    #
+    #     Args:
+    #         state: Current application state.
+    #
+    #     Returns:
+    #         Name of the selected strategy.
+    #     """
+    #     # Try to get the batch action strategy
+    #     batch_strategy = self.strategy_registry.get_strategy(PromptStrategyType.BATCH_ACTION)
+    #
+    #     # If batch strategy is available and should be used, return it
+    #     if batch_strategy and hasattr(batch_strategy, 'should_use_batch') and batch_strategy.should_use_batch(state):
+    #         return PromptStrategyType.BATCH_ACTION
+    #
+    #     # Otherwise, return the standard strategy
+    #     return PromptStrategyType.STANDARD

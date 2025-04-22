@@ -5,7 +5,6 @@ should inherit from, providing a standardized interface for prompt generation.
 """
 
 import abc
-import logging
 from typing import Any, Dict, List, Optional
 
 from rvandroid.config.component_configurator import ComponentConfigurator
@@ -23,15 +22,15 @@ class PromptStrategy(abc.ABC):
     process, deciding which information to include and which templates to use
     based on the current state and context.
     """
-    
+
     # Default template to use if none specified - should be overridden by subclasses
     DEFAULT_TEMPLATE = None
-    
+
     def __init__(
-        self, 
-        name: str,
-        information_manager = None,
-        template_repository = None
+            self,
+            name: str,
+            information_manager=None,
+            template_repository=None
     ):
         """Initialize the prompt strategy.
         
@@ -44,17 +43,17 @@ class PromptStrategy(abc.ABC):
         self.information_manager = information_manager
         self.template_repository = template_repository
         self.config = None
-        
+
         # Set up logging
         logging_manager = LoggingManager.get_instance()
         self.logger = logging_manager.get_logger(
             f"llm.prompt.strategy.{name}",
             {CONTEXT_COMPONENT: f"PromptStrategy:{name}"}
         )
-        
+
         # Set up error handling
         self.error_handler = ErrorHandler.get_instance()
-    
+
     def configure(self, config: ComponentConfigurator) -> None:
         """Configure the strategy with the given configuration.
         
@@ -64,7 +63,7 @@ class PromptStrategy(abc.ABC):
         self.logger.info(f"Configuring strategy: {self.name}")
         self.config = config
         # Any configuration specific logic can be added here
-    
+
     def get_template_name(self, context: Optional[Dict[str, Any]] = None) -> str:
         """Get the template name to use for prompt generation.
         
@@ -82,15 +81,15 @@ class PromptStrategy(abc.ABC):
         if context is not None and ContextEntry.TEMPLATE in context:
             # First priority: context-specified template
             return context[ContextEntry.TEMPLATE]
-        
+
         if self.config is not None and hasattr(self.config, 'template_name'):
             # Second priority: configuration-specified template
             return self.config.template_name
-        
+
         # Third priority: strategy default template
         if self.DEFAULT_TEMPLATE is not None:
             return self.DEFAULT_TEMPLATE
-            
+
         # Fallback
         self.logger.warning(f"No template specified for strategy {self.name}, using 'standard'")
         return PromptStrategyType.STANDARD
@@ -98,9 +97,9 @@ class PromptStrategy(abc.ABC):
     # TODO deprecated ... deve retornar lista de mensgaens MCP
     @abc.abstractmethod
     def generate_prompt(
-        self, 
-        state: Dict[str, Any], 
-        context: Optional[Dict[str, Any]] = None
+            self,
+            state: Dict[str, Any],
+            context: Optional[Dict[str, Any]] = None
     ) -> List[Dict[str, str]]:
         """Generate a prompt for the given state and context.
         
@@ -112,11 +111,11 @@ class PromptStrategy(abc.ABC):
             A list of message dictionaries with role and content.
         """
         pass
-        
+
     def generate_mcp_prompt(
-        self, 
-        state: Dict[str, Any], 
-        context: Optional[Dict[str, Any]] = None
+            self,
+            state: Dict[str, Any],
+            context: Optional[Dict[str, Any]] = None
     ) -> List[MCPMessage]:
         """Generate MCPMessage objects for the given state and context.
         
@@ -132,24 +131,24 @@ class PromptStrategy(abc.ABC):
         """
         # Get dictionary messages
         dict_messages = self.generate_prompt(state, context)
-        
+
         if not dict_messages:
             return []
-        
+
         # Convert to MCPMessage objects
         mcp_messages = []
         for msg in dict_messages:
             role_value = msg["role"]
             content_text = msg["content"]
-            
+
             # Convert role string to MCPRole enum
             role = MCPRole(role_value)
-            
+
             # Create MCPMessage object
             mcp_message = MCPMessage(
                 role=role,
                 content=[MCPTextContent(text=content_text)]
             )
             mcp_messages.append(mcp_message)
-        
+
         return mcp_messages

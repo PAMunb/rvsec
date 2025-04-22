@@ -31,7 +31,7 @@ except ImportError:
                 raise ImportError("Could not import ConversationBufferMemory from langchain or langchain_community")
 
 from rvandroid.llm.language_model import LanguageModel
-from rvandroid.llm.data_structures import MCPMessage, MCPConfiguration
+from rvandroid.llm.data_structures import MCPMessage
 from rvandroid.llm.adapters.langchain_adapter import LangchainAdapter
 from rvandroid.util.error.error_handler import ErrorHandler
 
@@ -181,12 +181,12 @@ class LangchainLLM(LanguageModel):
 
         return self._llm
 
-    async def generate(self, messages: List[MCPMessage], config: Optional[MCPConfiguration] = None) -> MCPMessage:
-        """Generate a response using the language model asynchronously."""
-        # Use synchronous implementation for now
-        return self.generate_sync(messages, config)
+    # async def generate(self, messages: List[MCPMessage], config: Optional[MCPConfiguration] = None) -> MCPMessage:
+    #     """Generate a response using the language model asynchronously."""
+    #     # Use synchronous implementation for now
+    #     return self.generate_sync(messages, config)
 
-    def generate_sync(self, messages: List[MCPMessage], config: Optional[MCPConfiguration] = None) -> MCPMessage:
+    def generate_sync(self, messages: List[MCPMessage], config = None) -> MCPMessage:
         """
         Generate text based on the input messages synchronously using MCP.
 

@@ -3,7 +3,10 @@ import logging
 import json
 from typing import Dict, Any, List, Optional, Tuple, Set, Union
 
+from rvandroid.llm.constants import LLMType, OllamaModels, PromptStrategyType
 from rvandroid.parser.screen.parser_factory import ParserType
+from rvandroid.util.logging.constants import CONTEXT_COMPONENT
+from rvandroid.util.logging.manager import LoggingManager
 
 
 class LLMConfiguration:
@@ -98,11 +101,11 @@ class LLMConfiguration:
 
     def __init__(
             self,
-            model_type: str = "huggingface",
-            model_name: str = "meta-llama/Meta-Llama-3.1-8B-Instruct",
-            strategy_type: str = "composable_single_action",
+            model_type: str = LLMType.OLLAMA,
+            model_name: str = OllamaModels.ALL,
+            strategy_type: str = PromptStrategyType.BATCH_ACTION,
             parser_type: ParserType = ParserType.DROIDBOT,
-            max_tokens: int = 800,
+            max_tokens: int = 200,
             temperature: float = 0.2,
             **kwargs
     ):
@@ -118,7 +121,12 @@ class LLMConfiguration:
             temperature: Temperature for generation
             **kwargs: Additional model-specific parameters
         """
-        self.logger = logging.getLogger(__name__)
+        # Initialize logging
+        self.logging_manager = LoggingManager.get_instance()
+        self.logger = self.logging_manager.get_logger(
+            "llm.config",
+            {CONTEXT_COMPONENT: self.__class__.__name__}
+        )
         
         self.model_type = model_type
         self.model_name = model_name
@@ -126,6 +134,10 @@ class LLMConfiguration:
         self.parser_type = parser_type
         self.max_tokens = max_tokens
         self.temperature = temperature
+        self.top_p = kwargs.get("top_p", 1.0)
+        self.top_k = kwargs.get("top_k", 40)
+        self.frequency_penalty = kwargs.get("frequency_penalty", 0.0)
+        self.presence_penalty = kwargs.get("presence_penalty", 0.0)
         self.kwargs = kwargs
 
         # Move standard parameters to kwargs for consistency and compatibility

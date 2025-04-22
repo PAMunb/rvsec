@@ -4,13 +4,15 @@ import logging
 from typing import List, Optional, ClassVar
 
 # Use official ollama library
-from ollama import AsyncClient
+from ollama import AsyncClient, ChatResponse
 
 from rvandroid.config.component_configurator import ComponentConfigurator
 from rvandroid.llm.adapter import AdapterRegistry
 from rvandroid.llm.adapters.ollama_adapter import OllamaAdapter
-from rvandroid.llm.data_structures import MCPMessage, MCPConfiguration, MCPTextContent, MCPRole
+from rvandroid.llm.data_structures import MCPMessage, MCPTextContent, MCPRole, MCPResponse
 from rvandroid.llm.language_model import LanguageModel
+from rvandroid.llm.llm_config import LLMConfiguration
+from ollama import Client
 
 logger = logging.getLogger(__name__)
 
@@ -89,9 +91,9 @@ class OllamaLLM(LanguageModel):
 
     @property
     def client(self):
-        """Get a fresh client for each request to avoid event loop issues."""
-        # Always create a new client to avoid async loop sharing issues
-        return AsyncClient(host=self.api_base)
+        if self._client is None:
+            self._client = Client(host=self.api_base)
+        return self._client
 
     def _get_model_type(self) -> str:
         """Get model type string."""
@@ -101,57 +103,96 @@ class OllamaLLM(LanguageModel):
         """Get the appropriate MCP adapter for this model."""
         return OllamaAdapter()
 
-    async def generate(self,
-                       messages: List[MCPMessage],
-                       config: Optional[MCPConfiguration] = None) -> MCPMessage:
-        """
-        Generate a response using Ollama's chat API.
-        
-        Updated implementation uses Ollama's chat API which provides better 
-        handling of conversation contexts and message formatting.
-        
-        Args:
-            messages: List of MCP messages representing the conversation
-            config: Optional configuration parameters that override instance config
-            
-        Returns:
-            MCPMessage containing the generated response
-            
-        Raises:
-            ValueError: If the request is invalid for Ollama
-            Exception: If an error occurs during generation
-        """
-        # Use provided config or instance config
-        use_config = config or self.config
-
-        # Validate request using adapter
-        if not self.adapter.validate_request(messages, use_config):
-            raise ValueError("Invalid request for Ollama")
-
-        # Prepare messages using adapter
-        prepared_data = self.adapter.prepare_messages(messages)
-        
-        # Prepare configuration using adapter
-        prepared_config = self.adapter.prepare_config(use_config)
-
-        try:
-            # Use chat API instead of generate API
-            response = await self.client.chat(
-                model=prepared_config.pop("model"),
-                messages=prepared_data["messages"],
-                options=prepared_config
-            )
-            
-            # Parse response using adapter
-            return self.adapter.parse_response(response)
-
-        except Exception as e:
-            self.logger.error(f"Ollama request error: {e}")
-            raise
+    # async def generate(self,
+    #                    messages: List[MCPMessage],
+    #                    config: Optional[MCPConfiguration] = None) -> MCPMessage:
+    #     """
+    #     Generate a response using Ollama's chat API.
+    #
+    #     Updated implementation uses Ollama's chat API which provides better
+    #     handling of conversation contexts and message formatting.
+    #
+    #     Args:
+    #         messages: List of MCP messages representing the conversation
+    #         config: Optional configuration parameters that override instance config
+    #
+    #     Returns:
+    #         MCPMessage containing the generated response
+    #
+    #     Raises:
+    #         ValueError: If the request is invalid for Ollama
+    #         Exception: If an error occurs during generation
+    #     """
+    #     # Use provided config or instance config
+    #     use_config = config or self.config
+    #
+    #     # Validate request using adapter
+    #     if not self.adapter.validate_request(messages, use_config):
+    #         raise ValueError("Invalid request for Ollama")
+    #
+    #     # Prepare messages using adapter
+    #     prepared_data = self.adapter.prepare_messages(messages)
+    #
+    #     # Prepare configuration using adapter
+    #     prepared_config = self.adapter.prepare_config(use_config)
+    #
+    #     try:
+    #         # Use chat API instead of generate API
+    #         response = await self.client.chat(
+    #             model=prepared_config.pop("model"),
+    #             messages=prepared_data["messages"],
+    #             options=prepared_config
+    #         )
+    #
+    #         # Parse response using adapter
+    #         return self.adapter.parse_response(response)
+    #
+    #     except Exception as e:
+    #         self.logger.error(f"Ollama request error: {e}")
+    #         raise
 
     def generate_sync(self,
                       messages: List[MCPMessage],
-                      config: Optional[MCPConfiguration] = None) -> MCPMessage:
+                      config: Optional[LLMConfiguration] = None) -> MCPResponse:
+        print(f" ***** generate_sync: messages: {type(messages)} ::: {messages}")
+        print(f" ***** generate_sync: config: {type(config)} ::: {config}")
+        # Prepare messages in a simple format
+        formatted_msgs = self.adapter.prepare_messages(messages)["messages"]
+        print(f"formatted_msgs={formatted_msgs}")
+
+        options = {}
+        if config.temperature is not None:
+            options["temperature"] = config.temperature
+        if config.max_tokens is not None:
+            options["num_predict"] = config.max_tokens
+
+        print(f"Calling Ollama with model: {self.model_name}, options: {options}")
+        for msg in messages:
+            print(f"Message: {msg}")
+
+        # Call Ollama chat API synchronously
+        response: ChatResponse = self.client.chat(
+            model=self.model_name,
+            messages=formatted_msgs,
+            options=options
+        )
+        print(f"\n*** Response: {response["message"]["content"]} :::: {response}")
+
+        # Create an MCP message from the response
+        mcp_response = MCPResponse(response.message.content)
+        mcp_response.done_reason = response.done_reason
+        mcp_response.total_duration = response.total_duration
+        mcp_response.load_duration = response.load_duration
+        mcp_response.prompt_eval_count = response.prompt_eval_count
+        mcp_response.prompt_eval_duration = response.prompt_eval_duration
+        mcp_response.eval_count = response.eval_count
+        mcp_response.eval_duration = response.eval_duration
+        print(f"mcp_response={mcp_response}")
+        return mcp_response
+
+    def generate_sync_old(self,
+                      messages: List[MCPMessage],
+                      config: Optional[LLMConfiguration] = None) -> MCPResponse:
         """
         Generate a response synchronously using Ollama's chat API.
         
@@ -177,21 +218,23 @@ class OllamaLLM(LanguageModel):
             print(f" ***** generate_sync: messages: {type(messages)} ::: {messages}")
             print(f" ***** generate_sync: config: {type(config)} ::: {config}")
             # Prepare messages in a simple format
-            formatted_msgs = []
-            for msg in messages:
-                role = msg.role.value  # e.g., "system", "user", "assistant"
-                content = msg.get_text_content()
-                formatted_msgs.append({"role": role, "content": content})
+            formatted_msgs = self.adapter.prepare_messages(messages)["messages"]
+            # formatted_msgs = []
+            # for msg in messages:
+            #     role = msg.role.value  # e.g., "system", "user", "assistant"
+            #     content = msg.get_text_content()
+            #     formatted_msgs.append({"role": role, "content": content})
 
             # Prepare config
-            use_config = config or self.config
+            print(f" ***** generate_sync: config: {type(config)} ::: {config}")
+            use_config = config
             cfg_dict = {}
-            if use_config:
+            if config:
                 cfg_dict = {
-                    "temperature": use_config.temperature,
-                    "max_tokens": use_config.max_tokens,
-                    "model_name": use_config.model_name,
-                    "model_type": use_config.model_type
+                    "temperature": config.temperature,
+                    "max_tokens": config.max_tokens,
+                    "model_name": config.model_name,
+                    "model_type": config.model_type
                 }
 
             return {
@@ -233,7 +276,7 @@ class OllamaLLM(LanguageModel):
                     print(f"Message: {msg}")
 
                 # Call Ollama chat API synchronously
-                response = client.chat(
+                response: ChatResponse = client.chat(
                     model=model_name,
                     messages=messages,
                     options=options
@@ -241,7 +284,7 @@ class OllamaLLM(LanguageModel):
 
                 # Write the result to the file
                 result = {"success": True, "content": response["message"]["content"]}
-                print(f"\nResponse: {response}")
+                print(f"\n*** Response: {response["message"]["content"]} :::: {response}")
                 with open(result_file, 'w') as f:
                     json.dump(result, f)
 
@@ -285,6 +328,7 @@ class OllamaLLM(LanguageModel):
             if result_data["success"]:
                 # Create an MCP message from the response
                 response_content = result_data["content"]
+                mcp_response = MCPResponse()
                 mcp_response = MCPMessage(
                     role=MCPRole.ASSISTANT,
                     content=[MCPTextContent(text=response_content)]

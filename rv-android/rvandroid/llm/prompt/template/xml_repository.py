@@ -85,6 +85,7 @@ class XMLTemplateRepository:
         if hasattr(config, 'llm_config') and hasattr(config.llm_config, 'template_dir'):
             custom_template_dir = config.llm_config.template_dir
             if custom_template_dir:
+                self.logger.info(f"Custom template directory specified: {custom_template_dir}")
                 self.template_dir = custom_template_dir
                 self._load_templates()
         
@@ -92,6 +93,7 @@ class XMLTemplateRepository:
         if hasattr(config, 'llm_config') and hasattr(config.llm_config, 'fragment_dir'):
             custom_fragment_dir = config.llm_config.fragment_dir
             if custom_fragment_dir:
+                self.logger.info(f"Custom fragment directory specified: {custom_fragment_dir}")
                 self.fragment_dir = custom_fragment_dir
                 self._load_fragments()
         
@@ -105,7 +107,7 @@ class XMLTemplateRepository:
         try:
             # If the directory doesn't exist or is empty, create default templates
             if not os.path.exists(self.template_dir) or not os.listdir(self.template_dir):
-                self.logger.info("Template directory empty or not found, creating default templates")
+                self.logger.warning("Template directory empty or not found, creating default templates")
                 create_default_templates(self.template_dir)
             
             # Define directories to load templates from
@@ -138,7 +140,7 @@ class XMLTemplateRepository:
         Args:
             directory: The directory containing template XML files.
         """
-        self.logger.info(f"Loading templates from directory: {directory}")
+        self.logger.debug(f"Loading templates from directory: {directory}")
         
         try:
             # First pass: Load all template metadata and role content
@@ -354,7 +356,9 @@ class XMLTemplateRepository:
                     if template_key.endswith(f":{base_name}"):
                         template = self.templates.get(template_key)
                         break
-        
+
+        self.logger.debug(f"Retrieved template: {name} -> {template is not None}")
+
         return template
     
     def _load_fragments(self) -> None:
@@ -402,7 +406,7 @@ class XMLTemplateRepository:
             # Debug: Log all loaded fragment names and their content lengths
             for fragment_name in sorted(self.fragments.keys()):
                 content_length = len(self.fragments[fragment_name]) if self.fragments[fragment_name] else 0
-                self.logger.info(f"Loaded fragment: {fragment_name} (content length: {content_length} chars)")
+                self.logger.debug(f"Loaded fragment: {fragment_name} (content length: {content_length} chars)")
             
             # Validate critical fragments
             self._validate_critical_fragments()

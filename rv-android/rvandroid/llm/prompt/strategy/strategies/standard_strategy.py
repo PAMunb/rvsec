@@ -86,8 +86,8 @@ class StandardStrategy(PromptStrategy):
             variables = {**info, **context}
             
             # Format basic UI information if not present
-            if FragmentType.UI_ELEMENTS not in variables and StateEntry.SCREEN_DESCRIPTION not in state and StateEntry.SCREEN in state:
-                variables["screen_elements"] = self._format_screen_elements(state[StateEntry.SCREEN])
+            if FragmentType.UI_ELEMENTS not in variables and StateEntry.SCREEN_DESCRIPTION not in state and StateEntry.SCREEN_PATTERNS in state:
+                variables["screen_elements"] = self._format_screen_elements(state[StateEntry.SCREEN_PATTERNS])
             elif StateEntry.SCREEN_DESCRIPTION in state:
                 variables["screen_elements"] = state[StateEntry.SCREEN_DESCRIPTION]
             

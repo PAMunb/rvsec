@@ -4,7 +4,7 @@
 from typing import Dict, Any, List
 
 from rvandroid.llm.adapter import MCPAdapter
-from rvandroid.llm.data_structures import MCPMessage, MCPConfiguration, MCPRole, MCPTextContent
+from rvandroid.llm.data_structures import MCPMessage, MCPRole, MCPTextContent
 
 
 class DSPyAdapter(MCPAdapter):
@@ -42,28 +42,28 @@ class DSPyAdapter(MCPAdapter):
 
         return {"messages": dspy_messages}
 
-    def prepare_config(self, config: MCPConfiguration) -> Dict[str, Any]:
-        """
-        Convert MCP configuration to DSPy parameters.
-        
-        Args:
-            config: MCP configuration to convert
-            
-        Returns:
-            Dictionary with DSPy-specific configuration
-        """
-        dspy_config = {
-            "model": config.model_name,
-            "temperature": config.temperature,
-        }
-
-        if config.max_tokens:
-            dspy_config["max_tokens"] = config.max_tokens
-
-        if config.top_p < 1.0:
-            dspy_config["top_p"] = config.top_p
-
-        return dspy_config
+    # def prepare_config(self, config: MCPConfiguration) -> Dict[str, Any]:
+    #     """
+    #     Convert MCP configuration to DSPy parameters.
+    #
+    #     Args:
+    #         config: MCP configuration to convert
+    #
+    #     Returns:
+    #         Dictionary with DSPy-specific configuration
+    #     """
+    #     dspy_config = {
+    #         "model": config.model_name,
+    #         "temperature": config.temperature,
+    #     }
+    #
+    #     if config.max_tokens:
+    #         dspy_config["max_tokens"] = config.max_tokens
+    #
+    #     if config.top_p < 1.0:
+    #         dspy_config["top_p"] = config.top_p
+    #
+    #     return dspy_config
 
     def parse_response(self, response: Any) -> MCPMessage:
         """
@@ -88,20 +88,20 @@ class DSPyAdapter(MCPAdapter):
             content=[MCPTextContent(text=text)]
         )
 
-    def validate_request(self, messages: List[MCPMessage], config: MCPConfiguration) -> bool:
-        """
-        Validate that messages and config are compatible with DSPy.
-        
-        Args:
-            messages: MCP messages to validate
-            config: Configuration to validate
-            
-        Returns:
-            True if the request is valid for DSPy, False otherwise
-        """
-        # Basic validation
-        if not messages:
-            self.logger.warning("Empty message list")
-            return False
-
-        return True
+    # def validate_request(self, messages: List[MCPMessage], config: MCPConfiguration) -> bool:
+    #     """
+    #     Validate that messages and config are compatible with DSPy.
+    #
+    #     Args:
+    #         messages: MCP messages to validate
+    #         config: Configuration to validate
+    #
+    #     Returns:
+    #         True if the request is valid for DSPy, False otherwise
+    #     """
+    #     # Basic validation
+    #     if not messages:
+    #         self.logger.warning("Empty message list")
+    #         return False
+    #
+    #     return True

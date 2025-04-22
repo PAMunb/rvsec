@@ -154,7 +154,7 @@ Format your response with:
 Keep your guidance concise, practical and focused on finding specification violations.""",
                 "user": """I am testing an Android app with a focus on finding runtime verification violations.
 
-CURRENT SCREEN:
+CURRENT SCREEN_PATTERNS:
 {current_screen}
 
 INTERACTIVE ELEMENTS: {elements_count}
@@ -190,7 +190,7 @@ Format your response with:
 Keep your analysis concise, evidence-based, and actionable.""",
                 "user": """I need an assessment of potential operations of interest in the current Android app state.
 
-CURRENT SCREEN:
+CURRENT SCREEN_PATTERNS:
 {current_screen}
 
 MONITORED OPERATIONS:
@@ -225,7 +225,7 @@ Keep your feedback concise, specific, and focused on improving testing efficienc
 ACTION: {action_description}
 RESULT: {action_result}
 
-CURRENT SCREEN AFTER ACTION:
+CURRENT SCREEN_PATTERNS AFTER ACTION:
 {current_screen}
 
 Was this a useful test action? What should I try next to effectively continue testing, especially for finding specification violations and API misuse?""",
@@ -259,7 +259,7 @@ Keep your recommendation concise and tailored to the current exploration state."
 
 CURRENT EXPLORATION PHASE: {exploration_phase}
 
-CURRENT SCREEN:
+CURRENT SCREEN_PATTERNS:
 {current_screen}
 
 PROGRESS METRICS:
@@ -299,7 +299,7 @@ Format your response with:
 Keep your analysis concise, evidence-based and focused on the functional context.""",
                 "user": """I need to identify the functional context of the current screen in this Android app.
 
-SCREEN DETAILS:
+SCREEN_PATTERNS DETAILS:
 {screen_description}
 
 ELEMENT TEXTS:

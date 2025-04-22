@@ -8,12 +8,13 @@ from typing import List, Dict, Optional, Any, Union
 
 from rvandroid.config.component_configurator import ComponentConfigurator
 from rvandroid.experiment.event.bus import EventBus, EventType
+from rvandroid.llm import MCPMessage
 from rvandroid.llm.language_model import LanguageModel
 from rvandroid.llm.llm_config import LLMConfiguration
 from rvandroid.util.logging.constants import CONTEXT_COMPONENT
 from rvandroid.util.logging.manager import LoggingManager
 from rvandroid.util.performance_monitor import PerformanceMonitor
-
+from rvandroid.llm.data_structures import MCPMessage
 
 class LLMManager:
     """
@@ -35,6 +36,8 @@ class LLMManager:
     """
 
     # TODO rever parametros do construtor (Union[ComponentConfigurator, LLMConfiguration])
+    # TODO usar error handler
+    # TODO usar o event bus direito
     def __init__(self, config: Union[ComponentConfigurator, LLMConfiguration], **model_kwargs):
         """
         Initialize the LLM manager.
@@ -55,23 +58,29 @@ class LLMManager:
         )
 
         # Handle different configuration types
-        if isinstance(config, LLMConfiguration):
-            self.llm_config = config
-            self.configurator = None
-        else:
-            self.configurator = config
-            self.llm_config = config.llm_config
-        
-        # Store configuration
-        self.model_type = self.llm_config.get_model_type()
-        self.model_name = self.llm_config.get_model_name()
-        self.max_tokens = self.llm_config.get_max_tokens()
+        self._set_configurator(config)
+
         self.model_kwargs = {**self.llm_config.get_model_kwargs(), **model_kwargs}
 
         # Initialize LLM lazily - only when needed
         self.llm: Optional[LanguageModel] = None
 
         self.logger.info(f"LLM Manager initialized with model_type={self.model_type}, model_name={self.model_name}")
+
+    # TODO
+    def _set_configurator(self, config: Union[ComponentConfigurator, LLMConfiguration]) -> None:
+        # Handle different configuration types
+        if isinstance(config, LLMConfiguration):
+            self.llm_config = config
+            self.configurator = None
+        else:
+            self.configurator = config
+            self.llm_config = config.llm_config
+
+        # Store configuration
+        self.model_type = self.llm_config.get_model_type()
+        self.model_name = self.llm_config.get_model_name()
+        self.max_tokens = self.llm_config.get_max_tokens()
 
     def _initialize_llm(self) -> None:
         """
@@ -98,12 +107,14 @@ class LLMManager:
                     self.model_name, 
                     **self.model_kwargs
                 )
+                self._set_configurator(temp_configurator)
                 self.llm = temp_configurator.create_llm()
                 
             self.logger.info(f"Successfully initialized {self.model_type} model")
 
             # Publish LLM initialization event
             self.event_bus.publish_analysis_event(
+                # TODO: Use a more specific event type
                 EventType.COVERAGE_TRACKING_STARTED,  # Reusing event type as "MODEL_INITIALIZED" doesn't exist
                 data={
                     "model_type": self.model_type, 
@@ -124,7 +135,7 @@ class LLMManager:
 
             raise RuntimeError(f"Could not initialize {self.model_type} model: {str(e)}")
 
-    def generate(self, messages: List[Dict[str, str]], generation_config: Dict[str, Any] = None) -> str:
+    def generate(self, messages: List[MCPMessage], config: Optional[ComponentConfigurator]) -> MCPMessage:
         """
         Generate text using the LLM with performance tracking.
 
@@ -138,26 +149,22 @@ class LLMManager:
         Raises:
             RuntimeError: If generation fails
         """
+        if config:
+            self._set_configurator(config)
+
         context = {
             "model_type": self.model_type,
-            "model_name": self.model_name
+            "model_name": self.model_name,
+            "strategy": str(config.strategy_class),
+            "parser": str(config.parser_class),
+            "visitor": str(config.visitor_class)
         }
 
         # Initialize if needed
         self._initialize_llm()
-        
-        # Prepare generation parameters
-        max_tokens = self.max_tokens
-        if generation_config:
-            # Override with generation-specific config
-            if "max_tokens" in generation_config:
-                max_tokens = generation_config.get("max_tokens")
-                
-            # Add generation config to context for metrics
-            context.update({f"gen_{k}": v for k, v in generation_config.items()})
 
         # Tracking metrics for total token count
-        total_input_chars = sum(len(msg["content"]) for msg in messages)
+        total_input_chars = sum(msg.total_chars() for msg in messages)
         self.performance_monitor.record_metric(
             name="llm_input_chars",
             value=total_input_chars,
@@ -168,7 +175,7 @@ class LLMManager:
         # Perform generation with timing
         start_time = time.time()
         try:
-            response = self.llm.generate(messages, max_new_tokens=max_tokens)
+            response: MCPMessage = self.llm.generate_sync(messages, config.llm_config)
             elapsed_time = time.time() - start_time
 
             # Log performance metrics
@@ -181,7 +188,7 @@ class LLMManager:
             )
             self.performance_monitor.record_metric(
                 name="llm_response_length",
-                value=len(response),
+                value=response.total_chars(),
                 unit="chars",
                 context=context
             )

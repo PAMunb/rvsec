@@ -23,7 +23,7 @@ while maintaining a consistent interface for the RV-Android system.
 """
 
 # Import public classes for easy access
-from rvandroid.llm.data_structures import MCPMessage, MCPConfiguration, MCPRole
+from rvandroid.llm.data_structures import MCPMessage, MCPRole
 from rvandroid.llm.language_model import LanguageModel
 
 # Import adapters

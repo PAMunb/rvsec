@@ -14,6 +14,7 @@ from enum import Enum
 from typing import Dict, Any, List, Optional, Set, Tuple, Type, ClassVar
 
 from rvandroid.domain.static import StaticAnalysisData
+from rvandroid.llm.constants import StateEntry
 from rvandroid.parser.screen.visitor.model import ItemAction, ScreenItem, ScreenDescription
 from rvandroid.util.logging.constants import CONTEXT_COMPONENT
 from rvandroid.util.logging.manager import LoggingManager
@@ -196,7 +197,7 @@ class UIPatternDetectorManager:
             Dictionary mapping pattern types to detection results
         """
         # Check cache for this screen
-        fingerprint = state_data.get("fingerprint")
+        fingerprint = state_data.get(StateEntry.FINGERPRINT)
         if fingerprint and fingerprint in self.pattern_cache:
             self.logger.debug(f"Using cached pattern results for {fingerprint}")
             return self.pattern_cache[fingerprint]

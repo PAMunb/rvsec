@@ -27,6 +27,7 @@ class PromptStrategyType:
     """Constants for prompt strategy types."""
     STANDARD = "standard_modular"
     BATCH_ACTION = "batch_action_modular"
+    DEFAULT = BATCH_ACTION
     ALL = [STANDARD, BATCH_ACTION]
 
 class ScreenParserType:
@@ -57,16 +58,18 @@ class TemplateRole:
 class StateEntry:
     """Constants for state dictionary entries."""
     ACTIVITY = "activity"
+    PREVIOUS_ACTIVITY = "previous_activity"
     PACKAGE_NAME = "package_name"
     SCREENSHOT_PATH = "screenshot_path"
-    SCREEN = "screen"
-    SCREEN_DESCRIPTION = "screen_description"  # Corresponds to FragmentType.UI_ELEMENTS
+    SCREEN_PATTERNS = "screen"
+    SCREEN_DESCRIPTION = "screen_description"  # the ScreenDescription string representation for template rendering
     STRUCTURED_SCREEN = "structured_screen"    # The actual ScreenDescription object
     AVAILABLE_ACTIONS = "available_actions"
-    DETECTED_PATTERN = "detected_pattern"
-    UI_PATTERNS = "ui_patterns"
+    DETECTED_PATTERN = "detected_pattern"  # dict
+    UI_PATTERNS = "ui_patterns"     # Dict[PatternType, PatternResult]
     TRANSITION_GUIDANCE = "transition_guidance"
-    MONITORED_OPERATIONS = "monitored_operations"
+    MONITORED_OPERATIONS = "monitored_operations"  # List[str]: list of methods signature (tha reaches_mop or directly_reaches_mop)
+    FINGERPRINT = "fingerprint"
 
 class ContextEntry:
     """Constants for context dictionary entries."""

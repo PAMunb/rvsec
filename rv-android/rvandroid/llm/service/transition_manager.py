@@ -3,6 +3,7 @@ from typing import Dict, List, Any
 
 from rvandroid.domain.dynamic_wtg import DynamicTransitionGraph
 from rvandroid.experiment.event.bus import EventBus
+from rvandroid.llm.constants import StateEntry
 from rvandroid.util.logging.constants import CONTEXT_COMPONENT
 from rvandroid.util.logging.manager import LoggingManager
 from rvandroid.util.performance_monitor import PerformanceMonitor
@@ -43,6 +44,7 @@ class TransitionManager:
         self.logger.info("Transition manager initialized")
 
     def update_transitions(self, state: Dict[str, Any], executed_action: Dict[str, Any] = None) -> None:
+        # TODO rever o funcionamento
         """
         Update dynamic transition graph with information about the current state.
 
@@ -52,14 +54,14 @@ class TransitionManager:
         """
         try:
             # Get current activity
-            current_activity = state.get("activity", "unknown")
+            current_activity = state.get(StateEntry.ACTIVITY, "unknown")
 
             # Record visit to this activity
             self.dynamic_wtg.record_visit(current_activity)
 
             # If we have an executed action and we're tracking transitions
-            if executed_action and 'previous_activity' in state:
-                previous_activity = state['previous_activity']
+            if executed_action and StateEntry.PREVIOUS_ACTIVITY in state:
+                previous_activity = state[StateEntry.PREVIOUS_ACTIVITY]
                 action_id = executed_action.get('action_id', 'unknown')
                 action_type = executed_action.get('action_type', 'unknown')
 

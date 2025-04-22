@@ -3,7 +3,7 @@
 
 from typing import Dict, Any, List
 
-from rvandroid.llm.data_structures import MCPMessage, MCPConfiguration, MCPRole, MCPTextContent
+from rvandroid.llm.data_structures import MCPMessage, MCPRole, MCPTextContent
 from rvandroid.llm.adapter import MCPAdapter
 
 
@@ -35,22 +35,22 @@ class LangchainAdapter(MCPAdapter):
         
         return {"prompt": combined_prompt}
 
-    def prepare_config(self, config: MCPConfiguration) -> Dict[str, Any]:
-        """Convert MCP configuration to Langchain parameters."""
-        lc_config = {
-            "temperature": config.temperature,
-        }
-
-        # Extract base_url if provided
-        if "base_url" in config.kwargs:
-            lc_config["base_url"] = config.kwargs["base_url"]
-            
-        # Langchain with Ollama doesn't directly support max_tokens
-        # but we can add it for completeness
-        if config.max_tokens:
-            lc_config["max_tokens"] = config.max_tokens
-
-        return lc_config
+    # def prepare_config(self, config: MCPConfiguration) -> Dict[str, Any]:
+    #     """Convert MCP configuration to Langchain parameters."""
+    #     lc_config = {
+    #         "temperature": config.temperature,
+    #     }
+    #
+    #     # Extract base_url if provided
+    #     if "base_url" in config.kwargs:
+    #         lc_config["base_url"] = config.kwargs["base_url"]
+    #
+    #     # Langchain with Ollama doesn't directly support max_tokens
+    #     # but we can add it for completeness
+    #     if config.max_tokens:
+    #         lc_config["max_tokens"] = config.max_tokens
+    #
+    #     return lc_config
 
     def parse_response(self, response: Any) -> MCPMessage:
         """Parse Langchain response into MCP message."""
@@ -65,17 +65,17 @@ class LangchainAdapter(MCPAdapter):
             content=[MCPTextContent(text=text)]
         )
 
-    def validate_request(self, messages: List[MCPMessage], config: MCPConfiguration) -> bool:
-        """Validate that messages and config are compatible with Langchain."""
-        # Basic validation
-        if not messages:
-            self.logger.warning("Empty message list")
-            return False
-
-        # Check that we have at least a user message
-        has_user_message = any(message.role == MCPRole.USER for message in messages)
-        if not has_user_message:
-            self.logger.warning("No user message found")
-            return False
-
-        return True
+    # def validate_request(self, messages: List[MCPMessage], config: MCPConfiguration) -> bool:
+    #     """Validate that messages and config are compatible with Langchain."""
+    #     # Basic validation
+    #     if not messages:
+    #         self.logger.warning("Empty message list")
+    #         return False
+    #
+    #     # Check that we have at least a user message
+    #     has_user_message = any(message.role == MCPRole.USER for message in messages)
+    #     if not has_user_message:
+    #         self.logger.warning("No user message found")
+    #         return False
+    #
+    #     return True

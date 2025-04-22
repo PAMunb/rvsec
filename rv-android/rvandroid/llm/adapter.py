@@ -5,7 +5,7 @@ from abc import ABC, abstractmethod
 from typing import Dict, Any, List, Type, Optional
 import logging
 
-from rvandroid.llm.data_structures import MCPMessage, MCPConfiguration
+from rvandroid.llm.data_structures import MCPMessage
 from rvandroid.util.error.error_handler import ErrorHandler
 
 
@@ -39,18 +39,18 @@ class MCPAdapter(ABC):
         """
         pass
 
-    @abstractmethod
-    def prepare_config(self, config: MCPConfiguration) -> Dict[str, Any]:
-        """
-        Convert MCP configuration to model-specific parameters.
-        
-        Args:
-            config: MCP configuration parameters
-            
-        Returns:
-            Model-specific configuration parameters
-        """
-        pass
+    # @abstractmethod
+    # def prepare_config(self, config: MCPConfiguration) -> Dict[str, Any]:
+    #     """
+    #     Convert MCP configuration to model-specific parameters.
+    #
+    #     Args:
+    #         config: MCP configuration parameters
+    #
+    #     Returns:
+    #         Model-specific configuration parameters
+    #     """
+    #     pass
 
     @abstractmethod
     def parse_response(self, response: Any) -> MCPMessage:
@@ -65,19 +65,19 @@ class MCPAdapter(ABC):
         """
         pass
 
-    @abstractmethod
-    def validate_request(self, messages: List[MCPMessage], config: MCPConfiguration) -> bool:
-        """
-        Validate that messages and config are compatible with this adapter.
-        
-        Args:
-            messages: List of MCP messages to validate
-            config: Configuration parameters to validate
-            
-        Returns:
-            True if the request is valid, False otherwise
-        """
-        pass
+    # @abstractmethod
+    # def validate_request(self, messages: List[MCPMessage], config: MCPConfiguration) -> bool:
+    #     """
+    #     Validate that messages and config are compatible with this adapter.
+    #
+    #     Args:
+    #         messages: List of MCP messages to validate
+    #         config: Configuration parameters to validate
+    #
+    #     Returns:
+    #         True if the request is valid, False otherwise
+    #     """
+    #     pass
 
 
 class AdapterRegistry:

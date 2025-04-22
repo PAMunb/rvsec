@@ -10,13 +10,15 @@ import os
 from typing import Dict, List, Any, Type, Optional, TypeVar, Generic
 
 from rvandroid.config.configuration import Configuration
-from rvandroid.llm.constants import PromptStrategyType
+from rvandroid.llm.constants import PromptStrategyType, LLMType, OllamaModels
 # Remove circular import
 # from rvandroid.config.configuration_manager import ConfigurationManager
 from rvandroid.llm.llm_config import LLMConfiguration
 from rvandroid.parser.screen.abstract_parser import AbstractScreenParser
 from rvandroid.parser.screen.parser_factory import ParserType
 from rvandroid.parser.screen.visitor.abstract_visitor import AbstractScreenVisitor
+from rvandroid.util.logging.constants import CONTEXT_COMPONENT
+from rvandroid.util.logging.manager import LoggingManager
 
 # Type variables for generic component types
 T = TypeVar('T')
@@ -338,7 +340,13 @@ class ComponentConfigurator:
             static_data: Optional static analysis data
         """
         self.static_data = static_data
-        self.logger = logging.getLogger(__name__)
+
+        # Configure logging
+        logging_manager = LoggingManager.get_instance()
+        self.logger = logging_manager.get_logger(
+            "config.component_configurator",
+            {CONTEXT_COMPONENT: "ComponentConfigurator"}
+        )
 
         # Initialize configuration systems
         self.config = Configuration.get_instance()
@@ -346,9 +354,9 @@ class ComponentConfigurator:
 
         # Component configurations
         self.llm_config = LLMConfiguration(
-            model_type="ollama",
-            model_name="llama3.2:3b",
-            strategy_type="single_action",
+            model_type=LLMType.OLLAMA,
+            model_name=OllamaModels.LLAMA3_8B,
+            strategy_type=PromptStrategyType.BATCH_ACTION,
             parser_type=ParserType.DROIDBOT,
             max_tokens=800,
             temperature=0.2
@@ -458,6 +466,7 @@ class ComponentConfigurator:
         # If model not specified, use first available model
         if not model:
             model = self.LLM_MODELS.get(llm_type, [])[0] if self.LLM_MODELS.get(llm_type) else None
+            self.logger.warning(f"Model {llm_type} not found. Using default model: {model}")
 
         self.llm_config.model_name = model
 
@@ -472,6 +481,14 @@ class ComponentConfigurator:
             self.llm_config.temperature = kwargs.pop("temperature")
         if "max_tokens" in kwargs:
             self.llm_config.max_tokens = kwargs.pop("max_tokens")
+        if "top_p" in kwargs:
+            self.llm_config.top_p = kwargs.pop("top_p")
+        if "top_k" in kwargs:
+            self.llm_config.top_k = kwargs.pop("top_k")
+        if "frequency_penalty" in kwargs:
+            self.llm_config.frequency_penalty = kwargs.pop("frequency_penalty")
+        if "presence_penalty" in kwargs:
+            self.llm_config.presence_penalty = kwargs.pop("presence_penalty")
 
         # Store other parameters
         for key, value in kwargs.items():

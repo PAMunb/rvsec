@@ -11,7 +11,7 @@ import openai
 from anthropic import Anthropic
 
 from rvandroid.llm.language_model import LanguageModel
-from rvandroid.llm.data_structures import MCPMessage, MCPConfiguration
+from rvandroid.llm.data_structures import MCPMessage
 from rvandroid.llm.adapters.frontier_adapter import FrontierAdapter
 from rvandroid.util.error.error_handler import ErrorHandler
 
@@ -171,12 +171,12 @@ class FrontierModel(LanguageModel):
 
         return self._client
 
-    async def generate(self, messages: List[MCPMessage], config: Optional[MCPConfiguration] = None) -> MCPMessage:
-        """Generate a response using the language model asynchronously."""
-        # Use synchronous implementation for now (could be updated to use async later)
-        return self.generate_sync(messages, config)
+    # async def generate(self, messages: List[MCPMessage], config: Optional[MCPConfiguration] = None) -> MCPMessage:
+    #     """Generate a response using the language model asynchronously."""
+    #     # Use synchronous implementation for now (could be updated to use async later)
+    #     return self.generate_sync(messages, config)
 
-    def generate_sync(self, messages: List[MCPMessage], config: Optional[MCPConfiguration] = None) -> MCPMessage:
+    def generate_sync(self, messages: List[MCPMessage], config = None) -> MCPMessage:
         """
         Generate text based on the input messages synchronously.
 

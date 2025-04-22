@@ -5,7 +5,7 @@ import json
 from typing import Dict, Any, List
 
 from rvandroid.llm.adapter import MCPAdapter
-from rvandroid.llm.data_structures import MCPMessage, MCPConfiguration, MCPRole, MCPTextContent
+from rvandroid.llm.data_structures import MCPMessage, MCPRole, MCPTextContent
 
 
 class OllamaAdapter(MCPAdapter):
@@ -43,31 +43,31 @@ class OllamaAdapter(MCPAdapter):
             
         return {"messages": ollama_messages}
 
-    def prepare_config(self, config: MCPConfiguration) -> Dict[str, Any]:
-        """
-        Convert MCP configuration to Ollama parameters.
-        
-        Maps standardized MCP configuration parameters to
-        Ollama-specific API parameters.
-        
-        Args:
-            config: MCP configuration to convert
-            
-        Returns:
-            Dictionary with Ollama-specific configuration
-        """
-        ollama_config = {
-            "model": config.model_name,
-            "temperature": config.temperature,
-        }
-
-        if config.max_tokens:
-            ollama_config["num_predict"] = config.max_tokens
-
-        if config.top_p < 1.0:
-            ollama_config["top_p"] = config.top_p
-
-        return ollama_config
+    # def prepare_config(self, config: MCPConfiguration) -> Dict[str, Any]:
+    #     """
+    #     Convert MCP configuration to Ollama parameters.
+    #
+    #     Maps standardized MCP configuration parameters to
+    #     Ollama-specific API parameters.
+    #
+    #     Args:
+    #         config: MCP configuration to convert
+    #
+    #     Returns:
+    #         Dictionary with Ollama-specific configuration
+    #     """
+    #     ollama_config = {
+    #         "model": config.model_name,
+    #         "temperature": config.temperature,
+    #     }
+    #
+    #     if config.max_tokens:
+    #         ollama_config["num_predict"] = config.max_tokens
+    #
+    #     if config.top_p < 1.0:
+    #         ollama_config["top_p"] = config.top_p
+    #
+    #     return ollama_config
 
     def parse_response(self, response: Any) -> MCPMessage:
         """
@@ -104,30 +104,30 @@ class OllamaAdapter(MCPAdapter):
             content=[MCPTextContent(text=text)]
         )
 
-    def validate_request(self, messages: List[MCPMessage], config: MCPConfiguration) -> bool:
-        """
-        Validate that messages and config are compatible with Ollama.
-        
-        Checks for incompatible features or configurations that
-        would cause errors with Ollama models.
-        
-        Args:
-            messages: MCP messages to validate
-            config: Configuration to validate
-            
-        Returns:
-            True if the request is valid for Ollama, False otherwise
-        """
-        # Basic validation
-        if not messages:
-            self.logger.warning("Empty message list")
-            return False
-
-        # Check for unsupported content types
-        for message in messages:
-            for content in message.content:
-                if not isinstance(content, MCPTextContent):
-                    self.logger.warning(f"Ollama does not support content type: {type(content)}")
-                    return False
-
-        return True
+    # def validate_request(self, messages: List[MCPMessage], config: MCPConfiguration) -> bool:
+    #     """
+    #     Validate that messages and config are compatible with Ollama.
+    #
+    #     Checks for incompatible features or configurations that
+    #     would cause errors with Ollama models.
+    #
+    #     Args:
+    #         messages: MCP messages to validate
+    #         config: Configuration to validate
+    #
+    #     Returns:
+    #         True if the request is valid for Ollama, False otherwise
+    #     """
+    #     # Basic validation
+    #     if not messages:
+    #         self.logger.warning("Empty message list")
+    #         return False
+    #
+    #     # Check for unsupported content types
+    #     for message in messages:
+    #         for content in message.content:
+    #             if not isinstance(content, MCPTextContent):
+    #                 self.logger.warning(f"Ollama does not support content type: {type(content)}")
+    #                 return False
+    #
+    #     return True

@@ -5,8 +5,11 @@ from abc import ABC, abstractmethod
 from typing import List, Dict, Any, Optional, Type, ClassVar
 import logging
 
-from rvandroid.llm.data_structures import MCPMessage, MCPConfiguration
+from rvandroid.llm.data_structures import MCPMessage, MCPResponse
 from rvandroid.llm.adapter import MCPAdapter
+from rvandroid.llm.llm_config import LLMConfiguration
+from rvandroid.util.logging.constants import CONTEXT_COMPONENT
+from rvandroid.util.logging.manager import LoggingManager
 
 
 class LanguageModel(ABC):
@@ -34,17 +37,14 @@ class LanguageModel(ABC):
         """
         self.model_name = model_name
         self.adapter = self._get_adapter()
-        self.config = MCPConfiguration(
-            model_name=model_name,
-            model_type=self._get_model_type()
+        self.kwargs = kwargs
+
+        # Configure logging
+        logging_manager = LoggingManager.get_instance()
+        self.logger = logging_manager.get_logger(
+            "llm.language_model",
+            {CONTEXT_COMPONENT: "LanguageModel"}
         )
-
-        # Update config with kwargs
-        for key, value in kwargs.items():
-            if hasattr(self.config, key):
-                setattr(self.config, key, value)
-
-        self.logger = logging.getLogger(f"{__name__}.{self.__class__.__name__}")
 
     @abstractmethod
     def _get_model_type(self) -> str:
@@ -66,26 +66,27 @@ class LanguageModel(ABC):
         """
         pass
 
-    @abstractmethod
-    async def generate(self,
-                       messages: List[MCPMessage],
-                       config: Optional[MCPConfiguration] = None) -> MCPMessage:
-        """
-        Generate a response using the language model.
-        
-        Args:
-            messages: List of MCP messages representing the conversation
-            config: Optional configuration that overrides instance config
-            
-        Returns:
-            MCPMessage containing the generated response
-        """
-        pass
+    # TODO deprecated
+    # @abstractmethod
+    # async def generate(self,
+    #                    messages: List[MCPMessage],
+    #                    config: Optional[LLMConfiguration] = None) -> MCPMessage:
+    #     """
+    #     Generate a response using the language model.
+    #
+    #     Args:
+    #         messages: List of MCP messages representing the conversation
+    #         config: Optional configuration that overrides instance config
+    #
+    #     Returns:
+    #         MCPMessage containing the generated response
+    #     """
+    #     pass
 
     @abstractmethod
     def generate_sync(self,
                       messages: List[MCPMessage],
-                      config: Optional[MCPConfiguration] = None) -> MCPMessage:
+                      config: Optional[LLMConfiguration] = None) -> MCPResponse:
         """
         Generate a response synchronously.
         

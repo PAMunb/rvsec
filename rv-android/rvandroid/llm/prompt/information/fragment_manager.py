@@ -56,7 +56,7 @@ class InformationManager:
             self.logger.warning(f"Overwriting existing fragment: {fragment.name}")
         
         self.fragments[fragment.name] = fragment
-        self.logger.info(f"Registered fragment: {fragment.name} (priority: {fragment.priority})")
+        self.logger.debug(f"Registered fragment: {fragment.name} (priority: {fragment.priority})")
     
     def register_fragments(self, fragments: List[InformationFragment]) -> None:
         """Register multiple information fragments.

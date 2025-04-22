@@ -152,8 +152,8 @@ class DynamicTransitionGraph:
         """Record a transition between activities"""
 
         # Normalize activity names
-        source_activity = source_activity.replace("/", ".")
-        target_activity = target_activity.replace("/", ".")
+        source_activity = source_activity.replace("/", "")
+        target_activity = target_activity.replace("/", "")
 
         if source_activity.endswith(".."):
             source_activity = source_activity[:-1]

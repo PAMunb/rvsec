@@ -12,6 +12,7 @@ from typing import Dict, Any, List, Optional, Tuple
 
 from rvandroid.analysis.base_analyzer import BaseAnalyzer
 from rvandroid.analysis.screenshot_analyzer import ScreenshotAnalyzer
+from rvandroid.llm.constants import StateEntry
 from rvandroid.parser.screen.visitor.model import ItemAction, ScreenItem, ScreenDescription, Counter
 from rvandroid.domain.static import StaticAnalysisData
 
@@ -76,7 +77,7 @@ class ScreenshotActionComplementor(BaseAnalyzer[ScreenDescription]):
         
         Handles two input types:
         - Tuple[ScreenDescription, str]: Screen description and screenshot path
-        - Dict with 'screen_description' and 'screenshot_path' keys
+        - Dict with StateEntry.STRUCTURED_SCREEN and StateEntry.SCREENSHOT_PATH keys
         
         Args:
             data: The data to analyze
@@ -87,9 +88,9 @@ class ScreenshotActionComplementor(BaseAnalyzer[ScreenDescription]):
         # Extract screen description and screenshot path from input
         if isinstance(data, tuple) and len(data) == 2:
             screen_description, screenshot_path = data
-        elif isinstance(data, dict) and 'screen_description' in data and 'screenshot_path' in data:
-            screen_description = data['screen_description']
-            screenshot_path = data['screenshot_path']
+        elif isinstance(data, dict) and StateEntry.STRUCTURED_SCREEN in data and StateEntry.SCREENSHOT_PATH in data:
+            screen_description = data[StateEntry.STRUCTURED_SCREEN]
+            screenshot_path = data[StateEntry.SCREENSHOT_PATH]
         else:
             self.logger.error(f"Unsupported data format for analysis: {type(data)}")
             if isinstance(data, ScreenDescription):
