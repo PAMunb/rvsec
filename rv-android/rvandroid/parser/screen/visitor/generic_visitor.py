@@ -8,7 +8,7 @@ from rvandroid.parser.screen.visitor.abstract_visitor import AbstractScreenVisit
 from rvandroid.parser.screen.visitor.model import ItemAction, ScreenItem, Node
 
 
-# deprecated
+# TODO deprecated
 class GenericScreenVisitor:  # (AbstractScreenVisitor):
     """
     Generic implementation of screen visitor for processing UI hierarchies.
