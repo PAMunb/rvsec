@@ -11,7 +11,7 @@ from rvandroid.config.component_configurator import ComponentConfigurator
 from rvandroid.domain.static import StaticAnalysisData
 from rvandroid.llm.constants import StateEntry
 from rvandroid.parser.screen.visitor.default_visitor import DefaultTextVisitor
-from rvandroid.parser.screen.visitor.model import ScreenDescription
+from rvandroid.parser.screen.visitor.model import ScreenDescription, ItemAction
 from rvandroid.util.error.error_handler import ErrorHandler
 from rvandroid.util.logging.constants import CONTEXT_COMPONENT
 from rvandroid.util.logging.manager import LoggingManager
@@ -272,7 +272,7 @@ class StateEnricher:
                 self.logger.debug(f"Successfully created ScreenDescription with {len(screen_description.items)} items")
                 
                 # Extract available action IDs for later use
-                available_actions_map = {}
+                available_actions_map: Dict[int, ItemAction] = {}
                 for item in screen_description.items:
                     for action in item.actions:
                         available_actions_map[action.id] = action

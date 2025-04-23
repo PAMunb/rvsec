@@ -173,8 +173,8 @@ class OllamaLLM(LanguageModel):
         # Call Ollama chat API synchronously
         response: ChatResponse = self.client.chat(
             model=self.model_name,
-            messages=formatted_msgs,
-            options=options
+            messages=formatted_msgs
+            #options=options
         )
         print(f"\n*** Response: {response["message"]["content"]} :::: {response}")
 

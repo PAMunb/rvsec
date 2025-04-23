@@ -10,13 +10,14 @@ from rvandroid.config.component_configurator import ComponentConfigurator
 from rvandroid.domain.static import StaticAnalysisData
 from rvandroid.experiment.event.bus import EventBus, EventType
 from rvandroid.llm.constants import ContextEntry, PromptStrategyType, StateEntry
-from rvandroid.llm.data_structures import MCPMessage
+from rvandroid.llm.data_structures import MCPMessage, MCPResponse
 from rvandroid.llm.prompt.framework import PromptFramework
 from rvandroid.llm.service import LLMManager
 from rvandroid.llm.service.action_generator import ActionGenerator
 from rvandroid.llm.service.response_processor import ResponseProcessor
 from rvandroid.llm.service.state_enricher import StateEnricher
 from rvandroid.llm.service.transition_manager import TransitionManager
+from rvandroid.parser.screen.visitor.model import ItemAction
 from rvandroid.util.error.error_handler import ErrorHandler
 from rvandroid.util.logging.constants import CONTEXT_COMPONENT
 from rvandroid.util.logging.manager import LoggingManager
@@ -105,12 +106,10 @@ class LLMActionService:
         )
 
         # Log initialization
-        strategy_info = f"strategy={config.strategy_class.__name__ if config and hasattr(config, 'strategy_class') else 'standard'}"
-
         self.logger.info(
-            f"Initialized LLM Action Service with unified PromptFramework, "
+            f"Initialized LLM Action Service, "
             f"model={self.config.llm_config.model_name}, "
-            f"{strategy_info}"
+            f"strategy={config.strategy_class.__name__}"
         )
 
     def process_state(self, state: Dict[str, Any]) -> List[Dict[str, Any]]:
@@ -141,11 +140,9 @@ class LLMActionService:
             try:
                 # Enrich state with additional information
                 enriched_state = self.state_enricher.enrich_state(state)
-                self.transition_manager.update_transitions(enriched_state)
 
-                # # Determine strategy based on state content
-                # strategy_name = self.framework.select_strategy_for_state(enriched_state)
-                # self.logger.debug(f"Selected strategy: {strategy_name}")
+                # Update dynamic transition graph with information about the current state
+                self.transition_manager.update_transitions(enriched_state)
 
                 # Generate prompt and get LLM response
                 with self.performance_monitor.measure_time("llm_interaction", context):
@@ -157,7 +154,7 @@ class LLMActionService:
                     # Record prompt metrics if possible
                     self.record_prompt_metrics(messages, context)
 
-                    response: MCPMessage = self.llm_manager.generate(messages, self.config)
+                    response: MCPResponse = self.llm_manager.generate(messages, self.config)
                     self.logger.debug(f"Received response: {response}")
 
                     self.performance_monitor.record_metric(
@@ -177,7 +174,8 @@ class LLMActionService:
                     response_text = response.content if hasattr(response, 'content') else str(response)
 
                     # Get available action IDs
-                    available_action_ids = enriched_state.get(StateEntry.AVAILABLE_ACTIONS, [])
+                    available_actions: Dict[int, ItemAction] = enriched_state.get(StateEntry.AVAILABLE_ACTIONS, {})
+                    available_action_ids = [str(action) for action in available_actions.keys()]
 
                     # Process response into action descriptions
                     actions, errors = self.response_processor.process_response(
