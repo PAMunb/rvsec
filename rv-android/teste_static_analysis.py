@@ -1,28 +1,30 @@
 import logging
 import sys
-import rvandroid.analysis.static_analysis as static
-# import analysis.methods_extractor as me
-from rvandroid.constants import EXTENSION_GESDA, EXTENSION_GATOR
-# from task import Task
+
+from rvandroid.app import App
+from rvandroid.parser.static.static_analysis_parser import StaticAnalysisParser
 from settings import *
 
 
-def runXXX(apks_dir: str):
-    apks = utils.get_apks(apks_dir)
-    for apk in apks:
-        logging.info("Analysing APK: {}".format(apk.name))
-        gesda_file = os.path.join(apks_dir, "{}{}".format(apk.name, EXTENSION_GESDA))
-        gator_file = os.path.join(apks_dir, "{}{}".format(apk.name, EXTENSION_GATOR))
-        # print(f"gator_file={gator_file}")
-        # TODO try/catch
-        # static.run_gesda(apk, gesda_file)
-        static.run_gator(apk, gator_file)
+def runXXX():
+    static_folder = "/home/pedro/desenvolvimento/RV_ANDROID/teste_llm/static"
+    apk = "cryptoapp.apk"
+    app = App(os.path.join(static_folder, apk))
+    package = app.package_name
+    reach_file = os.path.join(static_folder, apk + ".reach")
+    gator_file = os.path.join(static_folder, apk + ".wtg")
+    gesda_file = os.path.join(static_folder, apk + ".gesda")
+
+    parser = StaticAnalysisParser()
+    static_data = parser.parse(reach_file, gator_file, gesda_file, package)
+
+    print(static_data)
 
 
 if __name__ == '__main__':
     logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
     logging.getLogger("androguard").setLevel(logging.ERROR)
 
-    runXXX("/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec/rv-android/apks_mini")
+    runXXX()
 
     print("FIM DE FESTA!!!")

@@ -71,32 +71,24 @@ class ScreenshotActionComplementor(BaseAnalyzer[ScreenDescription]):
         """
         pass
 
-    def analyze(self, data: Any) -> ScreenDescription:
+    def analyze(self, state: Dict[str, Any]) -> ScreenDescription:
         """
         Analyze data and return enhanced screen description.
-        
-        Handles two input types:
-        - Tuple[ScreenDescription, str]: Screen description and screenshot path
-        - Dict with StateEntry.STRUCTURED_SCREEN and StateEntry.SCREENSHOT_PATH keys
-        
+
         Args:
-            data: The data to analyze
+            state: The current application state.
             
         Returns:
             Enhanced screen description
         """
         # Extract screen description and screenshot path from input
-        if isinstance(data, tuple) and len(data) == 2:
-            screen_description, screenshot_path = data
-        elif isinstance(data, dict) and StateEntry.STRUCTURED_SCREEN in data and StateEntry.SCREENSHOT_PATH in data:
-            screen_description = data[StateEntry.STRUCTURED_SCREEN]
-            screenshot_path = data[StateEntry.SCREENSHOT_PATH]
+        if StateEntry.STRUCTURED_SCREEN in state and StateEntry.SCREENSHOT_PATH in state:
+            screen_description = state.get(StateEntry.STRUCTURED_SCREEN)
+            screenshot_path = state.get(StateEntry.SCREENSHOT_PATH)
         else:
-            self.logger.error(f"Unsupported data format for analysis: {type(data)}")
-            if isinstance(data, ScreenDescription):
-                return data  # Return original description if that's what we got
-            raise ValueError(f"Unsupported data format: {type(data)}")
-            
+            self.logger.error(f"The state does not have the necessary information for analysis")
+            raise ValueError(f"Necessary information not provided: screen_description or screenshot_path")
+
         # Process with the traditional method
         return self.complement_screen_actions(screen_description, screenshot_path)
 
@@ -115,25 +107,13 @@ class ScreenshotActionComplementor(BaseAnalyzer[ScreenDescription]):
         self.logger.debug(f"Complementing screen actions for {screen_description.activity}")
 
         try:
-            # Check cache first
-            cache_key = self._generate_cache_key(screenshot_path)
-            cached_result = self._get_from_cache(cache_key)
-
-            if cached_result:
-                self.logger.debug("Using cached screenshot analysis")
-                analysis_result = cached_result
-            else:
-                # Analyze screenshot
-                self.logger.debug(f"Analyzing screenshot: {screenshot_path}")
-                analyzer = ScreenshotAnalyzer(image_path=screenshot_path)
-                analysis_result = analyzer.extract_information()
-
-                # Cache the result
-                self._add_to_cache(cache_key, analysis_result)
+            # Analyze screenshot
+            self.logger.debug(f"Analyzing screenshot: {screenshot_path}")
+            analyzer = ScreenshotAnalyzer(image_path=screenshot_path)
+            analysis_result = analyzer.extract_information()
 
             # Process analysis result
             return self._process_analysis_result(screen_description, analysis_result)
-
         except Exception as e:
             self.logger.error(f"Error complementing screen actions: {e}")
             # Return original screen description on error
@@ -185,6 +165,7 @@ class ScreenshotActionComplementor(BaseAnalyzer[ScreenDescription]):
             for item in screen_description.items:
                 if "bounds" in item.view:
                     bounds = item.view["bounds"]
+                    print(f"&&&&& Bounds: {bounds}")
                     if isinstance(bounds, list) and len(bounds) == 2:
                         item_x1, item_y1 = bounds[0]
                         item_x2, item_y2 = bounds[1]
@@ -267,8 +248,11 @@ class ScreenshotActionComplementor(BaseAnalyzer[ScreenDescription]):
                 complementary_items.append(visual_text_button)
 
         # Update original screen description to suggest errors for error fields
+        print("Atualizando .................")
         for item in screen_description.items:
+            print(f"Item: {item} ::: error_fields={error_fields}")
             if id(item) in error_fields:
+                print("Item in errors_fields")
                 # If this is a text field with an error, prioritize interacting with it
                 if "EditText" in item.view.get("class", ""):
                     # Add or update SET_TEXT action with high priority
@@ -421,60 +405,60 @@ class ScreenshotActionComplementor(BaseAnalyzer[ScreenDescription]):
             actions=actions
         )
 
-    def _generate_cache_key(self, screenshot_path: str) -> str:
-        """
-        Generate a cache key for a screenshot.
-
-        Args:
-            screenshot_path: Path to the screenshot
-
-        Returns:
-            Cache key string
-        """
-        # Use file modification time and size for cache key
-        try:
-            file_stats = os.stat(screenshot_path)
-            mod_time = file_stats.st_mtime
-            file_size = file_stats.st_size
-
-            # Combine path, size and modification time for a unique key
-            return f"{screenshot_path}_{file_size}_{mod_time}"
-        except:
-            # Fallback to just the path if stats can't be read
-            return screenshot_path
-
-    def _get_from_cache(self, cache_key: str) -> Optional[Dict[str, Any]]:
-        """
-        Get analysis result from cache.
-
-        Args:
-            cache_key: Cache key to look up
-
-        Returns:
-            Cached analysis result or None if not found
-        """
-        return self.analysis_cache.get(cache_key)
-
-    def _add_to_cache(self, cache_key: str, analysis_result: Dict[str, Any]) -> None:
-        """
-        Add analysis result to cache.
-
-        Args:
-            cache_key: Cache key to store under
-            analysis_result: Result to cache
-        """
-        # Add to cache
-        self.analysis_cache[cache_key] = analysis_result
-
-        # Add to key list for tracking cache size
-        self.cache_keys.append(cache_key)
-
-        # Trim cache if it's too large
-        if len(self.cache_keys) > self.cache_size:
-            # Remove oldest entry
-            oldest_key = self.cache_keys.pop(0)
-            if oldest_key in self.analysis_cache:
-                del self.analysis_cache[oldest_key]
+    # def _generate_cache_key(self, screenshot_path: str) -> str:
+    #     """
+    #     Generate a cache key for a screenshot.
+    #
+    #     Args:
+    #         screenshot_path: Path to the screenshot
+    #
+    #     Returns:
+    #         Cache key string
+    #     """
+    #     # Use file modification time and size for cache key
+    #     try:
+    #         file_stats = os.stat(screenshot_path)
+    #         mod_time = file_stats.st_mtime
+    #         file_size = file_stats.st_size
+    #
+    #         # Combine path, size and modification time for a unique key
+    #         return f"{screenshot_path}_{file_size}_{mod_time}"
+    #     except:
+    #         # Fallback to just the path if stats can't be read
+    #         return screenshot_path
+    #
+    # def _get_from_cache(self, cache_key: str) -> Optional[Dict[str, Any]]:
+    #     """
+    #     Get analysis result from cache.
+    #
+    #     Args:
+    #         cache_key: Cache key to look up
+    #
+    #     Returns:
+    #         Cached analysis result or None if not found
+    #     """
+    #     return self.analysis_cache.get(cache_key)
+    #
+    # def _add_to_cache(self, cache_key: str, analysis_result: Dict[str, Any]) -> None:
+    #     """
+    #     Add analysis result to cache.
+    #
+    #     Args:
+    #         cache_key: Cache key to store under
+    #         analysis_result: Result to cache
+    #     """
+    #     # Add to cache
+    #     self.analysis_cache[cache_key] = analysis_result
+    #
+    #     # Add to key list for tracking cache size
+    #     self.cache_keys.append(cache_key)
+    #
+    #     # Trim cache if it's too large
+    #     if len(self.cache_keys) > self.cache_size:
+    #         # Remove oldest entry
+    #         oldest_key = self.cache_keys.pop(0)
+    #         if oldest_key in self.analysis_cache:
+    #             del self.analysis_cache[oldest_key]
 
     def _check_overlap(self, x1: int, y1: int, x2: int, y2: int,
                        x3: int, y3: int, x4: int, y4: int) -> bool:

@@ -66,17 +66,17 @@ class StateEnricher:
             self.parser = None
         
         # Initialize analyzers (as needed)
-        self.screenshot_analyzer = None
+        self.screenshot_action_complementor = None
         self.pattern_detector = None
         
         # Try to initialize analyzers if they exist
         try:
-            # from rvandroid.analysis.screenshot_analyzer import ScreenshotAnalyzer
+            # from rvandroid.analysis.screenshot_action_complementor import ScreenshotAnalyzer
             # self.screenshot_analyzer = ScreenshotAnalyzer()
             from rvandroid.analysis.screenshot.screenshot_action_complementor import ScreenshotActionComplementor
-            self.screenshot_analyzer = ScreenshotActionComplementor(static_data=self.static_data)
+            self.screenshot_action_complementor = ScreenshotActionComplementor(static_data=self.static_data)
         except ImportError:
-            self.logger.warning("ScreenshotActionComplementor not available")
+            self.logger.warning("Screenshot Action Complementor not available")
         
         try:
             from rvandroid.analysis.ui_pattern_detector import UIPatternDetector
@@ -126,7 +126,7 @@ class StateEnricher:
         Args:
             state: The current application state.
         """
-        if not self.screenshot_analyzer:
+        if not self.screenshot_action_complementor:
             return
 
         if StateEntry.SCREENSHOT_PATH in state and state[StateEntry.SCREENSHOT_PATH]:
@@ -134,7 +134,7 @@ class StateEnricher:
                 self.logger.debug(f"Processing screenshot: {state[StateEntry.SCREENSHOT_PATH]}")
 
                 # Use screenshot analyzer to complement ScreenDescription information
-                screen_description = self.screenshot_analyzer.analyze(state)
+                screen_description = self.screenshot_action_complementor.analyze(state)
 
                 # Update state with screen description´d
                 if screen_description:
