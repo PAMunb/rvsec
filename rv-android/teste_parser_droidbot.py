@@ -417,11 +417,13 @@ if __name__ == '__main__':
     # Definir caminhos para os arquivos
     apk = "cryptoapp.apk"
     screenshot_folder = "/home/pedro/desenvolvimento/RV_ANDROID/teste_llm/screenshots/" + apk
-    droidbot_info_file = screenshot_folder + "/002.state"
+    droidbot_info_file = screenshot_folder + "/007.state"
     uiautomator_xml_file = screenshot_folder + "/002.xml"  # Ajuste o caminho se necessário
 
     # Carregar dados
     screen_info = read_droidbot_state(droidbot_info_file)
+    print(f"screen_info: {screen_info}")
+    exit(-1)
     uiautomator_xml = None
     try:
         uiautomator_xml = read_uiautomator_xml(uiautomator_xml_file)

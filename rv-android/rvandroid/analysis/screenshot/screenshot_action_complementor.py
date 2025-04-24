@@ -2,224 +2,567 @@
 """
 Screenshot Action Complementor for RVDroid.
 
-This module provides functionality to complement UI actions detected
-from the UI hierarchy with information derived from screenshot analysis,
-enabling better testing of non-standard UI elements and error detection.
+This module provides functionality to complement UI actions by analyzing
+screenshots and associating visual elements with UI hierarchy elements.
+It enhances testing capabilities by detecting elements not present in the
+UI hierarchy and identifying error conditions.
 """
 
-import os
 from typing import Dict, Any, List, Optional, Tuple
 
 from rvandroid.analysis.base_analyzer import BaseAnalyzer
 from rvandroid.analysis.screenshot_analyzer import ScreenshotAnalyzer
-from rvandroid.llm.constants import StateEntry
-from rvandroid.parser.screen.visitor.model import ItemAction, ScreenItem, ScreenDescription, Counter
 from rvandroid.domain.static import StaticAnalysisData
+from rvandroid.domain.widget import WidgetEventType
+from rvandroid.parser.screen.visitor.model import ItemAction, ScreenItem, ScreenDescription, Counter
+
+
+class AssociationStrategy:
+    """Base class for element association strategies."""
+
+    def calculate_match_score(self, visual_bounds, ui_element_data):
+        """
+        Calculate match score between visual and UI elements.
+
+        Args:
+            visual_bounds: Bounds of visual element
+            ui_element_data: Data of UI element
+
+        Returns:
+            Match score between 0.0 and 1.0
+        """
+        # Default implementation uses overlap percentage
+        overlap = self._calculate_overlap_percentage(
+            visual_bounds[0][0], visual_bounds[0][1], visual_bounds[1][0], visual_bounds[1][1],
+            ui_element_data["bounds"][0][0], ui_element_data["bounds"][0][1],
+            ui_element_data["bounds"][1][0], ui_element_data["bounds"][1][1]
+        )
+
+        return overlap
+
+    def _calculate_overlap_percentage(self, x1, y1, x2, y2, x3, y3, x4, y4):
+        """
+        Calculate the percentage of overlap between two rectangles.
+
+        Args:
+            x1, y1, x2, y2: First rectangle (top-left, bottom-right)
+            x3, y3, x4, y4: Second rectangle (top-left, bottom-right)
+
+        Returns:
+            Overlap percentage (0.0 to 1.0) relative to the smaller rectangle
+        """
+        # Calculate intersection coordinates
+        x_intersection = max(x1, x3)
+        y_intersection = max(y1, y3)
+        w_intersection = min(x2, x4) - x_intersection
+        h_intersection = min(y2, y4) - y_intersection
+
+        if w_intersection <= 0 or h_intersection <= 0:
+            return 0.0
+
+        intersection_area = w_intersection * h_intersection
+        area1 = (x2 - x1) * (y2 - y1)
+        area2 = (x4 - x3) * (y4 - y3)
+        smaller_area = min(area1, area2)
+
+        return intersection_area / smaller_area if smaller_area > 0 else 0.0
+
+
+class ErrorAssociationStrategy(AssociationStrategy):
+    """Strategy for associating error indicators with UI elements."""
+
+    def calculate_match_score(self, visual_bounds, ui_element_data):
+        """
+        Calculate match score for error indicators.
+
+        Args:
+            visual_bounds: Bounds of error indicator
+            ui_element_data: Data of UI element
+
+        Returns:
+            Match score between 0.0 and 1.0
+        """
+        overlap = super().calculate_match_score(visual_bounds, ui_element_data)
+
+        # Prioritize input fields
+        item = ui_element_data["item"]
+        if "EditText" in item.view.get("class", ""):
+            overlap *= 1.2  # Increase score for input fields
+
+        # Prioritize elements that are near but not necessarily overlapping with the error
+        if overlap < 0.1:
+            # Check if the error is close to (likely below) the element
+            visual_center_x = (visual_bounds[0][0] + visual_bounds[1][0]) / 2
+            ui_center_x = (ui_element_data["bounds"][0][0] + ui_element_data["bounds"][1][0]) / 2
+
+            # If the centers are aligned horizontally
+            if abs(visual_center_x - ui_center_x) < (
+                    ui_element_data["bounds"][1][0] - ui_element_data["bounds"][0][0]) / 2:
+                # Check if error is below the element (common for validation errors)
+                if (visual_bounds[0][1] >= ui_element_data["bounds"][1][1] and
+                        visual_bounds[0][1] <= ui_element_data["bounds"][1][1] + 100):  # Within 100px below
+                    return 0.7  # High score for typical validation error position
+
+        return overlap
+
+
+class ButtonAssociationStrategy(AssociationStrategy):
+    """Strategy for associating visual buttons with UI elements."""
+
+    def calculate_match_score(self, visual_bounds, ui_element_data):
+        """
+        Calculate match score for button associations.
+
+        Args:
+            visual_bounds: Bounds of visual button
+            ui_element_data: Data of UI element
+
+        Returns:
+            Match score between 0.0 and 1.0
+        """
+        overlap = super().calculate_match_score(visual_bounds, ui_element_data)
+
+        # Prioritize actual buttons and clickable elements
+        item = ui_element_data["item"]
+        if "Button" in item.view.get("class", "") or item.view.get("clickable", False):
+            overlap *= 1.1  # Slightly increase score for buttons and clickable elements
+
+        return overlap
+
+
+class TextAssociationStrategy(AssociationStrategy):
+    """Strategy for associating visual text with UI elements."""
+
+    def calculate_match_score(self, visual_bounds, ui_element_data):
+        """
+        Calculate match score for text associations.
+
+        Args:
+            visual_bounds: Bounds of visual text
+            ui_element_data: Data of UI element
+
+        Returns:
+            Match score between 0.0 and 1.0
+        """
+        # First calculate overlap as in the parent class
+        overlap = super().calculate_match_score(visual_bounds, ui_element_data)
+
+        # We can't access text from bounds (which is a list)
+        # Instead, we need to get it from the associated text item data
+        # which would be passed separately
+
+        # Consider only the spatial relationship for now
+        # Text content similarity would need to be handled in the calling method
+
+        return overlap
+
+
+class InteractiveElementAssociationStrategy(AssociationStrategy):
+    """Strategy for associating interactive elements with UI elements."""
+
+    def calculate_match_score(self, visual_bounds, ui_element_data):
+        """
+        Calculate match score for interactive element associations.
+
+        Args:
+            visual_bounds: Bounds of visual interactive element
+            ui_element_data: Data of UI element
+
+        Returns:
+            Match score between 0.0 and 1.0
+        """
+        overlap = super().calculate_match_score(visual_bounds, ui_element_data)
+
+        # Prioritize UI elements that can be interacted with
+        item = ui_element_data["item"]
+        is_interactive = (
+                item.view.get("clickable", False) or
+                item.view.get("scrollable", False) or
+                item.view.get("long_clickable", False) or
+                item.view.get("editable", False)
+        )
+
+        if is_interactive:
+            overlap *= 1.2  # Increase score for interactive elements
+
+        return overlap
 
 
 class ScreenshotActionComplementor(BaseAnalyzer[ScreenDescription]):
     """
     Complements screen actions with additional insights from screenshot analysis.
 
+    This component bridges the gap between UI hierarchy-based testing and visual testing
+    by associating visually detected elements with UI hierarchy elements. It enables:
+
+    1. Detection of interactive elements not present in the UI hierarchy
+    2. Identification of error conditions through visual cues
+    3. Enhancement of existing UI elements with visual information
+
     ### Architectural Decisions:
-    - Implements a non-intrusive complement to existing action detection
-    - Uses visual analysis to identify interactive elements not in UI hierarchy
-    - Provides error detection capabilities using visual cues
-    - Maintains a cache to optimize performance with similar screens
-    - Extends BaseAnalyzer for consistent interface
+    - Uses direct object associations rather than ID-based mappings
+    - Maintains backward compatibility while enhancing information
+    - Separates detection from association for better maintainability
+    - Prioritizes error detection and association with input fields
 
     ### Role in the System:
-    - Enriches screen descriptions with visually-derived actions
-    - Bridges the gap between UI automation and visual testing
+    - Enhances screen descriptions with visually-derived information
     - Improves testing of non-standard UI elements and canvas-based apps
-    - Enhances error detection based on visual indicators
+    - Provides error detection capabilities using visual analysis
     """
 
-    def __init__(self, screenshot_dir: Optional[str] = None, 
-                 cache_size: int = 10,
-                 static_data: Optional[StaticAnalysisData] = None):
+    def __init__(self, static_data: Optional[StaticAnalysisData] = None):
         """
         Initialize the screenshot action complementor.
 
         Args:
-            screenshot_dir: Directory for storing screenshots (None to use temp)
-            cache_size: Size of the screenshot analysis cache
             static_data: Optional static analysis data
         """
         super().__init__(analyzer_name="screenshot_complementor", static_data=static_data)
 
-        # Set screenshot directory
-        self.screenshot_dir = screenshot_dir or os.path.join(os.path.dirname(__file__), "screenshots")
-        os.makedirs(self.screenshot_dir, exist_ok=True)
+        # Action ID counter - start IDs from 1000 to avoid conflicts
+        self.counter = Counter(1000)
 
-        # Initialize cache
-        self.cache_size = cache_size
-        self.analysis_cache: Dict[str, Dict[str, Any]] = {}
-        self.cache_keys: List[str] = []
+        # Analysis results
+        self.visual_to_ui_associations = {}
+        self.error_impacted_items = set()
+        self.unmatched_visual_elements = []
 
-        # Action ID counter
-        self.counter = Counter(1000)  # Start IDs from 1000 to avoid conflicts
+        self.logger.info("Initialized screenshot action complementor")
 
-        self.logger.info(f"Initialized screenshot action complementor with cache size {cache_size}")
-        
     def _initialize_from_static_data(self) -> None:
         """
         Initialize from static analysis data.
-        
+
         This component doesn't need static data initialization,
         but we implement the abstract method as required.
         """
         pass
 
-    def analyze(self, state: Dict[str, Any]) -> ScreenDescription:
+    def analyze(self, state: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Analyze data and return enhanced screen description.
+        Analyze data and produce visual element associations.
 
         Args:
-            state: The current application state.
-            
+            state: The current application state containing screen description and screenshot path.
+
         Returns:
-            Enhanced screen description
+            Dictionary containing visual element associations and mappings
+
+        Raises:
+            ValueError: If required state information is missing
         """
         # Extract screen description and screenshot path from input
-        if StateEntry.STRUCTURED_SCREEN in state and StateEntry.SCREENSHOT_PATH in state:
-            screen_description = state.get(StateEntry.STRUCTURED_SCREEN)
-            screenshot_path = state.get(StateEntry.SCREENSHOT_PATH)
+        if "structured_screen" in state and "screenshot_path" in state:
+            screen_description = state.get("structured_screen")
+            screenshot_path = state.get("screenshot_path")
         else:
-            self.logger.error(f"The state does not have the necessary information for analysis")
-            raise ValueError(f"Necessary information not provided: screen_description or screenshot_path")
+            self.logger.error("The state does not have the necessary information for analysis")
+            raise ValueError("Necessary information not provided: screen_description or screenshot_path")
 
-        # Process with the traditional method
+        # Perform the analysis
         return self.complement_screen_actions(screen_description, screenshot_path)
 
     def complement_screen_actions(self, screen_description: ScreenDescription,
-                                  screenshot_path: str) -> ScreenDescription:
+                                  screenshot_path: str) -> Dict[str, Any]:
         """
-        Complement existing actions with screenshot-derived insights.
+        Complement existing UI elements with screenshot-derived insights.
+
+        This method analyzes a screenshot to identify visual elements and errors,
+        then associates them with existing UI elements in the screen description.
 
         Args:
             screen_description: Original screen description
             screenshot_path: Path to the screenshot image
 
         Returns:
-            Enhanced screen description with complementary actions
+            Dictionary containing visual element associations and complementary information
         """
         self.logger.debug(f"Complementing screen actions for {screen_description.activity}")
 
         try:
+            # Reset state for this analysis
+            self.visual_to_ui_associations = {}
+            self.error_impacted_items = set()
+            self.unmatched_visual_elements = []
+
             # Analyze screenshot
             self.logger.debug(f"Analyzing screenshot: {screenshot_path}")
             analyzer = ScreenshotAnalyzer(image_path=screenshot_path)
             analysis_result = analyzer.extract_information()
 
-            # Process analysis result
-            return self._process_analysis_result(screen_description, analysis_result)
+            # Create mapping of existing UI elements with their bounds
+            ui_elements_map = self._create_ui_elements_map(screen_description)
+
+            # Process error indicators first (priority association)
+            error_mapping = self._process_error_indicators(
+                analysis_result.get("error_indicators", []),
+                ui_elements_map,
+                screen_description
+            )
+
+            # Process visual buttons
+            button_mapping = self._process_visual_buttons(
+                analysis_result.get("buttons", []),
+                ui_elements_map,
+                screen_description
+            )
+
+            # Process important text areas
+            text_mapping = self._process_text_elements(
+                analysis_result.get("texts", []),
+                ui_elements_map,
+                screen_description
+            )
+
+            # Process other interactive elements
+            interactive_mapping = self._process_interactive_elements(
+                analysis_result.get("interactive_elements", []),
+                ui_elements_map,
+                screen_description
+            )
+
+            # Create the result mapping
+            visual_mapping = {
+                "error_indicators": error_mapping,
+                "visual_buttons": button_mapping,
+                "text_elements": text_mapping,
+                "interactive_elements": interactive_mapping,
+                "error_impacted_items": list(self.error_impacted_items),
+                "unmatched_elements": self.unmatched_visual_elements,
+                "metrics": {
+                    "error_indicators_count": len(error_mapping),
+                    "visual_buttons_count": len(button_mapping),
+                    "text_elements_count": len(text_mapping),
+                    "interactive_elements_count": len(interactive_mapping),
+                    "error_impacted_items_count": len(self.error_impacted_items),
+                    "unmatched_elements_count": len(self.unmatched_visual_elements)
+                }
+            }
+
+            # For backward compatibility, also update the screen description
+            enhanced_screen = self._enhance_screen_description(
+                screen_description,
+                visual_mapping
+            )
+
+            # Log processing summary
+            total_elements = (len(error_mapping) + len(button_mapping) +
+                              len(text_mapping) + len(interactive_mapping))
+            self.log_processing_summary("visual elements", total_elements)
+
+            # Return both the enhanced screen description and the visual mapping
+            return {
+                "enhanced_screen": enhanced_screen,
+                "visual_mapping": visual_mapping
+            }
+
         except Exception as e:
             self.logger.error(f"Error complementing screen actions: {e}")
+            import traceback
+            print(traceback.format_exc())
             # Return original screen description on error
-            return screen_description
+            return {
+                "enhanced_screen": screen_description,
+                "visual_mapping": {
+                    "error": str(e),
+                    "error_indicators": [],
+                    "visual_buttons": [],
+                    "text_elements": [],
+                    "interactive_elements": [],
+                    "error_impacted_items": [],
+                    "unmatched_elements": [],
+                    "metrics": {
+                        "error": "Failed to analyze screenshot"
+                    }
+                }
+            }
 
-    def _process_analysis_result(self, screen_description: ScreenDescription,
-                                 analysis_result: Dict[str, Any]) -> ScreenDescription:
+    def _create_ui_elements_map(self, screen_description: ScreenDescription) -> Dict[str, Any]:
         """
-        Process analysis result to enhance screen description.
+        Create a mapping of UI elements with their bounds for faster lookup.
 
         Args:
-            screen_description: Original screen description
-            analysis_result: Result from screenshot analysis
+            screen_description: Screen description containing UI elements
 
         Returns:
-            Enhanced screen description
+            Dictionary mapping element IDs to their data including bounds
         """
-        # Extract data from analysis result
-        buttons = analysis_result.get("buttons", [])
-        texts = analysis_result.get("texts", [])
-        error_indicators = analysis_result.get("error_indicators", [])
+        ui_elements_map = {}
 
-        # Track existing items' bounding boxes
-        existing_bounds: List[Tuple[int, int, int, int]] = []
         for item in screen_description.items:
             if "bounds" in item.view:
                 bounds = item.view["bounds"]
                 if isinstance(bounds, list) and len(bounds) == 2:
-                    # Convert [[x1, y1], [x2, y2]] to (x1, y1, x2, y2)
-                    existing_bounds.append((bounds[0][0], bounds[0][1], bounds[1][0], bounds[1][1]))
+                    # Create a lookup key based on bounds
+                    key = f"{bounds[0][0]}_{bounds[0][1]}_{bounds[1][0]}_{bounds[1][1]}"
 
-        # Process visual buttons that don't overlap with existing elements
-        complementary_items = []
+                    # Store the actual ScreenItem object for direct access
+                    ui_elements_map[key] = {
+                        "item": item,
+                        "bounds": bounds,
+                        "center": self._calculate_center(bounds),
+                        "area": self._calculate_area(bounds)
+                    }
 
-        # Identify error conditions first
-        error_fields = set()
-        error_count = 0
+        return ui_elements_map
+
+    def _calculate_center(self, bounds: List[List[int]]) -> Tuple[int, int]:
+        """
+        Calculate the center point of a bounding box.
+
+        Args:
+            bounds: Bounds in format [[x1, y1], [x2, y2]]
+
+        Returns:
+            (x, y) tuple of center coordinates
+        """
+        return (
+            (bounds[0][0] + bounds[1][0]) // 2,
+            (bounds[0][1] + bounds[1][1]) // 2
+        )
+
+    def _calculate_area(self, bounds: List[List[int]]) -> int:
+        """
+        Calculate the area of a bounding box.
+
+        Args:
+            bounds: Bounds in format [[x1, y1], [x2, y2]]
+
+        Returns:
+            Area in pixels²
+        """
+        width = bounds[1][0] - bounds[0][0]
+        height = bounds[1][1] - bounds[0][1]
+        return width * height
+
+    def _process_error_indicators(self,
+                                  error_indicators: List[Dict[str, Any]],
+                                  ui_elements_map: Dict[str, Any],
+                                  screen_description: ScreenDescription) -> List[Dict[str, Any]]:
+        """
+        Process error indicators and associate them with UI elements.
+
+        Args:
+            error_indicators: List of error indicators from screenshot analysis
+            ui_elements_map: Mapping of UI elements with their bounds
+            screen_description: Original screen description
+
+        Returns:
+            List of error indicators with associations
+        """
+        result = []
 
         for error in error_indicators:
-            error_count += 1
             error_x = error.get("x", 0)
             error_y = error.get("y", 0)
             error_width = error.get("width", 0)
             error_height = error.get("height", 0)
-            red_intensity = error.get("red_intensity", 0)
+            error_bounds = [[error_x, error_y], [error_x + error_width, error_y + error_height]]
 
-            # Check if this error indicator is near any existing elements
-            found_matching_element = False
-            for item in screen_description.items:
-                if "bounds" in item.view:
-                    bounds = item.view["bounds"]
-                    print(f"&&&&& Bounds: {bounds}")
-                    if isinstance(bounds, list) and len(bounds) == 2:
-                        item_x1, item_y1 = bounds[0]
-                        item_x2, item_y2 = bounds[1]
+            # Find associated UI elements
+            associated_item = self._find_associated_ui_element(
+                error_bounds,
+                ui_elements_map,
+                ErrorAssociationStrategy()
+            )
 
-                        # Check if error overlaps with item
-                        if (self._check_overlap(
-                                error_x, error_y, error_x + error_width, error_y + error_height,
-                                item_x1, item_y1, item_x2, item_y2
-                        )):
-                            # Mark this element as having an error
-                            item.view["has_error"] = True
+            # Process association
+            if associated_item:
+                # Add error information to the UI element
+                associated_item.view["has_error"] = True
+                associated_item.view["error_type"] = error.get("error_type", "unknown_error")
+                associated_item.view["error_confidence"] = error.get("confidence", 0.0)
 
-                            # Add error intensity information
-                            item.view["error_intensity"] = red_intensity
+                # If it's an edit text, mark it for special handling
+                if "EditText" in associated_item.view.get("class", ""):
+                    self.error_impacted_items.add(associated_item)
 
-                            # Add this item to error fields
-                            error_fields.add(id(item))
-                            found_matching_element = True
+                # Add association information to the error
+                processed_error = error.copy()
+                processed_error["associated_item"] = associated_item
+                result.append(processed_error)
 
-            # If no matching element found, create a standalone error indicator
-            if not found_matching_element:
-                # Create visual indicator for standalone error
-                error_item = self._create_visual_error_indicator(error)
-                if error_item:
-                    complementary_items.append(error_item)
+            else:
+                # No associated UI element, create as a standalone element
+                processed_error = error.copy()
+                processed_error["associated_item"] = None
+                self.unmatched_visual_elements.append(processed_error)
+                result.append(processed_error)
 
-        # Process visual buttons
+        return result
+
+    def _process_visual_buttons(self,
+                                buttons: List[Dict[str, Any]],
+                                ui_elements_map: Dict[str, Any],
+                                screen_description: ScreenDescription) -> List[Dict[str, Any]]:
+        """
+        Process visually detected buttons and associate them with UI elements.
+
+        Args:
+            buttons: List of button data from screenshot analysis
+            ui_elements_map: Mapping of UI elements with their bounds
+            screen_description: Original screen description
+
+        Returns:
+            List of buttons with associations
+        """
+        result = []
+
         for button in buttons:
             button_x = button.get("x", 0)
             button_y = button.get("y", 0)
             button_width = button.get("width", 0)
             button_height = button.get("height", 0)
+            button_bounds = [[button_x, button_y], [button_x + button_width, button_y + button_height]]
 
-            # Check if this button overlaps with any existing element
-            is_overlapping = False
-            for x1, y1, x2, y2 in existing_bounds:
-                if self._check_overlap(
-                        button_x, button_y, button_x + button_width, button_y + button_height,
-                        x1, y1, x2, y2
-                ):
-                    is_overlapping = True
-                    break
+            # Find associated UI elements
+            associated_item = self._find_associated_ui_element(
+                button_bounds,
+                ui_elements_map,
+                ButtonAssociationStrategy()
+            )
 
-            # If not overlapping, add as a new element
-            if not is_overlapping:
-                visual_button = self._create_visual_button(button)
-                complementary_items.append(visual_button)
+            # Process association
+            if associated_item:
+                # Add visual button information to the UI element
+                associated_item.view["has_visual_button"] = True
+                associated_item.view["visual_button_confidence"] = button.get("confidence", 0.0)
 
-        # Look for important text areas that might be interactive
+                # Add association information to the button
+                processed_button = button.copy()
+                processed_button["associated_item"] = associated_item
+                result.append(processed_button)
+
+            else:
+                # No associated UI element, create as a standalone element
+                processed_button = button.copy()
+                processed_button["associated_item"] = None
+                self.unmatched_visual_elements.append(processed_button)
+                result.append(processed_button)
+
+        return result
+
+    def _process_text_elements(self,
+                               texts: List[Dict[str, Any]],
+                               ui_elements_map: Dict[str, Any],
+                               screen_description: ScreenDescription) -> List[Dict[str, Any]]:
+        """
+        Process text elements and associate them with UI elements.
+
+        Args:
+            texts: List of text data from screenshot analysis
+            ui_elements_map: Mapping of UI elements with their bounds
+            screen_description: Original screen description
+
+        Returns:
+            List of texts with associations
+        """
+        result = []
+
         for text_item in texts:
-            text = text_item.get("text", "")
-            confidence = text_item.get("confidence", 0)
-
             # Only consider high confidence text
+            confidence = text_item.get("confidence", 0)
             if confidence < 70:
                 continue
 
@@ -231,63 +574,163 @@ class ScreenshotActionComplementor(BaseAnalyzer[ScreenDescription]):
             text_y = bbox.get("y", 0)
             text_width = bbox.get("width", 0)
             text_height = bbox.get("height", 0)
+            text_bounds = [[text_x, text_y], [text_x + text_width, text_y + text_height]]
 
-            # Check if this text overlaps with any existing element
-            is_overlapping = False
-            for x1, y1, x2, y2 in existing_bounds:
-                if self._check_overlap(
-                        text_x, text_y, text_x + text_width, text_y + text_height,
-                        x1, y1, x2, y2
-                ):
-                    is_overlapping = True
-                    break
+            # Find associated UI elements
+            associated_item = self._find_associated_ui_element(
+                text_bounds,
+                ui_elements_map,
+                TextAssociationStrategy()
+            )
 
-            # If not overlapping and looks like a button (e.g., "OK", "Cancel", etc.)
-            if not is_overlapping and self._looks_like_button_text(text):
-                visual_text_button = self._create_visual_text_button(text_item)
-                complementary_items.append(visual_text_button)
+            # Process association
+            if associated_item:
+                # Add visual text information to the UI element
+                associated_item.view["has_visual_text"] = True
+                associated_item.view["visual_text"] = text_item.get("text", "")
+                associated_item.view["visual_text_confidence"] = confidence
 
-        # Update original screen description to suggest errors for error fields
-        print("Atualizando .................")
-        for item in screen_description.items:
-            print(f"Item: {item} ::: error_fields={error_fields}")
-            if id(item) in error_fields:
-                print("Item in errors_fields")
-                # If this is a text field with an error, prioritize interacting with it
-                if "EditText" in item.view.get("class", ""):
-                    # Add or update SET_TEXT action with high priority
-                    set_text_action = None
-                    for action in item.actions:
-                        if "SET_TEXT" in action.text:
-                            set_text_action = action
-                            break
+                # Add association information to the text
+                processed_text = text_item.copy()
+                processed_text["associated_item"] = associated_item
+                result.append(processed_text)
 
-                    if set_text_action:
-                        # Modify existing action text to indicate error
-                        set_text_action.text = set_text_action.text.replace("SET_TEXT", "SET_TEXT (Error Field)")
-                    else:
-                        # Add new SET_TEXT action
-                        action_id = self.counter.inc()
-                        item.actions.append(ItemAction(
-                            id=action_id,
-                            text=f"SET_TEXT (Error Field) ({action_id})",
-                            event="TEXT_CHANGE",
-                            target_view=item.view,
-                            coordinates=self._get_center_coordinates(item.view)
-                        ))
+            else:
+                # Check if it looks like a button
+                if self._looks_like_button_text(text_item.get("text", "")):
+                    processed_text = text_item.copy()
+                    processed_text["associated_item"] = None
+                    processed_text["is_button_like"] = True
+                    self.unmatched_visual_elements.append(processed_text)
+                    result.append(processed_text)
+                else:
+                    # Just a regular text with no UI association
+                    processed_text = text_item.copy()
+                    processed_text["associated_item"] = None
+                    result.append(processed_text)
+
+        return result
+
+    def _process_interactive_elements(self,
+                                      elements: List[Dict[str, Any]],
+                                      ui_elements_map: Dict[str, Any],
+                                      screen_description: ScreenDescription) -> List[Dict[str, Any]]:
+        """
+        Process interactive elements and associate them with UI elements.
+
+        Args:
+            elements: List of interactive elements from screenshot analysis
+            ui_elements_map: Mapping of UI elements with their bounds
+            screen_description: Original screen description
+
+        Returns:
+            List of interactive elements with associations
+        """
+        result = []
+
+        for element in elements:
+            element_x = element.get("x", 0)
+            element_y = element.get("y", 0)
+            element_width = element.get("width", 0)
+            element_height = element.get("height", 0)
+            element_bounds = [[element_x, element_y], [element_x + element_width, element_y + element_height]]
+
+            # Find associated UI elements
+            associated_item = self._find_associated_ui_element(
+                element_bounds,
+                ui_elements_map,
+                InteractiveElementAssociationStrategy()
+            )
+
+            # Process association
+            if associated_item:
+                # Add interactive element information to the UI element
+                associated_item.view["has_interactive_element"] = True
+                associated_item.view["interactive_element_type"] = element.get("type", "unknown")
+                associated_item.view["interactive_element_confidence"] = element.get("confidence", 0.0)
+
+                # Add association information to the element
+                processed_element = element.copy()
+                processed_element["associated_item"] = associated_item
+                result.append(processed_element)
+
+            else:
+                # No associated UI element, create as a standalone element
+                processed_element = element.copy()
+                processed_element["associated_item"] = None
+                self.unmatched_visual_elements.append(processed_element)
+                result.append(processed_element)
+
+        return result
+
+    def _find_associated_ui_element(self,
+                                    visual_bounds: List[List[int]],
+                                    ui_elements_map: Dict[str, Any],
+                                    strategy: AssociationStrategy) -> Optional[ScreenItem]:
+        """
+        Find the UI element that best matches the visual element using a specific strategy.
+
+        Args:
+            visual_bounds: Bounds of the visual element
+            ui_elements_map: Mapping of UI elements with their bounds
+            strategy: Strategy for calculating match scores
+
+        Returns:
+            Best matching ScreenItem or None if no good match found
+        """
+        best_match = None
+        best_score = 0.0
+
+        for _, ui_data in ui_elements_map.items():
+            # Calculate match score using the provided strategy
+            score = strategy.calculate_match_score(visual_bounds, ui_data)
+
+            if score > best_score:
+                best_score = score
+                best_match = ui_data["item"]
+
+        # Only return if the score is above a minimum threshold
+        return best_match if best_score >= 0.1 else None
+
+    def _enhance_screen_description(self,
+                                    screen_description: ScreenDescription,
+                                    visual_mapping: Dict[str, Any]) -> ScreenDescription:
+        """
+        Enhance the original screen description with information from visual analysis.
+        This is for backward compatibility with existing code.
+
+        Args:
+            screen_description: Original screen description
+            visual_mapping: Visual element mapping from analysis
+
+        Returns:
+            Enhanced screen description with complementary items
+        """
+        # Create complementary items for unmatched visual elements
+        complementary_items = []
+
+        # Process unmatched visual buttons
+        for element in visual_mapping["unmatched_elements"]:
+            element_type = element.get("type", "")
+
+            if "button" in str(element_type).lower() or element.get("is_button_like", False):
+                # Create a visual button
+                visual_button = self._create_visual_button(element)
+                complementary_items.append(visual_button)
+
+            elif "error" in str(element_type).lower():
+                # Create a visual error indicator
+                error_item = self._create_visual_error_indicator(element)
+                if error_item:
+                    complementary_items.append(error_item)
 
         # Create new screen description with additional items
         all_items = screen_description.items + complementary_items
         enhanced_screen = ScreenDescription(screen_description.activity, all_items)
-        
-        # Log processing summary
-        self.log_processing_summary("visual elements", len(complementary_items))
-        if error_count > 0:
-            self.log_processing_summary("error indicators", error_count)
 
         return enhanced_screen
 
-    def _create_visual_button(self, button_data: Dict[str, Any]) -> Any:
+    def _create_visual_button(self, button_data: Dict[str, Any]) -> ScreenItem:
         """
         Create a screen item for a visually detected button.
 
@@ -297,13 +740,13 @@ class ScreenshotActionComplementor(BaseAnalyzer[ScreenDescription]):
         Returns:
             ScreenItem representing the visual button
         """
-
-        # Create view data
+        # Extract coordinates
         button_x = button_data.get("x", 0)
         button_y = button_data.get("y", 0)
         button_width = button_data.get("width", 0)
         button_height = button_data.get("height", 0)
 
+        # Create view data
         view_data = {
             "class": "android.widget.Button",
             "resource_id": f"visual_button_{button_x}_{button_y}",
@@ -314,8 +757,18 @@ class ScreenshotActionComplementor(BaseAnalyzer[ScreenDescription]):
             "long_clickable": True,
             "focused": False,
             "selected": False,
-            "visual_element": True  # Mark as visually detected
+            "visual_element": True,  # Mark as visually detected
+            "confidence": button_data.get("confidence", 0.0)
         }
+
+        # Add text if available
+        if "text" in button_data:
+            view_data["text"] = button_data["text"]
+
+        # Calculate center coordinates
+        center_x = button_x + button_width // 2
+        center_y = button_y + button_height // 2
+        coordinates = (center_x, center_y)
 
         # Create actions
         actions = []
@@ -325,9 +778,9 @@ class ScreenshotActionComplementor(BaseAnalyzer[ScreenDescription]):
         actions.append(ItemAction(
             id=action_id,
             text=f"CLICK (Visual) ({action_id})",
-            event="CLICK",
+            event=WidgetEventType.CLICK,
             target_view=view_data,
-            coordinates=((button_x + button_x + button_width) // 2, (button_y + button_y + button_height) // 2)
+            coordinates=coordinates
         ))
 
         # Long click action
@@ -335,55 +788,61 @@ class ScreenshotActionComplementor(BaseAnalyzer[ScreenDescription]):
         actions.append(ItemAction(
             id=action_id,
             text=f"LONG_CLICK (Visual) ({action_id})",
-            event="LONG_CLICK",
+            event=WidgetEventType.LONG_CLICK,
             target_view=view_data,
-            coordinates=((button_x + button_x + button_width) // 2, (button_y + button_y + button_height) // 2)
+            coordinates=coordinates
         ))
+
+        # Create description
+        description = "Visual Button"
+        if "text" in view_data:
+            description += f" with text '{view_data['text']}'"
 
         # Create screen item
         return ScreenItem(
             view=view_data,
-            base_description=f"Visual Button at ({button_x}, {button_y})",
+            base_description=description,
             actions=actions
         )
 
-    def _create_visual_text_button(self, text_data: Dict[str, Any]) -> Any:
+    def _create_visual_error_indicator(self, error_data: Dict[str, Any]) -> Optional[ScreenItem]:
         """
-        Create a screen item for a text element that looks like a button.
+        Create a screen item for a visual error indicator.
 
         Args:
-            text_data: Text data from screenshot analysis
+            error_data: Error indicator data from screenshot analysis
 
         Returns:
-            ScreenItem representing the visual text button
+            ScreenItem representing the visual error indicator
         """
-        from rvandroid.parser.screen.visitor.model import ScreenItem
-
-        # Extract text info
-        text = text_data.get("text", "Button")
-        confidence = text_data.get("confidence", 0)
-        bbox = text_data.get("bbox", {})
-
-        text_x = bbox.get("x", 0)
-        text_y = bbox.get("y", 0)
-        text_width = bbox.get("width", 0)
-        text_height = bbox.get("height", 0)
+        # Extract coordinates
+        error_x = error_data.get("x", 0)
+        error_y = error_data.get("y", 0)
+        error_width = error_data.get("width", 0)
+        error_height = error_data.get("height", 0)
 
         # Create view data
         view_data = {
-            "class": "android.widget.Button",
-            "resource_id": f"visual_text_button_{text_x}_{text_y}",
-            "text": text,
-            "bounds": [[text_x, text_y], [text_x + text_width, text_y + text_height]],
+            "class": "android.widget.TextView",  # Use TextView as base class
+            "resource_id": f"visual_error_{error_x}_{error_y}",
+            "text": error_data.get("text", "Error Indicator"),
+            "bounds": [[error_x, error_y], [error_x + error_width, error_y + error_height]],
             "clickable": True,
             "checkable": False,
             "scrollable": False,
-            "long_clickable": True,
+            "long_clickable": False,
             "focused": False,
             "selected": False,
             "visual_element": True,  # Mark as visually detected
-            "confidence": confidence
+            "has_error": True,  # Mark as error
+            "error_type": error_data.get("error_type", "unknown_error"),
+            "confidence": error_data.get("confidence", 0.0)
         }
+
+        # Calculate center coordinates
+        center_x = error_x + error_width // 2
+        center_y = error_y + error_height // 2
+        coordinates = (center_x, center_y)
 
         # Create actions
         actions = []
@@ -392,96 +851,23 @@ class ScreenshotActionComplementor(BaseAnalyzer[ScreenDescription]):
         action_id = self.counter.inc()
         actions.append(ItemAction(
             id=action_id,
-            text=f"CLICK (Visual Text: '{text}') ({action_id})",
-            event="CLICK",
+            text=f"CLICK (Error Indicator) ({action_id})",
+            event=WidgetEventType.CLICK,
             target_view=view_data,
-            coordinates=((text_x + text_x + text_width) // 2, (text_y + text_y + text_height) // 2)
+            coordinates=coordinates
         ))
+
+        # Create description
+        description = f"Visual Error Indicator: {view_data['error_type']}"
+        if "text" in view_data and view_data["text"] != "Error Indicator":
+            description += f" - '{view_data['text']}'"
 
         # Create screen item
         return ScreenItem(
             view=view_data,
-            base_description=f"Visual Text Button '{text}' at ({text_x}, {text_y})",
+            base_description=description,
             actions=actions
         )
-
-    # def _generate_cache_key(self, screenshot_path: str) -> str:
-    #     """
-    #     Generate a cache key for a screenshot.
-    #
-    #     Args:
-    #         screenshot_path: Path to the screenshot
-    #
-    #     Returns:
-    #         Cache key string
-    #     """
-    #     # Use file modification time and size for cache key
-    #     try:
-    #         file_stats = os.stat(screenshot_path)
-    #         mod_time = file_stats.st_mtime
-    #         file_size = file_stats.st_size
-    #
-    #         # Combine path, size and modification time for a unique key
-    #         return f"{screenshot_path}_{file_size}_{mod_time}"
-    #     except:
-    #         # Fallback to just the path if stats can't be read
-    #         return screenshot_path
-    #
-    # def _get_from_cache(self, cache_key: str) -> Optional[Dict[str, Any]]:
-    #     """
-    #     Get analysis result from cache.
-    #
-    #     Args:
-    #         cache_key: Cache key to look up
-    #
-    #     Returns:
-    #         Cached analysis result or None if not found
-    #     """
-    #     return self.analysis_cache.get(cache_key)
-    #
-    # def _add_to_cache(self, cache_key: str, analysis_result: Dict[str, Any]) -> None:
-    #     """
-    #     Add analysis result to cache.
-    #
-    #     Args:
-    #         cache_key: Cache key to store under
-    #         analysis_result: Result to cache
-    #     """
-    #     # Add to cache
-    #     self.analysis_cache[cache_key] = analysis_result
-    #
-    #     # Add to key list for tracking cache size
-    #     self.cache_keys.append(cache_key)
-    #
-    #     # Trim cache if it's too large
-    #     if len(self.cache_keys) > self.cache_size:
-    #         # Remove oldest entry
-    #         oldest_key = self.cache_keys.pop(0)
-    #         if oldest_key in self.analysis_cache:
-    #             del self.analysis_cache[oldest_key]
-
-    def _check_overlap(self, x1: int, y1: int, x2: int, y2: int,
-                       x3: int, y3: int, x4: int, y4: int) -> bool:
-        """
-        Check if two rectangles overlap.
-
-        Args:
-            x1, y1, x2, y2: Bounds of first rectangle (top-left, bottom-right)
-            x3, y3, x4, y4: Bounds of second rectangle (top-left, bottom-right)
-
-        Returns:
-            True if rectangles overlap, False otherwise
-        """
-        # Check if one rectangle is to the left of the other
-        if x2 < x3 or x4 < x1:
-            return False
-
-        # Check if one rectangle is above the other
-        if y2 < y3 or y4 < y1:
-            return False
-
-        # If neither of the above, rectangles overlap
-        return True
 
     def _looks_like_button_text(self, text: str) -> bool:
         """
@@ -514,95 +900,14 @@ class ScreenshotActionComplementor(BaseAnalyzer[ScreenDescription]):
 
         return False
 
-    def _create_visual_error_indicator(self, error_data: Dict[str, Any]) -> Any:
-        """
-        Create a screen item for a visual error indicator.
-
-        Args:
-            error_data: Error indicator data from screenshot analysis
-
-        Returns:
-            ScreenItem representing the visual error indicator
-        """
-        from rvandroid.parser.screen.visitor.model import ScreenItem
-
-        # Extract error info
-        error_x = error_data.get("x", 0)
-        error_y = error_data.get("y", 0)
-        error_width = error_data.get("width", 0)
-        error_height = error_data.get("height", 0)
-        red_intensity = error_data.get("red_intensity", 0)
-
-        # Create view data
-        view_data = {
-            "class": "android.widget.TextView",  # Use TextView as base class
-            "resource_id": f"visual_error_{error_x}_{error_y}",
-            "text": "Error Indicator",
-            "bounds": [[error_x, error_y], [error_x + error_width, error_y + error_height]],
-            "clickable": True,
-            "checkable": False,
-            "scrollable": False,
-            "long_clickable": False,
-            "focused": False,
-            "selected": False,
-            "visual_element": True,  # Mark as visually detected
-            "has_error": True,  # Mark as error
-            "error_intensity": red_intensity
-        }
-
-        # Create actions
-        actions = []
-
-        # Click action
-        action_id = self.counter.inc()
-        actions.append(ItemAction(
-            id=action_id,
-            text=f"CLICK (Error Indicator) ({action_id})",
-            event="CLICK",
-            target_view=view_data,
-            coordinates=((error_x + error_x + error_width) // 2, (error_y + error_y + error_height) // 2)
-        ))
-
-        # Create screen item
-        return ScreenItem(
-            view=view_data,
-            base_description=f"Visual Error Indicator at ({error_x}, {error_y})",
-            actions=actions
-        )
-
-    def _get_center_coordinates(self, view: Dict[str, Any]) -> Optional[Tuple[int, int]]:
-        """
-        Get center coordinates of a view.
-
-        Args:
-            view: View data dictionary
-
-        Returns:
-            (x, y) tuple of center coordinates or None if bounds not found
-        """
-        if "bounds" not in view:
-            return None
-
-        bounds = view["bounds"]
-        if not isinstance(bounds, list) or len(bounds) != 2:
-            return None
-
-        try:
-            x1, y1 = bounds[0]
-            x2, y2 = bounds[1]
-            return ((x1 + x2) // 2, (y1 + y2) // 2)
-        except (TypeError, IndexError):
-            return None
-            
     def get_metrics(self) -> Dict[str, Any]:
         """
         Get metrics from the analyzer.
-        
+
         Returns:
             Dictionary containing metrics and their values
         """
         return {
-            "cache_size": self.cache_size,
-            "cache_utilization": len(self.cache_keys),
-            "cache_hit_ratio": len(self.cache_keys) / self.cache_size if self.cache_size > 0 else 0
+            "error_impacted_items_count": len(self.error_impacted_items),
+            "unmatched_visual_elements_count": len(self.unmatched_visual_elements)
         }
