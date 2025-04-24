@@ -676,7 +676,7 @@ state = {
     StateEntry.PACKAGE_NAME: "com.example.testapp",
     StateEntry.ACTIVITY: "com.example.testapp.MainActivity",
     StateEntry.SCREEN_DESCRIPTION: "The screen shows a login form with username and password fields, and a Login button.",
-    StateEntry.SCREEN: {
+    StateEntry.SCREEN_PATTERNS: {
         "title": "Login",
         "components": [
             {
@@ -781,7 +781,7 @@ state = {
     StateEntry.ACTIVITY: "com.example.testapp.MainActivity",
     StateEntry.SCREEN_DESCRIPTION: "The screen shows a login form with username and password fields, and a Login button.",
     StateEntry.SCREENSHOT_PATH: "/path/to/screenshot.png",
-    StateEntry.SCREEN: {
+    StateEntry.SCREEN_PATTERNS: {
         "title": "Login",
         "components": [
             # UI components as before
