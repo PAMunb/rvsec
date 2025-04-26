@@ -123,6 +123,7 @@ class ScreenItem:
     view: Dict[str, Any]  # Raw view data
     base_description: str
     actions: List[ItemAction] = field(default_factory=list)
+    complement: Dict[str, Any] = field(default_factory=dict)
 
     @property
     def description(self) -> str:

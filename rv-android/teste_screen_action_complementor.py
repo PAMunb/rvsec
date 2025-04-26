@@ -157,6 +157,22 @@ def tmp_002(screen_description: ScreenDescription, screenshot_path: str):
                 print(f"    Text: \"{elem.get('text')}\"")
 
 
+def tmp_003(screen_description: ScreenDescription, screenshot_path: str):
+    complementor = ScreenshotActionComplementor()
+    desc = complementor.complement_screen_actions(screen_description, screenshot_path)
+    new_screen_description: ScreenDescription = desc["enhanced_screen"]
+    print(f"Nova descrição da tela:\n{new_screen_description}")
+    for item in new_screen_description.items:
+        print(f"{item}")
+        has_error = item.complement.get("has_error")
+        print(f"  - has_error = {has_error}")
+        if has_error:
+            errors = item.complement.get('errors')
+            print(f"    - Errors: {len(errors)}")
+            for error in errors:
+                print(f"    - {error}")
+
+
 if __name__ == '__main__':
     # Configuração de logging
     logging.basicConfig(stream=sys.stdout, level=logging.INFO)
@@ -168,7 +184,7 @@ if __name__ == '__main__':
     # Caminhos para dados do app
     screenshots_folder = "/home/pedro/desenvolvimento/RV_ANDROID/teste_llm/screenshots"
     apk = "cryptoapp.apk"
-    prefix = "007"
+    prefix = "009"
     app_folder = screenshots_folder + "/" + apk
     screenshot_file = os.path.join(app_folder, prefix+".png")
     droidbot_state_file = os.path.join(app_folder, prefix + ".state")
@@ -181,7 +197,8 @@ if __name__ == '__main__':
     droidbot_state = read_state_file(droidbot_state_file)
     parser = ParserFactory.create(ParserType.DROIDBOT, BasicTextVisitor)
     screen_description = parser.parse(droidbot_state, static_data)
-    print(screen_description)
+    # print(screen_description)
 
     # tmp_001(screen_description, screenshot_file)
     # tmp_002(screen_description, screenshot_file)
+    tmp_003(screen_description, screenshot_file)

@@ -346,21 +346,22 @@ class AbstractScreenVisitor(ABC):
 
         # Handle long click actions
         if node.long_clickable:
-            text_suffix = ""
-            if node.view_text:
-                text_suffix = f" on '{node.view_text[:30]}'{' (truncated)' if len(node.view_text) > 30 else ''}"
+            if "EditText" not in node.view_class and "TextView" not in node.view_class:
+                text_suffix = ""
+                if node.view_text:
+                    text_suffix = f" on '{node.view_text[:30]}'{' (truncated)' if len(node.view_text) > 30 else ''}"
 
-            action = ItemAction(
-                id=counter.inc(),
-                text=f"LONG_CLICK ({counter.get()}){text_suffix}",
-                event=WidgetEventType.LONG_CLICK,
-                reaches_mop=False,
-                directly_reaches_mop=False,
-                target_view=node_data,
-                coordinates=coordinates
-            )
-            self._update_action_mop_related_info(action, node)
-            actions.append(action)
+                action = ItemAction(
+                    id=counter.inc(),
+                    text=f"LONG_CLICK ({counter.get()}){text_suffix}",
+                    event=WidgetEventType.LONG_CLICK,
+                    reaches_mop=False,
+                    directly_reaches_mop=False,
+                    target_view=node_data,
+                    coordinates=coordinates
+                )
+                self._update_action_mop_related_info(action, node)
+                actions.append(action)
 
         # Handle check/uncheck actions with normal priority
         if not prioritize_check and node.checkable:

@@ -14,6 +14,7 @@ from rvandroid.analysis.base_analyzer import BaseAnalyzer
 from rvandroid.analysis.screenshot_analyzer import ScreenshotAnalyzer
 from rvandroid.domain.static import StaticAnalysisData
 from rvandroid.domain.widget import WidgetEventType
+from rvandroid.llm.constants import StateEntry
 from rvandroid.parser.screen.visitor.model import ItemAction, ScreenItem, ScreenDescription, Counter
 
 
@@ -253,9 +254,9 @@ class ScreenshotActionComplementor(BaseAnalyzer[ScreenDescription]):
             ValueError: If required state information is missing
         """
         # Extract screen description and screenshot path from input
-        if "structured_screen" in state and "screenshot_path" in state:
-            screen_description = state.get("structured_screen")
-            screenshot_path = state.get("screenshot_path")
+        if StateEntry.STRUCTURED_SCREEN in state and StateEntry.SCREENSHOT_PATH in state:
+            screen_description = state.get(StateEntry.STRUCTURED_SCREEN)
+            screenshot_path = state.get(StateEntry.SCREENSHOT_PATH)
         else:
             self.logger.error("The state does not have the necessary information for analysis")
             raise ValueError("Necessary information not provided: screen_description or screenshot_path")
@@ -469,14 +470,18 @@ class ScreenshotActionComplementor(BaseAnalyzer[ScreenDescription]):
 
             # Process association
             if associated_item:
+                self.logger.debug(f"Associated item: {associated_item}")
                 # Add error information to the UI element
-                associated_item.view["has_error"] = True
-                associated_item.view["error_type"] = error.get("error_type", "unknown_error")
-                associated_item.view["error_confidence"] = error.get("confidence", 0.0)
-
-                # If it's an edit text, mark it for special handling
-                if "EditText" in associated_item.view.get("class", ""):
-                    self.error_impacted_items.add(associated_item)
+                associated_item.complement["has_error"] = True
+                if "errors" not in associated_item.complement:
+                    associated_item.complement["errors"] = []
+                associated_item.complement["errors"].append(error)
+                # associated_item.view["error_type"] = error.get("error_type", "unknown_error")
+                # associated_item.view["error_confidence"] = error.get("confidence", 0.0)
+                #
+                # # If it's an edit text, mark it for special handling
+                # if "EditText" in associated_item.view.get("class", ""):
+                #     self.error_impacted_items.add(associated_item)
 
                 # Add association information to the error
                 processed_error = error.copy()
@@ -484,6 +489,7 @@ class ScreenshotActionComplementor(BaseAnalyzer[ScreenDescription]):
                 result.append(processed_error)
 
             else:
+                self.logger.debug(f"No associated item found for error: {error}")
                 # No associated UI element, create as a standalone element
                 processed_error = error.copy()
                 processed_error["associated_item"] = None
@@ -783,15 +789,15 @@ class ScreenshotActionComplementor(BaseAnalyzer[ScreenDescription]):
             coordinates=coordinates
         ))
 
-        # Long click action
-        action_id = self.counter.inc()
-        actions.append(ItemAction(
-            id=action_id,
-            text=f"LONG_CLICK (Visual) ({action_id})",
-            event=WidgetEventType.LONG_CLICK,
-            target_view=view_data,
-            coordinates=coordinates
-        ))
+        # # Long click action
+        # action_id = self.counter.inc()
+        # actions.append(ItemAction(
+        #     id=action_id,
+        #     text=f"LONG_CLICK (Visual) ({action_id})",
+        #     event=WidgetEventType.LONG_CLICK,
+        #     target_view=view_data,
+        #     coordinates=coordinates
+        # ))
 
         # Create description
         description = "Visual Button"
