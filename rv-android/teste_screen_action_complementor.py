@@ -171,6 +171,7 @@ def tmp_003(screen_description: ScreenDescription, screenshot_path: str):
             print(f"    - Errors: {len(errors)}")
             for error in errors:
                 print(f"    - {error}")
+        print(f"  - complement = {item.complement}")
 
 
 if __name__ == '__main__':
@@ -184,7 +185,7 @@ if __name__ == '__main__':
     # Caminhos para dados do app
     screenshots_folder = "/home/pedro/desenvolvimento/RV_ANDROID/teste_llm/screenshots"
     apk = "cryptoapp.apk"
-    prefix = "009"
+    prefix = "001"
     app_folder = screenshots_folder + "/" + apk
     screenshot_file = os.path.join(app_folder, prefix+".png")
     droidbot_state_file = os.path.join(app_folder, prefix + ".state")

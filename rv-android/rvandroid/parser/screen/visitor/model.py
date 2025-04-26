@@ -42,34 +42,6 @@ class ItemAction:
             return "key_event"
         return "unknown"
 
-    # TODO mover para lugar certo
-    # def to_droidbot_action(self, params: Dict[str, Any] = None) -> Dict[str, Any]:
-    #     """
-    #     Convert this action to a format suitable for droidbot.
-    #
-    #     Args:
-    #         params: Optional parameters passed from LLM
-    #
-    #     Returns:
-    #         Action dictionary for droidbot
-    #     """
-    #     # Get both target identifier and coordinates
-    #     target = self._get_target()
-    #     coords = self._get_coordinates()
-    #
-    #     action_dict = {
-    #         "action_type": self.action_type,
-    #         "target": target,
-    #         "coordinates": coords,
-    #         "params": params or {}
-    #     }
-    #
-    #     # Handle special cases
-    #     if self.action_type == "key_event":
-    #         action_dict["params"]["name"] = "BACK"
-    #
-    #     return action_dict
-
     def _get_target(self) -> str:
         """Get target identifier from the associated view."""
         if not self.target_view:

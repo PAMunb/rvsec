@@ -532,8 +532,10 @@ class ScreenshotActionComplementor(BaseAnalyzer[ScreenDescription]):
             # Process association
             if associated_item:
                 # Add visual button information to the UI element
-                associated_item.view["has_visual_button"] = True
-                associated_item.view["visual_button_confidence"] = button.get("confidence", 0.0)
+                associated_item.complement["has_visual_button"] = True
+                if "visual_button" not in associated_item.complement:
+                    associated_item.complement["visual_button"] = []
+                associated_item.complement["visual_button"].append(button)
 
                 # Add association information to the button
                 processed_button = button.copy()
@@ -592,9 +594,10 @@ class ScreenshotActionComplementor(BaseAnalyzer[ScreenDescription]):
             # Process association
             if associated_item:
                 # Add visual text information to the UI element
-                associated_item.view["has_visual_text"] = True
-                associated_item.view["visual_text"] = text_item.get("text", "")
-                associated_item.view["visual_text_confidence"] = confidence
+                associated_item.complement["has_visual_text"] = True
+                if "visual_text" not in associated_item.complement:
+                    associated_item.complement["visual_text"] = []
+                associated_item.complement["visual_text"].append(text_item)
 
                 # Add association information to the text
                 processed_text = text_item.copy()
@@ -651,9 +654,10 @@ class ScreenshotActionComplementor(BaseAnalyzer[ScreenDescription]):
             # Process association
             if associated_item:
                 # Add interactive element information to the UI element
-                associated_item.view["has_interactive_element"] = True
-                associated_item.view["interactive_element_type"] = element.get("type", "unknown")
-                associated_item.view["interactive_element_confidence"] = element.get("confidence", 0.0)
+                associated_item.complement["has_interactive_element"] = True
+                if "interactive_element" not in associated_item.complement:
+                    associated_item.complement["interactive_element"] = []
+                associated_item.complement["interactive_element"].append(element)
 
                 # Add association information to the element
                 processed_element = element.copy()
