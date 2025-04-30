@@ -47,13 +47,12 @@ class ListDetector(IPatternDetector):
         """Get the pattern type."""
         return PatternType.LIST
     
-    def detect(self, screen: ScreenDescription, state_data: Dict[str, Any]) -> PatternResult:
+    def detect(self, screen: ScreenDescription) -> PatternResult:
         """
         Detect list patterns in a screen.
         
         Args:
             screen: Parsed screen description
-            state_data: Additional state data
             
         Returns:
             PatternResult with detection results

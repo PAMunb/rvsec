@@ -321,8 +321,7 @@ class PatternRegistry(Component):
         
         # Enrich with MOP information if available
         if hasattr(self.pattern_detector_manager, 'enrich_patterns_with_mop_info'):
-            core_pattern_results = self.pattern_detector_manager.enrich_patterns_with_mop_info(
-                core_pattern_results, state_data)
+            core_pattern_results = self.pattern_detector_manager.enrich_patterns_with_mop_info(core_pattern_results)
         
         # Convert to RVDroid patterns
         all_patterns = []

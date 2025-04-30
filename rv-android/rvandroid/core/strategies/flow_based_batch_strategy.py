@@ -278,7 +278,7 @@ class FlowBasedBatchActionStrategy(BaseBatchActionStrategy):
         patterns = self.get_patterns(screen, state_data)
         
         # Enrich patterns with MOP info if needed
-        patterns = self.pattern_detector.enrich_patterns_with_mop_info(patterns, state_data)
+        patterns = self.pattern_detector.enrich_patterns_with_mop_info(patterns)
         
         # Get the dominant pattern
         dominant_pattern = self.pattern_detector.get_dominant_pattern(screen, state_data)

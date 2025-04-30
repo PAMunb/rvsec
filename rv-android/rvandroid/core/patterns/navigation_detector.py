@@ -47,13 +47,12 @@ class NavigationDetector(IPatternDetector):
         """Get the pattern type."""
         return PatternType.NAVIGATION
     
-    def detect(self, screen: ScreenDescription, state_data: Dict[str, Any]) -> PatternResult:
+    def detect(self, screen: ScreenDescription) -> PatternResult:
         """
         Detect navigation patterns in a screen.
         
         Args:
             screen: Parsed screen description
-            state_data: Additional state data
             
         Returns:
             PatternResult with detection results
@@ -74,9 +73,9 @@ class NavigationDetector(IPatternDetector):
             return result
         
         # Check for different navigation patterns
-        drawer_result = self._detect_navigation_drawer(screen, state_data)
-        bottom_nav_result = self._detect_bottom_navigation(screen, state_data)
-        side_nav_result = self._detect_side_navigation(screen, state_data)
+        drawer_result = self._detect_navigation_drawer(screen)
+        bottom_nav_result = self._detect_bottom_navigation(screen)
+        side_nav_result = self._detect_side_navigation(screen)
         
         # Use the pattern with highest confidence
         nav_patterns = [
@@ -115,14 +114,12 @@ class NavigationDetector(IPatternDetector):
         
         return result
     
-    def _detect_navigation_drawer(self, screen: ScreenDescription, 
-                              state_data: Dict[str, Any]) -> Tuple[float, List[ScreenItem]]:
+    def _detect_navigation_drawer(self, screen: ScreenDescription) -> Tuple[float, List[ScreenItem]]:
         """
         Detect navigation drawer pattern.
         
         Args:
             screen: Parsed screen description
-            state_data: Additional state data
             
         Returns:
             Tuple of (confidence, list of drawer elements)
@@ -206,14 +203,12 @@ class NavigationDetector(IPatternDetector):
         
         return (confidence, elements)
     
-    def _detect_bottom_navigation(self, screen: ScreenDescription,
-                              state_data: Dict[str, Any]) -> Tuple[float, List[ScreenItem]]:
+    def _detect_bottom_navigation(self, screen: ScreenDescription) -> Tuple[float, List[ScreenItem]]:
         """
         Detect bottom navigation bar pattern.
         
         Args:
             screen: Parsed screen description
-            state_data: Additional state data
             
         Returns:
             Tuple of (confidence, list of bottom navigation elements)
@@ -307,14 +302,12 @@ class NavigationDetector(IPatternDetector):
         
         return (confidence, elements)
     
-    def _detect_side_navigation(self, screen: ScreenDescription,
-                           state_data: Dict[str, Any]) -> Tuple[float, List[ScreenItem]]:
+    def _detect_side_navigation(self, screen: ScreenDescription) -> Tuple[float, List[ScreenItem]]:
         """
         Detect side navigation rail/menu pattern.
         
         Args:
             screen: Parsed screen description
-            state_data: Additional state data
             
         Returns:
             Tuple of (confidence, list of side navigation elements)

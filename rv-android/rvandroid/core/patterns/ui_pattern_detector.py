@@ -74,16 +74,13 @@ class PatternResult:
 
 class IPatternDetector(ABC):
     """Interface for pattern detectors."""
-
-    # TODO o state_data nao esta sendo usado em lugar nenhum ... remover parametro
     @abstractmethod
-    def detect(self, screen: ScreenDescription, state_data: Dict[str, Any]) -> PatternResult:
+    def detect(self, screen: ScreenDescription) -> PatternResult:
         """
         Detect patterns in a screen.
         
         Args:
             screen: Parsed screen description
-            state_data: Additional state data
             
         Returns:
             PatternResult with detection results
@@ -184,7 +181,8 @@ class UIPatternDetectorManager:
         self.detectors = PatternDetectorFactory.get_all_detectors()
         
         self.logger.info(f"Initialized UI pattern detector with {len(self.detectors)} detectors")
-    
+
+    # TODO rever o state_data ...
     def detect_patterns(self, screen: ScreenDescription, 
                        state_data: Dict[str, Any]) -> Dict[PatternType, PatternResult]:
         """
@@ -208,7 +206,7 @@ class UIPatternDetectorManager:
         # Run all detectors
         for detector in self.detectors:
             try:
-                pattern_result = detector.detect(screen, state_data)
+                pattern_result = detector.detect(screen)
                 
                 # Only include valid patterns
                 if pattern_result.is_valid():
@@ -247,14 +245,12 @@ class UIPatternDetectorManager:
         
         return dominant_pattern
     
-    def enrich_patterns_with_mop_info(self, patterns: Dict[PatternType, PatternResult],
-                                    state_data: Dict[str, Any]) -> Dict[PatternType, PatternResult]:
+    def enrich_patterns_with_mop_info(self, patterns: Dict[PatternType, PatternResult]) -> Dict[PatternType, PatternResult]:
         """
         Enrich pattern results with monitored operations information.
         
         Args:
             patterns: Dictionary of pattern results
-            state_data: State data with MOP information
             
         Returns:
             Enriched pattern results
