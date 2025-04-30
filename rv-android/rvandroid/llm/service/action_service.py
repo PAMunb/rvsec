@@ -269,54 +269,56 @@ class LLMActionService:
         """
         return None
 
-    def update_config(self,
-                      temperature: Optional[float] = None,
-                      max_tokens: Optional[int] = None) -> None:
-        """Update configuration parameters.
-        
-        Args:
-            temperature: Optional new temperature value
-            max_tokens: Optional new max_tokens value
-        """
-        if not self.model:
-            self.logger.warning("Cannot update config: No model available")
-            return
+    # TODO deprecated
+    # def update_config(self,
+    #                   temperature: Optional[float] = None,
+    #                   max_tokens: Optional[int] = None) -> None:
+    #     """Update configuration parameters.
+    #
+    #     Args:
+    #         temperature: Optional new temperature value
+    #         max_tokens: Optional new max_tokens value
+    #     """
+    #     if not self.model:
+    #         self.logger.warning("Cannot update config: No model available")
+    #         return
+    #
+    #     if temperature is not None:
+    #         if hasattr(self.model, 'update_config'):
+    #             self.model.update_config(temperature=temperature)
+    #             self.logger.info(f"Updated temperature to {temperature}")
+    #         else:
+    #             self.logger.warning("Model does not support updating temperature")
+    #
+    #     if max_tokens is not None:
+    #         if hasattr(self.model, 'update_config'):
+    #             self.model.update_config(max_tokens=max_tokens)
+    #             self.logger.info(f"Updated max_tokens to {max_tokens}")
+    #         else:
+    #             self.logger.warning("Model does not support updating max_tokens")
 
-        if temperature is not None:
-            if hasattr(self.model, 'update_config'):
-                self.model.update_config(temperature=temperature)
-                self.logger.info(f"Updated temperature to {temperature}")
-            else:
-                self.logger.warning("Model does not support updating temperature")
-
-        if max_tokens is not None:
-            if hasattr(self.model, 'update_config'):
-                self.model.update_config(max_tokens=max_tokens)
-                self.logger.info(f"Updated max_tokens to {max_tokens}")
-            else:
-                self.logger.warning("Model does not support updating max_tokens")
-
-    def cleanup(self):
-        """Clean up resources used by the service and all its components."""
-        self.logger.info("Cleaning up LLM Action Service resources")
-
-        # Save transition data if needed
-        # self.transition_manager.save()
-
-        # Clean up the model if it has a cleanup method
-        if self.model and hasattr(self.model, 'cleanup'):
-            try:
-                self.logger.info("Cleaning up LLM model")
-                self.model.cleanup()
-            except Exception as e:
-                self.logger.warning(f"Error cleaning up model: {e}")
-
-        # Publish service shutdown event
-        self.event_bus.publish_analysis_event(
-            EventType.EXPERIMENT_COMPLETED,
-            data={"service": "LLMActionService"},
-            source="LLMActionService"
-        )
+    # TODO deprecated
+    # def cleanup(self):
+    #     """Clean up resources used by the service and all its components."""
+    #     self.logger.info("Cleaning up LLM Action Service resources")
+    #
+    #     # Save transition data if needed
+    #     # self.transition_manager.save()
+    #
+    #     # Clean up the model if it has a cleanup method
+    #     if self.model and hasattr(self.model, 'cleanup'):
+    #         try:
+    #             self.logger.info("Cleaning up LLM model")
+    #             self.model.cleanup()
+    #         except Exception as e:
+    #             self.logger.warning(f"Error cleaning up model: {e}")
+    #
+    #     # Publish service shutdown event
+    #     self.event_bus.publish_analysis_event(
+    #         EventType.EXPERIMENT_COMPLETED,
+    #         data={"service": "LLMActionService"},
+    #         source="LLMActionService"
+    #     )
 
     def record_prompt_metrics(self, messages: List[MCPMessage], context) -> None:
         for message in messages:

@@ -169,6 +169,7 @@ class Server:
                 
                 # Get strategy type and additional metadata
                 strategy_type = self.service.get_current_strategy_type()
+                # TODO nao acho que faz aqui ... e sim no enricher e bota no state
                 pattern_info = self.service.get_detected_pattern_info() if hasattr(self.service, 'get_detected_pattern_info') else None
                 
                 # Create response with metadata
@@ -180,6 +181,7 @@ class Server:
                 
                 # Add batch metadata if multiple actions are returned
                 # IMPROVED LOGIC: Consider ANY multiple actions as a batch operation
+                # TODO nao precisa de nenhum tratamento especial ... todas as estrategias devem ser tratadas iguais
                 if len(validated_actions) > 1:
                     # Always set strategy_type to batch when returning multiple actions
                     response_data["strategy_type"] = "flow_based_batch_action"
@@ -214,7 +216,8 @@ class Server:
             except Exception as e:
                 self.logger.error(f"Error processing request: {e}", exc_info=True)
                 return jsonify({"error": str(e)}), 500
-                
+
+        # TODO deprecated
         @self.app.route('/api/report_batch_error', methods=['POST'])
         def report_batch_error():
             """
@@ -246,7 +249,8 @@ class Server:
             except Exception as e:
                 self.logger.error(f"Error processing batch error report: {e}", exc_info=True)
                 return jsonify({"error": str(e)}), 500
-                
+
+        # TODO deprecated
         @self.app.route('/api/report_batch_result', methods=['POST'])
         def report_batch_result():
             """
@@ -379,6 +383,7 @@ class Server:
         except:
             return False
 
+    # TODO rever ... nao acho que deva ser feito aqui ... no service acho q ja tem um tratamento e se nao tiver deve ser levado para la
     def validate_actions_for_droidbot(self, actions):
         """
         Ensure actions are in the format expected by DroidBot

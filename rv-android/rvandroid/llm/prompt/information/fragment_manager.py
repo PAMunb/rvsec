@@ -43,7 +43,7 @@ class InformationManager:
         Args:
             config: The configuration to use.
         """
-        self.logger.info("Configuring InformationManager")
+        self.logger.debug("Configuring InformationManager")
         # Any configuration specific logic can be added here
     
     def register_fragment(self, fragment: InformationFragment) -> None:

@@ -58,6 +58,7 @@ class TemplateRole:
 class StateEntry:
     """Constants for state dictionary entries."""
     ACTIVITY = "activity"
+    VIEW_TREE = "view_tree"
     PREVIOUS_ACTIVITY = "previous_activity"
     PACKAGE_NAME = "package_name"
     SCREENSHOT_PATH = "screenshot_path"

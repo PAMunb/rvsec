@@ -74,7 +74,8 @@ class PatternResult:
 
 class IPatternDetector(ABC):
     """Interface for pattern detectors."""
-    
+
+    # TODO o state_data nao esta sendo usado em lugar nenhum ... remover parametro
     @abstractmethod
     def detect(self, screen: ScreenDescription, state_data: Dict[str, Any]) -> PatternResult:
         """

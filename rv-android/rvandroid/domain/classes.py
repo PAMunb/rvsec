@@ -234,6 +234,17 @@ class Classes:
         """
         return self.classes.get(name)
 
+    def get_main_activity(self) -> Optional[Clazz]:
+        """
+        Retrieve the main activity class if it exists.
+        Returns:
+            Main activity class object or None if not found
+        """
+        for clazz in self.classes.values():
+            if clazz.is_main_activity:
+                return clazz
+        return None
+
     def add_method(self, method: Method) -> bool:
         """
         Add a method to both the class and methods dictionary.
