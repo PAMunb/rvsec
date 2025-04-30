@@ -6,18 +6,15 @@ This module provides the implementation of the Flow-Based Batch Action Strategy,
 which generates sequences of related actions based on detected UI patterns.
 """
 
-import logging
-import random
-import time
 from abc import ABC, abstractmethod
-from typing import Dict, List, Any, Optional, Tuple, Set
+from typing import Dict, List, Any, Optional
 
 from rvandroid.core.memory.long_term_memory import LongTermMemory
-from rvandroid.core.patterns.ui_pattern_detector import (
+from rvandroid.analysis.patterns import (
     UIPatternDetectorManager, PatternType, PatternResult, PatternElement
 )
 from rvandroid.domain.static import StaticAnalysisData
-from rvandroid.parser.screen.visitor.model import ItemAction, ScreenDescription
+from rvandroid.parser.screen.visitor.model import ScreenDescription
 from rvandroid.util.logging.constants import CONTEXT_COMPONENT
 from rvandroid.util.logging.manager import LoggingManager
 

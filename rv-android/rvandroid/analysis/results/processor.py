@@ -8,14 +8,13 @@ Integrates with the unified result system for consistent result handling.
 import json
 import os
 from datetime import datetime
-from typing import Dict, Any, List, Optional, Union, Set
+from typing import Dict, Any, List, Optional
 
 from rvandroid.analysis.results.base_result import (
-    BaseResult, CoverageResult, ErrorResult, ResultType
+    CoverageResult, ErrorResult
 )
-from rvandroid.analysis.results.result_manager import ResultManager, create_coverage_result_from_metrics, create_error_result_from_errors
-from rvandroid.analysis.results.analysis import ResultAnalyzer, AnalysisResult, CoverageMetrics, PerformanceMetrics, ErrorMetrics
-from rvandroid.domain.coverage import LogcatRepository
+from rvandroid.analysis.results.result_manager import ResultManager
+from rvandroid.analysis.results.analysis import AnalysisResult, CoverageMetrics, PerformanceMetrics, ErrorMetrics
 from rvandroid.domain.log import RvErrorLog
 from rvandroid.parser.log.logcat_parser import parse_logcat_file
 from rvandroid.util.logging.constants import CONTEXT_COMPONENT, CONTEXT_PHASE
@@ -201,7 +200,7 @@ class ResultsProcessor:
         """
         try:
             from rvandroid.domain.static import StaticAnalysisData
-            from rvandroid.analysis.static_analysis import StaticAnalysisService
+            from rvandroid.analysis.static.static_analysis import StaticAnalysisService
             
             for app_id in app_dirs:
                 # Try to find the static analysis file
@@ -289,7 +288,7 @@ class ResultsProcessor:
                 for static_file in possible_static_files:
                     if os.path.exists(static_file):
                         try:
-                            from rvandroid.analysis.static_analysis import StaticAnalysisService
+                            from rvandroid.analysis.static.static_analysis import StaticAnalysisService
                             service = StaticAnalysisService()
                             static_data = service.load_from_file(static_file)
                             

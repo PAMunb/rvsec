@@ -93,6 +93,19 @@ class IPatternDetector(ABC):
         """Get the pattern type detected by this detector."""
         pass
 
+    def get_resource_id(self, view:  Dict[str, Any]):
+        resource_id = view.get("resource_id", "")
+        if resource_id is None:
+            resource_id = ""
+        return resource_id.lower()
+
+    def get_width_height(self, bounds):
+        x1, y1 = bounds[0]
+        x2, y2 = bounds[1]
+        width = x2 - x1
+        height = y2 - y1
+        return width, height
+
 
 class PatternDetectorFactory:
     """Factory for creating pattern detectors."""
@@ -176,7 +189,19 @@ class UIPatternDetectorManager:
         
         # Cache for pattern detection results
         self.pattern_cache = {}
-        
+
+        # Register detectors
+        from rvandroid.analysis.patterns.dialog_detector import DialogDetector
+        from rvandroid.analysis.patterns.form_detector import FormDetector
+        from rvandroid.analysis.patterns.list_detector import ListDetector
+        from rvandroid.analysis.patterns.navigation_detector import NavigationDetector
+        from rvandroid.analysis.patterns.tab_detector import TabDetector
+        PatternDetectorFactory.register(DialogDetector)
+        PatternDetectorFactory.register(FormDetector)
+        PatternDetectorFactory.register(ListDetector)
+        PatternDetectorFactory.register(NavigationDetector)
+        PatternDetectorFactory.register(TabDetector)
+
         # Get all detectors
         self.detectors = PatternDetectorFactory.get_all_detectors()
         
@@ -205,6 +230,7 @@ class UIPatternDetectorManager:
         
         # Run all detectors
         for detector in self.detectors:
+            print(f"detector: {detector}")
             try:
                 pattern_result = detector.detect(screen)
                 
@@ -216,6 +242,8 @@ class UIPatternDetectorManager:
                 
             except Exception as e:
                 self.logger.error(f"Error in pattern detector {detector.pattern_type.value}: {e}")
+                import traceback
+                traceback.print_exc()
         
         # Cache results
         if fingerprint:

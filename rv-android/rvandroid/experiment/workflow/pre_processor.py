@@ -121,7 +121,7 @@ class PreProcessor:
         Uses the StaticAnalyzer class to perform static analysis on APKs,
         following the standardized analyzer pattern.
         """
-        from rvandroid.analysis.static_analysis import StaticAnalyzer
+        from rvandroid.analysis.static.static_analysis import StaticAnalyzer
 
         with self.logger.with_context(phase="static_analysis"):
             self.logger.info(LOG_START.format(operation="static analysis"))

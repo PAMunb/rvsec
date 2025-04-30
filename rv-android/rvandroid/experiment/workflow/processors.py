@@ -8,7 +8,7 @@ set of tasks within the workflow and can be registered with a workflow
 to handle those tasks.
 """
 
-from typing import List, Dict, Any, Optional, Set
+from typing import List, Optional, Set
 import logging
 
 from rvandroid.experiment.core.interfaces import (
@@ -242,8 +242,8 @@ class StaticAnalysisProcessor(BasePhaseProcessor):
                 return False
                 
             # Execute static analysis
-            from rvandroid.analysis import static_analysis
-            
+            from rvandroid.analysis.static import static_analysis
+
             analyzer = static_analysis.StaticAnalyzer(app)
             results = analyzer.analyze()
             

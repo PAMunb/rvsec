@@ -7,22 +7,18 @@ This module provides a centralized registry that uses the core pattern detectors
 rvandroid.core.patterns to identify UI patterns during application exploration.
 """
 
-from typing import Dict, Any, List, Optional, Type, Set
+from typing import Dict, Any, List, Optional, Set
 import time
 from enum import Enum
 
-from rvandroid.core.patterns.ui_pattern_detector import (
+from rvandroid.analysis.patterns import (
     PatternType as CorePatternType,
     UIPatternDetectorManager,
-    PatternResult,
-    PatternElement,
-    PatternDetectorFactory
+    PatternResult
 )
 from rvandroid.parser.screen.visitor.model import ScreenDescription
 from rvandroid.rvdroid.core.component import Component
 from rvandroid.util.error.decorators import handle_error
-from rvandroid.util.logging.constants import CONTEXT_COMPONENT
-from rvandroid.domain.static import StaticAnalysisData
 
 
 class PatternType(Enum):

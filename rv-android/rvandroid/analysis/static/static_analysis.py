@@ -73,9 +73,9 @@ class StaticAnalyzer(BaseAnalyzer[StaticAnalysisResult]):
         os.makedirs(self.output_dir, exist_ok=True)
         
         # Setup file paths for analysis results
-        self.gesda_file = os.path.join(self.output_dir, f"{app.package_name}.gesda")
-        self.gator_file = os.path.join(self.output_dir, f"{app.package_name}.wtg")
-        self.reach_file = os.path.join(self.output_dir, f"{app.package_name}.reach")
+        self.gesda_file = os.path.join(self.output_dir, f"{app.name}.gesda")
+        self.gator_file = os.path.join(self.output_dir, f"{app.name}.wtg")
+        self.reach_file = os.path.join(self.output_dir, f"{app.name}.reach")
         
         # Update result with file paths
         self.result.gesda_file = self.gesda_file
@@ -287,11 +287,11 @@ class StaticAnalyzer(BaseAnalyzer[StaticAnalysisResult]):
             
         try:
             parser = StaticAnalysisParser()
-            return parser.parse_all(
-                self.app,
+            return parser.parse(
                 self.gesda_file,
                 self.gator_file,
-                self.reach_file
+                self.reach_file,
+                self.app.package_name
             )
         except Exception as e:
             self.logger.error(f"Error parsing static analysis data: {str(e)}")

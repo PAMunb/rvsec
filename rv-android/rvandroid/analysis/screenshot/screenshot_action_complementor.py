@@ -11,7 +11,7 @@ UI hierarchy and identifying error conditions.
 from typing import Dict, Any, List, Optional, Tuple
 
 from rvandroid.analysis.base_analyzer import BaseAnalyzer
-from rvandroid.analysis.screenshot_analyzer import ScreenshotAnalyzer
+from rvandroid.analysis.screenshot.screenshot_analyzer import ScreenshotAnalyzer
 from rvandroid.domain.static import StaticAnalysisData
 from rvandroid.domain.widget import WidgetEventType
 from rvandroid.llm.constants import StateEntry

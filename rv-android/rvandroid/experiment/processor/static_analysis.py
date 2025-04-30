@@ -8,7 +8,7 @@ reachability analysis, and GUI analysis.
 """
 
 import os
-from typing import List, Optional, Dict, Any
+from typing import List, Optional
 
 from rvandroid.app import App
 from rvandroid.constants import (
@@ -22,11 +22,10 @@ from rvandroid.experiment.core.interfaces import (
 from rvandroid.experiment.event import (
     EventBus,
     EventType,
-    Event,
-    get_event_bus
+    Event
 )
 from rvandroid.experiment.processor.base import BasePhaseProcessor
-from rvandroid.analysis.static_analysis import StaticAnalyzer
+from rvandroid.analysis.static.static_analysis import StaticAnalyzer
 from rvandroid.util.logging.constants import LOG_START, LOG_COMPLETE, LOG_ERROR
 from settings import INSTRUMENTED_DIR
 

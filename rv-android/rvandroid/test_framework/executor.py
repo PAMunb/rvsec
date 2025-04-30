@@ -5,30 +5,22 @@ This module provides the executor components for the test framework,
 handling the execution of test cases and management of the testing process.
 """
 
-import logging
 import os
-import time
-import subprocess
-from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Dict, List, Any, Optional, Callable, Tuple, ContextManager
+from typing import Dict, List, Any, Optional, Callable
 
 from rvandroid.app import App
-from rvandroid.android import Android
 from rvandroid.analysis.results.integrated_metrics import IntegratedMetricsCalculator
-from rvandroid.analysis.static_analysis import StaticAnalyzer
-from rvandroid.commands.command import Command
 from rvandroid.config.component_configurator import ComponentConfigurator
 from rvandroid.domain.static import StaticAnalysisData
-from rvandroid.experiment.task.task_model import Task, TaskResult, TaskConfig, TaskStatus
+from rvandroid.experiment.task.task_model import Task
 from rvandroid.parser.log.logcat_parser import parse_logcat_file
 from rvandroid.parser.static.static_analysis_parser import StaticAnalysisParser
 from rvandroid.test_framework.config import TestCase, TestSuite, ToolConfiguration
 from rvandroid.tools.tool_factory import ToolFactory
 from rvandroid.tools.tool_spec import AbstractTool
 from rvandroid.util.emulator_manager import EmulatorManager
-from rvandroid.util.exceptions import EmulatorError
 from rvandroid.util.logging.constants import CONTEXT_COMPONENT, CONTEXT_PHASE
 from rvandroid.util.logging.manager import LoggingManager
 from rvandroid.util.logcat_manager import LogcatManager
