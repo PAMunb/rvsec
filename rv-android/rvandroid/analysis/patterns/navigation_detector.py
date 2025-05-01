@@ -158,7 +158,7 @@ class NavigationDetector(BasePatternDetector):
                 drawer_score += 0.5
 
             # Check resource ID
-            resource_id = view.get("resource_id", "").lower()
+            resource_id = self.get_resource_id(view)
             if any(drawer_hint in resource_id for drawer_hint in [
                 "drawer", "navigation", "nav_view", "sidebar", "menu"
             ]):
@@ -246,7 +246,7 @@ class NavigationDetector(BasePatternDetector):
                 bottom_nav_score += 0.5
 
             # Check resource ID
-            resource_id = view.get("resource_id", "").lower()
+            resource_id = self.get_resource_id(view)
             if any(nav_hint in resource_id for nav_hint in [
                 "bottom_navigation", "bottomnav", "navbar", "tab_bar", "tabbar"
             ]):
@@ -344,7 +344,7 @@ class NavigationDetector(BasePatternDetector):
                 side_nav_score += 0.6
 
             # Check resource ID
-            resource_id = view.get("resource_id", "").lower()
+            resource_id = self.get_resource_id(view)
             if any(nav_hint in resource_id for nav_hint in [
                 "navigation_rail", "side_nav", "sidebar", "navview"
             ]):
@@ -489,14 +489,14 @@ class NavigationDetector(BasePatternDetector):
                 continue
 
             # Check content description
-            content_desc = view.get("content_description", "").lower()
+            content_desc = self.get_view_property("content_description", view)
             if any(menu_hint in content_desc for menu_hint in [
                 "menu", "drawer", "navigation", "hamburger", "toggle"
             ]):
                 return item
 
             # Check resource ID
-            resource_id = view.get("resource_id", "").lower()
+            resource_id = self.get_resource_id(view)
             if any(menu_hint in resource_id for menu_hint in [
                 "hamburger", "drawer_indicator", "drawer_toggle", "menu_button", "nav_button"
             ]):

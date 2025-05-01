@@ -226,7 +226,7 @@ class FormDetector(BasePatternDetector):
             return True
 
         # Check resource ID hints
-        resource_id = view.get("resource_id", "").lower()
+        resource_id = self.get_resource_id(view)
         if resource_id and any(input_hint in resource_id for input_hint in [
             "edit", "input", "text", "field", "username", "password", "email", "address", "phone"
         ]):
@@ -267,21 +267,21 @@ class FormDetector(BasePatternDetector):
             # Not a button class but might still be a button
             # Only consider it a button if it has strong button indicators
 
-            resource_id = view.get("resource_id", "").lower()
-            text = view.get("text", "").lower()
+            resource_id = self.get_resource_id(view)
+            text = self.get_view_property("text", view)
 
             if not any(submit_hint in resource_id or submit_hint in text for submit_hint in [
-                "submit", "save", "login", "signup", "register", "ok", "next", "continue", "send"
+                "submit", "save", "login", "signup", "register", "ok", "next", "continue", "send", "generate"
             ]):
                 return False
 
         # Check for submit button indicators in text or resource ID
-        resource_id = view.get("resource_id", "").lower()
-        text = view.get("text", "").lower()
+        resource_id = self.get_resource_id(view)
+        text = self.get_view_property("text", view)
 
         return any(submit_hint in resource_id or submit_hint in text for submit_hint in [
             "submit", "save", "login", "signin", "signup", "register", "ok", "next", "continue",
-            "send", "search", "apply", "update", "create", "complete", "confirm"
+            "send", "search", "apply", "update", "create", "complete", "confirm", "generate"
         ])
 
     def _is_checkbox(self, item: ScreenItem) -> bool:
@@ -310,7 +310,7 @@ class FormDetector(BasePatternDetector):
             return True
 
         # Check resource ID
-        resource_id = view.get("resource_id", "").lower()
+        resource_id = self.get_resource_id(view)
 
         if any(cb_hint in resource_id for cb_hint in ["checkbox", "check", "switch", "toggle"]):
             return True
@@ -343,7 +343,7 @@ class FormDetector(BasePatternDetector):
             return True
 
         # Check resource ID
-        resource_id = view.get("resource_id", "").lower()
+        resource_id = self.get_resource_id(view)
 
         if "radio" in resource_id:
             return True
@@ -374,12 +374,12 @@ class FormDetector(BasePatternDetector):
             return True
 
         # Check content description for required indicators
-        content_desc = view.get("content_description", "").lower()
+        content_desc = self.get_view_property("content_description", view)
         if content_desc and any(req in content_desc for req in ["*", "required"]):
             return True
 
         # Check resource ID for required indicators
-        resource_id = view.get("resource_id", "").lower()
+        resource_id = self.get_resource_id(view)
         if resource_id and "required" in resource_id:
             return True
 

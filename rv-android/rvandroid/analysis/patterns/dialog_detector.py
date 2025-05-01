@@ -211,7 +211,7 @@ class DialogDetector(BasePatternDetector):
                 return item
 
             # Check resource ID for dialog indicators
-            resource_id = view.get("resource_id", "").lower()
+            resource_id = self.get_resource_id(view)
             if any(dialog_id in resource_id for dialog_id in [
                 "dialog", "alert", "popup", "modal", "sheet", "bottomsheet", "snackbar"
             ]):
@@ -398,12 +398,12 @@ class DialogDetector(BasePatternDetector):
             return True
 
         # Check resource ID
-        resource_id = view.get("resource_id", "").lower()
+        resource_id = self.get_resource_id(view)
         if "button" in resource_id:
             return True
 
         # Check for common dialog button texts
-        text = view.get("text", "").lower()
+        text = self.get_view_property("text", view)
         if text in ["ok", "cancel", "yes", "no", "accept", "decline", "confirm", "skip", "close"]:
             return True
 
@@ -432,7 +432,7 @@ class DialogDetector(BasePatternDetector):
             return True
 
         # Check resource ID
-        resource_id = view.get("resource_id", "").lower()
+        resource_id = self.get_resource_id(view)
         if "title" in resource_id or "header" in resource_id:
             return True
 
@@ -483,7 +483,7 @@ class DialogDetector(BasePatternDetector):
             return True
 
         # Check resource ID
-        resource_id = view.get("resource_id", "").lower()
+        resource_id = self.get_resource_id(view)
         if "message" in resource_id or "content" in resource_id or "text" in resource_id:
             return True
 
@@ -693,7 +693,7 @@ class DialogDetector(BasePatternDetector):
             return True
 
         # Check resource ID
-        resource_id = view.get("resource_id", "").lower()
+        resource_id = self.get_resource_id(view)
         if any(input_hint in resource_id for input_hint in [
             "edit", "input", "field", "text"
         ]):
@@ -862,7 +862,7 @@ class DialogDetector(BasePatternDetector):
                 return "date"
 
         # Check resource ID
-        resource_id = view.get("resource_id", "").lower()
+        resource_id = self.get_resource_id(view)
 
         if "password" in resource_id:
             return "password"

@@ -205,6 +205,15 @@ class BasePatternDetector(IPatternDetector, ABC):
         """Estimate screen dimensions."""
         return self.utils.estimate_screen_dimensions(screen)
 
+    def get_resource_id(self, view:  Dict[str, Any]):
+        return self.get_view_property("resource_id", view)
+
+    def get_view_property(self, property_name: str, view: Dict[str, Any]):
+        property = view.get(property_name, "")
+        if property is None:
+            property = ""
+        return property.lower()
+
 
 class PatternDetectorRegistry:
     """

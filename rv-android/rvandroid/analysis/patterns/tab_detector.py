@@ -183,7 +183,8 @@ class TabDetector(BasePatternDetector):
                 continue
 
             # Check resource ID for tab indicators
-            resource_id = view.get("resource_id", "").lower()
+            resource_id = self.get_resource_id(view)
+            resource_id = self.get_resource_id(view)
             if any(id_hint in resource_id for id_hint in [
                 "tab", "tabbar", "tabs", "tablayout", "viewpager", "pager"
             ]):
@@ -512,7 +513,7 @@ class TabDetector(BasePatternDetector):
                 score += 0.2
 
             # Check content description
-            content_desc = view.get("content_description", "").lower()
+            content_desc = self.get_view_property("content_description", view)
             if "selected" in content_desc or "active" in content_desc:
                 score += 0.3
 
@@ -522,7 +523,7 @@ class TabDetector(BasePatternDetector):
                 score += 0.3
 
             # Check resource ID for indicators
-            resource_id = view.get("resource_id", "").lower()
+            resource_id = self.get_resource_id(view)
             if "selected" in resource_id or "active" in resource_id:
                 score += 0.3
 

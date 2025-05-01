@@ -145,14 +145,14 @@ class ListDetector(BasePatternDetector):
                     self.apply_pattern_to_item(item, item_pattern)
 
                 # Check if we can scroll the list
-                scroll_actions = [a for a in container.actions if "scroll" in a.event.lower()]
+                scroll_actions = [a for a in container.actions if "scroll" in a.event.name.lower()]
                 if scroll_actions:
                     result.properties["has_scroll_actions"] = True
 
                     # Add scroll directions available
                     directions = [
-                        a.event.replace("scroll_", "") for a in scroll_actions
-                        if a.event.startswith("scroll_")
+                        a.event.name.replace("scroll_", "") for a in scroll_actions
+                        if a.event.name.startswith("scroll_")
                     ]
                     if directions:
                         result.properties["scroll_directions"] = directions
@@ -192,7 +192,7 @@ class ListDetector(BasePatternDetector):
                 continue
 
             # Check resource ID hints
-            resource_id = view.get("resource_id", "").lower()
+            resource_id = self.get_resource_id(view)
             if any(id_hint in resource_id for id_hint in [
                 "list", "recycler", "grid", "scroll"
             ]):
@@ -311,7 +311,7 @@ class ListDetector(BasePatternDetector):
         # Count action types
         action_counts = {}
         for item in items:
-            action_types = set(a.event for a in item.actions)
+            action_types = set(a.event.name for a in item.actions)
             action_types_str = ','.join(sorted(action_types))
 
             action_counts[action_types_str] = action_counts.get(action_types_str, 0) + 1
@@ -391,7 +391,7 @@ class ListDetector(BasePatternDetector):
             score += children_score
 
             # Check if has scroll actions
-            has_scroll = any("scroll" in a.event.lower() for a in container.actions)
+            has_scroll = any("scroll" in a.event.name.lower() for a in container.actions)
             if has_scroll:
                 score += 0.1
 
