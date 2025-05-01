@@ -1,4 +1,4 @@
-# rvandroid/core/patterns/form_detector.py
+# rvandroid/analysis/patterns/form_detector.py
 """
 Form pattern detector implementation.
 
@@ -6,26 +6,24 @@ This module provides a specialized detector for form patterns in Android applica
 It identifies input fields, required fields, and submit buttons to enable batch form-filling actions.
 """
 
-from typing import Dict, Any, List, Optional
+from typing import List, Optional
 
-from rvandroid.analysis.patterns.ui_pattern_detector import (
-    IPatternDetector, PatternType, PatternResult, PatternElement
-)
+from rvandroid.analysis.patterns.pattern_data import PatternType, PatternResult
+from rvandroid.analysis.patterns.pattern_detector import BasePatternDetector
 from rvandroid.parser.screen.visitor.model import ScreenItem, ScreenDescription
-from rvandroid.util.logging.constants import CONTEXT_COMPONENT
-from rvandroid.util.logging.manager import LoggingManager
+from rvandroid.util.error.error_handler import ErrorHandler
 
 
-class FormDetector(IPatternDetector):
+class FormDetector(BasePatternDetector):
     """
     Detector for form patterns in UI.
-    
+
     ### Architectural Decisions:
     - Implements specialized form detection using multi-factor heuristics
     - Uses DOM-based analysis with normalized node structure
     - Identifies form components based on view properties and hierarchical relationships
     - Applies confidence scoring based on input field count, submit button presence, and layout
-    
+
     ### Role in the System:
     - Provides reliable form pattern detection for batch action generation
     - Identifies form field relationships and dependencies
@@ -35,12 +33,8 @@ class FormDetector(IPatternDetector):
 
     def __init__(self):
         """Initialize the form detector."""
-        # Configure logging
-        logging_manager = LoggingManager.get_instance()
-        self.logger = logging_manager.get_logger(
-            "core.patterns.form_detector",
-            {CONTEXT_COMPONENT: "FormDetector"}
-        )
+        super().__init__()
+        self.error_handler = ErrorHandler.get_instance()
 
     @property
     def pattern_type(self) -> PatternType:
@@ -50,22 +44,17 @@ class FormDetector(IPatternDetector):
     def detect(self, screen: ScreenDescription) -> PatternResult:
         """
         Detect form patterns in a screen.
-        
+
         Args:
             screen: Parsed screen description
-            
+
         Returns:
             PatternResult with detection results
         """
         self.logger.debug(f"Detecting form patterns in screen with {len(screen.items)} items")
 
         # Initialize pattern result
-        result = PatternResult(
-            type=PatternType.FORM,
-            confidence=0.0,
-            elements=[],
-            properties={}
-        )
+        result = self.create_base_result(PatternType.FORM)
 
         # Check if there are enough items to form a pattern
         if len(screen.items) < 2:
@@ -73,25 +62,10 @@ class FormDetector(IPatternDetector):
             return result
 
         # Identify potential form elements
-        input_fields = []
-        submit_buttons = []
-        checkboxes = []
-        radio_buttons = []
-
-        for item in screen.items:
-            # Skip invisible or disabled elements
-            if not self._is_active_element(item):
-                continue
-
-            # Classify element
-            if self._is_input_field(item):
-                input_fields.append(item)
-            elif self._is_submit_button(item):
-                submit_buttons.append(item)
-            elif self._is_checkbox(item):
-                checkboxes.append(item)
-            elif self._is_radio_button(item):
-                radio_buttons.append(item)
+        input_fields = self.find_elements_by_property(screen, self._is_input_field)
+        submit_buttons = self.find_elements_by_property(screen, self._is_submit_button)
+        checkboxes = self.find_elements_by_property(screen, self._is_checkbox)
+        radio_buttons = self.find_elements_by_property(screen, self._is_radio_button)
 
         # Calculate form confidence based on components
         input_field_count = len(input_fields)
@@ -118,45 +92,77 @@ class FormDetector(IPatternDetector):
         confidence = (base_confidence * 0.4) + (layout_confidence * 0.6)
 
         result.confidence = confidence
+        result.elements_count = total_form_elements + submit_button_count
 
-        # If confidence is high enough, add elements to result
+        # If confidence is high enough, enrich screen items with form information
         if confidence >= 0.5:
-            # Add input fields
-            for i, item in enumerate(input_fields):
-                element = self._create_pattern_element(item, f"input_{i}", "input")
-
+            # Process input fields
+            for item in input_fields:
                 # Determine if field is required
                 required = self._is_required_field(item)
-                element.required = required
 
-                # Add input type info
-                element.properties["input_type"] = self._infer_input_type(item)
+                # Create pattern data
+                input_properties = {
+                    "input_type": self._infer_input_type(item),
+                    "required": required
+                }
 
-                result.elements.append(element)
+                # Add hint if available
+                if "hint" in item.view:
+                    input_properties["hint"] = item.view["hint"]
 
-            # Add checkboxes
-            for i, item in enumerate(checkboxes):
-                element = self._create_pattern_element(item, f"checkbox_{i}", "checkbox")
-                result.elements.append(element)
+                pattern_data = self.create_pattern_data(
+                    item,
+                    role="input_field",
+                    confidence=confidence,
+                    properties=input_properties
+                )
 
-            # Add radio buttons
-            for i, item in enumerate(radio_buttons):
-                element = self._create_pattern_element(item, f"radio_{i}", "radio")
-                result.elements.append(element)
+                # Apply pattern to item
+                self.apply_pattern_to_item(item, pattern_data)
 
-            # Add submit button(s)
-            for i, item in enumerate(submit_buttons):
-                element = self._create_pattern_element(item, f"submit_{i}", "submit")
-                result.elements.append(element)
+            # Process checkboxes
+            for item in checkboxes:
+                pattern_data = self.create_pattern_data(
+                    item,
+                    role="checkbox",
+                    confidence=confidence,
+                    properties={
+                        "checked": item.view.get("checked", False)
+                    }
+                )
+                self.apply_pattern_to_item(item, pattern_data)
 
-            # Add form properties
+            # Process radio buttons
+            for item in radio_buttons:
+                pattern_data = self.create_pattern_data(
+                    item,
+                    role="radio_button",
+                    confidence=confidence,
+                    properties={
+                        "checked": item.view.get("checked", False)
+                    }
+                )
+                self.apply_pattern_to_item(item, pattern_data)
+
+            # Process submit buttons
+            for item in submit_buttons:
+                pattern_data = self.create_pattern_data(
+                    item,
+                    role="submit",
+                    confidence=confidence,
+                    properties={}
+                )
+                self.apply_pattern_to_item(item, pattern_data)
+
+            # Add form properties to result
             result.properties["input_count"] = input_field_count
             result.properties["checkbox_count"] = checkbox_count
             result.properties["radio_count"] = radio_button_count
             result.properties["submit_count"] = submit_button_count
 
             # Detect form purpose based on field types and content
-            form_purpose = self._infer_form_purpose(input_fields, result.properties)
+            form_purpose = self._infer_form_purpose(input_fields)
             if form_purpose:
                 result.properties["form_purpose"] = form_purpose
 
@@ -168,17 +174,17 @@ class FormDetector(IPatternDetector):
     def _is_active_element(self, item: ScreenItem) -> bool:
         """
         Check if an element is active (visible and enabled).
-        
+
         Args:
             item: Screen item to check
-            
+
         Returns:
             True if the element is active
         """
         view = item.view
 
         # Check visibility
-        if view.get("visibility") == "gone" or view.get("visibility") == "invisible":
+        if not self.is_visible(item):
             return False
 
         # Check if enabled
@@ -190,13 +196,16 @@ class FormDetector(IPatternDetector):
     def _is_input_field(self, item: ScreenItem) -> bool:
         """
         Check if an element is an input field.
-        
+
         Args:
             item: Screen item to check
-            
+
         Returns:
             True if the element is an input field
         """
+        if not self._is_active_element(item):
+            return False
+
         view = item.view
 
         # Check class name
@@ -217,8 +226,8 @@ class FormDetector(IPatternDetector):
             return True
 
         # Check resource ID hints
-        resource_id = self.get_resource_id(view)
-        if any(input_hint in resource_id for input_hint in [
+        resource_id = view.get("resource_id", "").lower()
+        if resource_id and any(input_hint in resource_id for input_hint in [
             "edit", "input", "text", "field", "username", "password", "email", "address", "phone"
         ]):
             return True
@@ -236,13 +245,16 @@ class FormDetector(IPatternDetector):
     def _is_submit_button(self, item: ScreenItem) -> bool:
         """
         Check if an element is a submit button.
-        
+
         Args:
             item: Screen item to check
-            
+
         Returns:
             True if the element is a submit button
         """
+        if not self._is_active_element(item):
+            return False
+
         view = item.view
 
         # Must be clickable
@@ -275,13 +287,16 @@ class FormDetector(IPatternDetector):
     def _is_checkbox(self, item: ScreenItem) -> bool:
         """
         Check if an element is a checkbox.
-        
+
         Args:
             item: Screen item to check
-            
+
         Returns:
             True if the element is a checkbox
         """
+        if not self._is_active_element(item):
+            return False
+
         view = item.view
 
         # Check class name
@@ -309,13 +324,16 @@ class FormDetector(IPatternDetector):
     def _is_radio_button(self, item: ScreenItem) -> bool:
         """
         Check if an element is a radio button.
-        
+
         Args:
             item: Screen item to check
-            
+
         Returns:
             True if the element is a radio button
         """
+        if not self._is_active_element(item):
+            return False
+
         view = item.view
 
         # Check class name
@@ -341,10 +359,10 @@ class FormDetector(IPatternDetector):
     def _is_required_field(self, item: ScreenItem) -> bool:
         """
         Check if an input field is required.
-        
+
         Args:
             item: Screen item to check
-            
+
         Returns:
             True if the field is likely required
         """
@@ -380,14 +398,14 @@ class FormDetector(IPatternDetector):
                              radio_buttons: List[ScreenItem]) -> float:
         """
         Analyze the layout to determine if it resembles a form.
-        
+
         Args:
             screen: Screen description
             input_fields: List of input fields
             submit_buttons: List of submit buttons
             checkboxes: List of checkboxes
             radio_buttons: List of radio buttons
-            
+
         Returns:
             Confidence score for form layout (0.0-1.0)
         """
@@ -400,15 +418,15 @@ class FormDetector(IPatternDetector):
 
         # Check if submit button is at the bottom of the form
         if submit_buttons:
-            submit_y = max(b.view.get("bounds", {}).get("bottom", 0) for b in submit_buttons)
-            input_bottoms = [i.view.get("bounds", {}).get("bottom", 0) for i in input_fields]
+            submit_y = max(button.view.get("bounds", [])[1][1] for button in submit_buttons)
+            input_bottoms = [field.view.get("bounds", [])[1][1] for field in input_fields]
 
             # If at least half of input fields are above the submit button
             if sum(1 for y in input_bottoms if y < submit_y) >= len(input_bottoms) / 2:
                 confidence += 0.2
 
         # Check if inputs are vertically aligned
-        input_lefts = [i.view.get("bounds", {}).get("left", 0) for i in input_fields]
+        input_lefts = [field.view.get("bounds", [])[0][0] for field in input_fields]
 
         if input_lefts:
             # Calculate standard deviation as a percentage of average left position
@@ -421,7 +439,7 @@ class FormDetector(IPatternDetector):
                 confidence += alignment_score * 0.2
 
         # Check vertical arrangement
-        input_tops = sorted([i.view.get("bounds", {}).get("top", 0) for i in input_fields])
+        input_tops = sorted([field.view.get("bounds", [])[0][1] for field in input_fields])
         if len(input_tops) >= 2:
             is_vertical = True
             for i in range(1, len(input_tops)):
@@ -443,52 +461,13 @@ class FormDetector(IPatternDetector):
         # Limit to valid range
         return max(0.0, min(confidence, 1.0))
 
-    def _create_pattern_element(self, item: ScreenItem, id_suffix: str, role: str) -> PatternElement:
-        """
-        Create a pattern element from a screen item.
-        
-        Args:
-            item: Screen item
-            id_suffix: Suffix to add to the element ID
-            role: Role of the element in the pattern
-            
-        Returns:
-            PatternElement instance
-        """
-        # Use resource ID if available, otherwise generate one
-        resource_id = item.view.get("resource_id", "")
-        if resource_id:
-            element_id = resource_id
-        else:
-            element_id = f"generated_{id_suffix}"
-
-        # Create pattern element
-        element = PatternElement(
-            id=element_id,
-            role=role,
-            view=item.view,
-            actions=item.actions
-        )
-
-        # Add properties based on view
-        if "text" in item.view:
-            element.properties["text"] = item.view["text"]
-
-        if "hint" in item.view:
-            element.properties["hint"] = item.view["hint"]
-
-        if "bounds" in item.view:
-            element.properties["bounds"] = item.view["bounds"]
-
-        return element
-
     def _infer_input_type(self, item: ScreenItem) -> str:
         """
         Infer the input type for a field.
-        
+
         Args:
             item: Screen item
-            
+
         Returns:
             Input type string
         """
@@ -558,20 +537,17 @@ class FormDetector(IPatternDetector):
                 return "username"
             elif "search" in hint:
                 return "search"
-            # Add more hint checks...
 
         # Default to text
         return "text"
 
-    def _infer_form_purpose(self, input_fields: List[ScreenItem],
-                            properties: Dict[str, Any]) -> Optional[str]:
+    def _infer_form_purpose(self, input_fields: List[ScreenItem]) -> Optional[str]:
         """
         Infer the purpose of the form based on its fields.
-        
+
         Args:
             input_fields: List of input fields
-            properties: Form properties
-            
+
         Returns:
             Form purpose or None if unknown
         """
@@ -581,9 +557,6 @@ class FormDetector(IPatternDetector):
         for item in input_fields:
             input_type = self._infer_input_type(item)
             field_types[input_type] = field_types.get(input_type, 0) + 1
-
-        # Store field types in properties
-        properties["field_types"] = field_types
 
         # Login form detection
         if (field_types.get("username", 0) > 0 or field_types.get("email", 0) > 0) and field_types.get("password",
@@ -606,9 +579,13 @@ class FormDetector(IPatternDetector):
             return "search"
 
         # Address form detection
-        address_fields = field_types.get("address", 0) + field_types.get("city", 0) + \
-                         field_types.get("state", 0) + field_types.get("postal_code", 0) + \
-                         field_types.get("country", 0)
+        address_fields = (
+                field_types.get("address", 0) +
+                field_types.get("city", 0) +
+                field_types.get("state", 0) +
+                field_types.get("postal_code", 0) +
+                field_types.get("country", 0)
+        )
         if address_fields >= 2:
             return "address"
 

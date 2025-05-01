@@ -1,4 +1,4 @@
-# rvandroid/core/patterns/dialog_detector.py
+# rvandroid/analysis/patterns/dialog_detector.py
 """
 Dialog pattern detector implementation.
 
@@ -7,26 +7,24 @@ It identifies dialogs, alerts, modals, and confirmation windows to enable approp
 dialog interaction strategies.
 """
 
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
-from rvandroid.analysis.patterns.ui_pattern_detector import (
-    IPatternDetector, PatternType, PatternResult, PatternElement
-)
+from rvandroid.analysis.patterns.pattern_data import PatternType, PatternData, PatternResult
+from rvandroid.analysis.patterns.pattern_detector import BasePatternDetector
 from rvandroid.parser.screen.visitor.model import ScreenItem, ScreenDescription
-from rvandroid.util.logging.constants import CONTEXT_COMPONENT
-from rvandroid.util.logging.manager import LoggingManager
+from rvandroid.util.error.error_handler import ErrorHandler
 
 
-class DialogDetector(IPatternDetector):
+class DialogDetector(BasePatternDetector):
     """
     Detector for dialog patterns in UI.
-    
+
     ### Architectural Decisions:
     - Implements specialized detection for dialogs, alerts, and modal windows
     - Uses visual characteristics and component analysis for dialog identification
     - Differentiates between dialog types (alert, confirmation, input, etc.)
     - Identifies dialog components (title, message, buttons) for structured interaction
-    
+
     ### Role in the System:
     - Provides reliable dialog pattern detection for batch action generation
     - Identifies dialog components for appropriate interaction sequences
@@ -36,12 +34,8 @@ class DialogDetector(IPatternDetector):
 
     def __init__(self):
         """Initialize the dialog detector."""
-        # Configure logging
-        logging_manager = LoggingManager.get_instance()
-        self.logger = logging_manager.get_logger(
-            "core.patterns.dialog_detector",
-            {CONTEXT_COMPONENT: "DialogDetector"}
-        )
+        super().__init__()
+        self.error_handler = ErrorHandler.get_instance()
 
     @property
     def pattern_type(self) -> PatternType:
@@ -51,22 +45,17 @@ class DialogDetector(IPatternDetector):
     def detect(self, screen: ScreenDescription) -> PatternResult:
         """
         Detect dialog patterns in a screen.
-        
+
         Args:
             screen: Parsed screen description
-            
+
         Returns:
             PatternResult with detection results
         """
         self.logger.debug(f"Detecting dialog patterns in screen with {len(screen.items)} items")
 
         # Initialize pattern result
-        result = PatternResult(
-            type=PatternType.DIALOG,
-            confidence=0.0,
-            elements=[],
-            properties={}
-        )
+        result = self.create_base_result(PatternType.DIALOG)
 
         # Check if there are enough items to form a pattern
         if len(screen.items) < 2:
@@ -93,8 +82,14 @@ class DialogDetector(IPatternDetector):
         dialog_buttons = self._find_dialog_buttons(dialog_container, screen)
         dialog_inputs = self._find_dialog_inputs(dialog_container, screen)
 
-        # Set pattern confidence and properties
+        # Set pattern confidence and elements count
         result.confidence = dialog_confidence
+        result.elements_count = 1  # Container
+        if dialog_title:
+            result.elements_count += 1
+        if dialog_message:
+            result.elements_count += 1
+        result.elements_count += len(dialog_buttons) + len(dialog_inputs)
 
         # Determine dialog type
         dialog_type = self._determine_dialog_type(
@@ -107,31 +102,80 @@ class DialogDetector(IPatternDetector):
         result.properties["has_inputs"] = len(dialog_inputs) > 0
         result.properties["input_count"] = len(dialog_inputs)
 
-        # Add container element
-        container_element = self._create_pattern_element(dialog_container, "dialog_container", "container")
-        result.elements.append(container_element)
+        # Add container with pattern data
+        container_pattern = self.create_pattern_data(
+            dialog_container,
+            role="container",
+            confidence=dialog_confidence,
+            properties={
+                "dialog_type": dialog_type,
+                "has_title": dialog_title is not None,
+                "has_message": dialog_message is not None,
+                "button_count": len(dialog_buttons),
+                "has_inputs": len(dialog_inputs) > 0
+            }
+        )
+        self.apply_pattern_to_item(dialog_container, container_pattern)
 
         # Add title if found
         if dialog_title:
-            title_element = self._create_pattern_element(dialog_title, "dialog_title", "title")
-            result.elements.append(title_element)
+            title_pattern = self.create_pattern_data(
+                dialog_title,
+                role="title",
+                confidence=dialog_confidence,
+                properties={
+                    "text": dialog_title.view.get("text", "")
+                }
+            )
+            self.apply_pattern_to_item(dialog_title, title_pattern)
 
         # Add message if found
         if dialog_message:
-            message_element = self._create_pattern_element(dialog_message, "dialog_message", "message")
-            result.elements.append(message_element)
+            message_pattern = self.create_pattern_data(
+                dialog_message,
+                role="message",
+                confidence=dialog_confidence,
+                properties={
+                    "text": dialog_message.view.get("text", "")
+                }
+            )
+            self.apply_pattern_to_item(dialog_message, message_pattern)
 
         # Add buttons
         for i, button in enumerate(dialog_buttons):
             # Determine button role (positive, negative, neutral)
             button_role = self._determine_button_role(button, i, len(dialog_buttons))
-            element = self._create_pattern_element(button, f"dialog_button_{i}", button_role)
-            result.elements.append(element)
+
+            button_pattern = self.create_pattern_data(
+                button,
+                role=button_role,
+                confidence=dialog_confidence,
+                properties={
+                    "button_index": i,
+                    "button_text": button.view.get("text", ""),
+                    "clickable": button.view.get("clickable", False),
+                    "has_click_action": any(a.event == "click" for a in button.actions)
+                }
+            )
+            self.apply_pattern_to_item(button, button_pattern)
 
         # Add inputs
         for i, input_field in enumerate(dialog_inputs):
-            element = self._create_pattern_element(input_field, f"dialog_input_{i}", "input")
-            result.elements.append(element)
+            input_type = self._infer_input_type(input_field)
+
+            input_pattern = self.create_pattern_data(
+                input_field,
+                role="input",
+                confidence=dialog_confidence,
+                properties={
+                    "input_index": i,
+                    "input_type": input_type,
+                    "editable": input_field.view.get("editable", False),
+                    "hint": input_field.view.get("hint", ""),
+                    "has_set_text_action": any(a.event == "set_text" for a in input_field.actions)
+                }
+            )
+            self.apply_pattern_to_item(input_field, input_pattern)
 
         self.logger.debug(f"Detected {dialog_type} dialog with confidence {dialog_confidence:.2f}, "
                           f"{len(dialog_buttons)} buttons, {len(dialog_inputs)} inputs")
@@ -141,10 +185,10 @@ class DialogDetector(IPatternDetector):
     def _find_dialog_container(self, screen: ScreenDescription) -> Optional[ScreenItem]:
         """
         Find a dialog container element.
-        
+
         Args:
             screen: Parsed screen description
-            
+
         Returns:
             Dialog container item or None
         """
@@ -153,7 +197,7 @@ class DialogDetector(IPatternDetector):
             view = item.view
 
             # Skip invisible elements
-            if not self._is_visible(item):
+            if not self.is_visible(item):
                 continue
 
             # Check class name for dialog indicators
@@ -176,48 +220,18 @@ class DialogDetector(IPatternDetector):
         # If no direct match, look for visual characteristics of dialogs
         return self._find_dialog_by_visual_characteristics(screen)
 
-    def _is_visible(self, item: ScreenItem) -> bool:
-        """
-        Check if an element is visible.
-        
-        Args:
-            item: Screen item to check
-            
-        Returns:
-            True if the element is visible
-        """
-        view = item.view
-
-        # Check visibility
-        if view.get("visibility") == "gone" or view.get("visibility") == "invisible":
-            return False
-
-        # Check bounds
-        bounds = view.get("bounds", {})
-        if not bounds:
-            return False
-
-        width, height = self.get_width_height(bounds)
-
-        # Ensure minimum size
-        if width <= 0 or height <= 0:
-            return False
-
-        return True
-
     def _find_dialog_by_visual_characteristics(self, screen: ScreenDescription) -> Optional[ScreenItem]:
         """
         Find a dialog by its visual characteristics.
-        
+
         Args:
             screen: Parsed screen description
-            
+
         Returns:
             Dialog container item or None
         """
         # Estimate screen dimensions
-        screen_width = max([item.view.get("bounds", {}).get("right", 0) for item in screen.items], default=1000)
-        screen_height = max([item.view.get("bounds", {}).get("bottom", 0) for item in screen.items], default=1000)
+        screen_width, screen_height = self.estimate_screen_dimensions(screen)
 
         # Dialog candidates - look for medium sized containers with specific characteristics
         candidates = []
@@ -226,13 +240,13 @@ class DialogDetector(IPatternDetector):
             view = item.view
 
             # Skip invisible elements or small elements
-            if not self._is_visible(item):
+            if not self.is_visible(item):
                 continue
 
             # Get bounds
             bounds = view.get("bounds", {})
-            width = bounds.get("right", 0) - bounds.get("left", 0)
-            height = bounds.get("bottom", 0) - bounds.get("top", 0)
+            width = bounds[1][0] - bounds[0][0]
+            height = bounds[1][1] - bounds[0][1]
 
             # Skip very small elements
             if width < 100 or height < 100:
@@ -249,7 +263,7 @@ class DialogDetector(IPatternDetector):
                 score = 0.0
 
                 # Check if it has buttons at the bottom
-                children = self._get_direct_children(item, screen)
+                children = self.get_direct_children(item, screen)
                 button_count = sum(1 for child in children if self._looks_like_button(child))
 
                 if button_count >= 1:
@@ -262,8 +276,8 @@ class DialogDetector(IPatternDetector):
                     score += 0.3
 
                 # Check if it seems to float over the UI (centered)
-                center_x = (bounds.get("left", 0) + bounds.get("right", 0)) / 2
-                center_y = (bounds.get("top", 0) + bounds.get("bottom", 0)) / 2
+                center_x = (bounds[0][0] + bounds[1][0]) / 2
+                center_y = (bounds[0][1] + bounds[1][1]) / 2
 
                 # Is it near the center of the screen?
                 x_centering = 1.0 - (abs(center_x - screen_width / 2) / (screen_width / 2))
@@ -282,36 +296,14 @@ class DialogDetector(IPatternDetector):
 
         return None
 
-    def _get_direct_children(self, container: ScreenItem, screen: ScreenDescription) -> List[ScreenItem]:
-        """
-        Get direct children of a container.
-        
-        Args:
-            container: Container element
-            screen: Screen description
-            
-        Returns:
-            List of direct children
-        """
-        child_ids = container.view.get("children", [])
-
-        children = []
-        for child_id in child_ids:
-            for item in screen.items:
-                if item.view.get("id") == child_id:
-                    children.append(item)
-                    break
-
-        return children
-
     def _calculate_dialog_confidence(self, container: ScreenItem, screen: ScreenDescription) -> float:
         """
         Calculate confidence that the container is a dialog.
-        
+
         Args:
             container: Potential dialog container
             screen: Screen description
-            
+
         Returns:
             Confidence score (0.0-1.0)
         """
@@ -338,7 +330,7 @@ class DialogDetector(IPatternDetector):
             confidence += 0.2
 
         # Check children
-        children = self._get_direct_children(container, screen)
+        children = self.get_direct_children(container, screen)
 
         # Dialogs typically have buttons
         button_count = sum(1 for child in children if self._looks_like_button(child))
@@ -357,11 +349,10 @@ class DialogDetector(IPatternDetector):
         bounds = container.view.get("bounds", {})
         if bounds:
             # Estimate screen dimensions
-            screen_width = max([item.view.get("bounds", {}).get("right", 0) for item in screen.items], default=1000)
-            screen_height = max([item.view.get("bounds", {}).get("bottom", 0) for item in screen.items], default=1000)
+            screen_width, screen_height = self.estimate_screen_dimensions(screen)
 
-            width = bounds.get("right", 0) - bounds.get("left", 0)
-            height = bounds.get("bottom", 0) - bounds.get("top", 0)
+            width = bounds[1][0] - bounds[0][0]
+            height = bounds[1][1] - bounds[0][1]
 
             # Calculate size relative to screen
             width_ratio = width / screen_width
@@ -372,8 +363,8 @@ class DialogDetector(IPatternDetector):
                 confidence += 0.2 * (1 - max(width_ratio, height_ratio))
 
             # Check if centered
-            center_x = (bounds.get("left", 0) + bounds.get("right", 0)) / 2
-            center_y = (bounds.get("top", 0) + bounds.get("bottom", 0)) / 2
+            center_x = (bounds[0][0] + bounds[1][0]) / 2
+            center_y = (bounds[0][1] + bounds[1][1]) / 2
 
             # Calculate distance from screen center
             x_centering = 1.0 - (abs(center_x - screen_width / 2) / (screen_width / 2))
@@ -388,17 +379,17 @@ class DialogDetector(IPatternDetector):
     def _looks_like_button(self, item: ScreenItem) -> bool:
         """
         Check if an item looks like a button.
-        
+
         Args:
             item: Screen item to check
-            
+
         Returns:
             True if the item looks like a button
         """
         view = item.view
 
         # Buttons should be visible and clickable
-        if not self._is_visible(item) or not view.get("clickable", False):
+        if not self.is_visible(item) or not view.get("clickable", False):
             return False
 
         # Check class name
@@ -422,17 +413,17 @@ class DialogDetector(IPatternDetector):
     def _looks_like_title(self, item: ScreenItem) -> bool:
         """
         Check if an item looks like a dialog title.
-        
+
         Args:
             item: Screen item to check
-            
+
         Returns:
             True if the item looks like a title
         """
         view = item.view
 
         # Title should be visible and have text
-        if not self._is_visible(item) or not view.get("text", ""):
+        if not self.is_visible(item) or not view.get("text", ""):
             return False
 
         # Check class name
@@ -459,8 +450,8 @@ class DialogDetector(IPatternDetector):
         bounds = view.get("bounds", {})
 
         if parent_bounds and bounds:
-            parent_top = parent_bounds.get("top", 0)
-            item_top = bounds.get("top", 0)
+            parent_top = parent_bounds[0][1]
+            item_top = bounds[0][1]
 
             # Near the top of the parent
             if abs(item_top - parent_top) < 50:
@@ -473,17 +464,17 @@ class DialogDetector(IPatternDetector):
     def _looks_like_message(self, item: ScreenItem) -> bool:
         """
         Check if an item looks like a dialog message.
-        
+
         Args:
             item: Screen item to check
-            
+
         Returns:
             True if the item looks like a message
         """
         view = item.view
 
         # Message should be visible and have text
-        if not self._is_visible(item) or not view.get("text", ""):
+        if not self.is_visible(item) or not view.get("text", ""):
             return False
 
         # Check class name
@@ -501,12 +492,12 @@ class DialogDetector(IPatternDetector):
         bounds = view.get("bounds", {})
 
         if parent_bounds and bounds:
-            parent_top = parent_bounds.get("top", 0)
-            parent_bottom = parent_bounds.get("bottom", 0)
+            parent_top = parent_bounds[0][1]
+            parent_bottom = parent_bounds[1][1]
             parent_height = parent_bottom - parent_top
 
-            item_top = bounds.get("top", 0)
-            item_bottom = bounds.get("bottom", 0)
+            item_top = bounds[0][1]
+            item_bottom = bounds[1][1]
 
             # In the middle section of the parent
             top_ratio = (item_top - parent_top) / parent_height
@@ -522,16 +513,16 @@ class DialogDetector(IPatternDetector):
     def _find_dialog_title(self, container: ScreenItem, screen: ScreenDescription) -> Optional[ScreenItem]:
         """
         Find the title element of a dialog.
-        
+
         Args:
             container: Dialog container
             screen: Screen description
-            
+
         Returns:
             Title item or None
         """
         # Get direct children first
-        children = self._get_direct_children(container, screen)
+        children = self.get_direct_children(container, screen)
 
         # Look for title among direct children
         for child in children:
@@ -540,15 +531,15 @@ class DialogDetector(IPatternDetector):
 
         # If not found, look for title in grandchildren
         for child in children:
-            grandchildren = self._get_direct_children(child, screen)
+            grandchildren = self.get_direct_children(child, screen)
             for grandchild in grandchildren:
                 if self._looks_like_title(grandchild):
                     return grandchild
 
         # If still not found, look for the first text element at the top
         sorted_children = sorted(
-            [c for c in children if self._is_visible(c) and c.view.get("text", "")],
-            key=lambda x: x.view.get("bounds", {}).get("top", 0)
+            [c for c in children if self.is_visible(c) and c.view.get("text", "")],
+            key=lambda x: x.view.get("bounds", {})[0][1]
         )
 
         if sorted_children:
@@ -559,16 +550,16 @@ class DialogDetector(IPatternDetector):
     def _find_dialog_message(self, container: ScreenItem, screen: ScreenDescription) -> Optional[ScreenItem]:
         """
         Find the message/content element of a dialog.
-        
+
         Args:
             container: Dialog container
             screen: Screen description
-            
+
         Returns:
             Message item or None
         """
         # Get direct children first
-        children = self._get_direct_children(container, screen)
+        children = self.get_direct_children(container, screen)
 
         # Look for message among direct children
         for child in children:
@@ -577,14 +568,14 @@ class DialogDetector(IPatternDetector):
 
         # If not found, look for message in grandchildren
         for child in children:
-            grandchildren = self._get_direct_children(child, screen)
+            grandchildren = self.get_direct_children(child, screen)
             for grandchild in grandchildren:
                 if self._looks_like_message(grandchild):
                     return grandchild
 
         # If still not found, look for the longest text element
         text_elements = [
-            c for c in children if self._is_visible(c) and c.view.get("text", "")
+            c for c in children if self.is_visible(c) and c.view.get("text", "")
         ]
 
         if text_elements:
@@ -596,18 +587,18 @@ class DialogDetector(IPatternDetector):
     def _find_dialog_buttons(self, container: ScreenItem, screen: ScreenDescription) -> List[ScreenItem]:
         """
         Find button elements in a dialog.
-        
+
         Args:
             container: Dialog container
             screen: Screen description
-            
+
         Returns:
             List of button items
         """
         buttons = []
 
         # Get direct children first
-        children = self._get_direct_children(container, screen)
+        children = self.get_direct_children(container, screen)
 
         # Look for buttons among direct children
         for child in children:
@@ -617,25 +608,25 @@ class DialogDetector(IPatternDetector):
         # If not enough buttons found, look in grandchildren
         if len(buttons) < 1:
             for child in children:
-                grandchildren = self._get_direct_children(child, screen)
+                grandchildren = self.get_direct_children(child, screen)
                 for grandchild in grandchildren:
                     if self._looks_like_button(grandchild) and grandchild not in buttons:
                         buttons.append(grandchild)
 
         # Try to sort buttons horizontally (left to right)
         if buttons:
-            buttons.sort(key=lambda x: x.view.get("bounds", {}).get("left", 0))
+            buttons.sort(key=lambda x: x.view.get("bounds", {})[0][0])
 
         return buttons
 
     def _find_dialog_inputs(self, container: ScreenItem, screen: ScreenDescription) -> List[ScreenItem]:
         """
         Find input elements in a dialog.
-        
+
         Args:
             container: Dialog container
             screen: Screen description
-            
+
         Returns:
             List of input items
         """
@@ -654,18 +645,18 @@ class DialogDetector(IPatternDetector):
     def _get_all_descendants(self, container: ScreenItem, screen: ScreenDescription) -> List[ScreenItem]:
         """
         Get all descendants of a container recursively.
-        
+
         Args:
             container: Container element
             screen: Screen description
-            
+
         Returns:
             List of all descendant items
         """
         descendants = []
 
         # Get direct children
-        children = self._get_direct_children(container, screen)
+        children = self.get_direct_children(container, screen)
         descendants.extend(children)
 
         # Get children of children recursively
@@ -677,17 +668,17 @@ class DialogDetector(IPatternDetector):
     def _looks_like_input(self, item: ScreenItem) -> bool:
         """
         Check if an item looks like an input field.
-        
+
         Args:
             item: Screen item to check
-            
+
         Returns:
             True if the item looks like an input field
         """
         view = item.view
 
         # Input fields should be visible
-        if not self._is_visible(item):
+        if not self.is_visible(item):
             return False
 
         # Check class name
@@ -720,14 +711,14 @@ class DialogDetector(IPatternDetector):
                                inputs: List[ScreenItem]) -> str:
         """
         Determine the type of dialog.
-        
+
         Args:
             container: Dialog container
             title: Dialog title element
             message: Dialog message element
             buttons: List of dialog buttons
             inputs: List of dialog inputs
-            
+
         Returns:
             Dialog type string
         """
@@ -797,12 +788,12 @@ class DialogDetector(IPatternDetector):
     def _determine_button_role(self, button: ScreenItem, index: int, total_buttons: int) -> str:
         """
         Determine the role of a dialog button.
-        
+
         Args:
             button: Button element
             index: Button index
             total_buttons: Total number of buttons
-            
+
         Returns:
             Button role string
         """
@@ -844,74 +835,82 @@ class DialogDetector(IPatternDetector):
         # Generic button role
         return "button"
 
-    def _create_pattern_element(self, item: ScreenItem, id_suffix: str, role: str) -> PatternElement:
+    def _infer_input_type(self, item: ScreenItem) -> str:
         """
-        Create a pattern element from a screen item.
-        
+        Infer the input type for a field.
+
         Args:
             item: Screen item
-            id_suffix: Suffix to add to the element ID
-            role: Role of the element in the pattern
-            
+
         Returns:
-            PatternElement instance
+            Input type string
         """
-        # Use resource ID if available, otherwise generate one
-        resource_id = item.view.get("resource_id", "")
-        if resource_id:
-            element_id = resource_id
-        else:
-            element_id = f"generated_{id_suffix}"
+        view = item.view
 
-        # Create pattern element
-        element = PatternElement(
-            id=element_id,
-            role=role,
-            view=item.view,
-            actions=item.actions
-        )
+        # Check explicit input type
+        input_type = view.get("input_type", "").lower()
+        if input_type:
+            if "password" in input_type:
+                return "password"
+            elif "email" in input_type:
+                return "email"
+            elif "phone" in input_type:
+                return "phone"
+            elif "number" in input_type:
+                return "number"
+            elif "date" in input_type:
+                return "date"
 
-        # Add properties based on view
-        if "text" in item.view:
-            element.properties["text"] = item.view["text"]
+        # Check resource ID
+        resource_id = view.get("resource_id", "").lower()
 
-        if "content_description" in item.view:
-            element.properties["content_description"] = item.view["content_description"]
+        if "password" in resource_id:
+            return "password"
+        elif "email" in resource_id:
+            return "email"
+        elif "phone" in resource_id or "mobile" in resource_id:
+            return "phone"
+        elif "username" in resource_id or "login" in resource_id:
+            return "username"
+        elif "search" in resource_id:
+            return "search"
+        elif "address" in resource_id:
+            return "address"
+        elif "name" in resource_id:
+            if "first" in resource_id or "given" in resource_id:
+                return "first_name"
+            elif "last" in resource_id or "family" in resource_id:
+                return "last_name"
+            return "name"
+        elif "zip" in resource_id or "postal" in resource_id:
+            return "postal_code"
+        elif "city" in resource_id:
+            return "city"
+        elif "state" in resource_id or "province" in resource_id:
+            return "state"
+        elif "country" in resource_id:
+            return "country"
+        elif "number" in resource_id or "amount" in resource_id or "price" in resource_id:
+            return "number"
+        elif "date" in resource_id:
+            return "date"
+        elif "time" in resource_id:
+            return "time"
 
-        if "bounds" in item.view:
-            element.properties["bounds"] = item.view["bounds"]
+        # Check hint text
+        hint = view.get("hint", "").lower()
 
-        if "class" in item.view:
-            element.properties["class"] = item.view["class"]
+        if hint:
+            if "password" in hint:
+                return "password"
+            elif "email" in hint:
+                return "email"
+            elif "phone" in hint or "mobile" in hint:
+                return "phone"
+            elif "username" in hint or "user name" in hint:
+                return "username"
+            elif "search" in hint:
+                return "search"
 
-        # For buttons, note clickability
-        if "button" in role:
-            element.properties["clickable"] = item.view.get("clickable", False)
-
-            # Note if the button has direct click actions
-            element.properties["has_click_action"] = any(
-                a.event == "click" for a in item.actions
-            )
-
-            # Note button text
-            if "text" in item.view:
-                element.properties["button_text"] = item.view["text"]
-
-        # For input fields, note input properties
-        if role == "input":
-            element.properties["editable"] = item.view.get("editable", False)
-
-            # Note if field has hint
-            if "hint" in item.view:
-                element.properties["hint"] = item.view["hint"]
-
-            # Note input type if available
-            if "input_type" in item.view:
-                element.properties["input_type"] = item.view["input_type"]
-
-            # Note if field has set_text actions
-            element.properties["has_set_text_action"] = any(
-                a.event == "set_text" for a in item.actions
-            )
-
-        return element
+        # Default to text
+        return "text"

@@ -1,4 +1,4 @@
-# rvandroid/core/patterns/tab_detector.py
+# rvandroid/analysis/patterns/tab_detector.py
 """
 Tab pattern detector implementation.
 
@@ -8,24 +8,22 @@ It identifies tab layouts, tab elements, and associated content to enable system
 
 from typing import List, Optional, Tuple
 
-from rvandroid.analysis.patterns.ui_pattern_detector import (
-    IPatternDetector, PatternType, PatternResult, PatternElement
-)
+from rvandroid.analysis.patterns.pattern_data import PatternType, PatternResult
+from rvandroid.analysis.patterns.pattern_detector import BasePatternDetector
 from rvandroid.parser.screen.visitor.model import ScreenItem, ScreenDescription
-from rvandroid.util.logging.constants import CONTEXT_COMPONENT
-from rvandroid.util.logging.manager import LoggingManager
+from rvandroid.util.error.error_handler import ErrorHandler
 
 
-class TabDetector(IPatternDetector):
+class TabDetector(BasePatternDetector):
     """
     Detector for tab patterns in UI.
-    
+
     ### Architectural Decisions:
     - Implements specialized tab detection using multi-factor heuristics
-    - Uses DOM-based analysis with normalized Node structure
+    - Uses DOM-based analysis with normalized node structure
     - Identifies tab components based on view properties and hierarchical relationships
     - Applies confidence scoring based on tab layout recognition and structural patterns
-    
+
     ### Role in the System:
     - Provides reliable tab pattern detection for batch action generation
     - Identifies tab navigation components and related content areas
@@ -35,12 +33,8 @@ class TabDetector(IPatternDetector):
 
     def __init__(self):
         """Initialize the tab detector."""
-        # Configure logging
-        logging_manager = LoggingManager.get_instance()
-        self.logger = logging_manager.get_logger(
-            "core.patterns.tab_detector",
-            {CONTEXT_COMPONENT: "TabDetector"}
-        )
+        super().__init__()
+        self.error_handler = ErrorHandler.get_instance()
 
     @property
     def pattern_type(self) -> PatternType:
@@ -50,22 +44,17 @@ class TabDetector(IPatternDetector):
     def detect(self, screen: ScreenDescription) -> PatternResult:
         """
         Detect tab patterns in a screen.
-        
+
         Args:
             screen: Parsed screen description
-            
+
         Returns:
             PatternResult with detection results
         """
         self.logger.debug(f"Detecting tab patterns in screen with {len(screen.items)} items")
 
         # Initialize pattern result
-        result = PatternResult(
-            type=PatternType.TABS,
-            confidence=0.0,
-            elements=[],
-            properties={}
-        )
+        result = self.create_base_result(PatternType.TABS)
 
         # Check if there are enough items to form a pattern
         if len(screen.items) < 2:
@@ -103,25 +92,57 @@ class TabDetector(IPatternDetector):
         # Combine confidence scores
         confidence = (container_confidence * 0.5) + (item_confidence * 0.4) + (active_tab_confidence * 0.1)
         result.confidence = confidence
+        result.elements_count = len(tab_items) + 1  # +1 for container
 
-        # Add container to result
-        container_element = self._create_pattern_element(best_container, "tab_container", "container")
-        result.elements.append(container_element)
+        # Add container pattern data
+        container_pattern = self.create_pattern_data(
+            best_container,
+            role="container",
+            confidence=confidence,
+            properties={
+                "tab_count": len(tab_items),
+                "tab_layout_type": self._determine_tab_layout_type(best_container, tab_items),
+                "has_active_tab": active_tab is not None
+            }
+        )
+        self.apply_pattern_to_item(best_container, container_pattern)
 
-        # Add tab items to result
+        # Add tab items with pattern data
         for i, tab in enumerate(tab_items):
-            role = "active_tab" if active_tab and tab.view.get("id") == active_tab.view.get("id") else "tab"
-            element = self._create_pattern_element(tab, f"tab_{i}", role)
-            result.elements.append(element)
+            is_active = active_tab and tab.view.get("id") == active_tab.view.get("id")
+            role = "active_tab" if is_active else "tab"
+
+            tab_pattern = self.create_pattern_data(
+                tab,
+                role=role,
+                confidence=confidence,
+                properties={
+                    "tab_index": i,
+                    "is_active": is_active,
+                    "selected": tab.view.get("selected", False),
+                    "clickable": tab.view.get("clickable", False),
+                    "has_click_action": any(a.event == "click" for a in tab.actions)
+                }
+            )
+            self.apply_pattern_to_item(tab, tab_pattern)
 
         # Try to identify content area
         content_area = self._identify_content_area(best_container, active_tab, screen)
         if content_area:
-            content_element = self._create_pattern_element(content_area, "content_area", "content")
-            result.elements.append(content_element)
+            content_pattern = self.create_pattern_data(
+                content_area,
+                role="content",
+                confidence=confidence * 0.8,  # Slightly lower confidence for content area
+                properties={
+                    "associated_with_active_tab": active_tab is not None,
+                    "content_type": "tab_content"
+                }
+            )
+            self.apply_pattern_to_item(content_area, content_pattern)
+            result.elements_count += 1
             result.properties["has_content_area"] = True
 
-        # Set additional properties
+        # Set additional properties for result
         result.properties["tab_count"] = len(tab_items)
         result.properties["has_active_tab"] = active_tab is not None
         result.properties["tab_layout_type"] = self._determine_tab_layout_type(best_container, tab_items)
@@ -134,10 +155,10 @@ class TabDetector(IPatternDetector):
     def _find_tab_containers(self, screen: ScreenDescription) -> List[ScreenItem]:
         """
         Find potential tab container elements.
-        
+
         Args:
             screen: Parsed screen description
-            
+
         Returns:
             List of potential tab container items
         """
@@ -146,11 +167,8 @@ class TabDetector(IPatternDetector):
         for item in screen.items:
             view = item.view
 
-            if not view:
-                continue
-
             # Skip invisible elements
-            if not self._is_visible(item):
+            if not self.is_visible(item):
                 continue
 
             # Check class name for tab indicators
@@ -165,10 +183,7 @@ class TabDetector(IPatternDetector):
                 continue
 
             # Check resource ID for tab indicators
-            resource_id = view.get("resource_id", "")
-            if resource_id is None:
-                resource_id = ""
-            resource_id = resource_id.lower()
+            resource_id = view.get("resource_id", "").lower()
             if any(id_hint in resource_id for id_hint in [
                 "tab", "tabbar", "tabs", "tablayout", "viewpager", "pager"
             ]):
@@ -181,46 +196,14 @@ class TabDetector(IPatternDetector):
 
         return containers
 
-    def _is_visible(self, item: ScreenItem) -> bool:
-        """
-        Check if an element is visible.
-        
-        Args:
-            item: Screen item to check
-            
-        Returns:
-            True if the element is visible
-        """
-        view = item.view
-
-        # Check visibility
-        if view.get("visibility") == "gone" or view.get("visibility") == "invisible":
-            return False
-
-        # Check bounds
-        bounds = view.get("bounds", {})
-        if not bounds:
-            return False
-
-        x1, y1 = bounds[0]
-        x2, y2 = bounds[1]
-        width = x2 - x1
-        height = y2 - y1
-
-        # Ensure minimum size
-        if width <= 0 or height <= 0:
-            return False
-
-        return True
-
     def _has_tab_layout_characteristics(self, item: ScreenItem, screen: ScreenDescription) -> bool:
         """
         Check if an item has characteristics typical of a tab layout.
-        
+
         Args:
             item: Screen item to check
             screen: Screen description
-            
+
         Returns:
             True if the item has tab layout characteristics
         """
@@ -245,70 +228,19 @@ class TabDetector(IPatternDetector):
         # If most children are clickable, it might be a tab layout
         if clickable_count >= len(children) * 0.7:
             # Check if children are arranged horizontally
-            return self._is_horizontal_arrangement(children)
+            return self.is_horizontal_arrangement(children)
 
         return False
-
-    def _is_horizontal_arrangement(self, items: List[ScreenItem]) -> bool:
-        """
-        Check if items are arranged horizontally.
-        
-        Args:
-            items: List of screen items
-            
-        Returns:
-            True if items are arranged horizontally
-        """
-        if not items or len(items) < 2:
-            return False
-
-        # Extract bounds
-        bounds_list = []
-        for item in items:
-            bounds = item.view.get("bounds", {})
-            if bounds:
-                bounds_list.append((
-                    bounds.get("left", 0),
-                    bounds.get("top", 0),
-                    bounds.get("right", 0),
-                    bounds.get("bottom", 0)
-                ))
-
-        if len(bounds_list) < 2:
-            return False
-
-        # Check if items are mostly at the same vertical position
-        # but different horizontal positions
-        tops = [b[1] for b in bounds_list]
-        lefts = [b[0] for b in bounds_list]
-
-        # Calculate average top position
-        avg_top = sum(tops) / len(tops)
-
-        # Check if tops are similar (within 20% of height)
-        heights = [b[3] - b[1] for b in bounds_list]
-        avg_height = sum(heights) / len(heights) if heights else 1
-        height_threshold = max(20, avg_height * 0.2)  # 20px or 20% of average height
-
-        vertical_alignment = all(abs(top - avg_top) <= height_threshold for top in tops)
-
-        # Check if lefts are distributed (not all in the same place)
-        lefts_variation = max(lefts) - min(lefts)
-        screen_width = max([b[2] for b in bounds_list], default=1000)  # Estimate screen width
-
-        horizontal_distribution = lefts_variation > (screen_width * 0.3)  # Items span at least 30% of width
-
-        return vertical_alignment and horizontal_distribution
 
     def _get_best_tab_container(self, containers: List[ScreenItem],
                                 screen: ScreenDescription) -> Tuple[Optional[ScreenItem], float]:
         """
         Get the best tab container from candidates.
-        
+
         Args:
             containers: List of container candidates
             screen: Screen description
-            
+
         Returns:
             Tuple of (best container, confidence)
         """
@@ -344,13 +276,13 @@ class TabDetector(IPatternDetector):
             # Check position - tabs often at top of screen
             bounds = container.view.get("bounds", {})
             if bounds:
-                top = bounds.get("top", 0)
+                top = bounds[0][1]
                 # Near top of screen but not at the very top (allowing for toolbar)
                 if 50 <= top <= 200:
                     score += 0.1
 
             # Check children count - tab bars typically have 2-5 tabs
-            children = self._get_direct_children(container, screen)
+            children = self.get_direct_children(container, screen)
             children_count = len(children)
 
             if 2 <= children_count <= 5:
@@ -372,41 +304,19 @@ class TabDetector(IPatternDetector):
 
         return max(scored_containers, key=lambda x: x[1])
 
-    def _get_direct_children(self, container: ScreenItem, screen: ScreenDescription) -> List[ScreenItem]:
-        """
-        Get direct children of a container.
-        
-        Args:
-            container: Container element
-            screen: Screen description
-            
-        Returns:
-            List of direct children
-        """
-        child_ids = container.view.get("children", [])
-
-        children = []
-        for child_id in child_ids:
-            for item in screen.items:
-                if item.view.get("id") == child_id:
-                    children.append(item)
-                    break
-
-        return children
-
     def _get_tab_items(self, container: ScreenItem, screen: ScreenDescription) -> List[ScreenItem]:
         """
         Get the tab items from a container.
-        
+
         Args:
             container: Tab container
             screen: Screen description
-            
+
         Returns:
             List of tab items
         """
         # Get direct children first
-        children = self._get_direct_children(container, screen)
+        children = self.get_direct_children(container, screen)
 
         # If children exist and seem to be tabs, return them
         if children and self._items_look_like_tabs(children):
@@ -417,7 +327,7 @@ class TabDetector(IPatternDetector):
         if children:
             potential_tabs = []
             for child in children:
-                grandchildren = self._get_direct_children(child, screen)
+                grandchildren = self.get_direct_children(child, screen)
                 if grandchildren and self._items_look_like_tabs(grandchildren):
                     potential_tabs.extend(grandchildren)
 
@@ -431,10 +341,10 @@ class TabDetector(IPatternDetector):
     def _items_look_like_tabs(self, items: List[ScreenItem]) -> bool:
         """
         Check if items look like tabs.
-        
+
         Args:
             items: List of items to check
-            
+
         Returns:
             True if items look like tabs
         """
@@ -464,8 +374,8 @@ class TabDetector(IPatternDetector):
             # Check if small-ish and width similar to others
             bounds = item.view.get("bounds", {})
             if bounds:
-                width = bounds.get("right", 0) - bounds.get("left", 0)
-                height = bounds.get("bottom", 0) - bounds.get("top", 0)
+                width = bounds[1][0] - bounds[0][0]
+                height = bounds[1][1] - bounds[0][1]
 
                 # Tabs are typically wider than tall
                 if width > height and height < 150:
@@ -478,11 +388,11 @@ class TabDetector(IPatternDetector):
     def _infer_tab_items(self, container: ScreenItem, screen: ScreenDescription) -> List[ScreenItem]:
         """
         Infer tab items when direct children don't work.
-        
+
         Args:
             container: Tab container
             screen: Screen description
-            
+
         Returns:
             List of inferred tab items
         """
@@ -491,10 +401,8 @@ class TabDetector(IPatternDetector):
         if not container_bounds:
             return []
 
-        c_left = container_bounds.get("left", 0)
-        c_right = container_bounds.get("right", 0)
-        c_top = container_bounds.get("top", 0)
-        c_bottom = container_bounds.get("bottom", 0)
+        c_left, c_top = container_bounds[0]
+        c_right, c_bottom = container_bounds[1]
 
         # Find items contained within container bounds
         contained_items = []
@@ -504,7 +412,7 @@ class TabDetector(IPatternDetector):
                 continue
 
             # Skip invisible items
-            if not self._is_visible(item):
+            if not self.is_visible(item):
                 continue
 
             # Get item bounds
@@ -512,15 +420,11 @@ class TabDetector(IPatternDetector):
             if not item_bounds:
                 continue
 
-            i_left = item_bounds.get("left", 0)
-            i_right = item_bounds.get("right", 0)
-            i_top = item_bounds.get("top", 0)
-            i_bottom = item_bounds.get("bottom", 0)
+            i_left, i_top = item_bounds[0]
+            i_right, i_bottom = item_bounds[1]
 
             # Check if item is contained within container
-            if (i_left >= c_left and i_right <= c_right and
-                    i_top >= c_top and i_bottom <= c_bottom):
-
+            if i_left >= c_left and i_right <= c_right and i_top >= c_top and i_bottom <= c_bottom:
                 # Tabs are typically clickable
                 if item.view.get("clickable", False):
                     contained_items.append(item)
@@ -548,7 +452,7 @@ class TabDetector(IPatternDetector):
         # If we have at least 2 candidates, it might be tabs
         if len(tab_candidates) >= 2:
             # Check if they're arranged horizontally
-            if self._is_horizontal_arrangement(tab_candidates):
+            if self.is_horizontal_arrangement(tab_candidates):
                 return tab_candidates
 
         # If we still don't have tabs, look for horizontally arranged text views
@@ -561,7 +465,7 @@ class TabDetector(IPatternDetector):
                     text_views.append(item)
 
             # If text views are arranged horizontally, they might be tabs
-            if len(text_views) >= 2 and self._is_horizontal_arrangement(text_views):
+            if len(text_views) >= 2 and self.is_horizontal_arrangement(text_views):
                 return text_views
 
         return tab_candidates
@@ -569,10 +473,10 @@ class TabDetector(IPatternDetector):
     def _identify_active_tab(self, tab_items: List[ScreenItem]) -> Tuple[Optional[ScreenItem], float]:
         """
         Identify which tab is currently active.
-        
+
         Args:
             tab_items: List of tab items
-            
+
         Returns:
             Tuple of (active tab, confidence)
         """
@@ -637,12 +541,12 @@ class TabDetector(IPatternDetector):
                                screen: ScreenDescription) -> Optional[ScreenItem]:
         """
         Try to identify the content area associated with tabs.
-        
+
         Args:
             container: Tab container
             active_tab: Currently active tab
             screen: Screen description
-            
+
         Returns:
             Content area item or None
         """
@@ -651,14 +555,14 @@ class TabDetector(IPatternDetector):
         if not container_bounds:
             return None
 
-        container_bottom = container_bounds.get("bottom", 0)
+        container_bottom = container_bounds[1][1]
 
         # Look for large containers below the tab bar
         candidates = []
 
         for item in screen.items:
             # Skip small items and invisible items
-            if not self._is_visible(item) or item.view.get("id") == container.view.get("id"):
+            if not self.is_visible(item) or item.view.get("id") == container.view.get("id"):
                 continue
 
             # Get item bounds
@@ -666,15 +570,15 @@ class TabDetector(IPatternDetector):
             if not bounds:
                 continue
 
-            item_top = bounds.get("top", 0)
+            item_top = bounds[0][1]
 
             # Check if item is below tab container
             if item_top < container_bottom:
                 continue
 
             # Calculate size
-            width = bounds.get("right", 0) - bounds.get("left", 0)
-            height = bounds.get("bottom", 0) - bounds.get("top", 0)
+            width = bounds[1][0] - bounds[0][0]
+            height = bounds[1][1] - bounds[0][1]
 
             # Content areas are typically large
             item_size = width * height
@@ -719,11 +623,11 @@ class TabDetector(IPatternDetector):
     def _determine_tab_layout_type(self, container: ScreenItem, tab_items: List[ScreenItem]) -> str:
         """
         Determine the type of tab layout.
-        
+
         Args:
             container: Tab container
             tab_items: List of tab items
-            
+
         Returns:
             Tab layout type string
         """
@@ -740,12 +644,12 @@ class TabDetector(IPatternDetector):
         # Check container bounds for positioning clues
         bounds = container.view.get("bounds", {})
         if bounds:
-            top = bounds.get("top", 0)
+            top = bounds[0][1]
             if top <= 80:  # Near top of screen
                 return "top_tabs"
 
-            width = bounds.get("right", 0) - bounds.get("left", 0)
-            height = bounds.get("bottom", 0) - bounds.get("top", 0)
+            width = bounds[1][0] - bounds[0][0]
+            height = bounds[1][1] - bounds[0][1]
 
             # If tab container is taller than wide, might be side tabs
             if height > width:
@@ -753,65 +657,3 @@ class TabDetector(IPatternDetector):
 
         # Default to standard tabs
         return "standard_tabs"
-
-    def _create_pattern_element(self, item: ScreenItem, id_suffix: str, role: str) -> PatternElement:
-        """
-        Create a pattern element from a screen item.
-        
-        Args:
-            item: Screen item
-            id_suffix: Suffix to add to the element ID
-            role: Role of the element in the pattern
-            
-        Returns:
-            PatternElement instance
-        """
-        # Use resource ID if available, otherwise generate one
-        resource_id = item.view.get("resource_id", "")
-        if resource_id:
-            element_id = resource_id
-        else:
-            element_id = f"generated_{id_suffix}"
-
-        # Create pattern element
-        element = PatternElement(
-            id=element_id,
-            role=role,
-            view=item.view,
-            actions=item.actions
-        )
-
-        # Add properties based on view
-        if "text" in item.view:
-            element.properties["text"] = item.view["text"]
-
-        if "content_description" in item.view:
-            element.properties["content_description"] = item.view["content_description"]
-
-        if "bounds" in item.view:
-            element.properties["bounds"] = item.view["bounds"]
-
-        if "class" in item.view:
-            element.properties["class"] = item.view["class"]
-
-        # For tab items, note if they're selected
-        if role == "tab" or role == "active_tab":
-            element.properties["selected"] = item.view.get("selected", False)
-            element.properties["checked"] = item.view.get("checked", False)
-            element.properties["clickable"] = item.view.get("clickable", False)
-
-            # Note if the tab has direct click actions
-            element.properties["has_click_action"] = any(
-                a.event == "click" for a in item.actions
-            )
-
-        # For content areas, note size and position
-        if role == "content":
-            bounds = item.view.get("bounds", {})
-            if bounds:
-                width = bounds.get("right", 0) - bounds.get("left", 0)
-                height = bounds.get("bottom", 0) - bounds.get("top", 0)
-                element.properties["width"] = width
-                element.properties["height"] = height
-
-        return element
