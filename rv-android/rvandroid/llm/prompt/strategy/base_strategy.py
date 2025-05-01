@@ -9,7 +9,7 @@ from typing import Any, Dict, List, Optional
 
 from rvandroid.config.component_configurator import ComponentConfigurator
 from rvandroid.llm.constants import ContextEntry, PromptStrategyType
-from rvandroid.llm.data_structures import MCPMessage, MCPRole, MCPTextContent
+from rvandroid.llm.data_structures import LLMMessage, LLMRole, LLMTextContent
 from rvandroid.util.error.error_handler import ErrorHandler
 from rvandroid.util.logging.constants import CONTEXT_COMPONENT
 from rvandroid.util.logging.manager import LoggingManager
@@ -94,7 +94,7 @@ class PromptStrategy(abc.ABC):
         self.logger.warning(f"No template specified for strategy {self.name}, using 'standard'")
         return PromptStrategyType.STANDARD
 
-    # TODO deprecated ... deve retornar lista de mensgaens MCP
+    # TODO deprecated ... deve retornar lista de mensgaens
     @abc.abstractmethod
     def generate_prompt(
             self,
@@ -116,18 +116,18 @@ class PromptStrategy(abc.ABC):
             self,
             state: Dict[str, Any],
             context: Optional[Dict[str, Any]] = None
-    ) -> List[MCPMessage]:
-        """Generate MCPMessage objects for the given state and context.
+    ) -> List[LLMMessage]:
+        """Generate LLMMessage objects for the given state and context.
         
         This method converts the dictionary messages from generate_prompt
-        to MCPMessage objects. Subclasses can override this for custom behavior.
+        to LLMMessage objects. Subclasses can override this for custom behavior.
         
         Args:
             state: The current state (e.g., app UI state, test state).
             context: Additional contextual information.
             
         Returns:
-            A list of MCPMessage objects.
+            A list of LLMMessage objects.
         """
         # Get dictionary messages
         dict_messages = self.generate_prompt(state, context)
@@ -135,20 +135,20 @@ class PromptStrategy(abc.ABC):
         if not dict_messages:
             return []
 
-        # Convert to MCPMessage objects
-        mcp_messages = []
+        # Convert to LLMMessage objects
+        messages = []
         for msg in dict_messages:
             role_value = msg["role"]
             content_text = msg["content"]
 
-            # Convert role string to MCPRole enum
-            role = MCPRole(role_value)
+            # Convert role string to LLMRole enum
+            role = LLMRole(role_value)
 
-            # Create MCPMessage object
-            mcp_message = MCPMessage(
+            # Create LLMMessage object
+            message = LLMMessage(
                 role=role,
-                content=[MCPTextContent(text=content_text)]
+                content=[LLMTextContent(text=content_text)]
             )
-            mcp_messages.append(mcp_message)
+            messages.append(message)
 
-        return mcp_messages
+        return messages

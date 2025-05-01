@@ -3,7 +3,7 @@
 
 from typing import Dict, Any, List
 
-from rvandroid.llm.data_structures import MCPMessage, MCPRole, MCPTextContent
+from rvandroid.llm.data_structures import LLMMessage, LLMRole, LLMTextContent
 from rvandroid.llm.adapter import MCPAdapter
 
 
@@ -14,7 +14,7 @@ class HuggingFaceAdapter(MCPAdapter):
         """Initialize the HuggingFace adapter."""
         super().__init__()
 
-    def prepare_messages(self, messages: List[MCPMessage]) -> Dict[str, Any]:
+    def prepare_messages(self, messages: List[LLMMessage]) -> Dict[str, Any]:
         """Convert MCP messages to HuggingFace format."""
         hf_messages = []
 
@@ -47,7 +47,7 @@ class HuggingFaceAdapter(MCPAdapter):
     #
     #     return hf_config
 
-    def parse_response(self, response: Any) -> MCPMessage:
+    def parse_response(self, response: Any) -> LLMMessage:
         """Parse HuggingFace response into MCP message."""
         # HuggingFace typically returns a string directly
         if isinstance(response, str):
@@ -55,12 +55,12 @@ class HuggingFaceAdapter(MCPAdapter):
         else:
             text = str(response)
 
-        return MCPMessage(
-            role=MCPRole.ASSISTANT,
-            content=[MCPTextContent(text=text)]
+        return LLMMessage(
+            role=LLMRole.ASSISTANT,
+            content=[LLMTextContent(text=text)]
         )
 
-    # def validate_request(self, messages: List[MCPMessage], config: MCPConfiguration) -> bool:
+    # def validate_request(self, messages: List[LLMMessage], config: MCPConfiguration) -> bool:
     #     """Validate that messages and config are compatible with HuggingFace."""
     #     # Basic validation
     #     if not messages:
@@ -70,7 +70,7 @@ class HuggingFaceAdapter(MCPAdapter):
     #     # Check for unsupported content types (HuggingFace supports only text)
     #     for message in messages:
     #         for content in message.content:
-    #             if not isinstance(content, MCPTextContent):
+    #             if not isinstance(content, LLMTextContent):
     #                 self.logger.warning(f"HuggingFace does not support content type: {type(content)}")
     #                 return False
     #

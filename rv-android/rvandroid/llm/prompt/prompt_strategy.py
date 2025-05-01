@@ -16,6 +16,7 @@ import re
 import os
 
 from rvandroid.domain.static import StaticAnalysisData
+from rvandroid.llm import LLMRole
 from rvandroid.parser.screen.abstract_parser import AbstractScreenParser
 from rvandroid.parser.screen.parser_factory import ParserType, ParserFactory
 from rvandroid.llm.prompt.template.prompt_template import PromptTemplate
@@ -41,6 +42,7 @@ class PromptStrategy(ABC):
     - Provides extensibility for custom prompt generation approaches
     """
 
+    # TODO parser apenas do tipo AbstractScreenParser, senao nao pega o visitor
     def __init__(self,
                  static_data: Optional["StaticAnalysisData"] = None,
                  parser: Union[ParserType, AbstractScreenParser, None] = None):
@@ -99,8 +101,8 @@ class PromptStrategy(ABC):
             List of prompt messages in the format expected by the LLM
         """
         return [
-            {"role": "system", "content": self.generate_system_prompt()},
-            {"role": "user", "content": self.generate_user_prompt(state)}
+            {"role": LLMRole.SYSTEM, "content": self.generate_system_prompt()},
+            {"role": LLMRole.USER, "content": self.generate_user_prompt(state)}
         ]
 
     def _add_static_analysis_context(self, activity: str) -> str:

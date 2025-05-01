@@ -6,10 +6,9 @@ from typing import List, Optional, ClassVar
 # Use official ollama library
 from ollama import AsyncClient, ChatResponse
 
-from rvandroid.config.component_configurator import ComponentConfigurator
 from rvandroid.llm.adapter import AdapterRegistry
 from rvandroid.llm.adapters.ollama_adapter import OllamaAdapter
-from rvandroid.llm.data_structures import MCPMessage, MCPTextContent, MCPRole, MCPResponse
+from rvandroid.llm.data_structures import LLMMessage, LLMTextContent, LLMRole, LLMResponse
 from rvandroid.llm.language_model import LanguageModel
 from rvandroid.llm.llm_config import LLMConfiguration
 from ollama import Client
@@ -59,16 +58,17 @@ class OllamaLLM(LanguageModel):
 
     # Available model definitions
     LLAMA: ClassVar[str] = "llama3.2:3b"
-    DEEPSEEK: ClassVar[str] = "deepseek-r1:1.5B"
+    DEEPSEEK: ClassVar[str] = "deepseek-r1:7b"
     GEMMA: ClassVar[str] = "gemma3:4b"
-    QWEN: ClassVar[str] = "qwen2.5:3b"
-    PHI: ClassVar[str] = "phi3.5:3.8b"
-    GRANITE: ClassVar[str] = "granite3.1-dense:8b"
+    QWEN: ClassVar[str] = "qwen3:8b"
+    PHI: ClassVar[str] = "phi4-mini-reasoning:3.8b"
+    GRANITE: ClassVar[str] = "granite3.3:2b"
     MISTRAL: ClassVar[str] = "mistral:7b"
     FALCON: ClassVar[str] = "falcon3:3b"
 
     # Define available models (subset for better performance)
-    MODELS: ClassVar[List[str]] = [LLAMA, GEMMA, QWEN]
+    # MODELS: ClassVar[List[str]] = [LLAMA, GEMMA, QWEN]
+    MODELS: ClassVar[List[str]] = [LLAMA, DEEPSEEK, GEMMA, QWEN, PHI, GRANITE, MISTRAL, FALCON]
 
     def __init__(self, model_name: str = LLAMA, **kwargs):
         """
@@ -78,7 +78,7 @@ class OllamaLLM(LanguageModel):
             model_name: Name of the Ollama model to use
             **kwargs: Additional arguments including:
                 api_base: Base URL for Ollama API (default: http://localhost:11434)
-                temperature: Sampling temperature (default: 0.7)
+                temperature: Sampling temperature (default: 0.2)
                 max_tokens: Maximum tokens to generate (default: None)
         """
         print(f"OllamaLLM ::: {kwargs}")
@@ -104,8 +104,8 @@ class OllamaLLM(LanguageModel):
         return OllamaAdapter()
 
     # async def generate(self,
-    #                    messages: List[MCPMessage],
-    #                    config: Optional[MCPConfiguration] = None) -> MCPMessage:
+    #                    messages: List[LLMMessage],
+    #                    config: Optional[MCPConfiguration] = None) -> LLMMessage:
     #     """
     #     Generate a response using Ollama's chat API.
     #
@@ -117,7 +117,7 @@ class OllamaLLM(LanguageModel):
     #         config: Optional configuration parameters that override instance config
     #
     #     Returns:
-    #         MCPMessage containing the generated response
+    #         LLMMessage containing the generated response
     #
     #     Raises:
     #         ValueError: If the request is invalid for Ollama
@@ -152,8 +152,8 @@ class OllamaLLM(LanguageModel):
     #         raise
 
     def generate_sync(self,
-                      messages: List[MCPMessage],
-                      config: Optional[LLMConfiguration] = None) -> MCPResponse:
+                      messages: List[LLMMessage],
+                      config: Optional[LLMConfiguration] = None) -> LLMResponse:
         print(f" ***** generate_sync: messages: {type(messages)} ::: {messages}")
         print(f" ***** generate_sync: config: {type(config)} ::: {config}")
         # Prepare messages in a simple format
@@ -163,6 +163,8 @@ class OllamaLLM(LanguageModel):
         options = {}
         if config.temperature is not None:
             options["temperature"] = config.temperature
+        else:
+            options["temperature"] = 0.2
         if config.max_tokens is not None:
             options["num_predict"] = config.max_tokens
 
@@ -173,26 +175,27 @@ class OllamaLLM(LanguageModel):
         # Call Ollama chat API synchronously
         response: ChatResponse = self.client.chat(
             model=self.model_name,
-            messages=formatted_msgs
-            #options=options
+            messages=formatted_msgs,
+            options=options
         )
         print(f"\n*** Response: {response["message"]["content"]} :::: {response}")
 
         # Create an MCP message from the response
-        mcp_response = MCPResponse(response.message.content)
+        mcp_response = LLMResponse(response.message.content)
         mcp_response.done_reason = response.done_reason
         mcp_response.total_duration = response.total_duration
         mcp_response.load_duration = response.load_duration
-        mcp_response.prompt_eval_count = response.prompt_eval_count
-        mcp_response.prompt_eval_duration = response.prompt_eval_duration
-        mcp_response.eval_count = response.eval_count
-        mcp_response.eval_duration = response.eval_duration
+        mcp_response.input_tokens = response.prompt_eval_count
+        mcp_response.input_tokens_duration = response.prompt_eval_duration
+        mcp_response.output_tokens = response.eval_count
+        mcp_response.output_tokens_duration = response.eval_duration
         print(f"mcp_response={mcp_response}")
         return mcp_response
 
+    # TODO deprecated
     def generate_sync_old(self,
-                      messages: List[MCPMessage],
-                      config: Optional[LLMConfiguration] = None) -> MCPResponse:
+                          messages: List[LLMMessage],
+                          config: Optional[LLMConfiguration] = None) -> LLMResponse:
         """
         Generate a response synchronously using Ollama's chat API.
         
@@ -204,7 +207,7 @@ class OllamaLLM(LanguageModel):
             config: Optional configuration parameters
             
         Returns:
-            MCPMessage containing the generated response
+            LLMMessage containing the generated response
         """
         # Use a completely isolated approach that works under any circumstance
         import multiprocessing
@@ -328,10 +331,10 @@ class OllamaLLM(LanguageModel):
             if result_data["success"]:
                 # Create an MCP message from the response
                 response_content = result_data["content"]
-                mcp_response = MCPResponse()
-                mcp_response = MCPMessage(
-                    role=MCPRole.ASSISTANT,
-                    content=[MCPTextContent(text=response_content)]
+                mcp_response = LLMResponse()
+                mcp_response = LLMMessage(
+                    role=LLMRole.ASSISTANT,
+                    content=[LLMTextContent(text=response_content)]
                 )
                 return mcp_response
             else:
@@ -368,6 +371,7 @@ class OllamaLLM(LanguageModel):
 # Register the model and adapter - will be called after the adapter class is defined
 def register():
     """Register Ollama model with the configurator and registry."""
+    from rvandroid.config.component_configurator import ComponentConfigurator
     # Check if this LLM is already registered
     if OllamaLLM.NAME in ComponentConfigurator._registries.get('llm', {}).get_names():
         # Already registered, skip registration

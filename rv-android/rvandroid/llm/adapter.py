@@ -5,7 +5,7 @@ from abc import ABC, abstractmethod
 from typing import Dict, Any, List, Type, Optional
 import logging
 
-from rvandroid.llm.data_structures import MCPMessage
+from rvandroid.llm.data_structures import LLMMessage
 from rvandroid.util.error.error_handler import ErrorHandler
 
 
@@ -27,7 +27,7 @@ class MCPAdapter(ABC):
         self.error_handler = ErrorHandler.get_instance()
 
     @abstractmethod
-    def prepare_messages(self, messages: List[MCPMessage]) -> Dict[str, Any]:
+    def prepare_messages(self, messages: List[LLMMessage]) -> Dict[str, Any]:
         """
         Convert MCP messages to model-specific format.
         
@@ -53,7 +53,7 @@ class MCPAdapter(ABC):
     #     pass
 
     @abstractmethod
-    def parse_response(self, response: Any) -> MCPMessage:
+    def parse_response(self, response: Any) -> LLMMessage:
         """
         Parse model response into MCP message.
         
@@ -61,12 +61,12 @@ class MCPAdapter(ABC):
             response: Raw response from the model
             
         Returns:
-            Parsed response as an MCPMessage
+            Parsed response as an LLMMessage
         """
         pass
 
     # @abstractmethod
-    # def validate_request(self, messages: List[MCPMessage], config: MCPConfiguration) -> bool:
+    # def validate_request(self, messages: List[LLMMessage], config: MCPConfiguration) -> bool:
     #     """
     #     Validate that messages and config are compatible with this adapter.
     #

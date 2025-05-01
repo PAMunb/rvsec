@@ -10,7 +10,7 @@ from rvandroid.config.component_configurator import ComponentConfigurator
 from rvandroid.domain.static import StaticAnalysisData
 from rvandroid.experiment.event.bus import EventBus, EventType
 from rvandroid.llm.constants import ContextEntry, PromptStrategyType, StateEntry
-from rvandroid.llm.data_structures import MCPMessage, MCPResponse
+from rvandroid.llm.data_structures import LLMMessage, LLMResponse
 from rvandroid.llm.prompt.framework import PromptFramework
 from rvandroid.llm.service import LLMManager
 from rvandroid.llm.service.action_generator import ActionGenerator
@@ -125,15 +125,13 @@ class LLMActionService:
             List of action dictionaries for test automation system execution
         """
         # Create context for performance monitoring
-        app_package = state.get(StateEntry.PACKAGE_NAME, "unknown")
-        app_activity = state.get(StateEntry.ACTIVITY, "unknown").replace("/", "")
-        state[StateEntry.ACTIVITY] = app_activity
+        self._initialize_state(state)
         context = {
-            ContextEntry.APP_PACKAGE: app_package,
-            ContextEntry.APP_ACTIVITY: app_activity
+            ContextEntry.APP_PACKAGE: state[StateEntry.PACKAGE_NAME],
+            ContextEntry.APP_ACTIVITY: state[StateEntry.ACTIVITY]
         }
 
-        self.logger.info(f"Processing state for app: {app_package}, activity: {app_activity}")
+        self.logger.info(f"Processing state for app: {state[StateEntry.PACKAGE_NAME]}, activity: {state[StateEntry.ACTIVITY]}")
 
         # Overall processing time measurement
         with self.performance_monitor.measure_time("state_processing_total", context):
@@ -154,7 +152,7 @@ class LLMActionService:
                     # Record prompt metrics if possible
                     self.record_prompt_metrics(messages, context)
 
-                    response: MCPResponse = self.llm_manager.generate(messages, self.config)
+                    response: LLMResponse = self.llm_manager.generate(messages, self.config)
                     self.logger.debug(f"Received response: {response}")
 
                     self.performance_monitor.record_metric(
@@ -226,6 +224,11 @@ class LLMActionService:
                 # Generate fallback actions
                 return self.action_generator.generate_fallback_actions(state)
 
+    def _initialize_state(self, state: Dict[str, Any]):
+        app_package = state.get(StateEntry.PACKAGE_NAME, "unknown")
+        app_activity = state.get(StateEntry.ACTIVITY, "unknown").replace("/", "")
+        state[StateEntry.ACTIVITY] = app_activity
+
     def _create_prompt_context(self, state: Dict[str, Any]) -> Dict[str, Any]:
         """Create context dictionary for prompt generation.
         
@@ -238,6 +241,7 @@ class LLMActionService:
         return {
             ContextEntry.APP_PACKAGE: state.get(StateEntry.PACKAGE_NAME, ""),
             ContextEntry.APP_ACTIVITY: state.get(StateEntry.ACTIVITY, ""),
+            # TODO
             ContextEntry.ADDITIONAL_GUIDELINES: state.get(ContextEntry.ADDITIONAL_GUIDELINES, ""),
             ContextEntry.TESTING_HISTORY: state.get("testing_history", "")
         }
@@ -320,7 +324,7 @@ class LLMActionService:
     #         source="LLMActionService"
     #     )
 
-    def record_prompt_metrics(self, messages: List[MCPMessage], context) -> None:
+    def record_prompt_metrics(self, messages: List[LLMMessage], context) -> None:
         for message in messages:
             self.performance_monitor.record_metric(
                 name=f"prompt_length_{message.role}",

@@ -138,7 +138,8 @@ class StateEnricher:
 
                 # Update state with screen description´d
                 if screen_description:
-                    state[StateEntry.STRUCTURED_SCREEN] = screen_description
+                    state[StateEntry.STRUCTURED_SCREEN] = screen_description["enhanced_screen"]
+                    state[StateEntry.SCREENSHOT_INFO] = screen_description["visual_mapping"]
             except Exception as e:
                 self.logger.error(f"Error processing screenshot: {e}", exc_info=True)
                 self.error_handler.handle_error(
@@ -161,7 +162,7 @@ class StateEnricher:
             return
 
         # Skip if screen patterns already present
-        if StateEntry.SCREEN_PATTERNS in state:
+        if StateEntry.UI_PATTERNS in state:
             return
 
         # Skip if screen description is not present
@@ -261,6 +262,7 @@ class StateEnricher:
                     self.logger.debug(f"Created parser on demand: {self.parser.__class__.__name__}")
                 except ImportError:
                     self.logger.warning("Could not create parser, using simple text description")
+                    # TODO rever
                     screen = state[StateEntry.SCREEN_PATTERNS]
                     state[StateEntry.SCREEN_DESCRIPTION] = self._format_screen_elements(screen)
                     return

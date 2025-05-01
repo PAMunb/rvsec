@@ -4,7 +4,7 @@
 from typing import Dict, Any, List
 
 from rvandroid.llm.adapter import MCPAdapter
-from rvandroid.llm.data_structures import MCPMessage, MCPRole, MCPTextContent
+from rvandroid.llm.data_structures import LLMMessage, LLMRole, LLMTextContent
 
 
 class DSPyAdapter(MCPAdapter):
@@ -16,7 +16,7 @@ class DSPyAdapter(MCPAdapter):
     message conversions and configuration parameters.
     """
 
-    def prepare_messages(self, messages: List[MCPMessage]) -> Dict[str, Any]:
+    def prepare_messages(self, messages: List[LLMMessage]) -> Dict[str, Any]:
         """
         Convert MCP messages to DSPy format.
         
@@ -31,13 +31,13 @@ class DSPyAdapter(MCPAdapter):
         for message in messages:
             content = message.get_text_content()
 
-            if message.role == MCPRole.SYSTEM:
+            if message.role == LLMRole.SYSTEM:
                 dspy_messages.append({"role": "system", "content": content})
-            elif message.role == MCPRole.USER:
+            elif message.role == LLMRole.USER:
                 dspy_messages.append({"role": "user", "content": content})
-            elif message.role == MCPRole.ASSISTANT:
+            elif message.role == LLMRole.ASSISTANT:
                 dspy_messages.append({"role": "assistant", "content": content})
-            elif message.role == MCPRole.TOOL:
+            elif message.role == LLMRole.TOOL:
                 dspy_messages.append({"role": "tool", "content": content, "tool_call_id": message.tool_call_id})
 
         return {"messages": dspy_messages}
@@ -65,7 +65,7 @@ class DSPyAdapter(MCPAdapter):
     #
     #     return dspy_config
 
-    def parse_response(self, response: Any) -> MCPMessage:
+    def parse_response(self, response: Any) -> LLMMessage:
         """
         Parse DSPy response into MCP message.
         
@@ -73,7 +73,7 @@ class DSPyAdapter(MCPAdapter):
             response: Response from DSPy
             
         Returns:
-            MCPMessage with parsed response
+            LLMMessage with parsed response
         """
         if isinstance(response, dict):
             if "content" in response:
@@ -83,12 +83,12 @@ class DSPyAdapter(MCPAdapter):
         else:
             text = str(response)
 
-        return MCPMessage(
-            role=MCPRole.ASSISTANT,
-            content=[MCPTextContent(text=text)]
+        return LLMMessage(
+            role=LLMRole.ASSISTANT,
+            content=[LLMTextContent(text=text)]
         )
 
-    # def validate_request(self, messages: List[MCPMessage], config: MCPConfiguration) -> bool:
+    # def validate_request(self, messages: List[LLMMessage], config: MCPConfiguration) -> bool:
     #     """
     #     Validate that messages and config are compatible with DSPy.
     #

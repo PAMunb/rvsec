@@ -12,7 +12,7 @@ from typing import Dict, Any, List, Optional
 from rvandroid.domain.static import StaticAnalysisData
 from rvandroid.llm.language_model import LanguageModel
 from rvandroid.config.component_configurator import ComponentConfigurator
-from rvandroid.llm.data_structures import MCPConfiguration, MCPMessage, MCPRole, MCPTextContent
+from rvandroid.llm.data_structures import MCPConfiguration, LLMMessage, LLMRole, LLMTextContent
 from rvandroid.rvdroid.llm.context.context_builder import ContextBuilder
 from rvandroid.rvdroid.llm.directives.directive_parser import DirectiveParser
 from rvandroid.rvdroid.llm.prompts.prompt_manager import PromptManager

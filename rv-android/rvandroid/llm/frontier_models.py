@@ -11,7 +11,7 @@ import openai
 from anthropic import Anthropic
 
 from rvandroid.llm.language_model import LanguageModel
-from rvandroid.llm.data_structures import MCPMessage
+from rvandroid.llm.data_structures import LLMMessage
 from rvandroid.llm.adapters.frontier_adapter import FrontierAdapter
 from rvandroid.util.error.error_handler import ErrorHandler
 
@@ -24,6 +24,7 @@ class FrontierModel(LanguageModel):
     Language model implementation that uses frontier models like Claude, ChatGPT, Gemini, etc.
     Handles initialization and interaction with various API providers using MCP.
     """
+    NAME = "frontier"
     
     # Available frontier models with consistent versioning
     CLAUDE_SONNET = "claude-3-5-sonnet-20241022"
@@ -171,21 +172,21 @@ class FrontierModel(LanguageModel):
 
         return self._client
 
-    # async def generate(self, messages: List[MCPMessage], config: Optional[MCPConfiguration] = None) -> MCPMessage:
+    # async def generate(self, messages: List[LLMMessage], config: Optional[MCPConfiguration] = None) -> LLMMessage:
     #     """Generate a response using the language model asynchronously."""
     #     # Use synchronous implementation for now (could be updated to use async later)
     #     return self.generate_sync(messages, config)
 
-    def generate_sync(self, messages: List[MCPMessage], config = None) -> MCPMessage:
+    def generate_sync(self, messages: List[LLMMessage], config = None) -> LLMMessage:
         """
         Generate text based on the input messages synchronously.
 
         Args:
-            messages: List of MCPMessage objects
+            messages: List of LLMMessage objects
             config: Optional MCPConfiguration object
 
         Returns:
-            MCPMessage with the generated response
+            LLMMessage with the generated response
         """
         # Use provided config or default
         _config = config or self.config

@@ -455,9 +455,9 @@ class PromptStrategy(abc.ABC):
         self, 
         state: Dict[str, Any], 
         context: Optional[Dict[str, Any]] = None
-    ) -> List[MCPMessage]:
-        """Generate an MCP prompt for the given state and context."""
-        # Convert standard prompt to MCP format
+    ) -> List[LLMMessage]:
+        """Generate a prompt for the given state and context."""
+        # Convert standard prompt to LLM format
 ```
 
 ### 5.2 Specialized Strategies

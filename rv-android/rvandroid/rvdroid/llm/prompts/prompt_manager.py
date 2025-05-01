@@ -10,7 +10,7 @@ import json
 import os
 from typing import Dict, Any, Optional, List
 
-from rvandroid.llm.data_structures import MCPMessage, MCPRole, MCPTextContent
+from rvandroid.llm.data_structures import LLMMessage, LLMRole, LLMTextContent
 from rvandroid.util.logging.constants import CONTEXT_COMPONENT
 from rvandroid.util.logging.manager import LoggingManager
 from rvandroid.util.error.error_handler import ErrorHandler
@@ -401,7 +401,7 @@ What general guidance can you provide to improve my testing approach, especially
                 "max_tokens": template.get("max_tokens", 500)
             }
 
-    def generate_mcp_messages(self, prompt_type: str, context: Dict[str, Any]) -> List[MCPMessage]:
+    def generate_mcp_messages(self, prompt_type: str, context: Dict[str, Any]) -> List[LLMMessage]:
         """
         Generate prompts in MCP format based on type and context.
 
@@ -410,7 +410,7 @@ What general guidance can you provide to improve my testing approach, especially
             context: Context information for prompt generation
 
         Returns:
-            List of MCPMessage objects for the conversation
+            List of LLMMessage objects for the conversation
         """
         # Get formatted prompts
         prompt_dict = self.generate_prompt(prompt_type, context)
@@ -420,16 +420,16 @@ What general guidance can you provide to improve my testing approach, especially
         
         # System message
         if "system" in prompt_dict:
-            messages.append(MCPMessage(
-                role=MCPRole.SYSTEM,
-                content=[MCPTextContent(text=prompt_dict["system"])]
+            messages.append(LLMMessage(
+                role=LLMRole.SYSTEM,
+                content=[LLMTextContent(text=prompt_dict["system"])]
             ))
             
         # User message
         if "user" in prompt_dict:
-            messages.append(MCPMessage(
-                role=MCPRole.USER,
-                content=[MCPTextContent(text=prompt_dict["user"])]
+            messages.append(LLMMessage(
+                role=LLMRole.USER,
+                content=[LLMTextContent(text=prompt_dict["user"])]
             ))
             
         return messages

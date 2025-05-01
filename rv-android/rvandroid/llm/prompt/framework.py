@@ -10,7 +10,7 @@ from typing import Any, Dict, List, Optional, Union
 
 from rvandroid.config.component_configurator import ComponentConfigurator
 from rvandroid.llm.constants import FragmentType, PromptStrategyType
-from rvandroid.llm.data_structures import MCPMessage
+from rvandroid.llm.data_structures import LLMMessage
 from rvandroid.llm.language_model import LanguageModel
 from rvandroid.llm.prompt.information.fragment_manager import InformationManager
 from rvandroid.llm.prompt.information.fragments.monitored_operations_fragment import MonitoredOperationsFragment
@@ -217,15 +217,15 @@ class PromptFramework:
         self,
         state: Dict[str, Any], 
         context: Optional[Dict[str, Any]] = None
-    ) -> List[MCPMessage]:
-        """Generate an MCP prompt using the specified strategy.
+    ) -> List[LLMMessage]:
+        """Generate a prompt using the specified strategy.
         
         Args:
             state: Current application state.
             context: Additional context information.
             
         Returns:
-            List of MCPMessage objects.
+            List of LLMMessage objects.
         """
         # Get the appropriate strategy
         if self.config and self.config.llm_config:
@@ -246,10 +246,10 @@ class PromptFramework:
             
             self.logger.debug(f"Using strategy: {strategy.name}")
             
-            # Generate the MCP prompt using the strategy
+            # Generate the prompt using the strategy
             return strategy.generate_mcp_prompt(state, context)
         except Exception as e:
-            self.logger.error(f"Error generating MCP prompt: {e}", exc_info=True)
+            self.logger.error(f"Error generating prompt: {e}", exc_info=True)
             self.error_handler.handle_error(
                 e,
                 context={

@@ -9,10 +9,8 @@ from rvandroid.parser.screen.visitor.visitor_factory import VisitorFactory
 class LLMType:
     """Constants for LLM types used in the system."""
     OLLAMA = "ollama"
-    LANGCHAIN = "langchain"
-    DSPY = "dspy"
-    FRONTIER = "frontier"
     HUGGINGFACE = "huggingface"
+    FRONTIER = "frontier"
 
 class OllamaModels:
     """Constants for Ollama model types."""
@@ -57,20 +55,25 @@ class TemplateRole:
 
 class StateEntry:
     """Constants for state dictionary entries."""
+    PACKAGE_NAME = "package_name"
     ACTIVITY = "activity"
     VIEW_TREE = "view_tree"
-    PREVIOUS_ACTIVITY = "previous_activity"
-    PACKAGE_NAME = "package_name"
-    SCREENSHOT_PATH = "screenshot_path"
-    SCREEN_PATTERNS = "screen"
-    SCREEN_DESCRIPTION = "screen_description"  # the ScreenDescription string representation for template rendering
-    STRUCTURED_SCREEN = "structured_screen"    # The actual ScreenDescription object
+    HASH_SCREEN_CONTENT = "state_str"
+    HASH_SCREEN = "structure_str"
+    STRUCTURED_SCREEN = "structured_screen"  # The actual ScreenDescription object
     AVAILABLE_ACTIONS = "available_actions"
+    SCREENSHOT_PATH = "screenshot_path"
+    SCREENSHOT_INFO = "screenshot_info"
+    UI_PATTERNS = "ui_patterns"  # Dict[PatternType, PatternResult]
     DETECTED_PATTERN = "detected_pattern"  # dict
-    UI_PATTERNS = "ui_patterns"     # Dict[PatternType, PatternResult]
     TRANSITION_GUIDANCE = "transition_guidance"
     MONITORED_OPERATIONS = "monitored_operations"  # List[str]: list of methods signature (tha reaches_mop or directly_reaches_mop)
     FINGERPRINT = "fingerprint"
+    PREVIOUS_ACTIVITY = "previous_activity"
+    SCREEN_PATTERNS = "screen"
+    SCREEN_DESCRIPTION = "screen_description"  # the ScreenDescription string representation for template rendering
+
+
 
 class ContextEntry:
     """Constants for context dictionary entries."""

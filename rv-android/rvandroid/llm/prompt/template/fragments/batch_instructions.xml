@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <fragment name="batch_instructions">
-  <![CDATA[
-Your task is to analyze the current app state and suggest a BATCH OF RELATED ACTIONS to efficiently test the current UI flow.
+  <![CDATA[Your task is to analyze the current app state and suggest a BATCH OF RELATED ACTIONS to efficiently test the current UI flow.
 
 IMPORTANT: You should identify a specific UI pattern and generate a batch of related actions to efficiently interact with it.
 
@@ -25,6 +24,5 @@ For a TAB pattern, include actions to:
 For a DIALOG pattern, include actions to:
 - Interact with dialog elements
 - Test both positive and negative dialog paths
-- Ensure proper dialog dismissal
-  ]]>
+- Ensure proper dialog dismissal]]>
 </fragment>

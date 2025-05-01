@@ -8,13 +8,13 @@ from typing import List, Dict, Optional, Any, Union
 
 from rvandroid.config.component_configurator import ComponentConfigurator
 from rvandroid.experiment.event.bus import EventBus, EventType
-from rvandroid.llm import MCPMessage
+from rvandroid.llm import LLMMessage
 from rvandroid.llm.language_model import LanguageModel
 from rvandroid.llm.llm_config import LLMConfiguration
 from rvandroid.util.logging.constants import CONTEXT_COMPONENT
 from rvandroid.util.logging.manager import LoggingManager
 from rvandroid.util.performance_monitor import PerformanceMonitor
-from rvandroid.llm.data_structures import MCPMessage, MCPResponse
+from rvandroid.llm.data_structures import LLMMessage, LLMResponse
 
 
 class LLMManager:
@@ -136,7 +136,7 @@ class LLMManager:
 
             raise RuntimeError(f"Could not initialize {self.model_type} model: {str(e)}")
 
-    def generate(self, messages: List[MCPMessage], config: Optional[ComponentConfigurator]) -> MCPResponse:
+    def generate(self, messages: List[LLMMessage], config: Optional[ComponentConfigurator]) -> LLMResponse:
         """
         Generate text using the LLM with performance tracking.
 
@@ -176,11 +176,11 @@ class LLMManager:
         # Perform generation with timing
         start_time = time.time()
         try:
-            response: MCPResponse = self.llm.generate_sync(messages, config.llm_config)
+            response: LLMResponse = self.llm.generate_sync(messages, config.llm_config)
             elapsed_time = time.time() - start_time
 
             # Log performance metrics
-            # TODO usar os campos de MCPResponse
+            # TODO usar os campos de LLMResponse
             self.logger.info(f"LLM response received in {elapsed_time:.2f} seconds")
             self.performance_monitor.record_metric(
                 name="llm_response_time",

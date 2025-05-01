@@ -2,11 +2,10 @@
 """MCP-based Language Model interface."""
 
 from abc import ABC, abstractmethod
-from typing import List, Dict, Any, Optional, Type, ClassVar
-import logging
+from typing import List, Optional
 
-from rvandroid.llm.data_structures import MCPMessage, MCPResponse
 from rvandroid.llm.adapter import MCPAdapter
+from rvandroid.llm.data_structures import LLMMessage, LLMResponse
 from rvandroid.llm.llm_config import LLMConfiguration
 from rvandroid.util.logging.constants import CONTEXT_COMPONENT
 from rvandroid.util.logging.manager import LoggingManager
@@ -69,8 +68,8 @@ class LanguageModel(ABC):
     # TODO deprecated
     # @abstractmethod
     # async def generate(self,
-    #                    messages: List[MCPMessage],
-    #                    config: Optional[LLMConfiguration] = None) -> MCPMessage:
+    #                    messages: List[LLMMessage],
+    #                    config: Optional[LLMConfiguration] = None) -> LLMMessage:
     #     """
     #     Generate a response using the language model.
     #
@@ -79,14 +78,14 @@ class LanguageModel(ABC):
     #         config: Optional configuration that overrides instance config
     #
     #     Returns:
-    #         MCPMessage containing the generated response
+    #         LLMMessage containing the generated response
     #     """
     #     pass
 
     @abstractmethod
     def generate_sync(self,
-                      messages: List[MCPMessage],
-                      config: Optional[LLMConfiguration] = None) -> MCPResponse:
+                      messages: List[LLMMessage],
+                      config: Optional[LLMConfiguration] = None) -> LLMResponse:
         """
         Generate a response synchronously.
         
@@ -95,10 +94,10 @@ class LanguageModel(ABC):
             config: Optional configuration parameters
             
         Returns:
-            MCPMessage containing the generated response
+            LLMMessage containing the generated response
         """
         pass
-        
+
     @classmethod
     def models(cls) -> List[str]:
         """

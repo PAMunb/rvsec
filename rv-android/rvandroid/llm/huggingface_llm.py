@@ -6,7 +6,7 @@ import torch
 from transformers import AutoTokenizer, AutoModelForCausalLM, BitsAndBytesConfig
 
 from rvandroid.llm.language_model import LanguageModel
-from rvandroid.llm.data_structures import MCPMessage
+from rvandroid.llm.data_structures import LLMMessage
 from rvandroid.llm.adapters.huggingface_adapter import HuggingFaceAdapter
 from rvandroid.config.component_configurator import ComponentConfigurator
 from rvandroid.util.error.error_handler import ErrorHandler
@@ -19,6 +19,7 @@ class HuggingFaceLLM(LanguageModel):
     A class for interacting with Hugging Face language models using MCP.
     Provides efficient loading and generation with quantization support.
     """
+    NAME = "huggingface"
     
     # Available model definitions
     LLAMA = "meta-llama/Meta-Llama-3.1-8B-Instruct"
@@ -147,21 +148,21 @@ class HuggingFaceLLM(LanguageModel):
 
         return self._tokenizer
 
-    # async def generate(self, messages: List[MCPMessage], config: Optional[MCPConfiguration] = None) -> MCPMessage:
+    # async def generate(self, messages: List[LLMMessage], config: Optional[MCPConfiguration] = None) -> LLMMessage:
     #     """Generate a response using the language model asynchronously."""
     #     # Use synchronous implementation for now
     #     return self.generate_sync(messages, config)
 
-    def generate_sync(self, messages: List[MCPMessage], config = None) -> MCPMessage:
+    def generate_sync(self, messages: List[LLMMessage], config = None) -> LLMMessage:
         """
         Generate text based on the input messages synchronously using MCP.
 
         Args:
-            messages: List of MCPMessage objects
+            messages: List of LLMMessage objects
             config: Optional MCPConfiguration object
 
         Returns:
-            MCPMessage with the generated response
+            LLMMessage with the generated response
         """
         # Use provided config or default
         _config = config or self.config

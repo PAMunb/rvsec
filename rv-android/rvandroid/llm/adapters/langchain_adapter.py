@@ -3,7 +3,7 @@
 
 from typing import Dict, Any, List
 
-from rvandroid.llm.data_structures import MCPMessage, MCPRole, MCPTextContent
+from rvandroid.llm.data_structures import LLMMessage, LLMRole, LLMTextContent
 from rvandroid.llm.adapter import MCPAdapter
 
 
@@ -14,7 +14,7 @@ class LangchainAdapter(MCPAdapter):
         """Initialize the Langchain adapter."""
         super().__init__()
 
-    def prepare_messages(self, messages: List[MCPMessage]) -> Dict[str, Any]:
+    def prepare_messages(self, messages: List[LLMMessage]) -> Dict[str, Any]:
         """Convert MCP messages to Langchain format."""
         # Langchain with Ollama doesn't use message structure directly, 
         # but rather combines all messages into a single prompt
@@ -25,9 +25,9 @@ class LangchainAdapter(MCPAdapter):
         for message in messages:
             content = message.get_text_content()
             
-            if message.role == MCPRole.SYSTEM:
+            if message.role == LLMRole.SYSTEM:
                 system_content = content
-            elif message.role == MCPRole.USER:
+            elif message.role == LLMRole.USER:
                 user_content = content
                 
         # Combine them in a format Langchain can use
@@ -52,7 +52,7 @@ class LangchainAdapter(MCPAdapter):
     #
     #     return lc_config
 
-    def parse_response(self, response: Any) -> MCPMessage:
+    def parse_response(self, response: Any) -> LLMMessage:
         """Parse Langchain response into MCP message."""
         # Langchain typically returns a string
         if isinstance(response, str):
@@ -60,12 +60,12 @@ class LangchainAdapter(MCPAdapter):
         else:
             text = str(response)
 
-        return MCPMessage(
-            role=MCPRole.ASSISTANT,
-            content=[MCPTextContent(text=text)]
+        return LLMMessage(
+            role=LLMRole.ASSISTANT,
+            content=[LLMTextContent(text=text)]
         )
 
-    # def validate_request(self, messages: List[MCPMessage], config: MCPConfiguration) -> bool:
+    # def validate_request(self, messages: List[LLMMessage], config: MCPConfiguration) -> bool:
     #     """Validate that messages and config are compatible with Langchain."""
     #     # Basic validation
     #     if not messages:
@@ -73,7 +73,7 @@ class LangchainAdapter(MCPAdapter):
     #         return False
     #
     #     # Check that we have at least a user message
-    #     has_user_message = any(message.role == MCPRole.USER for message in messages)
+    #     has_user_message = any(message.role == LLMRole.USER for message in messages)
     #     if not has_user_message:
     #         self.logger.warning("No user message found")
     #         return False

@@ -14,6 +14,7 @@ from rvandroid.llm.constants import PromptStrategyType, LLMType, OllamaModels
 # Remove circular import
 # from rvandroid.config.configuration_manager import ConfigurationManager
 from rvandroid.llm.llm_config import LLMConfiguration
+from rvandroid.llm.ollama_llm import OllamaLLM
 from rvandroid.parser.screen.abstract_parser import AbstractScreenParser
 from rvandroid.parser.screen.parser_factory import ParserType
 from rvandroid.parser.screen.visitor.abstract_visitor import AbstractScreenVisitor
@@ -355,7 +356,7 @@ class ComponentConfigurator:
         # Component configurations
         self.llm_config = LLMConfiguration(
             model_type=LLMType.OLLAMA,
-            model_name=OllamaModels.LLAMA3_8B,
+            model_name=OllamaLLM.LLAMA,
             strategy_type=PromptStrategyType.BATCH_ACTION,
             parser_type=ParserType.DROIDBOT,
             max_tokens=800,

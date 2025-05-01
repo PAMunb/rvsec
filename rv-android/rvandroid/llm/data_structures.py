@@ -1,12 +1,12 @@
 # rvandroid/llm/data_structures.py
-"""Core data structures for the Model Context Protocol (MCP)."""
+"""Core data structures for the LLM messages."""
 
 from dataclasses import dataclass
 from enum import Enum
 from typing import List, Dict, Any, Optional, Union
 
 
-class MCPRole(Enum):
+class LLMRole(Enum):
     """Role of a message in a conversation."""
     SYSTEM = "system"
     USER = "user"
@@ -15,25 +15,25 @@ class MCPRole(Enum):
 
 
 @dataclass
-class MCPTextContent:
-    """Text content in an MCP message."""
+class LLMTextContent:
+    """Text content in an LLM message."""
     text: str
 
 
 @dataclass
-class MCPImageContent:
-    """Image content in an MCP message."""
+class LLMImageContent:
+    """Image content in an LLM message."""
     url: str
     detail: Optional[str] = "auto"
 
 
 # Union type for different content types
-MCPContentType = Union[MCPTextContent, MCPImageContent]
+LLMContentType = Union[LLMTextContent, LLMImageContent]
 
 
 
 @dataclass
-class MCPMessage:
+class LLMMessage:
     """
     Standard message format for Model Context Protocol.
     
@@ -41,8 +41,8 @@ class MCPMessage:
     user, assistant, or tools. Messages can contain multiple content items
     of different types (text, images, etc.).
     """
-    role: MCPRole
-    content: List[MCPContentType]
+    role: LLMRole
+    content: List[LLMContentType]
     name: Optional[str] = None
     # TODO deprecated
     tool_calls: Optional[List[Dict[str, Any]]] = None
@@ -51,83 +51,12 @@ class MCPMessage:
     def total_chars(self):
         cont = 0
         for item in self.content:
-            if isinstance(item, MCPTextContent):
+            if isinstance(item, LLMTextContent):
                 cont += len(item.text)
         return cont
 
     def __str__(self):
-        return f"MCPMessage(role={self.role}, content={self.content})"
-
-    # # TODO deprecated
-    # def to_dict(self) -> Dict[str, Any]:
-    #     """
-    #     Convert message to dictionary representation.
-    #
-    #     Returns:
-    #         Dictionary representation of the message
-    #     """
-    #     content_list = []
-    #     for item in self.content:
-    #         if isinstance(item, MCPTextContent):
-    #             content_list.append({"type": "text", "text": item.text})
-    #         elif isinstance(item, MCPImageContent):
-    #             content_list.append({"type": "image", "url": item.url, "detail": item.detail})
-    #
-    #     result = {
-    #         "role": self.role.value,
-    #         "content": content_list
-    #     }
-    #
-    #     if self.name:
-    #         result["name"] = self.name
-    #     if self.tool_calls:
-    #         result["tool_calls"] = self.tool_calls
-    #     if self.tool_call_id:
-    #         result["tool_call_id"] = self.tool_call_id
-    #
-    #     return result
-    #
-    # # TODO deprecated
-    # @classmethod
-    # def from_dict(cls, data: Dict[str, Any]) -> 'MCPMessage':
-    #     """
-    #     Create message from dictionary representation.
-    #
-    #     Args:
-    #         data: Dictionary containing message data
-    #
-    #     Returns:
-    #         MCPMessage instance
-    #     """
-    #     role = MCPRole(data["role"])
-    #
-    #     # Process content
-    #     content = []
-    #     raw_content = data.get("content", [])
-    #
-    #     # Handle string content for backward compatibility
-    #     if isinstance(raw_content, str):
-    #         content = [MCPTextContent(text=raw_content)]
-    #     else:
-    #         for item in raw_content:
-    #             if isinstance(item, str):
-    #                 content.append(MCPTextContent(text=item))
-    #             elif isinstance(item, dict):
-    #                 if item.get("type") == "text":
-    #                     content.append(MCPTextContent(text=item.get("text", "")))
-    #                 elif item.get("type") == "image":
-    #                     content.append(MCPImageContent(
-    #                         url=item.get("url", ""),
-    #                         detail=item.get("detail", "auto")
-    #                     ))
-    #
-    #     return cls(
-    #         role=role,
-    #         content=content,
-    #         name=data.get("name"),
-    #         tool_calls=data.get("tool_calls"),
-    #         tool_call_id=data.get("tool_call_id")
-    #     )
+        return f"LLMMessage(role={self.role}, content={self.content})"
 
     def get_text_content(self) -> str:
         """
@@ -138,31 +67,46 @@ class MCPMessage:
         """
         text_parts = []
         for item in self.content:
-            if isinstance(item, MCPTextContent):
+            if isinstance(item, LLMTextContent):
                 text_parts.append(item.text)
         return "\n".join(text_parts)
 
 
-@dataclass
-class MCPAction:
-    id: int
-    params: Dict[str, Any]
-    explanation: Optional[str] = None
+# @dataclass
+# class MCPAction:
+#     id: int
+#     params: Dict[str, Any]
+#     explanation: Optional[str] = None
 
 
 @dataclass
-class MCPResponse:
-    # actions: List[MCPAction]
+class LLMResponse:
+    # Capture and store the full model response along with granular performance diagnostics:
+    # - message.content: The generated text response from the model. This is the core output returned to the user.
+    # - done_reason: Explains why the generation stopped. Common values include 'stop' (natural stop), 'length' (token limit reached),
+    #                or custom stop sequences. Useful for determining whether the output was truncated or ended cleanly.
+    # - total_duration: Total elapsed time (in milliseconds or seconds, depending on the API) from the beginning of the request to
+    #                   the receipt of the full response. Includes all stages: model load, prompt evaluation, and token generation.
+    # - load_duration: Time taken to load the model into memory if it was not already active. High values here can indicate cold starts,
+    #                  which may be optimized by warming up the model in advance or keeping it resident.
+    # - input_tokens: The number of tokens in the input prompt processed by the model. Important for estimating prompt cost and
+    #                      understanding how much context is being consumed before generation begins.
+    # - input_tokens_duration: Time spent (in ms or s) processing the input prompt tokens. High values may indicate a long or complex prompt.
+    # - output_tokens: The number of tokens generated by the model in its output. Combined with input_tokens, this helps track
+    #               total token usage for billing or quota enforcement.
+    # - output_tokens_duration: Time spent generating output tokens. Can be used to measure generation speed and model throughput.
+    #                           It is the inference time.
+
     content: str
-    role = MCPRole.ASSISTANT
+    role = LLMRole.ASSISTANT
     done = True
     done_reason = "stop"
     total_duration = 0
     load_duration = 0
-    prompt_eval_count = 0
-    prompt_eval_duration = 0
-    eval_count = 0
-    eval_duration = 0
+    input_tokens = 0
+    input_tokens_duration = 0
+    output_tokens = 0
+    output_tokens_duration = 0
 
     def total_chars(self):
         return len(self.content)

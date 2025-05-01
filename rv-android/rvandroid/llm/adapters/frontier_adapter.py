@@ -3,7 +3,7 @@
 
 from typing import Dict, Any, List
 
-from rvandroid.llm.data_structures import MCPMessage, MCPRole, MCPTextContent
+from rvandroid.llm.data_structures import LLMMessage, LLMRole, LLMTextContent
 from rvandroid.llm.adapter import MCPAdapter
 
 
@@ -14,7 +14,7 @@ class FrontierAdapter(MCPAdapter):
         """Initialize the frontier model adapter."""
         super().__init__()
 
-    def prepare_messages(self, messages: List[MCPMessage]) -> Dict[str, Any]:
+    def prepare_messages(self, messages: List[LLMMessage]) -> Dict[str, Any]:
         """Convert MCP messages to frontier model format."""
         frontier_messages = []
 
@@ -53,7 +53,7 @@ class FrontierAdapter(MCPAdapter):
     #
     #     return model_config
 
-    def parse_response(self, response: Any) -> MCPMessage:
+    def parse_response(self, response: Any) -> LLMMessage:
         """Parse frontier model response into MCP message."""
         if isinstance(response, str):
             text = response
@@ -68,12 +68,12 @@ class FrontierAdapter(MCPAdapter):
         else:
             text = str(response)
 
-        return MCPMessage(
-            role=MCPRole.ASSISTANT,
-            content=[MCPTextContent(text=text)]
+        return LLMMessage(
+            role=LLMRole.ASSISTANT,
+            content=[LLMTextContent(text=text)]
         )
 
-    # def validate_request(self, messages: List[MCPMessage], config: MCPConfiguration) -> bool:
+    # def validate_request(self, messages: List[LLMMessage], config: MCPConfiguration) -> bool:
     #     """Validate that messages and config are compatible with frontier models."""
     #     # Basic validation
     #     if not messages:

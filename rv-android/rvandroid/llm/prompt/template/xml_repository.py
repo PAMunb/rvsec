@@ -10,7 +10,7 @@ from typing import Any, Dict, List, Optional, Set
 
 from rvandroid.config.component_configurator import ComponentConfigurator
 from rvandroid.llm.constants import TemplateRole
-from rvandroid.llm.data_structures import MCPMessage, MCPRole, MCPTextContent
+from rvandroid.llm.data_structures import LLMMessage, LLMRole, LLMTextContent
 from rvandroid.util.error.error_handler import ErrorHandler
 from rvandroid.util.logging.constants import CONTEXT_COMPONENT
 from rvandroid.util.logging.manager import LoggingManager
@@ -1187,15 +1187,15 @@ Screen Elements:
         self, 
         template_name: str, 
         variables: Dict[str, Any]
-    ) -> List[MCPMessage]:
-        """Create a list of MCPMessage objects using the specified template.
+    ) -> List[LLMMessage]:
+        """Create a list of LLMMessage objects using the specified template.
         
         Args:
             template_name: The name of the template to use.
             variables: Variables to substitute in the template.
             
         Returns:
-            A list of MCPMessage objects.
+            A list of LLMMessage objects.
         """
         try:
             dict_messages = self.create_messages(template_name, variables)
@@ -1208,13 +1208,13 @@ Screen Elements:
                 role_value = msg["role"]
                 content_text = msg["content"]
                 
-                # Convert role string to MCPRole enum
-                role = MCPRole(role_value)
+                # Convert role string to LLMRole enum
+                role = LLMRole(role_value)
                 
-                # Create MCPMessage object
-                mcp_message = MCPMessage(
+                # Create LLMMessage object
+                mcp_message = LLMMessage(
                     role=role,
-                    content=[MCPTextContent(text=content_text)]
+                    content=[LLMTextContent(text=content_text)]
                 )
                 mcp_messages.append(mcp_message)
             

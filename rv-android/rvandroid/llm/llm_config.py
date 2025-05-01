@@ -1,9 +1,9 @@
 # rvandroid/llm/llm_config.py
-import logging
 import json
-from typing import Dict, Any, List, Optional, Tuple, Set, Union
+import logging
+from typing import Dict, Any, List, Tuple
 
-from rvandroid.llm.constants import LLMType, OllamaModels, PromptStrategyType
+from rvandroid.llm.constants import LLMType, PromptStrategyType
 from rvandroid.parser.screen.parser_factory import ParserType
 from rvandroid.util.logging.constants import CONTEXT_COMPONENT
 from rvandroid.util.logging.manager import LoggingManager
@@ -102,7 +102,7 @@ class LLMConfiguration:
     def __init__(
             self,
             model_type: str = LLMType.OLLAMA,
-            model_name: str = OllamaModels.ALL,
+            model_name: str = "llama3.2:3b", # TODO
             strategy_type: str = PromptStrategyType.BATCH_ACTION,
             parser_type: ParserType = ParserType.DROIDBOT,
             max_tokens: int = 200,
@@ -127,7 +127,7 @@ class LLMConfiguration:
             "llm.config",
             {CONTEXT_COMPONENT: self.__class__.__name__}
         )
-        
+
         self.model_type = model_type
         self.model_name = model_name
         self.strategy_type = strategy_type
@@ -146,10 +146,10 @@ class LLMConfiguration:
 
         # Set default parameters if not provided
         self._set_default_parameters()
-        
+
         # Validate configuration
         self.validate()
-        
+
     def _set_default_parameters(self) -> None:
         """Set default parameters for common LLM configurations."""
         # Only set if not already provided
@@ -170,21 +170,22 @@ class LLMConfiguration:
             Tuple of (is_valid, error_messages)
         """
         errors = []
-        
+
         # Check required parameters
         for param_name, schema in self._SCHEMA.items():
             if schema.get("required", False):
                 if not hasattr(self, param_name) or getattr(self, param_name) is None:
                     errors.append(f"Missing required parameter: {param_name}")
-        
+
         # Validate parameter types and constraints
         for param_name, schema in self._SCHEMA.items():
             if hasattr(self, param_name):
                 value = getattr(self, param_name)
                 # Type validation
                 if not isinstance(value, schema["type"]) and not (value is None and not schema.get("required", False)):
-                    errors.append(f"Parameter {param_name} has invalid type. Expected {schema['type'].__name__}, got {type(value).__name__}")
-                
+                    errors.append(
+                        f"Parameter {param_name} has invalid type. Expected {schema['type'].__name__}, got {type(value).__name__}")
+
                 # Custom validation
                 if "validator" in schema and value is not None:
                     try:
@@ -192,15 +193,16 @@ class LLMConfiguration:
                             errors.append(f"Parameter {param_name} failed validation constraint: {value}")
                     except Exception as e:
                         errors.append(f"Error validating {param_name}: {str(e)}")
-        
+
         # Validate kwargs parameters that are in schema
         for param_name, value in self.kwargs.items():
             if param_name in self._SCHEMA:
                 schema = self._SCHEMA[param_name]
                 # Type validation
                 if not isinstance(value, schema["type"]) and not (value is None and not schema.get("required", False)):
-                    errors.append(f"Parameter kwargs.{param_name} has invalid type. Expected {schema['type'].__name__}, got {type(value).__name__}")
-                
+                    errors.append(
+                        f"Parameter kwargs.{param_name} has invalid type. Expected {schema['type'].__name__}, got {type(value).__name__}")
+
                 # Custom validation
                 if "validator" in schema and value is not None:
                     try:
@@ -208,13 +210,13 @@ class LLMConfiguration:
                             errors.append(f"Parameter kwargs.{param_name} failed validation constraint: {value}")
                     except Exception as e:
                         errors.append(f"Error validating kwargs.{param_name}: {str(e)}")
-        
+
         if errors:
             for error in errors:
                 self.logger.warning(f"Configuration validation error: {error}")
-                
+
         return len(errors) == 0, errors
-    
+
     def get_model_type(self) -> str:
         """Get model type."""
         return self.model_type
@@ -238,7 +240,7 @@ class LLMConfiguration:
     def get_model_kwargs(self) -> Dict[str, Any]:
         """Get additional model parameters."""
         return self.kwargs
-    
+
     def set_parameter(self, name: str, value: Any) -> None:
         """
         Set a configuration parameter.
@@ -253,20 +255,21 @@ class LLMConfiguration:
         # Check if parameter is in schema
         if name in self._SCHEMA:
             schema = self._SCHEMA[name]
-            
+
             # Type validation
             if not isinstance(value, schema["type"]) and value is not None:
-                raise ValueError(f"Parameter {name} has invalid type. Expected {schema['type'].__name__}, got {type(value).__name__}")
-            
+                raise ValueError(
+                    f"Parameter {name} has invalid type. Expected {schema['type'].__name__}, got {type(value).__name__}")
+
             # Custom validation
             if "validator" in schema and value is not None:
                 if not schema["validator"](value):
                     raise ValueError(f"Parameter {name} failed validation constraint: {value}")
-            
+
             # Set the parameter
             if hasattr(self, name):
                 setattr(self, name, value)
-            
+
             # Also update in kwargs for consistency
             self.kwargs[name] = value
         else:
@@ -286,14 +289,14 @@ class LLMConfiguration:
         """
         # Make a copy to avoid modifying the original
         config = config_dict.copy()
-        
+
         # Extract known parameters
         model_type = config.pop("model_type", cls._SCHEMA["model_type"]["default"])
         model_name = config.pop("model_name", cls._SCHEMA["model_name"]["default"])
         strategy_type = config.pop("strategy_type", cls._SCHEMA["strategy_type"]["default"])
         max_tokens = config.pop("max_tokens", cls._SCHEMA["max_tokens"]["default"])
         temperature = config.pop("temperature", cls._SCHEMA["temperature"]["default"])
-        
+
         # Handle parser type conversion
         parser_type_str = config.pop("parser_type", None)
         if parser_type_str is None:
@@ -339,7 +342,7 @@ class LLMConfiguration:
                 config_dict[key] = value
 
         return config_dict
-    
+
     def to_json(self, indent: int = 2) -> str:
         """
         Convert configuration to JSON string.
@@ -351,7 +354,7 @@ class LLMConfiguration:
             JSON string representation of the configuration
         """
         return json.dumps(self.to_dict(), indent=indent)
-    
+
     @classmethod
     def from_json(cls, json_str: str) -> 'LLMConfiguration':
         """
@@ -365,7 +368,7 @@ class LLMConfiguration:
         """
         config_dict = json.loads(json_str)
         return cls.from_dict(config_dict)
-    
+
     @classmethod
     def schema(cls) -> Dict[str, Dict[str, Any]]:
         """
@@ -382,9 +385,9 @@ class LLMConfiguration:
             # Remove validator function
             if "validator" in schema[name]:
                 del schema[name]["validator"]
-                
+
         return schema
-    
+
     def __eq__(self, other: object) -> bool:
         """
         Check if two configurations are equal.
@@ -397,18 +400,18 @@ class LLMConfiguration:
         """
         if not isinstance(other, LLMConfiguration):
             return False
-        
+
         # Compare all attributes
         return (
-            self.model_type == other.model_type and
-            self.model_name == other.model_name and
-            self.strategy_type == other.strategy_type and
-            self.parser_type == other.parser_type and
-            self.max_tokens == other.max_tokens and
-            self.temperature == other.temperature and
-            self.kwargs == other.kwargs
+                self.model_type == other.model_type and
+                self.model_name == other.model_name and
+                self.strategy_type == other.strategy_type and
+                self.parser_type == other.parser_type and
+                self.max_tokens == other.max_tokens and
+                self.temperature == other.temperature and
+                self.kwargs == other.kwargs
         )
-    
+
     def __str__(self) -> str:
         """
         String representation of the configuration.
@@ -420,7 +423,7 @@ class LLMConfiguration:
                 f"model_name={self.model_name}, "
                 f"strategy_type={self.strategy_type}, "
                 f"parser_type={self.parser_type.name})")
-    
+
     def __repr__(self) -> str:
         """
         Detailed string representation of the configuration.
@@ -436,7 +439,7 @@ class LLMConfiguration:
                 f"max_tokens={repr(self.max_tokens)}, "
                 f"temperature={repr(self.temperature)}, "
                 f"kwargs={repr(self.kwargs)})")
-    
+
     def get_compatible_models(self) -> List[str]:
         """
         Get a list of models compatible with the current configuration.
@@ -446,7 +449,7 @@ class LLMConfiguration:
         """
         # Import here to avoid circular imports
         from rvandroid.config.component_configurator import ComponentConfigurator
-        
+
         try:
             # Get the registry for this model type
             registry = ComponentConfigurator._registries['llm']

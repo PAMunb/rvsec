@@ -5,7 +5,7 @@ import json
 from typing import Dict, Any, List
 
 from rvandroid.llm.adapter import MCPAdapter
-from rvandroid.llm.data_structures import MCPMessage, MCPRole, MCPTextContent
+from rvandroid.llm.data_structures import LLMMessage, LLMRole, LLMTextContent
 
 
 class OllamaAdapter(MCPAdapter):
@@ -18,7 +18,7 @@ class OllamaAdapter(MCPAdapter):
     parameters.
     """
 
-    def prepare_messages(self, messages: List[MCPMessage]) -> Dict[str, Any]:
+    def prepare_messages(self, messages: List[LLMMessage]) -> Dict[str, Any]:
         """
         Convert MCP messages to Ollama format for chat API.
         
@@ -69,7 +69,7 @@ class OllamaAdapter(MCPAdapter):
     #
     #     return ollama_config
 
-    def parse_response(self, response: Any) -> MCPMessage:
+    def parse_response(self, response: Any) -> LLMMessage:
         """
         Parse Ollama response into MCP message.
         
@@ -79,15 +79,15 @@ class OllamaAdapter(MCPAdapter):
             response: Response from Ollama API
             
         Returns:
-            MCPMessage with parsed response
+            LLMMessage with parsed response
         """
         if isinstance(response, dict):
             # Handle chat API format
             if "message" in response:
                 content = response.get("message", {}).get("content", "")
-                return MCPMessage(
-                    role=MCPRole.ASSISTANT,
-                    content=[MCPTextContent(text=content)]
+                return LLMMessage(
+                    role=LLMRole.ASSISTANT,
+                    content=[LLMTextContent(text=content)]
                 )
             # Handle generate API format (legacy)
             elif "response" in response:
@@ -99,12 +99,12 @@ class OllamaAdapter(MCPAdapter):
         else:
             text = str(response)
             
-        return MCPMessage(
-            role=MCPRole.ASSISTANT,
-            content=[MCPTextContent(text=text)]
+        return LLMMessage(
+            role=LLMRole.ASSISTANT,
+            content=[LLMTextContent(text=text)]
         )
 
-    # def validate_request(self, messages: List[MCPMessage], config: MCPConfiguration) -> bool:
+    # def validate_request(self, messages: List[LLMMessage], config: MCPConfiguration) -> bool:
     #     """
     #     Validate that messages and config are compatible with Ollama.
     #
@@ -126,7 +126,7 @@ class OllamaAdapter(MCPAdapter):
     #     # Check for unsupported content types
     #     for message in messages:
     #         for content in message.content:
-    #             if not isinstance(content, MCPTextContent):
+    #             if not isinstance(content, LLMTextContent):
     #                 self.logger.warning(f"Ollama does not support content type: {type(content)}")
     #                 return False
     #
