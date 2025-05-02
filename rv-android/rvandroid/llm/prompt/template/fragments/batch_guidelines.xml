@@ -2,7 +2,7 @@
 <fragment name="batch_guidelines">
   <![CDATA[
 BATCH GENERATION GUIDELINES:
-- Include 2-10 actions in your batch (more for complex patterns, fewer for simple ones)
+- Include 1-10 actions in your batch (more for complex patterns, fewer for simple ones)
 - Ensure actions flow logically from one to the next
 - Focus on completing a cohesive task or interaction sequence
 - Make sure all actions in the batch are currently available on the screen

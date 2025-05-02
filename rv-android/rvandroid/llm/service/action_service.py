@@ -1,3 +1,4 @@
+# rvandroid/llm/service/action_service.py
 """LLM action service for the prompt system.
 
 This module defines the LLMActionService class, which orchestrates the
@@ -17,7 +18,6 @@ from rvandroid.llm.service.action_generator import ActionGenerator
 from rvandroid.llm.service.response_processor import ResponseProcessor
 from rvandroid.llm.service.state_enricher import StateEnricher
 from rvandroid.llm.service.transition_manager import TransitionManager
-from rvandroid.parser.screen.visitor.model import ItemAction
 from rvandroid.util.error.error_handler import ErrorHandler
 from rvandroid.util.logging.constants import CONTEXT_COMPONENT
 from rvandroid.util.logging.manager import LoggingManager
@@ -26,26 +26,28 @@ from rvandroid.util.performance_monitor import PerformanceMonitor
 
 class LLMActionService:
     """Orchestrates the AI-driven test action generation system.
-    
+
     This service coordinates the entire process of generating testing actions
     from the current application state, including:
     - Enriching the state with additional information
     - Selecting the appropriate prompt strategy
     - Generating prompts using the PromptFramework
     - Processing LLM responses into executable actions
-    
+
     ### Architectural Decisions:
     - Implements a facade pattern to coordinate specialized components
     - Follows the Single Responsibility Principle by delegating specialized functions
     - Maintains minimal direct dependencies through component-based approach
     - Enables configurability through dependency injection
     - Uses the unified PromptFramework for standardized LLM interactions
-    
+    - Processes all LLM responses in a consistent format with an "actions" array
+
     ### Role in the System:
     - Provides a unified interface for state processing and action generation
     - Coordinates the flow between state analysis, LLM interaction, and action generation
     - Manages lifecycle of AI-driven testing operations
     - Integrates with system-wide services like event bus and performance monitoring
+    - Ensures consistent handling of both single action and batch action strategies
     """
 
     def __init__(
@@ -55,7 +57,7 @@ class LLMActionService:
             **model_kwargs
     ):
         """Initialize the LLM action service with its component system.
-        
+
         Args:
             static_data: Static analysis data for the application (optional)
             config: ComponentConfigurator instance
@@ -114,13 +116,13 @@ class LLMActionService:
 
     def process_state(self, state: Dict[str, Any]) -> List[Dict[str, Any]]:
         """Process the current application state to generate AI-driven actions.
-        
+
         This method coordinates specialized components to analyze the app state,
         generate prompts, interact with the LLM, parse responses, and produce actions.
-        
+
         Args:
             state: Dictionary representing the current application state
-            
+
         Returns:
             List of action dictionaries for test automation system execution
         """
@@ -131,7 +133,8 @@ class LLMActionService:
             ContextEntry.APP_ACTIVITY: state[StateEntry.ACTIVITY]
         }
 
-        self.logger.info(f"Processing state for app: {state[StateEntry.PACKAGE_NAME]}, activity: {state[StateEntry.ACTIVITY]}")
+        self.logger.info(
+            f"Processing state for app: {state[StateEntry.PACKAGE_NAME]}, activity: {state[StateEntry.ACTIVITY]}")
 
         # Overall processing time measurement
         with self.performance_monitor.measure_time("state_processing_total", context):
@@ -144,17 +147,20 @@ class LLMActionService:
 
                 # Generate prompt and get LLM response
                 with self.performance_monitor.measure_time("llm_interaction", context):
-                    # TODO criar o contexto direito
+                    # Create prompt context
                     prompt_context = self._create_prompt_context(enriched_state)
 
-                    messages = self.framework.generate_mcp_prompt(enriched_state, prompt_context)
+                    # Generate prompt messages
+                    messages = self.framework.generate_prompt(enriched_state, prompt_context)
 
                     # Record prompt metrics if possible
                     self.record_prompt_metrics(messages, context)
 
+                    # Get response from LLM
                     response: LLMResponse = self.llm_manager.generate(messages, self.config)
                     self.logger.debug(f"Received response: {response}")
 
+                    # Record response metrics
                     self.performance_monitor.record_metric(
                         name="response_length",
                         value=response.total_chars(),
@@ -171,14 +177,8 @@ class LLMActionService:
                     # Extract response content
                     response_text = response.content if hasattr(response, 'content') else str(response)
 
-                    # Get available action IDs
-                    available_actions: Dict[int, ItemAction] = enriched_state.get(StateEntry.AVAILABLE_ACTIONS, {})
-                    available_action_ids = [str(action) for action in available_actions.keys()]
-
                     # Process response into action descriptions
-                    actions, errors = self.response_processor.process_response(
-                        response_text, available_action_ids, enriched_state
-                    )
+                    actions, errors = self.response_processor.process_response(response_text, enriched_state)
 
                     # Record parsing metrics
                     self.performance_monitor.record_metric(
@@ -190,6 +190,22 @@ class LLMActionService:
                     # Report any errors
                     for error in errors:
                         self.logger.warning(f"Response parsing issue: {error}")
+
+                    # Special handling for batch strategies to extract pattern information
+                    if self.get_current_strategy_type() == PromptStrategyType.BATCH_ACTION:
+                        try:
+                            import json
+                            data = json.loads(self.parser.extract_json(response_text))
+                            if "pattern_type" in data:
+                                pattern_type = data["pattern_type"]
+                                self.logger.info(f"Detected UI pattern in batch response: {pattern_type}")
+
+                                # Store pattern information in state
+                                enriched_state["batch_pattern_type"] = pattern_type
+                                if "batch_explanation" in data:
+                                    enriched_state["batch_explanation"] = data["batch_explanation"]
+                        except Exception as e:
+                            self.logger.warning(f"Failed to extract pattern information: {e}")
 
                     # Convert action descriptions to executable actions
                     droidbot_actions = self.action_generator.create_actions(actions, enriched_state)
@@ -225,32 +241,37 @@ class LLMActionService:
                 return self.action_generator.generate_fallback_actions(state)
 
     def _initialize_state(self, state: Dict[str, Any]):
+        """Initialize state with basic information.
+
+        Args:
+            state: Current application state
+        """
         app_package = state.get(StateEntry.PACKAGE_NAME, "unknown")
         app_activity = state.get(StateEntry.ACTIVITY, "unknown").replace("/", "")
+        state[StateEntry.PACKAGE_NAME] = app_package
         state[StateEntry.ACTIVITY] = app_activity
 
     def _create_prompt_context(self, state: Dict[str, Any]) -> Dict[str, Any]:
         """Create context dictionary for prompt generation.
-        
+
         Args:
             state: Current application state.
-            
+
         Returns:
             Context dictionary with relevant information.
         """
         return {
             ContextEntry.APP_PACKAGE: state.get(StateEntry.PACKAGE_NAME, ""),
             ContextEntry.APP_ACTIVITY: state.get(StateEntry.ACTIVITY, ""),
-            # TODO
             ContextEntry.ADDITIONAL_GUIDELINES: state.get(ContextEntry.ADDITIONAL_GUIDELINES, ""),
             ContextEntry.TESTING_HISTORY: state.get("testing_history", "")
         }
 
     def get_current_strategy_type(self) -> str:
         """Get the current strategy type.
-        
+
         Used by the server to include strategy metadata in responses.
-        
+
         Returns:
             String indicating the current strategy type.
         """
@@ -265,70 +286,25 @@ class LLMActionService:
 
     def get_detected_pattern_info(self) -> Dict[str, Any]:
         """Get information about the most recently detected UI pattern.
-        
+
         Used by the server to include pattern metadata in responses.
-        
+
         Returns:
             Dictionary with pattern type and confidence information.
         """
         return None
 
-    # TODO deprecated
-    # def update_config(self,
-    #                   temperature: Optional[float] = None,
-    #                   max_tokens: Optional[int] = None) -> None:
-    #     """Update configuration parameters.
-    #
-    #     Args:
-    #         temperature: Optional new temperature value
-    #         max_tokens: Optional new max_tokens value
-    #     """
-    #     if not self.model:
-    #         self.logger.warning("Cannot update config: No model available")
-    #         return
-    #
-    #     if temperature is not None:
-    #         if hasattr(self.model, 'update_config'):
-    #             self.model.update_config(temperature=temperature)
-    #             self.logger.info(f"Updated temperature to {temperature}")
-    #         else:
-    #             self.logger.warning("Model does not support updating temperature")
-    #
-    #     if max_tokens is not None:
-    #         if hasattr(self.model, 'update_config'):
-    #             self.model.update_config(max_tokens=max_tokens)
-    #             self.logger.info(f"Updated max_tokens to {max_tokens}")
-    #         else:
-    #             self.logger.warning("Model does not support updating max_tokens")
-
-    # TODO deprecated
-    # def cleanup(self):
-    #     """Clean up resources used by the service and all its components."""
-    #     self.logger.info("Cleaning up LLM Action Service resources")
-    #
-    #     # Save transition data if needed
-    #     # self.transition_manager.save()
-    #
-    #     # Clean up the model if it has a cleanup method
-    #     if self.model and hasattr(self.model, 'cleanup'):
-    #         try:
-    #             self.logger.info("Cleaning up LLM model")
-    #             self.model.cleanup()
-    #         except Exception as e:
-    #             self.logger.warning(f"Error cleaning up model: {e}")
-    #
-    #     # Publish service shutdown event
-    #     self.event_bus.publish_analysis_event(
-    #         EventType.EXPERIMENT_COMPLETED,
-    #         data={"service": "LLMActionService"},
-    #         source="LLMActionService"
-    #     )
-
     def record_prompt_metrics(self, messages: List[LLMMessage], context) -> None:
+        """Record metrics about prompt size and content.
+
+        Args:
+            messages: List of LLMMessage objects
+            context: Context for metrics
+        """
         for message in messages:
             self.performance_monitor.record_metric(
                 name=f"prompt_length_{message.role}",
                 value=len(message.content),
                 unit="chars",
                 context=context
-                )
+            )

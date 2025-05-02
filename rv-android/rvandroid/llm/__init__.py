@@ -22,20 +22,18 @@ This design enables easy switching between different model implementations
 while maintaining a consistent interface for the RV-Android system.
 """
 
+# Import adapters
+from rvandroid.llm.adapters import *
 # Import public classes for easy access
 from rvandroid.llm.data_structures import LLMMessage, LLMRole
 from rvandroid.llm.language_model import LanguageModel
 
-# Import adapters
-from rvandroid.llm.adapters import *
 
 # We'll register models later to avoid circular imports
 def register_models():
     """Register all model implementations"""
     from rvandroid.llm.ollama_llm import register as register_ollama
-    from rvandroid.llm.dspy_llm import register as register_dspy
     from rvandroid.llm.huggingface_llm import register as register_huggingface
-    
+
     register_ollama()
-    register_dspy()
     register_huggingface()

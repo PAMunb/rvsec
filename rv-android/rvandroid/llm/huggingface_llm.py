@@ -153,7 +153,7 @@ class HuggingFaceLLM(LanguageModel):
     #     # Use synchronous implementation for now
     #     return self.generate_sync(messages, config)
 
-    def generate_sync(self, messages: List[LLMMessage], config = None) -> LLMMessage:
+    def generate(self, messages: List[LLMMessage], config = None) -> LLMMessage:
         """
         Generate text based on the input messages synchronously using MCP.
 

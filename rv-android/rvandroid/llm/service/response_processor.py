@@ -4,7 +4,10 @@ from typing import Dict, List, Any, Optional, Tuple
 
 from rvandroid.config.component_configurator import ComponentConfigurator
 from rvandroid.experiment.event.bus import EventBus
+from rvandroid.llm.constants import StateEntry
 from rvandroid.llm.response_parser import ResponseParser
+from rvandroid.parser.screen.visitor.model import ItemAction
+from rvandroid.util.error.error_handler import ErrorHandler
 from rvandroid.util.logging.constants import CONTEXT_COMPONENT
 from rvandroid.util.logging.manager import LoggingManager
 from rvandroid.util.performance_monitor import PerformanceMonitor
@@ -15,16 +18,18 @@ class ResponseProcessor:
     Processes and validates LLM responses to extract viable actions.
 
     ### Architectural Decisions:
-    - Specialized component focusing solely on response processing
-    - Implements robust error handling and fallback mechanisms
-    - Provides response validation and transformation capabilities
-    - Separates response processing from action generation
+    - Implements a unified response processing approach for all prompt strategies
+    - Uses a consistent JSON format with an "actions" array for all strategies
+    - Applies strategy-specific validation rules to each response
+    - Provides robust error recovery and repair mechanisms
+    - Maintains detailed logging and performance metrics
 
     ### Role in the System:
     - Parses and validates LLM responses into structured actions
     - Handles malformed responses and implements recovery strategies
-    - Transforms LLM outputs into standardized action formats
+    - Enforces strategy-specific constraints (e.g., single action limit)
     - Provides detailed validation feedback for response quality
+    - Integrates with the error handling and performance monitoring subsystems
     """
 
     def __init__(self, config: ComponentConfigurator):
@@ -37,6 +42,7 @@ class ResponseProcessor:
         # Get system services
         self.event_bus = EventBus.get_instance()
         self.performance_monitor = PerformanceMonitor.get_instance()
+        self.error_handler = ErrorHandler.get_instance()
         logging_manager = LoggingManager.get_instance()
 
         # Configure logging
@@ -56,20 +62,18 @@ class ResponseProcessor:
         self.single_action_mode = False
         if strategy_class:
             class_name = strategy_class.__name__
-            self.single_action_mode = "SingleAction" in class_name
+            self.single_action_mode = "StandardStrategy" in class_name
 
         self.logger.info(f"Response processor initialized (single_action_mode={self.single_action_mode})")
 
     def process_response(self,
                          response: str,
-                         available_action_ids: List[str],
                          state: Dict[str, Any]) -> Tuple[List[Dict[str, Any]], List[str]]:
         """
         Process LLM response to extract valid actions.
 
         Args:
             response: LLM response text
-            available_action_ids: List of valid action IDs
             state: Current application state
 
         Returns:
@@ -80,45 +84,100 @@ class ResponseProcessor:
         with self.performance_monitor.measure_time("response_parsing", context):
             self.logger.debug(f"Processing LLM response of length {len(response)}")
 
+            # Get available action IDs
+            available_actions: Dict[int, ItemAction] = state.get(StateEntry.AVAILABLE_ACTIONS, {})
+            available_action_ids = [str(action) for action in available_actions.keys()]
+
             try:
                 # Extract JSON from the response
                 json_text = self._extract_json(response)
 
                 # Parse the JSON
-                actions = json.loads(json_text)
+                parsed_data = json.loads(json_text)
 
-                # Validate the actions
-                valid_actions, errors = self._validate_actions(
-                    actions, available_action_ids, self.single_action_mode
-                )
+                # Extract actions from the unified format
+                actions, errors = self._extract_actions(parsed_data, available_action_ids)
 
                 # Log any parsing errors
                 for error in errors:
                     self.logger.warning(f"Response parsing issue: {error}")
 
                 # If no valid actions, try repair
-                if not valid_actions and errors:
+                if not actions and errors:
                     with self.performance_monitor.measure_time("response_repair", context):
                         self.logger.warning("Primary parsing failed, attempting to repair response")
                         repaired_json = self._try_repair_response(response)
                         if repaired_json:
                             try:
-                                repaired_actions = json.loads(repaired_json)
-                                valid_actions, repair_errors = self._validate_actions(
-                                    repaired_actions, available_action_ids, self.single_action_mode
+                                repaired_data = json.loads(repaired_json)
+                                fixed_actions, repair_errors = self._extract_actions(
+                                    repaired_data, available_action_ids
                                 )
                                 self.logger.info("Successfully recovered actions from repaired response")
 
                                 # Add repair errors to original errors
                                 errors.extend(repair_errors)
+
+                                # Use the repaired actions if we found any
+                                if fixed_actions:
+                                    actions = fixed_actions
                             except Exception as e:
                                 errors.append(f"Error parsing repaired JSON: {e}")
 
-                return valid_actions, errors
+                return actions, errors
 
             except Exception as e:
                 self.logger.error(f"Error processing response: {e}", exc_info=True)
+                self.error_handler.handle_error(
+                    e,
+                    context={
+                        "component": "ResponseProcessor",
+                        "function": "process_response"
+                    }
+                )
                 return [], [f"Response processing error: {str(e)}"]
+
+    def _extract_actions(self,
+                         parsed_data: Dict[str, Any],
+                         available_action_ids: List[str]) -> Tuple[List[Dict[str, Any]], List[str]]:
+        """
+        Extract actions from the parsed JSON data.
+
+        Works with the unified format where actions are contained in an "actions" array.
+
+        Args:
+            parsed_data: Parsed JSON data
+            available_action_ids: List of valid action IDs
+
+        Returns:
+            Tuple of (actions, errors)
+        """
+        errors = []
+
+        # Check for the actions array in the unified format
+        if "actions" not in parsed_data or not isinstance(parsed_data["actions"], list):
+            errors.append(f"Missing or invalid 'actions' array in response")
+
+            # Check if the response might be in the old single-action format
+            if "action_id" in parsed_data:
+                self.logger.info("Found legacy single-action format, attempting to convert")
+                # Convert to the new format
+                return [parsed_data], errors
+
+            return [], errors
+
+        # Extract actions array
+        actions = parsed_data["actions"]
+
+        # Validate actions
+        valid_actions, validation_errors = self._validate_actions(
+            actions, available_action_ids, self.single_action_mode
+        )
+
+        # Add validation errors to the errors list
+        errors.extend(validation_errors)
+
+        return valid_actions, errors
 
     def _extract_json(self, text: str) -> str:
         """
@@ -169,6 +228,9 @@ class ResponseProcessor:
         if single_action_mode and len(actions) > 1:
             actions = actions[:1]  # Take only the first action
             errors.append("Received multiple actions in single action mode. Using only the first action.")
+        elif single_action_mode and len(actions) == 0:
+            errors.append("No actions found in single action mode. Expected exactly one action.")
+            return valid_actions, errors
 
         # Validate each action
         for i, action in enumerate(actions):
@@ -184,7 +246,7 @@ class ResponseProcessor:
             # Validate action_id
             action_id = str(action["action_id"])
             self.logger.debug(f"Validating action_id: {action_id}")
-            
+
             if not available_action_ids:
                 self.logger.warning("No available action IDs to validate against")
                 # If we don't have action IDs to validate against, accept the action conditionally
@@ -232,4 +294,3 @@ class ResponseProcessor:
         """
         # Use the parser's repair method
         return self.parser.try_repair_response(response)
-   

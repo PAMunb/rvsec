@@ -1,5 +1,5 @@
 # rvandroid/llm/language_model.py
-"""MCP-based Language Model interface."""
+"""Language Model interface."""
 
 from abc import ABC, abstractmethod
 from typing import List, Optional
@@ -13,7 +13,7 @@ from rvandroid.util.logging.manager import LoggingManager
 
 class LanguageModel(ABC):
     """
-    Base class for language model implementations using the Model Context Protocol.
+    Base class for language model implementations.
     
     This abstract base class defines the standard interface for all language model
     implementations in the RV-Android system. All models must implement this interface
@@ -65,27 +65,10 @@ class LanguageModel(ABC):
         """
         pass
 
-    # TODO deprecated
-    # @abstractmethod
-    # async def generate(self,
-    #                    messages: List[LLMMessage],
-    #                    config: Optional[LLMConfiguration] = None) -> LLMMessage:
-    #     """
-    #     Generate a response using the language model.
-    #
-    #     Args:
-    #         messages: List of MCP messages representing the conversation
-    #         config: Optional configuration that overrides instance config
-    #
-    #     Returns:
-    #         LLMMessage containing the generated response
-    #     """
-    #     pass
-
     @abstractmethod
-    def generate_sync(self,
-                      messages: List[LLMMessage],
-                      config: Optional[LLMConfiguration] = None) -> LLMResponse:
+    def generate(self,
+                 messages: List[LLMMessage],
+                 config: Optional[LLMConfiguration] = None) -> LLMResponse:
         """
         Generate a response synchronously.
         

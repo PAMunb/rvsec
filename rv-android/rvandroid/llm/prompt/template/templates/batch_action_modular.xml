@@ -15,19 +15,13 @@
   <roles>
     <s>
       <variable name="strategy_specific_instructions">
-        <![CDATA[
-{#include batch_instructions}
-        ]]>
+        <![CDATA[ {#include batch_instructions} ]]>
       </variable>
       <variable name="response_format_instructions">
-        <![CDATA[
-{#include batch_format}
-        ]]>
+        <![CDATA[ {#include batch_format} ]]>
       </variable>
       <variable name="additional_guidelines">
-        <![CDATA[
-{#include batch_guidelines}
-        ]]>
+        <![CDATA[ {#include batch_guidelines} ]]>
       </variable>
     </s>
     <user><![CDATA[

@@ -625,7 +625,7 @@ def tmp_001():
     }
 
     # Generate prompt using standard strategy
-    messages = framework.generate_mcp_prompt(state, context)
+    messages = framework.generate_prompt(state, context)
 
     print(f"Generated {len(messages)} messages for the LLM")
     for i, message in enumerate(messages):
@@ -648,7 +648,7 @@ def tmp_002(droidbot_state_file, screenshot_path, package, static_data):
         model=OllamaLLM.QWEN,
         base_url="http://localhost:11434"
     )
-    configurator.set_strategy(PromptStrategyType.BATCH_ACTION)
+    configurator.set_strategy(PromptStrategyType.STANDARD)
     configurator.set_parser(ScreenParserType.DROIDBOT)
     configurator.set_visitor(VisitorFactory.DEFAULT)
 
@@ -656,7 +656,7 @@ def tmp_002(droidbot_state_file, screenshot_path, package, static_data):
 
     state = enrich_state(state, static_data, configurator)
 
-    prompt = prompt_framework.generate_mcp_prompt(state)
+    prompt = prompt_framework.generate_prompt(state)
     # print(prompt)
 
     for msg in prompt:

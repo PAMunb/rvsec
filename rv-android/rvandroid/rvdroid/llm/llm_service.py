@@ -12,7 +12,7 @@ from typing import Dict, Any, List, Optional
 from rvandroid.domain.static import StaticAnalysisData
 from rvandroid.llm.language_model import LanguageModel
 from rvandroid.config.component_configurator import ComponentConfigurator
-from rvandroid.llm.data_structures import MCPConfiguration, LLMMessage, LLMRole, LLMTextContent
+from rvandroid.llm.data_structures import LLMMessage, LLMRole, LLMTextContent
 from rvandroid.rvdroid.llm.context.context_builder import ContextBuilder
 from rvandroid.rvdroid.llm.directives.directive_parser import DirectiveParser
 from rvandroid.rvdroid.llm.prompts.prompt_manager import PromptManager
@@ -169,7 +169,7 @@ class LLMService:
                 context = self.context_builder.build_context(state_data, exploration_context)
 
                 # Generate MCP messages
-                messages = self.prompt_manager.generate_mcp_messages(query_type, context)
+                messages = self.prompt_manager.generate_llm_messages(query_type, context)
 
                 # Set max_tokens
                 max_tokens = self.prompt_manager.get_max_tokens(query_type)
@@ -181,7 +181,7 @@ class LLMService:
                 # Measure LLM call time
                 with self.performance_monitor.measure_time("llm_call"):
                     # Use MCP generate_sync method
-                    response_message = self.model.generate_sync(messages, self.model_config)
+                    response_message = self.model.generate(messages, self.model_config)
                     response = response_message.get_text_content()
 
                 # Parse directives from response
@@ -239,7 +239,7 @@ class LLMService:
             context = self.context_builder.build_action_context(action_data, result, state_data)
 
             # Generate MCP messages
-            messages = self.prompt_manager.generate_mcp_messages("action_feedback", context)
+            messages = self.prompt_manager.generate_llm_messages("action_feedback", context)
 
             # Get max_tokens
             max_tokens = self.prompt_manager.get_max_tokens("action_feedback")
@@ -249,7 +249,7 @@ class LLMService:
             self.logger.info("Requesting action feedback from LLM using MCP")
             
             # Use MCP generate_sync method
-            response_message = self.model.generate_sync(messages, self.model_config)
+            response_message = self.model.generate(messages, self.model_config)
             response = response_message.get_text_content()
 
             # Parse suggestions from response
@@ -297,7 +297,7 @@ class LLMService:
             context = self.context_builder.build_strategy_context(state_data, exploration_history)
 
             # Generate MCP messages
-            messages = self.prompt_manager.generate_mcp_messages("strategy", context)
+            messages = self.prompt_manager.generate_llm_messages("strategy", context)
 
             # Get max_tokens
             max_tokens = self.prompt_manager.get_max_tokens("strategy")
@@ -307,7 +307,7 @@ class LLMService:
             self.logger.info("Requesting exploration strategy from LLM using MCP")
             
             # Use MCP generate_sync method
-            response_message = self.model.generate_sync(messages, self.model_config)
+            response_message = self.model.generate(messages, self.model_config)
             response = response_message.get_text_content()
 
             # Parse strategy from response
@@ -352,7 +352,7 @@ class LLMService:
             context = self.context_builder.build_monitored_operations_context(state_data, monitored_operations)
 
             # Generate MCP messages
-            messages = self.prompt_manager.generate_mcp_messages("monitored_operations", context)
+            messages = self.prompt_manager.generate_llm_messages("monitored_operations", context)
 
             # Get max_tokens
             max_tokens = self.prompt_manager.get_max_tokens("monitored_operations")
@@ -362,7 +362,7 @@ class LLMService:
             self.logger.info("Requesting monitored operations interpretation from LLM using MCP")
             
             # Use MCP generate_sync method
-            response_message = self.model.generate_sync(messages, self.model_config)
+            response_message = self.model.generate(messages, self.model_config)
             response = response_message.get_text_content()
 
             # Parse monitored operations interpretation from response

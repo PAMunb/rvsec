@@ -9,6 +9,8 @@ from rvandroid.commands.command import Command
 from rvandroid.config.component_configurator import ComponentConfigurator
 from rvandroid.config.configuration import Configuration
 from rvandroid.experiment.task.task_model import Task
+from rvandroid.llm.constants import PromptStrategyType, ScreenParserType
+from rvandroid.parser.screen.visitor.visitor_factory import VisitorFactory
 from rvandroid.server import Server
 from rvandroid.tools.configurable_tool import ConfigurableTool
 from rvandroid.experiment.event.bus import EventBus
@@ -51,9 +53,9 @@ class ToolSpec(ConfigurableTool):
 
         # Set default LLM configuration
         self.component_config.set_llm("ollama", "llama3.2:3b")
-        self.component_config.set_strategy("flow_based_batch_action")
-        self.component_config.set_visitor("enhanced")
-        self.component_config.set_parser("droidbot")
+        self.component_config.set_strategy(PromptStrategyType.BATCH_ACTION)
+        self.component_config.set_parser(ScreenParserType.DROIDBOT)
+        self.component_config.set_visitor(VisitorFactory.DEFAULT)
 
     def configure_tool_specific(self, config):
         """

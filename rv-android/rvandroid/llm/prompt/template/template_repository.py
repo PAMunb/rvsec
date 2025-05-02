@@ -6,13 +6,12 @@ loading, managing, and providing access to prompt templates.
 
 import json
 import os
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional
 
 from rvandroid.config.component_configurator import ComponentConfigurator
 from rvandroid.util.error.error_handler import ErrorHandler
 from rvandroid.util.logging.constants import CONTEXT_COMPONENT
 from rvandroid.util.logging.manager import LoggingManager
-
 from .prompt_template import PromptTemplate
 
 
@@ -22,7 +21,7 @@ class TemplateRepository:
     The TemplateRepository is responsible for loading templates from JSON files,
     providing access to templates, and creating messages for LLM communication.
     """
-    
+
     def __init__(self, template_dir: Optional[str] = None):
         """Initialize the template repository.
         
@@ -37,24 +36,24 @@ class TemplateRepository:
             "llm.prompt.template.repository",
             {CONTEXT_COMPONENT: "TemplateRepository"}
         )
-        
+
         # Set up error handling
         self.error_handler = ErrorHandler.get_instance()
-        
+
         # Set template directory
         self.template_dir = template_dir or os.path.join(
             os.path.dirname(__file__), "templates")
-        
+
         # Ensure template directory exists
         os.makedirs(self.template_dir, exist_ok=True)
-        
+
         # Initialize template cache
         self.templates: Dict[str, Dict[str, Any]] = {}
         self.template_objects: Dict[str, PromptTemplate] = {}
-        
+
         # Load templates
         self._load_templates()
-    
+
     def configure(self, config: ComponentConfigurator) -> None:
         """Configure the template repository with the given configuration.
         
@@ -62,7 +61,7 @@ class TemplateRepository:
             config: The configuration to use.
         """
         self.logger.info("Configuring TemplateRepository")
-        
+
         # Check if custom template directory is specified through llm config
         # The ComponentConfigurator doesn't have a get_value method
         # Let's check if it has the attribute directly
@@ -71,38 +70,38 @@ class TemplateRepository:
             if custom_template_dir:
                 self.template_dir = custom_template_dir
                 self._load_templates()
-    
+
     def _load_templates(self) -> None:
         """Load templates from JSON files in the template directory."""
         self.logger.info(f"Loading templates from {self.template_dir}")
-        
+
         try:
             # If the directory doesn't exist or is empty, create default templates
             if not os.path.exists(self.template_dir) or not os.listdir(self.template_dir):
                 self.logger.info("Template directory empty or not found, creating default templates")
                 self._create_default_templates()
-            
+
             # Load all JSON template files
             for filename in os.listdir(self.template_dir):
                 if filename.endswith(".json"):
                     template_path = os.path.join(self.template_dir, filename)
                     template_name = filename.replace(".json", "")
-                    
+
                     try:
                         with open(template_path, "r") as f:
                             template_data = json.load(f)
                             self.templates[template_name] = template_data
-                            
+
                             # Create template objects for each role if they exist
                             for role in ["system", "user", "assistant"]:
                                 if role in template_data:
                                     template_key = f"{template_name}.{role}"
                                     self.template_objects[template_key] = PromptTemplate(
-                                        template_data[role], 
+                                        template_data[role],
                                         template_key,
                                         required_variables=template_data.get("required_variables", [])
                                     )
-                            
+
                             self.logger.debug(f"Loaded template: {template_name}")
                     except Exception as e:
                         self.logger.error(f"Error loading template {template_name}: {e}")
@@ -113,7 +112,7 @@ class TemplateRepository:
                                 "template_path": template_path
                             }
                         )
-            
+
             self.logger.info(f"Loaded {len(self.templates)} templates")
         except Exception as e:
             self.logger.error(f"Error loading templates: {e}", exc_info=True)
@@ -124,11 +123,11 @@ class TemplateRepository:
                     "template_dir": self.template_dir
                 }
             )
-    
+
     def _create_default_templates(self) -> None:
         """Create default templates if the template directory is empty."""
         os.makedirs(self.template_dir, exist_ok=True)
-        
+
         # Define default templates
         default_templates = {
             "exploration": {
@@ -215,7 +214,7 @@ class TemplateRepository:
                 "max_tokens": 700
             }
         }
-        
+
         # Write default templates to files
         for name, template in default_templates.items():
             template_path = os.path.join(self.template_dir, f"{name}.json")
@@ -232,7 +231,7 @@ class TemplateRepository:
                         "template_name": name
                     }
                 )
-    
+
     def get_template(self, name: str) -> Optional[Dict[str, Any]]:
         """Get a template by name.
         
@@ -243,7 +242,7 @@ class TemplateRepository:
             The template dictionary, or None if not found.
         """
         return self.templates.get(name)
-    
+
     def get_template_object(self, name: str, role: str) -> Optional[PromptTemplate]:
         """Get a template object by name and role.
         
@@ -256,7 +255,7 @@ class TemplateRepository:
         """
         template_key = f"{name}.{role}"
         return self.template_objects.get(template_key)
-    
+
     def update_template(self, name: str, template_data: Dict[str, Any]) -> None:
         """Update or create a template.
         
@@ -267,22 +266,22 @@ class TemplateRepository:
         try:
             # Save the template data
             self.templates[name] = template_data
-            
+
             # Create template objects for each role if they exist
             for role in ["system", "user", "assistant"]:
                 if role in template_data:
                     template_key = f"{name}.{role}"
                     self.template_objects[template_key] = PromptTemplate(
-                        template_data[role], 
+                        template_data[role],
                         template_key,
                         required_variables=template_data.get("required_variables", [])
                     )
-            
+
             # Write the template to a file
             template_path = os.path.join(self.template_dir, f"{name}.json")
             with open(template_path, "w") as f:
                 json.dump(template_data, f, indent=2)
-            
+
             self.logger.info(f"Updated template: {name}")
         except Exception as e:
             self.logger.error(f"Error updating template {name}: {e}", exc_info=True)
@@ -293,11 +292,11 @@ class TemplateRepository:
                     "template_name": name
                 }
             )
-    
+
     def create_messages(
-        self, 
-        template_name: str, 
-        variables: Dict[str, Any]
+            self,
+            template_name: str,
+            variables: Dict[str, Any]
     ) -> List[Dict[str, str]]:
         """Create a list of messages using the specified template.
         
@@ -311,25 +310,25 @@ class TemplateRepository:
         """
         try:
             template = self.get_template(template_name)
-            
+
             if not template:
                 self.logger.error(f"Template not found: {template_name}")
                 return []
-            
+
             messages = []
-            
+
             # Create messages for each role in the template
             for role in ["system", "user", "assistant"]:
                 if role in template:
                     template_obj = self.get_template_object(template_name, role)
-                    
+
                     if template_obj:
                         content = template_obj.render(variables)
                         messages.append({
                             "role": role,
                             "content": content
                         })
-            
+
             return messages
         except Exception as e:
             self.logger.error(f"Error creating messages from template {template_name}: {e}", exc_info=True)
@@ -341,11 +340,11 @@ class TemplateRepository:
                 }
             )
             return []
-            
-    def create_mcp_messages(
-        self, 
-        template_name: str, 
-        variables: Dict[str, Any]
+
+    def create_llm_messages(
+            self,
+            template_name: str,
+            variables: Dict[str, Any]
     ) -> List["LLMMessage"]:
         """Create a list of LLMMessage objects using the specified template.
         
@@ -357,31 +356,31 @@ class TemplateRepository:
             A list of LLMMessage objects.
         """
         from rvandroid.llm.data_structures import LLMMessage, LLMRole, LLMTextContent
-        
+
         try:
             dict_messages = self.create_messages(template_name, variables)
-            
+
             if not dict_messages:
                 return []
-            
-            mcp_messages = []
+
+            llm_messages = []
             for msg in dict_messages:
                 role_value = msg["role"]
                 content_text = msg["content"]
-                
+
                 # Convert role string to LLMRole enum
                 role = LLMRole(role_value)
-                
+
                 # Create LLMMessage object
-                mcp_message = LLMMessage(
+                llm_message = LLMMessage(
                     role=role,
                     content=[LLMTextContent(text=content_text)]
                 )
-                mcp_messages.append(mcp_message)
-            
-            return mcp_messages
+                llm_messages.append(llm_message)
+
+            return llm_messages
         except Exception as e:
-            self.logger.error(f"Error creating MCP messages from template {template_name}: {e}", exc_info=True)
+            self.logger.error(f"Error creating LLM messages from template {template_name}: {e}", exc_info=True)
             self.error_handler.handle_error(
                 e,
                 context={

@@ -401,9 +401,9 @@ What general guidance can you provide to improve my testing approach, especially
                 "max_tokens": template.get("max_tokens", 500)
             }
 
-    def generate_mcp_messages(self, prompt_type: str, context: Dict[str, Any]) -> List[LLMMessage]:
+    def generate_llm_messages(self, prompt_type: str, context: Dict[str, Any]) -> List[LLMMessage]:
         """
-        Generate prompts in MCP format based on type and context.
+        Generate prompts in LLM format based on type and context.
 
         Args:
             prompt_type: Type of prompt to generate

@@ -96,23 +96,23 @@ class PromptStrategy(abc.ABC):
 
     # TODO deprecated ... deve retornar lista de mensgaens
     @abc.abstractmethod
-    def generate_prompt(
+    def _generate_prompt(
             self,
             state: Dict[str, Any],
             context: Optional[Dict[str, Any]] = None
     ) -> List[Dict[str, str]]:
         """Generate a prompt for the given state and context.
-        
+
         Args:
             state: The current state (e.g., app UI state, test state).
             context: Additional contextual information.
-            
+
         Returns:
             A list of message dictionaries with role and content.
         """
         pass
 
-    def generate_mcp_prompt(
+    def generate_prompt(
             self,
             state: Dict[str, Any],
             context: Optional[Dict[str, Any]] = None
@@ -130,7 +130,7 @@ class PromptStrategy(abc.ABC):
             A list of LLMMessage objects.
         """
         # Get dictionary messages
-        dict_messages = self.generate_prompt(state, context)
+        dict_messages = self._generate_prompt(state, context)
 
         if not dict_messages:
             return []

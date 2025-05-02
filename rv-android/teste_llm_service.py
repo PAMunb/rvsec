@@ -9,7 +9,6 @@ from rvandroid.config.component_configurator import ComponentConfigurator
 from rvandroid.llm.constants import PromptStrategyType, ScreenParserType, VisitorType
 from rvandroid.llm.frontier_models import FrontierModel
 from rvandroid.llm.huggingface_llm import HuggingFaceLLM
-from rvandroid.llm.langchain_llm import LangchainLLM
 from rvandroid.llm.ollama_llm import OllamaLLM
 from rvandroid.llm.service.action_service import LLMActionService
 from rvandroid.parser.static import static_analysis_parser
@@ -19,134 +18,6 @@ def read_droidbot_state(filename: str) -> Dict[str, Any]:
     """Loads a DroidBot state file."""
     with open(filename, 'r') as file:
         return json.load(file)
-
-
-def setup_preset_config(args, configurator):
-    """Configura com base em presets pré-definidos"""
-    preset = args.preset.lower() if args.preset else None
-
-    if preset == "ollama":
-        configurator.set_llm(
-            llm_type=OllamaLLM.NAME,
-            model=OllamaLLM.LLAMA,
-            base_url="http://localhost:11434"
-        )
-        configurator.set_strategy("single_action")
-        configurator.set_parser("droidbot")
-        configurator.set_visitor("enhanced")
-
-    elif preset == "huggingface":
-        configurator.set_llm(
-            llm_type=HuggingFaceLLM.NAME,
-            model=HuggingFaceLLM.LLAMA
-        )
-        configurator.set_strategy("single_action")
-        configurator.set_parser("droidbot")
-        configurator.set_visitor("enhanced")
-
-    elif preset == "dspy":
-        configurator.set_llm(
-            llm_type="dspy",
-            model="llama3.2:3b",
-            base_url="http://localhost:11434",
-            provider="ollama"
-        )
-        configurator.set_strategy("dspy")
-        configurator.set_parser("droidbot")
-        configurator.set_visitor("enhanced")
-
-    elif preset == "langchain":
-        configurator.set_llm(
-            llm_type="langchain",
-            model=LangchainLLM.LLAMA,
-            base_url="http://localhost:11434",
-            provider="ollama",
-            use_json_parser=True,
-            use_memory=False
-        )
-        configurator.set_strategy("single_action")
-        configurator.set_parser("droidbot")
-        configurator.set_visitor("enhanced")
-
-    elif preset == "claude":
-        # Usando Claude com Anthropic API
-        api_key = args.api_key or os.environ.get("ANTHROPIC_API_KEY")
-        if not api_key:
-            print("ERRO: API key da Anthropic não fornecida. Defina --api-key ou a variável ANTHROPIC_API_KEY")
-            sys.exit(1)
-
-        configurator.set_llm(
-            llm_type="frontier",
-            model=FrontierModel.CLAUDE_SONNET,
-            provider="anthropic",
-            api_key=api_key,
-            temperature=0.2
-        )
-        configurator.set_strategy("frontier")
-        configurator.set_parser("droidbot")
-        configurator.set_visitor("enhanced")
-
-    elif preset == "openai":
-        # Usando GPT com OpenAI API
-        api_key = args.api_key or os.environ.get("OPENAI_API_KEY")
-        if not api_key:
-            print("ERRO: API key da OpenAI não fornecida. Defina --api-key ou a variável OPENAI_API_KEY")
-            sys.exit(1)
-
-        configurator.set_llm(
-            llm_type="frontier",
-            model=FrontierModel.GPT_4,
-            provider="openai",
-            api_key=api_key,
-            temperature=0.2
-        )
-        configurator.set_strategy("frontier")
-        configurator.set_parser("droidbot")
-        configurator.set_visitor("enhanced")
-
-    elif preset == "amazon":
-        # Usando Claude no Amazon Bedrock
-        configurator.set_llm(
-            llm_type="frontier",
-            model=FrontierModel.NOVA_SONNET,
-            provider="amazon",
-            region=os.environ.get("AWS_REGION", "us-east-1"),
-            temperature=0.2
-        )
-        configurator.set_strategy("frontier")
-        configurator.set_parser("droidbot")
-        configurator.set_visitor("enhanced")
-
-    elif preset == "google":
-        # Usando Gemini com Google API
-        api_key = args.api_key or os.environ.get("GOOGLE_API_KEY")
-        if not api_key:
-            print("ERRO: API key do Google não fornecida. Defina --api-key ou a variável GOOGLE_API_KEY")
-            sys.exit(1)
-
-        configurator.set_llm(
-            llm_type="frontier",
-            model=FrontierModel.GEMINI_PRO,
-            provider="google",
-            api_key=api_key,
-            temperature=0.2
-        )
-        configurator.set_strategy("frontier")
-        configurator.set_parser("droidbot")
-        configurator.set_visitor("enhanced")
-
-    else:
-        # Se não tiver preset, configura com base nos argumentos diretos
-        configurator.set_llm(
-            llm_type=args.llm,
-            model=args.model,
-            base_url=args.base_url,
-            provider=args.provider,
-            api_key=args.api_key
-        )
-        configurator.set_strategy(args.strategy)
-        configurator.set_parser(args.parser)
-        configurator.set_visitor(args.visitor)
 
 
 if __name__ == '__main__':
@@ -175,10 +46,10 @@ if __name__ == '__main__':
     configurator = ComponentConfigurator(static_data)
     configurator.set_llm(
         llm_type=OllamaLLM.NAME,
-        model=OllamaLLM.LLAMA,
-        base_url="http://192.168.0.18:11434"
+        model=OllamaLLM.GEMMA,
+        base_url="http://127.0.0.1:11434"
     )
-    configurator.set_strategy(PromptStrategyType.STANDARD)
+    configurator.set_strategy(PromptStrategyType.BATCH_ACTION)
     configurator.set_parser(ScreenParserType.DROIDBOT)
     configurator.set_visitor(VisitorType.DEFAULT)
 
@@ -197,4 +68,4 @@ if __name__ == '__main__':
 
     state = read_droidbot_state(droidbot_state_file)
     actions = service.process_state(state)
-    print(f"Actions: {actions}")
+    print(f"\nActions: {actions}")

@@ -176,7 +176,7 @@ class LLMManager:
         # Perform generation with timing
         start_time = time.time()
         try:
-            response: LLMResponse = self.llm.generate_sync(messages, config.llm_config)
+            response: LLMResponse = self.llm.generate(messages, config.llm_config)
             elapsed_time = time.time() - start_time
 
             # Log performance metrics

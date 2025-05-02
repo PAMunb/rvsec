@@ -1,19 +1,29 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <fragment name="standard_format">
   <![CDATA[
-Format your response as a valid JSON object following this schema:
+Format your response as a valid JSON object with an actions array containing one action following this schema:
 {
-  "action_id": "5",  
-  "params": {},  
-  "explanation": "Detailed explanation of why this action was chosen"
+  "actions": [
+    {
+      "action_id": "5",
+      "params": {},
+      "explanation": "Detailed explanation of why this action was chosen"
+    }
+  ]
 }
 
 For actions that require parameters (like SET_TEXT), you must include appropriate values:
 {
-  "action_id": "5",  
-  "params": {"text": "test@example.com"},  
-  "explanation": "Entering a valid email address in the email field"
+  "actions": [
+    {
+      "action_id": "5",
+      "params": {"text": "test@example.com"},
+      "explanation": "Entering a valid email address in the email field"
+    }
+  ]
 }
+
+IMPORTANT: You must select EXACTLY ONE action, so your actions array should contain exactly one element.
 
 DO NOT include any additional text outside of the JSON object. Your response must be valid JSON that can be parsed directly.
   ]]>

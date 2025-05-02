@@ -107,7 +107,7 @@ def tmp_002(droidbot_state_file, screenshot_path, package, static_data):
 
     state = enrich_state(state, static_data, configurator)
 
-    prompt = prompt_framework.generate_mcp_prompt(state)
+    prompt = prompt_framework.generate_prompt(state)
     # print(prompt)
 
     for msg in prompt:

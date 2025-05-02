@@ -51,30 +51,25 @@ class ConfigurationValidator:
     Validator for tool configurations.
     
     Ensures that tool configurations are valid and compatible with
-    the Model Context Protocol (MCP) architecture.
+    the messages architecture.
     
     ### Key Responsibilities:
     - Validates configuration parameters against defined rules
     - Checks compatibility between components
-    - Validates MCP-specific configuration parameters
+    - Validates LLM-specific configuration parameters
     - Provides detailed error messages for invalid configurations
     - Prevents execution of incompatible configurations
     """
     
-    # Define MCP model types
-    MCP_OLLAMA = OllamaLLM.NAME
-    MCP_DSPY = "dspy"
+    # Define LLM model types
+    LLM_OLLAMA = OllamaLLM.NAME
     
-    # MCP models
-    MCP_OLLAMA_MODELS = OllamaLLM.MODELS
-    MCP_DSPY_MODELS = ["llama3.2:3b", "llama3.2:8b", "phi3.5:3.8b", "qwen2.5:3b", "mistral:7b"]
+    # LLM models
+    LLM_OLLAMA_MODELS = OllamaLLM.MODELS
     
     # Define constants for Frontier and other model types
     FRONTIER_NAME = "frontier"
     FRONTIER_MODELS = ["claude-3-sonnet-20240229", "claude-3-opus-20240229"]
-    
-    LANGCHAIN_NAME = "langchain"
-    LANGCHAIN_MODELS = ["llama3.2:3b", "phi3.5:3.8b", "qwen2.5:3b", "mistral:7b"]
     
     # Define known compatibility rules
     TOOL_PARSER_COMPATIBILITY = {
@@ -100,9 +95,7 @@ class ConfigurationValidator:
     
     # Model-specific validation
     MODEL_COMPATIBILITY = {
-        MCP_OLLAMA: MCP_OLLAMA_MODELS,
-        MCP_DSPY: MCP_DSPY_MODELS,
-        LANGCHAIN_NAME: LANGCHAIN_MODELS,
+        LLM_OLLAMA: LLM_OLLAMA_MODELS,
         FRONTIER_NAME: FRONTIER_MODELS
     }
     

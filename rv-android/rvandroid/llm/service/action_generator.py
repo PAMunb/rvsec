@@ -2,8 +2,9 @@
 from typing import Dict, List, Any, Optional, Tuple
 
 from rvandroid.config.component_configurator import ComponentConfigurator
-from rvandroid.experiment.event.bus import EventBus
 from rvandroid.domain.static import StaticAnalysisData
+from rvandroid.experiment.event.bus import EventBus
+from rvandroid.util.error.error_handler import ErrorHandler
 from rvandroid.util.logging.constants import CONTEXT_COMPONENT
 from rvandroid.util.logging.manager import LoggingManager
 from rvandroid.util.performance_monitor import PerformanceMonitor
@@ -18,12 +19,14 @@ class ActionGenerator:
     - Separates action creation from response parsing
     - Implements fallback mechanisms for error cases
     - Provides conversion between different action formats
+    - Supports the unified response format with an "actions" array
 
     ### Role in the System:
     - Transforms parsed LLM responses into executable test actions
     - Handles action formatting for compatibility with test frameworks
     - Provides fallback actions when normal generation fails
     - Ensures actions include necessary metadata and coordinates
+    - Maintains consistent output format regardless of input strategy
     """
 
     def __init__(self, config: ComponentConfigurator, static_data: Optional[StaticAnalysisData] = None):
@@ -37,6 +40,7 @@ class ActionGenerator:
         # Get system services
         self.event_bus = EventBus.get_instance()
         self.performance_monitor = PerformanceMonitor.get_instance()
+        self.error_handler = ErrorHandler.get_instance()
         logging_manager = LoggingManager.get_instance()
 
         # Configure logging
@@ -78,6 +82,13 @@ class ActionGenerator:
 
         except Exception as e:
             self.logger.error(f"Error creating actions: {e}", exc_info=True)
+            self.error_handler.handle_error(
+                e,
+                context={
+                    "component": "ActionGenerator",
+                    "function": "create_actions"
+                }
+            )
             return self.generate_fallback_actions(state)
 
     def generate_fallback_actions(self, state: Dict[str, Any]) -> List[Dict[str, Any]]:
@@ -204,6 +215,14 @@ class ActionGenerator:
 
             except Exception as e:
                 self.logger.error(f"Error converting action {action_data}: {e}", exc_info=True)
+                self.error_handler.handle_error(
+                    e,
+                    context={
+                        "component": "ActionGenerator",
+                        "function": "_convert_to_droidbot_format",
+                        "action_data": str(action_data)
+                    }
+                )
 
         return droidbot_actions
 
@@ -409,4 +428,3 @@ class ActionGenerator:
                 return coords
 
         return None
-   

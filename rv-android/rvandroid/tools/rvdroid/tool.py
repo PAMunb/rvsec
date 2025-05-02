@@ -11,6 +11,8 @@ from rvandroid.commands.command import Command
 # from rvandroid.config.component_configurator import ComponentConfigurator
 from rvandroid.experiment.event.bus import EventBus, EventType
 from rvandroid.experiment.task.task_model import Task, TaskConfig, TaskResult, TaskStatus
+from rvandroid.llm.constants import ScreenParserType
+from rvandroid.parser.screen.visitor.visitor_factory import VisitorFactory
 from rvandroid.rvdroid.core.service import RVDroidService
 from rvandroid.rvdroid.orchestration.lifecycle import LifecycleManager, ExecutionPhase
 from rvandroid.rvdroid.orchestration.recovery import RecoveryManager, ErrorSeverity, RecoveryStrategy
@@ -97,8 +99,8 @@ class RVDroidTool(ConfigurableTool):
             from rvandroid.config.component_configurator import ComponentConfigurator
             self.component_config = ComponentConfigurator()
             # Set defaults
-            self.component_config.set_parser("uiautomator")
-            self.component_config.set_visitor("enhanced")
+            self.component_config.set_parser(ScreenParserType.DROIDBOT)
+            self.component_config.set_visitor(VisitorFactory.DEFAULT)
             
         logger.info(f"RVDroid tool initialized with configuration: {self.component_config.describe_configuration()}")
 

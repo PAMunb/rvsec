@@ -151,9 +151,9 @@ class OllamaLLM(LanguageModel):
     #         self.logger.error(f"Ollama request error: {e}")
     #         raise
 
-    def generate_sync(self,
-                      messages: List[LLMMessage],
-                      config: Optional[LLMConfiguration] = None) -> LLMResponse:
+    def generate(self,
+                 messages: List[LLMMessage],
+                 config: Optional[LLMConfiguration] = None) -> LLMResponse:
         print(f" ***** generate_sync: messages: {type(messages)} ::: {messages}")
         print(f" ***** generate_sync: config: {type(config)} ::: {config}")
         # Prepare messages in a simple format
@@ -181,173 +181,173 @@ class OllamaLLM(LanguageModel):
         print(f"\n*** Response: {response["message"]["content"]} :::: {response}")
 
         # Create an MCP message from the response
-        mcp_response = LLMResponse(response.message.content)
-        mcp_response.done_reason = response.done_reason
-        mcp_response.total_duration = response.total_duration
-        mcp_response.load_duration = response.load_duration
-        mcp_response.input_tokens = response.prompt_eval_count
-        mcp_response.input_tokens_duration = response.prompt_eval_duration
-        mcp_response.output_tokens = response.eval_count
-        mcp_response.output_tokens_duration = response.eval_duration
-        print(f"mcp_response={mcp_response}")
-        return mcp_response
+        llm_response = LLMResponse(response.message.content)
+        llm_response.done_reason = response.done_reason
+        llm_response.total_duration = response.total_duration
+        llm_response.load_duration = response.load_duration
+        llm_response.input_tokens = response.prompt_eval_count
+        llm_response.input_tokens_duration = response.prompt_eval_duration
+        llm_response.output_tokens = response.eval_count
+        llm_response.output_tokens_duration = response.eval_duration
+        print(f"llm_response={llm_response}")
+        return llm_response
 
-    # TODO deprecated
-    def generate_sync_old(self,
-                          messages: List[LLMMessage],
-                          config: Optional[LLMConfiguration] = None) -> LLMResponse:
-        """
-        Generate a response synchronously using Ollama's chat API.
-        
-        Updated implementation uses Ollama's chat API which provides better 
-        handling of conversation contexts and message formatting.
-        
-        Args:
-            messages: List of MCP messages representing the conversation
-            config: Optional configuration parameters
-            
-        Returns:
-            LLMMessage containing the generated response
-        """
-        # Use a completely isolated approach that works under any circumstance
-        import multiprocessing
-        import json
-        import tempfile
-        import os
-
-        # Helper function to format the messages into a simpler format for cross-process communication
-        def _prepare_data():
-            """Convert MCP data to a simple dict format for cross-process communication."""
-            print(f" ***** generate_sync: messages: {type(messages)} ::: {messages}")
-            print(f" ***** generate_sync: config: {type(config)} ::: {config}")
-            # Prepare messages in a simple format
-            formatted_msgs = self.adapter.prepare_messages(messages)["messages"]
-            # formatted_msgs = []
-            # for msg in messages:
-            #     role = msg.role.value  # e.g., "system", "user", "assistant"
-            #     content = msg.get_text_content()
-            #     formatted_msgs.append({"role": role, "content": content})
-
-            # Prepare config
-            print(f" ***** generate_sync: config: {type(config)} ::: {config}")
-            use_config = config
-            cfg_dict = {}
-            if config:
-                cfg_dict = {
-                    "temperature": config.temperature,
-                    "max_tokens": config.max_tokens,
-                    "model_name": config.model_name,
-                    "model_type": config.model_type
-                }
-
-            return {
-                "messages": formatted_msgs,
-                "config": cfg_dict,
-                "model_name": self.model_name,
-                "api_base": self.api_base
-            }
-
-        # Helper function that runs in a subprocess and calls Ollama directly
-        def _run_ollama_call(data_dict, result_file):
-            """Execute the Ollama call in a separate process using chat API."""
-            try:
-                import sys
-                import os
-                from ollama import Client
-
-                # Extract the data needed for the call
-                model_name = data_dict["model_name"]
-                print(f"model_name={model_name}")
-                api_base = data_dict["api_base"]
-                print(f"api_base={api_base}")
-                messages = data_dict["messages"]
-                cfg = data_dict["config"]
-                print(f"cfg={cfg}")
-
-                # Create a synchronous client
-                client = Client(host=api_base)
-
-                # Prepare options from config
-                options = {}
-                if "temperature" in cfg and cfg["temperature"] is not None:
-                    options["temperature"] = cfg["temperature"]
-                if "max_tokens" in cfg and cfg["max_tokens"] is not None:
-                    options["num_predict"] = cfg["max_tokens"]
-
-                print(f"Calling Ollama with model: {model_name}, options: {options}")
-                for msg in messages:
-                    print(f"Message: {msg}")
-
-                # Call Ollama chat API synchronously
-                response: ChatResponse = client.chat(
-                    model=model_name,
-                    messages=messages,
-                    options=options
-                )
-
-                # Write the result to the file
-                result = {"success": True, "content": response["message"]["content"]}
-                print(f"\n*** Response: {response["message"]["content"]} :::: {response}")
-                with open(result_file, 'w') as f:
-                    json.dump(result, f)
-
-            except Exception as e:
-                # If an error occurs, write it to the result file
-                err_result = {"success": False, "error": str(e)}
-                with open(result_file, 'w') as f:
-                    json.dump(err_result, f)
-
-        # Prepare the data for cross-process communication
-        data = _prepare_data()
-
-        # Create a temporary file for the result
-        with tempfile.NamedTemporaryFile(delete=False, mode="w") as temp:
-            result_path = temp.name
-
-        try:
-            # Create and start a process for the Ollama call
-            process = multiprocessing.Process(
-                target=_run_ollama_call,
-                args=(data, result_path)
-            )
-            process.start()
-
-            # Wait for the process to finish (with timeout)
-            process.join(timeout=60)  # 60 second timeout
-
-            # If the process didn't finish, terminate it
-            if process.is_alive():
-                process.terminate()
-                process.join(timeout=5)
-                if process.is_alive():
-                    process.kill()
-                raise TimeoutError("Ollama call timed out after 60 seconds")
-
-            # Read the result from the file
-            with open(result_path, 'r') as f:
-                result_data = json.load(f)
-
-            # Process the result
-            if result_data["success"]:
-                # Create an MCP message from the response
-                response_content = result_data["content"]
-                mcp_response = LLMResponse()
-                mcp_response = LLMMessage(
-                    role=LLMRole.ASSISTANT,
-                    content=[LLMTextContent(text=response_content)]
-                )
-                return mcp_response
-            else:
-                # If there was an error, raise it
-                raise RuntimeError(f"Ollama error: {result_data['error']}")
-
-        finally:
-            # Clean up the temporary file
-            try:
-                os.unlink(result_path)
-            except (OSError, PermissionError):
-                # Ignore errors during cleanup
-                pass
+    # # TODO deprecated
+    # def generate_sync_old(self,
+    #                       messages: List[LLMMessage],
+    #                       config: Optional[LLMConfiguration] = None) -> LLMResponse:
+    #     """
+    #     Generate a response synchronously using Ollama's chat API.
+    #
+    #     Updated implementation uses Ollama's chat API which provides better
+    #     handling of conversation contexts and message formatting.
+    #
+    #     Args:
+    #         messages: List of MCP messages representing the conversation
+    #         config: Optional configuration parameters
+    #
+    #     Returns:
+    #         LLMMessage containing the generated response
+    #     """
+    #     # Use a completely isolated approach that works under any circumstance
+    #     import multiprocessing
+    #     import json
+    #     import tempfile
+    #     import os
+    #
+    #     # Helper function to format the messages into a simpler format for cross-process communication
+    #     def _prepare_data():
+    #         """Convert MCP data to a simple dict format for cross-process communication."""
+    #         print(f" ***** generate_sync: messages: {type(messages)} ::: {messages}")
+    #         print(f" ***** generate_sync: config: {type(config)} ::: {config}")
+    #         # Prepare messages in a simple format
+    #         formatted_msgs = self.adapter.prepare_messages(messages)["messages"]
+    #         # formatted_msgs = []
+    #         # for msg in messages:
+    #         #     role = msg.role.value  # e.g., "system", "user", "assistant"
+    #         #     content = msg.get_text_content()
+    #         #     formatted_msgs.append({"role": role, "content": content})
+    #
+    #         # Prepare config
+    #         print(f" ***** generate_sync: config: {type(config)} ::: {config}")
+    #         use_config = config
+    #         cfg_dict = {}
+    #         if config:
+    #             cfg_dict = {
+    #                 "temperature": config.temperature,
+    #                 "max_tokens": config.max_tokens,
+    #                 "model_name": config.model_name,
+    #                 "model_type": config.model_type
+    #             }
+    #
+    #         return {
+    #             "messages": formatted_msgs,
+    #             "config": cfg_dict,
+    #             "model_name": self.model_name,
+    #             "api_base": self.api_base
+    #         }
+    #
+    #     # Helper function that runs in a subprocess and calls Ollama directly
+    #     def _run_ollama_call(data_dict, result_file):
+    #         """Execute the Ollama call in a separate process using chat API."""
+    #         try:
+    #             import sys
+    #             import os
+    #             from ollama import Client
+    #
+    #             # Extract the data needed for the call
+    #             model_name = data_dict["model_name"]
+    #             print(f"model_name={model_name}")
+    #             api_base = data_dict["api_base"]
+    #             print(f"api_base={api_base}")
+    #             messages = data_dict["messages"]
+    #             cfg = data_dict["config"]
+    #             print(f"cfg={cfg}")
+    #
+    #             # Create a synchronous client
+    #             client = Client(host=api_base)
+    #
+    #             # Prepare options from config
+    #             options = {}
+    #             if "temperature" in cfg and cfg["temperature"] is not None:
+    #                 options["temperature"] = cfg["temperature"]
+    #             if "max_tokens" in cfg and cfg["max_tokens"] is not None:
+    #                 options["num_predict"] = cfg["max_tokens"]
+    #
+    #             print(f"Calling Ollama with model: {model_name}, options: {options}")
+    #             for msg in messages:
+    #                 print(f"Message: {msg}")
+    #
+    #             # Call Ollama chat API synchronously
+    #             response: ChatResponse = client.chat(
+    #                 model=model_name,
+    #                 messages=messages,
+    #                 options=options
+    #             )
+    #
+    #             # Write the result to the file
+    #             result = {"success": True, "content": response["message"]["content"]}
+    #             print(f"\n*** Response: {response["message"]["content"]} :::: {response}")
+    #             with open(result_file, 'w') as f:
+    #                 json.dump(result, f)
+    #
+    #         except Exception as e:
+    #             # If an error occurs, write it to the result file
+    #             err_result = {"success": False, "error": str(e)}
+    #             with open(result_file, 'w') as f:
+    #                 json.dump(err_result, f)
+    #
+    #     # Prepare the data for cross-process communication
+    #     data = _prepare_data()
+    #
+    #     # Create a temporary file for the result
+    #     with tempfile.NamedTemporaryFile(delete=False, mode="w") as temp:
+    #         result_path = temp.name
+    #
+    #     try:
+    #         # Create and start a process for the Ollama call
+    #         process = multiprocessing.Process(
+    #             target=_run_ollama_call,
+    #             args=(data, result_path)
+    #         )
+    #         process.start()
+    #
+    #         # Wait for the process to finish (with timeout)
+    #         process.join(timeout=60)  # 60 second timeout
+    #
+    #         # If the process didn't finish, terminate it
+    #         if process.is_alive():
+    #             process.terminate()
+    #             process.join(timeout=5)
+    #             if process.is_alive():
+    #                 process.kill()
+    #             raise TimeoutError("Ollama call timed out after 60 seconds")
+    #
+    #         # Read the result from the file
+    #         with open(result_path, 'r') as f:
+    #             result_data = json.load(f)
+    #
+    #         # Process the result
+    #         if result_data["success"]:
+    #             # Create an MCP message from the response
+    #             response_content = result_data["content"]
+    #             mcp_response = LLMResponse()
+    #             mcp_response = LLMMessage(
+    #                 role=LLMRole.ASSISTANT,
+    #                 content=[LLMTextContent(text=response_content)]
+    #             )
+    #             return mcp_response
+    #         else:
+    #             # If there was an error, raise it
+    #             raise RuntimeError(f"Ollama error: {result_data['error']}")
+    #
+    #     finally:
+    #         # Clean up the temporary file
+    #         try:
+    #             os.unlink(result_path)
+    #         except (OSError, PermissionError):
+    #             # Ignore errors during cleanup
+    #             pass
 
     @classmethod
     def models(cls) -> List[str]:

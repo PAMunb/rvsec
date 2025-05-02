@@ -72,7 +72,7 @@ class BatchActionStrategy(PromptStrategy):
         
         return False
     
-    def generate_prompt(
+    def _generate_prompt(
         self, 
         state: Dict[str, Any], 
         context: Optional[Dict[str, Any]] = None

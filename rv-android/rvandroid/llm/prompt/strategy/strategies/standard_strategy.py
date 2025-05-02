@@ -51,7 +51,7 @@ class StandardStrategy(PromptStrategy):
         
         # Other configuration specific logic can be added here
     
-    def generate_prompt(
+    def _generate_prompt(
         self, 
         state: Dict[str, Any], 
         context: Optional[Dict[str, Any]] = None
@@ -83,7 +83,7 @@ class StandardStrategy(PromptStrategy):
                 info = self.information_manager.compose_information(state, context)
             
             # Combine information with context to create variables for template
-            variables = {**info, **context}
+            variables = {**state, **info, **context}
             
             # Format basic UI information if not present
             if FragmentType.UI_ELEMENTS not in variables and StateEntry.SCREEN_DESCRIPTION not in state and StateEntry.SCREEN_PATTERNS in state:
