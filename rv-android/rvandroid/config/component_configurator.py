@@ -385,8 +385,6 @@ class ComponentConfigurator:
         if not self._registries['llm'].get_names():
             self._registries['llm'].register_lazy('ollama', 'rvandroid.llm.ollama_llm', 'OllamaLLM')
             self._registries['llm'].register_lazy('huggingface', 'rvandroid.llm.huggingface_llm', 'HuggingFaceLLM')
-            self._registries['llm'].register_lazy('dspy', 'rvandroid.llm.dspy_llm', 'DSPyLLM')
-            self._registries['llm'].register_lazy('langchain', 'rvandroid.llm.langchain_llm', 'LangchainLLM')
             self._registries['llm'].register_lazy('frontier', 'rvandroid.llm.frontier_models', 'FrontierModel')
 
         # Register strategy types
@@ -395,23 +393,6 @@ class ComponentConfigurator:
                 PromptStrategyType.STANDARD, 'rvandroid.llm.prompt.strategy.strategies.standard_strategy', 'StandardStrategy')
             self._registries['strategy'].register_lazy(
                 PromptStrategyType.BATCH_ACTION, 'rvandroid.llm.prompt.strategy.strategies.batch_action_strategy', 'BatchActionStrategy')
-            # self._registries['strategy'].register_lazy(
-            #     'basic', 'rvandroid.llm.prompt.prompt_strategy_basic_001', 'BasicPromptStrategy001')
-            # self._registries['strategy'].register_lazy(
-            #     'dspy', 'rvandroid.llm.prompt.prompt_strategy_dspy', 'DSPyPromptStrategy')
-            # self._registries['strategy'].register_lazy(
-            #     'single_action', 'rvandroid.llm.prompt.single_action_prompt_strategy', 'SingleActionPromptStrategy')
-            # self._registries['strategy'].register_lazy(
-            #     'dspy_single_action', 'rvandroid.llm.prompt.dspy_single_action_prompt_strategy',
-            #     'DSPySingleActionPromptStrategy')
-            # self._registries['strategy'].register_lazy(
-            #     'composable', 'rvandroid.llm.prompt.composable_prompt_strategy', 'ComposablePromptStrategy')
-            # self._registries['strategy'].register_lazy(
-            #     'composable_single_action', 'rvandroid.llm.prompt.composable_single_action_strategy',
-            #     'ComposableSingleActionStrategy')
-            # self._registries['strategy'].register_lazy(
-            #     'flow_based_batch_action', 'rvandroid.llm.prompt.flow_based_batch_action_strategy',
-            #     'FlowBasedBatchActionStrategy')
 
         # Register parser types
         if not self._registries['parser'].get_names():

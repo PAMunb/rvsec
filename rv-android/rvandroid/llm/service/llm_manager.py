@@ -8,13 +8,12 @@ from typing import List, Dict, Optional, Any, Union
 
 from rvandroid.config.component_configurator import ComponentConfigurator
 from rvandroid.experiment.event.bus import EventBus, EventType
-from rvandroid.llm import LLMMessage
+from rvandroid.llm.data_structures import LLMMessage, LLMResponse
 from rvandroid.llm.language_model import LanguageModel
 from rvandroid.llm.llm_config import LLMConfiguration
 from rvandroid.util.logging.constants import CONTEXT_COMPONENT
 from rvandroid.util.logging.manager import LoggingManager
 from rvandroid.util.performance_monitor import PerformanceMonitor
-from rvandroid.llm.data_structures import LLMMessage, LLMResponse
 
 
 class LLMManager:
@@ -104,13 +103,13 @@ class LLMManager:
                 # Create a temporary configurator to create the LLM
                 temp_configurator = ComponentConfigurator()
                 temp_configurator.set_llm(
-                    self.model_type, 
-                    self.model_name, 
+                    self.model_type,
+                    self.model_name,
                     **self.model_kwargs
                 )
                 self._set_configurator(temp_configurator)
                 self.llm = temp_configurator.create_llm()
-                
+
             self.logger.info(f"Successfully initialized {self.model_type} model")
 
             # Publish LLM initialization event
@@ -118,7 +117,7 @@ class LLMManager:
                 # TODO: Use a more specific event type
                 EventType.COVERAGE_TRACKING_STARTED,  # Reusing event type as "MODEL_INITIALIZED" doesn't exist
                 data={
-                    "model_type": self.model_type, 
+                    "model_type": self.model_type,
                     "model_name": self.model_name,
                     "max_tokens": self.max_tokens
                 },
@@ -180,23 +179,12 @@ class LLMManager:
             elapsed_time = time.time() - start_time
 
             # Log performance metrics
-            # TODO usar os campos de LLMResponse
             self.logger.info(f"LLM response received in {elapsed_time:.2f} seconds")
-            self.performance_monitor.record_metric(
-                name="llm_response_time",
-                value=elapsed_time,
-                unit="s",
-                context=context
-            )
-            self.performance_monitor.record_metric(
-                name="llm_response_length",
-                value=response.total_chars(),
-                unit="chars",
-                context=context
-            )
+
+            # Record response metrics
+            self._record_response_metrics(response, context)
 
             return response
-
         except Exception as e:
             elapsed_time = time.time() - start_time
             self.logger.error(f"Error generating text with {self.model_type}: {e}", exc_info=True)
@@ -215,6 +203,7 @@ class LLMManager:
                 {**context, "elapsed": elapsed_time}
             )
 
+            # TODO use error handler
             raise RuntimeError(f"Text generation failed: {str(e)}")
 
     def update_configuration(self, config: Union[Dict[str, Any], LLMConfiguration]) -> None:
@@ -236,24 +225,24 @@ class LLMManager:
                 **self.llm_config.to_dict(),
                 **config
             })
-        
+
         # Check if model changed
         model_changed = (
-            new_config.get_model_type() != self.model_type or
-            new_config.get_model_name() != self.model_name
+                new_config.get_model_type() != self.model_type or
+                new_config.get_model_name() != self.model_name
         )
-        
+
         # Update configuration
         self.llm_config = new_config
         self.model_type = new_config.get_model_type()
         self.model_name = new_config.get_model_name()
         self.max_tokens = new_config.get_max_tokens()
         self.model_kwargs = new_config.get_model_kwargs()
-        
+
         # Clean up existing LLM if model changed
         if model_changed and self.llm:
             self.cleanup()
-            
+
         self.logger.info(f"Updated LLM configuration: model_type={self.model_type}, model_name={self.model_name}")
 
     def get_configuration(self) -> LLMConfiguration:
@@ -271,7 +260,7 @@ class LLMManager:
         """
         if self.llm:
             try:
-                self.llm.clean()
+                self.llm.cleanup()
                 self.llm = None
                 self.logger.info("Cleaned up LLM resources")
             except Exception as e:
@@ -285,3 +274,47 @@ class LLMManager:
             True if initialized, False otherwise
         """
         return self.llm is not None
+
+    def _record_response_metrics(self, response: LLMResponse, context: Dict[str, Any]) -> None:
+        self.performance_monitor.record_metric(
+            name="response_length",
+            value=response.total_chars(),
+            unit="chars",
+            context=context
+        )
+        self.performance_monitor.record_metric(
+            name="response_total_duration",
+            value=response.total_duration,
+            unit="ns",
+            context=context
+        )
+        self.performance_monitor.record_metric(
+            name="response_load_duration",
+            value=response.load_duration,
+            unit="ns",
+            context=context
+        )
+        self.performance_monitor.record_metric(
+            name="response_input_tokens",
+            value=response.input_tokens,
+            unit="amount",
+            context=context
+        )
+        self.performance_monitor.record_metric(
+            name="response_input_tokens_duration",
+            value=response.input_tokens_duration,
+            unit="ns",
+            context=context
+        )
+        self.performance_monitor.record_metric(
+            name="response_output_tokens",
+            value=response.output_tokens,
+            unit="amount",
+            context=context
+        )
+        self.performance_monitor.record_metric(
+            name="response_output_tokens_duration",
+            value=response.output_tokens_duration,
+            unit="ns",
+            context=context
+        )

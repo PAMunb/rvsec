@@ -3,6 +3,7 @@ from typing import Dict, List, Any, Optional
 
 from rvandroid.experiment.event.bus import EventBus
 from rvandroid.domain.static import StaticAnalysisData
+from rvandroid.llm.constants import StateEntry
 from rvandroid.util.logging.constants import CONTEXT_COMPONENT
 from rvandroid.util.logging.manager import LoggingManager
 from rvandroid.util.performance_monitor import PerformanceMonitor
@@ -60,7 +61,7 @@ class StateAnalyzer:
 
         with self.performance_monitor.measure_time("enhance_state", context):
             # Enhance action history if present
-            if "action_history" in state:
+            if StateEntry.ACTION_HISTORY in state:
                 with self.performance_monitor.measure_time("enhance_action_history", context):
                     self._enhance_action_history(state)
 

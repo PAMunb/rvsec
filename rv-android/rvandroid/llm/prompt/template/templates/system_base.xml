@@ -9,6 +9,9 @@
     <required>strategy_specific_instructions</required>
     <required>response_format_instructions</required>
     <optional>additional_guidelines</optional>
+    <optional>action_history</optional>
+    <optional>memory_insights</optional>
+    <optional>transition_guidance</optional>
   </variables>
   <roles>
     <s><![CDATA[

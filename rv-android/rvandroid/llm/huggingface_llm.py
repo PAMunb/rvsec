@@ -148,11 +148,6 @@ class HuggingFaceLLM(LanguageModel):
 
         return self._tokenizer
 
-    # async def generate(self, messages: List[LLMMessage], config: Optional[MCPConfiguration] = None) -> LLMMessage:
-    #     """Generate a response using the language model asynchronously."""
-    #     # Use synchronous implementation for now
-    #     return self.generate_sync(messages, config)
-
     def generate(self, messages: List[LLMMessage], config = None) -> LLMMessage:
         """
         Generate text based on the input messages synchronously using MCP.

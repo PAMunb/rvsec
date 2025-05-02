@@ -12,12 +12,27 @@ from rvandroid.llm.huggingface_llm import HuggingFaceLLM
 from rvandroid.llm.ollama_llm import OllamaLLM
 from rvandroid.llm.service.action_service import LLMActionService
 from rvandroid.parser.static import static_analysis_parser
+from rvandroid.util.performance_monitor import PerformanceMonitor
 
 
 def read_droidbot_state(filename: str) -> Dict[str, Any]:
     """Loads a DroidBot state file."""
     with open(filename, 'r') as file:
         return json.load(file)
+
+
+def tmp_001(service, state):
+    actions = service.process_state(state)
+    print(f"\nActions: {len(actions)}")
+    for action in actions:
+        print(f"   - {action}")
+        for key in action.keys():
+            print(f"      {key}: {action[key]}")
+
+def tmp_002(service, state):
+    while True:
+        input("Press Enter to continue...")
+        tmp_001(service, state)
 
 
 if __name__ == '__main__':
@@ -31,7 +46,7 @@ if __name__ == '__main__':
     # Caminhos para dados do app
     screenshots_folder = "/home/pedro/desenvolvimento/RV_ANDROID/teste_llm/screenshots"
     apk = "cryptoapp.apk"
-    prefix = "001"
+    prefix = "009"
     app_folder = screenshots_folder + "/" + apk
     droidbot_state_file = os.path.join(app_folder, f"{prefix}.state")
     srceenshot_file = os.path.join(app_folder, f"{prefix}.png")
@@ -47,7 +62,7 @@ if __name__ == '__main__':
     configurator.set_llm(
         llm_type=OllamaLLM.NAME,
         model=OllamaLLM.GEMMA,
-        base_url="http://127.0.0.1:11434"
+        base_url="http://192.168.0.18:11434"
     )
     configurator.set_strategy(PromptStrategyType.BATCH_ACTION)
     configurator.set_parser(ScreenParserType.DROIDBOT)
@@ -67,5 +82,11 @@ if __name__ == '__main__':
     service = LLMActionService(static_data, configurator)
 
     state = read_droidbot_state(droidbot_state_file)
-    actions = service.process_state(state)
-    print(f"\nActions: {actions}")
+
+    tmp_001(service, state)
+    # tmp_002(service, state)
+
+    print(f"state_processing_total={PerformanceMonitor.get_instance().get_metrics_by_name("state_processing_total")}")
+    print(f"response_total_duration={PerformanceMonitor.get_instance().get_metrics_by_name("response_total_duration")}")
+    print(f"response_load_duration={PerformanceMonitor.get_instance().get_metrics_by_name("response_load_duration")}")
+    print(f"response_total_duration={PerformanceMonitor.get_instance().get_metrics_stats("response_total_duration")}")

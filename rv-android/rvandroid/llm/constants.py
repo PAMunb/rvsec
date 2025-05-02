@@ -72,6 +72,7 @@ class StateEntry:
     PREVIOUS_ACTIVITY = "previous_activity"
     SCREEN_PATTERNS = "screen"
     SCREEN_DESCRIPTION = "screen_description"  # the ScreenDescription string representation for template rendering
+    ACTION_HISTORY = "action_history"  # List of actions taken in the current activity
 
 
 
@@ -83,3 +84,8 @@ class ContextEntry:
     APP_ACTIVITY = "app_activity"
     TESTING_HISTORY = "testing_history"
     ACTION_LIMIT = "action_limit"
+    MODEL_TYPE = "model_type"
+    MODEL_NAME = "model_name"
+    STRATEGY = "strategy"
+    PARSER = "parser"
+    VISITOR = "visitor"

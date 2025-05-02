@@ -289,6 +289,7 @@ class StateEnricher:
                 # Update state with necessary information
                 state[StateEntry.SCREEN_DESCRIPTION] = formatted_text
                 state[StateEntry.AVAILABLE_ACTIONS] = available_actions_map
+                print(f"**** screen_description:\n{formatted_text}")
                 
                 self.logger.debug(f"Added ScreenDescription with {len(available_actions_map)} available actions")
             else:

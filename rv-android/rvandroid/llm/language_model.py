@@ -81,6 +81,16 @@ class LanguageModel(ABC):
         """
         pass
 
+    @abstractmethod
+    def cleanup(self):
+        """
+        Cleanup resources.
+
+        This method can be overridden by subclasses to perform any necessary
+        cleanup operations when the model is no longer needed.
+        """
+        pass
+
     @classmethod
     def models(cls) -> List[str]:
         """

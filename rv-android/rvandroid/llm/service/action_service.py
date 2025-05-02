@@ -15,6 +15,7 @@ from rvandroid.llm.data_structures import LLMMessage, LLMResponse
 from rvandroid.llm.prompt.framework import PromptFramework
 from rvandroid.llm.service import LLMManager
 from rvandroid.llm.service.action_generator import ActionGenerator
+from rvandroid.llm.service.memory_manager import MemoryManager
 from rvandroid.llm.service.response_processor import ResponseProcessor
 from rvandroid.llm.service.state_enricher import StateEnricher
 from rvandroid.llm.service.transition_manager import TransitionManager
@@ -41,6 +42,7 @@ class LLMActionService:
     - Enables configurability through dependency injection
     - Uses the unified PromptFramework for standardized LLM interactions
     - Processes all LLM responses in a consistent format with an "actions" array
+    - Integrates memory systems for history-aware decision making
 
     ### Role in the System:
     - Provides a unified interface for state processing and action generation
@@ -48,6 +50,7 @@ class LLMActionService:
     - Manages lifecycle of AI-driven testing operations
     - Integrates with system-wide services like event bus and performance monitoring
     - Ensures consistent handling of both single action and batch action strategies
+    - Maintains historical context through integrated memory systems
     """
 
     def __init__(
@@ -79,8 +82,12 @@ class LLMActionService:
         self.config = config or ComponentConfigurator()
         self.static_data = static_data
 
+        # Get app package from kwargs or use default
+        app_package = model_kwargs.get("app_package", "unknown")
+
         # Create specialized components
         self.transition_manager = TransitionManager()
+        self.memory_manager = MemoryManager(app_package, static_data)
         self.state_enricher = StateEnricher(static_data, self.config)
         self.response_processor = ResponseProcessor(self.config)
         self.action_generator = ActionGenerator(self.config, static_data)
@@ -89,16 +96,6 @@ class LLMActionService:
         # Initialize framework
         self.logger.info("Creating PromptFramework")
         self.framework = PromptFramework.create(self.config)
-
-        # Initialize memory system for pattern-based strategies
-        self.memory = None
-        try:
-            from rvandroid.core.memory.long_term_memory import LongTermMemory
-            app_package = model_kwargs.get("app_package", "unknown")
-            self.memory = LongTermMemory(app_package, static_data)
-            self.logger.info("Initialized long-term memory system")
-        except ImportError:
-            self.logger.warning("Long-term memory system not available")
 
         # Record session creation event
         self.event_bus.publish_analysis_event(
@@ -111,7 +108,7 @@ class LLMActionService:
         self.logger.info(
             f"Initialized LLM Action Service, "
             f"model={self.config.llm_config.model_name}, "
-            f"strategy={config.strategy_class.__name__}"
+            f"strategy={config.strategy_class.__name__ if config and config.strategy_class else 'default'}"
         )
 
     def process_state(self, state: Dict[str, Any]) -> List[Dict[str, Any]]:
@@ -128,10 +125,7 @@ class LLMActionService:
         """
         # Create context for performance monitoring
         self._initialize_state(state)
-        context = {
-            ContextEntry.APP_PACKAGE: state[StateEntry.PACKAGE_NAME],
-            ContextEntry.APP_ACTIVITY: state[StateEntry.ACTIVITY]
-        }
+        context = self._initialize_context(state)
 
         self.logger.info(
             f"Processing state for app: {state[StateEntry.PACKAGE_NAME]}, activity: {state[StateEntry.ACTIVITY]}")
@@ -139,11 +133,21 @@ class LLMActionService:
         # Overall processing time measurement
         with self.performance_monitor.measure_time("state_processing_total", context):
             try:
+                # Update transitions with current state information
+                self.transition_manager.update_transitions(state)
+
+                # Update memory with current state information
+                self.memory_manager.update_state(state)
+
                 # Enrich state with additional information
                 enriched_state = self.state_enricher.enrich_state(state)
 
-                # Update dynamic transition graph with information about the current state
-                self.transition_manager.update_transitions(enriched_state)
+                # Enrich state with historical information
+                enriched_state = self.memory_manager.enrich_state_with_history(enriched_state)
+
+                # Add transition guidance to state
+                transition_guidance = self.transition_manager.get_transition_guidance(enriched_state)
+                enriched_state["transition_guidance"] = transition_guidance
 
                 # Generate prompt and get LLM response
                 with self.performance_monitor.measure_time("llm_interaction", context):
@@ -160,59 +164,36 @@ class LLMActionService:
                     response: LLMResponse = self.llm_manager.generate(messages, self.config)
                     self.logger.debug(f"Received response: {response}")
 
-                    # Record response metrics
-                    self.performance_monitor.record_metric(
-                        name="response_length",
-                        value=response.total_chars(),
-                        unit="chars",
-                        context=context
-                    )
-
                 # Process response into actions
-                with self.performance_monitor.measure_time("action_generation", context):
-                    if not response:
-                        self.logger.error("No response from LLM")
-                        return self.action_generator.generate_fallback_actions(enriched_state)
+                if not response:
+                    self.logger.error("No response from LLM")
+                    return self.action_generator.generate_fallback_actions(enriched_state)
 
-                    # Extract response content
-                    response_text = response.content if hasattr(response, 'content') else str(response)
+                # Extract response content
+                response_text = response.content if hasattr(response, 'content') else str(response)
 
-                    # Process response into action descriptions
-                    actions, errors = self.response_processor.process_response(response_text, enriched_state)
+                # Process response into action descriptions
+                actions, errors = self.response_processor.process_response(response_text, enriched_state)
 
-                    # Record parsing metrics
-                    self.performance_monitor.record_metric(
-                        name="response_parsing_errors",
-                        value=len(errors),
-                        context=context
-                    )
+                # Record parsing metrics
+                self.performance_monitor.record_metric(
+                    name="response_parsing_errors",
+                    value=len(errors),
+                    context=context
+                )
 
-                    # Report any errors
-                    for error in errors:
-                        self.logger.warning(f"Response parsing issue: {error}")
+                # Report any errors
+                for error in errors:
+                    self.logger.warning(f"Response parsing issue: {error}")
 
-                    # Special handling for batch strategies to extract pattern information
-                    if self.get_current_strategy_type() == PromptStrategyType.BATCH_ACTION:
-                        try:
-                            import json
-                            data = json.loads(self.parser.extract_json(response_text))
-                            if "pattern_type" in data:
-                                pattern_type = data["pattern_type"]
-                                self.logger.info(f"Detected UI pattern in batch response: {pattern_type}")
+                # Convert action descriptions to executable actions
+                droidbot_actions = self.action_generator.create_actions(actions, enriched_state)
 
-                                # Store pattern information in state
-                                enriched_state["batch_pattern_type"] = pattern_type
-                                if "batch_explanation" in data:
-                                    enriched_state["batch_explanation"] = data["batch_explanation"]
-                        except Exception as e:
-                            self.logger.warning(f"Failed to extract pattern information: {e}")
-
-                    # Convert action descriptions to executable actions
-                    droidbot_actions = self.action_generator.create_actions(actions, enriched_state)
+                # Record actions in memory
+                self.memory_manager.record_actions(enriched_state, actions, True)
 
                 # Update transition graph with chosen actions
-                with self.performance_monitor.measure_time("update_graph", context):
-                    self.transition_manager.update_with_actions(state, droidbot_actions)
+                self.transition_manager.update_with_actions(enriched_state, droidbot_actions)
 
                 # Publish success metrics
                 self.performance_monitor.record_metric(
@@ -240,6 +221,50 @@ class LLMActionService:
                 # Generate fallback actions
                 return self.action_generator.generate_fallback_actions(state)
 
+    def process_action_result(self, from_state: Dict[str, Any], to_state: Dict[str, Any],
+                              action: Dict[str, Any], success: bool) -> None:
+        """
+        Process the result of an action execution.
+
+        This method records the state transition and updates memory with the action result.
+
+        Args:
+            from_state: Source state
+            to_state: Destination state
+            action: Action that was executed (dictionary format)
+            success: Whether the action execution was successful
+        """
+        try:
+            # Get action ID and type
+            action_id = action.get("action_id", action.get("id", "unknown"))
+            action_type = action.get("action_type", "unknown")
+
+            # Record transition in transition manager
+            self.transition_manager.record_transition(from_state, to_state, action_id, action_type)
+
+            # Create a basic Iteration with this action for the memory manager
+            self.memory_manager.record_actions(
+                from_state,
+                [action],  # List with single action dictionary
+                success,
+                "Transition successful" if success else "Transition failed"
+            )
+
+            # No need to record transition in memory_manager as we don't have proper ItemAction objects
+            # for the MemoryAction.from_item_action method
+
+            self.logger.info(f"Processed action result: success={success}")
+
+        except Exception as e:
+            self.logger.error(f"Error processing action result: {e}")
+            self.error_handler.handle_error(
+                e,
+                context={
+                    "component": "LLMActionService",
+                    "function": "process_action_result"
+                }
+            )
+
     def _initialize_state(self, state: Dict[str, Any]):
         """Initialize state with basic information.
 
@@ -250,6 +275,17 @@ class LLMActionService:
         app_activity = state.get(StateEntry.ACTIVITY, "unknown").replace("/", "")
         state[StateEntry.PACKAGE_NAME] = app_package
         state[StateEntry.ACTIVITY] = app_activity
+
+    def _initialize_context(self, state: Dict[str, Any]):
+        context = {
+            ContextEntry.APP_PACKAGE: state[StateEntry.PACKAGE_NAME],
+            ContextEntry.APP_ACTIVITY: state[StateEntry.ACTIVITY],
+            ContextEntry.MODEL_TYPE: self.config.llm_config.model_type,
+            ContextEntry.MODEL_NAME: self.config.llm_config.model_name,
+            ContextEntry.STRATEGY: self.config.llm_config.strategy_type,
+            ContextEntry.VISITOR: self.config.visitor_class.__name__
+        }
+        return context
 
     def _create_prompt_context(self, state: Dict[str, Any]) -> Dict[str, Any]:
         """Create context dictionary for prompt generation.
@@ -284,16 +320,6 @@ class LLMActionService:
         # Return default strategy type
         return PromptStrategyType.STANDARD
 
-    def get_detected_pattern_info(self) -> Dict[str, Any]:
-        """Get information about the most recently detected UI pattern.
-
-        Used by the server to include pattern metadata in responses.
-
-        Returns:
-            Dictionary with pattern type and confidence information.
-        """
-        return None
-
     def record_prompt_metrics(self, messages: List[LLMMessage], context) -> None:
         """Record metrics about prompt size and content.
 
@@ -304,7 +330,11 @@ class LLMActionService:
         for message in messages:
             self.performance_monitor.record_metric(
                 name=f"prompt_length_{message.role}",
-                value=len(message.content),
+                value=message.total_chars(),
                 unit="chars",
                 context=context
             )
+
+    def clear_short_term_memory(self) -> None:
+        """Clear the short-term memory."""
+        self.memory_manager.clear_short_term_memory()

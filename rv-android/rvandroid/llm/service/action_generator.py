@@ -4,6 +4,7 @@ from typing import Dict, List, Any, Optional, Tuple
 from rvandroid.config.component_configurator import ComponentConfigurator
 from rvandroid.domain.static import StaticAnalysisData
 from rvandroid.experiment.event.bus import EventBus
+from rvandroid.llm.constants import StateEntry
 from rvandroid.util.error.error_handler import ErrorHandler
 from rvandroid.util.logging.constants import CONTEXT_COMPONENT
 from rvandroid.util.logging.manager import LoggingManager
@@ -53,9 +54,6 @@ class ActionGenerator:
         self.config = config
         self.static_data = static_data
 
-        # Create parser instance for screen parsing
-        self.parser = config.create_parser()
-
         self.logger.info("Action generator initialized")
 
     def create_actions(self, actions: List[Dict[str, Any]], state: Dict[str, Any]) -> List[Dict[str, Any]]:
@@ -75,7 +73,7 @@ class ActionGenerator:
 
         try:
             # Parse screen to get action details
-            screen_description = self.parser.parse(state, self.static_data)
+            screen_description = state[StateEntry.STRUCTURED_SCREEN]
 
             # Convert to DroidBot format
             return self._convert_to_droidbot_format(actions, state, screen_description)

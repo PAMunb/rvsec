@@ -1,3 +1,4 @@
+# rvandroid/llm/prompt/information/fragments/history_fragment.py
 """Testing history information fragment for the prompt system.
 
 This module defines a specialized fragment for extracting and formatting testing
@@ -8,160 +9,131 @@ from typing import Any, Dict, List, Optional
 
 from rvandroid.llm.constants import FragmentType
 from rvandroid.llm.prompt.information.base_fragment import InformationFragment
+from rvandroid.util.error.error_handler import ErrorHandler
 
 
 class HistoryFragment(InformationFragment):
     """Fragment for extracting and formatting testing history information.
-    
+
     This fragment processes information about previously executed testing
     actions, their results, and discovered features to provide context for
     future action generation.
+
+    ### Architectural Decisions:
+    - Leverages both short-term and long-term memory systems
+    - Formats historical data for readability and template integration
+    - Prioritizes recent interactions for immediate context
+    - Includes insights from long-term trends for exploration guidance
+
+    ### Role in the System:
+    - Provides historical context to improve LLM decision making
+    - Enables learning from previous interactions and their outcomes
+    - Helps avoid repetitive actions and explore new paths
+    - Delivers targeted insights for the current screen context
     """
-    
+
     def __init__(self, name: str = FragmentType.HISTORY, priority: int = 100):
         """Initialize the testing history fragment.
-        
+
         Args:
             name: The name of the fragment (default: FragmentType.HISTORY).
             priority: The priority of the fragment (default: 100).
         """
         super().__init__(name, priority)
-        self.max_history_entries = 10  # Limit history to last N entries
-    
+        self.error_handler = ErrorHandler.get_instance()
+        self.max_history_entries = 5  # Limit history to last N entries
+
     def generate(self, state: Dict[str, Any], context: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """Generate testing history information from the state and context.
-        
+
         Args:
             state: The current application state.
             context: Additional context information.
-            
+
         Returns:
             A dictionary containing testing history information.
         """
         history = {}
-        
-        # First, check if history is available in context (preferred)
-        if context and "testing_history" in context:
-            raw_history = context["testing_history"]
-            if isinstance(raw_history, list):
-                history["actions"] = self._format_action_history(raw_history)
-                history["summary"] = self._generate_summary(raw_history)
-            elif isinstance(raw_history, str):
-                # If history is provided as a string, use it directly
-                history["summary"] = raw_history
-            else:
-                self.logger.warning("Testing history in unexpected format")
-        
-        # Then, check if state contains any history information
-        elif state and "testing_history" in state:
-            raw_history = state["testing_history"]
-            if isinstance(raw_history, list):
-                history["actions"] = self._format_action_history(raw_history)
-                history["summary"] = self._generate_summary(raw_history)
-            elif isinstance(raw_history, str):
-                history["summary"] = raw_history
-            else:
-                self.logger.warning("Testing history in unexpected format")
-        
-        # Also include visited activities if available
-        if state and "visited_activities" in state:
-            history["visited_activities"] = state["visited_activities"]
-        
-        if not history:
-            self.logger.debug("No testing history found")
+
+        try:
+            # Get action history from state (populated by MemoryManager)
+            if "action_history" in state:
+                # If action_history is a string, use it directly (formatted by MemoryManager)
+                if isinstance(state["action_history"], str):
+                    history["summary"] = state["action_history"]
+                else:
+                    # If it's still a list, format it
+                    history["summary"] = self._format_action_history(state["action_history"])
+
+            # Get memory insights if available
+            if "memory_insights" in state:
+                history["insights"] = state["memory_insights"]
+
+            if not history:
+                self.logger.debug("No testing history found")
+                return {}
+
+            return history
+
+        except Exception as e:
+            self.logger.error(f"Error generating history information: {e}")
+            self.error_handler.handle_error(
+                e,
+                context={
+                    "component": f"HistoryFragment",
+                    "function": "generate"
+                }
+            )
             return {}
-        
-        return history
-    
-    def _format_action_history(self, actions: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+
+    def _format_action_history(self, actions: List[Dict[str, Any]]) -> str:
         """Format action history for display in the prompt.
-        
+
         Args:
             actions: List of historical actions with results.
-            
+
         Returns:
             Formatted action history.
         """
         # Limit to the last N entries to prevent context bloat
         actions = actions[-self.max_history_entries:] if len(actions) > self.max_history_entries else actions
-        
-        formatted_actions = []
-        for action in actions:
-            # Extract relevant information, omitting unnecessary details
-            formatted_action = {
-                "action_type": action.get("action_type", "unknown"),
-                "target": action.get("target", ""),
-                "result": action.get("result", "unknown"),
-                "success": action.get("success", False)
-            }
-            
-            # Include interesting attributes that might vary by action type
-            for key in ["input_value", "app_response", "discovered_elements"]:
-                if key in action and action[key]:
-                    formatted_action[key] = action[key]
-            
-            formatted_actions.append(formatted_action)
-        
-        return formatted_actions
-    
-    def _generate_summary(self, actions: List[Dict[str, Any]]) -> str:
-        """Generate a human-readable summary of testing history.
-        
-        Args:
-            actions: List of historical actions with results.
-            
-        Returns:
-            A human-readable summary string.
-        """
+
         if not actions:
             return "No previous testing actions recorded."
-        
-        # Limit to last N entries
-        actions = actions[-self.max_history_entries:] if len(actions) > self.max_history_entries else actions
-        
-        # Count successful and failed actions
-        success_count = sum(1 for action in actions if action.get("success", False))
-        failure_count = len(actions) - success_count
-        
-        # Group actions by type
-        action_types = {}
-        for action in actions:
-            action_type = action.get("action_type", "unknown")
-            if action_type not in action_types:
-                action_types[action_type] = 0
-            action_types[action_type] += 1
-        
-        # Generate summary
-        summary_parts = [
-            f"Recent testing history ({len(actions)} actions, {success_count} successful, {failure_count} failed):"
-        ]
-        
-        # Add action type breakdown
-        action_type_summary = ", ".join(f"{count} {action_type}" for action_type, count in action_types.items())
-        summary_parts.append(f"Action types: {action_type_summary}")
-        
+
+        formatted_parts = [f"Recent testing history ({len(actions)} actions):"]
+
         # Add recent action descriptions
-        summary_parts.append("Recent actions:")
-        for i, action in enumerate(actions[-5:]):  # Show only the 5 most recent
-            action_type = action.get("action_type", "unknown")
-            target = action.get("target", "")
-            result = "succeeded" if action.get("success", False) else "failed"
-            summary_parts.append(f"  {i+1}. {action_type} on {target} {result}")
-        
-        return "\n".join(summary_parts)
-    
+        for i, action in enumerate(actions):
+            # Handle different action formats
+            if isinstance(action, str):
+                # Already formatted string
+                formatted_parts.append(f"  {i + 1}. {action}")
+            elif isinstance(action, dict):
+                # Dictionary format with details
+                action_type = action.get("action_type", "unknown")
+                target = action.get("target", "")
+                result = "succeeded" if action.get("success", False) else "failed"
+                formatted_parts.append(f"  {i + 1}. {action_type} on {target} {result}")
+
+        return "\n".join(formatted_parts)
+
     def should_include(self, state: Dict[str, Any], context: Optional[Dict[str, Any]] = None) -> bool:
         """Determine if testing history information should be included.
-        
+
         Args:
             state: The current application state.
             context: Additional context information.
-            
+
         Returns:
             True if testing history information should be included, False otherwise.
         """
-        # Include if testing history is available in either state or context
-        has_context_history = context is not None and "testing_history" in context
-        has_state_history = state is not None and "testing_history" in state
-        
-        return has_context_history or has_state_history
+        # Include if action history is available in state
+        if "action_history" in state or "memory_insights" in state:
+            return True
+
+        # Or if testing history is available in context
+        if context and "testing_history" in context:
+            return True
+
+        return False

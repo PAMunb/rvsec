@@ -8,8 +8,8 @@ Current Activity: {activity}
 Current UI Elements and Available Actions:
 {ui_elements}
 
-{#if action_history}{action_history}
-
+{#if action_history}
+{#include history_section}
 {#endif}
   ]]>
 </fragment>
