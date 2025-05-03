@@ -157,13 +157,6 @@ class ResponseProcessor:
         # Check for the actions array in the unified format
         if "actions" not in parsed_data or not isinstance(parsed_data["actions"], list):
             errors.append(f"Missing or invalid 'actions' array in response")
-
-            # Check if the response might be in the old single-action format
-            if "action_id" in parsed_data:
-                self.logger.info("Found legacy single-action format, attempting to convert")
-                # Convert to the new format
-                return [parsed_data], errors
-
             return [], errors
 
         # Extract actions array
@@ -224,12 +217,9 @@ class ResponseProcessor:
             errors.append(f"Expected a list of actions, got {type(actions)}")
             return valid_actions, errors
 
-        # For single action mode, enforce exactly one action
-        if single_action_mode and len(actions) > 1:
-            actions = actions[:1]  # Take only the first action
-            errors.append("Received multiple actions in single action mode. Using only the first action.")
-        elif single_action_mode and len(actions) == 0:
-            errors.append("No actions found in single action mode. Expected exactly one action.")
+        # Check amount of actions
+        if len(actions) == 0:
+            errors.append("No actions found")
             return valid_actions, errors
 
         # Validate each action

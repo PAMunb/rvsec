@@ -9,6 +9,7 @@ from typing import Dict, List, Any
 
 from rvandroid.domain.dynamic_wtg import DynamicTransitionGraph
 from rvandroid.llm.constants import StateEntry
+from rvandroid.llm.service.action_generator import GeneratedAction
 from rvandroid.util.error.error_handler import ErrorHandler
 from rvandroid.util.logging.constants import CONTEXT_COMPONENT
 from rvandroid.util.logging.manager import LoggingManager
@@ -48,10 +49,11 @@ class TransitionManager:
 
         # Track the current activity
         self.current_activity = None
+        self.last_activity = None
 
         self.logger.info("Transition manager initialized")
 
-    def update_transitions(self, state: Dict[str, Any]) -> None:
+    def update(self, state: Dict[str, Any]) -> None:
         """
         Update dynamic transition graph with information about the current state.
 
@@ -71,6 +73,7 @@ class TransitionManager:
             self.dynamic_wtg.record_visit(current_activity)
 
             # Update current activity
+            self.last_activity = self.current_activity
             self.current_activity = current_activity
 
             self.logger.debug(f"Recorded visit to activity: {current_activity}")
@@ -85,7 +88,7 @@ class TransitionManager:
                 }
             )
 
-    def update_with_actions(self, state: Dict[str, Any], actions: List[Dict[str, Any]]) -> None:
+    def update_with_actions(self, state: Dict[str, Any], actions: List[GeneratedAction]) -> None:
         """
         Update the dynamic transition graph with information about chosen actions.
 
@@ -93,36 +96,28 @@ class TransitionManager:
             state: Current application state
             actions: List of selected actions
         """
-        try:
-            # Get current activity
-            activity = state.get(StateEntry.ACTIVITY, "unknown")
+        if self.last_activity != self.current_activity:
+            # TODO: Handle activity change
+            try:
+                # Get current activity
+                activity = state.get(StateEntry.ACTIVITY, "unknown")
 
-            # Normalize activity name
-            activity = activity.replace("/", ".")
-            if activity.endswith(".."):
-                activity = activity[:-1]
-
-            for action in actions:
-                # Extract action ID
-                action_id = action.get("action_id", None)
-                if action_id is None and "id" in action:
-                    action_id = action.get("id")
-
-                if action_id:
+                for action in actions:
                     # Record that this action was chosen for this activity
-                    self.dynamic_wtg.record_action(activity, str(action_id))
-                    self.logger.debug(f"Recorded action {action_id} for activity {activity}")
+                    self.dynamic_wtg.record_action(activity, str(action.id))
+                    self.logger.debug(f"Recorded action {action.id} for activity {activity}")
 
-        except Exception as e:
-            self.logger.error(f"Error updating graph with actions: {e}")
-            self.error_handler.handle_error(
-                e,
-                context={
-                    "component": "TransitionManager",
-                    "function": "update_with_actions"
-                }
-            )
+            except Exception as e:
+                self.logger.error(f"Error updating graph with actions: {e}")
+                self.error_handler.handle_error(
+                    e,
+                    context={
+                        "component": "TransitionManager",
+                        "function": "update_with_actions"
+                    }
+                )
 
+    # TODO
     def record_transition(self, from_state: Dict[str, Any], to_state: Dict[str, Any],
                           action_id: str, action_type: str) -> None:
         """

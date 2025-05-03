@@ -14,7 +14,7 @@ from rvandroid.llm.constants import ContextEntry, PromptStrategyType, StateEntry
 from rvandroid.llm.data_structures import LLMMessage, LLMResponse
 from rvandroid.llm.prompt.framework import PromptFramework
 from rvandroid.llm.service import LLMManager
-from rvandroid.llm.service.action_generator import ActionGenerator
+from rvandroid.llm.service.action_generator import ActionGenerator, GeneratedAction
 from rvandroid.llm.service.memory_manager import MemoryManager
 from rvandroid.llm.service.response_processor import ResponseProcessor
 from rvandroid.llm.service.state_enricher import StateEnricher
@@ -83,7 +83,7 @@ class LLMActionService:
         self.static_data = static_data
 
         # Get app package from kwargs or use default
-        app_package = model_kwargs.get("app_package", "unknown")
+        app_package = model_kwargs.get("app_package", "unknown")  # TODO rever ... pegar de outra forma
 
         # Create specialized components
         self.transition_manager = TransitionManager()
@@ -133,21 +133,8 @@ class LLMActionService:
         # Overall processing time measurement
         with self.performance_monitor.measure_time("state_processing_total", context):
             try:
-                # Update transitions with current state information
-                self.transition_manager.update_transitions(state)
-
-                # Update memory with current state information
-                self.memory_manager.update_state(state)
-
                 # Enrich state with additional information
-                enriched_state = self.state_enricher.enrich_state(state)
-
-                # Enrich state with historical information
-                enriched_state = self.memory_manager.enrich_state_with_history(enriched_state)
-
-                # Add transition guidance to state
-                transition_guidance = self.transition_manager.get_transition_guidance(enriched_state)
-                enriched_state["transition_guidance"] = transition_guidance
+                enriched_state = self.pre_process_state(state)
 
                 # Generate prompt and get LLM response
                 with self.performance_monitor.measure_time("llm_interaction", context):
@@ -167,7 +154,7 @@ class LLMActionService:
                 # Process response into actions
                 if not response:
                     self.logger.error("No response from LLM")
-                    return self.action_generator.generate_fallback_actions(enriched_state)
+                    return self.convert_to_droidbot(self.action_generator.generate_fallback_actions(enriched_state))
 
                 # Extract response content
                 response_text = response.content if hasattr(response, 'content') else str(response)
@@ -187,23 +174,19 @@ class LLMActionService:
                     self.logger.warning(f"Response parsing issue: {error}")
 
                 # Convert action descriptions to executable actions
-                droidbot_actions = self.action_generator.create_actions(actions, enriched_state)
+                generated_actions = self.action_generator.create_actions(actions, enriched_state)
 
-                # Record actions in memory
-                self.memory_manager.record_actions(enriched_state, actions, True)
-
-                # Update transition graph with chosen actions
-                self.transition_manager.update_with_actions(enriched_state, droidbot_actions)
+                self.post_process_state(enriched_state, generated_actions)
 
                 # Publish success metrics
                 self.performance_monitor.record_metric(
                     name="actions_generated",
-                    value=len(droidbot_actions),
+                    value=len(generated_actions),
                     context=context
                 )
 
-                self.logger.info(f"Generated {len(droidbot_actions)} actions")
-                return droidbot_actions
+                self.logger.info(f"Generated {len(generated_actions)} actions")
+                return self.convert_to_droidbot(generated_actions)
 
             except Exception as e:
                 self.logger.error(f"Error processing state: {e}", exc_info=True)
@@ -219,8 +202,47 @@ class LLMActionService:
                 )
 
                 # Generate fallback actions
-                return self.action_generator.generate_fallback_actions(state)
+                return self.convert_to_droidbot(self.action_generator.generate_fallback_actions(state))
 
+    def pre_process_state(self, state: Dict[str, Any]) -> dict[str, Any]:
+        # Enrich state with additional information
+        enriched_state = self.state_enricher.enrich_state(state)
+
+        # Update transitions with current state information
+        self.transition_manager.update(enriched_state)
+
+        # Update memory with current state information
+        self.memory_manager.update_state(enriched_state)
+
+        # Enrich state with historical information
+        self.memory_manager.enrich_state_with_history(enriched_state)
+
+        # Add transition guidance to state
+        transition_guidance = self.transition_manager.get_transition_guidance(enriched_state)
+        enriched_state[StateEntry.TRANSITION_GUIDANCE] = transition_guidance
+
+        return enriched_state
+
+    def post_process_state(self, state, generated_actions: list[GeneratedAction]):
+
+        # Record actions in memory
+        self.memory_manager.record_actions(state, generated_actions)
+
+        # Update transition graph with chosen actions
+        self.transition_manager.update_with_actions(state, generated_actions)
+
+    def convert_to_droidbot(self, actions: List[GeneratedAction]) -> List[Dict[str, Any]]:
+        """Convert generated actions to DroidBot-compatible format.
+
+        Args:
+            actions: List of GeneratedAction objects
+
+        Returns:
+            List of action dictionaries in DroidBot format
+        """
+        return [action.to_droidbot_format() for action in actions]
+
+    # TODO deprecated
     def process_action_result(self, from_state: Dict[str, Any], to_state: Dict[str, Any],
                               action: Dict[str, Any], success: bool) -> None:
         """
@@ -243,12 +265,7 @@ class LLMActionService:
             self.transition_manager.record_transition(from_state, to_state, action_id, action_type)
 
             # Create a basic Iteration with this action for the memory manager
-            self.memory_manager.record_actions(
-                from_state,
-                [action],  # List with single action dictionary
-                success,
-                "Transition successful" if success else "Transition failed"
-            )
+            self.memory_manager.record_actions(from_state, [action])
 
             # No need to record transition in memory_manager as we don't have proper ItemAction objects
             # for the MemoryAction.from_item_action method
@@ -303,22 +320,22 @@ class LLMActionService:
             ContextEntry.TESTING_HISTORY: state.get("testing_history", "")
         }
 
-    def get_current_strategy_type(self) -> str:
-        """Get the current strategy type.
-
-        Used by the server to include strategy metadata in responses.
-
-        Returns:
-            String indicating the current strategy type.
-        """
-        # If framework has a selected strategy, use it
-        if hasattr(self.framework, 'strategy_registry') and self.framework.strategy_registry:
-            strategy = self.framework.strategy_registry.get_strategy()
-            if strategy:
-                return strategy.name
-
-        # Return default strategy type
-        return PromptStrategyType.STANDARD
+    # def get_current_strategy_type(self) -> str:
+    #     """Get the current strategy type.
+    #
+    #     Used by the server to include strategy metadata in responses.
+    #
+    #     Returns:
+    #         String indicating the current strategy type.
+    #     """
+    #     # If framework has a selected strategy, use it
+    #     if hasattr(self.framework, 'strategy_registry') and self.framework.strategy_registry:
+    #         strategy = self.framework.strategy_registry.get_strategy()
+    #         if strategy:
+    #             return strategy.name
+    #
+    #     # Return default strategy type
+    #     return PromptStrategyType.STANDARD
 
     def record_prompt_metrics(self, messages: List[LLMMessage], context) -> None:
         """Record metrics about prompt size and content.

@@ -3,12 +3,38 @@ from typing import Dict, List, Any, Optional, Tuple
 
 from rvandroid.config.component_configurator import ComponentConfigurator
 from rvandroid.domain.static import StaticAnalysisData
+from rvandroid.domain.widget import WidgetEventType
 from rvandroid.experiment.event.bus import EventBus
 from rvandroid.llm.constants import StateEntry
+from rvandroid.parser.screen.visitor.model import ScreenDescription, ItemAction
 from rvandroid.util.error.error_handler import ErrorHandler
 from rvandroid.util.logging.constants import CONTEXT_COMPONENT
 from rvandroid.util.logging.manager import LoggingManager
 from rvandroid.util.performance_monitor import PerformanceMonitor
+
+class GeneratedAction:
+
+    def __init__(self, item: ItemAction, params: Dict[str, Any], coordinates: tuple[int, int], target, explanation: str):
+        self.item = item
+        self.id = item.id
+        self.action_type = str(item.event.name)
+        self.text = item.text
+        self.reaches_mop = item.reaches_mop
+        self.directly_reaches_mop = item.directly_reaches_mop
+        self.target_view = item.target_view
+        self.params = params
+        self.coordinates = coordinates
+        self.target = target # deprecated
+        self.explanation = explanation
+
+    def to_droidbot_format(self):
+        return {
+            "action_type": self.action_type,
+            "coordinates": self.coordinates,
+            "params": self.params,
+            "target": self.target, # TODO deprecated
+            "explanation": self.explanation
+        }
 
 
 class ActionGenerator:
@@ -56,7 +82,7 @@ class ActionGenerator:
 
         self.logger.info("Action generator initialized")
 
-    def create_actions(self, actions: List[Dict[str, Any]], state: Dict[str, Any]) -> List[Dict[str, Any]]:
+    def create_actions(self, actions: List[Dict[str, Any]], state: Dict[str, Any]) -> list[GeneratedAction]:
         """
         Convert parsed actions to framework-compatible format.
 
@@ -72,11 +98,8 @@ class ActionGenerator:
             return self.generate_fallback_actions(state)
 
         try:
-            # Parse screen to get action details
-            screen_description = state[StateEntry.STRUCTURED_SCREEN]
-
             # Convert to DroidBot format
-            return self._convert_to_droidbot_format(actions, state, screen_description)
+            return self._convert_to_droidbot_format(actions, state)
 
         except Exception as e:
             self.logger.error(f"Error creating actions: {e}", exc_info=True)
@@ -89,7 +112,7 @@ class ActionGenerator:
             )
             return self.generate_fallback_actions(state)
 
-    def generate_fallback_actions(self, state: Dict[str, Any]) -> List[Dict[str, Any]]:
+    def generate_fallback_actions(self, state: Dict[str, Any]) -> list[GeneratedAction]:
         """
         Generate fallback actions when normal generation fails.
 
@@ -101,24 +124,26 @@ class ActionGenerator:
         """
         self.logger.info("Generating fallback actions")
 
-        fallback_actions = []
+        fallback_actions: List[GeneratedAction] = []
 
         # Try to find some interactive elements
         if 'view_tree' in state:
             self._extract_clickable_elements(state['view_tree'], fallback_actions)
 
-        # If no elements found, add a random scroll action
+        # If no elements found, add a scroll action
         if not fallback_actions:
-            fallback_actions.append({
-                'action_type': 'scroll',
-                'target': '',
-                'params': {'direction': 'DOWN'},
-                'explanation': 'Fallback scroll action'
-            })
+            item_id = 500 + len(fallback_actions) + 1
+            item_action = ItemAction(item_id, f"SCROLL DOWN ({item_id})", WidgetEventType.SCROLL)
+            generated_action = GeneratedAction(item_action,
+                                               {},
+                                               (100,100),
+                                               "",
+                                               "Fallback scroll action")
+            fallback_actions.append(generated_action)
 
         return fallback_actions
 
-    def _extract_clickable_elements(self, view: Dict[str, Any], actions: List[Dict[str, Any]], max_elements: int = 3):
+    def _extract_clickable_elements(self, view: Dict[str, Any], actions: List[GeneratedAction], max_elements: int = 3):
         """
         Extract clickable elements from view tree for fallback actions.
 
@@ -139,15 +164,17 @@ class ActionGenerator:
                 bounds = view['bounds']
                 x = (bounds[0][0] + bounds[1][0]) // 2
                 y = (bounds[0][1] + bounds[1][1]) // 2
-                target = f"{x} {y}"
+                target = (x, y)
 
             if target:
-                actions.append({
-                    'action_type': 'click',
-                    'target': target,
-                    'params': {},
-                    'explanation': 'Fallback click on visible element'
-                })
+                item_id = 500+len(actions)+1
+                item_action = ItemAction(item_id, f"{WidgetEventType.CLICK.name}({item_id})", WidgetEventType.CLICK)
+                generated_action = GeneratedAction(item_action,
+                                                  {},
+                                                  target,
+                                                  str(target),
+                                                  "Fallback click on visible element")
+                actions.append(generated_action)
 
         # Recursively process children
         for child in view.get('children', []):
@@ -155,25 +182,25 @@ class ActionGenerator:
                 break
             self._extract_clickable_elements(child, actions, max_elements)
 
+    # TODO renomear e converter em outro lugar
     def _convert_to_droidbot_format(self,
                                     actions: List[Dict[str, Any]],
-                                    state: Dict[str, Any],
-                                    screen_description) -> List[Dict[str, Any]]:
+                                    state: Dict[str, Any]) -> List[GeneratedAction]:
         """
         Convert action_id format actions to DroidBot format.
 
         Args:
             actions: List of action dictionaries with action_id format
             state: Current application state
-            screen_description: Parsed screen description
 
         Returns:
             List of actions in DroidBot format
         """
-        droidbot_actions = []
+        screen_description: ScreenDescription = state[StateEntry.STRUCTURED_SCREEN]
+        droidbot_actions: List[GeneratedAction] = []
 
         # Create a mapping of action IDs to ItemAction objects for quick lookup
-        action_map = {}
+        action_map: Dict[str, Tuple[ItemAction, Dict[str, Any]]] = {}
         for item in screen_description.items:
             for action in item.actions:
                 action_map[str(action.id)] = (action, item.view)
@@ -192,22 +219,17 @@ class ActionGenerator:
                 item_action, view_data = action_map[action_id]
 
                 # Extract action type
-                action_type = self._extract_action_type(item_action.text)
+                action_type = item_action.event.name
 
                 # Get coordinates
                 coordinates = self._resolve_coordinates(item_action, view_data, state, action_id)
 
                 # Create DroidBot action
-                droidbot_action = {
-                    "action_type": action_type,
-                    "target": self._get_target(item_action, state),
-                    "params": self._process_params(action_type, params),
-                    "explanation": explanation
-                }
-
-                # Add coordinates if available
-                if coordinates:
-                    droidbot_action["coordinates"] = coordinates
+                droidbot_action = GeneratedAction(item_action,
+                                                  self._process_params(action_type, params),
+                                                  coordinates,
+                                                  self._get_target(item_action, state),
+                                                  explanation)
 
                 droidbot_actions.append(droidbot_action)
 
@@ -224,38 +246,38 @@ class ActionGenerator:
 
         return droidbot_actions
 
-    def _extract_action_type(self, action_text: str) -> str:
-        """
-        Extract the action type from the action text description.
-
-        Args:
-            action_text: Text description of the action
-
-        Returns:
-            Action type string for DroidBot
-        """
-        if action_text.startswith("CLICK"):
-            return "click"
-        elif action_text.startswith("LONG_CLICK"):
-            return "long_click"
-        elif action_text.startswith("SCROLL"):
-            # Extract direction if present
-            if "UP" in action_text:
-                return "scroll_up"
-            elif "DOWN" in action_text:
-                return "scroll_down"
-            elif "LEFT" in action_text:
-                return "scroll_left"
-            elif "RIGHT" in action_text:
-                return "scroll_right"
-            return "scroll"
-        elif action_text.startswith("SET_TEXT"):
-            return "set_text"
-        elif action_text.startswith("CHECK") or action_text.startswith("UNCHECK"):
-            return "click"  # Checkbox actions are clicks
-        elif action_text.startswith("BACK"):
-            return "key_event"
-        return "unknown"
+    # def _extract_action_type(self, action_text: str) -> str:
+    #     """
+    #     Extract the action type from the action text description.
+    #
+    #     Args:
+    #         action_text: Text description of the action
+    #
+    #     Returns:
+    #         Action type string for DroidBot
+    #     """
+    #     if action_text.startswith("CLICK"):
+    #         return "click"
+    #     elif action_text.startswith("LONG_CLICK"):
+    #         return "long_click"
+    #     elif action_text.startswith("SCROLL"):
+    #         # Extract direction if present
+    #         if "UP" in action_text:
+    #             return "scroll_up"
+    #         elif "DOWN" in action_text:
+    #             return "scroll_down"
+    #         elif "LEFT" in action_text:
+    #             return "scroll_left"
+    #         elif "RIGHT" in action_text:
+    #             return "scroll_right"
+    #         return "scroll"
+    #     elif action_text.startswith("SET_TEXT"):
+    #         return "set_text"
+    #     elif action_text.startswith("CHECK") or action_text.startswith("UNCHECK"):
+    #         return "click"  # Checkbox actions are clicks
+    #     elif action_text.startswith("BACK"):
+    #         return "key_event"
+    #     return "unknown"
 
     def _get_target(self, item_action, state: Dict[str, Any]) -> str:
         """
@@ -324,7 +346,7 @@ class ActionGenerator:
         return processed_params
 
     def _resolve_coordinates(self,
-                             item_action,
+                             item_action: ItemAction,
                              view_data,
                              state: Dict[str, Any],
                              action_id: str) -> Optional[Tuple[int, int]]:

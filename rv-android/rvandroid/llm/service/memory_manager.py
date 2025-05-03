@@ -13,6 +13,7 @@ from rvandroid.core.memory.long_term_memory import LongTermMemory, MemoryAction,
 from rvandroid.core.memory.short_term_memory import ShortTermMemory
 from rvandroid.domain.static import StaticAnalysisData
 from rvandroid.llm.constants import StateEntry
+from rvandroid.llm.service.action_generator import GeneratedAction
 from rvandroid.parser.screen.visitor.model import ItemAction
 from rvandroid.util.error.error_handler import ErrorHandler
 from rvandroid.util.logging.constants import CONTEXT_COMPONENT
@@ -122,65 +123,63 @@ class MemoryManager:
                 }
             )
 
-    def record_actions(self, state: Dict[str, Any], actions: List[Dict[str, Any]],
-                       succeeded: bool = True, result_message: str = "") -> None:
+    def record_actions(self, state: Dict[str, Any], actions: List[GeneratedAction], succeeded = True) -> None:
         """
         Record actions in both memory systems.
 
         Args:
             state: Current application state
             actions: List of executed actions (as dictionaries from response processor)
-            succeeded: Whether the actions succeeded
             result_message: Optional result message
         """
         try:
-            # Convert dictionary actions to ItemAction objects if needed
-            item_actions = []
-            for action in actions:
-                # Check if this is already an ItemAction
-                if hasattr(action, 'id') and hasattr(action, 'text'):
-                    item_actions.append(action)
-                else:
-                    # Create a simple ItemAction from the dictionary
-                    from rvandroid.domain.widget import WidgetEventType
-                    from rvandroid.parser.screen.visitor.model import ItemAction
-
-                    action_id = action.get("action_id", 0)
-                    action_text = action.get("explanation", f"Action {action_id}")
-
-                    # Determine event type from action type if available
-                    action_type = action.get("action_type", "")
-                    event_type = WidgetEventType.CLICK  # Default
-
-                    if "click" in action_type.lower():
-                        event_type = WidgetEventType.CLICK
-                    elif "long" in action_type.lower():
-                        event_type = WidgetEventType.LONG_CLICK
-                    elif "scroll" in action_type.lower():
-                        event_type = WidgetEventType.SCROLL
-                    elif "text" in action_type.lower():
-                        event_type = WidgetEventType.TEXT_CHANGE
-
-                    # Create ItemAction
-                    item_action = ItemAction(
-                        id=action_id,
-                        text=action_text,
-                        event=event_type,
-                        target_view=action.get("params", {})
-                    )
-
-                    item_actions.append(item_action)
+            # # Convert dictionary actions to ItemAction objects if needed
+            # item_actions = []
+            # for action in actions:
+                # # Check if this is already an ItemAction
+                # if hasattr(action, 'id') and hasattr(action, 'text'):
+                #     item_actions.append(action)
+                # else:
+                #     # Create a simple ItemAction from the dictionary
+                #     from rvandroid.domain.widget import WidgetEventType
+                #     from rvandroid.parser.screen.visitor.model import ItemAction
+                #
+                #     action_id = action.get("action_id", 0)
+                #     action_text = action.get("explanation", f"Action {action_id}")
+                #
+                #     # Determine event type from action type if available
+                #     action_type = action.get("action_type", "")
+                #     event_type = WidgetEventType.CLICK  # Default
+                #
+                #     if "click" in action_type.lower():
+                #         event_type = WidgetEventType.CLICK
+                #     elif "long" in action_type.lower():
+                #         event_type = WidgetEventType.LONG_CLICK
+                #     elif "scroll" in action_type.lower():
+                #         event_type = WidgetEventType.SCROLL
+                #     elif "text" in action_type.lower():
+                #         event_type = WidgetEventType.TEXT_CHANGE
+                #
+                #     # Create ItemAction
+                #     item_action = ItemAction(
+                #         id=action_id,
+                #         text=action_text,
+                #         event=event_type,
+                #         target_view=action.get("params", {})
+                #     )
+                #
+                #     item_actions.append(item_action)
 
             # Record in short-term memory
-            self.short_term_memory.record_iteration(state, item_actions, succeeded, result_message)
+            self.short_term_memory.record_iteration(state, actions)
 
             # Record in long-term memory
             state_hash = state.get(StateEntry.HASH_SCREEN_CONTENT,
                                    state.get(StateEntry.HASH_SCREEN, "unknown"))
 
-            for item_action in item_actions:
+            for item_action in actions:
                 # Create memory action
-                memory_action = MemoryAction.from_item_action(item_action)
+                memory_action = MemoryAction.from_action(item_action)
 
                 # Record in long-term memory
                 self.long_term_memory.record_action(memory_action, state_hash, succeeded)
@@ -216,7 +215,7 @@ class MemoryManager:
                                    to_state.get(StateEntry.HASH_SCREEN, "unknown"))
 
             # Create memory action
-            memory_action = MemoryAction.from_item_action(action)
+            memory_action = MemoryAction.from_action(action)
 
             # Record in long-term memory
             self.long_term_memory.record_transition(from_hash, to_hash, memory_action, succeeded)
@@ -233,7 +232,7 @@ class MemoryManager:
                 }
             )
 
-    def enrich_state_with_history(self, state: Dict[str, Any], limit: int = 5) -> Dict[str, Any]:
+    def enrich_state_with_history(self, state: Dict[str, Any], limit: int = 5):
         """
         Enrich the current state with historical information.
 
@@ -245,9 +244,6 @@ class MemoryManager:
             Enriched state dictionary
         """
         try:
-            # Create a copy of the state
-            enriched_state = state.copy()
-
             # Add short-term memory
             short_term_history = self.short_term_memory.format_for_template(limit)
 
@@ -259,12 +255,10 @@ class MemoryManager:
             long_term_insights = self._get_long_term_insights(state_hash, activity)
 
             # Combine insights
-            enriched_state["action_history"] = short_term_history
-            enriched_state["testing_history"] = short_term_history  # For backward compatibility
-            enriched_state["memory_insights"] = long_term_insights
+            state[StateEntry.ACTION_HISTORY] = short_term_history
+            state[StateEntry.MEMORY_INSIGHTS] = long_term_insights
 
-            self.logger.debug(f"Enriched state with history data")
-            return enriched_state
+            self.logger.debug("Enriched state with history data")
 
         except Exception as e:
             self.logger.error(f"Error enriching state with history: {e}")
@@ -344,30 +338,6 @@ class MemoryManager:
             return "No historical insights available for this screen."
 
         return "Memory insights:\n- " + "\n- ".join(insights)
-
-    def save_long_term_memory(self, file_path: str) -> bool:
-        """
-        Save long-term memory to disk.
-
-        Args:
-            file_path: Path to save the memory
-
-        Returns:
-            True if successful, False otherwise
-        """
-        return self.long_term_memory.save(file_path)
-
-    def load_long_term_memory(self, file_path: str) -> bool:
-        """
-        Load long-term memory from disk.
-
-        Args:
-            file_path: Path to load the memory from
-
-        Returns:
-            True if successful, False otherwise
-        """
-        return self.long_term_memory.load(file_path)
 
     def clear_short_term_memory(self) -> None:
         """Clear short-term memory."""

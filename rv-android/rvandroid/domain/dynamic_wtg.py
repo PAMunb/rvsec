@@ -3,7 +3,7 @@ import json
 import logging
 import os
 from datetime import datetime
-from typing import Dict, List, Optional, Set, Tuple
+from typing import Dict, List, Optional, Set, Tuple, Any
 
 import networkx as nx
 
@@ -14,11 +14,10 @@ class DynamicTransition:
     """Records information about a dynamic transition between screens"""
 
     def __init__(self, source_activity: str, target_activity: str,
-                 action_id: str, action_type: str, timestamp: datetime = None):
+                 actions: List[Dict[str,Any]], timestamp: datetime = None):
         self.source_activity = source_activity
         self.target_activity = target_activity
-        self.action_id = action_id
-        self.action_type = action_type
+        self.actions = actions
         self.timestamp = timestamp or datetime.now()
         self.count = 1  # Number of times this transition has been observed
 
@@ -32,8 +31,7 @@ class DynamicTransition:
         return {
             "source_activity": self.source_activity,
             "target_activity": self.target_activity,
-            "action_id": self.action_id,
-            "action_type": self.action_type,
+            "actions": self.actions,
             "timestamp": self.timestamp.isoformat(),
             "count": self.count
         }
@@ -44,8 +42,7 @@ class DynamicTransition:
         transition = cls(
             data["source_activity"],
             data["target_activity"],
-            data["action_id"],
-            data["action_type"]
+            data["actions"]
         )
         transition.timestamp = datetime.fromisoformat(data["timestamp"])
         transition.count = data["count"]
@@ -56,10 +53,10 @@ class DynamicTransition:
             return False
         return (self.source_activity == other.source_activity and
                 self.target_activity == other.target_activity and
-                self.action_id == other.action_id)
+                self.actions == other.actions)
 
     def __hash__(self):
-        return hash((self.source_activity, self.target_activity, self.action_id))
+        return hash((self.source_activity, self.target_activity, self.actions))
 
 
 class ActivityNode:
@@ -148,7 +145,7 @@ class DynamicTransitionGraph:
         self.logger.debug(f"Recorded visit to activity: {normalized_name}, count: {node.visit_count}")
 
     def record_transition(self, source_activity: str, target_activity: str,
-                          action_id: str, action_type: str) -> DynamicTransition:
+                          actions: List[Dict[str,Any]]) -> DynamicTransition:
         """Record a transition between activities"""
 
         # Normalize activity names
@@ -169,7 +166,7 @@ class DynamicTransitionGraph:
         for t in self.transitions:
             if (t.source_activity == source_activity and
                     t.target_activity == target_activity and
-                    t.action_id == action_id):
+                    t.actions == actions):
                 transition = t
                 transition.increment_count()
                 self.logger.debug(
@@ -177,9 +174,9 @@ class DynamicTransitionGraph:
                 break
 
         if not transition:
-            transition = DynamicTransition(source_activity, target_activity, action_id, action_type)
+            transition = DynamicTransition(source_activity, target_activity, actions)
             self.transitions.append(transition)
-            self.logger.debug(f"Added new transition: {source_activity} -> {target_activity}")
+            self.logger.info(f"Added new transition: {source_activity} -> {target_activity}")
 
         # Update graph edge
         if self.graph.has_edge(source_activity, target_activity):
@@ -285,52 +282,52 @@ class DynamicTransitionGraph:
         graph.current_activity = data["current_activity"]
         return graph
 
-    def save_to_file(self, filename: str) -> bool:
-        """
-        Save the dynamic transition graph to a file.
-
-        Args:
-            filename: Path to save the file
-
-        Returns:
-            True if successful, False otherwise
-        """
-        # TODO: Implement this method
-        pass
-        # try:
-        #     data = self.to_dict()
-        #     os.makedirs(os.path.dirname(filename), exist_ok=True)
-        #     with open(filename, 'w') as f:
-        #         json.dump(data, f, indent=2)
-        #     self.logger.info(f"Dynamic transition graph saved to {filename}")
-        #     return True
-        # except Exception as e:
-        #     self.logger.error(f"Error saving dynamic transition graph: {e}")
-        #     return False
-
-    @classmethod
-    def load_from_file(cls, filename: str) -> Optional['DynamicTransitionGraph']:
-        """
-        Load the dynamic transition graph from a file.
-
-        Args:
-            filename: Path to the file
-
-        Returns:
-            DynamicTransitionGraph instance or None if loading failed
-        """
-        try:
-            if not os.path.exists(filename):
-                return None
-
-            with open(filename, 'r') as f:
-                data = json.load(f)
-
-            graph = cls.from_dict(data)
-            logger = logging.getLogger(__name__)
-            logger.info(f"Dynamic transition graph loaded from {filename}")
-            return graph
-        except Exception as e:
-            logger = logging.getLogger(__name__)
-            logger.error(f"Error loading dynamic transition graph: {e}")
-            return None
+    # def save_to_file(self, filename: str) -> bool:
+    #     """
+    #     Save the dynamic transition graph to a file.
+    #
+    #     Args:
+    #         filename: Path to save the file
+    #
+    #     Returns:
+    #         True if successful, False otherwise
+    #     """
+    #     # TODO: Implement this method
+    #     pass
+    #     # try:
+    #     #     data = self.to_dict()
+    #     #     os.makedirs(os.path.dirname(filename), exist_ok=True)
+    #     #     with open(filename, 'w') as f:
+    #     #         json.dump(data, f, indent=2)
+    #     #     self.logger.info(f"Dynamic transition graph saved to {filename}")
+    #     #     return True
+    #     # except Exception as e:
+    #     #     self.logger.error(f"Error saving dynamic transition graph: {e}")
+    #     #     return False
+    #
+    # @classmethod
+    # def load_from_file(cls, filename: str) -> Optional['DynamicTransitionGraph']:
+    #     """
+    #     Load the dynamic transition graph from a file.
+    #
+    #     Args:
+    #         filename: Path to the file
+    #
+    #     Returns:
+    #         DynamicTransitionGraph instance or None if loading failed
+    #     """
+    #     try:
+    #         if not os.path.exists(filename):
+    #             return None
+    #
+    #         with open(filename, 'r') as f:
+    #             data = json.load(f)
+    #
+    #         graph = cls.from_dict(data)
+    #         logger = logging.getLogger(__name__)
+    #         logger.info(f"Dynamic transition graph loaded from {filename}")
+    #         return graph
+    #     except Exception as e:
+    #         logger = logging.getLogger(__name__)
+    #         logger.error(f"Error loading dynamic transition graph: {e}")
+    #         return None

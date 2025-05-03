@@ -7,7 +7,7 @@ history information for use in prompt generation.
 
 from typing import Any, Dict, List, Optional
 
-from rvandroid.llm.constants import FragmentType
+from rvandroid.llm.constants import FragmentType, StateEntry
 from rvandroid.llm.prompt.information.base_fragment import InformationFragment
 from rvandroid.util.error.error_handler import ErrorHandler
 
@@ -57,17 +57,17 @@ class HistoryFragment(InformationFragment):
 
         try:
             # Get action history from state (populated by MemoryManager)
-            if "action_history" in state:
+            if StateEntry.ACTION_HISTORY in state:
                 # If action_history is a string, use it directly (formatted by MemoryManager)
-                if isinstance(state["action_history"], str):
-                    history["summary"] = state["action_history"]
+                if isinstance(state[StateEntry.ACTION_HISTORY], str):
+                    history["summary"] = state[StateEntry.ACTION_HISTORY]
                 else:
                     # If it's still a list, format it
-                    history["summary"] = self._format_action_history(state["action_history"])
+                    history["summary"] = self._format_action_history(state[StateEntry.ACTION_HISTORY])
 
             # Get memory insights if available
-            if "memory_insights" in state:
-                history["insights"] = state["memory_insights"]
+            if StateEntry.MEMORY_INSIGHTS in state:
+                history["insights"] = state[StateEntry.MEMORY_INSIGHTS]
 
             if not history:
                 self.logger.debug("No testing history found")

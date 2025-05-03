@@ -7,15 +7,13 @@ with the application, tracking state transitions, action success rates, and
 exploration patterns.
 """
 
-import json
-import logging
-import os
 import time
 from collections import defaultdict
-from datetime import datetime
-from typing import Dict, Any, List, Optional, Set, Tuple
+from typing import Dict, Any, List, Optional, Tuple
 
 from rvandroid.domain.static import StaticAnalysisData
+from rvandroid.llm.service.action_generator import GeneratedAction
+from rvandroid.parser.screen.visitor.model import ItemAction
 from rvandroid.util.logging.constants import CONTEXT_COMPONENT
 from rvandroid.util.logging.manager import LoggingManager
 
@@ -26,7 +24,7 @@ class MemoryState:
     
     Stores state information, transition history, and action results.
     """
-    
+
     def __init__(self, fingerprint: str, activity: str):
         """
         Initialize a memory state.
@@ -40,19 +38,19 @@ class MemoryState:
         self.visit_count = 0
         self.first_visit = time.time()
         self.last_visit = time.time()
-        self.successful_actions = set()
-        self.failed_actions = set()
+        self.successful_actions = set()  # deprecated
+        self.failed_actions = set()  # deprecated
         self.all_actions = set()
         self.outgoing_transitions = {}
         self.incoming_transitions = {}
         self.interactive_elements_count = 0
-        self.screenshot_path = None
-        
+        self.screenshot_path = None  # deprecated
+
     def record_visit(self):
         """Record a visit to this state."""
         self.visit_count += 1
         self.last_visit = time.time()
-        
+
     def record_action(self, action_id: int, success: bool):
         """
         Record an action executed in this state.
@@ -66,62 +64,62 @@ class MemoryState:
             self.successful_actions.add(action_id)
         else:
             self.failed_actions.add(action_id)
-            
+
     def set_screenshot(self, path: Optional[str]):
         """
         Set the screenshot path for this state.
-        
+
         Args:
             path: Path to screenshot file
         """
         if path:
             self.screenshot_path = path
-            
-    def to_dict(self) -> Dict[str, Any]:
-        """
-        Convert to dictionary representation.
-        
-        Returns:
-            Dictionary representation
-        """
-        return {
-            "fingerprint": self.fingerprint,
-            "activity": self.activity,
-            "visit_count": self.visit_count,
-            "first_visit": self.first_visit,
-            "last_visit": self.last_visit,
-            "successful_actions": list(self.successful_actions),
-            "failed_actions": list(self.failed_actions),
-            "all_actions": list(self.all_actions),
-            "outgoing_transitions": self.outgoing_transitions,
-            "incoming_transitions": self.incoming_transitions,
-            "interactive_elements_count": self.interactive_elements_count,
-            "screenshot_path": self.screenshot_path
-        }
-        
-    @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> 'MemoryState':
-        """
-        Create from dictionary representation.
-        
-        Args:
-            data: Dictionary representation
-            
-        Returns:
-            MemoryState instance
-        """
-        state = cls(data["fingerprint"], data["activity"])
-        state.visit_count = data["visit_count"]
-        state.first_visit = data["first_visit"]
-        state.last_visit = data["last_visit"]
-        state.successful_actions = set(data["successful_actions"])
-        state.failed_actions = set(data["failed_actions"])
-        state.all_actions = set(data["all_actions"])
-        state.outgoing_transitions = data["outgoing_transitions"]
-        state.incoming_transitions = data["incoming_transitions"]
-        state.interactive_elements_count = data.get("interactive_elements_count", 0)
-        state.screenshot_path = data.get("screenshot_path")
-        return state
+
+    # def to_dict(self) -> Dict[str, Any]:
+    #     """
+    #     Convert to dictionary representation.
+    #
+    #     Returns:
+    #         Dictionary representation
+    #     """
+    #     return {
+    #         "fingerprint": self.fingerprint,
+    #         "activity": self.activity,
+    #         "visit_count": self.visit_count,
+    #         "first_visit": self.first_visit,
+    #         "last_visit": self.last_visit,
+    #         "successful_actions": list(self.successful_actions),
+    #         "failed_actions": list(self.failed_actions),
+    #         "all_actions": list(self.all_actions),
+    #         "outgoing_transitions": self.outgoing_transitions,
+    #         "incoming_transitions": self.incoming_transitions,
+    #         "interactive_elements_count": self.interactive_elements_count,
+    #         "screenshot_path": self.screenshot_path
+    #     }
+    #
+    # @classmethod
+    # def from_dict(cls, data: Dict[str, Any]) -> 'MemoryState':
+    #     """
+    #     Create from dictionary representation.
+    #
+    #     Args:
+    #         data: Dictionary representation
+    #
+    #     Returns:
+    #         MemoryState instance
+    #     """
+    #     state = cls(data["fingerprint"], data["activity"])
+    #     state.visit_count = data["visit_count"]
+    #     state.first_visit = data["first_visit"]
+    #     state.last_visit = data["last_visit"]
+    #     state.successful_actions = set(data["successful_actions"])
+    #     state.failed_actions = set(data["failed_actions"])
+    #     state.all_actions = set(data["all_actions"])
+    #     state.outgoing_transitions = data["outgoing_transitions"]
+    #     state.incoming_transitions = data["incoming_transitions"]
+    #     state.interactive_elements_count = data.get("interactive_elements_count", 0)
+    #     state.screenshot_path = data.get("screenshot_path")
+    #     return state
 
 
 class MemoryAction:
@@ -130,7 +128,7 @@ class MemoryAction:
     
     Tracks execution history, success rate, and transitions caused by this action.
     """
-    
+
     def __init__(self, action_id: int, text: str, action_type: str):
         """
         Initialize a memory action.
@@ -146,11 +144,11 @@ class MemoryAction:
         self.execution_count = 0
         self.success_count = 0
         self.failure_count = 0
-        self.state_transitions = defaultdict(list)
-        self.element_properties = {}
+        self.state_transitions = defaultdict(list)  # TODO entender
+        self.element_properties = {} # TODO entender
         self.reaches_mop = False
         self.directly_reaches_mop = False
-        
+
     def record_execution(self, success: bool):
         """
         Record an execution of this action.
@@ -163,7 +161,7 @@ class MemoryAction:
             self.success_count += 1
         else:
             self.failure_count += 1
-            
+
     def record_transition(self, from_state: str, to_state: str):
         """
         Record a state transition caused by this action.
@@ -174,7 +172,7 @@ class MemoryAction:
         """
         if to_state not in self.state_transitions[from_state]:
             self.state_transitions[from_state].append(to_state)
-            
+
     def get_success_rate(self) -> float:
         """
         Get the success rate of this action.
@@ -185,55 +183,55 @@ class MemoryAction:
         if self.execution_count == 0:
             return 0.0
         return self.success_count / self.execution_count
-        
-    def to_dict(self) -> Dict[str, Any]:
-        """
-        Convert to dictionary representation.
-        
-        Returns:
-            Dictionary representation
-        """
-        return {
-            "id": self.id,
-            "text": self.text,
-            "type": self.type,
-            "execution_count": self.execution_count,
-            "success_count": self.success_count,
-            "failure_count": self.failure_count,
-            "state_transitions": dict(self.state_transitions),
-            "element_properties": self.element_properties,
-            "reaches_mop": self.reaches_mop,
-            "directly_reaches_mop": self.directly_reaches_mop
-        }
-        
+
+    # def to_dict(self) -> Dict[str, Any]:
+    #     """
+    #     Convert to dictionary representation.
+    #
+    #     Returns:
+    #         Dictionary representation
+    #     """
+    #     return {
+    #         "id": self.id,
+    #         "text": self.text,
+    #         "type": self.type,
+    #         "execution_count": self.execution_count,
+    #         "success_count": self.success_count,
+    #         "failure_count": self.failure_count,
+    #         "state_transitions": dict(self.state_transitions),
+    #         "element_properties": self.element_properties,
+    #         "reaches_mop": self.reaches_mop,
+    #         "directly_reaches_mop": self.directly_reaches_mop
+    #     }
+    #
+    # @classmethod
+    # def from_dict(cls, data: Dict[str, Any]) -> 'MemoryAction':
+    #     """
+    #     Create from dictionary representation.
+    #
+    #     Args:
+    #         data: Dictionary representation
+    #
+    #     Returns:
+    #         MemoryAction instance
+    #     """
+    #     action = cls(data["id"], data["text"], data["type"])
+    #     action.execution_count = data["execution_count"]
+    #     action.success_count = data["success_count"]
+    #     action.failure_count = data["failure_count"]
+    #     action.state_transitions = defaultdict(list)
+    #
+    #     # Convert state_transitions back to defaultdict
+    #     for from_state, to_states in data["state_transitions"].items():
+    #         action.state_transitions[from_state] = to_states
+    #
+    #     action.element_properties = data.get("element_properties", {})
+    #     action.reaches_mop = data.get("reaches_mop", False)
+    #     action.directly_reaches_mop = data.get("directly_reaches_mop", False)
+    #     return action
+
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> 'MemoryAction':
-        """
-        Create from dictionary representation.
-        
-        Args:
-            data: Dictionary representation
-            
-        Returns:
-            MemoryAction instance
-        """
-        action = cls(data["id"], data["text"], data["type"])
-        action.execution_count = data["execution_count"]
-        action.success_count = data["success_count"]
-        action.failure_count = data["failure_count"]
-        action.state_transitions = defaultdict(list)
-        
-        # Convert state_transitions back to defaultdict
-        for from_state, to_states in data["state_transitions"].items():
-            action.state_transitions[from_state] = to_states
-            
-        action.element_properties = data.get("element_properties", {})
-        action.reaches_mop = data.get("reaches_mop", False)
-        action.directly_reaches_mop = data.get("directly_reaches_mop", False)
-        return action
-    
-    @classmethod
-    def from_item_action(cls, action) -> 'MemoryAction':
+    def from_action(cls, action: GeneratedAction) -> 'MemoryAction':
         """
         Create from an ItemAction.
         
@@ -243,10 +241,10 @@ class MemoryAction:
         Returns:
             MemoryAction instance
         """
-        memory_action = cls(action.id, action.text, action.event)
-        memory_action.reaches_mop = getattr(action, 'reaches_mop', False)
-        memory_action.directly_reaches_mop = getattr(action, 'directly_reaches_mop', False)
-        
+        memory_action = cls(action.id, action.text, action.action_type)
+        memory_action.reaches_mop = action.reaches_mop
+        memory_action.directly_reaches_mop = action.directly_reaches_mop
+
         # Extract element properties if available
         if hasattr(action, 'target_view') and action.target_view:
             memory_action.element_properties = {
@@ -257,7 +255,7 @@ class MemoryAction:
                 "clickable": action.target_view.get("clickable", False),
                 "enabled": action.target_view.get("enabled", False)
             }
-            
+
         return memory_action
 
 
@@ -279,7 +277,7 @@ class LongTermMemory:
     - Provides comprehensive application behavior tracking
     - Supports intelligent exploration through memory-based guidance
     """
-    
+
     def __init__(self, app_package: str, static_data: Optional[StaticAnalysisData] = None):
         """
         Initialize the long-term memory system.
@@ -294,43 +292,42 @@ class LongTermMemory:
             "core.memory.long_term_memory",
             {CONTEXT_COMPONENT: "LongTermMemory"}
         )
-        
+
         # Initialize core parameters
         self.app_package = app_package
         self.static_data = static_data
         self.creation_time = time.time()
-        
+
         # Initialize data structures
-        self.states = {}  # Fingerprint -> MemoryState
-        self.actions = {}  # Action ID -> MemoryAction
+        self.states: Dict[str, MemoryState] = {}  # Fingerprint -> MemoryState
+        self.actions = {}  # Action ID -> MemoryAction  # TODO deprecated
         self.activities = {}  # Activity name -> Activity info
         self.transitions = []  # List of transitions
-        
+
         # Statistics
         self.total_states = 0
         self.total_activities = 0
         self.total_actions = 0
         self.total_transitions = 0
-        self.successful_actions = 0
-        self.failed_actions = 0
-        
+        self.successful_actions = 0  # TODO deprecated
+        self.failed_actions = 0  # TODO deprecated
+
         self.logger.info(f"Initialized long-term memory for {app_package}")
-        
-    def record_state(self, state: MemoryState, is_new: bool = True) -> None:
+
+    def record_state(self, state: MemoryState) -> None:
         """
         Record or update a state in memory.
         
         Args:
             state: State to record
-            is_new: Whether this is a new state or an update
         """
         # Check if this is a new state
         is_new_state = state.fingerprint not in self.states
-        
+
         # Update statistics for new states
         if is_new_state:
             self.total_states += 1
-            
+
             # Update activity statistics
             activity = state.activity
             if activity not in self.activities:
@@ -340,32 +337,32 @@ class LongTermMemory:
                     "states": []
                 }
                 self.total_activities += 1
-                
+
             # Add state to activity
             if state.fingerprint not in self.activities[activity]["states"]:
                 self.activities[activity]["states"].append(state.fingerprint)
-        
+
         # Update or add state
         if is_new_state:
             self.states[state.fingerprint] = state
         else:
             # Update existing state
-            existing_state = self.states[state.fingerprint]
+            existing_state: MemoryState = self.states[state.fingerprint]
             existing_state.record_visit()
-            
+
             # Update screenshot if available
             if state.screenshot_path:
                 existing_state.set_screenshot(state.screenshot_path)
-                
+
             # Update interactive elements count if available
             if state.interactive_elements_count > 0:
                 existing_state.interactive_elements_count = state.interactive_elements_count
-        
+
         # Update activity visit count
         if state.activity in self.activities:
             self.activities[state.activity]["visit_count"] += 1
             self.activities[state.activity]["last_seen"] = time.time()
-            
+
     def record_action(self, action: MemoryAction, state_fingerprint: str, success: bool) -> None:
         """
         Record an action execution.
@@ -380,7 +377,7 @@ class LongTermMemory:
             self.successful_actions += 1
         else:
             self.failed_actions += 1
-            
+
         # Update or add action
         if action.id in self.actions:
             self.actions[action.id].record_execution(success)
@@ -388,11 +385,11 @@ class LongTermMemory:
             action.record_execution(success)
             self.actions[action.id] = action
             self.total_actions += 1
-            
+
         # Update state with action
         if state_fingerprint in self.states:
             self.states[state_fingerprint].record_action(action.id, success)
-            
+
     def record_transition(self, from_state: str, to_state: str, action: MemoryAction, success: bool) -> None:
         """
         Record a state transition.
@@ -406,11 +403,11 @@ class LongTermMemory:
         # Only record successful transitions
         if not success:
             return
-            
+
         # Record transition in action
         if action.id in self.actions:
             self.actions[action.id].record_transition(from_state, to_state)
-            
+
         # Record transition in states
         if from_state in self.states:
             if to_state not in self.states[from_state].outgoing_transitions:
@@ -419,7 +416,7 @@ class LongTermMemory:
                 "action_id": action.id,
                 "timestamp": time.time()
             })
-            
+
         if to_state in self.states:
             if from_state not in self.states[to_state].incoming_transitions:
                 self.states[to_state].incoming_transitions[from_state] = []
@@ -427,7 +424,7 @@ class LongTermMemory:
                 "action_id": action.id,
                 "timestamp": time.time()
             })
-            
+
         # Record in transitions list
         self.transitions.append({
             "from_state": from_state,
@@ -435,9 +432,9 @@ class LongTermMemory:
             "action_id": action.id,
             "timestamp": time.time()
         })
-        
+
         self.total_transitions += 1
-        
+
     def get_state_by_fingerprint(self, fingerprint: str) -> Optional[MemoryState]:
         """
         Get a state by its fingerprint.
@@ -449,7 +446,7 @@ class LongTermMemory:
             MemoryState or None if not found
         """
         return self.states.get(fingerprint)
-        
+
     def get_action_by_id(self, action_id: int) -> Optional[MemoryAction]:
         """
         Get an action by its ID.
@@ -461,7 +458,7 @@ class LongTermMemory:
             MemoryAction or None if not found
         """
         return self.actions.get(action_id)
-        
+
     def get_least_visited_activities(self, count: int = 5) -> List[Dict[str, Any]]:
         """
         Get the least visited activities.
@@ -474,13 +471,13 @@ class LongTermMemory:
         """
         if not self.activities:
             return []
-            
+
         # Sort activities by visit count
         sorted_activities = sorted(
             [(name, info) for name, info in self.activities.items()],
             key=lambda x: x[1]["visit_count"]
         )
-        
+
         # Return the least visited
         return [
             {
@@ -492,7 +489,7 @@ class LongTermMemory:
             }
             for name, info in sorted_activities[:count]
         ]
-        
+
     def get_actions_for_coverage(self, target_activity: str) -> List[Tuple[int, float]]:
         """
         Find actions that might lead to the target activity.
@@ -504,20 +501,20 @@ class LongTermMemory:
             List of (action_id, confidence) tuples
         """
         candidate_actions = []
-        
+
         # Find states in the target activity
         target_states = []
         for fingerprint, state in self.states.items():
             if state.activity == target_activity:
                 target_states.append(fingerprint)
-                
+
         if not target_states:
             return []
-            
+
         # Find actions that have transitions to these states
         for action_id, action in self.actions.items():
             highest_confidence = 0.0
-            
+
             for from_state, to_states in action.state_transitions.items():
                 # Calculate confidence based on transition frequency
                 for to_state in to_states:
@@ -526,20 +523,20 @@ class LongTermMemory:
                         transition_count = 0
                         for transition in self.transitions:
                             if (transition["from_state"] == from_state and
-                                transition["to_state"] == to_state and
-                                transition["action_id"] == action_id):
+                                    transition["to_state"] == to_state and
+                                    transition["action_id"] == action_id):
                                 transition_count += 1
-                                
+
                         # Calculate confidence
                         confidence = min(1.0, transition_count / 5.0)  # Max confidence after 5 transitions
                         highest_confidence = max(highest_confidence, confidence)
-            
+
             if highest_confidence > 0:
                 candidate_actions.append((action_id, highest_confidence))
-                
+
         # Sort by confidence
         return sorted(candidate_actions, key=lambda x: x[1], reverse=True)
-        
+
     def suggest_next_activity(self) -> Optional[str]:
         """
         Suggest the next activity to explore based on visit count.
@@ -549,12 +546,12 @@ class LongTermMemory:
         """
         # Get least visited activities
         least_visited = self.get_least_visited_activities(1)
-        
+
         if not least_visited:
             return None
-            
+
         return least_visited[0]["name"]
-        
+
     def get_memory_stats(self) -> Dict[str, Any]:
         """
         Get memory statistics.
@@ -567,104 +564,6 @@ class LongTermMemory:
             "total_activities": self.total_activities,
             "total_actions": self.total_actions,
             "total_transitions": self.total_transitions,
-            "successful_actions": self.successful_actions,
-            "failed_actions": self.failed_actions,
             "creation_time": self.creation_time,
             "runtime": time.time() - self.creation_time
         }
-        
-    def save(self, file_path: str) -> bool:
-        """
-        Save memory to file.
-        
-        Args:
-            file_path: Path to save the memory
-            
-        Returns:
-            True if successful, False otherwise
-        """
-        try:
-            # Create data dictionary
-            data = {
-                "app_package": self.app_package,
-                "creation_time": self.creation_time,
-                "save_time": time.time(),
-                "states": {k: v.to_dict() for k, v in self.states.items()},
-                "actions": {str(k): v.to_dict() for k, v in self.actions.items()},
-                "activities": self.activities,
-                "transitions": self.transitions,
-                "stats": self.get_memory_stats()
-            }
-            
-            # Create directory if it doesn't exist
-            os.makedirs(os.path.dirname(file_path), exist_ok=True)
-            
-            # Save to file
-            with open(file_path, "w") as f:
-                json.dump(data, f, indent=2)
-                
-            self.logger.info(f"Saved memory to {file_path}")
-            return True
-            
-        except Exception as e:
-            self.logger.error(f"Error saving memory: {e}")
-            return False
-            
-    def load(self, file_path: str) -> bool:
-        """
-        Load memory from file.
-        
-        Args:
-            file_path: Path to load the memory from
-            
-        Returns:
-            True if successful, False otherwise
-        """
-        try:
-            # Check if file exists
-            if not os.path.isfile(file_path):
-                self.logger.error(f"Memory file {file_path} not found")
-                return False
-                
-            # Load from file
-            with open(file_path, "r") as f:
-                data = json.load(f)
-                
-            # Verify app package
-            if data["app_package"] != self.app_package:
-                self.logger.warning(f"Memory file is for a different app: {data['app_package']}")
-                
-            # Load states
-            self.states = {}
-            for fingerprint, state_data in data["states"].items():
-                self.states[fingerprint] = MemoryState.from_dict(state_data)
-                
-            # Load actions
-            self.actions = {}
-            for action_id, action_data in data["actions"].items():
-                self.actions[int(action_id)] = MemoryAction.from_dict(action_data)
-                
-            # Load other data
-            self.activities = data["activities"]
-            self.transitions = data["transitions"]
-            self.creation_time = data["creation_time"]
-            
-            # Update statistics
-            self.total_states = len(self.states)
-            self.total_activities = len(self.activities)
-            self.total_actions = len(self.actions)
-            self.total_transitions = len(self.transitions)
-            
-            # Count successful and failed actions
-            self.successful_actions = 0
-            self.failed_actions = 0
-            for action in self.actions.values():
-                self.successful_actions += action.success_count
-                self.failed_actions += action.failure_count
-                
-            self.logger.info(f"Loaded memory from {file_path}: {self.total_states} states, {self.total_actions} actions")
-            return True
-            
-        except Exception as e:
-            self.logger.error(f"Error loading memory: {e}")
-            return False

@@ -11,6 +11,7 @@ from datetime import datetime
 from typing import Dict, List, Optional, Any
 
 from rvandroid.llm.constants import StateEntry
+from rvandroid.llm.service.action_generator import GeneratedAction
 from rvandroid.parser.screen.visitor.model import ItemAction
 from rvandroid.util.error.error_handler import ErrorHandler
 from rvandroid.util.logging.constants import CONTEXT_COMPONENT
@@ -20,12 +21,12 @@ from rvandroid.util.logging.manager import LoggingManager
 class Iteration:
     """
     Represents a single iteration of interaction with the current screen.
+    Represents a call to LLM and the generated actions.
 
     ### Architectural Decisions:
     - Stores complete ItemAction instances to maintain full context
     - Tracks timestamps for ordering and age-based filtering
     - Maintains hash references to allow correlation with state data
-    - Includes result information for action outcome analysis
 
     ### Role in the System:
     - Provides atomic unit of historical interaction data
@@ -44,11 +45,9 @@ class Iteration:
         self.state_hash = state_hash
         self.activity = activity
         self.timestamp = datetime.now()
-        self.actions: List[ItemAction] = []
-        self.succeeded: bool = False  # Whether this iteration resulted in successful actions
-        self.result_message: str = ""  # Optional result/feedback message
+        self.actions: List[GeneratedAction] = []
 
-    def add_action(self, action: ItemAction) -> None:
+    def add_action(self, action: GeneratedAction) -> None:
         """
         Add an action to this iteration.
 
@@ -57,16 +56,6 @@ class Iteration:
         """
         self.actions.append(action)
 
-    def set_result(self, succeeded: bool, message: str = "") -> None:
-        """
-        Set the result of this iteration.
-
-        Args:
-            succeeded: Whether the actions succeeded
-            message: Optional result/feedback message
-        """
-        self.succeeded = succeeded
-        self.result_message = message
 
     def to_dict(self) -> Dict[str, Any]:
         """
@@ -79,11 +68,10 @@ class Iteration:
             "state_hash": self.state_hash,
             "activity": self.activity,
             "timestamp": self.timestamp.isoformat(),
-            "actions": [{"id": action.id, "text": action.text} for action in self.actions],
-            "succeeded": self.succeeded,
-            "result_message": self.result_message
+            "actions": [{"id": action.id, "text": action.text} for action in self.actions]
         }
 
+    # TODO nao deve ficar aqui ... acho q no state bota o objeto de memoria e no fragment ele escreve do jeito q quiser
     def format_for_template(self) -> str:
         """
         Format iteration information for a template.
@@ -93,18 +81,13 @@ class Iteration:
         """
         action_texts = [f"{action.text}" for action in self.actions]
 
-        result_indicator = ""
-        if self.result_message:
-            result_indicator = f" - Result: {self.result_message}"
-
         # Format with timestamp and actions
-        return (f"[{self.timestamp.strftime('%H:%M:%S')}] "
-                f"Executed: {', '.join(action_texts)}{result_indicator}")
+        return f"[{self.timestamp.strftime('%H:%M:%S')}] Executed: {', '.join(action_texts)}"
 
 
 class ShortTermMemory:
     """
-    Manages short-term memory of interactions for the current screen.
+    Manages short-term memory of interactions (LLM calls and generated actions) for the current screen.
 
     ### Architectural Decisions:
     - Maintains a screen-specific history of recent interactions
@@ -143,15 +126,13 @@ class ShortTermMemory:
 
         self.logger.info(f"Initialized short-term memory with max_iterations={max_iterations}")
 
-    def record_iteration(self, state: Dict[str, Any], actions: List[ItemAction],
-                         succeeded: bool = True, result_message: str = "") -> None:
+    def record_iteration(self, state: Dict[str, Any], actions: List[GeneratedAction]) -> None:
         """
         Record a new iteration.
 
         Args:
             state: Current application state
             actions: List of executed actions
-            succeeded: Whether the actions succeeded
             result_message: Optional result/feedback message
         """
         try:
@@ -174,9 +155,6 @@ class ShortTermMemory:
             # Add actions
             for action in actions:
                 iteration.add_action(action)
-
-            # Set result
-            iteration.set_result(succeeded, result_message)
 
             # Add to iterations list
             self.iterations.insert(0, iteration)  # Add at the beginning (most recent first)
