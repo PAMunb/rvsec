@@ -86,8 +86,8 @@ class LLMActionService:
         app_package = model_kwargs.get("app_package", "unknown")  # TODO rever ... pegar de outra forma
 
         # Create specialized components
-        self.transition_manager = TransitionManager()
-        self.memory_manager = MemoryManager(app_package, static_data)
+        self.transition_manager = TransitionManager(static_data)
+        self.memory_manager = MemoryManager()
         self.state_enricher = StateEnricher(static_data, self.config)
         self.response_processor = ResponseProcessor(self.config)
         self.action_generator = ActionGenerator(self.config, static_data)
@@ -205,6 +205,20 @@ class LLMActionService:
                 return self.convert_to_droidbot(self.action_generator.generate_fallback_actions(state))
 
     def pre_process_state(self, state: Dict[str, Any]) -> dict[str, Any]:
+        """
+        Pre-process the state by enriching it with additional information.
+        
+        This method coordinates the state enrichment process, including:
+        - Basic state enrichment (action decoding, screen analysis)
+        - Transition management and guidance
+        - Memory updates and history enrichment
+        
+        Args:
+            state: Current application state
+            
+        Returns:
+            Enriched state dictionary
+        """
         # Enrich state with additional information
         enriched_state = self.state_enricher.enrich_state(state)
 
@@ -212,10 +226,10 @@ class LLMActionService:
         self.transition_manager.update(enriched_state)
 
         # Update memory with current state information
-        self.memory_manager.update_state(enriched_state)
+        self.memory_manager.update(enriched_state)
 
         # Enrich state with historical information
-        self.memory_manager.enrich_state_with_history(enriched_state)
+        enriched_state = self.memory_manager.enrich_state_with_history(enriched_state)
 
         # Add transition guidance to state
         transition_guidance = self.transition_manager.get_transition_guidance(enriched_state)
@@ -223,8 +237,17 @@ class LLMActionService:
 
         return enriched_state
 
-    def post_process_state(self, state, generated_actions: list[GeneratedAction]):
-
+    def post_process_state(self, state: Dict[str, Any], generated_actions: List[GeneratedAction]) -> None:
+        """
+        Post-process the state after action generation.
+        
+        This method updates component systems with the generated actions to maintain
+        accurate state tracking and history.
+        
+        Args:
+            state: Current application state
+            generated_actions: List of generated actions to execute
+        """
         # Record actions in memory
         self.memory_manager.record_actions(state, generated_actions)
 
@@ -242,9 +265,8 @@ class LLMActionService:
         """
         return [action.to_droidbot_format() for action in actions]
 
-    # TODO deprecated
     def process_action_result(self, from_state: Dict[str, Any], to_state: Dict[str, Any],
-                              action: Dict[str, Any], success: bool) -> None:
+                            action: Dict[str, Any], success: bool) -> None:
         """
         Process the result of an action execution.
 
@@ -262,13 +284,21 @@ class LLMActionService:
             action_type = action.get("action_type", "unknown")
 
             # Record transition in transition manager
-            self.transition_manager.record_transition(from_state, to_state, action_id, action_type)
+            from_activity = from_state.get(StateEntry.ACTIVITY, "unknown")
+            to_activity = to_state.get(StateEntry.ACTIVITY, "unknown")
+            self.transition_manager.record_transition(from_activity, to_activity, str(action_id), action_type)
 
-            # Create a basic Iteration with this action for the memory manager
-            self.memory_manager.record_actions(from_state, [action])
+            # Create Action object for memory manager
+            from rvandroid.llm.data_structures import Action
+            memory_action = Action(
+                action_id=action_id,
+                action_type=action_type,
+                view=action.get("view", {}),
+                parameters=action.get("params", {})
+            )
 
-            # No need to record transition in memory_manager as we don't have proper ItemAction objects
-            # for the MemoryAction.from_item_action method
+            # Record in memory manager
+            self.memory_manager.record_actions(from_state, [memory_action], action_selection_reason="", succeeded=success)
 
             self.logger.info(f"Processed action result: success={success}")
 
@@ -321,23 +351,6 @@ class LLMActionService:
             ContextEntry.TESTING_HISTORY: state.get("testing_history", "")
         }
 
-    # def get_current_strategy_type(self) -> str:
-    #     """Get the current strategy type.
-    #
-    #     Used by the server to include strategy metadata in responses.
-    #
-    #     Returns:
-    #         String indicating the current strategy type.
-    #     """
-    #     # If framework has a selected strategy, use it
-    #     if hasattr(self.framework, 'strategy_registry') and self.framework.strategy_registry:
-    #         strategy = self.framework.strategy_registry.get_strategy()
-    #         if strategy:
-    #             return strategy.name
-    #
-    #     # Return default strategy type
-    #     return PromptStrategyType.STANDARD
-
     def record_prompt_metrics(self, messages: List[LLMMessage], context) -> None:
         """Record metrics about prompt size and content.
 
@@ -355,4 +368,5 @@ class LLMActionService:
 
     def clear_short_term_memory(self) -> None:
         """Clear the short-term memory."""
-        self.memory_manager.clear_short_term_memory()
+        if hasattr(self.memory_manager, 'short_term'):
+            self.memory_manager.short_term.clear()
