@@ -72,6 +72,7 @@ class ActivityNode:
     def record_visit(self):
         """Record a visit to this activity"""
         self.visit_count += 1
+        print(f"Recording visit to activity: {self.name}, count: {self.visit_count}")
         now = datetime.now()
         if not self.first_visit:
             self.first_visit = now
@@ -80,6 +81,7 @@ class ActivityNode:
     def record_tested_element(self, action_id: str):
         """Record that a UI element was tested"""
         self.ui_elements_tested.add(action_id)
+        print(f"Recording tested element: {action_id} ::: ui_elements_tested={self.ui_elements_tested}")
 
     def get_coverage_percentage(self, total_elements: int) -> float:
         """Calculate the coverage percentage for this activity"""

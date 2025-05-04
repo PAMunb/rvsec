@@ -60,6 +60,7 @@ class StateEntry:
     VIEW_TREE = "view_tree"
     HASH_SCREEN_CONTENT = "state_str"
     HASH_SCREEN = "structure_str"
+    STATIC_DATA = "static_data"
     STRUCTURED_SCREEN = "structured_screen"  # The actual ScreenDescription object
     AVAILABLE_ACTIONS = "available_actions"
     SCREENSHOT_PATH = "screenshot_path"

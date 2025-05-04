@@ -8,8 +8,10 @@ application states, identify navigation patterns, and provide guidance for testi
 from typing import Dict, List, Any
 
 from rvandroid.domain.dynamic_wtg import DynamicTransitionGraph
+from rvandroid.domain.static import StaticAnalysisData
 from rvandroid.llm.constants import StateEntry
 from rvandroid.llm.service.action_generator import GeneratedAction
+from rvandroid.parser.screen.visitor.model import ScreenDescription
 from rvandroid.util.error.error_handler import ErrorHandler
 from rvandroid.util.logging.constants import CONTEXT_COMPONENT
 from rvandroid.util.logging.manager import LoggingManager
@@ -63,6 +65,7 @@ class TransitionManager:
         try:
             # Get current activity
             current_activity = state.get(StateEntry.ACTIVITY, "unknown")
+            screen_description: ScreenDescription = state.get(StateEntry.STRUCTURED_SCREEN)
 
             # Normalize activity name
             current_activity = current_activity.replace("/", ".")
@@ -176,6 +179,13 @@ class TransitionManager:
         try:
             # Get current activity
             activity = state.get(StateEntry.ACTIVITY, "unknown")
+            screen_description: ScreenDescription = state.get(StateEntry.STRUCTURED_SCREEN)
+            static_data: StaticAnalysisData = state[StateEntry.STATIC_DATA]
+
+            all_actions_ids: set[str] = set()
+            for item in screen_description.items:
+                for action in item.actions:
+                    all_actions_ids.add(str(action.id))
 
             # Normalize activity name
             activity = activity.replace("/", ".")
@@ -186,10 +196,10 @@ class TransitionManager:
             guidance = {
                 "current_activity": activity,
                 "visit_count": 0,
-                "suggested_targets": [],
-                "unexplored_elements": [],
+                "explored_actions": [],
+                "unexplored_actions": [],
                 "visited_activities": [],
-                "least_visited_activities": []
+                "transistions": []  # transitions from this activity to others
             }
 
             # Check if the activity exists in the graph
@@ -197,7 +207,8 @@ class TransitionManager:
                 # Get activity node
                 activity_node = self.dynamic_wtg.activities[activity]
                 guidance["visit_count"] = activity_node.visit_count
-                guidance["unexplored_elements"] = list(activity_node.ui_elements_tested)
+                guidance["explored_actions"] = list(activity_node.ui_elements_tested)
+                guidance["unexplored_actions"] = list(all_actions_ids - activity_node.ui_elements_tested)
 
             # Get visited activities
             guidance["visited_activities"] = [
@@ -206,7 +217,28 @@ class TransitionManager:
             ]
 
             # Get suggested target activities
-            if activity in self.dynamic_wtg.graph:
+            vizinhos = []
+            window = static_data.windows.get_window(activity)
+            print(f"window={window.name} ({window.id})")
+            if window:
+                current_activity_id = window.id
+                wtg = static_data.wtg
+
+                edges = wtg.graph.edges(current_activity_id)
+                print(f"edges={edges}")
+
+                neighbors = list(wtg.graph.neighbors(current_activity_id))
+                for neighbor in neighbors:
+                    print(f"neighbor >>> {neighbor} ::: type={type(neighbor)}")
+                    _id = neighbor
+                    vizinho = static_data.windows.get_window_by_id(neighbor)
+                    vizinhos.append(vizinho)
+                print(f"vizinhos={vizinhos}")
+                exit(1)
+
+
+            if activity in static_data.wtg.graph:
+                print(f"neighbor >>> {activity}")
                 neighbors = list(self.dynamic_wtg.graph.neighbors(activity))
                 neighbor_visits = []
 
@@ -254,7 +286,7 @@ class TransitionManager:
             return {
                 "visit_count": 0,
                 "suggested_targets": [],
-                "unexplored_elements": [],
+                "explored_actions": [],
                 "summary": "Navigation guidance information unavailable."
             }
 
@@ -279,40 +311,40 @@ class TransitionManager:
         else:
             summary_parts.append(f"You have visited this screen {visit_count} times.")
 
-        # Add unexplored elements information
-        unexplored_count = len(guidance.get("unexplored_elements", []))
-        if unexplored_count > 0:
-            summary_parts.append(
-                f"There are {unexplored_count} UI elements on this screen that have not yet been tested.")
+        # # Add unexplored elements information
+        # unexplored_count = len(guidance.get("unexplored_elements", []))
+        # if unexplored_count > 0:
+        #     summary_parts.append(
+        #         f"There are {unexplored_count} UI elements on this screen that have not yet been tested.")
 
-        # Add suggested targets information
-        suggested = guidance.get("suggested_targets", [])
-        if suggested:
-            targets = []
-            for target in suggested[:3]:  # Limit to 3 suggestions
-                name = target.get("name", "Unknown")
-                visits = target.get("visits", 0)
-                if visits == 0:
-                    targets.append(f"{name} (not visited)")
-                else:
-                    targets.append(f"{name} ({visits} visit{'s' if visits > 1 else ''})")
+        # # Add suggested targets information
+        # suggested = guidance.get("suggested_targets", [])
+        # if suggested:
+        #     targets = []
+        #     for target in suggested[:3]:  # Limit to 3 suggestions
+        #         name = target.get("name", "Unknown")
+        #         visits = target.get("visits", 0)
+        #         if visits == 0:
+        #             targets.append(f"{name} (not visited)")
+        #         else:
+        #             targets.append(f"{name} ({visits} visit{'s' if visits > 1 else ''})")
+        #
+        #     summary_parts.append(f"Suggested targets: {', '.join(targets)}")
 
-            summary_parts.append(f"Suggested targets: {', '.join(targets)}")
-
-        # Add least visited activities
-        least_visited = guidance.get("least_visited_activities", [])
-        if least_visited and not suggested:  # Only show if no suggested targets
-            activities = []
-            for activity in least_visited[:2]:  # Limit to 2
-                name = activity.get("name", "Unknown")
-                visits = activity.get("visits", 0)
-                if visits == 0:
-                    activities.append(f"{name} (not visited)")
-                else:
-                    activities.append(f"{name} ({visits} visit{'s' if visits > 1 else ''})")
-
-            if activities:
-                summary_parts.append(f"Consider exploring: {', '.join(activities)}")
+        # # Add least visited activities
+        # least_visited = guidance.get("least_visited_activities", [])
+        # if least_visited and not suggested:  # Only show if no suggested targets
+        #     activities = []
+        #     for activity in least_visited[:2]:  # Limit to 2
+        #         name = activity.get("name", "Unknown")
+        #         visits = activity.get("visits", 0)
+        #         if visits == 0:
+        #             activities.append(f"{name} (not visited)")
+        #         else:
+        #             activities.append(f"{name} ({visits} visit{'s' if visits > 1 else ''})")
+        #
+        #     if activities:
+        #         summary_parts.append(f"Consider exploring: {', '.join(activities)}")
 
         return "\n".join(summary_parts)
 

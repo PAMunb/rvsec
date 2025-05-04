@@ -292,6 +292,7 @@ class LLMActionService:
         app_activity = state.get(StateEntry.ACTIVITY, "unknown").replace("/", "")
         state[StateEntry.PACKAGE_NAME] = app_package
         state[StateEntry.ACTIVITY] = app_activity
+        state[StateEntry.STATIC_DATA] = self.static_data
 
     def _initialize_context(self, state: Dict[str, Any]):
         context = {
