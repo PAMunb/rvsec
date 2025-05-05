@@ -551,6 +551,71 @@ class LongTermMemory:
             return None
 
         return least_visited[0]["name"]
+    
+    def get_activity_visit_count(self, activity: str) -> int:
+        """
+        Get the number of times an activity has been visited.
+        
+        Args:
+            activity: Activity name
+            
+        Returns:
+            Visit count for the activity
+        """
+        if activity in self.activities:
+            return self.activities[activity]["visit_count"]
+        return 0
+    
+    def get_activity_statistics(self) -> Dict[str, Any]:
+        """
+        Get statistics about all visited activities.
+        
+        Returns:
+            Dictionary with activity statistics
+        """
+        statistics = {
+            "total_activities": self.total_activities,
+            "activities": []
+        }
+        
+        # Sort activities by visit count (most visited first)
+        sorted_activities = sorted(
+            [(name, info) for name, info in self.activities.items()],
+            key=lambda x: x[1]["visit_count"],
+            reverse=True
+        )
+        
+        # Collect statistics for each activity
+        for name, info in sorted_activities:
+            activity_stats = {
+                "name": name,
+                "visit_count": info["visit_count"],
+                "states_count": len(info["states"]),
+                "first_seen": info["first_seen"],
+                "last_seen": info.get("last_seen", info["first_seen"])
+            }
+            statistics["activities"].append(activity_stats)
+        
+        return statistics
+    
+    def get_visited_activities(self) -> List[str]:
+        """
+        Get a list of visited activities in chronological order.
+        
+        Returns:
+            List of activity names in order of first visit
+        """
+        if not self.activities:
+            return []
+        
+        # Sort activities by first_seen timestamp
+        sorted_activities = sorted(
+            [(name, info) for name, info in self.activities.items()],
+            key=lambda x: x[1]["first_seen"]
+        )
+        
+        # Extract just the activity names
+        return [name for name, _ in sorted_activities]
 
     def get_memory_stats(self) -> Dict[str, Any]:
         """

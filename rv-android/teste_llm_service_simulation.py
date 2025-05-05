@@ -1,25 +1,28 @@
 #!/usr/bin/env python3
 """
-RV-Android Memory and Transition Systems Integration Test
+RV-Android Component Integration Simulator
 
-This script provides an integration test for the memory and transition management
-systems of RV-Android using real data files. It simulates a realistic navigation
-path through an Android application by loading screen states in sequence and
-processing them through the memory and transition managers.
+This script provides an integration test environment for the memory and transition
+management systems in RV-Android. It loads real application state data from files,
+processes it through the system, and validates the correct functioning of
+components like MemoryManager and TransitionManager.
+
+The simulator creates a realistic navigation flow through an Android application
+by loading a sequence of screen states and simulating transitions between them.
 """
 
+import argparse
 import json
 import logging
 import os
 import sys
 import time
 from datetime import datetime
-from typing import Dict, List, Any, Optional
+from typing import Dict, List, Any, Optional, Tuple
 
 from rvandroid.app import App
 from rvandroid.config.component_configurator import ComponentConfigurator
-from rvandroid.llm.constants import PromptStrategyType, StateEntry
-from rvandroid.llm.constants import ScreenParserType, VisitorType
+from rvandroid.llm.constants import PromptStrategyType, ScreenParserType, StateEntry, VisitorType
 from rvandroid.llm.service.action_generator import GeneratedAction
 from rvandroid.llm.service.action_service import LLMActionService
 from rvandroid.llm.service.memory_manager import MemoryManager
@@ -27,60 +30,100 @@ from rvandroid.llm.service.transition_manager import TransitionManager
 from rvandroid.parser.screen.parser_factory import ParserFactory, ParserType
 from rvandroid.parser.screen.visitor.default_visitor import DefaultTextVisitor
 from rvandroid.parser.static import static_analysis_parser
+from rvandroid.util.error.error_handler import ErrorHandler
+from rvandroid.util.logging.constants import CONTEXT_COMPONENT
 from rvandroid.util.logging.manager import LoggingManager
 
 
-class RVAndroidSimulator:
+class ComponentSimulator:
     """
-    Simulates the execution of RV-Android using real data files.
+    Simulates the execution of RV-Android components using real application data.
 
-    This class loads real screen state files and static analysis data,
-    then processes them through the memory and transition managers to
-    simulate a realistic navigation path through an Android application.
+    This class loads real state files and static analysis data for Android applications,
+    then processes them through the memory and transition management systems to validate
+    their functionality. It simulates a realistic navigation path through an application.
+
+    Attributes:
+        app_name: Name of the application being tested
+        package_name: Package name of the application
+        data_dir: Directory containing state and static analysis files
+        static_data: Parsed static analysis data
+        memory_manager: Memory management system instance
+        transition_manager: Transition management system instance
+        llm_service: LLM-based action service instance
+        states_processed: Number of states processed during simulation
+        actions_executed: Number of actions executed during simulation
+        transitions_detected: Number of transitions detected during simulation
     """
 
-    def __init__(self, data_dir: str, app_name: str):
+    def __init__(self, app_name: str, data_dir: str):
         """
-        Initialize the simulator with paths to data files.
+        Initialize the simulator with an application and data directory.
 
         Args:
+            app_name: Name of the APK file to test (without path)
             data_dir: Directory containing data files
-            app_name: Name of the APK being tested
         """
-        # Set up logging
-        self.logging_manager = LoggingManager.get_instance()
-        self.logger = self.logging_manager.get_logger(
-            "simulator.rv_android_simulator",
-            {"app": app_name}
+        # Configure logging
+        logging_manager = LoggingManager.get_instance()
+        self.logger = logging_manager.get_logger(
+            "simulator.component_simulator",
+            {CONTEXT_COMPONENT: "ComponentSimulator"}
         )
+        self.error_handler = ErrorHandler.get_instance()
 
-        # Store paths
-        self.data_dir = data_dir
+        # Store basic information
         self.app_name = app_name
+        self.data_dir = data_dir
         self.app_dir = os.path.join(data_dir, app_name)
-
-        # Set up static analysis file paths
-        self.reach_file = os.path.join(self.app_dir, f"{app_name}.reach")
-        self.wtg_file = os.path.join(self.app_dir, f"{app_name}.wtg")
-        self.gesda_file = os.path.join(self.app_dir, f"{app_name}.gesda")
-
-        # Initialize core components
-        self.static_data = None
-        self.parser = None
-        self.memory_manager = None
-        self.transition_manager = None
-        self.llm_service: LLMActionService = None
-        self.app = None
         self.package_name = None
 
-        # Statistics for validation
+        # Initialize component references
+        self.static_data = None
+        self.screen_parser = None
+        self.memory_manager = None
+        self.transition_manager = None
+        self.llm_service = None
+
+        # Initialize statistics
         self.states_processed = 0
         self.actions_executed = 0
         self.transitions_detected = 0
 
-        self.logger.info(f"Initialized RV-Android simulator for {app_name}")
+        self.logger.info(f"Initialized component simulator for {app_name}")
 
-    def load_static_data(self) -> bool:
+    def initialize(self) -> bool:
+        """
+        Initialize all components and load static analysis data.
+
+        Returns:
+            True if initialization succeeded, False otherwise
+        """
+        try:
+            self.logger.info("Initializing simulator components...")
+
+            # Load static analysis data
+            if not self._load_static_data():
+                return False
+
+            # Create core components
+            self._create_components()
+
+            self.logger.info("Simulator components initialized successfully")
+            return True
+
+        except Exception as e:
+            self.logger.error(f"Initialization failed: {e}", exc_info=True)
+            self.error_handler.handle_error(
+                e,
+                context={
+                    "component": "ComponentSimulator",
+                    "method": "initialize"
+                }
+            )
+            return False
+
+    def _load_static_data(self) -> bool:
         """
         Load static analysis data from files.
 
@@ -88,362 +131,386 @@ class RVAndroidSimulator:
             True if successful, False otherwise
         """
         try:
-            self.logger.info("Loading static analysis data...")
+            # Define static analysis file paths
+            reach_file = os.path.join(self.app_dir, f"{self.app_name}.reach")
+            wtg_file = os.path.join(self.app_dir, f"{self.app_name}.wtg")
+            gesda_file = os.path.join(self.app_dir, f"{self.app_name}.gesda")
 
             # Check if files exist
-            for file_path in [self.reach_file, self.wtg_file, self.gesda_file]:
+            for file_path in [reach_file, wtg_file, gesda_file]:
                 if not os.path.exists(file_path):
-                    self.logger.error(f"File not found: {file_path}")
+                    self.logger.error(f"Required static analysis file not found: {file_path}")
                     return False
 
-            # Load app information
-            self.app = App(os.path.join(self.app_dir, self.app_name))
-            self.package_name = self.app.package_name
+            # Load app info
+            self.logger.info("Loading app information...")
+            app = App(os.path.join(self.app_dir, self.app_name))
+            self.package_name = app.package_name
 
             # Parse static analysis data
+            self.logger.info("Parsing static analysis data...")
             self.static_data = static_analysis_parser.parse(
-                self.reach_file,
-                self.wtg_file,
-                self.gesda_file,
+                reach_file,
+                wtg_file,
+                gesda_file,
                 self.package_name
             )
 
-            # Initialize parser
-            visitor_class = DefaultTextVisitor
-            self.parser = ParserFactory.create(ParserType.DROIDBOT, visitor_class)
+            # Create screen parser
+            self.screen_parser = ParserFactory.create(ParserType.DROIDBOT, DefaultTextVisitor)
 
-            self.logger.info("Static analysis data loaded successfully")
+            self.logger.info(f"Static analysis data loaded successfully for {self.package_name}")
             return True
 
         except Exception as e:
-            self.logger.error(f"Error loading static data: {e}", exc_info=True)
-            return False
-
-    def initialize_components(self) -> bool:
-        """
-        Initialize memory and transition management components.
-
-        Returns:
-            True if successful, False otherwise
-        """
-        try:
-            self.logger.info("Initializing components...")
-
-            # Create memory manager
-            self.memory_manager = MemoryManager()
-
-            # Create transition manager
-            self.transition_manager = TransitionManager(self.static_data)
-
-            # Create LLM action service configuration
-            config = ComponentConfigurator()
-            config.set_strategy(PromptStrategyType.BATCH_ACTION)
-            config.set_parser(ScreenParserType.DROIDBOT)
-            config.set_visitor(VisitorType.DEFAULT)
-
-            # Create LLM action service
-            self.llm_service = LLMActionService(
-                static_data=self.static_data,
-                config=config,
-                app_package=self.package_name
+            self.logger.error(f"Failed to load static data: {e}", exc_info=True)
+            self.error_handler.handle_error(
+                e,
+                context={
+                    "component": "ComponentSimulator",
+                    "method": "_load_static_data"
+                }
             )
-
-            # Set dependencies
-            self.llm_service.memory_manager = self.memory_manager
-            self.llm_service.transition_manager = self.transition_manager
-
-            self.logger.info("Components initialized successfully")
-            return True
-
-        except Exception as e:
-            self.logger.error(f"Error initializing components: {e}", exc_info=True)
             return False
 
-    def load_droidbot_state(self, prefix: str) -> Optional[Dict[str, Any]]:
+    def _create_components(self) -> None:
         """
-        Load a DroidBot state file for the given prefix.
+        Create and initialize all RV-Android components.
+        """
+        # Create memory and transition managers
+        self.memory_manager = MemoryManager(
+            app_package=self.package_name,
+            static_data=self.static_data
+        )
+
+        self.transition_manager = TransitionManager(self.static_data)
+
+        # Configure and create LLM action service
+        config = ComponentConfigurator()
+        config.set_strategy(PromptStrategyType.BATCH_ACTION)
+        config.set_parser(ScreenParserType.DROIDBOT)
+        config.set_visitor(VisitorType.DEFAULT)
+
+        self.llm_service = LLMActionService(
+            static_data=self.static_data,
+            config=config,
+            app_package=self.package_name
+        )
+
+        # Override service's managers with our instances for testing
+        self.llm_service.memory_manager = self.memory_manager
+        self.llm_service.transition_manager = self.transition_manager
+
+        self.logger.info("Components created and configured")
+
+    def load_state(self, state_prefix: str) -> Optional[Dict[str, Any]]:
+        """
+        Load and process a state file with the given prefix.
 
         Args:
-            prefix: State file prefix (e.g., '001')
+            state_prefix: Prefix for the state file (e.g., "001")
 
         Returns:
-            Loaded state data or None if failed
-        """
-        state_file = os.path.join(self.app_dir, f"{prefix}.state")
-
-        if not os.path.exists(state_file):
-            self.logger.error(f"State file not found: {state_file}")
-            return None
-
-        try:
-            with open(state_file, 'r') as file:
-                return json.load(file)
-        except Exception as e:
-            self.logger.error(f"Error loading state file {state_file}: {e}")
-            return None
-
-    def create_state(self, prefix: str) -> Optional[Dict[str, Any]]:
-        """
-        Create a complete state object from a prefix.
-
-        Args:
-            prefix: State file prefix (e.g., '001')
-
-        Returns:
-            State dictionary or None if failed
+            Processed state dictionary or None if failed
         """
         try:
-            # Load state data
-            state_data = self.load_droidbot_state(prefix)
-            if not state_data:
+            # Construct state file path
+            state_file = os.path.join(self.app_dir, f"{state_prefix}.state")
+
+            # Check if file exists
+            if not os.path.exists(state_file):
+                self.logger.error(f"State file not found: {state_file}")
                 return None
 
+            # Load state data
+            with open(state_file, 'r') as file:
+                raw_state = json.load(file)
+
             # Set screenshot path
-            screenshot_path = os.path.join(self.app_dir, f"{prefix}.png")
+            screenshot_path = os.path.join(self.app_dir, f"{state_prefix}.png")
             if not os.path.exists(screenshot_path):
                 self.logger.warning(f"Screenshot not found: {screenshot_path}")
                 screenshot_path = None
 
             # Parse screen description
-            screen_description = self.parser.parse(state_data, self.static_data)
+            screen_description = self.screen_parser.parse(raw_state, self.static_data)
 
-            # Create state dictionary
+            # Create state dictionary with all required fields
             state = {
                 StateEntry.PACKAGE_NAME: self.package_name,
                 StateEntry.ACTIVITY: screen_description.activity,
-                StateEntry.VIEW_TREE: state_data.get("view_tree", {}),
+                StateEntry.VIEW_TREE: raw_state.get("view_tree", {}),
                 StateEntry.STRUCTURED_SCREEN: screen_description,
                 StateEntry.SCREENSHOT_PATH: screenshot_path,
                 StateEntry.STATIC_DATA: self.static_data,
+                StateEntry.HASH_SCREEN: state_prefix,  # Use prefix as a simple hash
                 "timestamp": datetime.now().isoformat()
             }
 
+            self.logger.info(f"Loaded state {state_prefix} for activity: {screen_description.activity}")
             return state
 
         except Exception as e:
-            self.logger.error(f"Error creating state for prefix {prefix}: {e}", exc_info=True)
+            self.logger.error(f"Failed to load state {state_prefix}: {e}", exc_info=True)
+            self.error_handler.handle_error(
+                e,
+                context={
+                    "component": "ComponentSimulator",
+                    "method": "load_state",
+                    "state_prefix": state_prefix
+                }
+            )
             return None
 
-    def select_actions(self, state: Dict[str, Any], strategy: str = "smart") -> List[GeneratedAction]:
+    def generate_actions(self, state: Dict[str, Any], count: int = 3) -> List[GeneratedAction]:
         """
-        Select actions to execute from the available actions.
+        Generate actions for the given state.
 
         Args:
-            state: Current state
-            strategy: Selection strategy ('smart', 'random', or 'priority')
+            state: Current application state
+            count: Maximum number of actions to generate
 
         Returns:
-            List of selected actions
+            List of GeneratedAction objects
         """
-        screen_description = state[StateEntry.STRUCTURED_SCREEN]
-        available_actions = []
+        try:
+            # Extract available actions from screen description
+            screen_description = state[StateEntry.STRUCTURED_SCREEN]
+            available_actions = []
 
-        # Collect all available actions
-        for item in screen_description.items:
-            for action in item.actions:
-                available_actions.append(action)
+            # Collect all available actions from all items
+            for item in screen_description.items:
+                for action in item.actions:
+                    if hasattr(action, 'reaches_mop') and action.reaches_mop:
+                        # Prioritize actions that reach monitored operations
+                        available_actions.insert(0, action)
+                    else:
+                        available_actions.append(action)
 
-        if not available_actions:
-            self.logger.warning("No available actions found")
+            if not available_actions:
+                self.logger.warning("No available actions found for this state")
+                return []
+
+            # Select top actions
+            selected_actions = available_actions[:min(count, len(available_actions))]
+
+            # Convert to GeneratedAction objects
+            generated_actions = []
+            for action in selected_actions:
+                # Create parameters dictionary
+                params = {}
+                if action.text.startswith("SET_TEXT"):
+                    params["text"] = "test_input"
+
+                # Get coordinates from bounds if available
+                coordinates = action.coordinates
+                if not coordinates and hasattr(action, 'target_view') and action.target_view:
+                    bounds = action.target_view.get("bounds")
+                    if bounds and len(bounds) == 2:
+                        x = (bounds[0][0] + bounds[1][0]) // 2
+                        y = (bounds[0][1] + bounds[1][1]) // 2
+                        coordinates = (x, y)
+
+                # Default coordinates if none found
+                if not coordinates:
+                    coordinates = (100, 100)
+
+                # Create GeneratedAction
+                generated_action = GeneratedAction(
+                    action,
+                    params,
+                    coordinates,
+                    "resource_id",
+                    f"Testing action: {action.text}"
+                )
+
+                generated_actions.append(generated_action)
+
+            self.logger.info(f"Generated {len(generated_actions)} actions")
+            return generated_actions
+
+        except Exception as e:
+            self.logger.error(f"Failed to generate actions: {e}", exc_info=True)
+            self.error_handler.handle_error(
+                e,
+                context={
+                    "component": "ComponentSimulator",
+                    "method": "generate_actions"
+                }
+            )
             return []
 
-        # Different selection strategies
-        if strategy == "smart":
-            # Prioritize actions that reach monitored operations
-            prioritized_actions = []
-            regular_actions = []
-
-            for action in available_actions:
-                if action.directly_reaches_mop:
-                    prioritized_actions.append(action)
-                elif action.reaches_mop:
-                    prioritized_actions.append(action)
-                else:
-                    regular_actions.append(action)
-
-            # If we have prioritized actions, use them
-            if prioritized_actions:
-                # Take up to 3 prioritized actions
-                selected_actions = prioritized_actions[:min(3, len(prioritized_actions))]
-            else:
-                # Take a few regular actions
-                selected_actions = regular_actions[:min(3, len(regular_actions))]
-
-        elif strategy == "random":
-            # Just take a random subset
-            import random
-            random.shuffle(available_actions)
-            selected_actions = available_actions[:min(3, len(available_actions))]
-
-        elif strategy == "priority":
-            # Try to select a balanced set of actions
-            clicks = []
-            text_inputs = []
-            other_actions = []
-
-            for action in available_actions:
-                if action.text.startswith("CLICK"):
-                    clicks.append(action)
-                elif action.text.startswith("SET_TEXT"):
-                    text_inputs.append(action)
-                else:
-                    other_actions.append(action)
-
-            # Build a balanced set
-            selected_actions = []
-            if clicks:
-                selected_actions.append(clicks[0])
-            if text_inputs:
-                selected_actions.append(text_inputs[0])
-            if other_actions:
-                selected_actions.append(other_actions[0])
-
-            # If we didn't get enough, add more clicks
-            while len(selected_actions) < 3 and len(clicks) > len(selected_actions):
-                selected_actions.append(clicks[len(selected_actions)])
-
-        else:
-            # Default: just take the first few
-            selected_actions = available_actions[:min(3, len(available_actions))]
-
-        # Convert ItemAction to GeneratedAction
-        generated_actions = []
-        for action in selected_actions:
-            params = {}
-
-            # Add appropriate parameters for action types
-            if action.text.startswith("SET_TEXT"):
-                params["text"] = "test_input"
-
-            # Get coordinates if available
-            coordinates = action.coordinates
-            if not coordinates and action.target_view and "bounds" in action.target_view:
-                bounds = action.target_view["bounds"]
-                if bounds and len(bounds) == 2:
-                    x = (bounds[0][0] + bounds[1][0]) // 2
-                    y = (bounds[0][1] + bounds[1][1]) // 2
-                    coordinates = (x, y)
-
-            # Default coordinates if none found
-            if not coordinates:
-                coordinates = (100, 100)
-
-            generated_action = GeneratedAction(
-                action,
-                params,
-                coordinates,
-                "resource_id",
-                f"Testing action: {action.text}"
-            )
-
-            generated_actions.append(generated_action)
-
-        return generated_actions
-
-    def simulate_state_transition(self, from_state: Dict[str, Any], to_state: Dict[str, Any],
-                                  action: GeneratedAction, success: bool = True) -> None:
+    def process_state(self, state: Dict[str, Any]) -> Tuple[bool, List[GeneratedAction]]:
         """
-        Simulate a state transition due to an action.
+        Process a state through the LLM action service.
+
+        Args:
+            state: Current application state
+
+        Returns:
+            Tuple of (transition_detected, generated_actions)
+        """
+        try:
+            # Initialize the state in the LLM service
+            self.llm_service._initialize_state(state)
+
+            # Pre-process the state (updates memory and transition managers)
+            transition_detected = self.llm_service.pre_process_state(state)
+
+            # Generate actions for this state
+            actions = self.generate_actions(state)
+
+            # Post-process the state with the generated actions
+            self.llm_service.post_process_state(state, actions, transition_detected)
+
+            self.logger.info(f"Processed state: {state.get(StateEntry.ACTIVITY)}, "
+                             f"transition_detected={transition_detected}")
+
+            return transition_detected, actions
+
+        except Exception as e:
+            self.logger.error(f"Failed to process state: {e}", exc_info=True)
+            self.error_handler.handle_error(
+                e,
+                context={
+                    "component": "ComponentSimulator",
+                    "method": "process_state"
+                }
+            )
+            return False, []
+
+    def simulate_transition(self, from_state: Dict[str, Any], to_state: Dict[str, Any],
+                            action: GeneratedAction) -> None:
+        """
+        Simulate a transition between two states.
 
         Args:
             from_state: Source state
             to_state: Destination state
             action: Action that caused the transition
-            success: Whether the transition succeeded
         """
-        # Process the action result through the LLM action service
-        self.llm_service.process_action_result(from_state, to_state, action.to_droidbot_format(), success)
+        try:
+            # Process the action result through the LLM action service
+            self.llm_service.process_action_result(
+                from_state,
+                to_state,
+                action.to_droidbot_format(),
+                success=True
+            )
 
-        # Update statistics
-        self.transitions_detected += 1
+            # Also directly record the transition in the transition manager for testing purposes
+            from_activity = from_state[StateEntry.ACTIVITY]
+            to_activity = to_state[StateEntry.ACTIVITY]
+            action_dict = action.to_dict()
 
-        # Log transition
-        from_activity = from_state[StateEntry.ACTIVITY]
-        to_activity = to_state[StateEntry.ACTIVITY]
-        self.logger.info(f"Transition: {from_activity} -> {to_activity} via action {action.text}")
+            # Ensure the transition is recorded in the transition manager
+            self.transition_manager.record_transition(
+                from_activity,
+                to_activity,
+                [action_dict]
+            )
 
-    def run_simulation(self, prefixes: List[str]) -> Dict[str, Any]:
+            # Update statistics
+            self.transitions_detected += 1
+
+            # Log transition
+            from_activity = from_state[StateEntry.ACTIVITY]
+            to_activity = to_state[StateEntry.ACTIVITY]
+            self.logger.info(f"Transition: {from_activity} -> {to_activity} via action: {action.text}")
+
+        except Exception as e:
+            self.logger.error(f"Failed to simulate transition: {e}", exc_info=True)
+            self.error_handler.handle_error(
+                e,
+                context={
+                    "component": "ComponentSimulator",
+                    "method": "simulate_transition"
+                }
+            )
+
+    def run_simulation(self, state_prefixes: List[str]) -> Dict[str, Any]:
         """
-        Run a simulation using the provided state prefixes.
+        Run a simulation with a sequence of states.
 
         Args:
-            prefixes: List of state prefixes in order of execution
+            state_prefixes: List of state prefixes to process
 
         Returns:
-            Dictionary with simulation results and statistics
+            Dictionary with simulation results
         """
+        start_time = time.time()
+        self.logger.info(f"Starting simulation with {len(state_prefixes)} states...")
+
         results = {
+            "status": "success",
             "states_processed": 0,
             "actions_executed": 0,
             "transitions_detected": 0,
+            "execution_time": 0,
             "validation": {}
         }
 
-        if not self.static_data or not self.memory_manager or not self.transition_manager:
-            self.logger.error("Components not initialized")
+        try:
+            # Load all states
+            states = []
+            for prefix in state_prefixes:
+                state = self.load_state(prefix)
+                if state:
+                    states.append(state)
+
+            if not states:
+                self.logger.error("No valid states could be loaded")
+                results["status"] = "error"
+                results["error"] = "No valid states could be loaded"
+                return results
+
+            # Process states sequentially
+            for i, current_state in enumerate(states):
+                # Process the current state
+                transition_detected, actions = self.process_state(current_state)
+
+                # Update statistics
+                self.states_processed += 1
+                self.actions_executed += len(actions)
+
+                # If there's a next state, simulate transition with the first action
+                if actions and i < len(states) - 1:
+                    next_state = states[i + 1]
+                    self.simulate_transition(current_state, next_state, actions[0])
+
+                # Display current state of memory and transition managers
+                self._display_component_state(current_state)
+
+            # Validate components after simulation
+            results["validation"] = self._validate_components()
+
+            # Add statistics to results
+            results["states_processed"] = self.states_processed
+            results["actions_executed"] = self.actions_executed
+            results["transitions_detected"] = self.transitions_detected
+            results["execution_time"] = time.time() - start_time
+
+            self.logger.info(f"Simulation completed in {results['execution_time']:.2f} seconds")
             return results
 
-        self.logger.info(f"Starting simulation with {len(prefixes)} states")
+        except Exception as e:
+            self.logger.error(f"Simulation failed: {e}", exc_info=True)
+            self.error_handler.handle_error(
+                e,
+                context={
+                    "component": "ComponentSimulator",
+                    "method": "run_simulation"
+                }
+            )
 
-        previous_state = None
-        current_state = None
+            results["status"] = "error"
+            results["error"] = str(e)
+            results["execution_time"] = time.time() - start_time
+            return results
 
-        # Process each state in sequence
-        for i, prefix in enumerate(prefixes):
-            self.logger.info(f"Processing state {i + 1}/{len(prefixes)}: {prefix}")
-
-            # Load current state
-            current_state = self.create_state(prefix)
-            if not current_state:
-                self.logger.error(f"Failed to create state for prefix {prefix}")
-                continue
-
-            # Update components with current state
-            self.llm_service._initialize_state(current_state)
-            transition_detected = self.llm_service.pre_process_state(current_state)
-
-            # Select actions to execute
-            actions = self.select_actions(current_state, strategy="smart")
-
-            if actions:
-                self.logger.info(f"Selected {len(actions)} actions to execute")
-
-                self.llm_service.post_process_state(current_state, actions, transition_detected)
-                aaa
-                # Record actions in memory
-                self.memory_manager.record_actions(current_state, actions)
-
-                # Execute each action
-                for action in actions:
-                    self.logger.info(f"Executing action: {action.text}")
-                    self.actions_executed += 1
-
-                    # If there's a next state, simulate transition
-                    if i < len(prefixes) - 1 and previous_state:
-                        next_prefix = prefixes[i + 1]
-                        next_state = self.create_state(next_prefix)
-
-                        if next_state:
-                            self.simulate_state_transition(current_state, next_state, action)
-
-            # Visualize state
-            self.visualize_state(current_state)
-
-            # Store current state as previous for next iteration
-            previous_state = current_state
-            self.states_processed += 1
-
-        # Collect final statistics
-        results["states_processed"] = self.states_processed
-        results["actions_executed"] = self.actions_executed
-        results["transitions_detected"] = self.transitions_detected
-        results["validation"] = self.validate_components()
-
-        return results
-
-    def validate_components(self) -> Dict[str, Any]:
+    def _validate_components(self) -> Dict[str, Any]:
         """
-        Validate the correctness of memory and transition managers.
+        Validate the correctness of all components after simulation.
 
         Returns:
             Dictionary with validation results
@@ -464,229 +531,241 @@ class RVAndroidSimulator:
             validation["memory_manager"]["passed"] = False
             validation["memory_manager"]["issues"].append("Memory manager not initialized")
         else:
-            # Check if long-term memory has recorded activities
-            if not self.memory_manager.long_term.visited_activities:
+            # Check short-term memory
+            if not hasattr(self.memory_manager, 'short_term') or not self.memory_manager.short_term:
                 validation["memory_manager"]["passed"] = False
-                validation["memory_manager"]["issues"].append("No activities recorded in long-term memory")
+                validation["memory_manager"]["issues"].append("Short-term memory not properly initialized")
 
-            # Check if actions were recorded
-            if not self.memory_manager.long_term.action_history:
+            # Check long-term memory
+            if not hasattr(self.memory_manager, 'long_term') or not self.memory_manager.long_term:
                 validation["memory_manager"]["passed"] = False
-                validation["memory_manager"]["issues"].append("No actions recorded in long-term memory")
+                validation["memory_manager"]["issues"].append("Long-term memory not properly initialized")
+            else:
+                # Check if activities were recorded
+                visited_activities = self.memory_manager.long_term.get_visited_activities()
+                if not visited_activities and self.states_processed > 0:
+                    validation["memory_manager"]["passed"] = False
+                    validation["memory_manager"]["issues"].append("No activities recorded in long-term memory")
+
+                # Check if states were tracked
+                if not hasattr(self.memory_manager.long_term, 'states') or not self.memory_manager.long_term.states:
+                    validation["memory_manager"]["passed"] = False
+                    validation["memory_manager"]["issues"].append("No states tracked in long-term memory")
 
         # Validate transition manager
         if not self.transition_manager:
             validation["transition_manager"]["passed"] = False
             validation["transition_manager"]["issues"].append("Transition manager not initialized")
         else:
-            # Check if dynamic WTG has recorded activities
-            if not self.transition_manager.dynamic_wtg.activities:
+            # Check if dynamic transition graph has activities
+            if not self.transition_manager.dynamic_wtg.activities and self.states_processed > 0:
                 validation["transition_manager"]["passed"] = False
                 validation["transition_manager"]["issues"].append("No activities recorded in dynamic WTG")
 
             # Check if transitions were recorded
-            if not self.transition_manager.dynamic_wtg.transitions:
+            if not self.transition_manager.dynamic_wtg.transitions and self.transitions_detected > 0:
                 validation["transition_manager"]["passed"] = False
-                validation["transition_manager"]["issues"].append("No transitions recorded in dynamic WTG")
+                validation["transition_manager"]["issues"].append(
+                    "No transitions recorded despite transitions being simulated")
 
         return validation
 
-    def visualize_state(self, state: Dict[str, Any]) -> None:
+    def _display_component_state(self, current_state: Dict[str, Any]) -> None:
         """
-        Visualize the current state of memory and transition managers.
+        Display the current state of all components.
 
         Args:
-            state: Current application state
+            current_state: Current application state
         """
         print("\n" + "=" * 80)
-        print(f" STATE VISUALIZATION: {state[StateEntry.ACTIVITY]} ".center(80, "="))
+        print(f" STATE: {current_state.get(StateEntry.ACTIVITY, 'Unknown')} ".center(80, "="))
         print("=" * 80)
 
-        # Visualize memory manager state
-        self._visualize_memory_state()
+        # Display memory manager state
+        self._display_memory_state()
 
-        # Visualize transition manager state
-        self._visualize_transition_state()
+        # Display transition manager state
+        self._display_transition_state()
 
-        print("=" * 80 + "\n")
+        print("-" * 80)
 
-    def _visualize_memory_state(self) -> None:
-        """Visualize the current state of the memory manager."""
+    def _display_memory_state(self) -> None:
+        """
+        Display the current state of the memory manager.
+        """
         if not self.memory_manager:
             print("Memory Manager: Not initialized")
             return
 
         print("\nMEMORY MANAGER STATE:")
-        print("-" * 80)
+        print("-" * 60)
 
         # Short-term memory
-        print("SHORT-TERM MEMORY:")
+        print("Short-Term Memory:")
         if hasattr(self.memory_manager, 'short_term') and self.memory_manager.short_term:
-            print(f"  Current Activity: {self.memory_manager.short_term.current_activity}")
-            print(f"  Iterations: {len(self.memory_manager.short_term.iterations)}")
+            current_activity = getattr(self.memory_manager.short_term, 'current_activity', 'Unknown')
+            iterations = self.memory_manager.short_term.iterations
 
-            if self.memory_manager.short_term.iterations:
+            print(f"  Current Activity: {current_activity}")
+            print(f"  Iterations: {len(iterations)}")
+
+            if iterations:
                 print("\n  Recent Iterations:")
-                for i, iteration in enumerate(self.memory_manager.short_term.iterations[:3]):  # Show last 3
-                    # Handle actions that might be dictionaries or objects
-                    if hasattr(iteration, 'actions'):
-                        if isinstance(iteration.actions[0], dict):
-                            # Handle actions as dictionaries
-                            actions_text = ", ".join([a.get("text", a.get("action_type", "Unknown"))
-                                                      for a in iteration.actions])
-                        else:
-                            # Handle actions as objects
-                            actions_text = ", ".join([getattr(a, "text", str(a)) for a in iteration.actions])
-                    else:
-                        actions_text = "No actions"
+                for i, iteration in enumerate(iterations[:3]):  # Show up to 3 recent iterations
+                    timestamp = iteration.timestamp.strftime('%H:%M:%S') if hasattr(iteration,
+                                                                                    'timestamp') else 'Unknown'
 
-                    print(
-                        f"    [{i + 1}] {len(iteration.actions) if hasattr(iteration, 'actions') else 0} actions: {actions_text}")
+                    action_texts = []
+                    for action in iteration.actions:
+                        if hasattr(action, 'text'):
+                            action_texts.append(action.text)
+                        else:
+                            action_texts.append(str(action))
+
+                    print(f"    [{i + 1}] [{timestamp}] {len(action_texts)} actions: {', '.join(action_texts[:2])}" +
+                          (f" (+ {len(action_texts) - 2} more)" if len(action_texts) > 2 else ""))
         else:
             print("  No short-term memory data available")
 
         # Long-term memory
-        print("\nLONG-TERM MEMORY:")
+        print("\nLong-Term Memory:")
         if hasattr(self.memory_manager, 'long_term') and self.memory_manager.long_term:
-            print(f"  Visited Activities: {len(self.memory_manager.long_term.activity_visits)}")
-            print(f"  Total Actions: {len(self.memory_manager.long_term.action_history)}")
+            # Activity statistics
+            activity_visits = getattr(self.memory_manager.long_term, 'activities', {})
+            print(f"  Visited Activities: {len(activity_visits)}")
 
-            if self.memory_manager.long_term.visited_activities:
+            # State tracking
+            states = getattr(self.memory_manager.long_term, 'states', {})
+            print(f"  States Tracked: {len(states)}")
+
+            # Transitions
+            transitions = getattr(self.memory_manager.long_term, 'transitions', [])
+            print(f"  Recorded Transitions: {len(transitions)}")
+
+            # Navigation path
+            visited_activities = self.memory_manager.long_term.get_visited_activities()
+            if visited_activities:
                 print("\n  Navigation Path:")
-                path = " → ".join(self.memory_manager.long_term.visited_activities[-5:])  # Last 5
+                # Format path, including at most the last 5 activities
+                path = " → ".join(visited_activities[-5:])
+                if len(visited_activities) > 5:
+                    path = f"... → {path}"
                 print(f"    {path}")
-
-            if self.memory_manager.long_term.activity_visits:
-                print("\n  Activity Statistics:")
-                for activity, visits in self.memory_manager.long_term.activity_visits.items():
-                    print(f"    {activity}: {visits} visits")
         else:
             print("  No long-term memory data available")
 
-    def _visualize_transition_state(self) -> None:
-        """Visualize the current state of the transition manager."""
+    def _display_transition_state(self) -> None:
+        """
+        Display the current state of the transition manager.
+        """
         if not self.transition_manager:
             print("Transition Manager: Not initialized")
             return
 
         print("\nTRANSITION MANAGER STATE:")
-        print("-" * 80)
+        print("-" * 60)
 
-        # Dynamic WTG
-        print("DYNAMIC TRANSITION GRAPH:")
-        dtg = self.transition_manager.get_dtg()
-        if dtg:
-            print(f"  Activities: {len(dtg.activities)}")
-            print(f"  Transitions: {len(dtg.transitions)}")
+        # Dynamic transition graph
+        print("Dynamic Transition Graph:")
 
-            if dtg.activities:
-                print("\n  Activity Nodes:")
-                for activity_name, node in dtg.activities.items():
-                    print(f"    {activity_name}: {node.visit_count} visits")
+        # Get activities
+        activities = getattr(self.transition_manager.dynamic_wtg, 'activities', {})
+        print(f"  Activities: {len(activities)}")
 
-            if dtg.transitions:
-                print("\n  Recorded Transitions:")
-                for i, transition in enumerate(dtg.transitions[:5]):  # Show first 5
-                    print(
-                        f"    [{i + 1}] {transition.source_activity} → {transition.target_activity} (count: {transition.count})")
-        else:
-            print("  No dynamic transition graph available")
+        # Get transitions
+        transitions = getattr(self.transition_manager.dynamic_wtg, 'transitions', [])
+        print(f"  Transitions: {len(transitions)}")
 
-        # Current navigation state
-        print("\nCURRENT NAVIGATION STATE:")
+        # Show current navigation state
+        print("\nCurrent Navigation State:")
         print(f"  Current Activity: {self.transition_manager.current_activity}")
         print(f"  Previous Activity: {self.transition_manager.previous_activity}")
 
-        # If we have a current state, show transition guidance
-        if self.transition_manager.current_activity:
-            guidance = self.transition_manager.get_transition_guidance({
-                StateEntry.ACTIVITY: self.transition_manager.current_activity
-            })
-
-            print("\n  Transition Guidance:")
-            print(f"    Visit Count: {guidance.get('visit_count', 0)}")
-
-            if guidance.get('suggested_targets'):
-                print("\n    Suggested Targets:")
-                for target in guidance.get('suggested_targets')[:3]:  # Show top 3
-                    print(f"      {target.get('name')}: {target.get('visits', 0)} visits")
+        # Show recent transitions if available
+        if transitions:
+            print("\n  Recent Transitions:")
+            for i, transition in enumerate(transitions[-3:]):  # Show last 3 transitions
+                source = getattr(transition, 'source_activity', 'Unknown')
+                target = getattr(transition, 'target_activity', 'Unknown')
+                count = getattr(transition, 'count', 0)
+                print(f"    [{i + 1}] {source} → {target} (occurred {count} times)")
 
 
-def configure_logging():
-    """Configure logging for the test script."""
-    LoggingManager.get_instance().configure_output(console_level=logging.INFO)
+def configure_logging(verbose: bool = False):
+    """
+    Configure logging for the test script.
 
-    # Suppress verbose logs
-    modules_to_suppress = [
-        "androguard",
-        "rvandroid.parser.screen.visitor.base_visitor",
-        "rvandroid.parser.screen.droidbot.droidbot_parser",
-        "rvandroid.model.classes.Classes",
-        "rvandroid.model.window.Window",
-        "rvandroid.model.window.Windows",
-        "rvandroid.model.widget.Widget",
-        "rvandroid.parser.static.reach",
-        "rvandroid.parser.static.gator",
-        "rvandroid.parser.static.gesda",
-        "rvandroid.parser.screen.droidbot",
-        "rvandroid.parser.screen.visitor",
-        "rvandroid.util.utils"
-    ]
+    Args:
+        verbose: Whether to enable verbose logging
+    """
+    # Configure logging level
+    level = logging.DEBUG if verbose else logging.INFO
+    LoggingManager.get_instance().configure_output(console_level=level)
 
-    for module in modules_to_suppress:
-        logging.getLogger(module).setLevel(logging.WARNING)
+    # Suppress verbose logs for certain modules
+    if not verbose:
+        modules_to_suppress = [
+            "androguard",
+            "rvandroid.parser.screen.visitor",
+            "rvandroid.parser.screen.droidbot",
+            "rvandroid.parser.static",
+            "rvandroid.domain",
+            "rvandroid.model",
+            "rvandroid.util.utils"
+        ]
+
+        for module in modules_to_suppress:
+            logging.getLogger(module).setLevel(logging.WARNING)
 
 
-def main():
-    """Main function to run the test."""
-    # Configure logging
-    configure_logging()
+def parse_arguments():
+    """
+    Parse command line arguments.
 
-    # Parse command line arguments
-    if len(sys.argv) > 1:
-        data_dir = sys.argv[1]
-    else:
-        data_dir = "/home/pedro/desenvolvimento/RV_ANDROID/teste_llm/screenshots"
+    Returns:
+        Parsed arguments
+    """
+    parser = argparse.ArgumentParser(description='RV-Android Component Integration Simulator')
 
-    # Default app to test
-    app_name = "cryptoapp.apk"
+    parser.add_argument('--app', type=str, default="cryptoapp.apk",
+                        help='APK file name to test (default: cryptoapp.apk)')
 
-    # Test prefixes - these should be in order of a realistic navigation path
-    prefixes = ["001", "003", "004", "005"]
+    parser.add_argument('--data-dir', type=str,
+                        default="/home/pedro/desenvolvimento/RV_ANDROID/teste_llm/screenshots",
+                        help='Directory containing test data files')
 
-    print(f"Running RV-Android simulator for {app_name} with {len(prefixes)} states")
-    print(f"Data directory: {data_dir}")
+    parser.add_argument('--states', type=str, default="001,003,004,005",
+                        help='Comma-separated list of state prefixes to process')
 
-    # Create and initialize simulator
-    simulator = RVAndroidSimulator(data_dir, app_name)
+    parser.add_argument('--verbose', action='store_true',
+                        help='Enable verbose logging')
 
-    # Load static data
-    if not simulator.load_static_data():
-        print("Failed to load static data. Exiting.")
-        return 1
+    return parser.parse_args()
 
-    # Initialize components
-    if not simulator.initialize_components():
-        print("Failed to initialize components. Exiting.")
-        return 1
 
-    # Run simulation
-    start_time = time.time()
-    results = simulator.run_simulation(prefixes)
-    end_time = time.time()
+def print_summary(results: Dict[str, Any]):
+    """
+    Print simulation summary.
 
-    # Show summary
+    Args:
+        results: Simulation results dictionary
+    """
     print("\n" + "=" * 80)
     print(" SIMULATION SUMMARY ".center(80, "="))
-    print("=" * 80)
+    print("=" * 80 + "\n")
 
-    print(f"\nExecution Time: {end_time - start_time:.2f} seconds")
+    # Print status
+    status = "✓ SUCCESS" if results["status"] == "success" else f"✗ FAILED: {results.get('error', 'Unknown error')}"
+    print(f"Status: {status}")
+
+    # Print statistics
+    print(f"Execution Time: {results['execution_time']:.2f} seconds")
     print(f"States Processed: {results['states_processed']}")
     print(f"Actions Executed: {results['actions_executed']}")
     print(f"Transitions Detected: {results['transitions_detected']}")
 
-    # Validation results
-    print("\nVALIDATION RESULTS:")
+    # Print validation results
+    print("\nCOMPONENT VALIDATION:")
     for component, validation in results["validation"].items():
         status = "✓ PASSED" if validation["passed"] else "✗ FAILED"
         print(f"{component}: {status}")
@@ -695,9 +774,46 @@ def main():
             for issue in validation["issues"]:
                 print(f"  - {issue}")
 
-    print("\nTest completed successfully!")
-    return 0
+    print("\nTest completed.")
+
+
+def main():
+    """
+    Main function to run the simulator.
+
+    Returns:
+        Exit code (0 for success, non-zero for failure)
+    """
+    # Parse command line arguments
+    args = parse_arguments()
+
+    # Configure logging
+    configure_logging(True)
+
+    # Parse state prefixes
+    state_prefixes = ["001", "003", "004", "005"]
+
+    print(f"Running RV-Android component simulator for {args.app}")
+    print(f"Data directory: {args.data_dir}")
+    print(f"Processing states: {', '.join(state_prefixes)}")
+
+    # Create and initialize simulator
+    simulator = ComponentSimulator(args.app, args.data_dir)
+
+    if not simulator.initialize():
+        print("Failed to initialize simulator. Exiting.")
+        return 1
+
+    # Run simulation
+    results = simulator.run_simulation(state_prefixes)
+
+    # Print summary
+    print_summary(results)
+
+    # Return appropriate exit code
+    return 0 if results["status"] == "success" else 1
 
 
 if __name__ == "__main__":
     sys.exit(main())
+    

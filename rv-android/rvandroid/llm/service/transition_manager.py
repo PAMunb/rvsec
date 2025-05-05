@@ -146,7 +146,7 @@ class TransitionManager:
             return False
 
 
-    def record_transition(self, actions: List[GeneratedAction]) -> None:
+    def record_transition(self, from_activity: str, to_activity: str, actions: List[Dict[str, Any]]) -> None:
         """
         Record a transition in the dynamic transition graph.
         
@@ -154,10 +154,10 @@ class TransitionManager:
         a transition between activities in the dynamic transition graph.
         
         Args:
+            from_activity: Source activity name
+            to_activity: Destination activity name
             actions: List of actions that led to this transition
         """
-        from_activity = self.previous_activity
-        to_activity = self.current_activity
         print(f"*** Recording transition: {from_activity} -> {to_activity}")
         try:
             if not from_activity or not to_activity or from_activity == to_activity:
@@ -167,9 +167,21 @@ class TransitionManager:
             from_activity = self._normalize_activity_name(from_activity)
             to_activity = self._normalize_activity_name(to_activity)
 
+            # Convert actions to dictionary format if they're GeneratedAction objects
+            actions_dict = []
+            for action in actions:
+                if hasattr(action, 'to_dict'):
+                    actions_dict.append(action.to_dict())
+                else:
+                    # Assume it's already a dictionary
+                    actions_dict.append(action)
+
             # Record in dynamic WTG
-            actions_dict = [action.to_dict() for action in actions]
             self.dynamic_wtg.record_transition(from_activity, to_activity, actions_dict)
+            
+            # Update current state information
+            self.previous_activity = from_activity
+            self.current_activity = to_activity
 
             self.logger.debug(
                 f"Recorded transition: {from_activity} -> {to_activity} with {len(actions)} actions"
@@ -416,11 +428,19 @@ class TransitionManager:
         """
         dynamic_transitions = []
 
+        # Check if the activity exists in the graph
+        if activity not in self.dynamic_wtg.graph:
+            guidance["dynamic_transitions"] = dynamic_transitions
+            return
+
         # Get outgoing edges from dynamic WTG for this activity
-        outgoing_edges = list(self.dynamic_wtg.graph.successors(activity))
-        print(f"Outgoing edges: {type(outgoing_edges)} ::: {outgoing_edges}")
-        if outgoing_edges:
-            for target_activity, transitions in outgoing_edges.items():
+        successor_nodes = list(self.dynamic_wtg.graph.successors(activity))
+        
+        for target_activity in successor_nodes:
+            if self.dynamic_wtg.graph.has_edge(activity, target_activity):
+                edge_data = self.dynamic_wtg.graph[activity][target_activity]
+                transitions = edge_data.get("transitions", [])
+                
                 for transition in transitions:
                     # Extract action information from transition
                     for action in transition.actions:
@@ -456,14 +476,20 @@ class TransitionManager:
         # Get actions that have been used in transitions
         used_actions: Set[str] = set()
 
-        # Get actions used from the activity in dynamic transitions
-        outgoing_edges = list(self.dynamic_wtg.graph.successors(activity))
-        if outgoing_edges:
-            for target_activity, transitions in outgoing_edges.items():
-                for transition in transitions:
-                    for action in transition.actions:
-                        action_id = action.get("action_id", "unknown")
-                        used_actions.add(str(action_id))
+        # Check if activity exists in the graph
+        if activity in self.dynamic_wtg.graph:
+            # Get actions used from the activity in dynamic transitions
+            successor_nodes = list(self.dynamic_wtg.graph.successors(activity))
+            
+            for target_activity in successor_nodes:
+                if self.dynamic_wtg.graph.has_edge(activity, target_activity):
+                    edge_data = self.dynamic_wtg.graph[activity][target_activity]
+                    transitions = edge_data.get("transitions", [])
+                    
+                    for transition in transitions:
+                        for action in transition.actions:
+                            action_id = action.get("action_id", "unknown")
+                            used_actions.add(str(action_id))
 
         # Find unexplored actions
         unexplored = available_actions - used_actions

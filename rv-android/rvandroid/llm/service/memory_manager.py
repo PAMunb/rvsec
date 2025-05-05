@@ -9,218 +9,22 @@ screens, and enriches state with historical context.
 The memory system is organized into:
 1. Short-term memory: Stores actions within the current activity (cleared on activity change)
 2. Long-term memory: Persists data throughout a task execution (not between executions)
-
-Author: Claude
-Date: 2025-05-04
 """
 
 from typing import Dict, List, Any, Optional, Tuple
 import time
-import copy
 import hashlib
 import json
 
+from rvandroid.core.memory.long_term_memory import LongTermMemory, MemoryAction, MemoryState
+from rvandroid.core.memory.short_term_memory import ShortTermMemory, Iteration
+from rvandroid.domain.static import StaticAnalysisData
 from rvandroid.llm.constants import StateEntry
 from rvandroid.llm.service.action_generator import GeneratedAction
+from rvandroid.parser.screen.visitor.model import ItemAction
 from rvandroid.util.error.error_handler import ErrorHandler
 from rvandroid.util.logging.constants import CONTEXT_COMPONENT
 from rvandroid.util.logging.manager import LoggingManager
-# from rvandroid.core.memory.short_term_memory import ShortTermMemory
-
-class ShortTermMemory:
-    """
-    Short-term memory system that stores recent interactions within a single activity.
-    
-    This memory is cleared when the activity changes. It stores iterations
-    (LLM consultations) and their associated actions for the current activity.
-    
-    Attributes:
-        iterations: List of iterations with associated actions and timestamps
-        current_activity: The activity this memory is associated with
-        current_state_hash: Hash of the current state for change detection
-    """
-    
-    def __init__(self):
-        """Initialize an empty short-term memory."""
-        self.iterations: List[Dict[str, Any]] = []
-        self.current_activity: str = ""
-        self.current_state_hash: str = ""
-    
-    def add_iteration(self, actions: List[GeneratedAction], action_selection_reason: str = "") -> None:
-        """
-        Add a new iteration with actions to the short-term memory.
-        
-        Args:
-            actions: List of actions executed in this iteration
-            action_selection_reason: Optional explanation for why these actions were selected
-        """
-        iteration = {
-            "timestamp": time.time(),
-            "actions": [self._convert_action_to_dict(action) for action in actions],
-            "action_selection_reason": action_selection_reason
-        }
-        self.iterations.append(iteration)
-    
-    def _convert_action_to_dict(self, action: GeneratedAction) -> Dict[str, Any]:
-        """
-        Convert a GeneratedAction to a dictionary for storage.
-        
-        Args:
-            action: The GeneratedAction to convert
-            
-        Returns:
-            Dictionary representation of the action
-        """
-        return {
-            "action_id": action.id,
-            "action_type": action.action_type,
-            "text": action.text,
-            "coordinates": action.coordinates,
-            "explanation": action.explanation,
-            "params": action.params
-        }
-    
-    def get_recent_iterations(self, limit: int = 5) -> List[Dict[str, Any]]:
-        """
-        Get the most recent iterations from short-term memory.
-        
-        Args:
-            limit: Maximum number of iterations to return
-            
-        Returns:
-            List of recent iterations, newest first
-        """
-        return self.iterations[-limit:] if self.iterations else []
-    
-    def get_all_actions_since_activity_change(self) -> List[Dict[str, Any]]:
-        """
-        Get all actions recorded since entering the current activity.
-        
-        Returns:
-            List of all actions from all iterations in the current activity
-        """
-        all_actions = []
-        for iteration in self.iterations:
-            all_actions.extend(iteration["actions"])
-        return all_actions
-    
-    def clear(self) -> None:
-        """Clear the short-term memory."""
-        self.iterations = []
-
-
-class LongTermMemory:
-    """
-    Long-term memory system that persists throughout a task execution.
-    
-    This memory tracks information across activity changes but is not
-    persisted between different task executions. It stores activity
-    visit history, action execution history, and aggregate statistics.
-    
-    Attributes:
-        activity_visits: Dictionary mapping activity names to visit counts
-        visited_activities: List of activities in visit order
-        action_history: List of executed actions with context
-        start_time: Timestamp when this memory was initialized
-    """
-    
-    def __init__(self):
-        """Initialize an empty long-term memory."""
-        self.activity_visits: Dict[str, int] = {}
-        self.visited_activities: List[str] = []
-        self.action_history: List[Dict[str, Any]] = []
-        self.start_time: float = time.time()
-    
-    def record_activity_visit(self, activity: str) -> None:
-        """
-        Record a visit to an activity.
-        
-        Args:
-            activity: Name of the activity being visited
-        """
-        # Update visit count
-        if activity in self.activity_visits:
-            self.activity_visits[activity] += 1
-        else:
-            self.activity_visits[activity] = 1
-        
-        # Add to visited activities list
-        self.visited_activities.append(activity)
-    
-    def record_actions(self, actions: List[Dict[str, Any]], activity: str) -> None:
-        """
-        Record actions executed in an activity.
-        
-        Args:
-            actions: List of actions (as dictionaries) that were executed
-            activity: Name of the activity where actions were executed
-        """
-        for action in actions:
-            entry = {
-                "timestamp": time.time(),
-                "activity": activity,
-                "action": action
-            }
-            self.action_history.append(entry)
-    
-    def get_activity_visit_count(self, activity: str) -> int:
-        """
-        Get the number of times an activity has been visited.
-        
-        Args:
-            activity: Name of the activity
-            
-        Returns:
-            Number of visits to the activity
-        """
-        return self.activity_visits.get(activity, 0)
-    
-    def get_visited_activities(self, limit: Optional[int] = None) -> List[str]:
-        """
-        Get the list of visited activities in chronological order.
-        
-        Args:
-            limit: Optional limit on the number of activities to return
-            
-        Returns:
-            List of visited activities
-        """
-        if limit:
-            return self.visited_activities[-limit:]
-        return self.visited_activities
-    
-    def get_activity_statistics(self) -> List[Dict[str, Any]]:
-        """
-        Get statistics for all visited activities.
-        
-        Returns:
-            List of dictionaries with activity name and visit count
-        """
-        return [
-            {"name": activity, "visits": count}
-            for activity, count in self.activity_visits.items()
-        ]
-    
-    def get_recent_actions(self, limit: int = 10) -> List[Dict[str, Any]]:
-        """
-        Get the most recent actions from long-term memory.
-        
-        Args:
-            limit: Maximum number of actions to return
-            
-        Returns:
-            List of recent actions with context, newest first
-        """
-        return self.action_history[-limit:] if self.action_history else []
-    
-    def get_navigation_path(self) -> List[str]:
-        """
-        Get the full navigation path (sequence of visited activities).
-        
-        Returns:
-            List of activities in visitation order
-        """
-        return self.visited_activities
 
 
 class MemoryManager:
@@ -232,7 +36,7 @@ class MemoryManager:
     context. It provides a unified interface for memory operations.
     
     ### Architectural Decisions:
-    - Separates short-term (per-activity) and long-term (per-execution) memory
+    - Utilizes and integrates with the core memory systems (ShortTermMemory, LongTermMemory)
     - Acts as the primary storage for all action history
     - Provides methods to retrieve actions for transition management 
     - Does not duplicate action storage across components
@@ -251,46 +55,72 @@ class MemoryManager:
         error_handler: Error handler for managing exceptions
     """
     
-    def __init__(self):
-        """Initialize the memory manager with empty memory systems."""
-        self.short_term = ShortTermMemory()
-        self.long_term = LongTermMemory()
+    def __init__(self, app_package: str = "unknown", static_data: Optional[StaticAnalysisData] = None, 
+                 max_short_term_iterations: int = 10):
+        """
+        Initialize the memory manager with memory systems.
+        
+        Args:
+            app_package: Application package name
+            static_data: Optional static analysis data
+            max_short_term_iterations: Maximum number of iterations in short-term memory
+        """
+        # Initialize memory systems using the core implementations
+        self.short_term = ShortTermMemory(max_iterations=max_short_term_iterations)
+        self.long_term = LongTermMemory(app_package, static_data)
+        
+        # Set up error handling and logging
         self.error_handler = ErrorHandler.get_instance()
         logging_manager = LoggingManager.get_instance()
         self.logger = logging_manager.get_logger(
             "llm.service.memory_manager",
             {CONTEXT_COMPONENT: "MemoryManager"}
         )
+        
+        self.logger.info(f"Initialized memory manager for {app_package}")
     
     def update(self, state: Dict[str, Any]) -> None:
         """
         Update memory systems based on current state.
         
-        This method checks for activity transitions and updates memory accordingly.
-        If the activity has changed, short-term memory is cleared and the new
-        activity is recorded in long-term memory.
+        This method extracts state information and updates both memory systems.
+        The ShortTermMemory will automatically handle activity transitions
+        and clearing memory when needed.
         
         Args:
             state: Current application state
         """
         try:
-            # Extract activity and state hash
+            # Update long-term memory with state information
             activity = self._get_activity_from_state(state)
             state_hash = self._compute_state_hash(state)
             
-            # Check for activity change
-            if activity != self.short_term.current_activity:
-                self.logger.info(f"Activity changed from '{self.short_term.current_activity}' to '{activity}'")
+            # Create or update memory state in long-term memory
+            if state_hash not in self.long_term.states:
+                memory_state = MemoryState(state_hash, activity)
                 
-                # Clear short-term memory on activity change
-                self.short_term.clear()
-                self.short_term.current_activity = activity
+                # Set screenshot if available
+                if StateEntry.SCREENSHOT_PATH in state:
+                    memory_state.set_screenshot(state[StateEntry.SCREENSHOT_PATH])
                 
-                # Record activity visit in long-term memory
-                self.long_term.record_activity_visit(activity)
+                # Set interactive element count if available
+                if StateEntry.STRUCTURED_SCREEN in state:
+                    screen_description = state[StateEntry.STRUCTURED_SCREEN]
+                    memory_state.interactive_elements_count = len(screen_description.items)
+                
+                # Record in long-term memory
+                self.long_term.record_state(memory_state)
+            else:
+                # Update existing state
+                memory_state = self.long_term.states[state_hash]
+                memory_state.record_visit()
+                
+                # Update screenshot if available
+                if StateEntry.SCREENSHOT_PATH in state:
+                    memory_state.set_screenshot(state[StateEntry.SCREENSHOT_PATH])
+                    
+            self.logger.debug(f"Updated state: activity={activity}, hash={state_hash}")
             
-            # Update current state hash
-            self.short_term.current_state_hash = state_hash
         except Exception as e:
             self.error_handler.handle_error(
                 e, 
@@ -302,7 +132,7 @@ class MemoryManager:
             )
     
     def record_actions(self, state: Dict[str, Any], actions: List[GeneratedAction], 
-                      action_selection_reason: str = "", succeeded: bool = True) -> None:
+                       action_selection_reason: str = "", succeeded: bool = True) -> None:
         """
         Record actions in both memory systems.
         
@@ -319,18 +149,23 @@ class MemoryManager:
             if not actions:
                 return
             
-            activity = self._get_activity_from_state(state)
-            
-            # Record in short-term memory as a new iteration
-            self.short_term.add_iteration(actions, action_selection_reason)
-            
-            # Convert actions to dictionaries for long-term storage
-            action_dicts = [self.short_term._convert_action_to_dict(action) for action in actions]
+            # Record in short-term memory
+            self.short_term.record_iteration(state, actions)
             
             # Record in long-term memory
-            self.long_term.record_actions(action_dicts, activity)
+            state_hash = state.get(StateEntry.HASH_SCREEN_CONTENT,
+                                  state.get(StateEntry.HASH_SCREEN, "unknown"))
             
+            for action in actions:
+                # Create memory action
+                memory_action = MemoryAction.from_action(action)
+                
+                # Record in long-term memory
+                self.long_term.record_action(memory_action, state_hash, succeeded)
+            
+            activity = self._get_activity_from_state(state)
             self.logger.debug(f"Recorded {len(actions)} actions in activity '{activity}'")
+            
         except Exception as e:
             self.error_handler.handle_error(
                 e, 
@@ -341,18 +176,67 @@ class MemoryManager:
                 }
             )
     
+    def record_transition(self, from_state: Dict[str, Any], to_state: Dict[str, Any],
+                          action: GeneratedAction, succeeded: bool = True) -> None:
+        """
+        Record a transition between states.
+        
+        Args:
+            from_state: Source state
+            to_state: Destination state
+            action: Action that caused the transition
+            succeeded: Whether the transition succeeded
+        """
+        try:
+            # Get state hashes
+            from_hash = from_state.get(StateEntry.HASH_SCREEN_CONTENT,
+                                     from_state.get(StateEntry.HASH_SCREEN, "unknown"))
+            to_hash = to_state.get(StateEntry.HASH_SCREEN_CONTENT,
+                                 to_state.get(StateEntry.HASH_SCREEN, "unknown"))
+            
+            # Create memory action
+            memory_action = MemoryAction.from_action(action)
+            
+            # Record in long-term memory
+            self.long_term.record_transition(from_hash, to_hash, memory_action, succeeded)
+            
+            self.logger.debug(f"Recorded transition: {from_hash} -> {to_hash}, action={action.id}")
+            
+        except Exception as e:
+            self.error_handler.handle_error(
+                e, 
+                context={
+                    "component": "MemoryManager", 
+                    "method": "record_transition"
+                }
+            )
+    
     def get_recent_activity_actions(self) -> List[Dict[str, Any]]:
         """
         Get actions from the current activity for transition tracking.
-        
-        This method retrieves all actions executed in the current activity,
-        which can be used to determine which actions caused a transition.
         
         Returns:
             List of action dictionaries from the current activity
         """
         try:
-            return self.short_term.get_all_actions_since_activity_change()
+            # Convert Iteration objects to compatible dictionary format
+            recent_iterations = self.short_term.get_recent_iterations()
+            all_actions = []
+            
+            for iteration in recent_iterations:
+                for action in iteration.actions:
+                    action_dict = {
+                        "action_id": action.id,
+                        "action_type": action.action_type,
+                        "text": action.text,
+                        "coordinates": action.coordinates if hasattr(action, 'coordinates') else None,
+                        "explanation": action.explanation if hasattr(action, 'explanation') else None,
+                        "params": action.params if hasattr(action, 'params') else {}
+                    }
+                    all_actions.append(action_dict)
+            
+            return all_actions
+            
         except Exception as e:
             self.error_handler.handle_error(
                 e, 
@@ -364,8 +248,8 @@ class MemoryManager:
             return []
     
     def enrich_state_with_history(self, state: Dict[str, Any], 
-                               short_term_limit: int = 5,
-                               long_term_limit: int = 10) -> Dict[str, Any]:
+                                short_term_limit: int = 5,
+                                long_term_limit: int = 10) -> Dict[str, Any]:
         """
         Enrich state with historical context from memory systems.
         
@@ -383,21 +267,61 @@ class MemoryManager:
         """
         try:
             # Add short-term memory context
-            state[StateEntry.RECENT_ITERATIONS] = self.short_term.get_recent_iterations(short_term_limit)
+            formatted_history = self.short_term.format_for_template(short_term_limit)
+            state[StateEntry.ACTION_HISTORY] = formatted_history
             
             # Add long-term memory insights
             activity = self._get_activity_from_state(state)
-            visit_count = self.long_term.get_activity_visit_count(activity)
+            state_hash = state.get(StateEntry.HASH_SCREEN_CONTENT,
+                                  state.get(StateEntry.HASH_SCREEN, "unknown"))
+            
+            # Generate insights
+            insights = self._get_long_term_insights(state_hash, activity)
+            state[StateEntry.MEMORY_INSIGHTS] = insights
             
             # Add activity visit information
             state[StateEntry.ACTIVITY_VISITS] = {
                 "current_activity": activity,
-                "visit_count": visit_count,
+                "visit_count": self.long_term.get_activity_visit_count(activity),
                 "activity_statistics": self.long_term.get_activity_statistics()
             }
             
             # Add navigation history
-            state[StateEntry.NAVIGATION_PATH] = self.long_term.get_navigation_path()
+            navigation_path = self.long_term.get_visited_activities()
+            state[StateEntry.NAVIGATION_PATH] = navigation_path
+            
+            # For backward compatibility with the old format
+            recent_iterations = self.short_term.get_recent_iterations(short_term_limit)
+            compat_iterations = []
+            
+            for iteration in recent_iterations:
+                compat_actions = []
+                for action in iteration.actions:
+                    compat_action = {
+                        "action_id": action.id,
+                        "action_type": action.action_type,
+                        "text": action.text
+                    }
+                    if hasattr(action, 'coordinates'):
+                        compat_action["coordinates"] = action.coordinates
+                    if hasattr(action, 'explanation'):
+                        compat_action["explanation"] = action.explanation
+                    if hasattr(action, 'params'):
+                        compat_action["params"] = action.params
+                    compat_actions.append(compat_action)
+                
+                compat_iteration = {
+                    "timestamp": iteration.timestamp.timestamp(),
+                    "actions": compat_actions,
+                    "action_selection_reason": ""  # Not tracked in original implementation
+                }
+                compat_iterations.append(compat_iteration)
+            
+            state[StateEntry.RECENT_ITERATIONS] = compat_iterations
+            
+            self.logger.debug("Enriched state with history data")
+            return state
+            
         except Exception as e:
             self.error_handler.handle_error(
                 e, 
@@ -407,6 +331,73 @@ class MemoryManager:
                 }
             )
             return state  # Return original state if enrichment fails
+    
+    def _get_long_term_insights(self, state_hash: str, activity: str) -> str:
+        """
+        Get insights from long-term memory.
+
+        Args:
+            state_hash: Current state hash
+            activity: Current activity name
+
+        Returns:
+            Formatted insights string
+        """
+        insights = []
+
+        # Get state information
+        memory_state = self.long_term.get_state_by_fingerprint(state_hash)
+
+        if memory_state:
+            # Visit frequency
+            insights.append(f"This screen has been visited {memory_state.visit_count} times")
+
+            # Interactive elements
+            if memory_state.interactive_elements_count > 0:
+                tested_count = len(memory_state.all_actions)
+                insights.append(
+                    f"You have interacted with {tested_count} of {memory_state.interactive_elements_count} elements on this screen")
+
+        # Get available transitions
+        if activity in self.long_term.activities:
+            activity_info = self.long_term.activities[activity]
+            if "states" in activity_info and activity_info["states"]:
+                transitions = set()
+
+                # Collect all transitions from all states in this activity
+                for state_id in activity_info["states"]:
+                    if state_id in self.long_term.states:
+                        state = self.long_term.states[state_id]
+                        for target in state.outgoing_transitions.keys():
+                            if target in self.long_term.states:
+                                target_state = self.long_term.states[target]
+                                transitions.add(target_state.activity)
+
+                # Format transitions
+                if transitions:
+                    transitions_list = list(transitions)
+                    if len(transitions_list) == 1:
+                        insights.append(f"This screen navigates to: {transitions_list[0]}")
+                    else:
+                        insights.append(f"This screen navigates to: {', '.join(transitions_list)}")
+
+        # Get least visited activities for exploration guidance
+        least_visited = self.long_term.get_least_visited_activities(3)
+        if least_visited:
+            suggestions = []
+            for activity_info in least_visited:
+                if activity_info["visit_count"] == 0:
+                    suggestions.append(f"{activity_info['name']} (not visited)")
+                else:
+                    suggestions.append(f"{activity_info['name']} (visited {activity_info['visit_count']} times)")
+
+            insights.append(f"Consider exploring: {', '.join(suggestions)}")
+
+        # Format insights
+        if not insights:
+            return "No historical insights available for this screen."
+
+        return "Memory insights:\n- " + "\n- ".join(insights)
     
     def _get_activity_from_state(self, state: Dict[str, Any]) -> str:
         """
@@ -441,6 +432,12 @@ class MemoryManager:
             Hash string representing the state
         """
         try:
+            # Check if state already has a hash
+            if StateEntry.HASH_SCREEN_CONTENT in state:
+                return state[StateEntry.HASH_SCREEN_CONTENT]
+            if StateEntry.HASH_SCREEN in state:
+                return state[StateEntry.HASH_SCREEN]
+            
             # Use a stable JSON serialization for hashing
             stable_dict = self._create_stable_dict_for_hashing(state)
             state_json = json.dumps(stable_dict, sort_keys=True)

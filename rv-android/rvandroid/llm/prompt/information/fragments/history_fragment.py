@@ -86,17 +86,21 @@ class HistoryFragment(InformationFragment):
             )
             return {}
 
-    def _format_action_history(self, actions: List[Dict[str, Any]]) -> str:
+    def _format_action_history(self, actions) -> str:
         """Format action history for display in the prompt.
 
         Args:
-            actions: List of historical actions with results.
+            actions: List of historical actions with results (list of dicts or objects)
 
         Returns:
             Formatted action history.
         """
         # Limit to the last N entries to prevent context bloat
-        actions = actions[-self.max_history_entries:] if len(actions) > self.max_history_entries else actions
+        if isinstance(actions, list):
+            actions = actions[-self.max_history_entries:] if len(actions) > self.max_history_entries else actions
+        else:
+            # Already formatted string
+            return actions
 
         if not actions:
             return "No previous testing actions recorded."
@@ -109,12 +113,19 @@ class HistoryFragment(InformationFragment):
             if isinstance(action, str):
                 # Already formatted string
                 formatted_parts.append(f"  {i + 1}. {action}")
+            elif hasattr(action, 'text') and hasattr(action, 'action_type'):
+                # It's an Iteration or GeneratedAction object
+                action_type = action.action_type
+                target = getattr(action, 'target', '')
+                text = action.text
+                formatted_parts.append(f"  {i + 1}. {action_type} - {text}")
             elif isinstance(action, dict):
                 # Dictionary format with details
                 action_type = action.get("action_type", "unknown")
                 target = action.get("target", "")
+                text = action.get("text", "")
                 result = "succeeded" if action.get("success", False) else "failed"
-                formatted_parts.append(f"  {i + 1}. {action_type} on {target} {result}")
+                formatted_parts.append(f"  {i + 1}. {action_type} - {text}")
 
         return "\n".join(formatted_parts)
 
@@ -129,7 +140,7 @@ class HistoryFragment(InformationFragment):
             True if testing history information should be included, False otherwise.
         """
         # Include if action history is available in state
-        if "action_history" in state or "memory_insights" in state:
+        if StateEntry.ACTION_HISTORY in state or StateEntry.MEMORY_INSIGHTS in state:
             return True
 
         # Or if testing history is available in context

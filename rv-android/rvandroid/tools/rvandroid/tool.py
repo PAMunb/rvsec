@@ -92,7 +92,7 @@ class ToolSpec(ConfigurableTool):
         # Create MCP-based service
         logger.info("Creating MCP-based LLM action service")
         from rvandroid.llm.service.action_service import LLMActionService
-        service = LLMActionService(task.static_data, config=self.component_config)
+        service = LLMActionService(task.static_data, config=self.component_config, app_package=task.app.package_name)
 
         # Publish tool start event
         EventBus.get_instance().publish_task_event(

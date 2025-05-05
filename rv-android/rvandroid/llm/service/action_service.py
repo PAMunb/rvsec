@@ -55,8 +55,9 @@ class LLMActionService:
 
     def __init__(
             self,
-            static_data: Optional[StaticAnalysisData] = None,
-            config: Optional[ComponentConfigurator] = None,
+            static_data: StaticAnalysisData,
+            config: ComponentConfigurator,
+            app_package: str,
             **model_kwargs
     ):
         """Initialize the LLM action service with its component system.
@@ -64,6 +65,7 @@ class LLMActionService:
         Args:
             static_data: Static analysis data for the application (optional)
             config: ComponentConfigurator instance
+            app_package: Application package name for the target app
             **model_kwargs: Additional arguments for model creation
         """
         # Initialize system services
@@ -81,13 +83,11 @@ class LLMActionService:
         # Store configuration
         self.config = config or ComponentConfigurator()
         self.static_data = static_data
-
-        # Get app package from kwargs or use default
-        app_package = model_kwargs.get("app_package", "unknown")  # TODO rever ... pegar de outra forma
+        self.app_package = app_package
 
         # Create specialized components
         self.transition_manager = TransitionManager(static_data)
-        self.memory_manager = MemoryManager()
+        self.memory_manager = MemoryManager(app_package, static_data)
         self.state_enricher = StateEnricher(static_data, self.config)
         self.response_processor = ResponseProcessor(self.config)
         self.action_generator = ActionGenerator(self.config, static_data)
@@ -247,14 +247,13 @@ class LLMActionService:
         Args:
             state: Current application state
             generated_actions: List of generated actions to execute
+            transition_detected: Whether a transition was detected during pre-processing
         """
         # Record actions in memory
         self.memory_manager.record_actions(state, generated_actions)
 
-        print(f"**** post_process_state: transition_detected: {transition_detected}")
-        # Update transition graph with chosen actions
-        if transition_detected:
-            self.transition_manager.record_transition(generated_actions)
+        # Note: The transition handling in this method is no longer needed
+        # since transitions are properly handled in the process_action_result method
 
     def convert_to_droidbot(self, actions: List[GeneratedAction]) -> List[Dict[str, Any]]:
         """Convert generated actions to DroidBot-compatible format.
@@ -268,7 +267,7 @@ class LLMActionService:
         return [action.to_droidbot_format() for action in actions]
 
     def process_action_result(self, from_state: Dict[str, Any], to_state: Dict[str, Any],
-                            action: Dict[str, Any], success: bool) -> None:
+                          action: Dict[str, Any], success: bool) -> None:
         """
         Process the result of an action execution.
 
@@ -290,35 +289,31 @@ class LLMActionService:
             # Detect if this is a transition between different activities
             is_transition = from_activity != to_activity
             
-            # Get action details
-            action_id = action.get("action_id", action.get("id", "unknown"))
-            action_type = action.get("action_type", "unknown")
-            
-            # Create action dictionary for memory storage
-            action_dict = {
-                "action_id": action_id,
-                "action_type": action_type,
-                "text": action.get("text", ""),
-                "coordinates": action.get("coordinates", None),
-                "explanation": action.get("explanation", ""),
-                "params": action.get("params", {})
-            }
+            # Convert the action dictionary to a GeneratedAction object
+            generated_action = self._dict_to_generated_action(action)
             
             # Record action in memory manager
             self.memory_manager.record_actions(
                 from_state, 
-                [self._dict_to_generated_action(action_dict)], 
+                [generated_action], 
                 action_selection_reason="", 
                 succeeded=success
             )
             
-            # If this is a transition, record it in the transition manager with all actions
-            # that led to this transition from the previous activity
+            # If this is a transition, record it in both memory manager and transition manager
             if is_transition:
+                # First record the transition in memory manager
+                self.memory_manager.record_transition(
+                    from_state,
+                    to_state,
+                    generated_action,
+                    success
+                )
+                
                 # Get all actions from the current activity (before it changed)
                 recent_actions = self.memory_manager.get_recent_activity_actions()
                 
-                # Record the transition with all relevant actions
+                # Also record the transition in transition manager with all relevant actions
                 self.transition_manager.record_transition(
                     from_activity, 
                     to_activity, 
@@ -428,6 +423,11 @@ class LLMActionService:
             )
 
     def clear_short_term_memory(self) -> None:
-        """Clear the short-term memory."""
-        if hasattr(self.memory_manager, 'short_term'):
+        """Clear the short-term memory.
+        
+        Useful to reset the short-term memory when starting a new testing session
+        or when manually forcing a context reset.
+        """
+        if self.memory_manager and hasattr(self.memory_manager, 'short_term'):
             self.memory_manager.short_term.clear()
+            self.logger.info("Short-term memory cleared")
