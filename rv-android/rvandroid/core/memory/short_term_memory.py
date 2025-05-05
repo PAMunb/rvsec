@@ -71,7 +71,7 @@ class Iteration:
             "actions": [{"id": action.id, "text": action.text} for action in self.actions]
         }
 
-    # TODO nao deve ficar aqui ... acho q no state bota o objeto de memoria e no fragment ele escreve do jeito q quiser
+    # TODO deprecated ... nao deve ficar aqui ... acho q no state bota o objeto de memoria e no fragment ele escreve do jeito q quiser
     def format_for_template(self) -> str:
         """
         Format iteration information for a template.
@@ -163,7 +163,7 @@ class ShortTermMemory:
             if len(self.iterations) > self.max_iterations:
                 self.iterations = self.iterations[:self.max_iterations]
 
-            self.logger.debug(f"Recorded iteration with {len(actions)} actions, memory size: {len(self.iterations)}")
+            self.logger.info(f"Recorded iteration with {len(actions)} actions, memory size: {len(self.iterations)}")
 
         except Exception as e:
             self.logger.error(f"Error recording iteration: {e}")

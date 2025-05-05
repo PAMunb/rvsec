@@ -134,15 +134,15 @@ class LLMActionService:
         with self.performance_monitor.measure_time("state_processing_total", context):
             try:
                 # Enrich state with additional information
-                enriched_state = self.pre_process_state(state)
+                transition_detected = self.pre_process_state(state)
 
                 # Generate prompt and get LLM response
                 with self.performance_monitor.measure_time("llm_interaction", context):
                     # Create prompt context
-                    prompt_context = self._create_prompt_context(enriched_state)
+                    prompt_context = self._create_prompt_context(state)
 
                     # Generate prompt messages
-                    messages = self.framework.generate_prompt(enriched_state, prompt_context)
+                    messages = self.framework.generate_prompt(state, prompt_context)
 
                     # Record prompt metrics if possible
                     self.record_prompt_metrics(messages, context)
@@ -154,13 +154,13 @@ class LLMActionService:
                 # Process response into actions
                 if not response:
                     self.logger.error("No response from LLM")
-                    return self.convert_to_droidbot(self.action_generator.generate_fallback_actions(enriched_state))
+                    return self.convert_to_droidbot(self.action_generator.generate_fallback_actions(state))
 
                 # Extract response content
                 response_text = response.content if hasattr(response, 'content') else str(response)
 
                 # Process response into action descriptions
-                actions, errors = self.response_processor.process_response(response_text, enriched_state)
+                actions, errors = self.response_processor.process_response(response_text, state)
 
                 # Record parsing metrics
                 self.performance_monitor.record_metric(
@@ -174,9 +174,9 @@ class LLMActionService:
                     self.logger.warning(f"Response parsing issue: {error}")
 
                 # Convert action descriptions to executable actions
-                generated_actions = self.action_generator.create_actions(actions, enriched_state)
+                generated_actions = self.action_generator.create_actions(actions, state)
 
-                self.post_process_state(enriched_state, generated_actions)
+                self.post_process_state(state, generated_actions, transition_detected)
 
                 # Publish success metrics
                 self.performance_monitor.record_metric(
@@ -204,7 +204,7 @@ class LLMActionService:
                 # Generate fallback actions
                 return self.convert_to_droidbot(self.action_generator.generate_fallback_actions(state))
 
-    def pre_process_state(self, state: Dict[str, Any]) -> dict[str, Any]:
+    def pre_process_state(self, state: Dict[str, Any]) -> bool:
         """
         Pre-process the state by enriching it with additional information.
         
@@ -217,27 +217,27 @@ class LLMActionService:
             state: Current application state
             
         Returns:
-            Enriched state dictionary
+            bool: True if a transition (to other screen) was detected, False otherwise
         """
         # Enrich state with additional information
-        enriched_state = self.state_enricher.enrich_state(state)
+        self.state_enricher.enrich_state(state)
 
         # Update transitions with current state information
-        self.transition_manager.update(enriched_state)
+        transition_detected = self.transition_manager.update(state)
 
         # Update memory with current state information
-        self.memory_manager.update(enriched_state)
+        self.memory_manager.update(state)
 
         # Enrich state with historical information
-        enriched_state = self.memory_manager.enrich_state_with_history(enriched_state)
+        self.memory_manager.enrich_state_with_history(state)
 
         # Add transition guidance to state
-        transition_guidance = self.transition_manager.get_transition_guidance(enriched_state)
-        enriched_state[StateEntry.TRANSITION_GUIDANCE] = transition_guidance
+        transition_guidance = self.transition_manager.get_transition_guidance(state)
+        state[StateEntry.TRANSITION_GUIDANCE] = transition_guidance
 
-        return enriched_state
+        return transition_detected
 
-    def post_process_state(self, state: Dict[str, Any], generated_actions: List[GeneratedAction]) -> None:
+    def post_process_state(self, state: Dict[str, Any], generated_actions: List[GeneratedAction], transition_detected: bool) -> None:
         """
         Post-process the state after action generation.
         
@@ -251,8 +251,10 @@ class LLMActionService:
         # Record actions in memory
         self.memory_manager.record_actions(state, generated_actions)
 
+        print(f"**** post_process_state: transition_detected: {transition_detected}")
         # Update transition graph with chosen actions
-        self.transition_manager.update_with_actions(state, generated_actions)
+        if transition_detected:
+            self.transition_manager.record_transition(generated_actions)
 
     def convert_to_droidbot(self, actions: List[GeneratedAction]) -> List[Dict[str, Any]]:
         """Convert generated actions to DroidBot-compatible format.
@@ -270,7 +272,9 @@ class LLMActionService:
         """
         Process the result of an action execution.
 
-        This method records the state transition and updates memory with the action result.
+        This method coordinates the recording of state transitions and action history. 
+        When a transition is detected, it retrieves actions from the memory manager 
+        and passes them to the transition manager to record the transition.
 
         Args:
             from_state: Source state
@@ -279,27 +283,53 @@ class LLMActionService:
             success: Whether the action execution was successful
         """
         try:
-            # Get action ID and type
-            action_id = action.get("action_id", action.get("id", "unknown"))
-            action_type = action.get("action_type", "unknown")
-
-            # Record transition in transition manager
+            # Get activity information
             from_activity = from_state.get(StateEntry.ACTIVITY, "unknown")
             to_activity = to_state.get(StateEntry.ACTIVITY, "unknown")
-            self.transition_manager.record_transition(from_activity, to_activity, str(action_id), action_type)
-
-            # Create Action object for memory manager
-            from rvandroid.llm.data_structures import Action
-            memory_action = Action(
-                action_id=action_id,
-                action_type=action_type,
-                view=action.get("view", {}),
-                parameters=action.get("params", {})
+            
+            # Detect if this is a transition between different activities
+            is_transition = from_activity != to_activity
+            
+            # Get action details
+            action_id = action.get("action_id", action.get("id", "unknown"))
+            action_type = action.get("action_type", "unknown")
+            
+            # Create action dictionary for memory storage
+            action_dict = {
+                "action_id": action_id,
+                "action_type": action_type,
+                "text": action.get("text", ""),
+                "coordinates": action.get("coordinates", None),
+                "explanation": action.get("explanation", ""),
+                "params": action.get("params", {})
+            }
+            
+            # Record action in memory manager
+            self.memory_manager.record_actions(
+                from_state, 
+                [self._dict_to_generated_action(action_dict)], 
+                action_selection_reason="", 
+                succeeded=success
             )
-
-            # Record in memory manager
-            self.memory_manager.record_actions(from_state, [memory_action], action_selection_reason="", succeeded=success)
-
+            
+            # If this is a transition, record it in the transition manager with all actions
+            # that led to this transition from the previous activity
+            if is_transition:
+                # Get all actions from the current activity (before it changed)
+                recent_actions = self.memory_manager.get_recent_activity_actions()
+                
+                # Record the transition with all relevant actions
+                self.transition_manager.record_transition(
+                    from_activity, 
+                    to_activity, 
+                    recent_actions
+                )
+                
+                self.logger.info(
+                    f"Recorded transition from {from_activity} to {to_activity} "
+                    f"with {len(recent_actions)} actions"
+                )
+            
             self.logger.info(f"Processed action result: success={success}")
 
         except Exception as e:
@@ -311,6 +341,37 @@ class LLMActionService:
                     "function": "process_action_result"
                 }
             )
+    
+    def _dict_to_generated_action(self, action_dict: Dict[str, Any]):
+        """
+        Convert an action dictionary to a GeneratedAction object.
+        
+        Args:
+            action_dict: Dictionary representation of an action
+            
+        Returns:
+            GeneratedAction object
+        """
+        from rvandroid.domain.widget import WidgetEventType
+        from rvandroid.parser.screen.visitor.model import ItemAction
+        from rvandroid.llm.service.action_generator import GeneratedAction
+        
+        # Create an ItemAction as required by GeneratedAction
+        event_type = getattr(WidgetEventType, action_dict.get("action_type", "CLICK"), WidgetEventType.CLICK)
+        item_action = ItemAction(
+            action_dict.get("action_id", 0),
+            action_dict.get("text", f"{event_type.name}(?)"),
+            event_type
+        )
+        
+        # Create and return the GeneratedAction
+        return GeneratedAction(
+            item=item_action,
+            params=action_dict.get("params", {}),
+            coordinates=action_dict.get("coordinates", (0, 0)),
+            target="",  # Deprecated field
+            explanation=action_dict.get("explanation", "")
+        )
 
     def _initialize_state(self, state: Dict[str, Any]):
         """Initialize state with basic information.

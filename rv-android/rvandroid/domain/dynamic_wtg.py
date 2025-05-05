@@ -14,7 +14,7 @@ class DynamicTransition:
     """Records information about a dynamic transition between screens"""
 
     def __init__(self, source_activity: str, target_activity: str,
-                 actions: List[Dict[str,Any]], timestamp: datetime = None):
+                 actions: List[Dict[str, Any]], timestamp: datetime = None):
         self.source_activity = source_activity
         self.target_activity = target_activity
         self.actions = actions
@@ -159,6 +159,8 @@ class DynamicTransitionGraph:
         if target_activity.endswith(".."):
             target_activity = target_activity[:-1]
 
+        print(f"$$$ Recording transition: {source_activity} -> {target_activity}")
+
         # Ensure both activities exist
         self.add_activity(source_activity)
         self.add_activity(target_activity)
@@ -209,6 +211,9 @@ class DynamicTransitionGraph:
         transition = self.record_transition(self.current_activity, next_activity, action_id, action_type)
         self.current_activity = next_activity
         return transition
+
+    def has_edge(self, source_activity: str, target_activity: str):
+        return self.graph.has_edge(source_activity, target_activity)
 
     def get_unexplored_activities(self, visited_activities: Set[str]) -> List[str]:
         """Get activities that exist in the graph but have not been visited"""

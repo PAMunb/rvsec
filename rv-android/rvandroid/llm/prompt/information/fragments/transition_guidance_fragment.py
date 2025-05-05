@@ -18,7 +18,7 @@ from typing import Dict, Any, Optional, List
 
 from rvandroid.llm.constants import StateEntry
 from rvandroid.llm.prompt.information.base_fragment import InformationFragment
-from rvandroid.util.error.error_handler import error_handler
+from rvandroid.util.error.error_handler import ErrorHandler
 from rvandroid.util.logging.manager import get_logger
 
 
@@ -33,6 +33,7 @@ class TransitionGuidanceFragment(InformationFragment):
     
     Attributes:
         logger: Logger instance for this class
+        error_handler: Error handler for managing exceptions
     """
 
     def __init__(self, name: str = "transition_guidance", priority: int = 200):
@@ -45,8 +46,8 @@ class TransitionGuidanceFragment(InformationFragment):
         """
         super().__init__(name, priority)
         self.logger = get_logger(self.__class__.__name__)
+        self.error_handler = ErrorHandler.get_instance()
 
-    @error_handler.catch_and_log_errors
     def generate(self, state: Dict[str, Any], context: Optional[Dict[str, Any]] = None) -> str:
         """
         Generate transition guidance formatted text from state information.
@@ -61,72 +62,81 @@ class TransitionGuidanceFragment(InformationFragment):
         Returns:
             Formatted transition guidance text for inclusion in prompts
         """
-        # Get transition guidance information from state
-        guidance = state.get(StateEntry.TRANSITION_GUIDANCE, {})
-        if not guidance:
-            self.logger.warning("No transition guidance information found in state")
-            return ""
-        
-        # Begin formatted output
-        formatted_guidance = "## Transition Guidance\n\n"
-        
-        # Add current activity and visit information
-        current_activity = guidance.get("current_activity", "unknown")
-        visit_count = guidance.get("visit_count", 0)
-        formatted_guidance += f"Current activity: {current_activity} (visited {visit_count} times)\n\n"
-        
-        # Add navigation path if available
-        if "navigation_path" in guidance:
-            formatted_guidance += "### Navigation Path\n"
-            path = guidance["navigation_path"]
-            if path:
-                formatted_guidance += " → ".join(path[-5:])  # Show last 5 activities for brevity
-                if len(path) > 5:
-                    formatted_guidance += f" (showing last 5 of {len(path)} activities)"
-                formatted_guidance += "\n\n"
-            else:
-                formatted_guidance += "No navigation history yet.\n\n"
-        
-        # Add unexplored actions information
-        unexplored_actions = guidance.get("unexplored_actions", [])
-        if unexplored_actions:
-            formatted_guidance += "### Unexplored Actions\n"
-            formatted_guidance += f"There are {len(unexplored_actions)} unexplored actions on this screen: "
-            formatted_guidance += ", ".join([f"Action {action_id}" for action_id in unexplored_actions])
-            formatted_guidance += "\n\n"
-        
-        # Add transition suggestions
-        suggested_targets = guidance.get("suggested_targets", [])
-        if suggested_targets:
-            formatted_guidance += "### Suggested Activities to Explore\n"
-            for target in suggested_targets[:3]:  # Limit to top 3 for brevity
-                name = target.get("name", "unknown")
-                visits = target.get("visits", 0)
-                action_ids = target.get("action_ids", [])
-                
-                action_text = ", ".join([f"Action {action_id}" for action_id in action_ids])
-                formatted_guidance += f"- {name} (visited {visits} times) via {action_text}\n"
-            formatted_guidance += "\n"
-        
-        # Add static transition information
-        static_transitions = guidance.get("static_transitions", [])
-        if static_transitions:
-            formatted_guidance += "### Potential Transitions (Static Analysis)\n"
-            for transition in static_transitions[:5]:  # Limit to 5 for brevity
-                target = transition.get("target", "unknown")
-                action_id = transition.get("action_id", "?")
-                visited = "✓" if transition.get("visited", False) else "✗"
-                
-                formatted_guidance += f"- {target} via Action {action_id} [Visited: {visited}]\n"
+        try:
+            # Get transition guidance information from state
+            guidance = state.get(StateEntry.TRANSITION_GUIDANCE, {})
+            if not guidance:
+                self.logger.warning("No transition guidance information found in state")
+                return ""
             
-            if len(static_transitions) > 5:
-                formatted_guidance += f"(+ {len(static_transitions) - 5} more transitions)\n"
-            formatted_guidance += "\n"
-        
-        # Return formatted guidance
-        return formatted_guidance.strip()
+            # Begin formatted output
+            formatted_guidance = "## Transition Guidance\n\n"
+            
+            # Add current activity and visit information
+            current_activity = guidance.get("current_activity", "unknown")
+            visit_count = guidance.get("visit_count", 0)
+            formatted_guidance += f"Current activity: {current_activity} (visited {visit_count} times)\n\n"
+            
+            # Add navigation path if available
+            if "navigation_path" in guidance:
+                formatted_guidance += "### Navigation Path\n"
+                path = guidance["navigation_path"]
+                if path:
+                    formatted_guidance += " → ".join(path[-5:])  # Show last 5 activities for brevity
+                    if len(path) > 5:
+                        formatted_guidance += f" (showing last 5 of {len(path)} activities)"
+                    formatted_guidance += "\n\n"
+                else:
+                    formatted_guidance += "No navigation history yet.\n\n"
+            
+            # Add unexplored actions information
+            unexplored_actions = guidance.get("unexplored_actions", [])
+            if unexplored_actions:
+                formatted_guidance += "### Unexplored Actions\n"
+                formatted_guidance += f"There are {len(unexplored_actions)} unexplored actions on this screen: "
+                formatted_guidance += ", ".join([f"Action {action_id}" for action_id in unexplored_actions])
+                formatted_guidance += "\n\n"
+            
+            # Add transition suggestions
+            suggested_targets = guidance.get("suggested_targets", [])
+            if suggested_targets:
+                formatted_guidance += "### Suggested Activities to Explore\n"
+                for target in suggested_targets[:3]:  # Limit to top 3 for brevity
+                    name = target.get("name", "unknown")
+                    visits = target.get("visits", 0)
+                    action_ids = target.get("action_ids", [])
+                    
+                    action_text = ", ".join([f"Action {action_id}" for action_id in action_ids])
+                    formatted_guidance += f"- {name} (visited {visits} times) via {action_text}\n"
+                formatted_guidance += "\n"
+            
+            # Add static transition information
+            static_transitions = guidance.get("static_transitions", [])
+            if static_transitions:
+                formatted_guidance += "### Potential Transitions (Static Analysis)\n"
+                for transition in static_transitions[:5]:  # Limit to 5 for brevity
+                    target = transition.get("target", "unknown")
+                    action_id = transition.get("action_id", "?")
+                    visited = "✓" if transition.get("visited", False) else "✗"
+                    
+                    formatted_guidance += f"- {target} via Action {action_id} [Visited: {visited}]\n"
+                
+                if len(static_transitions) > 5:
+                    formatted_guidance += f"(+ {len(static_transitions) - 5} more transitions)\n"
+                formatted_guidance += "\n"
+            
+            # Return formatted guidance
+            return formatted_guidance.strip()
+        except Exception as e:
+            self.error_handler.handle_error(
+                e, 
+                context={
+                    "component": "TransitionGuidanceFragment", 
+                    "method": "generate"
+                }
+            )
+            return "Error generating transition guidance"
 
-    @error_handler.catch_and_log_errors
     def should_include(self, state: Dict[str, Any], context: Optional[Dict[str, Any]] = None) -> bool:
         """
         Determine whether transition guidance should be included in the prompt.
@@ -141,11 +151,21 @@ class TransitionGuidanceFragment(InformationFragment):
         Returns:
             True if transition guidance should be included, False otherwise
         """
-        # Only include if there is transition guidance in the state
-        has_guidance = StateEntry.TRANSITION_GUIDANCE in state
-        
-        # Log decision
-        if not has_guidance:
-            self.logger.debug("Transition guidance not included: not available in state")
-        
-        return has_guidance
+        try:
+            # Only include if there is transition guidance in the state
+            has_guidance = StateEntry.TRANSITION_GUIDANCE in state
+            
+            # Log decision
+            if not has_guidance:
+                self.logger.debug("Transition guidance not included: not available in state")
+            
+            return has_guidance
+        except Exception as e:
+            self.error_handler.handle_error(
+                e, 
+                context={
+                    "component": "TransitionGuidanceFragment", 
+                    "method": "should_include"
+                }
+            )
+            return False

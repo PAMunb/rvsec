@@ -36,6 +36,17 @@ class GeneratedAction:
             "explanation": self.explanation
         }
 
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "action_type": self.action_type,
+            "coordinates": self.coordinates,
+            "params": self.params,
+            "reaches_mop": self.reaches_mop,
+            "directly_reaches_mop": self.directly_reaches_mop,
+            "explanation": self.explanation
+        }
+
 
 class ActionGenerator:
     """

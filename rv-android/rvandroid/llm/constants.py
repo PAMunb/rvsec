@@ -75,6 +75,9 @@ class StateEntry:
     SCREEN_DESCRIPTION = "screen_description"  # the ScreenDescription string representation for template rendering
     ACTION_HISTORY = "action_history"  # List of actions taken in the current activity
     MEMORY_INSIGHTS = "memory_insights"
+    NAVIGATION_PATH = "navigation_path"
+    ACTIVITY_VISITS = "activity_visits"
+    RECENT_ITERATIONS = "recent_iterations"
 
 
 

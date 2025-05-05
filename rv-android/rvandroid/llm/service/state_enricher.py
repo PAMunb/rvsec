@@ -84,14 +84,11 @@ class StateEnricher:
         except ImportError:
             self.logger.warning("UIPatternDetector not available")
 
-    def enrich_state(self, state: Dict[str, Any]) -> Dict[str, Any]:
+    def enrich_state(self, state: Dict[str, Any]):
         """Add additional information to state before prompt generation.
         
         Args:
             state: The current application state.
-            
-        Returns:
-            Enriched state with additional information.
         """
         self.logger.debug("Enriching state for prompt generation")
         
@@ -108,7 +105,6 @@ class StateEnricher:
             # Add monitored operations information
             self._add_monitored_operations(state)
 
-            return state
         except Exception as e:
             self.logger.error(f"Error enriching state: {e}", exc_info=True)
             self.error_handler.handle_error(
