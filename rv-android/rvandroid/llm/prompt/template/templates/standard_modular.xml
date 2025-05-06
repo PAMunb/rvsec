@@ -4,6 +4,7 @@
     <description>Standard template for Android testing (modular version)</description>
     <created>2025-04-18</created>
     <author>RV-Android Team</author>
+    <updated>2025-05-06</updated>
   </metadata>
   <variables>
     <required>ui_elements</required>
@@ -12,28 +13,29 @@
     <optional>monitored_operations</optional>
   </variables>
   <roles>
-    <s>
+    <system>
       <variable name="strategy_specific_instructions">
-        <![CDATA[ {#include standard_instructions} ]]>
+        <![CDATA[{% include "standard_instructions" %}]]>
       </variable>
       <variable name="response_format_instructions">
-        <![CDATA[ {#include standard_format} ]]>
+        <![CDATA[{% include "standard_format" %}]]>
       </variable>
       <variable name="additional_guidelines">
-        <![CDATA[ {#include standard_guidelines} ]]>
+        <![CDATA[{% include "standard_guidelines" %}]]>
       </variable>
-    </s>
+    </system>
     <user><![CDATA[
 I'm testing an Android application and need your guidance on the next action to take.
 
-Current Activity: {activity}
+Current Activity: {{ activity }}
 
 Screen Elements:
-{ui_elements}
+{{ ui_elements }}
 
-{#if additional_guidelines}
+{% if additional_guidelines %}
 GUIDELINES:
-{additional_guidelines}{#endif}
+{{ additional_guidelines }}
+{% endif %}
     ]]></user>
   </roles>
 </template>

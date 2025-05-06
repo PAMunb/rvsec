@@ -3,8 +3,11 @@
   <![CDATA[
 CRITICAL TASK: Analyze the current UI, identify the primary UI pattern present, and generate a batch of related actions that efficiently test this pattern.
 
-{#if detected_pattern == "form"}{#include form_pattern}
-{#elif detected_pattern == "list"}{#include list_pattern}{#endif}
+{% if detected_pattern is defined %}
+  {% if detected_pattern == "form" %}{% include "form_pattern" %}
+  {% elif detected_pattern == "list" %}{% include "list_pattern" %}
+  {% endif %}
+{% endif %}
 
 Your response must include:
 1. The identified pattern type

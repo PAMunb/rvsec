@@ -6,6 +6,7 @@ management, and strategy execution.
 """
 
 from typing import Any, Dict, List, Optional
+import logging
 
 from rvandroid.config.component_configurator import ComponentConfigurator
 from rvandroid.llm.constants import PromptStrategyType
@@ -19,8 +20,7 @@ from rvandroid.llm.prompt.information.fragments.ui_elements_fragment import UIEl
 from rvandroid.llm.prompt.information.fragments.ui_pattern_fragment import UIPatternFragment
 from rvandroid.llm.prompt.strategy.strategies.batch_action_strategy import BatchActionStrategy
 from rvandroid.llm.prompt.strategy.strategies.standard_strategy import StandardStrategy
-from rvandroid.llm.prompt.strategy.strategy_registry import StrategyRegistry
-from rvandroid.llm.prompt.template.xml_repository import XMLTemplateRepository
+from rvandroid.llm.prompt.template.jinja_repository import Jinja2TemplateRepository
 from rvandroid.util.error.error_handler import ErrorHandler
 from rvandroid.util.logging.constants import CONTEXT_COMPONENT
 from rvandroid.util.logging.manager import LoggingManager
@@ -35,27 +35,36 @@ class PromptFramework:
     3. Strategy execution for generating prompts
     
     It serves as the central entry point for prompt generation and LLM interaction.
+    
+    This implementation uses Jinja2 for template rendering, providing advanced
+    templating capabilities while maintaining compatibility with the XML-based
+    template structure.
+    
+    Architecture Notes:
+    ------------------
+    - The framework uses ComponentConfigurator directly for strategy management,
+      eliminating the need for a separate StrategyRegistry
+    - This design creates a single source of truth for component registration
+    - The framework acts as a facade over the underlying components, providing
+      a simplified interface for prompt generation
     """
 
     def __init__(
             self,
             information_manager: InformationManager,
-            template_repository: XMLTemplateRepository,
-            strategy_registry: StrategyRegistry,
+            template_repository: Jinja2TemplateRepository,
             config: ComponentConfigurator
     ):
         """Initialize the prompt framework.
         
         Args:
             information_manager: Manager for information fragments.
-            template_repository: Repository for templates.
-            strategy_registry: Registry for prompt strategies.
-            config: Component configuration.
+            template_repository: Repository for templates using Jinja2.
+            config: Component configuration that manages strategies.
         """
         # Store components
         self.information_manager = information_manager
         self.template_repository = template_repository
-        self.strategy_registry = strategy_registry
         self.config = config
 
         # Set up logging
@@ -69,8 +78,12 @@ class PromptFramework:
         self.error_handler = ErrorHandler.get_instance()
 
     @classmethod
-    def create(cls, config: ComponentConfigurator) -> 'PromptFramework':
+    def create(cls, config: Optional[ComponentConfigurator] = None) -> 'PromptFramework':
         """Create and configure a new prompt framework with default components.
+        
+        This factory method instantiates all necessary components and registers
+        default strategies with the provided ComponentConfigurator. It handles
+        the initialization of the entire prompt generation system.
         
         Args:
             config: Configuration for components (optional).
@@ -78,6 +91,10 @@ class PromptFramework:
         Returns:
             Configured PromptFramework instance.
         """
+        # Create a default config if not provided
+        if config is None:
+            config = ComponentConfigurator()
+            
         # Create information manager and fragments
         information_manager = InformationManager()
 
@@ -92,47 +109,60 @@ class PromptFramework:
         ]
         information_manager.register_fragments(fragments)
 
-        # Create template repository
-        template_repository = XMLTemplateRepository()
+        # Create Jinja2-based template repository
+        template_repository = Jinja2TemplateRepository()
 
-        # Create strategy registry
-        strategy_registry = StrategyRegistry()
-
-        # Create and register default strategies
-        strategies = [
-            StandardStrategy(
-                information_manager=information_manager,
-                template_repository=template_repository
-            ),
-            BatchActionStrategy(
+        # Get existing strategy types before registering defaults
+        # This prevents overwriting custom strategies
+        existing_strategy_types = config.get_available_strategy_types()
+        
+        # Register default strategies if they don't already exist
+        if PromptStrategyType.STANDARD not in existing_strategy_types:
+            standard_strategy = StandardStrategy(
                 information_manager=information_manager,
                 template_repository=template_repository
             )
-        ]
-
-        for strategy in strategies:
-            strategy_registry.register_strategy(strategy)
-
-        # Create language model (if configured)
-        if config is None:
-            config = ComponentConfigurator()
+            config.register_strategy(PromptStrategyType.STANDARD, implementation=standard_strategy)
+            
+        if PromptStrategyType.BATCH_ACTION not in existing_strategy_types:
+            batch_strategy = BatchActionStrategy(
+                information_manager=information_manager,
+                template_repository=template_repository
+            )
+            config.register_strategy(PromptStrategyType.BATCH_ACTION, implementation=batch_strategy)
+            
+        # Also register Teste001Strategy if available and not already registered
+        try:
+            if "teste_001" not in existing_strategy_types:
+                from rvandroid.llm.prompt.strategy.strategies.teste_001 import Teste001Strategy
+                teste_strategy = Teste001Strategy(
+                    information_manager=information_manager,
+                    template_repository=template_repository
+                )
+                config.register_strategy(teste_strategy.name, implementation=teste_strategy)
+        except ImportError:
+            # Optional strategy not available, log and continue
+            logging_manager = LoggingManager.get_instance()
+            logger = logging_manager.get_logger("llm.prompt.framework")
+            logger.debug("Teste001Strategy not available, skipping registration")
 
         # Create framework
         framework = cls(
             information_manager=information_manager,
             template_repository=template_repository,
-            strategy_registry=strategy_registry,
             config=config
         )
 
-        # Configure components if configuration provided
-        if config is not None:
-            framework.configure(config)
+        # Configure components
+        framework.configure(config)
 
         return framework
 
     def configure(self, config: ComponentConfigurator) -> None:
         """Configure the framework and its components.
+        
+        This method updates the configuration of all components managed by the
+        framework, ensuring that system-wide configuration changes are propagated.
         
         Args:
             config: Configuration for components.
@@ -147,9 +177,6 @@ class PromptFramework:
         if self.template_repository:
             self.template_repository.configure(config)
 
-        if self.strategy_registry:
-            self.strategy_registry.configure(config)
-
     def register_information_fragment(self, fragment) -> None:
         """Register an information fragment.
         
@@ -162,42 +189,78 @@ class PromptFramework:
     def register_strategy(self, strategy) -> None:
         """Register a prompt generation strategy.
         
+        This method registers the strategy directly with the ComponentConfigurator.
+        
         Args:
             strategy: The prompt strategy to register.
         """
-        if self.strategy_registry:
-            self.strategy_registry.register_strategy(strategy)
+        if strategy and hasattr(strategy, 'name'):
+            self.config.register_strategy(strategy.name, implementation=strategy)
+            self.logger.info(f"Registered strategy: {strategy.name}")
+
+    def get_strategy(self, name: Optional[str] = None) -> Optional:
+        """Get a strategy implementation by name.
+        
+        Args:
+            name: The name of the strategy to retrieve. If None, uses the default
+                 strategy specified in the LLM configuration.
+                 
+        Returns:
+            The strategy implementation, or None if not found.
+        """
+        # Use default from config if name not provided
+        if name is None:
+            if hasattr(self.config, 'llm_config') and self.config.llm_config:
+                name = self.config.llm_config.strategy_type
+            else:
+                name = PromptStrategyType.STANDARD
+
+        # Get strategy from ComponentConfigurator
+        try:
+            return self.config.create_strategy(strategy_type=name)
+        except Exception as e:
+            self.logger.error(f"Error getting strategy '{name}': {e}")
+            
+            # Fall back to standard strategy if possible
+            if name != PromptStrategyType.STANDARD:
+                try:
+                    return self.config.create_strategy(strategy_type=PromptStrategyType.STANDARD)
+                except Exception:
+                    self.logger.error("Standard strategy not available for fallback")
+                    
+            return None
 
     def generate_prompt(
             self,
             state: Dict[str, Any],
             context: Optional[Dict[str, Any]] = None
     ) -> List[LLMMessage]:
-        """Generate a prompt using the specified strategy.
+        """Generate a prompt using the appropriate strategy.
+        
+        This is the main method for prompt generation. It selects the appropriate
+        strategy based on configuration or defaults, and delegates the prompt
+        generation to that strategy.
         
         Args:
-            state: Current application state.
-            context: Additional context information.
+            state: Current application state containing all relevant information.
+            context: Additional context information for prompt generation.
             
         Returns:
-            List of LLMMessage objects.
+            List of LLMMessage objects forming the complete prompt.
         """
-        # Get the appropriate strategy
-        if self.config and self.config.llm_config:
+        # Get the appropriate strategy name
+        if self.config and hasattr(self.config, 'llm_config') and self.config.llm_config:
             strategy_name = self.config.llm_config.strategy_type
         else:
-            strategy_name = PromptStrategyType.DEFAULT
+            strategy_name = PromptStrategyType.STANDARD
+            
         try:
-            strategy = self.strategy_registry.get_strategy(strategy_name)
+            # Get the strategy implementation
+            strategy = self.get_strategy(strategy_name)
 
             if strategy is None:
                 self.logger.error(f"Strategy not found: {strategy_name}")
-                # Fall back to standard strategy
-                strategy = self.strategy_registry.get_strategy(PromptStrategyType.DEFAULT)
-
-                if strategy is None:
-                    self.logger.error("No strategy available")
-                    return []
+                return []
 
             self.logger.debug(f"Using strategy: {strategy.name}")
 

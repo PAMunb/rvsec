@@ -12,7 +12,7 @@ from rvandroid.llm.constants import (ContextEntry, FragmentType, PromptStrategyT
                                    StateEntry)
 from rvandroid.llm.prompt.information.fragment_manager import InformationManager
 from rvandroid.llm.prompt.strategy.base_strategy import PromptStrategy
-from rvandroid.llm.prompt.template.xml_repository import XMLTemplateRepository
+from rvandroid.llm.prompt.template.jinja_repository import Jinja2TemplateRepository
 
 
 class StandardStrategy(PromptStrategy):
@@ -30,7 +30,7 @@ class StandardStrategy(PromptStrategy):
         self,
         name: str = PromptStrategyType.STANDARD,
         information_manager: Optional[InformationManager] = None,
-        template_repository: Optional[XMLTemplateRepository] = None
+        template_repository: Optional[Jinja2TemplateRepository] = None
     ):
         """Initialize the standard strategy.
         

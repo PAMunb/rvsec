@@ -1,8 +1,7 @@
-"""Standard prompt strategy implementation.
+"""Test strategy implementation for testing templates.
 
-This module defines the StandardStrategy class, which implements a basic
-prompt generation strategy that works with most use cases and generates
-exactly one action per response.
+This module defines the Teste001Strategy class, which implements a test
+prompt generation strategy for testing template functionality.
 """
 
 from typing import Any, Dict, List, Optional
@@ -12,7 +11,7 @@ from rvandroid.llm.constants import (ContextEntry, FragmentType, PromptStrategyT
                                    StateEntry)
 from rvandroid.llm.prompt.information.fragment_manager import InformationManager
 from rvandroid.llm.prompt.strategy.base_strategy import PromptStrategy
-from rvandroid.llm.prompt.template.xml_repository import XMLTemplateRepository
+from rvandroid.llm.prompt.template.jinja_repository import Jinja2TemplateRepository
 
 
 class Teste001Strategy(PromptStrategy):
@@ -22,9 +21,9 @@ class Teste001Strategy(PromptStrategy):
     
     def __init__(
         self,
-        name: str = PromptStrategyType.STANDARD,
+        name: str = "teste_001",
         information_manager: Optional[InformationManager] = None,
-        template_repository: Optional[XMLTemplateRepository] = None
+        template_repository: Optional[Jinja2TemplateRepository] = None
     ):
         """Initialize the standard strategy.
         

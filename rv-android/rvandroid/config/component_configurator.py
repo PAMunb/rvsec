@@ -615,27 +615,47 @@ class ComponentConfigurator:
         kwargs = self.visitor_kwargs.copy()
         return self.visitor_class(static_data, activity, **kwargs)
 
-    def create_strategy(self, static_data=None) -> Any:
+    def create_strategy(self, strategy_type: str = None) -> Any:
         """
         Create an instance of the configured prompt strategy.
 
         Args:
-            static_data: Static analysis data (optional)
+            strategy_type: Type of strategy to create (optional - defaults to configured type)
 
         Returns:
             Strategy instance
 
         Raises:
-            ValueError: If strategy class is not configured
+            ValueError: If strategy class is not configured or not found
         """
-        if not self.strategy_class:
+        # If a specific strategy type is requested, get that class
+        if strategy_type is not None:
+            if not self._registries['strategy'].has(strategy_type):
+                raise ValueError(f"Unknown strategy type: {strategy_type}")
+            strategy_class = self._registries['strategy'].get(strategy_type)
+        else:
+            # Otherwise use the configured strategy class
+            strategy_class = self.strategy_class
+            
+        if not strategy_class:
             raise ValueError("Strategy class not configured")
 
-        # Use provided static data or fall back to the instance's static data
-        static_data = static_data or self.static_data
-
+        # For the strategy, we need to create any supporting objects it needs
+        # rather than passing static_data directly to it
+        from rvandroid.llm.prompt.information.fragment_manager import InformationManager
+        from rvandroid.llm.prompt.template.jinja_repository import Jinja2TemplateRepository
+        
+        # Create required components
+        information_manager = InformationManager()
+        template_repository = Jinja2TemplateRepository()
+        
+        # Create the strategy with the correct parameters
         kwargs = self.strategy_kwargs.copy()
-        return self.strategy_class(static_data, self.create_parser(), **kwargs)
+        return strategy_class(
+            information_manager=information_manager,
+            template_repository=template_repository,
+            **kwargs
+        )
 
     def create_llm(self):
         """

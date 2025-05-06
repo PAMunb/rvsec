@@ -700,6 +700,49 @@ def tmp_002(droidbot_state_file, screenshot_path, package, static_data):
         for content in msg.content:
             print(content.text)
 
+
+def tmp_003(droidbot_state_file, screenshot_path, package, static_data):
+    from rvandroid.llm.prompt.information.fragments.teste_001 import Teste001Fragment
+    from rvandroid.llm.prompt.strategy.strategies.teste_001 import Teste001Strategy
+    state = create_state_from_droidbot_state(droidbot_state_file, screenshot_path, package, static_data)
+
+    # Inicializa o configurador
+    configurator = ComponentConfigurator(static_data)
+    # configurator.register_strategy("teste_001",Teste001Strategy())
+    configurator._registries['strategy'].register_lazy(
+        "teste_001", 'rvandroid.llm.prompt.strategy.strategies.teste_001',
+        'Teste001Strategy')
+    configurator.set_llm(
+        llm_type=OllamaLLM.NAME,
+        model=OllamaLLM.QWEN,
+        base_url="http://127.0.0.1:11434"
+    )
+    configurator.set_strategy("teste_001")
+    configurator.set_parser(ScreenParserType.DROIDBOT)
+    configurator.set_visitor(VisitorFactory.DEFAULT)
+
+    prompt_framework = PromptFramework.create(configurator)
+
+    prompt_framework.information_manager.register_fragments([Teste001Fragment()])
+
+    # strategy = Teste001Strategy(
+    #     name="teste_001",
+    #     information_manager=prompt_framework.information_manager,
+    #     template_repository=prompt_framework.template_repository
+    # )
+    # prompt_framework.strategy_registry.register_strategy(strategy)
+
+
+    state = enrich_state(state, static_data, configurator, package)
+
+    prompt = prompt_framework.generate_prompt(state)
+    # print(prompt)
+
+    for msg in prompt:
+        print(f"\n\n*************** ROLE: {msg.role} ::: contents={len(msg.content)}")
+        for content in msg.content:
+            print(content.text)
+
 if __name__ == "__main__":
     # Configure logging with DEBUG level to see more details
     LoggingManager.get_instance().configure_output(console_level=logging.DEBUG)
@@ -739,7 +782,8 @@ if __name__ == "__main__":
 
     # Run examples
     # tmp_001()
-    tmp_002(droidbot_state_file, screenshot_path, package, static_data)
+    # tmp_002(droidbot_state_file, screenshot_path, package, static_data)
+    tmp_003(droidbot_state_file, screenshot_path, package, static_data)
     # example_001()
     # example_002(droidbot_state_file, screenshot_path)
     # example_003(droidbot_state_file, should_execute=False)  # Set to True to run with real model

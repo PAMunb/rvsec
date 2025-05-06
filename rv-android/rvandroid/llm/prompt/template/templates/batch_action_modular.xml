@@ -4,6 +4,7 @@
     <description>Template for generating batches of testing actions (modular version)</description>
     <created>2025-04-18</created>
     <author>RV-Android Team</author>
+    <updated>2025-05-06</updated>
   </metadata>
   <variables>
     <required>ui_elements</required>
@@ -13,23 +14,31 @@
     <optional>testing_history</optional>
   </variables>
   <roles>
-    <s>
+    <system>
       <variable name="strategy_specific_instructions">
-        <![CDATA[ {#include batch_instructions} ]]>
+        <![CDATA[{% include "batch_instructions" %}]]>
       </variable>
       <variable name="response_format_instructions">
-        <![CDATA[ {#include batch_format} ]]>
+        <![CDATA[{% include "batch_format" %}]]>
       </variable>
       <variable name="additional_guidelines">
-        <![CDATA[ {#include batch_guidelines} ]]>
+        <![CDATA[{% include "batch_guidelines" %}]]>
       </variable>
-    </s>
+    </system>
     <user><![CDATA[
-{#include user_base}
-{#include batch_ui_pattern_detection}
-{#if workflow_guidance}{workflow_guidance} {#endif}
-{#include batch_critical_task}
-{#if additional_guidelines}{additional_guidelines} {#endif}
+{% include "user_base" %}
+
+{% include "batch_ui_pattern_detection" %}
+
+{% if workflow_guidance is defined and workflow_guidance %}
+{{ workflow_guidance }}
+{% endif %}
+
+{% include "batch_critical_task" %}
+
+{% if additional_guidelines is defined and additional_guidelines %}
+{{ additional_guidelines }}
+{% endif %}
     ]]></user>
   </roles>
 </template>

@@ -81,6 +81,13 @@ class StateEntry:
 
 
 
+class ComponentType:
+    """Constants for component types in ComponentConfigurator."""
+    LLM = "llm"
+    PROMPT_STRATEGY = "strategy"
+    PARSER = "parser"
+    VISITOR = "visitor"
+    
 class ContextEntry:
     """Constants for context dictionary entries."""
     TEMPLATE = "template"

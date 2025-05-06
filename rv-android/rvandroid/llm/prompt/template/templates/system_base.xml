@@ -4,6 +4,7 @@
     <description>Base system template for Android testing</description>
     <created>2025-04-18</created>
     <author>RV-Android Team</author>
+    <updated>2025-05-06</updated>
   </metadata>
   <variables>
     <required>strategy_specific_instructions</required>
@@ -14,16 +15,18 @@
     <optional>transition_guidance</optional>
   </variables>
   <roles>
-    <s><![CDATA[
-{#include system_intro}
+    <system><![CDATA[
+{% include "system_intro" %}
 
-{strategy_specific_instructions}
+{{ strategy_specific_instructions }}
 
-{response_format_instructions}
+{{ response_format_instructions }}
 
-{#include system_guidelines}
+{% include "system_guidelines" %}
 
-{additional_guidelines} ]]>
-    </s>
+{% if additional_guidelines %}
+{{ additional_guidelines }}
+{% endif %}]]>
+    </system>
   </roles>
 </template>

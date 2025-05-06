@@ -16,6 +16,7 @@ class Teste001Fragment(InformationFragment):
         super().__init__(name, priority)
 
     def generate(self, state: Dict[str, Any], context: Optional[Dict[str, Any]] = None) -> str:
+        state["security_analysis"] = "texto 123"
         if not state:
             return "No state information available."
         return "TEXTO DE TESTE 001"

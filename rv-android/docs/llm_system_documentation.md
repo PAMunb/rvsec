@@ -14,6 +14,7 @@ This document describes the integration of Large Language Models (LLMs) in the R
 8. [Usage Examples](#8-usage-examples)
 9. [System Extension](#9-system-extension)
 10. [Modular Template System](#10-modular-template-system)
+11. [Best Practices and Lessons Learned](#11-best-practices-and-lessons-learned)
 
 ## 1. Introduction
 
@@ -21,22 +22,22 @@ This document describes the integration of Large Language Models (LLMs) in the R
 
 The RV-Android system uses a sophisticated and consolidated architecture for integrating Large Language Models (LLMs) into the Android application testing process. The architecture provides essential features:
 
-1. **Externalized Templates**: XML templates with CDATA sections for easy editing without code changes
+1. **Jinja2-Based Templates**: XML templates with Jinja2 syntax for powerful templating capabilities
 2. **Modular Information**: Fragment system that collects and formats information from different sources
 3. **Flexible Strategies**: Different approaches for prompt generation as needed
 4. **UI Pattern Detection**: Identification of common patterns for better test targeting
 5. **Visual Analysis**: Integration of screenshot information to enrich prompts
-6. **Monitored Operations**: Tracking of critical operations (formerly called "security operations")
+6. **Monitored Operations**: Tracking of critical operations in the application
 
 ### 1.2 Benefits of the Consolidated Architecture
 
 The consolidated architecture offers several advantages:
 
 1. **Elimination of Duplication**: All prompt formatting code is centralized
-2. **Improved Maintainability**: XML templates are easily editable
+2. **Improved Maintainability**: XML templates with Jinja2 syntax are easily editable
 3. **Extensibility**: Easy addition of new fragments and strategies
 4. **Multimodal Integration**: Combination of textual and visual information
-5. **Consistent Configuration**: Standardized configuration parameters
+5. **Consistent Configuration**: Standardized configuration parameters through ComponentConfigurator
 6. **Scalability**: Layered architecture for sustainable growth
 7. **Modular Templates**: Template inheritance and fragment inclusion for reusability
 
@@ -47,17 +48,17 @@ Key concepts in the architecture:
 1. **Information Fragment**: Modular component that generates a specific part of a prompt
 2. **Information Manager**: Coordinates composition and prioritization of fragments
 3. **Prompt Template**: Defines the structure of a prompt with support for variables and conditionals
-4. **Template Repository**: Manages externalized templates in XML files
+4. **Template Repository**: Manages templates in XML files with Jinja2 integration
 5. **Template Fragments**: Reusable pieces of prompt content that can be included in multiple templates
 6. **Prompt Strategy**: Defines how prompts are generated for specific scenarios
-7. **Strategy Registry**: Coordinates available strategies and their usage
+7. **Strategy Registry**: Coordinates available strategies through ComponentConfigurator
 8. **Unified Framework**: Facade that integrates all layers of the system
 
 ## 2. Consolidated Architecture
 
 ### 2.1 Three-Layer Architecture
 
-The new LLM integration architecture follows a three-layer design with clear separation of responsibilities:
+The LLM integration architecture follows a three-layer design with clear separation of responsibilities:
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
@@ -75,8 +76,8 @@ The new LLM integration architecture follows a three-layer design with clear sep
 ┌───────────────────────────────▼─────────────────────────────────────┐
 │                        Template Layer                               │
 │ ┌────────────────────┐  ┌────────────────────┐  ┌────────────────┐  │
-│ │ XMLTemplate        │  │ XMLTemplateRepo    │  │ XML Templates  │  │
-│ │                    │  │                    │  │ with CDATA     │  │
+│ │ Jinja2Template     │  │ Jinja2TemplateRepo │  │ XML Templates  │  │
+│ │                    │  │                    │  │ with Jinja2    │  │
 │ └────────────────────┘  └────────────────────┘  └────────────────┘  │
 └───────────────────────────────┬─────────────────────────────────────┘
                                 │
@@ -100,7 +101,7 @@ The system is composed of several interconnected components:
 
 2. **Template Layer** (`template/`):
    - Defines the structure of messages for LLMs
-   - Manages templates stored in external XML files with CDATA sections
+   - Manages templates stored in external XML files with Jinja2 syntax
    - Supports variables, conditionals, and transformations
    - Includes reusable template fragments for modular prompt construction
 
@@ -125,6 +126,7 @@ The implementation leverages several design patterns:
 5. **Template Method Pattern**: Used in information fragments
 6. **Repository Pattern**: Applied in template management
 7. **Inheritance Pattern**: Used in template hierarchies for reusability
+8. **Dependency Injection**: Used through ComponentConfigurator
 
 ## 3. Information Layer
 
@@ -217,6 +219,51 @@ class MonitoredOperationsFragment(InformationFragment):
         # Format this information for inclusion in prompts
 ```
 
+#### ActionHistoryFragment
+
+```python
+class ActionHistoryFragment(InformationFragment):
+    """Fragment for providing action history information."""
+    
+    def __init__(self, name: str = FragmentType.ACTION_HISTORY, priority: int = 150):
+        super().__init__(name, priority)
+    
+    def generate(self, state: Dict[str, Any], context: Optional[Dict[str, Any]] = None) -> str:
+        """Generate information about action history."""
+        # Extract action history from state or context
+        # Format history data into a readable text format
+        # Return structured history information for prompt inclusion
+        
+        # Essential to handle the case when history is empty/missing
+        if "action_history" not in state:
+            return "No previous actions recorded."
+            
+        # Parse and format history data
+        # Return formatted history
+```
+
+#### MemoryInsightsFragment
+
+```python
+class MemoryInsightsFragment(InformationFragment):
+    """Fragment for providing insights from system memory."""
+    
+    def __init__(self, name: str = FragmentType.MEMORY_INSIGHTS, priority: int = 175):
+        super().__init__(name, priority)
+    
+    def generate(self, state: Dict[str, Any], context: Optional[Dict[str, Any]] = None) -> str:
+        """Generate insights from memory system."""
+        # Extract insights from memory system
+        # Analyze past interactions and patterns
+        # Return formatted memory insights
+        
+        # Handle case when no memory data is available
+        if "memory_insights" not in state:
+            return "No memory insights available."
+            
+        # Return formatted memory insights
+```
+
 ### 3.3 Information Manager
 
 The `InformationManager` coordinates fragments and composes complete information:
@@ -243,6 +290,22 @@ class InformationManager:
         for fragment in fragments:
             self.register_fragment(fragment)
     
+    def get_information(self, fragment_name: str, state: Dict[str, Any], context: Optional[Dict[str, Any]] = None) -> Any:
+        """Get information from a specific fragment."""
+        fragment = self.fragments.get(fragment_name)
+        if not fragment:
+            self.logger.warning(f"Fragment not found: {fragment_name}")
+            return None
+            
+        try:
+            if not fragment.should_include(state, context):
+                return None
+                
+            return fragment.generate(state, context)
+        except Exception as e:
+            self.logger.error(f"Error generating information from fragment {fragment_name}: {e}")
+            return None
+    
     def compose_information(
         self, 
         state: Dict[str, Any], 
@@ -250,65 +313,108 @@ class InformationManager:
         requested_fragments: Optional[List[str]] = None
     ) -> Dict[str, Any]:
         """Compose information from all relevant fragments."""
-        # Get fragments ordered by priority
-        # Collect information from each fragment
-        # Combine all information into a single dictionary
+        result = {}
+        
+        # Determine which fragments to include
+        if requested_fragments:
+            fragments_to_process = [
+                f for name, f in self.fragments.items() 
+                if name in requested_fragments
+            ]
+        else:
+            fragments_to_process = sorted(
+                self.fragments.values(),
+                key=lambda f: f.priority,
+                reverse=True
+            )
+        
+        # Process each fragment
+        for fragment in fragments_to_process:
+            try:
+                if fragment.should_include(state, context):
+                    info = fragment.generate(state, context)
+                    if info is not None:
+                        result[fragment.name] = info
+            except Exception as e:
+                self.logger.error(f"Error in fragment {fragment.name}: {e}")
+                # Continue with other fragments even if one fails
+        
+        return result
 ```
 
 ## 4. Template Layer
 
-### 4.1 XML Templates
+### 4.1 Jinja2 Templates
 
-The `XMLTemplate` class manages variable substitution and rendering:
+The `Jinja2Template` class manages variable substitution and rendering:
 
 ```python
-class XMLTemplate:
-    """Template for generating prompt messages with variable substitution."""
-    
-    # Regex patterns for template syntax parsing
-    VARIABLE_PATTERN = r"\{([a-zA-Z0-9_\.]+)(?:\|([a-zA-Z0-9_]+))?\}"
-    CONDITIONAL_START_PATTERN = r"\{#if ([a-zA-Z0-9_\.]+)\}"
-    CONDITIONAL_END_PATTERN = r"\{#endif\}"
-    ITERATION_START_PATTERN = r"\{#for ([a-zA-Z0-9_\.]+) as ([a-zA-Z0-9_]+)\}"
-    ITERATION_END_PATTERN = r"\{#endfor\}"
-    INCLUDE_PATTERN = r"\{#include ([a-zA-Z0-9_]+)\}"
+class Jinja2Template:
+    """Template for generating prompt messages with Jinja2 variable substitution."""
     
     def __init__(
         self, 
         template_text: str,
         name: str,
         required_variables: Optional[List[str]] = None,
-        transformers: Optional[Dict[str, Callable[[Any], str]]] = None
+        transformers: Optional[Dict[str, Callable[[Any], str]]] = None,
+        environment: Optional[jinja2.Environment] = None
     ):
-        """Initialize an XML template."""
+        """Initialize a Jinja2 template."""
         self.template_text = template_text
         self.name = name
         self.required_variables = set(required_variables or [])
         self.transformers = transformers or {}
+        self.environment = environment or jinja2.Environment(
+            loader=jinja2.BaseLoader(),
+            autoescape=False,
+            undefined=jinja2.StrictUndefined
+        )
+        self.template = self.environment.from_string(template_text)
         # Logging and error handling configuration
-        # Extraction of variables from the template
     
     def render(self, data: Dict[str, Any]) -> str:
         """Render the template with the given data."""
         try:
             # Check required variables
-            # Process include directives
-            # Process conditional sections
-            # Process iteration sections
-            # Substitute variables
-            # Return the rendered template
+            missing_vars = []
+            for var in self.required_variables:
+                if var not in data:
+                    missing_vars.append(var)
+            
+            if missing_vars:
+                missing_vars_str = ", ".join(missing_vars)
+                self.logger.warning(f"Required variables not found: {missing_vars_str}")
+                return f"ERROR: Required variables not found: {missing_vars_str}"
+            
+            # Apply transformers
+            for var, transformer in self.transformers.items():
+                if var in data and callable(transformer):
+                    try:
+                        data[var] = transformer(data[var])
+                    except Exception as e:
+                        self.logger.error(f"Error transforming variable {var}: {e}")
+            
+            # Render the template with Jinja2
+            result = self.template.render(**data)
+            return result
+        except jinja2.exceptions.UndefinedError as e:
+            # Missing variable in the template itself
+            self.logger.error(f"Undefined variable in template: {e}")
+            return f"ERROR: Undefined variable in template: {e}"
         except Exception as e:
-            # error handling
-            return self.template_text  # Return the original template as fallback
+            # General error handling
+            self.logger.error(f"Error rendering template: {e}")
+            return f"ERROR: {str(e)}"
 ```
 
-### 4.2 XML Template Repository
+### 4.2 Jinja2 Template Repository
 
-The `XMLTemplateRepository` manages externalized XML templates:
+The `Jinja2TemplateRepository` manages externalized templates with Jinja2 integration:
 
 ```python
-class XMLTemplateRepository:
-    """Repository for managing XML prompt templates."""
+class Jinja2TemplateRepository(TemplateRepository):
+    """Repository for managing XML prompt templates with Jinja2 integration."""
     
     def __init__(self, template_dir: Optional[str] = None, fragment_dir: Optional[str] = None):
         """Initialize the template repository."""
@@ -323,8 +429,16 @@ class XMLTemplateRepository:
         
         # Initialize template and fragment caches
         self.templates: Dict[str, Dict[str, Any]] = {}
-        self.template_objects: Dict[str, XMLTemplate] = {}
+        self.template_objects: Dict[str, Dict[str, Jinja2Template]] = {}
         self.fragments: Dict[str, str] = {}
+        
+        # Create Jinja2 environment with fragment loader
+        self.fragment_loader = FragmentDictLoader({})
+        self.environment = jinja2.Environment(
+            loader=self.fragment_loader,
+            autoescape=False,
+            undefined=jinja2.StrictUndefined
+        )
         
         # Load templates and fragments
         self._load_templates()
@@ -332,39 +446,42 @@ class XMLTemplateRepository:
     
     def configure(self, config: ComponentConfigurator) -> None:
         """Configure the template repository with the given configuration."""
-        # Check if custom directories are specified
+        # Get custom directories from configuration if specified
+        template_dir = config.get_config("template_dir", str, None)
+        fragment_dir = config.get_config("fragment_dir", str, None)
+        
+        if template_dir:
+            self.template_dir = template_dir
+            self._load_templates()
+            
+        if fragment_dir:
+            self.fragment_dir = fragment_dir
+            self._load_fragments()
     
     def _load_templates(self) -> None:
         """Load templates from XML files in the template directory."""
-        # Load all XML template files
-        # Create template objects for each role (system, user, assistant)
+        # Implementation for loading XML template files
     
     def _load_fragments(self) -> None:
         """Load fragments from XML files in the fragment directory."""
-        # Load fragments from fragment directory and subdirectories
-    
-    def _create_default_templates(self) -> None:
-        """Create default templates if the template directory is empty."""
-        # Create default templates for exploration, feedback, etc.
+        # Implementation for loading fragments
     
     def get_template(self, name: str) -> Optional[Dict[str, Any]]:
         """Get a template by name."""
         return self.templates.get(name)
     
-    def get_template_object(self, name: str, role: str) -> Optional[XMLTemplate]:
+    def get_template_object(self, name: str, role: str) -> Optional[Jinja2Template]:
         """Get a template object by name and role."""
-        template_key = f"{name}.{role}"
-        return self.template_objects.get(template_key)
+        template_objects = self.template_objects.get(name, {})
+        return template_objects.get(role)
     
     def get_fragment(self, name: str) -> Optional[str]:
         """Get a fragment by name."""
         return self.fragments.get(name)
     
-    def update_template(self, name: str, template_data: Dict[str, Any]) -> None:
-        """Update or create a template."""
-        # Save template data
-        # Create template objects for each role
-        # Write the template to a file
+    def get_available_templates(self) -> List[str]:
+        """Get a list of available template names."""
+        return list(self.templates.keys())
     
     def create_messages(
         self, 
@@ -373,14 +490,66 @@ class XMLTemplateRepository:
     ) -> List[Dict[str, str]]:
         """Create a list of messages using the specified template."""
         # Get the template
+        template = self.get_template(template_name)
+        if not template:
+            self.logger.error(f"Template not found: {template_name}")
+            return []
+        
+        messages = []
+        
         # Create messages for each role in the template
-        # Render the content with fragment inclusion
-        # Return formatted message list
+        roles = template.get("roles", {})
+        for role, role_template in roles.items():
+            template_obj = self.get_template_object(template_name, role)
+            if not template_obj:
+                continue
+            
+            # Render the content with Jinja2
+            try:
+                content = template_obj.render(variables)
+                if content.startswith("ERROR:"):
+                    self.logger.error(f"Error rendering template {template_name}.{role}: {content}")
+                    continue
+                
+                # Add to message list
+                messages.append({
+                    "role": role,
+                    "content": content
+                })
+            except Exception as e:
+                self.logger.error(f"Error creating message for {template_name}.{role}: {e}")
+        
+        return messages
 ```
 
-### 4.3 XML Template Examples
+### 4.3 Fragment Dictionary Loader
 
-Templates are stored in XML files with CDATA sections for easy editing. Example:
+The `FragmentDictLoader` class is used to load fragments for Jinja2:
+
+```python
+class FragmentDictLoader(jinja2.BaseLoader):
+    """A custom Jinja2 loader that loads templates from a dictionary."""
+    
+    def __init__(self, fragments: Dict[str, str]):
+        """Initialize the loader with a dictionary of fragments."""
+        self.fragments = fragments
+    
+    def get_source(self, environment: jinja2.Environment, template: str) -> Tuple[str, str, Callable[[], bool]]:
+        """Get the template source from the dictionary."""
+        if template not in self.fragments:
+            raise jinja2.exceptions.TemplateNotFound(template)
+        
+        source = self.fragments[template]
+        return source, template, lambda: True
+    
+    def update_fragments(self, fragments: Dict[str, str]) -> None:
+        """Update the fragment dictionary."""
+        self.fragments.update(fragments)
+```
+
+### 4.4 Template Examples with Jinja2 Syntax
+
+Templates are stored in XML files with Jinja2 syntax for variables and control structures. Example:
 
 ```xml
 <template name="standard">
@@ -388,20 +557,20 @@ Templates are stored in XML files with CDATA sections for easy editing. Example:
 You are an Android testing assistant. Your task is to help test the Android application by identifying UI elements and suggesting testing actions.
 
 The current screen contains the following UI elements:
-{screen_description}
+{{ screen_description }}
 
-{#if ui_patterns}I've identified the following UI patterns:
-{ui_patterns}
+{% if ui_patterns %}I've identified the following UI patterns:
+{{ ui_patterns }}
 
-{#endif}{#if monitored_operations}Pay attention to monitored operations:
-{monitored_operations.summary}
+{% endif %}{% if monitored_operations %}Pay attention to monitored operations:
+{{ monitored_operations.summary }}
 
-{#endif}
+{% endif %}
   ]]></s>
   <user><![CDATA[
-Based on the current screen, suggest ONE testing action that would help explore the application functionality and potentially trigger monitored operations.{#if additional_guidelines}
+Based on the current screen, suggest ONE testing action that would help explore the application functionality and potentially trigger monitored operations.{% if additional_guidelines %}
 
-{additional_guidelines}{#endif}
+{{ additional_guidelines }}{% endif %}
   ]]></user>
   <required_variables>
     <variable>screen_description</variable>
@@ -411,6 +580,12 @@ Based on the current screen, suggest ONE testing action that would help explore 
   </metadata>
 </template>
 ```
+
+Note the key differences in syntax from the previous version:
+- Variables now use `{{ variable }}` instead of `{variable}`
+- Control structures use `{% if condition %}` and `{% endif %}` instead of `{#if condition}` and `{#endif}`
+- Fragments are included using `{% include "fragment_name" %}` instead of `{#include fragment_name}`
+- The system role tag is now `<s>` instead of `<system>` for better readability
 
 ## 5. Strategy Layer
 
@@ -428,7 +603,7 @@ class PromptStrategy(abc.ABC):
         self, 
         name: str,
         information_manager: Optional[InformationManager] = None,
-        template_repository: Optional[XMLTemplateRepository] = None
+        template_repository: Optional[Jinja2TemplateRepository] = None
     ):
         """Initialize the prompt strategy."""
         self.name = name
@@ -441,6 +616,15 @@ class PromptStrategy(abc.ABC):
         """Configure the strategy with the given configuration."""
         self.logger.info(f"Configuring strategy: {self.name}")
         # Specific configuration logic
+    
+    def get_template_name(self, context: Dict[str, Any]) -> Optional[str]:
+        """Get the template name to use for this strategy."""
+        # Check if template name is specified in context
+        if context and "template" in context:
+            return context["template"]
+        
+        # Use default template
+        return self.DEFAULT_TEMPLATE
     
     @abc.abstractmethod
     def generate_prompt(
@@ -456,8 +640,10 @@ class PromptStrategy(abc.ABC):
         state: Dict[str, Any], 
         context: Optional[Dict[str, Any]] = None
     ) -> List[LLMMessage]:
-        """Generate a prompt for the given state and context."""
+        """Generate a prompt for the given state and context in MCP format."""
         # Convert standard prompt to LLM format
+        messages = self.generate_prompt(state, context)
+        return [LLMMessage(role=msg["role"], content=msg["content"]) for msg in messages]
 ```
 
 ### 5.2 Specialized Strategies
@@ -476,7 +662,7 @@ class StandardStrategy(PromptStrategy):
         self,
         name: str = PromptStrategyType.STANDARD,
         information_manager: Optional[InformationManager] = None,
-        template_repository: Optional[XMLTemplateRepository] = None
+        template_repository: Optional[Jinja2TemplateRepository] = None
     ):
         """Initialize the standard strategy."""
         super().__init__(name, information_manager, template_repository)
@@ -487,10 +673,47 @@ class StandardStrategy(PromptStrategy):
         context: Optional[Dict[str, Any]] = None
     ) -> List[Dict[str, str]]:
         """Generate a prompt for the given state and context."""
-        # Determine which template to use based on context
-        # Get information from fragments
-        # Combine information with context
-        # Generate messages from the template
+        if context is None:
+            context = {}
+            
+        try:
+            # Determine which template to use
+            template_name = self.get_template_name(context)
+            
+            # Get information from fragments
+            info = {}
+            if self.information_manager:
+                info = self.information_manager.compose_information(state, context)
+            
+            # Combine information with context
+            # Note: context values override information values if there are conflicts
+            variables = {**info, **context}
+            
+            # Generate messages from the template
+            if self.template_repository:
+                messages = self.template_repository.create_messages(template_name, variables)
+                if messages:
+                    return messages
+            
+            # Fallback if template generation failed
+            return self._create_fallback_messages(state)
+        except Exception as e:
+            self.logger.error(f"Error generating prompt: {e}", exc_info=True)
+            return self._create_fallback_messages(state)
+    
+    def _create_fallback_messages(self, state: Dict[str, Any]) -> List[Dict[str, str]]:
+        """Create fallback messages if template generation fails."""
+        # Simplified fallback for robustness
+        return [
+            {
+                "role": "system",
+                "content": "You are an Android testing assistant."
+            },
+            {
+                "role": "user",
+                "content": f"Suggest a test action for the current app state."
+            }
+        ]
 ```
 
 #### BatchActionStrategy
@@ -505,7 +728,7 @@ class BatchActionStrategy(PromptStrategy):
         self,
         name: str = PromptStrategyType.BATCH_ACTION,
         information_manager: Optional[InformationManager] = None,
-        template_repository: Optional[XMLTemplateRepository] = None,
+        template_repository: Optional[Jinja2TemplateRepository] = None,
         min_actions: int = 3,
         max_actions: int = 10
     ):
@@ -520,11 +743,56 @@ class BatchActionStrategy(PromptStrategy):
         context: Optional[Dict[str, Any]] = None
     ) -> List[Dict[str, str]]:
         """Generate a batch action prompt for the given state and context."""
-        # Always use the batch_action template
-        # Get information from fragments
-        # Extract test history from context
-        # Add specific guidelines for batches
-        # Generate messages from the template
+        if context is None:
+            context = {}
+            
+        try:
+            # Always use the batch_action template
+            template_name = self.get_template_name(context) or self.DEFAULT_TEMPLATE
+            
+            # Get information from fragments
+            info = {}
+            if self.information_manager:
+                info = self.information_manager.compose_information(state, context)
+            
+            # Get test history from context
+            history = context.get("test_history", [])
+            
+            # Add specific guidelines for batches
+            batch_context = {
+                **context,
+                "min_actions": self.min_actions,
+                "max_actions": self.max_actions,
+                "batch_mode": True,
+            }
+            
+            # Combine all information
+            variables = {**info, **batch_context}
+            
+            # Generate messages from the template
+            if self.template_repository:
+                messages = self.template_repository.create_messages(template_name, variables)
+                if messages:
+                    return messages
+            
+            # Fallback if template generation failed
+            return self._create_fallback_messages(state)
+        except Exception as e:
+            self.logger.error(f"Error generating batch action prompt: {e}", exc_info=True)
+            return self._create_fallback_messages(state)
+    
+    def _create_fallback_messages(self, state: Dict[str, Any]) -> List[Dict[str, str]]:
+        """Create fallback messages if template generation fails."""
+        return [
+            {
+                "role": "system",
+                "content": "You are an Android testing assistant. Generate multiple test actions."
+            },
+            {
+                "role": "user",
+                "content": f"Suggest {self.min_actions} to {self.max_actions} test actions for the current app state."
+            }
+        ]
         
     def should_use_batch(self, state: Dict[str, Any]) -> bool:
         """Determine if batch action strategy should be used for this state."""
@@ -534,32 +802,73 @@ class BatchActionStrategy(PromptStrategy):
 
 ### 5.3 Strategy Registry
 
-The `StrategyRegistry` manages available strategies:
+The `StrategyRegistry` manages available strategies and integrates with ComponentConfigurator:
 
 ```python
 class StrategyRegistry:
     """Registry for prompt generation strategies."""
     
-    def __init__(self):
+    def __init__(self, configurator: Optional[ComponentConfigurator] = None):
         """Initialize the strategy registry."""
         self.strategies: Dict[str, PromptStrategy] = {}
         self.default_strategy: Optional[str] = None
         self.logger = # logger configuration
         self.error_handler = ErrorHandler.get_instance()
+        self.configurator = configurator
     
     def configure(self, config: ComponentConfigurator) -> None:
         """Configure the strategy registry with the given configuration."""
+        self.configurator = config
+        
         # Configure registered strategies
+        for name, strategy in self.strategies.items():
+            strategy.configure(config)
+        
         # Set default strategy if specified
+        default_strategy = config.get_config("default_strategy", str, None)
+        if default_strategy and default_strategy in self.strategies:
+            self.default_strategy = default_strategy
+        
+        # Register strategies with the configurator if not already registered
+        for name, strategy in self.strategies.items():
+            if not self.configurator.has_component(ComponentType.PROMPT_STRATEGY, name):
+                self.configurator.register_component(ComponentType.PROMPT_STRATEGY, name, strategy)
     
     def register_strategy(self, strategy: PromptStrategy) -> None:
         """Register a prompt generation strategy."""
         self.strategies[strategy.name] = strategy
+        
+        # Register with configurator if available
+        if self.configurator and not self.configurator.has_component(ComponentType.PROMPT_STRATEGY, strategy.name):
+            self.configurator.register_component(ComponentType.PROMPT_STRATEGY, strategy.name, strategy)
+        
         # If this is the first strategy, set it as default
+        if not self.default_strategy:
+            self.default_strategy = strategy.name
     
     def get_strategy(self, name: Optional[str] = None) -> Optional[PromptStrategy]:
         """Get a registered strategy by name."""
-        # Return strategy by name or the default strategy
+        # First check local registry
+        if name and name in self.strategies:
+            return self.strategies[name]
+        
+        # Then check configurator
+        if name and self.configurator and self.configurator.has_component(ComponentType.PROMPT_STRATEGY, name):
+            strategy = self.configurator.get_component(ComponentType.PROMPT_STRATEGY, name)
+            if isinstance(strategy, PromptStrategy):
+                # Add to local registry for future use
+                self.strategies[name] = strategy
+                return strategy
+        
+        # Return default strategy
+        if self.default_strategy:
+            return self.strategies.get(self.default_strategy)
+        
+        return None
+    
+    def get_available_strategies(self) -> List[str]:
+        """Get a list of available strategy names."""
+        return list(self.strategies.keys())
 ```
 
 ## 6. Unified Framework
@@ -575,24 +884,126 @@ class PromptFramework:
     def __init__(
         self, 
         information_manager: InformationManager,
-        template_repository: XMLTemplateRepository,
+        template_repository: Jinja2TemplateRepository,
         strategy_registry: StrategyRegistry,
+        config: Optional[ComponentConfigurator] = None,
         model: Optional[LanguageModel] = None
     ):
         """Initialize the prompt framework."""
         self.information_manager = information_manager
         self.template_repository = template_repository
         self.strategy_registry = strategy_registry
+        self.config = config
         self.model = model
         self.logger = # logger configuration
         self.error_handler = ErrorHandler.get_instance()
+        
+        # Configure components if configuration is provided
+        if self.config:
+            self.configure(self.config)
+    
+    def configure(self, config: ComponentConfigurator) -> None:
+        """Configure the framework and its components."""
+        self.config = config
+        
+        # Configure components
+        if self.information_manager:
+            self.information_manager.configure(config)
+        
+        if self.template_repository:
+            self.template_repository.configure(config)
+        
+        if self.strategy_registry:
+            self.strategy_registry.configure(config)
     
     @classmethod
     def create(cls, config: Optional[ComponentConfigurator] = None) -> 'PromptFramework':
         """Create and configure a new prompt framework."""
-        # Create and configure components
+        # Create configuration if not provided
+        if not config:
+            config = ComponentConfigurator()
+        
+        # Create components
+        information_manager = InformationManager()
+        template_repository = Jinja2TemplateRepository()
+        strategy_registry = StrategyRegistry(config)
+        
+        # Register with configurator
+        if not config.has_component(ComponentType.INFORMATION_MANAGER, "default"):
+            config.register_component(ComponentType.INFORMATION_MANAGER, "default", information_manager)
+        
+        if not config.has_component(ComponentType.TEMPLATE_REPOSITORY, "default"):
+            config.register_component(ComponentType.TEMPLATE_REPOSITORY, "default", template_repository)
+        
+        if not config.has_component(ComponentType.STRATEGY_REGISTRY, "default"):
+            config.register_component(ComponentType.STRATEGY_REGISTRY, "default", strategy_registry)
+        
+        # Create language model if specified in config
+        model = None
+        if config.has_llm_config():
+            # Create model based on configuration
+            model = create_language_model_from_config(config)
+        
+        # Create framework
+        framework = cls(
+            information_manager=information_manager,
+            template_repository=template_repository,
+            strategy_registry=strategy_registry,
+            config=config,
+            model=model
+        )
+        
         # Register default fragments and strategies
-        pass
+        framework._register_defaults()
+        
+        return framework
+    
+    def _register_defaults(self) -> None:
+        """Register default fragments and strategies."""
+        # Register default fragments
+        self.register_information_fragment(UIElementsFragment())
+        self.register_information_fragment(UIPatternFragment())
+        self.register_information_fragment(MonitoredOperationsFragment())
+        self.register_information_fragment(ActionHistoryFragment())
+        self.register_information_fragment(MemoryInsightsFragment())
+        
+        # Register default strategies
+        self.register_prompt_strategy(StandardStrategy(
+            information_manager=self.information_manager,
+            template_repository=self.template_repository
+        ))
+        self.register_prompt_strategy(BatchActionStrategy(
+            information_manager=self.information_manager,
+            template_repository=self.template_repository
+        ))
+    
+    def register_information_fragment(self, fragment: InformationFragment) -> None:
+        """Register an information fragment."""
+        if self.information_manager:
+            self.information_manager.register_fragment(fragment)
+    
+    def register_prompt_strategy(self, strategy: PromptStrategy) -> None:
+        """Register a prompt strategy."""
+        if self.strategy_registry:
+            self.strategy_registry.register_strategy(strategy)
+    
+    def get_available_templates(self) -> List[str]:
+        """Get a list of available template names."""
+        if self.template_repository:
+            return self.template_repository.get_available_templates()
+        return []
+    
+    def get_available_strategies(self) -> List[str]:
+        """Get a list of available strategy names."""
+        if self.strategy_registry:
+            return self.strategy_registry.get_available_strategies()
+        return []
+    
+    def get_information(self, fragment_name: str, state: Dict[str, Any], context: Optional[Dict[str, Any]] = None) -> Any:
+        """Get information from a specific fragment."""
+        if self.information_manager:
+            return self.information_manager.get_information(fragment_name, state, context)
+        return None
     
     def generate_prompt(
         self, 
@@ -601,8 +1012,21 @@ class PromptFramework:
         context: Optional[Dict[str, Any]] = None
     ) -> List[Dict[str, str]]:
         """Generate a prompt using the specified strategy."""
-        # Implementation for generating prompts
-        pass
+        if context is None:
+            context = {}
+        
+        try:
+            # Get the strategy
+            strategy = self.strategy_registry.get_strategy(strategy_name)
+            if not strategy:
+                self.logger.error(f"Strategy not found: {strategy_name}")
+                return []
+            
+            # Generate the prompt
+            return strategy.generate_prompt(state, context)
+        except Exception as e:
+            self.logger.error(f"Error generating prompt: {e}", exc_info=True)
+            return []
     
     def generate_with_llm(
         self, 
@@ -611,8 +1035,24 @@ class PromptFramework:
         context: Optional[Dict[str, Any]] = None
     ) -> Optional[Any]:
         """Generate a prompt and send it to the LLM for a response."""
-        # Implementation for LLM interaction
-        pass
+        if not self.model:
+            self.logger.error("No language model available")
+            return None
+        
+        messages = self.generate_prompt(strategy_name, state, context)
+        if not messages:
+            return None
+        
+        try:
+            # Convert to LLM message format if needed
+            llm_messages = [LLMMessage(role=msg["role"], content=msg["content"]) for msg in messages]
+            
+            # Send to LLM
+            response = self.model.generate(llm_messages)
+            return response
+        except Exception as e:
+            self.logger.error(f"Error generating with LLM: {e}", exc_info=True)
+            return None
 ```
 
 ## 7. Service Integration
@@ -633,6 +1073,48 @@ class LLMActionService:
     - Generating prompts using the PromptFramework
     - Processing LLM responses into executable actions
     """
+    
+    def __init__(self, config: Optional[ComponentConfigurator] = None):
+        """Initialize the LLM action service."""
+        self.config = config or ComponentConfigurator()
+        self.framework = PromptFramework.create(self.config)
+        # Initialize other components
+    
+    def process_state(self, state: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """Process the current state and generate testing actions."""
+        # Enrich state with additional information
+        enriched_state = self._enrich_state(state)
+        
+        # Determine which strategy to use based on the state
+        strategy_name = self._select_strategy(enriched_state)
+        
+        # Generate response with the selected strategy
+        response = self.framework.generate_with_llm(strategy_name, enriched_state)
+        
+        # Parse the response into actions
+        actions = self._parse_response(response, strategy_name)
+        
+        return actions
+    
+    def _enrich_state(self, state: Dict[str, Any]) -> Dict[str, Any]:
+        """Enrich the state with additional information."""
+        # Ensure all required variables are present
+        enriched = state.copy()
+        
+        # Add default values for commonly required variables if missing
+        if "ui_elements" not in enriched:
+            enriched["ui_elements"] = "No UI elements detected."
+            
+        if "action_history" not in enriched:
+            enriched["action_history"] = "No previous actions recorded."
+            
+        if "memory_insights" not in enriched:
+            enriched["memory_insights"] = "No memory insights available."
+        
+        # Add additional context information
+        # ...
+        
+        return enriched
 ```
 
 ### 7.2 LLMConsultationManager
@@ -647,6 +1129,49 @@ class LLMConsultationManager(Component):
     This component provides strategic guidance and action feedback through
     LLM consultation, using the PromptFramework for consistent interactions.
     """
+    
+    def __init__(self, config: Dict[str, Any]):
+        """Initialize the LLM consultation manager."""
+        super().__init__(config)
+        self.component_config = config.get("component_configurator")
+        self.framework = PromptFramework.create(self.component_config)
+        # Initialize other components
+    
+    def initialize(self) -> None:
+        """Initialize the LLM consultation manager."""
+        super().initialize()
+        # Additional initialization
+    
+    def get_strategic_guidance(self, state: Dict[str, Any]) -> str:
+        """Get strategic guidance for the current state."""
+        # Ensure state has all required variables
+        enriched_state = self._enrich_state(state)
+        
+        # Generate strategic guidance using the PromptFramework
+        response = self.framework.generate_with_llm(
+            "strategic_guidance",
+            enriched_state,
+            {"mode": "guidance"}
+        )
+        
+        # Parse and return the guidance
+        return self._parse_guidance(response)
+    
+    def _enrich_state(self, state: Dict[str, Any]) -> Dict[str, Any]:
+        """Ensure state has all required variables."""
+        enriched = state.copy()
+        
+        # Add default values for missing required variables
+        if "ui_elements" not in enriched:
+            enriched["ui_elements"] = "No UI elements detected."
+            
+        if "action_history" not in enriched:
+            enriched["action_history"] = "No previous actions recorded."
+            
+        if "memory_insights" not in enriched:
+            enriched["memory_insights"] = "No memory insights available."
+        
+        return enriched
 ```
 
 ## 8. Usage Examples
@@ -658,7 +1183,7 @@ from rvandroid.config.component_configurator import ComponentConfigurator
 from rvandroid.llm.prompt.framework import PromptFramework
 from rvandroid.llm.constants import StateEntry, PromptStrategyType
 
-# Criar configuração
+# Create configuration
 config = ComponentConfigurator()
 config.set_llm(
     llm_type="ollama",
@@ -668,53 +1193,58 @@ config.set_llm(
     base_url="http://localhost:11434"
 )
 
-# Criar e inicializar o framework
+# Create and initialize the framework
 framework = PromptFramework.create(config)
 
-# Criar estado de teste
-state = {
-    StateEntry.PACKAGE_NAME: "com.example.testapp",
-    StateEntry.ACTIVITY: "com.example.testapp.MainActivity",
-    StateEntry.SCREEN_DESCRIPTION: "The screen shows a login form with username and password fields, and a Login button.",
-    StateEntry.SCREEN_PATTERNS: {
-        "title": "Login",
-        "components": [
-            {
-                "type": "EditText",
-                "text": "",
-                "resource_id": "username_field",
-                "hint": "Username",
-                "clickable": True,
-                "bounds": {"left": 50, "top": 100, "right": 300, "bottom": 150}
-            },
-            {
-                "type": "EditText",
-                "text": "",
-                "resource_id": "password_field",
-                "hint": "Password",
-                "clickable": True,
-                "bounds": {"left": 50, "top": 200, "right": 300, "bottom": 250}
-            },
-            {
-                "type": "Button",
-                "text": "Login",
-                "resource_id": "login_button",
-                "clickable": True,
-                "bounds": {"left": 50, "top": 300, "right": 300, "bottom": 350}
-            }
-        ]
+# Create complete state with all required variables for templates
+def create_complete_tutorial_state(activity_name="MainActivity", package_name="com.example.testapp"):
+    # Basic state elements
+    state = {
+        StateEntry.PACKAGE_NAME: package_name,
+        StateEntry.ACTIVITY: f"{package_name}.{activity_name}",
+        StateEntry.SCREEN_DESCRIPTION: f"Screen of {activity_name} with simulated elements."
     }
-}
+    
+    # UI elements (required by many templates)
+    state["ui_elements"] = """
+ELEMENTOS DE UI:
+- Text field: Username (id: username_field)
+- Text field: Password (id: password_field)
+- Button: Login (id: login_button)
+- Button: Cancel (id: cancel_button)
+- Link: Forgot password (id: forgot_password)
+    """
+    
+    # Action history (required by some templates)
+    state["action_history"] = """
+PREVIOUS ACTIONS:
+- Clicked: App icon
+- Loaded: MainActivity
+- Clicked: Login button
+    """
+    
+    # Memory insights (required by some templates)
+    state["memory_insights"] = """
+APP MEMORY INSIGHTS:
+- 2 screens previously visited in this session
+- Common navigation pattern: Home -> Login -> This screen
+- Most visited screens: Home (5x), Settings (2x), Login (3x)
+    """
+    
+    return state
 
-# Definir contexto adicional
+# Create state with all required variables
+state = create_complete_tutorial_state()
+
+# Define additional context
 context = {
     "additional_guidelines": "Focus on testing the login functionality."
 }
 
-# Gerar prompt usando estratégia padrão
+# Generate prompt using standard strategy
 messages = framework.generate_prompt(PromptStrategyType.STANDARD, state, context)
 
-# Enviar para LLM e obter resposta
+# Send to LLM and get response
 response = framework.generate_with_llm(PromptStrategyType.STANDARD, state, context)
 print(f"LLM Response: {response.get_text_content() if hasattr(response, 'get_text_content') else response}")
 ```
@@ -727,7 +1257,7 @@ from rvandroid.llm.prompt.framework import PromptFramework
 from rvandroid.llm.constants import StateEntry, PromptStrategyType
 from typing import Dict, Any, Optional
 
-# Criar fragmento personalizado
+# Create custom fragment
 class CustomFragment(InformationFragment):
     """Custom information fragment."""
     
@@ -735,107 +1265,36 @@ class CustomFragment(InformationFragment):
         super().__init__(name, priority)
     
     def generate(self, state: Dict[str, Any], context: Optional[Dict[str, Any]] = None) -> str:
-        # Extrair informações personalizadas do estado
+        # Extract custom information from state
         package_name = state.get(StateEntry.PACKAGE_NAME, "unknown")
         activity = state.get(StateEntry.ACTIVITY, "unknown")
         
         return f"Testing app: {package_name}\nCurrent activity: {activity}\nAdditional custom information to include in prompts."
     
     def should_include(self, state: Dict[str, Any], context: Optional[Dict[str, Any]] = None) -> bool:
-        # Incluir apenas se o estado tiver dados do pacote
+        # Include only if state has package data
         return StateEntry.PACKAGE_NAME in state
 
-# Criar framework
+# Create framework
 framework = PromptFramework.create()
 
-# Registrar fragmento personalizado
+# Register custom fragment
 framework.register_information_fragment(CustomFragment())
 
-# Usar o framework com o fragmento personalizado
+# Create complete state with all required variables
+state = create_complete_tutorial_state()
+
+# Use the framework with the custom fragment
 messages = framework.generate_prompt(PromptStrategyType.STANDARD, state, context)
 ```
 
-### 8.3 Using with LLMActionService
-
-```python
-from rvandroid.config.component_configurator import ComponentConfigurator
-from rvandroid.llm.service.action_service import LLMActionService
-from rvandroid.llm.constants import StateEntry
-
-# Criar configuração
-config = ComponentConfigurator()
-config.set_llm(
-    llm_type="ollama",
-    model="llama3",
-    temperature=0.3,
-    max_tokens=800,
-    base_url="http://localhost:11434"
-)
-
-# Criar serviço de ação
-service = LLMActionService(config=config)
-
-# Processar estado e gerar ações
-state = {
-    StateEntry.PACKAGE_NAME: "com.example.testapp",
-    StateEntry.ACTIVITY: "com.example.testapp.MainActivity",
-    StateEntry.SCREEN_DESCRIPTION: "The screen shows a login form with username and password fields, and a Login button.",
-    StateEntry.SCREENSHOT_PATH: "/path/to/screenshot.png",
-    StateEntry.SCREEN_PATTERNS: {
-        "title": "Login",
-        "components": [
-            # UI components as before
-        ]
-    }
-}
-
-actions = service.process_state(state)
-for action in actions:
-    print(f"Action: {action}")
-```
-
-### 8.4 Using with LLMConsultationManager
-
-```python
-from rvandroid.config.component_configurator import ComponentConfigurator
-from rvandroid.rvdroid.core.llm_consultation_manager import LLMConsultationManager
-
-# Criar configuração
-config = {
-    "static_data": static_data,
-    "memory_system": memory_system,
-    "use_llm": True
-}
-
-# Configurar modelo Ollama para o consultation manager 
-# (A configuração será usada pelo PromptFramework criado internamente)
-component_config = ComponentConfigurator(static_data=static_data)
-component_config.set_llm(
-    llm_type="ollama",
-    model="llama3",
-    temperature=0.3,
-    max_tokens=800,
-    base_url="http://localhost:11434"
-)
-
-# Adicionar a configuração de componente na configuração do consultation manager
-config["component_configurator"] = component_config
-
-# Criar consultation manager
-consultation_manager = LLMConsultationManager(config)
-consultation_manager.initialize()
-consultation_manager.start()
-
-# Obter orientação estratégica
-```
-
-### 8.5 Using Custom Template with Fragments
+### 8.3 Using Custom Template with Jinja2 Syntax
 
 ```python
 from rvandroid.llm.prompt.framework import PromptFramework
 from rvandroid.llm.constants import StateEntry, PromptStrategyType
 
-# Create a custom template file with fragment inclusion
+# Create a custom template file with Jinja2 syntax
 custom_template_content = """<?xml version="1.0" encoding="UTF-8"?>
 <template name="security_template" version="1.0" extends="system_base">
   <metadata>
@@ -844,8 +1303,9 @@ custom_template_content = """<?xml version="1.0" encoding="UTF-8"?>
     <author>RV-Android Team</author>
   </metadata>
   <variables>
-    <required>screen_elements</required>
-    <optional>data_usage</optional>
+    <required>ui_elements</required>
+    <optional>action_history</optional>
+    <optional>memory_insights</optional>
   </variables>
   <roles>
     <s>
@@ -853,22 +1313,24 @@ custom_template_content = """<?xml version="1.0" encoding="UTF-8"?>
         <![CDATA[
 Your task is to analyze the current state for potential security vulnerabilities.
 
-{#include security_testing_guidelines}
+{% include "security_testing_guidelines" %}
         ]]>
       </variable>
       <variable name="response_format_instructions">
         <![CDATA[
-{#include standard_format}
+{% include "standard_format" %}
         ]]>
       </variable>
     </s>
     <user><![CDATA[
-Current Activity: {activity}
+Current Activity: {{ activity }}
 
-{#if data_usage}{data_usage}
+{% if action_history %}{{ action_history }}
 
-{#endif}Current UI Elements:
-{screen_elements}
+{% endif %}{% if memory_insights %}{{ memory_insights }}
+
+{% endif %}Current UI Elements:
+{{ ui_elements }}
 
 Your task is to identify the single most critical security test for this screen.
     ]]></user>
@@ -882,12 +1344,11 @@ Your task is to identify the single most critical security test for this screen.
 # Register the custom fragment and template
 framework = PromptFramework.create()
 
-# Use the framework with our custom template
-state = {
-    StateEntry.PACKAGE_NAME: "com.example.bankapp",
-    StateEntry.ACTIVITY: "com.example.bankapp.LoginActivity",
-    StateEntry.SCREEN_DESCRIPTION: "Login screen with username and password fields.",
-}
+# Create complete state with all required variables
+state = create_complete_tutorial_state(
+    activity_name="LoginActivity", 
+    package_name="com.example.bankapp"
+)
 
 context = {
     "template": "security_template",  # This would normally select our custom template
@@ -901,7 +1362,7 @@ messages = framework.generate_prompt(PromptStrategyType.STANDARD, state, context
 
 ### 9.1 Creating New Fragments
 
-Para criar um novo fragment de informação:
+To create a new information fragment:
 
 ```python
 from rvandroid.llm.prompt.information.base_fragment import InformationFragment
@@ -917,11 +1378,15 @@ class HistoryFragment(InformationFragment):
     
     def generate(self, state: Dict[str, Any], context: Optional[Dict[str, Any]] = None) -> str:
         """Generate information about action history in the current state."""
-        # Obter informações atuais do app
+        # First check if action_history already exists in state (preferred source)
+        if "action_history" in state:
+            return state["action_history"]
+            
+        # Get current app information
         package_name = state.get(StateEntry.PACKAGE_NAME, "unknown")
         activity = state.get(StateEntry.ACTIVITY, "unknown")
         
-        # Formatar texto do histórico
+        # Format history text
         if not self.action_history:
             return "No previous actions recorded."
         
@@ -939,24 +1404,24 @@ class HistoryFragment(InformationFragment):
             "target": action.get("target"),
             "success": result
         })
-        # Manter histórico em tamanho razoável
+        # Keep history at reasonable size
         if len(self.action_history) > 20:
             self.action_history = self.action_history[-20:]
     
     def should_include(self, state: Dict[str, Any], context: Optional[Dict[str, Any]] = None) -> bool:
-        # Incluir apenas se tivermos algum histórico
-        return len(self.action_history) > 0
+        # Include if history exists in state or we have local history
+        return "action_history" in state or len(self.action_history) > 0
 ```
 
 ### 9.2 Creating New Strategies
 
-Para criar uma nova estratégia de prompt:
+To create a new prompt strategy:
 
 ```python
 from rvandroid.llm.prompt.strategy.base_strategy import PromptStrategy
 from rvandroid.llm.constants import PromptStrategyType
 from rvandroid.llm.prompt.information.fragment_manager import InformationManager
-from rvandroid.llm.prompt.template.xml_repository import XMLTemplateRepository
+from rvandroid.llm.prompt.template.jinja_repository import Jinja2TemplateRepository
 from typing import Dict, Any, Optional, List
 
 class ExplorationStrategy(PromptStrategy):
@@ -968,7 +1433,7 @@ class ExplorationStrategy(PromptStrategy):
         self,
         name: str = "exploration",
         information_manager: Optional[InformationManager] = None,
-        template_repository: Optional[XMLTemplateRepository] = None
+        template_repository: Optional[Jinja2TemplateRepository] = None
     ):
         """Initialize the exploration strategy."""
         super().__init__(name, information_manager, template_repository)
@@ -983,25 +1448,31 @@ class ExplorationStrategy(PromptStrategy):
             context = {}
         
         try:
-            # Usar template de exploração
+            # Use exploration template
             template_name = self.get_template_name(context) or self.DEFAULT_TEMPLATE
             
-            # Obter informações com fragments padrão
+            # Get information with standard fragments
             info = {}
             if self.information_manager:
                 info = self.information_manager.compose_information(state, context)
             
-            # Adicionar diretrizes de exploração
+            # Add exploration guidelines
             if "additional_guidelines" not in context:
                 context["additional_guidelines"] = (
                     "Focus on exploring new screens and UI elements that haven't been visited before. "
                     "Prioritize breadth of exploration rather than depth."
                 )
             
-            # Gerar mensagens a partir do template
+            # Generate messages from template
             variables = {**info, **context}
             
             if self.template_repository:
+                # Check if the template exists
+                available_templates = self.template_repository.get_available_templates()
+                if template_name not in available_templates:
+                    self.logger.warning(f"Template '{template_name}' not found. Using fallback.")
+                    return self._create_fallback_messages(state)
+                    
                 messages = self.template_repository.create_messages(template_name, variables)
                 return messages or self._create_fallback_messages(state)
             else:
@@ -1025,53 +1496,53 @@ class ExplorationStrategy(PromptStrategy):
         ]
 ```
 
-### 9.3 Creating New XML Templates
+### 9.3 Creating New Templates with Jinja2 Syntax
 
-Para criar um novo template XML:
+To create a new template with Jinja2 syntax:
 
 ```python
 import os
-from rvandroid.llm.prompt.template.xml_utils import create_template_xml_string
+from rvandroid.llm.prompt.template.template_utils import create_template_xml_string
 
-# Criar conteúdo do template
+# Create template content
 template_content = create_template_xml_string(
     name="exploration",
     version="1.0",
     description="Template for exploration-focused prompts",
     author="RV-Android Team",
     created="2025-04-18",
-    required_vars=["screen_description"],
-    optional_vars=["ui_patterns", "history", "additional_guidelines"],
+    required_vars=["ui_elements"],
+    optional_vars=["action_history", "memory_insights", "additional_guidelines"],
     system_content="""
 You are an Android exploration assistant. Your job is to discover new screens and functionality in the app.
 
 The current screen contains:
-${screen_description}
+{{ ui_elements }}
 
-${#if ui_patterns}I've identified these UI patterns:
-${ui_patterns}
+{% if action_history %}Previous actions:
+{{ action_history }}
 
-${#endif}${#if history}Previous actions:
-${history}
+{% endif %}{% if memory_insights %}Memory insights:
+{{ memory_insights }}
 
-${#endif}
+{% endif %}
 """,
     user_content="""
-Suggest ONE action that would help explore a new part of this application that hasn't been seen before.${#if additional_guidelines}
+Suggest ONE action that would help explore a new part of this application that hasn't been seen before.{% if additional_guidelines %}
 
-${additional_guidelines}${#endif}
+{{ additional_guidelines }}{% endif %}
 """
 )
 
-# Escrever em arquivo de template
+# Write to template file
 template_dir = "/path/to/templates"
 os.makedirs(template_dir, exist_ok=True)
 with open(os.path.join(template_dir, "exploration.xml"), "w") as f:
     f.write(template_content)
 
-# Carregar no repositório de templates
-from rvandroid.llm.prompt.template.xml_repository import XMLTemplateRepository
-repository = XMLTemplateRepository(template_dir)
+# Load in template repository
+from rvandroid.llm.prompt.template.jinja_repository import Jinja2TemplateRepository
+repository = Jinja2TemplateRepository(template_dir)
 repository._load_templates()
 ```
 
@@ -1089,7 +1560,9 @@ The template system supports inheritance through the `extends` attribute, allowi
     <author>RV-Android Team</author>
   </metadata>
   <variables>
-    <required>screen_elements</required>
+    <required>ui_elements</required>
+    <optional>action_history</optional>
+    <optional>memory_insights</optional>
     <optional>additional_guidelines</optional>
   </variables>
   <roles>
@@ -1122,26 +1595,26 @@ DO NOT include any additional text outside of the JSON object. Your response mus
       </variable>
     </s>
     <user><![CDATA[
-Current Activity: {activity}
+Current Activity: {{ activity }}
 
-{static_context}
+{% if action_history %}{{ action_history }}
 
-Current UI Elements and Available Actions:
-{ui_elements}
+{% endif %}{% if memory_insights %}{{ memory_insights }}
 
-{#if action_history}{action_history}
+{% endif %}Current UI Elements:
+{{ ui_elements }}
 
-{#endif}SUMMARY: You are testing the {activity} screen. Select ONE action from the available options above that would be most effective for testing this screen. Remember to return your answer as a JSON object using the action_id values provided.{#if additional_guidelines}
+SUMMARY: You are testing the {{ activity }} screen. Select ONE action from the available options above that would be most effective for testing this screen. Remember to return your answer as a JSON object using the action_id values provided.{% if additional_guidelines %}
 
-{additional_guidelines}{#endif}
+{{ additional_guidelines }}{% endif %}
     ]]></user>
   </roles>
 </template>
 ```
 
-### 10.2 Template Fragments
+### 10.2 Template Fragments with Jinja2
 
-The system uses template fragments to create reusable pieces of prompt content:
+The system uses template fragments with Jinja2 syntax to create reusable pieces of prompt content:
 
 ```xml
 <!-- fragments/ui_patterns/form_pattern.xml -->
@@ -1159,7 +1632,7 @@ For FORM patterns:
 </fragment>
 ```
 
-These fragments can be included in templates using the `{#include fragment_name}` directive:
+These fragments can be included in templates using the `{% include "fragment_name" %}` directive:
 
 ```xml
 <template name="batch_action_modular" version="1.0" extends="system_base">
@@ -1169,38 +1642,37 @@ These fragments can be included in templates using the `{#include fragment_name}
     <author>RV-Android Team</author>
   </metadata>
   <variables>
-    <required>screen_elements</required>
+    <required>ui_elements</required>
+    <optional>action_history</optional>
+    <optional>memory_insights</optional>
     <optional>additional_guidelines</optional>
-    <optional>ui_patterns</optional>
-    <optional>monitored_operations</optional>
-    <optional>testing_history</optional>
   </variables>
   <roles>
     <s>
       <variable name="strategy_specific_instructions">
         <![CDATA[
-{#include batch_instructions}
+{% include "batch_instructions" %}
         ]]>
       </variable>
       <variable name="response_format_instructions">
         <![CDATA[
-{#include batch_format}
+{% include "batch_format" %}
         ]]>
       </variable>
       <variable name="additional_guidelines">
         <![CDATA[
-{#include batch_guidelines}
+{% include "batch_guidelines" %}
         ]]>
       </variable>
     </s>
     <user><![CDATA[
-{#include user_base}
-{#include batch_ui_pattern_detection}
-{#if workflow_guidance}{workflow_guidance}
+{% include "user_base" %}
+{% include "batch_ui_pattern_detection" %}
+{% if memory_insights %}{{ memory_insights }}
 
-{#endif}{#include batch_critical_task}{#if additional_guidelines}
+{% endif %}{% include "batch_critical_task" %}{% if additional_guidelines %}
 
-{additional_guidelines}{#endif}
+{{ additional_guidelines }}{% endif %}
     ]]></user>
   </roles>
 </template>
@@ -1233,41 +1705,333 @@ The fragment system organizes fragments into logical categories:
 
 This modular organization makes it easy to combine and reuse fragments across different templates while maintaining consistency in the prompt language.
 
-### 10.4 Template Processor Implementation
+### 10.4 Jinja2 Template Processing
 
-The template processor implements fragment inclusion as part of the rendering process:
+The Jinja2-based template system implements fragment inclusion as part of the rendering process:
 
 ```python
-def _process_includes(self, template: str, fragments: Dict[str, str]) -> str:
+def render(self, data: Dict[str, Any]) -> str:
     """
-    Process fragment includes in the template.
+    Render the template with the given data.
     
     Args:
-        template: The template text
-        fragments: Dictionary of fragment name to fragment content
+        data: Dictionary of variables to substitute in the template
         
     Returns:
-        Template with includes resolved
+        Rendered template content
     """
-    include_pattern = r"\{#include ([a-zA-Z0-9_]+)\}"
-    
-    while True:
-        match = re.search(include_pattern, template)
-        if not match:
-            break
-            
-        fragment_name = match.group(1)
-        fragment_content = fragments.get(fragment_name)
+    try:
+        # Check required variables
+        missing_vars = []
+        for var in self.required_variables:
+            if var not in data:
+                missing_vars.append(var)
         
-        if fragment_content:
-            template = template.replace(match.group(0), fragment_content)
-        else:
-            self.logger.warning(f"Fragment not found: {fragment_name}")
-            template = template.replace(match.group(0), "")
-    
-    return template
+        if missing_vars:
+            missing_vars_str = ", ".join(missing_vars)
+            self.logger.warning(f"Required variables not found: {missing_vars_str}")
+            return f"ERROR: Required variables not found: {missing_vars_str}"
+        
+        # Apply transformers if needed
+        for var, transformer in self.transformers.items():
+            if var in data and callable(transformer):
+                try:
+                    data[var] = transformer(data[var])
+                except Exception as e:
+                    self.logger.error(f"Error transforming variable {var}: {e}")
+        
+        # Render the template with Jinja2
+        result = self.template.render(**data)
+        return result
+    except jinja2.exceptions.UndefinedError as e:
+        # Special handling for undefined variables
+        self.logger.error(f"Undefined variable in template: {e}")
+        return f"ERROR: Undefined variable in template: {e}"
+    except jinja2.exceptions.TemplateError as e:
+        self.logger.error(f"Template rendering error: {e}")
+        return f"ERROR: Template rendering error: {e}"
+    except Exception as e:
+        self.logger.error(f"Error rendering template: {e}", exc_info=True)
+        return f"ERROR: {str(e)}"
 ```
 
 This approach enables highly modular templates with efficient reuse of prompt components, making the system more maintainable and consistent.
 
-Com esses componentes implementados, o sistema RV-Android possui uma arquitetura unificada e extensível para integração com LLM que elimina duplicação de código, simplifica a manutenção e proporciona comportamento consistente em todas as operações de teste baseadas em IA.
+## 11. Best Practices and Lessons Learned
+
+### 11.1 State Enrichment
+
+Always ensure that the state object contains all variables required by templates:
+
+```python
+def create_complete_tutorial_state(activity_name="MainActivity", package_name="com.example.testapp"):
+    """
+    Creates a complete state with all potentially required variables
+    for templates, avoiding missing variable errors.
+    """
+    # Basic state elements
+    state = {
+        StateEntry.PACKAGE_NAME: package_name,
+        StateEntry.ACTIVITY: f"{package_name}.{activity_name}",
+        StateEntry.SCREEN_DESCRIPTION: f"Screen of {activity_name} with simulated elements."
+    }
+    
+    # Add UI elements information based on screen type
+    ui_text = """
+UI ELEMENTS:
+- Text field: Username (id: username_field)
+- Text field: Password (id: password_field)
+- Button: Login (id: login_button)
+- Button: Cancel (id: cancel_button)
+- Link: Forgot password (id: forgot_password)
+    """
+    
+    state["ui_elements"] = ui_text
+    
+    # Add action history
+    state["action_history"] = """
+PREVIOUS ACTIONS:
+- Clicked: App icon
+- Loaded: MainActivity
+- Clicked: Login button
+    """
+    
+    # Add memory insights
+    state["memory_insights"] = """
+APP MEMORY INSIGHTS:
+- 2 screens previously visited in this session
+- Common navigation pattern: Home -> Login -> This screen
+- Most visited screens: Home (5x), Settings (2x), Login (3x)
+    """
+    
+    return state
+```
+
+When integrating with the actual system, implement robust state enrichment:
+
+```python
+def _enrich_state(self, state: Dict[str, Any]) -> Dict[str, Any]:
+    """Enrich the state with additional information."""
+    # Create a copy to avoid modifying the original
+    enriched = state.copy()
+    
+    # Add default values for commonly required variables if missing
+    if "ui_elements" not in enriched:
+        enriched["ui_elements"] = self.ui_detector.extract_elements(state)
+            
+    if "action_history" not in enriched:
+        enriched["action_history"] = self.history_manager.get_formatted_history()
+            
+    if "memory_insights" not in enriched:
+        enriched["memory_insights"] = self.memory_manager.get_insights_for_prompt()
+    
+    return enriched
+```
+
+### 11.2 Public Interface Methods
+
+Ensure key functionality is accessible through public methods to avoid accessing internal attributes:
+
+```python
+# Avoid directly accessing private attributes like strategy_registry._strategies
+# Instead, provide public methods:
+
+def get_available_strategies(self) -> List[str]:
+    """Get a list of available strategy names."""
+    if self.strategy_registry:
+        return self.strategy_registry.get_available_strategies()
+    return []
+
+def get_available_templates(self) -> List[str]:
+    """Get a list of available template names."""
+    if self.template_repository:
+        return self.template_repository.get_available_templates()
+    return []
+
+def get_information(self, fragment_name: str, state: Dict[str, Any], context: Optional[Dict[str, Any]] = None) -> Any:
+    """Get information from a specific fragment."""
+    if self.information_manager:
+        return self.information_manager.get_information(fragment_name, state, context)
+    return None
+```
+
+### 11.3 Robust Error Handling
+
+Implement thorough error handling at multiple levels:
+
+```python
+def generate_prompt(
+    self, 
+    strategy_name: Optional[str], 
+    state: Dict[str, Any], 
+    context: Optional[Dict[str, Any]] = None
+) -> List[Dict[str, str]]:
+    """Generate a prompt using the specified strategy."""
+    if context is None:
+        context = {}
+    
+    try:
+        # Get the strategy
+        strategy = self.strategy_registry.get_strategy(strategy_name)
+        if not strategy:
+            self.logger.error(f"Strategy not found: {strategy_name}")
+            # Return an empty list instead of raising an exception
+            return []
+        
+        # Generate the prompt
+        return strategy.generate_prompt(state, context)
+    except Exception as e:
+        self.logger.error(f"Error generating prompt: {e}", exc_info=True)
+        # Return an empty list instead of propagating the exception
+        return []
+```
+
+Implement fallback mechanisms in all components:
+
+```python
+def _create_fallback_messages(self, state: Dict[str, Any]) -> List[Dict[str, str]]:
+    """Create fallback messages if template generation fails."""
+    return [
+        {
+            "role": "system",
+            "content": "You are an Android testing assistant."
+        },
+        {
+            "role": "user",
+            "content": f"Suggest a test action for the current app state."
+        }
+    ]
+```
+
+### 11.4 Dependency Management
+
+Use dependency injection through ComponentConfigurator instead of direct imports:
+
+```python
+def __init__(
+    self, 
+    information_manager: InformationManager,
+    template_repository: Jinja2TemplateRepository,
+    strategy_registry: StrategyRegistry,
+    config: Optional[ComponentConfigurator] = None,
+    model: Optional[LanguageModel] = None
+):
+    """Initialize the prompt framework with injected dependencies."""
+    self.information_manager = information_manager
+    self.template_repository = template_repository
+    self.strategy_registry = strategy_registry
+    self.config = config
+    self.model = model
+```
+
+And provide factory methods to simplify instantiation:
+
+```python
+@classmethod
+def create(cls, config: Optional[ComponentConfigurator] = None) -> 'PromptFramework':
+    """Create and configure a new prompt framework."""
+    # Create configuration if not provided
+    if not config:
+        config = ComponentConfigurator()
+    
+    # Create components
+    information_manager = InformationManager()
+    template_repository = Jinja2TemplateRepository()
+    strategy_registry = StrategyRegistry(config)
+    
+    # Register with configurator
+    if not config.has_component(ComponentType.INFORMATION_MANAGER, "default"):
+        config.register_component(ComponentType.INFORMATION_MANAGER, "default", information_manager)
+    
+    # [...more registration...]
+    
+    # Create framework
+    return cls(
+        information_manager=information_manager,
+        template_repository=template_repository,
+        strategy_registry=strategy_registry,
+        config=config,
+        model=model
+    )
+```
+
+### 11.5 Defensive Variable Checking
+
+Always check for required variables and provide meaningful error messages:
+
+```python
+def render(self, data: Dict[str, Any]) -> str:
+    """Render the template with the given data."""
+    try:
+        # Check required variables
+        missing_vars = []
+        for var in self.required_variables:
+            if var not in data:
+                missing_vars.append(var)
+        
+        if missing_vars:
+            missing_vars_str = ", ".join(missing_vars)
+            self.logger.warning(f"Required variables not found: {missing_vars_str}")
+            return f"ERROR: Required variables not found: {missing_vars_str}"
+        
+        # Continue with rendering...
+    except Exception as e:
+        # Error handling...
+```
+
+### 11.6 Testing and Mocking
+
+Create standalone test data for testing components in isolation:
+
+```python
+def create_test_template_repository():
+    """Create a template repository for testing."""
+    repo = Jinja2TemplateRepository()
+    
+    # Add a simple test template
+    simple_template = """<?xml version="1.0" encoding="UTF-8"?>
+    <template name="test_template" version="1.0">
+      <variables>
+        <required>ui_elements</required>
+        <optional>action_history</optional>
+      </variables>
+      <roles>
+        <s><![CDATA[Test system message with {{ ui_elements }}]]></s>
+        <user><![CDATA[Test user message{% if action_history %} with {{ action_history }}{% endif %}]]></user>
+      </roles>
+    </template>
+    """
+    
+    # Write to a temporary file and load
+    with tempfile.NamedTemporaryFile(suffix='.xml', delete=False) as f:
+        f.write(simple_template.encode('utf-8'))
+        temp_file = f.name
+    
+    os.makedirs(os.path.join(os.path.dirname(temp_file), 'templates'), exist_ok=True)
+    shutil.copy(temp_file, os.path.join(os.path.dirname(temp_file), 'templates', 'test_template.xml'))
+    
+    repo.template_dir = os.path.join(os.path.dirname(temp_file), 'templates')
+    repo._load_templates()
+    
+    return repo
+```
+
+Use mock implementations for testing:
+
+```python
+class MockLanguageModel(LanguageModel):
+    """Mock language model for testing."""
+    
+    def __init__(self, response_text="This is a test response"):
+        self.response_text = response_text
+    
+    def generate(self, messages: List[LLMMessage]) -> LLMResponse:
+        """Generate a mock response."""
+        return LLMResponse(
+            content=self.response_text,
+            model="test_model",
+            finish_reason="stop"
+        )
+```
+
+With these components implemented, the RV-Android system has a unified and extensible architecture for LLM integration that eliminates code duplication, simplifies maintenance, and provides consistent behavior across all AI-driven testing operations.
