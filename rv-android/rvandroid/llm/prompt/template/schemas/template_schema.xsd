@@ -42,7 +42,7 @@
   <!-- Roles Type -->
   <xs:complexType name="rolesType">
     <xs:sequence>
-      <xs:element name="s" type="xs:string" minOccurs="0"/>
+      <xs:element name="system" type="xs:string" minOccurs="0"/>
       <xs:element name="user" type="xs:string"/>
       <xs:element name="assistant" type="xs:string" minOccurs="0"/>
     </xs:sequence>

@@ -206,6 +206,32 @@ INSIGHTS DE MEMÓRIA DO APLICATIVO:
     
     return state
 
+def tmp_001(droidbot_state_file, screenshot_path, package, static_data):
+    state = create_state_from_droidbot_state(droidbot_state_file, screenshot_path, package, static_data)
+
+    # Inicializa o configurador
+    configurator = ComponentConfigurator(static_data)
+    configurator.set_llm(
+        llm_type=OllamaLLM.NAME,
+        model=OllamaLLM.QWEN,
+        base_url="http://192.168.0.18:11434"
+    )
+    configurator.set_strategy(PromptStrategyType.STANDARD)
+    configurator.set_parser(ScreenParserType.DROIDBOT)
+    configurator.set_visitor(VisitorFactory.DEFAULT)
+
+    prompt_framework = PromptFramework.create(configurator)
+
+    state = enrich_state(state, static_data, configurator, package)
+
+    prompt = prompt_framework.generate_prompt(state)
+    # print(prompt)
+
+    for msg in prompt:
+        print(f"\n\n*************** ROLE: {msg.role} ::: contents={len(msg.content)}")
+        for content in msg.content:
+            print(content.text)
+
 
 ###################################################################################
 # SEÇÃO 1: CONCEITOS BÁSICOS
@@ -1724,6 +1750,23 @@ def create_fresh_framework(strategy_type=None):
 if __name__ == "__main__":
     # Configure logging with INFO level to reduce noise
     LoggingManager.get_instance().configure_output(console_level=logging.INFO)
+
+    screenshots_folder = "/home/pedro/desenvolvimento/RV_ANDROID/teste_llm/screenshots"
+    apk = "cryptoapp.apk"
+    prefix = "009"
+    app_folder = os.path.join(screenshots_folder, apk)
+    reach_file = os.path.join(app_folder, apk + ".reach")
+    gator_file = os.path.join(app_folder, apk + ".wtg")
+    gesda_file = os.path.join(app_folder, apk + ".gesda")
+    screenshot_path = os.path.join(app_folder, prefix + ".png")
+    droidbot_state_file = os.path.join(app_folder, prefix + ".state")
+    app = App(os.path.join(app_folder, apk))
+    package = app.package_name
+
+    static_data = static_analysis_parser.parse(reach_file, gator_file, gesda_file, package)
+
+    tmp_001(droidbot_state_file, screenshot_path, package, static_data)
+    exit(1)
 
     # List of available sections
     sections = [

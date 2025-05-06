@@ -2,7 +2,7 @@
 
 This module defines the Jinja2TemplateRepository class for managing XML-based
 prompt templates that use Jinja2 for rendering, including loading, retrieval,
-and message generation.
+and message generation with native Jinja2 inheritance.
 """
 
 import os
@@ -26,21 +26,31 @@ from .xml_utils import (create_default_templates, extract_template_metadata,
 
 class Jinja2TemplateRepository:
     """Repository for managing Jinja2-based XML prompt templates.
-    
-    This repository:
-    - Loads templates from XML files with Jinja2 syntax inside CDATA sections
-    - Creates default templates if none exist
-    - Provides templates by name
-    - Generates messages for LLM communication
-    - Handles template inheritance via Jinja2's extends/block system
-    
-    The XML structure is preserved for metadata, variables, and roles, while
-    the content uses Jinja2 for powerful templating capabilities.
+
+    ### Architectural Decisions:
+    - Uses XML for template structure and metadata
+    - Leverages Jinja2's native inheritance for template extension
+    - Manages template and fragment loading from file system
+    - Provides standardized message generation for LLM interaction
+    - Supports template versioning and organization
+
+    ### Key Components:
+    - XML-based template structure with Jinja2 content
+    - Native Jinja2 inheritance through {% extends %} and {% block %}
+    - Template and fragment management with namespaces
+    - Comprehensive error handling and logging
+    - LLM message generation with role-based structure
+
+    ### Integration Points:
+    - Works with ComponentConfigurator for system configuration
+    - Uses Jinja2Template for template rendering
+    - Integrates with LLM data structures for message generation
+    - Provides services to prompt strategies
     """
 
     def __init__(self, template_dir: Optional[str] = None, fragment_dir: Optional[str] = None):
         """Initialize the Jinja2 template repository.
-        
+
         Args:
             template_dir: The directory containing template XML files.
                 If not provided, defaults to the "templates" directory
@@ -75,7 +85,7 @@ class Jinja2TemplateRepository:
         self.templates: Dict[str, Dict[str, Any]] = {}
         self.template_objects: Dict[str, Jinja2Template] = {}
         self.fragments: Dict[str, str] = {}
-        
+
         # Create Jinja2 environment
         self.jinja_env = self._create_jinja_environment()
 
@@ -85,34 +95,34 @@ class Jinja2TemplateRepository:
 
     def _create_jinja_environment(self) -> jinja2.Environment:
         """Create a Jinja2 environment with custom settings.
-        
+
         Returns:
             Configured Jinja2 Environment instance.
         """
         # Create a loader that can load fragments from the repository
         fragment_loader = FragmentDictLoader(self.fragments)
-        
+
         # Create environment with appropriate settings
         env = jinja2.Environment(
             loader=fragment_loader,
             undefined=jinja2.StrictUndefined,  # Raise errors for undefined variables
-            trim_blocks=True,                  # Remove first newline after a block
-            lstrip_blocks=True,                # Strip tabs and spaces from the beginning of blocks
-            keep_trailing_newline=True,        # Preserve trailing newlines
+            trim_blocks=True,  # Remove first newline after a block
+            lstrip_blocks=True,  # Strip tabs and spaces from the beginning of blocks
+            keep_trailing_newline=True,  # Preserve trailing newlines
             extensions=['jinja2.ext.loopcontrols', 'jinja2.ext.do']  # Additional extensions
         )
-        
+
         # Add custom filters
         env.filters['default_if_none'] = lambda value, default: default if value is None else value
-        
+
         # Add custom tests
         env.tests['empty'] = lambda value: value is None or value == '' or value == [] or value == {}
-        
+
         return env
 
     def configure(self, config: ComponentConfigurator) -> None:
         """Configure the repository with the given configuration.
-        
+
         Args:
             config: The configuration to use.
         """
@@ -136,7 +146,7 @@ class Jinja2TemplateRepository:
 
         # Ensure critical fragments are available
         self._ensure_critical_fragments()
-        
+
         # Recreate Jinja environment after configuration changes
         self.jinja_env = self._create_jinja_environment()
 
@@ -176,7 +186,7 @@ class Jinja2TemplateRepository:
 
     def _load_templates_from_directory(self, directory: str) -> None:
         """Load templates from XML files in the specified directory.
-        
+
         Args:
             directory: The directory containing template XML files.
         """
@@ -214,6 +224,9 @@ class Jinja2TemplateRepository:
                         # Extract role content
                         roles = extract_template_roles(root)
 
+                        # Get the parent template name
+                        parent = root.get("extends", "")
+
                         # Store template data
                         template_data = {
                             "metadata": metadata,
@@ -221,7 +234,7 @@ class Jinja2TemplateRepository:
                             "optional_variables": list(optional_vars),
                             "roles": roles,
                             "path": template_path,
-                            "extends": metadata.get("extends", "")
+                            "parent": parent  # Store parent template name
                         }
 
                         template_info[template_key] = template_data
@@ -234,26 +247,43 @@ class Jinja2TemplateRepository:
                                 "template_path": template_path
                             }
                         )
-            
-            # After loading all templates, store them and create template objects
+
+            # First store template data, before processing them
             for template_key, template_data in template_info.items():
-                try:
-                    # Store the template data
-                    self.templates[template_key] = template_data
-                    
-                    # Process each role into a template object
-                    self._create_template_objects(template_key, template_data)
-                    
-                    self.logger.debug(f"Processed template: {template_key}")
-                except Exception as e:
-                    self.logger.error(f"Error processing template {template_key}: {e}")
-                    self.error_handler.handle_error(
-                        e,
-                        context={
-                            "component": "Jinja2TemplateRepository",
-                            "template_key": template_key
-                        }
-                    )
+                self.templates[template_key] = template_data
+
+            # Now create template objects, ensuring parents are processed first
+            # Process templates with no parent first
+            for template_key, template_data in template_info.items():
+                if not template_data.get("parent"):
+                    try:
+                        self._create_template_objects(template_key, template_data)
+                        self.logger.debug(f"Processed base template: {template_key}")
+                    except Exception as e:
+                        self.logger.error(f"Error processing template {template_key}: {e}")
+                        self.error_handler.handle_error(
+                            e,
+                            context={
+                                "component": "Jinja2TemplateRepository",
+                                "template_key": template_key
+                            }
+                        )
+
+            # Then process templates with parents
+            for template_key, template_data in template_info.items():
+                if template_data.get("parent"):
+                    try:
+                        self._create_template_objects(template_key, template_data)
+                        self.logger.debug(f"Processed inheriting template: {template_key}")
+                    except Exception as e:
+                        self.logger.error(f"Error processing template {template_key}: {e}")
+                        self.error_handler.handle_error(
+                            e,
+                            context={
+                                "component": "Jinja2TemplateRepository",
+                                "template_key": template_key
+                            }
+                        )
         except Exception as e:
             self.logger.error(f"Error loading templates from {directory}: {e}", exc_info=True)
             self.error_handler.handle_error(
@@ -266,7 +296,10 @@ class Jinja2TemplateRepository:
 
     def _create_template_objects(self, template_key: str, template_data: Dict[str, Any]) -> None:
         """Create Jinja2Template objects for each role in the template.
-        
+
+        This method handles inheritance by directly merging parent template content
+        with child template overrides.
+
         Args:
             template_key: The key for the template.
             template_data: The template data.
@@ -274,28 +307,74 @@ class Jinja2TemplateRepository:
         template_name = template_data["metadata"]["name"]
         roles = template_data["roles"]
         required_vars = set(template_data["required_variables"])
-        
-        # Create template objects for each role
+        parent_name = template_data.get("parent", "")
+
+        # For each role in the template
         for role, content in roles.items():
             object_key = f"{template_key}.{role}"
-            
-            # Skip empty or variable-only roles
-            if not content or (isinstance(content, dict) and "variable" in content):
-                continue
-                
-            # Create Jinja2Template object
-            template_obj = Jinja2Template(
-                content,
-                template_name,
-                role,
-                required_variables=required_vars,
-                fragment_repository=self.fragments,
-                jinja_env=self.jinja_env
-            )
-            
-            # Store the template object
-            self.template_objects[object_key] = template_obj
-            self.logger.debug(f"Created template object for {object_key}")
+
+            # Handle roles with variable overrides for parent templates
+            if isinstance(content, dict) and "variable" in content:
+                # This role provides variables for a parent template
+                if parent_name:
+                    # Get the parent template data
+                    parent_template = self.get_template(parent_name)
+
+                    if parent_template and role in parent_template.get("roles", {}):
+                        # Get parent content
+                        parent_content = parent_template["roles"].get(role, "")
+
+                        if parent_content and not isinstance(parent_content, dict):
+                            # Create content by replacing block placeholders in parent content
+                            final_content = parent_content
+
+                            # Process each variable override
+                            for variable in content.get("variable", []):
+                                var_name = variable.get("name", "")
+                                var_text = variable.get("text", "")
+
+                                if var_name and var_text:
+                                    # Replace block in parent content with child content
+                                    block_pattern = r'{%\s*block\s+' + re.escape(
+                                        var_name) + r'\s*%}.*?{%\s*endblock\s*%}'
+                                    replacement = f"{{% block {var_name} %}}\n{var_text}\n{{% endblock %}}"
+                                    final_content = re.sub(block_pattern, replacement, final_content, flags=re.DOTALL)
+
+                            # Create template object with merged content
+                            template_obj = Jinja2Template(
+                                final_content,
+                                template_name,
+                                role,
+                                required_variables=required_vars,
+                                fragment_repository=self.fragments,
+                                jinja_env=self.jinja_env
+                            )
+
+                            # Store the template object
+                            self.template_objects[object_key] = template_obj
+                            self.logger.debug(f"Created merged template object for {object_key}")
+                        else:
+                            self.logger.warning(f"Parent template {parent_name} has no valid content for role {role}")
+                    else:
+                        self.logger.warning(f"Parent template {parent_name} not found or doesn't have role {role}")
+                else:
+                    self.logger.warning(
+                        f"Template {template_key} has variable overrides but no parent template specified")
+
+            elif content and not isinstance(content, dict):
+                # Direct content role (not variable overrides)
+                template_obj = Jinja2Template(
+                    content,
+                    template_name,
+                    role,
+                    required_variables=required_vars,
+                    fragment_repository=self.fragments,
+                    jinja_env=self.jinja_env
+                )
+
+                # Store the template object
+                self.template_objects[object_key] = template_obj
+                self.logger.debug(f"Created direct template object for {object_key}")
 
     def _load_fragments(self) -> None:
         """Load fragments from XML files in the fragment directory and its subdirectories."""
@@ -325,10 +404,10 @@ class Jinja2TemplateRepository:
 
             # Log summary of loaded fragments
             self.logger.info(f"Loaded {len(self.fragments)} fragments")
-            
+
             # Validate critical fragments
             self._ensure_critical_fragments()
-            
+
             # Update Jinja environment with loaded fragments
             self.jinja_env = self._create_jinja_environment()
 
@@ -502,22 +581,23 @@ Screen Elements:
                 # Try with common prefixes
                 prefixed_names = [f"fragments/{fragment_name}", f"ui_patterns/{fragment_name}"]
                 found = False
-                
+
                 for prefixed_name in prefixed_names:
                     if prefixed_name in self.fragments:
                         # Found with prefix, register under canonical name too
                         self.fragments[fragment_name] = self.fragments[prefixed_name]
                         found = True
                         break
-                
+
                 # If still not found, inject default content
                 if not found:
-                    self.logger.warning(f"Critical fragment '{fragment_name}' not found - injecting default content")
+                    self.logger.warning(
+                        f"Critical fragment '{fragment_name}' not found - injecting default content")
                     self.fragments[fragment_name] = default_content
 
     def _load_fragments_from_directory(self, directory: str) -> None:
         """Load fragments from XML files in the specified directory.
-        
+
         Args:
             directory: The directory containing fragment XML files.
         """
@@ -565,14 +645,14 @@ Screen Elements:
                         if fragment_content:
                             # 1. Store with direct name
                             self.fragments[fragment_name] = fragment_content
-                            
+
                             # 2. Store with subdirectory prefix if in a subdirectory
                             subdir_name = os.path.basename(directory)
                             if subdir_name != os.path.basename(self.fragment_dir):
                                 prefixed_name = f"{subdir_name}/{fragment_name}"
                                 self.fragments[prefixed_name] = fragment_content
                                 self.logger.debug(f"Registered fragment with prefix: {prefixed_name}")
-                            
+
                             self.logger.debug(f"Loaded fragment: {fragment_name}")
                         else:
                             self.logger.warning(f"No content found in fragment: {fragment_path}")
@@ -597,11 +677,11 @@ Screen Elements:
 
     def get_template(self, name: str) -> Optional[Dict[str, Any]]:
         """Get a template by name.
-        
+
         Args:
             name: The name of the template. May include a category prefix
                  (e.g., "rvdroid:exploration").
-            
+
         Returns:
             The template dictionary, or None if not found.
         """
@@ -626,10 +706,10 @@ Screen Elements:
 
     def get_fragment(self, name: str) -> Optional[str]:
         """Get a fragment by name.
-        
+
         Args:
             name: The name of the fragment. May include a category prefix.
-            
+
         Returns:
             The fragment content, or None if not found.
         """
@@ -637,11 +717,11 @@ Screen Elements:
 
     def get_template_object(self, name: str, role: str) -> Optional[Jinja2Template]:
         """Get a template object by name and role.
-        
+
         Args:
             name: The name of the template. May include a category prefix.
             role: The role (system, user, assistant).
-            
+
         Returns:
             The template object, or None if not found.
         """
@@ -649,20 +729,73 @@ Screen Elements:
         template_key = f"{name}.{role}"
         template_obj = self.template_objects.get(template_key)
 
+        if template_obj:
+            return template_obj
+
         # If not found and name has a prefix, try without prefix
-        if template_obj is None and ":" in name:
+        if ":" in name:
             base_name = name.split(":", 1)[1]
             base_key = f"{base_name}.{role}"
             template_obj = self.template_objects.get(base_key)
 
-            # If still not found, try with different category prefixes
-            if template_obj is None:
-                for obj_key in self.template_objects:
-                    if obj_key.endswith(f":{base_name}.{role}"):
-                        template_obj = self.template_objects.get(obj_key)
-                        break
+            if template_obj:
+                return template_obj
 
-        return template_obj
+            # If still not found, try with different category prefixes
+            for obj_key in self.template_objects:
+                if obj_key.endswith(f":{base_name}.{role}"):
+                    return self.template_objects.get(obj_key)
+
+        # If not found, check if this template exists and has a parent
+        template_data = self.templates.get(name)
+        if template_data:
+            parent_name = template_data.get("parent", "")
+
+            if parent_name:
+                # Lazily create an inheriting template object if needed
+                parent_template = self.get_template(parent_name)
+                if parent_template and role in parent_template.get("roles", {}):
+                    parent_content = parent_template["roles"].get(role, "")
+
+                    # Check if we have variable overrides
+                    role_data = template_data.get("roles", {}).get(role, {})
+                    if isinstance(role_data, dict) and "variable" in role_data:
+                        # Create merged content
+                        final_content = parent_content
+
+                        # Apply each variable override
+                        for variable in role_data.get("variable", []):
+                            var_name = variable.get("name", "")
+                            var_text = variable.get("text", "")
+
+                            if var_name and var_text:
+                                # Replace block in parent content with child content
+                                block_pattern = r'{%\s*block\s+' + re.escape(var_name) + r'\s*%}.*?{%\s*endblock\s*%}'
+                                replacement = f"{{% block {var_name} %}}\n{var_text}\n{{% endblock %}}"
+                                final_content = re.sub(block_pattern, replacement, final_content, flags=re.DOTALL)
+
+                        # Create template object with merged content
+                        required_vars = set(template_data.get("required_variables", []))
+                        template_obj = Jinja2Template(
+                            final_content,
+                            name,
+                            role,
+                            required_variables=required_vars,
+                            fragment_repository=self.fragments,
+                            jinja_env=self.jinja_env
+                        )
+
+                        # Cache the object for future use
+                        self.template_objects[template_key] = template_obj
+                        self.logger.debug(f"Created dynamic inheriting template for {template_key}")
+
+                        return template_obj
+
+                    # If no variable overrides, use parent template directly
+                    parent_key = f"{parent_name}.{role}"
+                    return self.get_template_object(parent_name, role)
+
+        return None
 
     def create_messages(
             self,
@@ -670,11 +803,11 @@ Screen Elements:
             variables: Dict[str, Any]
     ) -> List[Dict[str, str]]:
         """Create a list of messages using the specified template.
-        
+
         Args:
             template_name: The name of the template to use.
             variables: Variables to substitute in the template.
-            
+
         Returns:
             A list of message dictionaries with role and content.
         """
@@ -702,10 +835,11 @@ Screen Elements:
                     try:
                         # Update template with latest fragments
                         template_obj.update_fragment_repository(self.fragments)
-                        
+
                         # Render the template
                         self.logger.debug(f"Rendering template {template_name} for role: {role}")
-                        rendered_content = template_obj.render(processed_variables, external_fragments=self.fragments)
+                        rendered_content = template_obj.render(processed_variables,
+                                                               external_fragments=self.fragments)
 
                         # Add to messages list
                         messages.append({
@@ -742,11 +876,11 @@ Screen Elements:
 
     def _prepare_variables(self, variables: Dict[str, Any], template: Dict[str, Any]) -> Dict[str, Any]:
         """Prepare variables with defaults if needed.
-        
+
         Args:
             variables: The variables provided by the caller.
             template: The template definition.
-            
+
         Returns:
             A prepared variables dictionary with defaults for missing values.
         """
@@ -761,7 +895,7 @@ Screen Elements:
 
         # For additional_guidelines, create a reference to the fragment rather than embedding content
         if "additional_guidelines" not in processed:
-            # Enable the additional_guidelines conditional section, but let the template 
+            # Enable the additional_guidelines conditional section, but let the template
             # access its content via fragment includes
             processed["additional_guidelines"] = True
             self.logger.debug(f"Enabled additional_guidelines section in template {template_name}")
@@ -780,11 +914,11 @@ Screen Elements:
             variables: Dict[str, Any]
     ) -> List[LLMMessage]:
         """Create a list of LLMMessage objects using the specified template.
-        
+
         Args:
             template_name: The name of the template to use.
             variables: Variables to substitute in the template.
-            
+
         Returns:
             A list of LLMMessage objects.
         """

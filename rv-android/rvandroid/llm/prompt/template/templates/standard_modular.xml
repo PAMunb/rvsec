@@ -2,9 +2,9 @@
 <template name="standard_modular" version="1.0" extends="system_base">
   <metadata>
     <description>Standard template for Android testing (modular version)</description>
-    <created>2025-04-18</created>
+    <created>2023-05-04</created>
     <author>RV-Android Team</author>
-    <updated>2025-05-06</updated>
+    <updated>2023-05-06</updated>
   </metadata>
   <variables>
     <required>ui_elements</required>
