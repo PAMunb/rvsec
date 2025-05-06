@@ -80,7 +80,7 @@ class DefaultTextVisitor(AbstractScreenVisitor):
                 # This container has actions that aren't handled by children
                 actions = self.get_possible_actions(node, self.counter)
                 if actions:
-                    text = f"Container {node.view_class} {self._with_resource_id(node)}{self._with_description(node)}"
+                    text = f"Container {node.view_class} {self._with_description(node)}{self._with_hint(node)}"
                     item = ScreenItem(node.data, text, actions)
                     self.items.append(item)
                     self.window_info["interactive_elements"] += 1
@@ -162,10 +162,10 @@ class DefaultTextVisitor(AbstractScreenVisitor):
         if widget and hasattr(widget, 'input_type') and widget.input_type:
             input_type = f" for {widget.input_type}"
 
-        text = f"Editable text field{input_type} {self._with_text(node)}{self._has_focus(node)}{self._with_description(node)}{self._with_resource_id(node)}"
+        text = f"Editable text field{input_type} {self._with_text(node)}{self._with_description(node)}{self._with_hint(node)}{self._has_focus(node)}"
 
         if node.is_password:
-            text = f"Password field {self._with_text(node)}{self._has_focus(node)}{self._with_description(node)}{self._with_resource_id(node)}"
+            text = f"Password field {self._with_text(node)}{self._with_description(node)}{self._with_hint(node)}{self._has_focus(node)}"
 
         item = ScreenItem(node.data, text, actions)
         self.items.append(item)
@@ -193,7 +193,7 @@ class DefaultTextVisitor(AbstractScreenVisitor):
 
         # Only add if it has text content or is interactive
         if node.view_text or actions:
-            text = f"Text view {self._with_text(node)}{self._with_description(node)}{self._with_resource_id(node)}"
+            text = f"Text view {self._with_text(node)}{self._with_description(node)}{self._with_hint(node)}{self._has_focus(node)}"
             item = ScreenItem(node.data, text, actions)
             self.items.append(item)
             if actions:
@@ -211,7 +211,7 @@ class DefaultTextVisitor(AbstractScreenVisitor):
         actions = self.get_possible_actions(node, self.counter, prioritize_check=True)
 
         checked = " that is checked" if node.checked else " that is unchecked"
-        text = f"Checkbox{checked} {self._with_text(node)}{self._with_description(node)}{self._has_focus(node)}{self._with_resource_id(node)}"
+        text = f"Checkbox{checked} {self._with_text(node)}{self._with_description(node)}{self._with_hint(node)}{self._has_focus(node)}"
 
         item = ScreenItem(node.data, text, actions)
         self.items.append(item)
@@ -228,7 +228,7 @@ class DefaultTextVisitor(AbstractScreenVisitor):
         actions = self.get_possible_actions(node, self.counter, prioritize_check=True)
 
         checked = " that is checked" if node.checked else " that is unchecked"
-        text = f"Checkable text{checked} {self._with_text(node)}{self._with_description(node)}{self._has_focus(node)}{self._with_resource_id(node)}"
+        text = f"Checkable text{checked} {self._with_text(node)}{self._with_description(node)}{self._with_hint(node)}{self._has_focus(node)}"
 
         item = ScreenItem(node.data, text, actions)
         self.items.append(item)
@@ -245,7 +245,7 @@ class DefaultTextVisitor(AbstractScreenVisitor):
         widget = self.find_matching_widget(node.data)
         actions = self.get_possible_actions(node, self.counter)
 
-        text = f"Image button {self._with_text(node)}{self._with_description(node)}{self._with_resource_id(node)}"
+        text = f"Image button {self._with_text(node)}{self._with_description(node)}{self._with_hint(node)}"
 
         item = ScreenItem(node.data, text, actions)
         self.items.append(item)
@@ -273,7 +273,7 @@ class DefaultTextVisitor(AbstractScreenVisitor):
 
         # Only include interactive images or those with descriptions
         if actions or node.content_description:
-            text = f"Image {self._with_text(node)}{self._with_description(node)}{self._with_resource_id(node)}"
+            text = f"Image {self._with_text(node)}{self._with_description(node)}{self._with_hint(node)}"
             item = ScreenItem(node.data, text, actions)
             self.items.append(item)
             if actions:
@@ -291,7 +291,7 @@ class DefaultTextVisitor(AbstractScreenVisitor):
         actions = self.get_possible_actions(node, self.counter, prioritize_check=True)
 
         state = " that is ON" if node.checked else " that is OFF"
-        text = f"Toggle button{state} {self._with_text(node)}{self._with_description(node)}{self._has_focus(node)}{self._with_resource_id(node)}"
+        text = f"Toggle button{state} {self._with_text(node)}{self._with_description(node)}{self._with_hint(node)}{self._has_focus(node)}"
 
         item = ScreenItem(node.data, text, actions)
         self.items.append(item)
@@ -309,7 +309,7 @@ class DefaultTextVisitor(AbstractScreenVisitor):
         actions = self.get_possible_actions(node, self.counter, prioritize_check=True)
 
         state = " that is ON" if node.checked else " that is OFF"
-        text = f"Switch{state} {self._with_text(node)}{self._with_description(node)}{self._has_focus(node)}{self._with_resource_id(node)}"
+        text = f"Switch{state} {self._with_text(node)}{self._with_description(node)}{self._with_hint(node)}{self._has_focus(node)}"
 
         item = ScreenItem(node.data, text, actions)
         self.items.append(item)
@@ -327,7 +327,7 @@ class DefaultTextVisitor(AbstractScreenVisitor):
         actions = self.get_possible_actions(node, self.counter, prioritize_check=True)
 
         selected = " that is selected" if node.selected else " that is not selected"
-        text = f"Radio button{selected} {self._with_text(node)}{self._with_description(node)}{self._has_focus(node)}{self._with_resource_id(node)}"
+        text = f"Radio button{selected} {self._with_text(node)}{self._with_description(node)}{self._with_hint(node)}{self._has_focus(node)}"
 
         item = ScreenItem(node.data, text, actions)
         self.items.append(item)
@@ -371,7 +371,7 @@ class DefaultTextVisitor(AbstractScreenVisitor):
                 options_list += f", and {len(widget.entries) - 3} more options"
             options = f" with options: {options_list}"
 
-        text = f"Dropdown spinner{options} {self._with_text(node)}{self._with_description(node)}{self._with_resource_id(node)}"
+        text = f"Dropdown spinner{options} {self._with_text(node)}{self._with_description(node)}"
 
         item = ScreenItem(node.data, text, actions)
         self.items.append(item)
@@ -390,7 +390,7 @@ class DefaultTextVisitor(AbstractScreenVisitor):
         # Process group itself if actionable
         if node.actionable:
             actions = self.get_possible_actions(node, self.counter)
-            text = f"Radio button group {self._with_description(node)}{self._with_resource_id(node)}"
+            text = f"Radio button group {self._with_description(node)}{self._with_hint(node)}"
             item = ScreenItem(node.data, text, actions)
             self.items.append(item)
 
@@ -453,7 +453,7 @@ class DefaultTextVisitor(AbstractScreenVisitor):
             ))
 
         current_percent = int((node.progress / node.max) * 100) if node.max > 0 else 0
-        text = f"Slider currently at {current_percent}% {self._with_text(node)}{self._with_description(node)}{self._with_resource_id(node)}"
+        text = f"Slider currently at {current_percent}% {self._with_text(node)}{self._with_description(node)}"
 
         item = ScreenItem(node.data, text, actions)
         self.items.append(item)
@@ -470,4 +470,4 @@ class DefaultTextVisitor(AbstractScreenVisitor):
         Returns:
             Formatted description string
         """
-        return f"{prefix}{self._with_text(node)}{self._has_focus(node)}{self._with_description(node)}{self._with_hint(node)}"
+        return f"{prefix}{self._with_text(node)}{self._with_description(node)}{self._with_hint(node)}{self._has_focus(node)}"

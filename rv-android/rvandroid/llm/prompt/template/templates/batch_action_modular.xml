@@ -27,11 +27,9 @@
     <user><![CDATA[
 {#include user_base}
 {#include batch_ui_pattern_detection}
-{#if workflow_guidance}{workflow_guidance}
-
-{#endif}{#include batch_critical_task}{#if additional_guidelines}
-
-{additional_guidelines}{#endif}
+{#if workflow_guidance}{workflow_guidance} {#endif}
+{#include batch_critical_task}
+{#if additional_guidelines}{additional_guidelines} {#endif}
     ]]></user>
   </roles>
 </template>

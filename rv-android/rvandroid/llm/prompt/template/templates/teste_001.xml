@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<template name="teste_001" version="1.0">
+ <metadata>
+   <description>Template for security testing prompts</description>
+   <created>2025-05-01</created>
+   <author>Tutorial Author</author>
+ </metadata>
+ <variables>
+   <required>screen_elements</required>
+   <optional>security_analysis</optional>
+ </variables>
+ <roles>
+   <s><![CDATA[
+You are a security testing assistant for Android applications. Your task is to identify potential security vulnerabilities based on the current screen state.
+
+CURRENT SCREEN INFORMATION:
+{screen_elements}
+
+{#if security_analysis}
+SECURITY CONTEXT:
+{security_analysis}
+{#endif}
+
+Focus on identifying security risks such as:
+- Input validation vulnerabilities
+- Authentication bypass opportunities
+- Insecure data storage
+- Sensitive information exposure
+- Insecure communication
+   ]]></s>
+   <user><![CDATA[
+Based on the current screen, suggest ONE specific security test that would be most effective at identifying potential vulnerabilities.
+
+Your response should be in JSON format with the following structure:
+{
+ "test_name": "Brief name of the test",
+ "test_type": "Type of security test (e.g., input validation, auth bypass)",
+ "test_description": "Detailed description of how to perform the test",
+ "expected_outcome": "What to look for to determine if a vulnerability exists",
+ "severity": "low|medium|high"
+}
+   ]]></user>
+ </roles>
+</template>

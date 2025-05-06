@@ -19,7 +19,7 @@ from typing import Dict, Any, Optional, List
 from rvandroid.llm.constants import StateEntry
 from rvandroid.llm.prompt.information.base_fragment import InformationFragment
 from rvandroid.util.error.error_handler import ErrorHandler
-from rvandroid.util.logging.manager import get_logger
+from rvandroid.util.logging.manager import LoggingManager
 
 
 class TransitionGuidanceFragment(InformationFragment):
@@ -45,7 +45,7 @@ class TransitionGuidanceFragment(InformationFragment):
             priority: The priority of the fragment (higher values are displayed first)
         """
         super().__init__(name, priority)
-        self.logger = get_logger(self.__class__.__name__)
+        self.logger = LoggingManager.get_instance().get_logger(self.__class__.__name__)
         self.error_handler = ErrorHandler.get_instance()
 
     def generate(self, state: Dict[str, Any], context: Optional[Dict[str, Any]] = None) -> str:

@@ -15,16 +15,10 @@ from rvandroid.llm.prompt.strategy.base_strategy import PromptStrategy
 from rvandroid.llm.prompt.template.xml_repository import XMLTemplateRepository
 
 
-class StandardStrategy(PromptStrategy):
-    """Standard prompt generation strategy.
-    
-    This strategy provides a basic implementation that works with most use cases
-    by using the appropriate template based on the context and including all
-    relevant information. It always generates exactly one action per response.
-    """
+class Teste001Strategy(PromptStrategy):
     
     # Default template to use if none specified
-    DEFAULT_TEMPLATE = PromptStrategyType.STANDARD
+    DEFAULT_TEMPLATE = "teste_001"
     
     def __init__(
         self,
@@ -85,18 +79,18 @@ class StandardStrategy(PromptStrategy):
             # Combine information with context to create variables for template
             variables = {**state, **info, **context}
             
-            # # Format basic UI information if not present
-            # if FragmentType.UI_ELEMENTS not in variables and StateEntry.SCREEN_DESCRIPTION not in state and StateEntry.SCREEN_PATTERNS in state:
-            #     variables["screen_elements"] = self._format_screen_elements(state[StateEntry.SCREEN_PATTERNS])
-            # elif StateEntry.SCREEN_DESCRIPTION in state:
-            #     variables["screen_elements"] = state[StateEntry.SCREEN_DESCRIPTION]
+            # Format basic UI information if not present
+            if FragmentType.UI_ELEMENTS not in variables and StateEntry.SCREEN_DESCRIPTION not in state and StateEntry.SCREEN_PATTERNS in state:
+                variables["screen_elements"] = self._format_screen_elements(state[StateEntry.SCREEN_PATTERNS])
+            elif StateEntry.SCREEN_DESCRIPTION in state:
+                variables["screen_elements"] = state[StateEntry.SCREEN_DESCRIPTION]
             
-            # Add prompt guidance for single action
-            if "additional_guidelines" not in variables:
-                variables["additional_guidelines"] = (
-                    "Suggest exactly ONE specific action that can be executed to test the application. "
-                    "Do not provide multiple options or actions."
-                )
+            # # Add prompt guidance for single action
+            # if "additional_guidelines" not in variables:
+            #     variables["additional_guidelines"] = (
+            #         "Suggest exactly ONE specific action that can be executed to test the application. "
+            #         "Do not provide multiple options or actions."
+            #     )
             
             # Generate messages from template
             if self.template_repository:

@@ -14,6 +14,7 @@ from rvandroid.llm.prompt.information.fragment_manager import InformationManager
 from rvandroid.llm.prompt.information.fragments.history_fragment import HistoryFragment
 from rvandroid.llm.prompt.information.fragments.monitored_operations_fragment import MonitoredOperationsFragment
 from rvandroid.llm.prompt.information.fragments.screenshot_fragment import ScreenshotFragment
+from rvandroid.llm.prompt.information.fragments.transition_guidance_fragment import TransitionGuidanceFragment
 from rvandroid.llm.prompt.information.fragments.ui_elements_fragment import UIElementsFragment
 from rvandroid.llm.prompt.information.fragments.ui_pattern_fragment import UIPatternFragment
 from rvandroid.llm.prompt.strategy.strategies.batch_action_strategy import BatchActionStrategy
@@ -86,7 +87,8 @@ class PromptFramework:
             UIPatternFragment(),
             MonitoredOperationsFragment(),
             ScreenshotFragment(),
-            HistoryFragment()
+            HistoryFragment(),
+            TransitionGuidanceFragment()
         ]
         information_manager.register_fragments(fragments)
 

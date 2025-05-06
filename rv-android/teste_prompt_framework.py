@@ -33,7 +33,28 @@ from rvandroid.parser.screen.visitor.model import ScreenDescription
 from rvandroid.parser.screen.visitor.visitor_factory import VisitorFactory
 from rvandroid.parser.static import static_analysis_parser
 from rvandroid.util.logging.manager import LoggingManager
+import argparse
+import json
+import logging
+import os
+import sys
+import time
+from datetime import datetime
+from typing import Dict, List, Any, Optional, Tuple
 
+from rvandroid.app import App
+from rvandroid.config.component_configurator import ComponentConfigurator
+from rvandroid.llm.constants import PromptStrategyType, ScreenParserType, StateEntry, VisitorType
+from rvandroid.llm.service.action_generator import GeneratedAction
+from rvandroid.llm.service.action_service import LLMActionService
+from rvandroid.llm.service.memory_manager import MemoryManager
+from rvandroid.llm.service.transition_manager import TransitionManager
+from rvandroid.parser.screen.parser_factory import ParserFactory, ParserType
+from rvandroid.parser.screen.visitor.default_visitor import DefaultTextVisitor
+from rvandroid.parser.static import static_analysis_parser
+from rvandroid.util.error.error_handler import ErrorHandler
+from rvandroid.util.logging.constants import CONTEXT_COMPONENT
+from rvandroid.util.logging.manager import LoggingManager
 
 # Helper functions for loading data
 
@@ -42,9 +63,24 @@ def read_droidbot_state(filename: str) -> Dict[str, Any]:
     with open(filename, 'r') as file:
         return json.load(file)
 
-def enrich_state(state, static_data: StaticAnalysisData, config: ComponentConfigurator):
-    enricher = StateEnricher(static_data, config)
-    return enricher.enrich_state(state)
+def enrich_state(state, static_data: StaticAnalysisData, config: ComponentConfigurator, package_name: str):
+    memory_manager = MemoryManager(
+        app_package=package_name,
+        static_data=static_data
+    )
+    transition_manager = TransitionManager(static_data)
+    llm_service = LLMActionService(
+        static_data=static_data,
+        config=config,
+        app_package=package_name
+    )
+
+    # Override service's managers with our instances for testing
+    llm_service.memory_manager = memory_manager
+    llm_service.transition_manager = transition_manager
+
+    llm_service.pre_process_state(state)
+    return state
 
 def create_state_from_droidbot_state(droidbot_state_file: str, screenshot_path: str, package: str, static_data: StaticAnalysisData):
     screen_info = read_droidbot_state(droidbot_state_file)
@@ -432,7 +468,7 @@ Login screen with:
     }
 
     # Generate prompt using standard strategy
-    messages = framework.generate_prompt(PromptStrategyType.STANDARD, state, {})
+    messages = framework.generate_prompt(state, {})
 
     print(f"\nGenerated {len(messages)} messages for the LLM")
     for i, message in enumerate(messages):
@@ -646,20 +682,21 @@ def tmp_002(droidbot_state_file, screenshot_path, package, static_data):
     configurator.set_llm(
         llm_type=OllamaLLM.NAME,
         model=OllamaLLM.QWEN,
-        base_url="http://localhost:11434"
+        base_url="http://192.168.0.18:11434"
     )
-    configurator.set_strategy(PromptStrategyType.STANDARD)
+    configurator.set_strategy(PromptStrategyType.BATCH_ACTION)
     configurator.set_parser(ScreenParserType.DROIDBOT)
     configurator.set_visitor(VisitorFactory.DEFAULT)
 
     prompt_framework = PromptFramework.create(configurator)
 
-    state = enrich_state(state, static_data, configurator)
+    state = enrich_state(state, static_data, configurator, package)
 
     prompt = prompt_framework.generate_prompt(state)
     # print(prompt)
 
     for msg in prompt:
+        print(f"\n\n*************** ROLE: {msg.role} ::: contents={len(msg.content)}")
         for content in msg.content:
             print(content.text)
 
