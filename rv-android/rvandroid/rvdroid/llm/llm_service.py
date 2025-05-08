@@ -116,7 +116,7 @@ class LLMService:
             configurator.set_llm(
                 model_type, 
                 model_name,
-                temperature=0.7,  # Default temperature
+                temperature=0.2,  # Default temperature
                 max_tokens=800    # Default max tokens
             )
             model = configurator.create_llm()

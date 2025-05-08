@@ -272,6 +272,7 @@ class MemoryManager:
             
             # Add long-term memory insights
             activity = self._get_activity_from_state(state)
+            # TODO rever
             state_hash = state.get(StateEntry.HASH_SCREEN_CONTENT,
                                   state.get(StateEntry.HASH_SCREEN, "unknown"))
             

@@ -23,8 +23,6 @@ For actions that require parameters (like SET_TEXT), you must include appropriat
   ]
 }
 
-IMPORTANT: You must select EXACTLY ONE action, so your actions array should contain exactly one element.
-
-DO NOT include any additional text outside of the JSON object. Your response must be valid JSON that can be parsed directly.
+You must select EXACTLY ONE action. Your response must be valid, parseable JSON with no additional text.
   ]]>
 </fragment>

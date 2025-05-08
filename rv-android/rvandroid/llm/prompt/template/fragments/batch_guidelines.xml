@@ -1,17 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <fragment name="batch_guidelines">
   <![CDATA[
-BATCH GENERATION GUIDELINES:
-- Include 1-10 actions in your batch (more for complex patterns, fewer for simple ones)
-- Ensure actions flow logically from one to the next
-- Focus on completing a cohesive task or interaction sequence
-- Make sure all actions in the batch are currently available on the screen
-- For form patterns, follow a natural sequence (fill fields from top to bottom, then submit)
-- For list patterns, test both scrolling and item selection
-- For tab patterns, visit multiple tabs and interact with content on each
-- Avoid including unrelated actions that don't fit the identified pattern
-
-IMPORTANT: If you can't identify a clear UI pattern or there aren't enough related actions,
-still generate a batch but note this in your explanation and use a smaller batch size.
+TESTING GUIDELINES:
+FOLLOW LOGICAL ORDER - Complete form fields before submitting, open dropdowns before selecting
+PRIORITIZE NEW AREAS - Explore untested functionality before revisiting familiar screens
+USE APPROPRIATE VALUES - Match input values to field types (email, password, etc.)
+TARGET MARKED OPERATIONS - When appropriate, select actions marked with [M] or [DM]
+CONSIDER SEQUENCES - For multi-step interactions (forms, dialogs, menus), follow a complete sequence
   ]]>
 </fragment>

@@ -10,6 +10,7 @@ from rvandroid.config.component_configurator import ComponentConfigurator
 from rvandroid.config.configuration import Configuration
 from rvandroid.experiment.task.task_model import Task
 from rvandroid.llm.constants import PromptStrategyType, ScreenParserType
+from rvandroid.llm.ollama_llm import OllamaLLM
 from rvandroid.parser.screen.visitor.visitor_factory import VisitorFactory
 from rvandroid.server import Server
 from rvandroid.tools.configurable_tool import ConfigurableTool
@@ -86,11 +87,23 @@ class ToolSpec(ConfigurableTool):
         # Initialize error handler
         error_handler = ErrorHandler.get_instance()
 
+        configurator = ComponentConfigurator(task.static_data)
+        configurator.set_llm(
+            llm_type=OllamaLLM.NAME,
+            model=OllamaLLM.DEEPSEEK,
+            base_url="http://192.168.0.18:11434",
+            temperature=0.2,
+            max_tokens=500
+        )
+        configurator.set_strategy(PromptStrategyType.STANDARD)
+        configurator.set_parser(ScreenParserType.DROIDBOT)
+        configurator.set_visitor(VisitorFactory.DEFAULT)
+
         # Log configuration
         logger.info(f"RVAndroid tool using configuration: {self.component_config.describe_configuration()}")
 
-        # Create MCP-based service
-        logger.info("Creating MCP-based LLM action service")
+        # Create LLM service
+        logger.info("Creating LLM action service")
         from rvandroid.llm.service.action_service import LLMActionService
         service = LLMActionService(task.static_data, config=self.component_config, app_package=task.app.package_name)
 

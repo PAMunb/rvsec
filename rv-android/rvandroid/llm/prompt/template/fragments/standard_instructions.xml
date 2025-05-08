@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <fragment name="standard_instructions">
   <![CDATA[
-IMPORTANT: You will be provided with a list of possible actions, each with a unique action_id. Your job is to select exactly ONE action to perform. Choose the most effective action for thorough testing.
+Select EXACTLY ONE action from the available options. Choose the action that most effectively advances testing coverage while following a logical interaction sequence.
   ]]>
 </fragment>

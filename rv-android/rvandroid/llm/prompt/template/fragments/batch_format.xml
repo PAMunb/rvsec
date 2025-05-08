@@ -3,7 +3,6 @@
   <![CDATA[
 Your response MUST follow this schema - a JSON object with the following structure:
 {
-  "pattern_type": "form|list|tabs|dialog|navigation|custom",
   "actions": [
     {
       "action_id": "5",  

@@ -27,10 +27,7 @@
     <user><![CDATA[
 I'm testing an Android application and need your guidance on the next action to take.
 
-Current Activity: {{ activity }}
-
-Screen Elements:
-{{ ui_elements }}
+{% include "user_base" %}
 
 {% if additional_guidelines %}
 GUIDELINES:
