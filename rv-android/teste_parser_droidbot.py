@@ -34,6 +34,8 @@ def tmp_001(screen_info, static_data):
     Mostra a descrição completa da tela com elementos e ações.
     """
     parser = ParserFactory.create(ParserType.DROIDBOT, BasicTextVisitor)
+    # parser = ParserFactory.create(ParserType.DROIDBOT, DefaultTextVisitor)
+    # parser = ParserFactory.create(ParserType.DROIDBOT, EnhancedTextVisitor)
     screen_description = parser.parse(screen_info, static_data)
     print(f"=== EXEMPLO 1: BasicTextVisitor com DroidBot ===")
     print(f"Activity: {screen_description.activity}")
@@ -417,13 +419,12 @@ if __name__ == '__main__':
     # Definir caminhos para os arquivos
     apk = "cryptoapp.apk"
     screenshot_folder = "/home/pedro/desenvolvimento/RV_ANDROID/teste_llm/screenshots/" + apk
-    droidbot_info_file = screenshot_folder + "/007.state"
+    droidbot_info_file = screenshot_folder + "/004.state"
     uiautomator_xml_file = screenshot_folder + "/002.xml"  # Ajuste o caminho se necessário
 
     # Carregar dados
     screen_info = read_droidbot_state(droidbot_info_file)
-    print(f"screen_info: {screen_info}")
-    exit(-1)
+
     uiautomator_xml = None
     try:
         uiautomator_xml = read_uiautomator_xml(uiautomator_xml_file)

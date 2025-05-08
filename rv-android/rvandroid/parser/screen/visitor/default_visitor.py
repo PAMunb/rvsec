@@ -356,13 +356,18 @@ class DefaultTextVisitor(AbstractScreenVisitor):
             ))
 
         # Only add vertical scroll for spinners
-        if node.scrollable:
-            for direction in ["UP", "DOWN"]:
-                actions.append(ItemAction(
-                    self.counter.inc(),
-                    f"SCROLL {direction} ({self.counter.get()})",
-                    WidgetEventType.SCROLL, False, False
-                ))
+        # if node.scrollable:
+        #     for direction in ["UP", "DOWN"]:
+        #         actions.append(ItemAction(
+        #             self.counter.inc(),
+        #             f"SCROLL {direction} ({self.counter.get()})",
+        #             WidgetEventType.SCROLL, False, False
+        #         ))
+
+        selected_item_text = ""
+        if hasattr(node, 'children') and node.children:
+            first_child = node.children[0]
+            selected_item_text = f" with selected item '{first_child.view_text}'"
 
         options = ""
         if widget and hasattr(widget, 'entries') and widget.entries:
@@ -371,7 +376,7 @@ class DefaultTextVisitor(AbstractScreenVisitor):
                 options_list += f", and {len(widget.entries) - 3} more options"
             options = f" with options: {options_list}"
 
-        text = f"Dropdown spinner{options} {self._with_text(node)}{self._with_description(node)}"
+        text = f"Dropdown spinner{selected_item_text}{options} {self._with_description(node)}{self._with_hint(node)}"
 
         item = ScreenItem(node.data, text, actions)
         self.items.append(item)

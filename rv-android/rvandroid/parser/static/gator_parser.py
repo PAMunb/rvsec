@@ -72,7 +72,7 @@ class GatorParser(BaseStaticAnalysisParser):
 
             window_id = str(window["id"])
             screen = self.get_or_create(windows, class_name, window_id)
-            # screen.id = window_id
+            screen.id = window_id
             # print(f"************* window_id: {window_id} ::: screen = {screen}")
 
     def process_transitions(self, windows: Windows, gator_data: dict) -> WindowTransitionGraph:
@@ -261,10 +261,10 @@ class GatorParser(BaseStaticAnalysisParser):
         self.logger.debug(f"Window {window_name} not found ... creating new window")
         window = windows.create_new_window(window_name, window_id)
         
-        # Set activity name from window name if it appears to be an Activity class
-        if "Activity" in window_name or window_name.startswith("com.") or window_name.startswith("android."):
-            window.activity = window_name
-            window.class_name = window_name
+        # # Set activity name from window name if it appears to be an Activity class
+        # if "Activity" in window_name or window_name.startswith("com.") or window_name.startswith("android."):
+        #     window.activity = window_name
+        #     window.class_name = window_name
             
         return window
 

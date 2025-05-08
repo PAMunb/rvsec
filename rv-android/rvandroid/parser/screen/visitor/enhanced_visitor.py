@@ -629,16 +629,21 @@ class EnhancedTextVisitor(AbstractScreenVisitor):
             ))
 
         # Add vertical scroll for spinners
-        if node.scrollable:
-            for direction in ["UP", "DOWN"]:
-                actions.append(ItemAction(
-                    self.counter.inc(),
-                    f"SCROLL {direction} ({self.counter.get()})",
-                    WidgetEventType.SCROLL, False, False,
-                    target_view=node.data
-                ))
+        # if node.scrollable:
+        #     for direction in ["UP", "DOWN"]:
+        #         actions.append(ItemAction(
+        #             self.counter.inc(),
+        #             f"SCROLL {direction} ({self.counter.get()})",
+        #             WidgetEventType.SCROLL, False, False,
+        #             target_view=node.data
+        #         ))
 
         # Generate detailed options information
+        selected_item_text = ""
+        if hasattr(node, 'children') and node.children:
+            first_child = node.children[0]
+            selected_item_text = f" with selected item '{first_child.view_text}'"
+
         options_info = ""
         if widget and hasattr(widget, 'entries') and widget.entries:
             options_list = ", ".join(widget.entries[:3])
@@ -647,7 +652,7 @@ class EnhancedTextVisitor(AbstractScreenVisitor):
             options_info = f" with options: {options_list}"
 
         description = (
-            f"Dropdown spinner{options_info} "
+            f"Dropdown spinner{selected_item_text}{options_info} "
             f"{self._with_text(node)}"
             f"{self._with_description(node)}"
             f"{self._with_resource_id(node)}"

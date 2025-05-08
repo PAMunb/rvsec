@@ -113,7 +113,7 @@ class StaticAnalysisParser:
 
         logger.debug(f"Looking for GESDA file: {gesda_file}")
         try:
-            self.gesda_parser.parse_file(gesda_file, package, classes, windows)
+            windows = self.gesda_parser.parse_file(gesda_file, package, classes, windows)
         except Exception as e:
             logger.error(f"Error parsing gesda file: {e}")
 

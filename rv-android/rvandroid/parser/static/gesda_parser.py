@@ -31,7 +31,8 @@ class GesdaParser(BaseStaticAnalysisParser):
             return windows if windows is not None else Windows()
 
         try:
-            windows = Windows()
+            if windows is None:
+                windows = Windows()
 
             gesda_data = utils.read_json(file_path)
             if gesda_data and "windows" in gesda_data:

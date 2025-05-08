@@ -258,17 +258,24 @@ class BasicTextVisitor(AbstractScreenVisitor):
                 target_view=node.data
             ))
 
-        # Add scroll actions
-        if node.scrollable:
-            for direction in ["UP", "DOWN"]:
-                actions.append(ItemAction(
-                    self.counter.inc(),
-                    f"SCROLL {direction} ({self.counter.get()})",
-                    WidgetEventType.SCROLL, False, False,
-                    target_view=node.data
-                ))
+        # # Add scroll actions
+        # if node.scrollable:
+        #     for direction in ["UP", "DOWN"]:
+        #         actions.append(ItemAction(
+        #             self.counter.inc(),
+        #             f"SCROLL {direction} ({self.counter.get()})",
+        #             WidgetEventType.SCROLL, False, False,
+        #             target_view=node.data
+        #         ))
 
-        item = ScreenItem(node.data, "Dropdown", actions)
+        selected_item_text = ""
+        if hasattr(node, 'children') and node.children:
+            first_child = node.children[0]
+            selected_item_text = f" with selected item '{first_child.view_text}'"
+
+        text = f"Dropdown{selected_item_text} {self._with_description(node)}"
+
+        item = ScreenItem(node.data, text, actions)
         self.items.append(item)
         self.window_info["interactive_elements"] += 1
 
