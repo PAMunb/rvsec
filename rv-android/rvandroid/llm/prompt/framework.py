@@ -130,21 +130,6 @@ class PromptFramework:
                 template_repository=template_repository
             )
             config.register_strategy(PromptStrategyType.BATCH_ACTION, implementation=batch_strategy)
-            
-        # Also register Teste001Strategy if available and not already registered
-        try:
-            if "teste_001" not in existing_strategy_types:
-                from rvandroid.llm.prompt.strategy.strategies.teste_001 import Teste001Strategy
-                teste_strategy = Teste001Strategy(
-                    information_manager=information_manager,
-                    template_repository=template_repository
-                )
-                config.register_strategy(teste_strategy.name, implementation=teste_strategy)
-        except ImportError:
-            # Optional strategy not available, log and continue
-            logging_manager = LoggingManager.get_instance()
-            logger = logging_manager.get_logger("llm.prompt.framework")
-            logger.debug("Teste001Strategy not available, skipping registration")
 
         # Create framework
         framework = cls(
@@ -214,9 +199,12 @@ class PromptFramework:
                 name = self.config.llm_config.strategy_type
             else:
                 name = PromptStrategyType.STANDARD
+        print(f" *** strategy_name = {name}")
 
         # Get strategy from ComponentConfigurator
         try:
+            xxx = self.config._registries['strategy'].get(name)
+            print(f" *** strategy = {xxx}")
             return self.config.create_strategy(strategy_type=name)
         except Exception as e:
             self.logger.error(f"Error getting strategy '{name}': {e}")

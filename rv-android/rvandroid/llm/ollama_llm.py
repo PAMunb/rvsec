@@ -58,7 +58,7 @@ class OllamaLLM(LanguageModel):
 
     # Available model definitions
     LLAMA: ClassVar[str] = "llama3.2:3b"
-    DEEPSEEK: ClassVar[str] = "deepseek-r1:7b"
+    DEEPSEEK: ClassVar[str] = "deepseek-r1:1.5B"
     GEMMA: ClassVar[str] = "gemma3:4b"
     QWEN: ClassVar[str] = "qwen3:8b"
     PHI: ClassVar[str] = "phi4-mini-reasoning:3.8b"
@@ -103,54 +103,6 @@ class OllamaLLM(LanguageModel):
         """Get the appropriate MCP adapter for this model."""
         return OllamaAdapter()
 
-    # async def generate(self,
-    #                    messages: List[LLMMessage],
-    #                    config: Optional[MCPConfiguration] = None) -> LLMMessage:
-    #     """
-    #     Generate a response using Ollama's chat API.
-    #
-    #     Updated implementation uses Ollama's chat API which provides better
-    #     handling of conversation contexts and message formatting.
-    #
-    #     Args:
-    #         messages: List of MCP messages representing the conversation
-    #         config: Optional configuration parameters that override instance config
-    #
-    #     Returns:
-    #         LLMMessage containing the generated response
-    #
-    #     Raises:
-    #         ValueError: If the request is invalid for Ollama
-    #         Exception: If an error occurs during generation
-    #     """
-    #     # Use provided config or instance config
-    #     use_config = config or self.config
-    #
-    #     # Validate request using adapter
-    #     if not self.adapter.validate_request(messages, use_config):
-    #         raise ValueError("Invalid request for Ollama")
-    #
-    #     # Prepare messages using adapter
-    #     prepared_data = self.adapter.prepare_messages(messages)
-    #
-    #     # Prepare configuration using adapter
-    #     prepared_config = self.adapter.prepare_config(use_config)
-    #
-    #     try:
-    #         # Use chat API instead of generate API
-    #         response = await self.client.chat(
-    #             model=prepared_config.pop("model"),
-    #             messages=prepared_data["messages"],
-    #             options=prepared_config
-    #         )
-    #
-    #         # Parse response using adapter
-    #         return self.adapter.parse_response(response)
-    #
-    #     except Exception as e:
-    #         self.logger.error(f"Ollama request error: {e}")
-    #         raise
-
     def generate(self,
                  messages: List[LLMMessage],
                  config: Optional[LLMConfiguration] = None) -> LLMResponse:
@@ -163,7 +115,7 @@ class OllamaLLM(LanguageModel):
             print(f"role={xxx['role']}, content=\n{xxx['content']}")
 
         options = {}
-        if config.temperature is not None:
+        if config and config.temperature is not None:
             options["temperature"] = config.temperature
         else:
             options["temperature"] = 0.2

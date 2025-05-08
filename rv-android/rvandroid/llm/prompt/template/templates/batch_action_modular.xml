@@ -9,7 +9,6 @@
   <variables>
     <required>ui_elements</required>
     <optional>additional_guidelines</optional>
-    <optional>ui_patterns</optional>
     <optional>monitored_operations</optional>
     <optional>testing_history</optional>
   </variables>
@@ -27,14 +26,6 @@
     </system>
     <user><![CDATA[
 {% include "user_base" %}
-
-{% if ui_patterns %}
-UI PATTERNS DETECTED:
-{{ ui_patterns }}
-{% endif %}
-
-{% if detected_pattern == "form" %}{% include "ui_patterns/form_pattern" %}{% endif %}
-{% if detected_pattern == "list" %}{% include "ui_patterns/list_pattern" %}{% endif %}
 
 {% if workflow_guidance is defined and workflow_guidance %}
 {{ workflow_guidance }}
