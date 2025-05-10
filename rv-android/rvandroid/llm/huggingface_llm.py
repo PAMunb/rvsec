@@ -1,29 +1,54 @@
 # rvandroid/llm/huggingface_llm.py
+"""HuggingFace language model implementation."""
+
 import logging
-from typing import List, Dict, Optional
+import time
+from typing import List, Dict, Optional, Any
 
 import torch
 from transformers import AutoTokenizer, AutoModelForCausalLM, BitsAndBytesConfig
 
 from rvandroid.llm.language_model import LanguageModel
-from rvandroid.llm.data_structures import LLMMessage
-from rvandroid.llm.adapters.huggingface_adapter import HuggingFaceAdapter
+from rvandroid.llm.data_structures import LLMMessage, LLMResponse
+from rvandroid.llm.llm_config import LLMConfiguration
 from rvandroid.config.component_configurator import ComponentConfigurator
 from rvandroid.util.error.error_handler import ErrorHandler
-
-logger = logging.getLogger(__name__)
+from rvandroid.util.logging.manager import LoggingManager
+from rvandroid.util.logging.constants import CONTEXT_COMPONENT
 
 
 class HuggingFaceLLM(LanguageModel):
     """
-    A class for interacting with Hugging Face language models using MCP.
-    Provides efficient loading and generation with quantization support.
+    A specialized language model integration for HuggingFace transformers models.
+
+    ### Architectural Decisions:
+    - Implements a highly optimized integration with Hugging Face transformers library
+    - Supports quantized model loading for efficient memory usage
+    - Provides configurable device placement (CPU/CUDA)
+    - Enables lazy loading of models to minimize resource consumption
+    - Uses optimized generation parameters for best performance
+    - Implements efficient token management for context handling
+
+    ### Role in the System:
+    - Acts as a concrete implementation of the LanguageModel abstract base class
+    - Facilitates local AI-driven testing using high-quality open models
+    - Supports a wide range of HuggingFace transformer models
+    - Handles model initialization, tokenization, and generation
+    - Tracks performance metrics for system evaluation
+    - Provides device-aware execution for optimal performance
+
+    ### Key Considerations:
+    - Manages complex model initialization and resource allocation
+    - Handles memory constraints through quantization options
+    - Implements device-appropriate dtype selection and memory optimizations
+    - Tracks detailed performance metrics for generation analysis
+    - Provides consistent interface across model implementations
     """
     NAME = "huggingface"
     
     # Available model definitions
     LLAMA = "meta-llama/Meta-Llama-3.1-8B-Instruct"
-    DEEPSEEK = "deepseek-ai/DeepSeek-R1-Distill-Qwen-7B"
+    DEEPSEEK = "deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B" #"deepseek-ai/DeepSeek-R1-Distill-Qwen-7B"
     GEMMA = "google/gemma-3-4b-it"
     QWEN = "Qwen/Qwen2.5-3B-Instruct"
     PHI = "microsoft/Phi-3.5-mini-instruct"
@@ -31,7 +56,7 @@ class HuggingFaceLLM(LanguageModel):
     FALCON = "tiiuae/Falcon3-3B-Instruct"
     MISTRAL = "mistralai/Mistral-7B-Instruct-v0.3"
 
-    # MODELS = [LLAMA, DEEPSEEK, GEMMA, QWEN, PHI, GRANITE, FALCON, MISTRAL]
+    # Default set of models to use (can be extended/modified via configuration)
     MODELS = [LLAMA, GEMMA, QWEN]
 
     def __init__(self, model_name: str, device: str = "cuda", **kwargs):
@@ -44,26 +69,23 @@ class HuggingFaceLLM(LanguageModel):
             **kwargs: Additional model parameters for generation
         """
         # Initialize the language model base class
-        super().__init__(model_name)
+        super().__init__(model_name, **kwargs)
         
         # Set up model properties
         self._model = None
         self._tokenizer = None
         self._device = device
-        self.logger = logger
-        self.kwargs = kwargs
-        self.error_handler = ErrorHandler.get_instance()
         
-        # Store device in kwargs for the adapter
+        # Store device in kwargs for consistency
         self.kwargs["device"] = device
-
-    def _get_model_type(self) -> str:
-        """Get model type string."""
-        return "huggingface"
-
-    def _get_adapter(self):
-        """Get the appropriate MCP adapter for this model."""
-        return HuggingFaceAdapter()
+        
+        # Setup logging and error handling
+        self.logging_manager = LoggingManager.get_instance()
+        self.logger = self.logging_manager.get_logger(
+            "llm.huggingface", 
+            {CONTEXT_COMPONENT: self.__class__.__name__}
+        )
+        self.error_handler = ErrorHandler.get_instance()
 
     @property
     def model(self) -> AutoModelForCausalLM:
@@ -148,67 +170,82 @@ class HuggingFaceLLM(LanguageModel):
 
         return self._tokenizer
 
-    def generate(self, messages: List[LLMMessage], config = None) -> LLMMessage:
+    def generate(self, messages: List[LLMMessage], config: Optional[LLMConfiguration] = None) -> LLMResponse:
         """
-        Generate text based on the input messages synchronously using MCP.
+        Generate text based on the input messages.
 
         Args:
             messages: List of LLMMessage objects
-            config: Optional MCPConfiguration object
+            config: Optional LLMConfiguration object
 
         Returns:
-            LLMMessage with the generated response
+            LLMResponse containing the generated text and performance metrics
         """
         # Use provided config or default
-        _config = config or self.config
+        _config = config or self.default_config
         
         try:
-            # Get MCP adapter
-            adapter = self._get_adapter()
+            # Track performance metrics
+            start_time = time.time()
+            load_start_time = start_time
             
-            # Validate request
-            if not adapter.validate_request(messages, _config):
-                error_msg = "Invalid request for HuggingFace model"
-                self.logger.error(error_msg)
-                from rvandroid.util.exceptions import RVAndroidError
-                error = RVAndroidError(error_msg)
-                self.error_handler.handle_error(error)
-                raise ValueError(error_msg)
-            
-            # Format messages using the adapter
+            # Format messages for HuggingFace
             hf_messages = []
             for message in messages:
                 content = message.get_text_content()
                 hf_messages.append({
                     "role": message.role.value,
                     "content": content
+                    # "content": message.to_message_dict()
                 })
             
-            # Format configuration using the adapter
-            generation_config = adapter.prepare_config(_config)
-            max_new_tokens = generation_config.pop("max_new_tokens", 800)
+            # Extract generation parameters from config
+            max_new_tokens = _config.max_tokens if _config and _config.max_tokens is not None else 1000
+            temperature = _config.temperature if _config and _config.temperature is not None else 0.2
+            top_p = _config.kwargs.get("top_p", 1.0)
+            
+            # Ensure model and tokenizer are loaded
+            _ = self.model  # This triggers lazy loading
+            _ = self.tokenizer
+            
+            # Record model load time
+            load_end_time = time.time()
+            load_duration = (load_end_time - load_start_time) * 1000  # Convert to ms
+            
+            # Start tokenization timer
+            tokenization_start = time.time()
             
             # Apply chat template to format the messages
             encoded_input = self.tokenizer.apply_chat_template(
                 hf_messages, return_tensors="pt", add_generation_prompt=True
             )
-
+            
+            # Get the input length to identify only new tokens later
+            input_length = encoded_input.shape[1]
+            input_tokens = input_length
+            
             # Create attention mask (all tokens are attended to)
             attention_mask = torch.ones(encoded_input.shape, dtype=torch.long)
-
+            
             # Move tensors to the correct device
             inputs = encoded_input.to(self._device)
             attention_mask = attention_mask.to(self._device)
-
-            # Get the input length to identify only new tokens later
-            input_length = inputs.shape[1]
-
+            
+            # End tokenization timer
+            tokenization_end = time.time()
+            input_tokens_duration = (tokenization_end - tokenization_start) * 1000  # Convert to ms
+            
             # Configure generation parameters
             generation_params = {
                 "attention_mask": attention_mask,
                 "max_new_tokens": max_new_tokens,
-                **generation_config
+                "temperature": temperature,
+                "top_p": top_p,
+                "do_sample": temperature > 0.001,  # Only use sampling if temperature is non-zero
             }
+            
+            # Start generation timer
+            generation_start = time.time()
                 
             # Generate text
             with torch.no_grad():
@@ -216,17 +253,39 @@ class HuggingFaceLLM(LanguageModel):
                     inputs, 
                     **generation_params
                 )
-
+            
+            # End generation timer
+            generation_end = time.time()
+            output_tokens_duration = (generation_end - generation_start) * 1000  # Convert to ms
+            
             # Extract only the newly generated tokens
+            output_tokens = outputs.shape[1] - input_length
             result = self.tokenizer.decode(outputs[0][input_length:], skip_special_tokens=True)
-
+            
             # Clean up memory
             del inputs, outputs, attention_mask
             if self._device == "cuda":
                 torch.cuda.empty_cache()
-                
-            # Parse response using the adapter
-            return adapter.parse_response(result)
+            
+            # Calculate total duration
+            end_time = time.time()
+            total_duration = (end_time - start_time) * 1000  # Convert to ms
+            
+            # Create and return response with performance metrics
+            response = LLMResponse(
+                content=result,
+            )
+            
+            # Add performance metrics
+            response.done_reason = "stop"
+            response.total_duration = total_duration
+            response.load_duration = load_duration
+            response.input_tokens = input_tokens
+            response.input_tokens_duration = input_tokens_duration
+            response.output_tokens = output_tokens
+            response.output_tokens_duration = output_tokens_duration
+            
+            return response
             
         except Exception as e:
             error_msg = f"Error generating text: {str(e)}"
@@ -263,6 +322,23 @@ class HuggingFaceLLM(LanguageModel):
         """
         return HuggingFaceLLM.MODELS
 
+    @property
+    def default_config(self) -> LLMConfiguration:
+        """
+        Returns the default configuration for this model.
+        
+        Returns:
+            LLMConfiguration with default settings
+        """
+        return LLMConfiguration(
+            model_type=self.NAME,
+            model_name=self.model_name,
+            max_tokens=1000,
+            temperature=0.2,
+            top_p=1.0,
+            top_k=40
+        )
+
 
 # Register the model
 def register():
@@ -274,5 +350,3 @@ def register():
         
     # Register the LLM
     ComponentConfigurator.register_llm("huggingface", HuggingFaceLLM)
-    # Register adapter if needed
-    # AdapterRegistry.get_instance().register_adapter("huggingface", HuggingFaceAdapter)

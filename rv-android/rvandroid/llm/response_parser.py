@@ -114,6 +114,7 @@ class ResponseParser:
             ValueError: If no valid JSON can be extracted
         """
         self.logger.debug(f"Attempting to extract JSON from response of length {len(text)}")
+        print(f"\n****text=\n{text}")
 
         # Try to validate the entire text as JSON first (common in API responses)
         try:

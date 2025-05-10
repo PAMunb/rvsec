@@ -57,7 +57,7 @@ class LLMActionService:
             self,
             static_data: StaticAnalysisData,
             config: ComponentConfigurator,
-            app_package: str,
+            app_package: str, # TODO: Remove this parameter
             **model_kwargs
     ):
         """Initialize the LLM action service with its component system.

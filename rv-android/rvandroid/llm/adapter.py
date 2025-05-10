@@ -1,5 +1,5 @@
 # rvandroid/llm/adapter.py
-"""Model Context Protocol (MCP) Adapter Framework."""
+
 
 from abc import ABC, abstractmethod
 from typing import Dict, Any, List, Type, Optional
@@ -11,11 +11,11 @@ from rvandroid.util.error.error_handler import ErrorHandler
 
 class MCPAdapter(ABC):
     """
-    Abstract base adapter for converting between MCP and model-specific formats.
+    Abstract base adapter for converting between LLM and model-specific formats.
     
     The adapter pattern provides a standardized interface for communicating with
     different language model APIs. Each model type has its own adapter implementation
-    that handles the conversion between the MCP format and the model-specific format.
+    that handles the conversion between the LLM format and the model-specific format.
     
     This abstraction enables the system to work with multiple model providers while
     maintaining a consistent interface for message handling and configuration.
@@ -29,28 +29,15 @@ class MCPAdapter(ABC):
     @abstractmethod
     def prepare_messages(self, messages: List[LLMMessage]) -> Dict[str, Any]:
         """
-        Convert MCP messages to model-specific format.
+        Convert LLM messages to model-specific format.
         
         Args:
-            messages: List of MCP messages representing the conversation
+            messages: List of messages representing the conversation
             
         Returns:
             Model-specific message format
         """
         pass
-
-    # @abstractmethod
-    # def prepare_config(self, config: MCPConfiguration) -> Dict[str, Any]:
-    #     """
-    #     Convert MCP configuration to model-specific parameters.
-    #
-    #     Args:
-    #         config: MCP configuration parameters
-    #
-    #     Returns:
-    #         Model-specific configuration parameters
-    #     """
-    #     pass
 
     @abstractmethod
     def parse_response(self, response: Any) -> LLMMessage:

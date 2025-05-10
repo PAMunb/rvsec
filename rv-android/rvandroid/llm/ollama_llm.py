@@ -1,19 +1,18 @@
 # rvandroid/llm/ollama_llm.py
-"""Ollama language model implementation using the Model Context Protocol (MCP)."""
+"""Ollama language model implementation."""
 import logging
-from typing import List, Optional, ClassVar
+import time
+from typing import List, Optional, ClassVar, Dict, Any
 
 # Use official ollama library
-from ollama import AsyncClient, ChatResponse
+from ollama import ChatResponse, Client
 
-from rvandroid.llm.adapter import AdapterRegistry
-from rvandroid.llm.adapters.ollama_adapter import OllamaAdapter
-from rvandroid.llm.data_structures import LLMMessage, LLMTextContent, LLMRole, LLMResponse
+from rvandroid.llm.data_structures import LLMMessage, LLMResponse
 from rvandroid.llm.language_model import LanguageModel
 from rvandroid.llm.llm_config import LLMConfiguration
-from ollama import Client
-
-logger = logging.getLogger(__name__)
+from rvandroid.util.error.error_handler import ErrorHandler
+from rvandroid.util.logging.manager import LoggingManager
+from rvandroid.util.logging.constants import CONTEXT_COMPONENT
 
 
 class OllamaLLM(LanguageModel):
@@ -25,6 +24,7 @@ class OllamaLLM(LanguageModel):
     - Supports direct integration with Ollama's model serving capabilities
     - Provides configurable model selection and execution strategies
     - Enables efficient, privacy-preserving local AI inference
+    - Uses native Ollama chat formatting for optimal compatibility
 
     ### Role in the System:
     - Acts as a concrete implementation of the LanguageModel abstract base class
@@ -34,18 +34,11 @@ class OllamaLLM(LanguageModel):
     - Enables flexible AI model configuration for experimental testing
 
     ### Key Considerations:
-    - Manages complex model initialization and resource allocation
+    - Manages model initialization and resource allocation
     - Handles various Ollama-hosted model backends
     - Supports configurable base URL and model selection
     - Implements robust error handling for model interactions
-    - Provides efficient model pulling and initialization mechanisms
-
-    ### Integration Strategy:
-    - Implements the Model Context Protocol for standardized communication
-    - Compatible with multiple local AI model providers
-    - Supports dynamic model selection and configuration
-    - Enables seamless swapping of AI backends
-    - Provides a consistent interface for text generation
+    - Provides direct message formatting for optimal performance
 
     ### Performance and Scalability:
     - Designed for efficient local AI inference
@@ -66,8 +59,7 @@ class OllamaLLM(LanguageModel):
     MISTRAL: ClassVar[str] = "mistral:7b"
     FALCON: ClassVar[str] = "falcon3:3b"
 
-    # Define available models (subset for better performance)
-    # MODELS: ClassVar[List[str]] = [LLAMA, GEMMA, QWEN]
+    # Define available models
     MODELS: ClassVar[List[str]] = [LLAMA, DEEPSEEK, GEMMA, QWEN, PHI, GRANITE, MISTRAL, FALCON]
 
     def __init__(self, model_name: str = LLAMA, **kwargs):
@@ -77,74 +69,114 @@ class OllamaLLM(LanguageModel):
         Args:
             model_name: Name of the Ollama model to use
             **kwargs: Additional arguments including:
-                api_base: Base URL for Ollama API (default: http://localhost:11434)
+                base_url: Base URL for Ollama API (default: http://localhost:11434)
                 temperature: Sampling temperature (default: 0.2)
                 max_tokens: Maximum tokens to generate (default: None)
         """
-        print(f"OllamaLLM ::: {kwargs}")
+        # Extract base_url before passing kwargs to parent constructor
         self.api_base = kwargs.pop("base_url", "http://localhost:11434")
-        print(f"OllamaLLM ::: base_url={self.api_base}")
+        
+        # Initialize base class
         super().__init__(model_name, **kwargs)
-        # We don't create the client here, instead create it on demand in generate
+        
+        # Initialize client lazily
         self._client = None
+        
+        # Setup logging and error handling
+        self.logging_manager = LoggingManager.get_instance()
+        self.logger = self.logging_manager.get_logger(
+            "llm.ollama", 
+            {CONTEXT_COMPONENT: self.__class__.__name__}
+        )
+        self.error_handler = ErrorHandler.get_instance()
+        
         self.logger.info(f"Initialized Ollama with model {model_name} at {self.api_base}")
 
     @property
     def client(self):
+        """
+        Get or create the Ollama client.
+        
+        Returns:
+            Ollama Client instance
+        """
         if self._client is None:
             self._client = Client(host=self.api_base)
         return self._client
 
-    def _get_model_type(self) -> str:
-        """Get model type string."""
-        return self.NAME
-
-    def _get_adapter(self) -> OllamaAdapter:
-        """Get the appropriate MCP adapter for this model."""
-        return OllamaAdapter()
-
     def generate(self,
                  messages: List[LLMMessage],
                  config: Optional[LLMConfiguration] = None) -> LLMResponse:
-        print(f" ***** generate: messages: {type(messages)} ::: {messages}")
-        print(f" ***** generate: config: {type(config)} ::: {config}")
-        # Prepare messages in a simple format
-        formatted_msgs = self.adapter.prepare_messages(messages)["messages"]
-        print(f"formatted_msgs={formatted_msgs}")
-        for xxx in formatted_msgs:
-            print(f"role={xxx['role']}, content=\n{xxx['content']}")
+        """
+        Generate text based on the input messages.
+        
+        Args:
+            messages: List of LLMMessage objects
+            config: Optional LLMConfiguration for generation parameters
+            
+        Returns:
+            LLMResponse with generated text and performance metrics
+        """
+        # Use provided config or default
+        _config = config or self.default_config
+        
+        try:
+            # Start timing the operation
+            start_time = time.time()
+            
+            # Format messages for Ollama
+            formatted_msgs = []
+            for message in messages:
+                content = message.get_text_content()
+                formatted_msgs.append({
+                    "role": message.role.value,
+                    "content": content
+                })
+            
+            # Extract generation parameters
+            options = {}
+            if _config and _config.temperature is not None:
+                options["temperature"] = _config.temperature
+            else:
+                options["temperature"] = 0.2
+                
+            if _config and _config.max_tokens is not None:
+                options["num_predict"] = _config.max_tokens
+                
+            # Add top_p if specified and less than 1.0
+            if _config and hasattr(_config, 'top_p') and _config.top_p < 1.0:
+                options["top_p"] = _config.top_p
+                
+            self.logger.debug(f"Calling Ollama with model: {self.model_name}, options: {options}")
 
-        options = {}
-        if config and config.temperature is not None:
-            options["temperature"] = config.temperature
-        else:
-            options["temperature"] = 0.2
-        if config.max_tokens is not None:
-            options["num_predict"] = config.max_tokens
-
-        print(f"Calling Ollama with model: {self.model_name}, options: {options}")
-        for msg in messages:
-            print(f"Message: {msg}")
-
-        # Call Ollama chat API synchronously
-        response: ChatResponse = self.client.chat(
-            model=self.model_name,
-            messages=formatted_msgs,
-            options=options
-        )
-        print(f"\n*** Response: {response["message"]["content"]} :::: {response}")
-
-        # Create an LLM message from the response
-        llm_response = LLMResponse(response.message.content)
-        llm_response.done_reason = response.done_reason
-        llm_response.total_duration = response.total_duration
-        llm_response.load_duration = response.load_duration
-        llm_response.input_tokens = response.prompt_eval_count
-        llm_response.input_tokens_duration = response.prompt_eval_duration
-        llm_response.output_tokens = response.eval_count
-        llm_response.output_tokens_duration = response.eval_duration
-        print(f"llm_response={llm_response}")
-        return llm_response
+            # Call Ollama chat API synchronously
+            response: ChatResponse = self.client.chat(
+                model=self.model_name,
+                messages=formatted_msgs,
+                options=options
+            )
+            
+            # Create an LLM response from the Ollama response
+            llm_response = LLMResponse(response.message.content)
+            
+            # Add performance metrics from Ollama
+            llm_response.done_reason = response.done_reason
+            llm_response.total_duration = response.total_duration
+            llm_response.load_duration = response.load_duration
+            llm_response.input_tokens = response.prompt_eval_count
+            llm_response.input_tokens_duration = response.prompt_eval_duration
+            llm_response.output_tokens = response.eval_count
+            llm_response.output_tokens_duration = response.eval_duration
+            
+            return llm_response
+            
+        except Exception as e:
+            error_msg = f"Error generating text from Ollama: {str(e)}"
+            self.logger.error(error_msg)
+            from rvandroid.util.exceptions import RVAndroidError
+            error = RVAndroidError(error_msg)
+            self.error_handler.handle_error(error)
+            raise
 
     @classmethod
     def models(cls) -> List[str]:
@@ -160,20 +192,23 @@ class OllamaLLM(LanguageModel):
         """
         Clean up any resources. Called when the service is shutting down.
         """
-        # Nothing to clean up in this implementation since we use a subprocess approach
-        # that isolates each request in its own process
-        self.logger.info("Cleaning up Ollama LLM resources")
+        # Nothing specific to clean up in this implementation
+        if self._client:
+            # Release reference to client
+            self._client = None
+            
+        self.logger.info("Cleaned up Ollama LLM resources")
 
 
-# Register the model and adapter - will be called after the adapter class is defined
+# Register the model
 def register():
-    """Register Ollama model with the configurator and registry."""
+    """Register Ollama model with the configurator."""
     from rvandroid.config.component_configurator import ComponentConfigurator
+    
     # Check if this LLM is already registered
     if OllamaLLM.NAME in ComponentConfigurator._registries.get('llm', {}).get_names():
         # Already registered, skip registration
         return
 
-    # Register the LLM and adapter
+    # Register the LLM
     ComponentConfigurator.register_llm(OllamaLLM.NAME, OllamaLLM)
-    AdapterRegistry.get_instance().register_adapter(OllamaLLM.NAME, OllamaAdapter)

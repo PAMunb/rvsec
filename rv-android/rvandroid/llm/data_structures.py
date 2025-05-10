@@ -71,6 +71,22 @@ class LLMMessage:
                 text_parts.append(item.text)
         return "\n".join(text_parts)
 
+    def to_message_dict(self) -> Dict[str, Any]:
+        items = [{
+            "type": "text",
+            "text": self.get_text_content()
+        }]
+        for item in self.content:
+            if isinstance(item, LLMImageContent):
+                items.append({
+                    "type": "image",
+                    "url": item.url
+                })
+        return {
+            "role": self.role.value,
+            "content": items
+        }
+
 
 # @dataclass
 # class MCPAction:

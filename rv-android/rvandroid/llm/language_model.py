@@ -4,7 +4,6 @@
 from abc import ABC, abstractmethod
 from typing import List, Optional
 
-from rvandroid.llm.adapter import MCPAdapter
 from rvandroid.llm.data_structures import LLMMessage, LLMResponse
 from rvandroid.llm.llm_config import LLMConfiguration
 from rvandroid.util.logging.constants import CONTEXT_COMPONENT
@@ -15,15 +14,26 @@ class LanguageModel(ABC):
     """
     Base class for language model implementations.
     
-    This abstract base class defines the standard interface for all language model
-    implementations in the RV-Android system. All models must implement this interface
-    to ensure consistent behavior and integration within the test framework.
+    ### Architectural Decisions:
+    - Defines a standardized interface for all language models
+    - Provides consistent configuration and execution patterns
+    - Implements unified error handling and performance tracking
+    - Ensures consistent logging and monitoring capabilities
+    - Enables interchangeable language model implementations
     
-    Key components:
-    - Model-specific adapter selection
-    - Standard configuration management
-    - Consistent async and sync generation methods
-    - Standardized error handling and logging
+    ### Role in the System:
+    - Acts as the central abstraction for all LLM integrations
+    - Enables consistent interaction with diverse language models
+    - Provides a unified API for prompt generation and response handling
+    - Standardizes configuration and performance monitoring
+    - Ensures clean separation between model specifics and system interface
+    
+    ### Key Considerations:
+    - Balances flexibility and standardization for diverse models
+    - Focuses on resource efficiency and prompt generation consistency
+    - Implements robust error handling and resource cleanup
+    - Provides standardized metrics collection for performance analysis
+    - Enables easy extension with new model implementations
     """
 
     def __init__(self, model_name: str, **kwargs):
@@ -35,7 +45,6 @@ class LanguageModel(ABC):
             **kwargs: Additional model-specific parameters
         """
         self.model_name = model_name
-        self.adapter = self._get_adapter()
         self.kwargs = kwargs
 
         # Configure logging
@@ -46,26 +55,6 @@ class LanguageModel(ABC):
         )
 
     @abstractmethod
-    def _get_model_type(self) -> str:
-        """
-        Get model type string.
-        
-        Returns:
-            String identifier for the model type
-        """
-        pass
-
-    @abstractmethod
-    def _get_adapter(self) -> MCPAdapter:
-        """
-        Get the appropriate MCP adapter for this model.
-        
-        Returns:
-            MCPAdapter instance for this model type
-        """
-        pass
-
-    @abstractmethod
     def generate(self,
                  messages: List[LLMMessage],
                  config: Optional[LLMConfiguration] = None) -> LLMResponse:
@@ -73,23 +62,39 @@ class LanguageModel(ABC):
         Generate a response synchronously.
         
         Args:
-            messages: List of MCP messages representing the conversation
+            messages: List of LLMMessage objects representing the conversation
             config: Optional configuration parameters
             
         Returns:
-            LLMMessage containing the generated response
+            LLMResponse containing the generated text and performance metrics
         """
         pass
 
     @abstractmethod
     def cleanup(self):
         """
-        Cleanup resources.
+        Clean up resources.
 
-        This method can be overridden by subclasses to perform any necessary
-        cleanup operations when the model is no longer needed.
+        Releases model resources, unloads model weights, and frees memory.
+        This method should be called when the model is no longer needed to
+        ensure proper resource management.
         """
         pass
+    
+    @property
+    def default_config(self) -> LLMConfiguration:
+        """
+        Returns the default configuration for this model.
+        
+        Returns:
+            LLMConfiguration with default settings
+        """
+        return LLMConfiguration(
+            model_type=self.__class__.NAME,
+            model_name=self.model_name,
+            max_tokens=800,
+            temperature=0.2
+        )
 
     @classmethod
     def models(cls) -> List[str]:
