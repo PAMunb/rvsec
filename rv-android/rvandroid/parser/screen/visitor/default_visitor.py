@@ -371,12 +371,12 @@ class DefaultTextVisitor(AbstractScreenVisitor):
 
         options = ""
         if widget and hasattr(widget, 'entries') and widget.entries:
-            options_list = ", ".join(widget.entries[:3])
-            if len(widget.entries) > 3:
-                options_list += f", and {len(widget.entries) - 3} more options"
+            options_list = ", ".join(widget.entries[:5])
+            if len(widget.entries) > 5:
+                options_list += f", and {len(widget.entries) - 5} more options"
             options = f" with options: {options_list}"
 
-        text = f"Dropdown spinner{selected_item_text}{options} {self._with_description(node)}{self._with_hint(node)}"
+        text = f"Dropdown spinner{selected_item_text}{options}{self._with_description(node)}{self._with_hint(node)}"
 
         item = ScreenItem(node.data, text, actions)
         self.items.append(item)

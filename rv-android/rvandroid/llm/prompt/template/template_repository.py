@@ -14,7 +14,7 @@ from rvandroid.util.logging.constants import CONTEXT_COMPONENT
 from rvandroid.util.logging.manager import LoggingManager
 from .prompt_template import PromptTemplate
 
-
+# TODO deprecated
 class TemplateRepository:
     """Repository for managing prompt templates.
     

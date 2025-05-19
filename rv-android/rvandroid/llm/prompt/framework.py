@@ -100,12 +100,12 @@ class PromptFramework:
 
         # Create and register default fragments
         fragments = [
-            UIElementsFragment(),
-            UIPatternFragment(),
+            # UIPatternFragment(),
             MonitoredOperationsFragment(),
             ScreenshotFragment(),
             HistoryFragment(),
-            TransitionGuidanceFragment()
+            TransitionGuidanceFragment(),
+            UIElementsFragment()
         ]
         information_manager.register_fragments(fragments)
 
@@ -205,7 +205,10 @@ class PromptFramework:
         try:
             xxx = self.config._registries['strategy'].get(name)
             print(f" *** strategy = {xxx}")
-            return self.config.create_strategy(strategy_type=name)
+
+            return self.config.create_strategy(strategy_type=name,
+                                               information_manager=self.information_manager,
+                                               template_repository=self.template_repository)
         except Exception as e:
             self.logger.error(f"Error getting strategy '{name}': {e}")
             

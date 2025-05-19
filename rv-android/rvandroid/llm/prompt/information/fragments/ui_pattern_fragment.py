@@ -8,7 +8,7 @@ from typing import Any, Dict, Optional
 
 from rvandroid.llm.prompt.information.base_fragment import InformationFragment
 
-
+# TODO deprecated
 class UIPatternFragment(InformationFragment):
     """Fragment for extracting and formatting UI pattern information.
     

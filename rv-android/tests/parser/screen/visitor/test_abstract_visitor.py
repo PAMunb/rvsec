@@ -346,7 +346,7 @@ class TestAbstractScreenVisitor:
 
         assert action.reaches_mop is True
         assert action.directly_reaches_mop is False
-        assert "MONITORED OPERATION" in action.text
+        assert "[M]" in action.text
 
         # Test directly reaching MOP
         visitor._check_method_directly_reaches_mop = MagicMock(return_value=True)
@@ -356,7 +356,7 @@ class TestAbstractScreenVisitor:
 
         assert action.reaches_mop is True
         assert action.directly_reaches_mop is True
-        assert "CRITICAL MONITORED OPERATION" in action.text
+        assert "[DM]" in action.text
 
     def test_formatting_methods(self, visitor):
         """Test formatting methods for node descriptions"""

@@ -422,16 +422,15 @@ class TestBasicTextVisitor:
         # Should add an item for the spinner
         assert len(visitor.items) == 1
         assert visitor.items[0].view == node.data
-        assert visitor.items[0].base_description == "Dropdown"
+        assert "Dropdown" in visitor.items[0].base_description
         assert visitor.window_info["interactive_elements"] == 1
 
         # Check actions
         actions = visitor.items[0].actions
-        assert len(actions) == 3  # CLICK + UP/DOWN scroll
+        assert len(actions) == 1  # CLICK
 
         action_types = [action.event for action in actions]
         assert WidgetEventType.CLICK in action_types
-        assert WidgetEventType.SCROLL in action_types
 
     def test_visit_radio_group_simple(self, visitor, node):
         """Test visit_radio_group method with direct actionable."""

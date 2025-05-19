@@ -11,7 +11,7 @@ from rvandroid.util.error.error_handler import ErrorHandler
 from rvandroid.util.logging.constants import CONTEXT_COMPONENT
 from rvandroid.util.logging.manager import LoggingManager
 
-
+# TODO deprecated
 class PromptTemplate:
     """Template for generating prompt messages with variable substitution.
     

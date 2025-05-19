@@ -50,11 +50,6 @@ class UIElementsFragment(InformationFragment):
         if StateEntry.SCREEN_DESCRIPTION in state:
             return state[StateEntry.SCREEN_DESCRIPTION]
         
-        # # Priority 3: Format screen elements from raw data
-        # if StateEntry.SCREEN_PATTERNS in state:
-        #     screen = state[StateEntry.SCREEN_PATTERNS]
-        #     return self._format_screen_elements(screen)
-        
         return "No screen information available."
     
     def _format_screen_elements(self, screen: Dict[str, Any]) -> str:

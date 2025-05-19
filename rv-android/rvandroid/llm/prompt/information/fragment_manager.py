@@ -138,7 +138,7 @@ class InformationManager:
                     self.error_handler.handle_error(
                         e,
                         context={
-                            "component": f"InformationManager",
+                            "component": "InformationManager",
                             "fragment": fragment.name
                         }
                     )

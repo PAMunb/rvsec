@@ -452,9 +452,9 @@ class AbstractScreenVisitor(ABC):
                     self.logger.debug(
                         f"Action {action.id} security info updated: reaches_mop={action.reaches_mop}, directly_reaches_mop={action.directly_reaches_mop}")
                     if action.directly_reaches_mop:
-                        action.text += " [CRITICAL MONITORED OPERATION]"
+                        action.text += " [DM]"
                     elif action.reaches_mop:
-                        action.text += " [MONITORED OPERATION]"
+                        action.text += " [M]"
                 return
 
     @abstractmethod

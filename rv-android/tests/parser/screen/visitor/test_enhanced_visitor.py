@@ -677,7 +677,7 @@ class TestEnhancedTextVisitor:
         visitor._update_action_mop_related_info(action, node)
         assert action.reaches_mop is True
         assert action.directly_reaches_mop is False
-        assert "MONITORED OPERATION" in action.text
+        assert "[M]" in action.text
 
         # Reset action text
         action.text = "CLICK (1)"
@@ -687,4 +687,4 @@ class TestEnhancedTextVisitor:
         visitor._update_action_mop_related_info(action, node)
         assert action.reaches_mop is True
         assert action.directly_reaches_mop is True
-        assert "CRITICAL MONITORED OPERATION" in action.text
+        assert "[DM]" in action.text

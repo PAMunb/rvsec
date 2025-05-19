@@ -86,10 +86,10 @@ class StandardStrategy(PromptStrategy):
             variables = {**state, **info, **context}
             
             # Format basic UI information if not present
-            if FragmentType.UI_ELEMENTS not in variables and StateEntry.SCREEN_DESCRIPTION not in state and StateEntry.SCREEN_PATTERNS in state:
-                variables["ui_elements"] = self._format_screen_elements(state[StateEntry.SCREEN_PATTERNS])
-            elif StateEntry.SCREEN_DESCRIPTION in state:
-                variables["ui_elements"] = state[StateEntry.SCREEN_DESCRIPTION]
+            # if FragmentType.UI_ELEMENTS not in variables and StateEntry.SCREEN_DESCRIPTION not in state and StateEntry.SCREEN_PATTERNS in state:
+            #     variables["ui_elements"] = self._format_screen_elements(state[StateEntry.SCREEN_PATTERNS])
+            # elif StateEntry.SCREEN_DESCRIPTION in state:
+            #     variables["ui_elements"] = state[StateEntry.SCREEN_DESCRIPTION]
             
             # Add prompt guidance for single action
             if "additional_guidelines" not in variables:

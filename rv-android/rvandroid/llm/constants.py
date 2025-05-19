@@ -39,6 +39,7 @@ class VisitorType:
     DEFAULT = VisitorFactory.DEFAULT
     DETAILED = VisitorFactory.DETAILED
 
+# TODO deprecated
 class FragmentType:
     """Constants for information fragment types."""
     UI_ELEMENTS = "ui_elements"
@@ -65,7 +66,7 @@ class StateEntry:
     AVAILABLE_ACTIONS = "available_actions"
     SCREENSHOT_PATH = "screenshot_path"
     SCREENSHOT_INFO = "screenshot_info"
-    UI_PATTERNS = "ui_patterns"  # Dict[PatternType, PatternResult]
+    UI_PATTERNS = "ui_patterns"  # deprecated Dict[PatternType, PatternResult]
     DETECTED_PATTERN = "detected_pattern"  # dict
     TRANSITION_GUIDANCE = "transition_guidance"
     MONITORED_OPERATIONS = "monitored_operations"  # List[str]: list of methods signature (tha reaches_mop or directly_reaches_mop)

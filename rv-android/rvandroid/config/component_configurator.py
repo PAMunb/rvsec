@@ -615,7 +615,7 @@ class ComponentConfigurator:
         kwargs = self.visitor_kwargs.copy()
         return self.visitor_class(static_data, activity, **kwargs)
 
-    def create_strategy(self, strategy_type: str = None) -> Any:
+    def create_strategy(self, strategy_type: str = None, information_manager = None, template_repository = None) -> Any:
         """
         Create an instance of the configured prompt strategy.
 
@@ -646,8 +646,10 @@ class ComponentConfigurator:
         from rvandroid.llm.prompt.template.jinja_repository import Jinja2TemplateRepository
         
         # Create required components
-        information_manager = InformationManager()
-        template_repository = Jinja2TemplateRepository()
+        if information_manager is None:
+            information_manager = InformationManager()
+        if template_repository is None:
+            template_repository = Jinja2TemplateRepository()
         
         # Create the strategy with the correct parameters
         kwargs = self.strategy_kwargs.copy()
