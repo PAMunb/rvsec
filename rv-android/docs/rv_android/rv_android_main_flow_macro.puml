@@ -1,0 +1,112 @@
+@startuml rv_android_main_flow_macro
+
+!theme aws-orange
+title RV-Android - Main System Flow (Macro View)
+
+start
+
+:main.py;
+note right: System entry point
+
+:Load Tools;
+note right
+  Auto-discovery of tools:
+  * monkey, droidbot, rvandroid, rvdroid
+  * ape, fastbot, droidmate, humanoid
+end note
+
+:Process Configuration;
+note right
+  Multiple configuration sources:
+  * CLI arguments
+  * JSON file
+  * Environment variables
+end note
+
+:Create ExperimentController;
+
+partition "PHASE 1: PRE-PROCESSING" {
+  
+  :RVSec - Monitor Generation;
+  note right
+    * JavaMOP
+    * RV-Monitor
+  end note
+  
+  :RvAndroid - APK Instrumentation;
+  note right
+    * APK decompilation
+    * Monitor embedding
+    * Aspect weaving for logging
+    * Recompilation and signing
+  end note
+  
+  :StaticAnalyzer - Static Analysis;
+  note right
+    * Reachability analysis
+    * Method mapping
+    * Generate .reach/.gator files
+  end note
+}
+
+partition "PHASE 2: EXPERIMENT EXECUTION" {
+  
+  :Create Tasks;
+  note right
+    Combinations of:
+    APK × Repetition × Timeout × Tool
+  end note
+  
+  :ExecutionManager.run_all_tasks();
+  
+  repeat
+    :TaskExecutor.execute();
+    
+    fork
+      :Emulator Component;
+      note right: Manages emulator lifecycle
+    fork again
+      :Logcat Component;
+      note right: Captures system logs
+    fork again
+      :Coverage Component;
+      note right: Tracks code coverage
+    fork again
+      :Tool Execution Component;
+      note right
+        Executes testing tools:
+        * monkey, droidbot, rvandroid
+        * rvdroid, ape, fastbot, etc.
+      end note
+    end fork
+    
+  repeat while (More tasks?)
+}
+
+partition "PHASE 3: POST-PROCESSING" {
+  
+  :Results Analysis;
+  note right
+    * Coverage data processing
+    * Error analysis
+    * Metrics calculation
+  end note
+  
+  :Report Generation;
+  note right
+    * Coverage reports
+    * Error summaries
+    * Comparative analysis
+  end note
+  
+  :Dashboard Creation;
+  note right
+    * Interactive visualizations
+    * Performance charts
+    * Web interface
+  end note
+}
+
+stop
+
+@enduml

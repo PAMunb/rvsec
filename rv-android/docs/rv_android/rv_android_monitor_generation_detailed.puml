@@ -1,0 +1,102 @@
+@startuml rv_android_monitor_generation_detailed
+
+!theme aws-orange
+title RV-Android - Monitor Generation Process (Detailed)
+
+start
+
+:RVSec.generate_monitors();
+note right: Entry point for RV monitor generation
+
+:Reset MOP_OUT_DIR;
+note right: Clean output directory for generated monitors
+
+partition "JavaMOP Phase" {
+  :Execute JavaMOP;
+  note right
+    Command: javamop -d MOP_OUT_DIR -merge MOP_DIR/*.mop
+  end note
+  
+  :Process MOP specifications;
+  note right
+    Input: .mop files from MOP_DIR
+    * Formal property specifications
+    * Temporal logic formulas
+    * Security policies
+  end note
+  
+  :Generate AspectJ files (.aj);
+  note right
+    Output: Monitor aspects
+    * Pointcuts for method interception
+    * Advice for property checking
+  end note
+  
+  :Generate RVM files (.rvm);
+  note right
+    Output: Runtime verification metadata
+    * Monitor state machines
+    * Event handling logic
+  end note
+  
+  :Move .rvm files to MOP_OUT_DIR;
+  note right: JavaMOP -d option doesn't move all files
+  
+  :Copy custom AspectJ files;
+  note right
+    From ASPECTS_DIR to MOP_OUT_DIR:
+    * User-provided aspects
+    * Additional monitoring logic
+  end note
+}
+
+partition "RV-Monitor Phase" {
+  :Execute RV-Monitor;
+  note right
+    Command: rvmonitor -d MOP_OUT_DIR -merge MOP_OUT_DIR/*.rvm
+  end note
+  
+  :Process RVM metadata;
+  note right
+    Input: .rvm files from previous phase
+    * Monitor specifications
+    * State transition rules
+  end note
+  
+  :Generate monitor runtime code;
+  note right
+    Output: Java classes for monitors
+    * Monitor state management
+    * Event processing logic
+    * Property violation detection
+  end note
+  
+  :Integrate with AspectJ aspects;
+  note right
+    Combine with .aj files:
+    * Weaving instructions
+    * Runtime integration points
+  end note
+  
+  :Clean up .rvm files;
+  note right: Remove intermediate files after processing
+}
+
+:Monitor generation complete;
+note right
+  MOP_OUT_DIR contains:
+  * .aj files (AspectJ aspects)
+  * .java files (Monitor classes)
+  * Runtime support code
+end note
+
+note left
+  Generated monitors will be embedded
+  into APKs during instrumentation phase
+end note
+
+stop
+
+
+
+@enduml

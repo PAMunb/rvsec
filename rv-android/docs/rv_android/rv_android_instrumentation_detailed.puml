@@ -1,0 +1,102 @@
+@startuml rv_android_instrumentation_detailed
+
+!theme aws-orange
+title RV-Android - APK Instrumentation Process (Detailed)
+
+start
+
+:RvAndroid.instrument_apks();
+note right: Entry point for batch APK instrumentation
+
+:prepare_instrumentation();
+note right
+  * Clean temporary directories
+  * Execute Maven (copy dependencies)
+  * Create output directories
+end note
+
+:Get APKs from directory;
+
+repeat
+  :Process APK;
+  
+  if (APK already instrumented AND not force?) then (yes)
+    :Skip APK;
+    note right: Already processed
+  else (no)
+    
+    partition "Decompilation Phase" {
+      :__decompile_apk();
+      
+      :d2j_dex2jar;
+      note right
+        * Convert DEX to JAR
+        * Handle exceptions
+        * Verify output
+      end note
+      
+      :Extract classes to TMP_DIR;
+      note right: Unzip JAR contents
+    }
+    
+    partition "Monitor Integration" {
+      :__include_generated_monitors();
+      note right
+        Copy RV artifacts from MOP_OUT_DIR:
+        * .aj files (AspectJ)
+        * Generated monitors
+      end note
+      
+      :__weave_monitors();
+      note right
+        AspectJ compilation:
+        * Build classpath (android.jar + libs)
+        * Compile with ajc
+        * Weave aspects into bytecode
+      end note
+    }
+    
+    partition "APK Creation" {
+      :__merge_support_classes();
+      note right
+        Include runtime dependencies:
+        * rv-monitor-rt.jar
+        * rvsec-core.jar
+        * rvsec-logger-logcat.jar
+        * aspectjrt.jar
+      end note
+      
+      :Compress to monitored JAR;
+      
+      :__d8() - Compile to DEX;
+      note right
+        * Convert JAR to DEX format
+        * Copy original APK
+        * Replace classes.dex
+      end note
+      
+      :__sign_apk();
+      note right
+        * Sign with debug key (d2j_apk_sign)
+        * Remove META-INF
+        * Sign with jarsigner
+        * Verify signature
+      end note
+    }
+    
+    :check_if_instrumented();
+    note right
+      Verify APK was actually modified
+      by comparing file hashes
+    end note
+  endif
+  
+  :Clean temporary files;
+  
+repeat while (More APKs?)
+
+:Save instrumentation errors to JSON;
+
+stop
+
+@enduml

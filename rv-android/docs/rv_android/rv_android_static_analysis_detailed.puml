@@ -1,0 +1,111 @@
+@startuml rv_android_static_analysis_detailed
+
+!theme aws-orange
+title RV-Android - Static Analysis Process (Detailed)
+
+start
+
+:StaticAnalyzer.analyze();
+note right: Entry point for static analysis
+
+:Get instrumented APKs from directory;
+
+repeat
+  :Process APK;
+  
+  :Create App instance;
+  note right
+    Extract APK metadata:
+    * Package name
+    * Target SDK
+    * Permissions
+  end note
+  
+  partition "Analysis Tools Execution" {
+    
+    fork
+      :Execute GESDA;
+      note right
+        Data flow analysis:
+        * Identify data flows
+        * Track sensitive data
+        * Generate .gesda file
+      end note
+    fork again
+      :Execute GATOR;
+      note right
+        UI analysis:
+        * Window transition graph
+        * UI component analysis  
+        * Generate .gator/.wtg file
+      end note
+    fork again
+      :Execute Reach Analysis;
+      note right
+        Reachability analysis:
+        * Method call graph
+        * MOP method reachability
+        * Generate .reach file
+      end note
+    end fork
+    
+  }
+  
+  partition "Results Processing" {
+    
+    :Parse analysis results;
+    note right
+      Read generated files:
+      * .gesda (data flow results)
+      * .gator/.wtg (UI analysis)
+      * .reach (reachability info)
+    end note
+    
+    :Create StaticAnalysisData;
+    note right
+      Consolidate results:
+      * Classes mapping
+      * Windows information
+      * Window Transition Graph
+    end note
+    
+    :Generate .methods file;
+    note right
+      Method metadata:
+      * All application methods
+      * Reachability flags
+      * MOP method indicators
+    end note
+    
+  }
+  
+  :Calculate metrics;
+  note right
+    Statistics:
+    * Total methods count
+    * Reachable methods count
+    * MOP-related methods count
+    * Activity count
+  end note
+  
+  :Save results to output directory;
+  note right
+    Output files per APK:
+    * {apk_name}.gesda
+    * {apk_name}.gator
+    * {apk_name}.reach
+    * {apk_name}.methods
+  end note
+  
+repeat while (More APKs?)
+
+:Publish STATIC_ANALYSIS_COMPLETED event;
+
+stop
+
+note
+  Static analysis results are used during
+  task execution for coverage tracking
+end note
+
+@enduml

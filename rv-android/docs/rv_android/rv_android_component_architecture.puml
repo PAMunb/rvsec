@@ -1,0 +1,206 @@
+@startuml rv_android_component_architecture
+
+!theme aws-orange
+title RV-Android - Component Architecture
+
+package "Experiment Workflow" {
+  class ExperimentController {
+    -pre_processor: PreProcessor
+    -execution_controller: ExecutionController
+    -post_processor: PostProcessor
+    -result_manager: ResultManager
+    +execute()
+  }
+  
+  class WorkflowFactory {
+    +create_pre_processor()
+    +create_execution_controller()
+    +create_post_processor()
+    +create_result_manager()
+  }
+}
+
+package "Pre-Processing Components" {
+  class PreProcessor {
+    +process()
+    +_generate_monitors()
+    +_instrument_apks()
+    +_run_static_analysis()
+  }
+  
+  class RVSec {
+    +generate_monitors()
+    -__java_mop()
+    -__rv_monitor()
+  }
+  
+  class RvAndroid {
+    +instrument_apks()
+    +instrument()
+    -__decompile_apk()
+    -__weave_monitors()
+    -__create_apk()
+  }
+  
+  class StaticAnalyzer {
+    +analyze()
+    +get_metrics()
+  }
+}
+
+package "Execution Components" {
+  class ExecutionController {
+    -execution_manager: ExecutionManager
+    +setup()
+    +run()
+  }
+  
+  class ExecutionManager {
+    -storage: TaskStorage
+    -tools: dict
+    -apks: dict
+    +run_all_tasks()
+    +run_task()
+  }
+  
+  class TaskExecutor {
+    -task: Task
+    -tool: AbstractTool
+    -components: list
+    +execute()
+  }
+}
+
+package "Task Components" {
+  abstract ITaskComponent {
+    +initialize(context)
+    +execute(context)
+    +cleanup(context)
+    +name: string
+  }
+  
+  class StaticAnalysisComponent {
+    +load_static_data()
+  }
+  
+  class EmulatorComponent {
+    +start_emulator()
+    +install_app()
+    +clean_logcat()
+  }
+  
+  class LogcatComponent {
+    +start_capture()
+    +stop_capture()
+  }
+  
+  class CoverageComponent {
+    +initialize_tracker()
+    +start_tracking()
+    +stop_tracking()
+    +process_results()
+  }
+  
+  class ToolExecutionComponent {
+    +execute_tool()
+    +cleanup_processes()
+  }
+}
+
+package "Post-Processing Components" {
+  class PostProcessor {
+    +process()
+    +_process_coverage_data()
+    +_analyze_results()
+  }
+  
+  class ResultManager {
+    +generate_reports()
+    +_generate_performance_dashboard()
+    +_generate_coverage_charts()
+  }
+}
+
+package "Data & Storage" {
+  class TaskStorage {
+    +load()
+    +save()
+    +add_task()
+    +get_tasks()
+  }
+  
+  class Task {
+    +config: TaskConfiguration
+    +result: TaskResult
+    +repository: LogcatRepository
+  }
+  
+  class LogcatRepository {
+    +register_method_call()
+    +register_rv_error()
+    +calculate_metrics()
+  }
+}
+
+package "Tool Registry" {
+  class ToolRegistry {
+    +register_tool()
+    +get_tool()
+    +get_all_tools()
+  }
+  
+  abstract AbstractTool {
+    +name: string
+    +execute(task, app)
+  }
+  
+  class MonkeyTool {
+    +execute()
+  }
+  
+  class DroidBotTool {
+    +execute()
+  }
+  
+  class RvAndroidTool {
+    +execute()
+  }
+}
+
+' Relationships - Workflow
+ExperimentController --> WorkflowFactory : creates with
+ExperimentController --> PreProcessor : uses
+ExperimentController --> ExecutionController : uses
+ExperimentController --> PostProcessor : uses
+ExperimentController --> ResultManager : uses
+
+' Relationships - Pre-processing
+PreProcessor --> RVSec : uses
+PreProcessor --> RvAndroid : uses
+PreProcessor --> StaticAnalyzer : uses
+
+' Relationships - Execution
+ExecutionController --> ExecutionManager : delegates to
+ExecutionManager --> TaskExecutor : creates
+ExecutionManager --> TaskStorage : uses
+TaskExecutor --> ITaskComponent : manages
+
+' Relationships - Task Components
+ITaskComponent <|-- StaticAnalysisComponent
+ITaskComponent <|-- EmulatorComponent
+ITaskComponent <|-- LogcatComponent
+ITaskComponent <|-- CoverageComponent
+ITaskComponent <|-- ToolExecutionComponent
+
+' Relationships - Data
+TaskExecutor --> Task : executes
+Task --> LogcatRepository : contains
+ExecutionManager --> ToolRegistry : uses
+ToolRegistry --> AbstractTool : manages
+
+' Relationships - Tools
+AbstractTool <|-- MonkeyTool
+AbstractTool <|-- DroidBotTool
+AbstractTool <|-- RvAndroidTool
+
+@enduml

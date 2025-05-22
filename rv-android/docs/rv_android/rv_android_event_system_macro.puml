@@ -1,0 +1,143 @@
+@startuml rv_android_event_system_macro
+
+!theme aws-orange
+title RV-Android - Event System Architecture (Macro)
+
+package "Event System Core" {
+  class EventBus {
+    +publish(event, channel)
+    +publish_async(event, channel)
+    +subscribe(event_type, callback, channel)
+    +get_history()
+  }
+  
+  enum EventType {
+    TASK_STARTED
+    TASK_COMPLETED
+    TASK_FAILED
+    EXPERIMENT_STARTED
+    EXPERIMENT_COMPLETED
+    COVERAGE_UPDATED
+    TOOL_STARTED
+    TOOL_STOPPED
+    ...
+  }
+  
+  abstract Event {
+    +type: EventType
+    +timestamp: datetime
+    +source: string
+  }
+  
+  class TaskEvent {
+    +task_id: string
+    +task_config: dict
+    +details: dict
+  }
+  
+  class ExperimentEvent {
+    +experiment_id: string
+    +message: string
+    +affected_tasks: list
+  }
+  
+  class AnalysisEvent {
+    +data: dict
+    +related_task_id: string
+  }
+}
+
+package "Event Channels" {
+  node "LIFECYCLE_CHANNEL" {
+    note as n1
+      Task/Experiment lifecycle events:
+      * TASK_STARTED
+      * TASK_COMPLETED
+      * EXPERIMENT_STARTED
+    end note
+  }
+  
+  node "ANALYSIS_CHANNEL" {
+    note as n2
+      Analysis and coverage events:
+      * COVERAGE_UPDATED
+      * STATIC_ANALYSIS_COMPLETED
+    end note
+  }
+  
+  node "ERROR_CHANNEL" {
+    note as n3
+      Error and failure events:
+      * TASK_FAILED
+      * ERROR_DETECTED
+    end note
+  }
+  
+  node "SYSTEM_CHANNEL" {
+    note as n4
+      System and orchestration events:
+      * TOOL_STARTED
+      * EMULATOR_STARTED
+    end note
+  }
+}
+
+package "Event Publishers" {
+  class TaskExecutor {
+    +_publish_task_started_event()
+    +_publish_task_completed_event()
+    +_publish_task_failed_event()
+  }
+  
+  class ExperimentController {
+    +publish_experiment_started()
+    +publish_experiment_completed()
+  }
+  
+  class CoverageComponent {
+    +publish_coverage_updated()
+  }
+  
+  class ErrorHandler {
+    +publish_error_event()
+  }
+}
+
+package "Event Subscribers" {
+  class Logger {
+    +on_task_started()
+    +on_experiment_completed()
+  }
+  
+  class PerformanceMonitor {
+    +on_task_completed()
+    +track_metrics()
+  }
+  
+  class ResultProcessor {
+    +on_coverage_updated()
+    +process_results()
+  }
+}
+
+' Relationships
+EventBus --> Event : publishes
+Event <|-- TaskEvent
+Event <|-- ExperimentEvent
+Event <|-- AnalysisEvent
+
+TaskExecutor --> EventBus : publishes to
+ExperimentController --> EventBus : publishes to
+CoverageComponent --> EventBus : publishes to
+ErrorHandler --> EventBus : publishes to
+
+EventBus --> Logger : notifies
+EventBus --> PerformanceMonitor : notifies
+EventBus --> ResultProcessor : notifies
+
+EventBus --> "LIFECYCLE_CHANNEL" : routes to
+EventBus --> "ANALYSIS_CHANNEL" : routes to
+EventBus --> "ERROR_CHANNEL" : routes to
+EventBus --> "SYSTEM_CHANNEL" : routes to
+
+@enduml

@@ -1,0 +1,141 @@
+@startuml rv_android_task_execution_detailed
+
+!theme aws-orange
+title RV-Android - Task Execution Flow (Detailed)
+
+start
+
+:TaskExecutor.execute();
+note right: Entry point for single task execution
+
+if (Task has app instance?) then (no)
+  :Mark task as ERROR;
+  :Publish TASK_FAILED event;
+  stop
+else (yes)
+endif
+
+:Mark task as STARTED;
+:Publish TASK_STARTED event;
+
+partition "Component Initialization" {
+  
+  :StaticAnalysisComponent.load_static_data();
+  note right
+    Load pre-computed static analysis:
+    * .reach files (reachability)
+    * .gator files (UI analysis) 
+    * .gesda files (data flow)
+    * .methods files (method list)
+  end note
+  
+  :CoverageComponent.initialize_tracker();
+  note right
+    Set up coverage tracking:
+    * Create LogcatRepository
+    * Initialize CoverageTracker
+    * Prepare logcat file path
+  end note
+}
+
+partition "Emulator Session" {
+  
+  :EmulatorComponent.start_emulator();
+  note right
+    * Start Android emulator (AVD: RVSec)
+    * Wait for boot completion
+    * Set up ADB connection
+    * Enable root access
+  end note
+  
+  if (Skip installation?) then (no)
+    :Install APK with permissions;
+    note right
+      * Install instrumented APK
+      * Grant required permissions
+      * Verify installation
+    end note
+  else (yes)
+    :Skip APK installation;
+  endif
+  
+  partition "Data Collection Setup" {
+    :LogcatComponent.start_capture();
+    note right
+      * Clear logcat buffer (if configured)
+      * Start logcat capture to file
+      * Filter for RVSEC tags
+    end note
+    
+    :CoverageComponent.start_tracking();
+    note right
+      Start monitoring:
+      * Method call tracking
+      * Coverage data collection
+    end note
+  }
+  
+  partition "Tool Execution" {
+    :ToolExecutionComponent.execute_tool();
+    note right
+      Execute selected testing tool:
+      * monkey (random events)
+      * droidbot (systematic exploration)
+      * rvandroid (LLM-guided)
+      * rvdroid (LLM-based)
+      * ape, fastbot, etc.
+    end note
+    
+    :Tool runs for specified timeout;
+    
+    :Publish TOOL_STARTED/TOOL_STOPPED events;
+  }
+  
+  partition "Data Collection Cleanup" {
+    :CoverageComponent.stop_tracking();
+    note right: Stop coverage monitoring
+    
+    :LogcatComponent.stop_capture();
+    note right: Stop logcat capture
+  }
+}
+
+partition "Results Processing" {
+  :CoverageComponent.process_results();
+  note right
+    * Parse logcat file
+    * Extract RVSEC/RVSEC-COV entries
+    * Calculate coverage metrics
+    * Update task repository
+  end note
+  
+  if (Export to CSV enabled?) then (yes)
+    :Export repository data to CSV;
+    note right
+      * coverage_data.csv
+      * error_data.csv
+    end note
+  else (no)
+  endif
+  
+  :Update task result with metrics;
+  note right
+    * Method coverage %
+    * Activity coverage %
+    * MOP method coverage %
+    * Error count
+  end note
+}
+
+:Mark task as COMPLETED;
+:Publish TASK_COMPLETED event;
+
+stop
+
+note
+  Error Handling:
+  Any exception during execution
+  triggers cleanup and TASK_FAILED event
+end note
+
+@enduml
