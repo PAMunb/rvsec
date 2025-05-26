@@ -629,6 +629,12 @@ class AbstractScreenVisitor(ABC):
 
         return f"with text '{text}'"
 
+    def _with_field(self, widget: Widget):
+        if widget is None or not hasattr(widget, 'field') or not widget.field:
+            return ""
+
+        return "is assigned to a field"
+
     def _has_focus(self, node: Node) -> str:
         """
         Format node focus description with additional context.

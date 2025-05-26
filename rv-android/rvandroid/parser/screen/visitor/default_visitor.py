@@ -162,7 +162,7 @@ class DefaultTextVisitor(AbstractScreenVisitor):
         if widget and hasattr(widget, 'input_type') and widget.input_type:
             input_type = f" for {widget.input_type}"
 
-        text = f"Editable text field{input_type} {self._with_text(node)}{self._with_description(node)}{self._with_hint(node)}{self._has_focus(node)}"
+        text = f"Editable text field{input_type} {self._with_text(node)}{self._with_description(node)}{self._with_hint(node)}{self._has_focus(node)} {self._with_field(widget)}"
 
         if node.is_password:
             text = f"Password field {self._with_text(node)}{self._with_description(node)}{self._with_hint(node)}{self._has_focus(node)}"
