@@ -4,7 +4,6 @@ Gator is a program analysis toolkit for Android that generates window transition
 This module processes the JSON output from Gator to create window transitions and widget events.
 """
 
-import logging
 import os
 import re
 from typing import Optional

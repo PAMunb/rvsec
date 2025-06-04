@@ -502,7 +502,7 @@ class OpportunityDetector:
         
         # Only return if confidence is reasonable
         if confidence >= 0.2:
-            return (context_type, confidence)
+            return context_type, confidence
             
         return None
         

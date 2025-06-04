@@ -47,7 +47,7 @@ class UIAutomator2Adapter(UIAdapter):
     - Enables screenshot-based analysis and visual validation
     """
     
-    def __init__(self, device_id: str = "emulator-5554"):
+    def __init__(self, name: str, device_id: str = "emulator-5554"):
         """
         Initialize the UIAutomator2 adapter.
         
@@ -55,6 +55,7 @@ class UIAutomator2Adapter(UIAdapter):
             device_id: Device ID to connect to (defaults to emulator-5554)
         """
         # Configure logging with context adapter
+        super().__init__(name)
         logging_manager = LoggingManager.get_instance()
         self.logger = logging_manager.get_logger(
             "rvdroid.uiautomator.adapter",

@@ -10,7 +10,6 @@ from typing import Dict, List, Any, Callable, Optional, Set, Union, TypeVar
 from rvandroid.experiment.event.handler import EventHandler, HandlerPriority
 from rvandroid.experiment.event.models import Event, EventType
 
-
 class ProcessingMode(Enum):
     """Processing modes for the event processor."""
     SYNCHRONOUS = "sync"

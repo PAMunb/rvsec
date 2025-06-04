@@ -106,7 +106,7 @@ def get_curve_data(original_coverage_file, new_coverage_file, app_source_file):
     print(('data_id: final' + ' method_coverage:' + str(method_coverage)))
     print(('data_id: final' + ' class_coverage:' + str(class_coverage)))
     print(('data_id: final' + ' activity_coverage:' + str(activity_coverage)))
-    return (instruction_coverage_data, branch_coverage_data, cxty_coverage_data, line_coverage_data, method_coverage_data, class_coverage_data, activity_coverage_data)
+    return instruction_coverage_data, branch_coverage_data, cxty_coverage_data, line_coverage_data, method_coverage_data, class_coverage_data, activity_coverage_data
 
 
 def generate_test_report(new_coverage_file, app_source_file):

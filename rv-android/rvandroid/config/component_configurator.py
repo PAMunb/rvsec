@@ -561,7 +561,6 @@ class ComponentConfigurator:
         Raises:
             ValueError: If visitor type is unknown
         """
-        print(f"self._registries['visitor']={self._registries['visitor'].get_names()}")
         if not self._registries['visitor'].has(visitor_type):
             raise ValueError(
                 f"Unknown visitor type: {visitor_type}. Options: {self._registries['visitor'].get_names()}")

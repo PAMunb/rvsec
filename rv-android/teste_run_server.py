@@ -10,11 +10,11 @@ from rvandroid.config.component_configurator import ComponentConfigurator
 from rvandroid.llm.constants import PromptStrategyType, ScreenParserType
 from rvandroid.llm.frontier_models import FrontierModel
 from rvandroid.llm.huggingface_llm import HuggingFaceLLM
-from rvandroid.llm.langchain_llm import LangchainLLM
 from rvandroid.llm.ollama_llm import OllamaLLM
 from rvandroid.llm.service.action_service import LLMActionService
 from rvandroid.parser.screen.visitor.visitor_factory import VisitorFactory
 from rvandroid.parser.static import static_analysis_parser
+from rvandroid.server_novo import RVAndroidServer
 from rvandroid.server import Server
 
 
@@ -95,18 +95,18 @@ def setup_preset_config(args, configurator):
         configurator.set_parser("droidbot")
         configurator.set_visitor("enhanced")
 
-    elif preset == "langchain":
-        configurator.set_llm(
-            llm_type="langchain",
-            model=LangchainLLM.LLAMA,
-            base_url="http://localhost:11434",
-            provider="ollama",
-            use_json_parser=True,
-            use_memory=False
-        )
-        configurator.set_strategy("single_action")
-        configurator.set_parser("droidbot")
-        configurator.set_visitor("enhanced")
+    # elif preset == "langchain":
+    #     configurator.set_llm(
+    #         llm_type="langchain",
+    #         model=LangchainLLM.LLAMA,
+    #         base_url="http://localhost:11434",
+    #         provider="ollama",
+    #         use_json_parser=True,
+    #         use_memory=False
+    #     )
+    #     configurator.set_strategy("single_action")
+    #     configurator.set_parser("droidbot")
+    #     configurator.set_visitor("enhanced")
 
     elif preset == "claude":
         # Usando Claude com Anthropic API
@@ -236,7 +236,7 @@ if __name__ == '__main__':
         configurator.set_llm(
             llm_type=OllamaLLM.NAME,
             model=OllamaLLM.QWEN,
-            base_url="http://localhost:11434"
+            base_url="http://192.168.0.20:11434"
         )
         configurator.set_strategy(PromptStrategyType.BATCH_ACTION)
         configurator.set_parser(ScreenParserType.DROIDBOT)
@@ -308,9 +308,10 @@ if __name__ == '__main__':
 
     # Cria o serviço
     # service = configurator.create_service()
-    service = LLMActionService(static_data, configurator)
+    service = LLMActionService(static_data, configurator, package)
 
     # Inicia o servidor
+    # server = RVAndroidServer(service)
     server = Server(service)
     try:
         if server.start():

@@ -80,15 +80,15 @@ class UIPatternUtils:
         """
         if not isinstance(bounds, list) or len(bounds) != 2:
             UIPatternUtils._logger.warning(f"Invalid bounds format: {bounds}")
-            return (0, 0)
+            return 0, 0
 
         try:
             width = bounds[1][0] - bounds[0][0]
             height = bounds[1][1] - bounds[0][1]
-            return (width, height)
+            return width, height
         except (IndexError, TypeError):
             UIPatternUtils._logger.warning(f"Error calculating width/height from bounds: {bounds}")
-            return (0, 0)
+            return 0, 0
 
     @staticmethod
     def get_center_coordinates(bounds: List[List[int]]) -> Tuple[int, int]:
@@ -103,15 +103,15 @@ class UIPatternUtils:
         """
         if not isinstance(bounds, list) or len(bounds) != 2:
             UIPatternUtils._logger.warning(f"Invalid bounds format: {bounds}")
-            return (0, 0)
+            return 0, 0
 
         try:
             center_x = (bounds[0][0] + bounds[1][0]) // 2
             center_y = (bounds[0][1] + bounds[1][1]) // 2
-            return (center_x, center_y)
+            return center_x, center_y
         except (IndexError, TypeError):
             UIPatternUtils._logger.warning(f"Error calculating center from bounds: {bounds}")
-            return (0, 0)
+            return 0, 0
 
     @staticmethod
     def get_bounds_dimensions(bounds: List[List[int]]) -> Dict[str, int]:
@@ -346,5 +346,5 @@ class UIPatternUtils:
         if max_height == 0:
             max_height = 1920  # Common screen height
 
-        return (max_width, max_height)
+        return max_width, max_height
    

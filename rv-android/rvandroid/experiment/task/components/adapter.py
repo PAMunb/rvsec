@@ -13,7 +13,7 @@ from typing import Dict, Any, Optional, Type, TypeVar, Generic
 from rvandroid.experiment.event import EventBus, get_event_bus
 from rvandroid.experiment.task.component import BaseTaskComponent
 from rvandroid.experiment.task.interfaces import ITask
-from rvandroid.experiment.task.models import Task
+from rvandroid.experiment.task.task_model import Task
 
 
 class LegacyCoverageComponentAdapter(BaseTaskComponent):

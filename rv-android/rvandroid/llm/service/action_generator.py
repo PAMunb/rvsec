@@ -385,7 +385,7 @@ class ActionGenerator:
             if bounds and len(bounds) == 2:
                 x = (bounds[0][0] + bounds[1][0]) // 2
                 y = (bounds[0][1] + bounds[1][1]) // 2
-                return (x, y)
+                return x, y
 
         # Method 3: Try to extract from the view_data if available
         if view_data:
@@ -393,7 +393,7 @@ class ActionGenerator:
             if bounds and len(bounds) == 2:
                 x = (bounds[0][0] + bounds[1][0]) // 2
                 y = (bounds[0][1] + bounds[1][1]) // 2
-                return (x, y)
+                return x, y
 
         # Method 4: If target is a resource ID, try to find it in the view tree
         if "view_tree" in state:
@@ -412,7 +412,7 @@ class ActionGenerator:
             parts = target.split()
             if len(parts) == 2 and all(part.isdigit() for part in parts):
                 x, y = int(parts[0]), int(parts[1])
-                return (x, y)
+                return x, y
 
         self.logger.warning(f"Failed to resolve coordinates for action_id: {action_id}")
         return None
@@ -439,7 +439,7 @@ class ActionGenerator:
             if bounds and len(bounds) == 2:
                 x = (bounds[0][0] + bounds[1][0]) // 2
                 y = (bounds[0][1] + bounds[1][1]) // 2
-                return (x, y)
+                return x, y
 
         # Also check if it has the same ID part (after :id/)
         if ":" in resource_id and view_tree.get("resource_id", ""):
@@ -450,7 +450,7 @@ class ActionGenerator:
                 if bounds and len(bounds) == 2:
                     x = (bounds[0][0] + bounds[1][0]) // 2
                     y = (bounds[0][1] + bounds[1][1]) // 2
-                    return (x, y)
+                    return x, y
 
         # Check children
         for child in view_tree.get("children", []):

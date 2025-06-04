@@ -24,7 +24,7 @@ from rvandroid.experiment.task.component import ComponentRegistry
 from rvandroid.experiment.task.components.adapter import create_legacy_component_adapters
 from rvandroid.experiment.task.executor import TaskExecutor
 from rvandroid.experiment.task.interfaces import TaskState, ITask
-from rvandroid.experiment.task.models import Task, TaskConfiguration, TaskFactory
+from rvandroid.experiment.task.task_model import Task, TaskConfiguration, TaskFactory
 from rvandroid.experiment.task.storage import TaskStorage
 from rvandroid.tools.tool_spec import AbstractTool
 from rvandroid.util.logging.manager import LoggingManager

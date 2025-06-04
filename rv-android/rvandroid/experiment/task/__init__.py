@@ -20,11 +20,10 @@ from rvandroid.experiment.task.interfaces import (
 )
 
 # Export model implementations
-from rvandroid.experiment.task.models import (
+from rvandroid.experiment.task.task_model import (
     TaskConfiguration,
     TaskResult,
-    Task,
-    TaskFactory
+    Task
 )
 
 # Export storage implementation
@@ -78,7 +77,7 @@ __all__ = [
     'TaskConfiguration',
     'TaskResult',
     'Task',
-    'TaskFactory',
+    # 'TaskFactory',
     
     # Storage
     'TaskStorage',

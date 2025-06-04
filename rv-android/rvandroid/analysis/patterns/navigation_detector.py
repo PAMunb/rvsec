@@ -200,9 +200,9 @@ class NavigationDetector(BasePatternDetector):
             # Look for hamburger menu button
             hamburger_button = self._find_hamburger_button(screen)
             if hamburger_button:
-                return (0.5, [hamburger_button])
+                return 0.5, [hamburger_button]
 
-            return (0.0, [])
+            return 0.0, []
 
         # Return the most likely drawer and its elements
         best_drawer = max(potential_drawers, key=lambda x: x[1])
@@ -211,7 +211,7 @@ class NavigationDetector(BasePatternDetector):
         # Add drawer item and navigation items
         elements = [drawer_item] + self._filter_navigation_items(children)
 
-        return (confidence, elements)
+        return confidence, elements
 
     def _detect_bottom_navigation(self, screen: ScreenDescription) -> Tuple[float, List[ScreenItem]]:
         """
@@ -295,9 +295,9 @@ class NavigationDetector(BasePatternDetector):
             if bottom_row:
                 # Calculate confidence based on number of items and position
                 confidence = min(0.7, 0.4 + (len(bottom_row) * 0.05))
-                return (confidence, bottom_row)
+                return confidence, bottom_row
 
-            return (0.0, [])
+            return 0.0, []
 
         # Return the most likely bottom nav and its elements
         best_bottom_nav = max(potential_bottom_nav, key=lambda x: x[1])
@@ -309,7 +309,7 @@ class NavigationDetector(BasePatternDetector):
         else:
             elements = [nav_item]
 
-        return (confidence, elements)
+        return confidence, elements
 
     def _detect_side_navigation(self, screen: ScreenDescription) -> Tuple[float, List[ScreenItem]]:
         """
@@ -392,9 +392,9 @@ class NavigationDetector(BasePatternDetector):
             if side_column:
                 # Calculate confidence based on number of items and position
                 confidence = min(0.7, 0.4 + (len(side_column) * 0.05))
-                return (confidence, side_column)
+                return confidence, side_column
 
-            return (0.0, [])
+            return 0.0, []
 
         # Return the most likely side nav and its elements
         best_side_nav = max(potential_side_nav, key=lambda x: x[1])
@@ -406,7 +406,7 @@ class NavigationDetector(BasePatternDetector):
         else:
             elements = [nav_item]
 
-        return (confidence, elements)
+        return confidence, elements
 
     def _count_navigation_items(self, items: List[ScreenItem]) -> int:
         """

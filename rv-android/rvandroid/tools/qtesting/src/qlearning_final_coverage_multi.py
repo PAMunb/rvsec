@@ -372,7 +372,7 @@ class QLearning(object):
             if action_string == '':
                 action_string = self.get_qlearning_action(current_state)
                 if self.system_flag != 0:
-                    return (action_string, action_string)
+                    return action_string, action_string
         print(('the selected action string is ' + action_string.split('\n')[0]))
         action_id, action_cmd, view_type, view_text = parse_action_string(action_string)
         return (
@@ -467,7 +467,7 @@ class QLearning(object):
             next_state_vector = self.preprocess.extract_vectors(self.current_state_tree)
             next_feature_vector = self.intermediate_model.predict(np.array(next_state_vector))
             if next_activity not in self.memory_buffer:
-                memory_states_vectors = {(self.current_state_id): next_feature_vector}
+                memory_states_vectors = {self.current_state_id: next_feature_vector}
                 self.memory_buffer[next_activity] = memory_states_vectors
                 return MAX_REWARD
             memory_feature_vectors = self.memory_buffer[next_activity]

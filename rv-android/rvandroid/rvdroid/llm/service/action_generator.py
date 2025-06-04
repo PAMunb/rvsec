@@ -6,7 +6,7 @@ This module provides functionality to generate actions based on the current
 application state and LLM guidance.
 """
 
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List
 
 from rvandroid.util.logging.constants import CONTEXT_COMPONENT
 from rvandroid.util.logging.manager import LoggingManager

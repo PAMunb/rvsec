@@ -10,6 +10,7 @@ from typing import Optional
 
 from rvandroid.experiment.event.bus import EventBus
 
+# TODO deprecated???
 class EventBusProvider:
     """
     Centralized provider for EventBus instances in the RV-Android system.

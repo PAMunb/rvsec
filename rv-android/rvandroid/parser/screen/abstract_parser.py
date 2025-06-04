@@ -4,7 +4,7 @@ from typing import Dict, Any, Optional, Type
 from rvandroid.domain.static import StaticAnalysisData
 from rvandroid.parser.screen.base_parser import BaseScreenParser
 from rvandroid.parser.screen.visitor.abstract_visitor import AbstractScreenVisitor
-from rvandroid.parser.screen.visitor.model import ScreenDescription, Node
+from rvandroid.parser.screen.visitor.model import ScreenDescription
 
 
 class AbstractScreenParser(BaseScreenParser[ScreenDescription]):

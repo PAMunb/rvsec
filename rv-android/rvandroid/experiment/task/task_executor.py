@@ -131,7 +131,7 @@ class TaskExecutor:
 
         try:
             self.task.mark_started()
-            # Use new API to publish started event
+            # Publish task started event
             self._publish_task_started_event()
 
             # Measure the total execution time

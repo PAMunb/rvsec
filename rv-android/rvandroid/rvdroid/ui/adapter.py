@@ -8,7 +8,7 @@ to ensure interchangeability and consistent behavior.
 """
 
 from abc import ABC, abstractmethod
-from typing import Dict, Any, Optional, Tuple, List
+from typing import Dict, Any, Optional, Tuple
 
 from rvandroid.domain.static import StaticAnalysisData
 from rvandroid.parser.screen.visitor.model import ScreenDescription

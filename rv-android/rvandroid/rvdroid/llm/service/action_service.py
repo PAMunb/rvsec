@@ -6,7 +6,7 @@ This module provides a service for managing actions, including generation,
 execution, and tracking.
 """
 
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List
 
 from rvandroid.util.logging.constants import CONTEXT_COMPONENT
 from rvandroid.util.logging.manager import LoggingManager

@@ -234,7 +234,7 @@ class SimulatedAnnealingStrategy(Strategy):
         elapsed_time = time.time() - self.start_time
         
         # Cool based on time (every 30 seconds)
-        elapsed_minutes = elapsed_time / (30)  # Cool every 30 seconds
+        elapsed_minutes = elapsed_time / 30  # Cool every 30 seconds
         
         # Calculate new temperature
         self.temperature = self.initial_temperature * (self.cooling_rate ** elapsed_minutes)

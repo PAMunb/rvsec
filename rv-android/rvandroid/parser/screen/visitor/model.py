@@ -84,7 +84,7 @@ class ItemAction:
             if bounds and len(bounds) == 2:
                 x = (bounds[0][0] + bounds[1][0]) // 2
                 y = (bounds[0][1] + bounds[1][1]) // 2
-                return (x, y)
+                return x, y
 
         return None
 
@@ -432,14 +432,14 @@ class Node:
             Tuple of (x, y) coordinates
         """
         if not isinstance(self.bounds, list) or len(self.bounds) != 2:
-            return (0, 0)
+            return 0, 0
 
         try:
             x1, y1 = self.bounds[0]
             x2, y2 = self.bounds[1]
-            return ((x1 + x2) // 2, (y1 + y2) // 2)
+            return (x1 + x2) // 2, (y1 + y2) // 2
         except (TypeError, IndexError):
-            return (0, 0)
+            return 0, 0
 
     def get_unique_id(self) -> str:
         """

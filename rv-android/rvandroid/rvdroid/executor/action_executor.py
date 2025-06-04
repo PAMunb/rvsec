@@ -522,7 +522,7 @@ class ActionExecutor:
             if isinstance(coordinates, tuple) and len(coordinates) == 2:
                 return coordinates
             elif isinstance(coordinates, list) and len(coordinates) == 2:
-                return (coordinates[0], coordinates[1])
+                return coordinates[0], coordinates[1]
 
         # Try to parse from target string
         if isinstance(target, str):
@@ -533,7 +533,7 @@ class ActionExecutor:
                     try:
                         x = int(parts[0].strip())
                         y = int(parts[1].strip())
-                        return (x, y)
+                        return x, y
                     except ValueError:
                         pass
 
@@ -541,7 +541,7 @@ class ActionExecutor:
             elif " " in target:
                 parts = target.split()
                 if len(parts) >= 2 and all(part.isdigit() for part in parts[:2]):
-                    return (int(parts[0]), int(parts[1]))
+                    return int(parts[0]), int(parts[1])
 
         # If we reach here, coordinates couldn't be determined
         raise ActionExecutionError(f"Could not determine coordinates from {coordinates} or {target}")

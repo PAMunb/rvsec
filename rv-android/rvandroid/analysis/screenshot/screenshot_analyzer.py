@@ -684,7 +684,7 @@ class ScreenshotAnalyzer(BaseAnalyzer[ScreenshotAnalysisResult]):
             text_center_x = tx + tw // 2
             text_center_y = ty + th // 2
 
-            if (x <= text_center_x <= x + w and y <= text_center_y <= y + h):
+            if x <= text_center_x <= x + w and y <= text_center_y <= y + h:
                 # Text is inside button
                 contained_texts.append((text['text'], text['confidence']))
 

@@ -10,7 +10,7 @@ import os
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Dict, List, Any, Optional
+from typing import Dict, List, Any, Optional, Type, TypeVar, Generic
 
 from rvandroid.app import App
 from rvandroid.domain.coverage import LogcatRepository
@@ -329,3 +329,76 @@ class Task:
 
     def __str__(self) -> str:
         return f"Task[id={self.id}, {self.config}, status={self.result.status.name}]"
+
+
+T = TypeVar('T', bound=Task)
+
+
+class TaskFactory(Generic[T]):
+    """
+    Factory for creating task instances.
+
+    ### Architectural Decisions:
+    - Uses generics to support different task types
+    - Provides centralized task creation logic
+    - Supports creation from configuration or dictionary
+    - Ensures consistent task initialization
+
+    ### Role in the System:
+    - Creates task instances with appropriate configuration
+    - Ensures consistent task initialization
+    - Centralizes task creation logic
+    - Supports different task types through generics
+    """
+
+    def __init__(self, task_class: Type[T]):
+        """
+        Initialize the factory with a task class.
+
+        Args:
+            task_class: Class to use for creating tasks
+        """
+        self.task_class = task_class
+        self.logger = logging.getLogger(__name__)
+
+    def create_task(self, config: TaskConfiguration, task_id: Optional[str] = None) -> T:
+        """
+        Create a new task instance.
+
+        Args:
+            config: Task configuration
+            task_id: Optional task ID (generated if not provided)
+
+        Returns:
+            Newly created task instance
+        """
+        return self.task_class(config, task_id)
+
+    def create_task_from_dict(self, data: Dict[str, Any]) -> Optional[T]:
+        """
+        Create a task from a dictionary representation.
+
+        Args:
+            data: Dictionary with task data
+
+        Returns:
+            Task instance if successful, None otherwise
+        """
+        try:
+            # Extract config and ID
+            config_data = data.get("config", {})
+            config = TaskConfiguration.from_dict(config_data)
+            task_id = data.get("id")
+
+            # Create task
+            task = self.create_task(config, task_id)
+
+            # Set result data
+            result_data = data.get("result", {})
+            task.result = TaskResult.from_dict(result_data)
+
+            return task
+
+        except Exception as e:
+            self.logger.error(f"Error creating task from dictionary: {e}")
+            return None

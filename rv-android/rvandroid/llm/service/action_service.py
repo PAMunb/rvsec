@@ -5,12 +5,12 @@ This module defines the LLMActionService class, which orchestrates the
 AI-driven test action generation system using the PromptFramework.
 """
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 from rvandroid.config.component_configurator import ComponentConfigurator
 from rvandroid.domain.static import StaticAnalysisData
 from rvandroid.experiment.event.bus import EventBus, EventType
-from rvandroid.llm.constants import ContextEntry, PromptStrategyType, StateEntry
+from rvandroid.llm.constants import ContextEntry, StateEntry
 from rvandroid.llm.data_structures import LLMMessage, LLMResponse
 from rvandroid.llm.prompt.framework import PromptFramework
 from rvandroid.llm.service import LLMManager

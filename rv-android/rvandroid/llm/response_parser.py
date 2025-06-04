@@ -299,16 +299,6 @@ class ResponseParser:
             return ResponseValidator.validate_action_id_format(
                 actions, available_action_ids, single_action_mode)
 
-        except ValueError as e:
-            errors.append(f"Failed to extract JSON: {str(e)}")
-            self.error_handler.handle_error(
-                e,
-                context={
-                    "component": "ResponseParser",
-                    "function": "parse_actions",
-                    "response_length": len(response) if response else 0
-                }
-            )
         except json.JSONDecodeError as e:
             errors.append(f"Invalid JSON format: {str(e)}")
             self.error_handler.handle_error(
@@ -317,6 +307,16 @@ class ResponseParser:
                     "component": "ResponseParser",
                     "function": "parse_actions",
                     "json_error": str(e)
+                }
+            )
+        except ValueError as e:
+            errors.append(f"Failed to extract JSON: {str(e)}")
+            self.error_handler.handle_error(
+                e,
+                context={
+                    "component": "ResponseParser",
+                    "function": "parse_actions",
+                    "response_length": len(response) if response else 0
                 }
             )
         except Exception as e:

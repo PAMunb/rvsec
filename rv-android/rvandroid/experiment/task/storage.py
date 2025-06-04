@@ -8,15 +8,14 @@ error handling.
 """
 
 import json
-import logging
 import os
 import shutil
 import threading
 from datetime import datetime
-from typing import Dict, List, Optional, Any, Type, TypeVar, Generic
+from typing import Dict, List, Optional
 
 from rvandroid.experiment.task.interfaces import ITaskStorage, ITask, TaskState
-from rvandroid.experiment.task.models import Task, TaskFactory, TaskConfiguration, TaskResult
+from rvandroid.experiment.task.task_model import Task, TaskFactory
 from rvandroid.util.logging.manager import LoggingManager
 
 
@@ -47,18 +46,18 @@ class TaskStorage(ITaskStorage):
         """
         self.storage_file = storage_file
         self.task_factory = task_factory or TaskFactory(Task)
-        
+
         # Initialize logging
         logging_manager = LoggingManager.get_instance()
         self.logger = logging_manager.get_logger('experiment.task_storage')
-        
+
         # Task storage
         self.tasks: Dict[str, Task] = {}
         self.loaded = False
-        
+
         # Thread synchronization
         self.lock = threading.RLock()
-        
+
         # Transaction support
         self.in_transaction = False
         self.transaction_tasks: Dict[str, Task] = {}
@@ -198,7 +197,7 @@ class TaskStorage(ITaskStorage):
             # Check transaction buffer first if in transaction
             if self.in_transaction and task_id in self.transaction_tasks:
                 return self.transaction_tasks[task_id]
-                
+
             return self.tasks.get(task_id)
 
     def get_tasks(self) -> List[ITask]:
@@ -214,7 +213,7 @@ class TaskStorage(ITaskStorage):
         with self.lock:
             if not self.in_transaction:
                 return list(self.tasks.values())
-                
+
             # Merge transaction tasks with base tasks
             result = self.tasks.copy()
             result.update(self.transaction_tasks)
@@ -259,7 +258,7 @@ class TaskStorage(ITaskStorage):
             if self.in_transaction:
                 self.logger.warning("Transaction already in progress")
                 return
-                
+
             self.in_transaction = True
             self.transaction_tasks = {}
             self.logger.debug("Transaction started")
@@ -275,21 +274,21 @@ class TaskStorage(ITaskStorage):
             if not self.in_transaction:
                 self.logger.warning("No transaction in progress")
                 return False
-                
+
             try:
                 # Apply all changes
                 self.tasks.update(self.transaction_tasks)
-                
+
                 # Save changes
                 result = self.save()
-                
+
                 # Reset transaction state
                 self.in_transaction = False
                 self.transaction_tasks = {}
-                
+
                 self.logger.debug(f"Transaction committed with {len(self.transaction_tasks)} changes")
                 return result
-                
+
             except Exception as e:
                 self.logger.error(f"Error committing transaction: {e}")
                 return False
@@ -302,12 +301,12 @@ class TaskStorage(ITaskStorage):
             if not self.in_transaction:
                 self.logger.warning("No transaction in progress")
                 return
-                
+
             # Reset transaction state
             self.in_transaction = False
             count = len(self.transaction_tasks)
             self.transaction_tasks = {}
-            
+
             self.logger.debug(f"Transaction rolled back, discarded {count} changes")
 
     def delete_task(self, task_id: str) -> bool:
@@ -331,7 +330,7 @@ class TaskStorage(ITaskStorage):
                     self.logger.debug(f"Marked task {task_id} for deletion in transaction")
                     return True
                 return False
-                
+
             if task_id in self.tasks:
                 del self.tasks[task_id]
                 self.save()
@@ -350,7 +349,7 @@ class TaskStorage(ITaskStorage):
             if self.in_transaction:
                 self.logger.warning("Cannot clear storage during transaction")
                 return False
-                
+
             self.tasks = {}
             result = self.save()
             self.logger.info("Cleared all tasks from storage")
@@ -405,12 +404,12 @@ class TaskStorage(ITaskStorage):
         with self.lock:
             try:
                 self.begin_transaction()
-                
+
                 for task in tasks:
                     self.update_task(task)
-                    
+
                 return self.commit_transaction()
-                
+
             except Exception as e:
                 self.logger.error(f"Error in bulk update: {e}")
                 self.rollback_transaction()
