@@ -10,7 +10,7 @@ import os
 from typing import Dict, List, Any, Type, Optional, TypeVar, Generic
 
 from rvandroid.config.configuration import Configuration
-from rvandroid.llm.constants import PromptStrategyType, LLMType, OllamaModels
+from rvandroid.llm.constants import PromptStrategyType, LLMType
 # Remove circular import
 # from rvandroid.config.configuration_manager import ConfigurationManager
 from rvandroid.llm.llm_config import LLMConfiguration

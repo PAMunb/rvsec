@@ -141,7 +141,7 @@ class Server:
             Endpoint to receive application state and return suggested actions.
             Uses the refactored LLMActionService to process state and generate actions.
             """
-            print("**************************** GENERATING ACTIONS ****************************")
+            print("\n\n**************************** GENERATING ACTIONS ****************************")
             try:
                 # Get JSON data from request
                 data = request.json

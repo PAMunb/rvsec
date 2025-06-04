@@ -12,14 +12,16 @@ class LLMType:
     HUGGINGFACE = "huggingface"
     FRONTIER = "frontier"
 
-class OllamaModels:
-    """Constants for Ollama model types."""
-    LLAMA3_8B = "llama3:8b"
-    LLAMA3_70B = "llama3:70b"
-    MISTRAL = "mistral:7b"
-    GEMMA = "gemma:7b"
-    
-    ALL = [LLAMA3_8B, LLAMA3_70B, MISTRAL, GEMMA]
+
+# TODO deprecated
+# class OllamaModels:
+#     """Constants for Ollama model types."""
+#     LLAMA3_8B = "llama3:8b"
+#     LLAMA3_70B = "llama3:70b"
+#     MISTRAL = "mistral:7b"
+#     GEMMA = "gemma:7b"
+#
+#     ALL = [LLAMA3_8B, LLAMA3_70B, MISTRAL, GEMMA]
 
 class PromptStrategyType:
     """Constants for prompt strategy types."""
@@ -28,10 +30,12 @@ class PromptStrategyType:
     DEFAULT = BATCH_ACTION
     ALL = [STANDARD, BATCH_ACTION]
 
+
 class ScreenParserType:
     """Constants for screen parser types."""
     DROIDBOT = "droidbot"
     UIAUTOMATOR = "uiautomator"
+
 
 class VisitorType:
     """Constants for visitor types."""
@@ -39,7 +43,7 @@ class VisitorType:
     DEFAULT = VisitorFactory.DEFAULT
     DETAILED = VisitorFactory.DETAILED
 
-# TODO deprecated
+
 class FragmentType:
     """Constants for information fragment types."""
     UI_ELEMENTS = "ui_elements"
@@ -48,11 +52,13 @@ class FragmentType:
     UI_PATTERNS = "ui_patterns"
     HISTORY = "history"
 
+
 class TemplateRole:
     """Constants for template roles."""
     SYSTEM = "system"
     USER = "user"
     ASSISTANT = "assistant"
+
 
 class StateEntry:
     """Constants for state dictionary entries."""
@@ -81,21 +87,21 @@ class StateEntry:
     RECENT_ITERATIONS = "recent_iterations"
 
 
-
 class ComponentType:
     """Constants for component types in ComponentConfigurator."""
     LLM = "llm"
     PROMPT_STRATEGY = "strategy"
     PARSER = "parser"
     VISITOR = "visitor"
-    
+
+
 class ContextEntry:
     """Constants for context dictionary entries."""
     TEMPLATE = "template"
-    ADDITIONAL_GUIDELINES = "additional_guidelines"
+    ADDITIONAL_GUIDELINES = "additional_guidelines" # TODO: remove
     APP_PACKAGE = "app_package"
     APP_ACTIVITY = "app_activity"
-    TESTING_HISTORY = "testing_history"
+    TESTING_HISTORY = "testing_history" # TODO: remove
     ACTION_LIMIT = "action_limit"
     MODEL_TYPE = "model_type"
     MODEL_NAME = "model_name"

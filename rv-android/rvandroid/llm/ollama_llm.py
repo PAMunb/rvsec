@@ -50,10 +50,10 @@ class OllamaLLM(LanguageModel):
     NAME = "ollama"
 
     # Available model definitions
-    LLAMA: ClassVar[str] = "llama3.2:3b"
+    LLAMA: ClassVar[str] = "llama3.2:1b"
     DEEPSEEK: ClassVar[str] = "deepseek-r1:1.5B"
-    GEMMA: ClassVar[str] = "gemma3:4b"
-    QWEN: ClassVar[str] = "qwen3:8b"
+    GEMMA: ClassVar[str] = "gemma3:1b"
+    QWEN: ClassVar[str] = "qwen3:0.6b"
     PHI: ClassVar[str] = "phi4-mini-reasoning:3.8b"
     GRANITE: ClassVar[str] = "granite3.3:2b"
     MISTRAL: ClassVar[str] = "mistral:7b"
@@ -146,8 +146,14 @@ class OllamaLLM(LanguageModel):
             # Add top_p if specified and less than 1.0
             if _config and hasattr(_config, 'top_p') and _config.top_p < 1.0:
                 options["top_p"] = _config.top_p
+
+            if _config and hasattr(_config, 'top_k') and _config.top_k < 1.0:
+                options["top_k"] = _config.top_k
+            else:
+                options["top_k"] = 40
                 
-            self.logger.debug(f"Calling Ollama with model: {self.model_name}, options: {options}")
+            self.logger.info(f"Calling Ollama with model: {self.model_name}, options: {options}")
+            # TODO voltar debug self.logger.debug(f"Calling Ollama with model: {self.model_name}, options: {options}")
 
             # Call Ollama chat API synchronously
             response: ChatResponse = self.client.chat(

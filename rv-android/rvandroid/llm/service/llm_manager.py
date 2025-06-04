@@ -8,7 +8,7 @@ from typing import List, Dict, Optional, Any, Union
 
 from rvandroid.config.component_configurator import ComponentConfigurator
 from rvandroid.experiment.event.bus import EventBus, EventType
-from rvandroid.llm.data_structures import LLMMessage, LLMResponse
+from rvandroid.llm.data_structures import LLMMessage, LLMResponse, LLMTextContent
 from rvandroid.llm.language_model import LanguageModel
 from rvandroid.llm.llm_config import LLMConfiguration
 from rvandroid.util.logging.constants import CONTEXT_COMPONENT
@@ -171,6 +171,11 @@ class LLMManager:
             unit="chars",
             context=context
         )
+
+        for message in messages:
+            print(f"\n********** ROLE: {message.role}")
+            for content in message.content:
+                print(content)
 
         # Perform generation with timing
         start_time = time.time()

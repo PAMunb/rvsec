@@ -249,6 +249,8 @@ class TransitionManager:
             # Add suggested targets for exploration
             # self._add_suggested_targets(guidance, activity)
 
+            self.logger.info(f"Transition guidance: {guidance}")
+
             return guidance
         except Exception as e:
             self.error_handler.handle_error(

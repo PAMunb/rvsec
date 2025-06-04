@@ -94,10 +94,12 @@ class MemoryManager:
             # Update long-term memory with state information
             activity = self._get_activity_from_state(state)
             state_hash = self._compute_state_hash(state)
+            self.logger.info(f"Activity ({activity}) hash: {state_hash}")
             
             # Create or update memory state in long-term memory
             if state_hash not in self.long_term.states:
                 memory_state = MemoryState(state_hash, activity)
+                self.logger.info(f"Create or update memory state: {memory_state.to_dict()}")
                 
                 # Set screenshot if available
                 if StateEntry.SCREENSHOT_PATH in state:
@@ -114,6 +116,7 @@ class MemoryManager:
                 # Update existing state
                 memory_state = self.long_term.states[state_hash]
                 memory_state.record_visit()
+                self.logger.info(f"Update existing state: {memory_state}")
                 
                 # Update screenshot if available
                 if StateEntry.SCREENSHOT_PATH in state:
@@ -175,7 +178,8 @@ class MemoryManager:
                     "actions_count": len(actions) if actions else 0
                 }
             )
-    
+
+    # TODO deprecated ??
     def record_transition(self, from_state: Dict[str, Any], to_state: Dict[str, Any],
                           action: GeneratedAction, succeeded: bool = True) -> None:
         """
@@ -269,16 +273,18 @@ class MemoryManager:
             # Add short-term memory context
             formatted_history = self.short_term.format_for_template(short_term_limit)
             state[StateEntry.ACTION_HISTORY] = formatted_history
+            self.logger.info(f"Action history: {formatted_history}")
             
             # Add long-term memory insights
             activity = self._get_activity_from_state(state)
-            # TODO rever
+            # TODO rever esta pegando do droidbot ou calculando?
             state_hash = state.get(StateEntry.HASH_SCREEN_CONTENT,
                                   state.get(StateEntry.HASH_SCREEN, "unknown"))
             
             # Generate insights
             insights = self._get_long_term_insights(state_hash, activity)
             state[StateEntry.MEMORY_INSIGHTS] = insights
+            self.logger.info(f"Insights: {insights}")
             
             # Add activity visit information
             state[StateEntry.ACTIVITY_VISITS] = {
@@ -286,12 +292,15 @@ class MemoryManager:
                 "visit_count": self.long_term.get_activity_visit_count(activity),
                 "activity_statistics": self.long_term.get_activity_statistics()
             }
+            self.logger.info(f"Activity visits: {state[StateEntry.ACTIVITY_VISITS]}")
             
             # Add navigation history
             navigation_path = self.long_term.get_visited_activities()
             state[StateEntry.NAVIGATION_PATH] = navigation_path
+            self.logger.info(f"Navigation path: {navigation_path}")
             
             # For backward compatibility with the old format
+            # TODO rever backward
             recent_iterations = self.short_term.get_recent_iterations(short_term_limit)
             compat_iterations = []
             
@@ -319,6 +328,7 @@ class MemoryManager:
                 compat_iterations.append(compat_iteration)
             
             state[StateEntry.RECENT_ITERATIONS] = compat_iterations
+            self.logger.info(f"Recent iterations: {state[StateEntry.RECENT_ITERATIONS]}")
             
             self.logger.debug("Enriched state with history data")
             return state
@@ -434,15 +444,14 @@ class MemoryManager:
         """
         try:
             # Check if state already has a hash
-            if StateEntry.HASH_SCREEN_CONTENT in state:
-                return state[StateEntry.HASH_SCREEN_CONTENT]
             if StateEntry.HASH_SCREEN in state:
                 return state[StateEntry.HASH_SCREEN]
             
             # Use a stable JSON serialization for hashing
             stable_dict = self._create_stable_dict_for_hashing(state)
             state_json = json.dumps(stable_dict, sort_keys=True)
-            return hashlib.md5(state_json.encode()).hexdigest()
+            state[StateEntry.HASH_SCREEN] = hashlib.md5(state_json.encode()).hexdigest()
+            return state[StateEntry.HASH_SCREEN]
         except Exception as e:
             self.logger.warning(f"Error computing state hash: {e}")
             return str(time.time())  # Fallback to timestamp if hashing fails

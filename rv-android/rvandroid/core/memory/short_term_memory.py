@@ -140,8 +140,7 @@ class ShortTermMemory:
             activity = state.get(StateEntry.ACTIVITY, "unknown")
 
             # Use appropriate state hash - prefer content+structure hash if available
-            state_hash = state.get(StateEntry.HASH_SCREEN_CONTENT,
-                                   state.get(StateEntry.HASH_SCREEN, "unknown"))
+            state_hash = state.get(StateEntry.HASH_SCREEN, "unknown")
 
             # Check if activity has changed
             if activity != self.current_activity:
@@ -164,6 +163,7 @@ class ShortTermMemory:
                 self.iterations = self.iterations[:self.max_iterations]
 
             self.logger.info(f"Recorded iteration with {len(actions)} actions, memory size: {len(self.iterations)}")
+            self.logger.info(f"Recent iterations: {self.iterations}")
 
         except Exception as e:
             self.logger.error(f"Error recording iteration: {e}")

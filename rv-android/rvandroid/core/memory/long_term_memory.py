@@ -75,27 +75,27 @@ class MemoryState:
         if path:
             self.screenshot_path = path
 
-    # def to_dict(self) -> Dict[str, Any]:
-    #     """
-    #     Convert to dictionary representation.
-    #
-    #     Returns:
-    #         Dictionary representation
-    #     """
-    #     return {
-    #         "fingerprint": self.fingerprint,
-    #         "activity": self.activity,
-    #         "visit_count": self.visit_count,
-    #         "first_visit": self.first_visit,
-    #         "last_visit": self.last_visit,
-    #         "successful_actions": list(self.successful_actions),
-    #         "failed_actions": list(self.failed_actions),
-    #         "all_actions": list(self.all_actions),
-    #         "outgoing_transitions": self.outgoing_transitions,
-    #         "incoming_transitions": self.incoming_transitions,
-    #         "interactive_elements_count": self.interactive_elements_count,
-    #         "screenshot_path": self.screenshot_path
-    #     }
+    def to_dict(self) -> Dict[str, Any]:
+        """
+        Convert to dictionary representation.
+
+        Returns:
+            Dictionary representation
+        """
+        return {
+            "fingerprint": self.fingerprint,
+            "activity": self.activity,
+            "visit_count": self.visit_count,
+            "first_visit": self.first_visit,
+            "last_visit": self.last_visit,
+            "successful_actions": list(self.successful_actions),
+            "failed_actions": list(self.failed_actions),
+            "all_actions": list(self.all_actions),
+            "outgoing_transitions": self.outgoing_transitions,
+            "incoming_transitions": self.incoming_transitions,
+            "interactive_elements_count": self.interactive_elements_count,
+            "screenshot_path": self.screenshot_path
+        }
     #
     # @classmethod
     # def from_dict(cls, data: Dict[str, Any]) -> 'MemoryState':
@@ -142,8 +142,8 @@ class MemoryAction:
         self.text = text
         self.type = action_type
         self.execution_count = 0
-        self.success_count = 0
-        self.failure_count = 0
+        self.success_count = 0  # TODO deprecated
+        self.failure_count = 0  # TODO deprecated
         self.state_transitions = defaultdict(list)  # TODO entender
         self.element_properties = {} # TODO entender
         self.reaches_mop = False
@@ -184,25 +184,25 @@ class MemoryAction:
             return 0.0
         return self.success_count / self.execution_count
 
-    # def to_dict(self) -> Dict[str, Any]:
-    #     """
-    #     Convert to dictionary representation.
-    #
-    #     Returns:
-    #         Dictionary representation
-    #     """
-    #     return {
-    #         "id": self.id,
-    #         "text": self.text,
-    #         "type": self.type,
-    #         "execution_count": self.execution_count,
-    #         "success_count": self.success_count,
-    #         "failure_count": self.failure_count,
-    #         "state_transitions": dict(self.state_transitions),
-    #         "element_properties": self.element_properties,
-    #         "reaches_mop": self.reaches_mop,
-    #         "directly_reaches_mop": self.directly_reaches_mop
-    #     }
+    def to_dict(self) -> Dict[str, Any]:
+        """
+        Convert to dictionary representation.
+
+        Returns:
+            Dictionary representation
+        """
+        return {
+            "id": self.id,
+            "text": self.text,
+            "type": self.type,
+            "execution_count": self.execution_count,
+            "success_count": self.success_count,
+            "failure_count": self.failure_count,
+            "state_transitions": dict(self.state_transitions),
+            "element_properties": self.element_properties,
+            "reaches_mop": self.reaches_mop,
+            "directly_reaches_mop": self.directly_reaches_mop
+        }
     #
     # @classmethod
     # def from_dict(cls, data: Dict[str, Any]) -> 'MemoryAction':
@@ -363,6 +363,7 @@ class LongTermMemory:
             self.activities[state.activity]["visit_count"] += 1
             self.activities[state.activity]["last_seen"] = time.time()
 
+    # TODO rever, pois o ID da action eh unico apenas na tela atual
     def record_action(self, action: MemoryAction, state_fingerprint: str, success: bool) -> None:
         """
         Record an action execution.
@@ -390,6 +391,8 @@ class LongTermMemory:
         if state_fingerprint in self.states:
             self.states[state_fingerprint].record_action(action.id, success)
 
+    # TODO: rever apenas uma acao???
+    # TODO deprecated ??
     def record_transition(self, from_state: str, to_state: str, action: MemoryAction, success: bool) -> None:
         """
         Record a state transition.
@@ -400,6 +403,7 @@ class LongTermMemory:
             action: Action that caused the transition
             success: Whether the transition was successful
         """
+        self.logger.info(f"Recording transition from {from_state} to {to_state} with action {action}")
         # Only record successful transitions
         if not success:
             return
@@ -432,6 +436,7 @@ class LongTermMemory:
             "action_id": action.id,
             "timestamp": time.time()
         })
+        self.logger.info(f"Transition added from:{from_state} to:{to_state} with action={action.to_dict()}")
 
         self.total_transitions += 1
 

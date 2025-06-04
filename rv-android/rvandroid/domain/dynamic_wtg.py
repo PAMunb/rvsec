@@ -159,7 +159,7 @@ class DynamicTransitionGraph:
         if target_activity.endswith(".."):
             target_activity = target_activity[:-1]
 
-        print(f"$$$ Recording transition: {source_activity} -> {target_activity}")
+        self.logger.info(f"Recording transition: {source_activity} -> {target_activity}")
 
         # Ensure both activities exist
         self.add_activity(source_activity)
@@ -173,7 +173,7 @@ class DynamicTransitionGraph:
                     t.actions == actions):
                 transition = t
                 transition.increment_count()
-                self.logger.debug(
+                self.logger.info(
                     f"Incremented transition: {source_activity} -> {target_activity}, count: {transition.count}")
                 break
 
@@ -249,6 +249,8 @@ class DynamicTransitionGraph:
         # Sort neighbors by visit count
         neighbor_visits = [(n, self.activities[n].visit_count) for n in neighbors]
         neighbor_visits.sort(key=lambda x: x[1])
+
+        self.logger.info(f"Suggested next activity: {neighbor_visits[0][0] if neighbor_visits else None}")
 
         # Return the least visited neighbor
         return neighbor_visits[0][0] if neighbor_visits else None

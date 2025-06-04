@@ -17,7 +17,7 @@ from rvandroid.experiment.workflow.result_manager import ResultManager
 from rvandroid.experiment.workflow.workflow_factory import WorkflowFactory
 from rvandroid.util.logging.manager import LoggingManager
 
-
+# TODO deprecated
 class IntegrationFactory:
     """
     Factory for creating integrated components that combine new and legacy systems.

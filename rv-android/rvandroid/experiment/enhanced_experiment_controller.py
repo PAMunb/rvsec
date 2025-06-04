@@ -24,6 +24,7 @@ from rvandroid.util.logging.manager import LoggingManager
 from settings import TIMESTAMP, RESULTS_DIR
 
 
+# TODO deprecated
 class EnhancedExperimentController(ExperimentController):
     """
     Enhanced experiment controller that uses the new orchestration and analysis systems.

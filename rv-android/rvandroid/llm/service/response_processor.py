@@ -81,6 +81,8 @@ class ResponseProcessor:
         """
         context = {"activity": state.get("activity", "unknown")}
 
+        # TODO capturar a explicacao da escolha das acoes
+
         with self.performance_monitor.measure_time("response_parsing", context):
             self.logger.debug(f"Processing LLM response of length {len(response)}")
 
@@ -94,6 +96,9 @@ class ResponseProcessor:
 
                 # Parse the JSON
                 parsed_data = json.loads(json_text)
+
+                self.logger.info(f"Parsed JSON: {parsed_data}")
+                # TODO pegar explanation de cada action e batch_explanation
 
                 # Extract actions from the unified format
                 actions, errors = self._extract_actions(parsed_data, available_action_ids)
@@ -169,6 +174,10 @@ class ResponseProcessor:
 
         # Add validation errors to the errors list
         errors.extend(validation_errors)
+
+        batch_explanation = ""
+        if "batch_explanation" in parsed_data:
+            batch_explanation = parsed_data["batch_explanation"]
 
         return valid_actions, errors
 
@@ -247,6 +256,7 @@ class ResponseProcessor:
                         self.logger.debug(f"Conditionally accepting action_id {action_id} (no validation list)")
                         # Still valid in this case
                     else:
+                        # TODO: nao eh erro, podem existir dezenas de acoes possiveis em uma tela complexa e grande
                         errors.append(f"Action ID {action_id} is out of reasonable range (1-10)")
                         continue
                 except ValueError:

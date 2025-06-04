@@ -219,6 +219,7 @@ class LLMActionService:
         Returns:
             bool: True if a transition (to other screen) was detected, False otherwise
         """
+        self.logger.info(f"Pre-processing state: {state[StateEntry.ACTIVITY]}")
         # Enrich state with additional information
         self.state_enricher.enrich_state(state)
 
@@ -237,6 +238,7 @@ class LLMActionService:
 
         return transition_detected
 
+    # TODO deprecated parameter: transition_detected
     def post_process_state(self, state: Dict[str, Any], generated_actions: List[GeneratedAction], transition_detected: bool) -> None:
         """
         Post-process the state after action generation.
@@ -249,11 +251,10 @@ class LLMActionService:
             generated_actions: List of generated actions to execute
             transition_detected: Whether a transition was detected during pre-processing
         """
+        self.logger.info(f"Post-processing state: {state[StateEntry.ACTIVITY]}, generated actions: {len(generated_actions)}")
         # Record actions in memory
+        # TODO: incluir parametro com a explicacao de escolha das acoes
         self.memory_manager.record_actions(state, generated_actions)
-
-        # Note: The transition handling in this method is no longer needed
-        # since transitions are properly handled in the process_action_result method
 
     def convert_to_droidbot(self, actions: List[GeneratedAction]) -> List[Dict[str, Any]]:
         """Convert generated actions to DroidBot-compatible format.
@@ -266,76 +267,77 @@ class LLMActionService:
         """
         return [action.to_droidbot_format() for action in actions]
 
-    def process_action_result(self, from_state: Dict[str, Any], to_state: Dict[str, Any],
-                          action: Dict[str, Any], success: bool) -> None:
-        """
-        Process the result of an action execution.
-
-        This method coordinates the recording of state transitions and action history. 
-        When a transition is detected, it retrieves actions from the memory manager 
-        and passes them to the transition manager to record the transition.
-
-        Args:
-            from_state: Source state
-            to_state: Destination state
-            action: Action that was executed (dictionary format)
-            success: Whether the action execution was successful
-        """
-        try:
-            # Get activity information
-            from_activity = from_state.get(StateEntry.ACTIVITY, "unknown")
-            to_activity = to_state.get(StateEntry.ACTIVITY, "unknown")
-            
-            # Detect if this is a transition between different activities
-            is_transition = from_activity != to_activity
-            
-            # Convert the action dictionary to a GeneratedAction object
-            generated_action = self._dict_to_generated_action(action)
-            
-            # Record action in memory manager
-            self.memory_manager.record_actions(
-                from_state, 
-                [generated_action], 
-                action_selection_reason="", 
-                succeeded=success
-            )
-            
-            # If this is a transition, record it in both memory manager and transition manager
-            if is_transition:
-                # First record the transition in memory manager
-                self.memory_manager.record_transition(
-                    from_state,
-                    to_state,
-                    generated_action,
-                    success
-                )
-                
-                # Get all actions from the current activity (before it changed)
-                recent_actions = self.memory_manager.get_recent_activity_actions()
-                
-                # Also record the transition in transition manager with all relevant actions
-                self.transition_manager.record_transition(
-                    from_activity, 
-                    to_activity, 
-                    recent_actions
-                )
-                
-                self.logger.info(
-                    f"Recorded transition from {from_activity} to {to_activity} "
-                    f"with {len(recent_actions)} actions"
-                )
-            
-            self.logger.info(f"Processed action result: success={success}")
-
-        except Exception as e:
-            self.logger.error(f"Error processing action result: {e}")
-            self.error_handler.handle_error(
-                e,
-                context={
-                    "component": "LLMActionService",
-                    "function": "process_action_result"
-                }
-            )
+    # TODO: Deprecated
+    # def process_action_result(self, from_state: Dict[str, Any], to_state: Dict[str, Any],
+    #                       action: Dict[str, Any], success: bool) -> None:
+    #     """
+    #     Process the result of an action execution.
+    #
+    #     This method coordinates the recording of state transitions and action history.
+    #     When a transition is detected, it retrieves actions from the memory manager
+    #     and passes them to the transition manager to record the transition.
+    #
+    #     Args:
+    #         from_state: Source state
+    #         to_state: Destination state
+    #         action: Action that was executed (dictionary format)
+    #         success: Whether the action execution was successful
+    #     """
+    #     try:
+    #         # Get activity information
+    #         from_activity = from_state.get(StateEntry.ACTIVITY, "unknown")
+    #         to_activity = to_state.get(StateEntry.ACTIVITY, "unknown")
+    #
+    #         # Detect if this is a transition between different activities
+    #         is_transition = from_activity != to_activity
+    #
+    #         # Convert the action dictionary to a GeneratedAction object
+    #         generated_action = self._dict_to_generated_action(action)
+    #
+    #         # Record action in memory manager
+    #         self.memory_manager.record_actions(
+    #             from_state,
+    #             [generated_action],
+    #             action_selection_reason="",
+    #             succeeded=success
+    #         )
+    #
+    #         # If this is a transition, record it in both memory manager and transition manager
+    #         if is_transition:
+    #             # First record the transition in memory manager
+    #             self.memory_manager.record_transition(
+    #                 from_state,
+    #                 to_state,
+    #                 generated_action,
+    #                 success
+    #             )
+    #
+    #             # Get all actions from the current activity (before it changed)
+    #             recent_actions = self.memory_manager.get_recent_activity_actions()
+    #
+    #             # Also record the transition in transition manager with all relevant actions
+    #             self.transition_manager.record_transition(
+    #                 from_activity,
+    #                 to_activity,
+    #                 recent_actions
+    #             )
+    #
+    #             self.logger.info(
+    #                 f"Recorded transition from {from_activity} to {to_activity} "
+    #                 f"with {len(recent_actions)} actions"
+    #             )
+    #
+    #         self.logger.info(f"Processed action result: success={success}")
+    #
+    #     except Exception as e:
+    #         self.logger.error(f"Error processing action result: {e}")
+    #         self.error_handler.handle_error(
+    #             e,
+    #             context={
+    #                 "component": "LLMActionService",
+    #                 "function": "process_action_result"
+    #             }
+    #         )
     
     def _dict_to_generated_action(self, action_dict: Dict[str, Any]):
         """

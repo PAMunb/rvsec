@@ -10,11 +10,13 @@ from typing import List, Optional
 from rvandroid.experiment.event import (
     EventBus,
     EventType,
-    get_event_bus,
-    EventHandler,
-    HandlerPriority
+    get_event_bus
 )
 from rvandroid.experiment.task.task_storage import TaskStorage
+from rvandroid.experiment.workflow.execution_controller import ExecutionController
+from rvandroid.experiment.workflow.post_processor import PostProcessor
+from rvandroid.experiment.workflow.pre_processor import PreProcessor
+from rvandroid.experiment.workflow.result_manager import ResultManager
 from rvandroid.experiment.workflow.workflow_factory import WorkflowFactory
 from rvandroid.tools.tool_spec import AbstractTool
 from rvandroid.util.logging.constants import CONTEXT_COMPONENT, LOG_START, LOG_COMPLETE, LOG_ERROR
@@ -82,10 +84,10 @@ class ExperimentController:
         self.factory = WorkflowFactory(self.task_storage, self.event_bus)
 
         # Initialize workflow components
-        self.pre_processor = self.factory.create_pre_processor(self.results_dir)
-        self.execution_controller = self.factory.create_execution_controller()
-        self.post_processor = self.factory.create_post_processor(self.results_dir)
-        self.result_manager = self.factory.create_result_manager(self.results_dir)
+        self.pre_processor: PreProcessor = self.factory.create_pre_processor(self.results_dir)
+        self.execution_controller: ExecutionController = self.factory.create_execution_controller()
+        self.post_processor: PostProcessor = self.factory.create_post_processor(self.results_dir)
+        self.result_manager: ResultManager = self.factory.create_result_manager(self.results_dir)
 
         # Register event handlers
         self._setup_event_handlers()
@@ -105,7 +107,7 @@ class ExperimentController:
             """Handle experiment start events"""
             # Extract experiment_id from ExperimentEvent
             experiment_id = event.experiment_id if hasattr(event, 'experiment_id') else self.experiment_id
-            
+
             with self.logger.with_context(phase="experiment_start"):
                 self.logger.info(LOG_START.format(
                     operation=f"Experiment {experiment_id}"
@@ -115,7 +117,7 @@ class ExperimentController:
             """Handle experiment completion events"""
             # Extract experiment_id from ExperimentEvent
             experiment_id = event.experiment_id if hasattr(event, 'experiment_id') else self.experiment_id
-            
+
             with self.logger.with_context(phase="experiment_completion"):
                 self.logger.info(LOG_COMPLETE.format(
                     operation=f"Experiment {experiment_id}"
@@ -126,7 +128,7 @@ class ExperimentController:
             # Extract data from TaskEvent
             task_id = event.task_id if hasattr(event, 'task_id') else "unknown"
             task_config = event.task_config if hasattr(event, 'task_config') else {}
-            
+
             with self.logger.with_context(
                     task_id=task_id,
                     phase="task_start",
@@ -143,7 +145,7 @@ class ExperimentController:
             task_id = event.task_id if hasattr(event, 'task_id') else "unknown"
             details = event.details if hasattr(event, 'details') else {}
             error = details.get('error', 'Unknown error')
-            
+
             with self.logger.with_context(
                     task_id=task_id,
                     phase="task_failure",
@@ -156,25 +158,25 @@ class ExperimentController:
 
         # Register handlers using new API with appropriate channels
         self.event_bus.subscribe(
-            event_type=EventType.EXPERIMENT_STARTED, 
+            event_type=EventType.EXPERIMENT_STARTED,
             callback=on_experiment_started,
             channel=EventBus.LIFECYCLE_CHANNEL
         )
-        
+
         self.event_bus.subscribe(
-            event_type=EventType.EXPERIMENT_COMPLETED, 
+            event_type=EventType.EXPERIMENT_COMPLETED,
             callback=on_experiment_completed,
             channel=EventBus.LIFECYCLE_CHANNEL
         )
-        
+
         self.event_bus.subscribe(
-            event_type=EventType.TASK_STARTED, 
+            event_type=EventType.TASK_STARTED,
             callback=on_task_started,
             channel=EventBus.LIFECYCLE_CHANNEL
         )
-        
+
         self.event_bus.subscribe(
-            event_type=EventType.TASK_FAILED, 
+            event_type=EventType.TASK_FAILED,
             callback=on_task_failed,
             channel=EventBus.LIFECYCLE_CHANNEL
         )
@@ -224,6 +226,7 @@ class ExperimentController:
 
             # Handle memory file for experiment resumption
             if memory_file:
+                # TODO verificar se esta funcionando
                 self._resume_from_memory(memory_file)
             else:
                 # Pre-process APKs if not resuming

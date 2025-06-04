@@ -19,12 +19,18 @@ class LLMTextContent:
     """Text content in an LLM message."""
     text: str
 
+    def __str__(self) -> str:
+        return self.text
+
 
 @dataclass
 class LLMImageContent:
     """Image content in an LLM message."""
     url: str
     detail: Optional[str] = "auto"
+
+    def __str__(self) -> str:
+        return self.url
 
 
 # Union type for different content types
