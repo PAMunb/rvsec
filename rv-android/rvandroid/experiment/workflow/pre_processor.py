@@ -14,6 +14,7 @@ from rvandroid.constants import (
 from rvandroid.experiment.event.bus import EventBus, EventType
 from rvandroid.rvandroid import RvAndroid
 from rvandroid.rvsec import RVSec
+from rvandroid.util.error.error_handler import ErrorHandler
 from rvandroid.util.logging.constants import LOG_START, CONTEXT_COMPONENT, LOG_COMPLETE, LOG_ERROR
 from rvandroid.util.logging.manager import LoggingManager
 from settings import INSTRUMENTED_DIR
@@ -46,6 +47,7 @@ class PreProcessor:
         """
         self.results_dir = results_dir
         self.event_bus = event_bus
+        self.error_handler = ErrorHandler.get_instance()
 
         # Configure logging
         self.logging_manager = LoggingManager.get_instance()
@@ -175,10 +177,16 @@ class PreProcessor:
                             operation=f"static analysis for {app.name}"
                         ))
                     except Exception as e:
-                        self.logger.error(LOG_ERROR.format(
-                            operation=f"static analysis for {app.name}",
-                            error=str(e)
-                        ))
+                        error_context = {
+                            "component": "PreProcessor",
+                            "operation": "static_analysis",
+                            "app_name": app.name,
+                            "gesda_file": gesda_file,
+                            "gator_file": gator_file,
+                            "reach_file": reach_file,
+                            "results_dir": self.results_dir
+                        }
+                        self.error_handler.handle_error(e, error_context)
 
             self.logger.info(LOG_COMPLETE.format(operation="static analysis"))
 
@@ -198,9 +206,12 @@ class PreProcessor:
                         apks.append(app)
                         self.logger.debug(f"Found instrumented APK: {app.name}")
                     except Exception as e:
-                        self.logger.error(LoggingManager.LOG_ERROR.format(
-                            operation=f"processing APK {file}",
-                            error=str(e)
-                        ))
+                        error_context = {
+                            "component": "PreProcessor",
+                            "operation": "processing_apk",
+                            "file_name": file,
+                            "instrumented_dir": INSTRUMENTED_DIR
+                        }
+                        self.error_handler.handle_error(e, error_context)
 
             return apks

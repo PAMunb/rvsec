@@ -1,19 +1,18 @@
-# rvandroid/experiment/components/coverage.py
-from typing import Optional
+# rvandroid/experiment/task/components/coverage.py
+from typing import Optional, Dict, Any
 
 from rvandroid.analysis.coverage.tracker import CoverageTracker
 from rvandroid.domain.coverage import LogcatRepository
 from rvandroid.experiment.event.bus import EventBus, EventType
+from rvandroid.experiment.task.component import BaseTaskComponent
 from rvandroid.experiment.task.task_model import Task
 from rvandroid.parser.log.logcat_parser import parse_logcat_file
 from rvandroid.util.exceptions import AnalysisError
-from rvandroid.util.logging.constants import CONTEXT_TASK_ID, CONTEXT_COMPONENT, CONTEXT_APP_NAME, LOG_START, \
+from rvandroid.util.logging.constants import CONTEXT_TASK_ID, CONTEXT_APP_NAME, LOG_START, \
     LOG_COMPLETE, LOG_ERROR, LOG_SKIPPED
-from rvandroid.util.logging.manager import LoggingManager
 
 
-# @log_execution(logger_prefix="experiment.task.components.coverage", component_name="CoverageComponent")
-class CoverageComponent:
+class CoverageComponent(BaseTaskComponent):
     """
     Component responsible for managing coverage tracking and analysis.
     Handles coverage tracker lifecycle and result processing.
@@ -39,45 +38,40 @@ class CoverageComponent:
             task: Task being executed
             event_bus: Optional event bus for publishing events
         """
+        super().__init__("CoverageComponent", event_bus)
         self.task = task
-        self.event_bus = event_bus or EventBus.get_instance()
-
-        # Inicialize o erro handler apenas quando necessário para evitar a importação circular
-        self.error_handler = None
 
         # Coverage tracking
         self.repository = LogcatRepository()
         self.task.repository = self.repository
         self.tracker_process = None
 
-        logging_manager = LoggingManager.get_instance()
-        self.logger = logging_manager.get_logger(
-            'experiment.components.coverage',
-            {
-                CONTEXT_TASK_ID: task.id,
-                CONTEXT_APP_NAME: task.config.apk_name,
-                CONTEXT_COMPONENT: 'CoverageComponent'
-            }
-        )
+        # Update logger context with task information
+        self.logger.push_context(**{
+            CONTEXT_TASK_ID: task.id,
+            CONTEXT_APP_NAME: task.config.apk_name
+        })
 
         # Parse any existing logcat file if available
         if task.result.logcat_file:
-            try:
-                self._parse_existing_logcat()
-            except Exception as e:
-                self.logger.error(f"Error parsing existing logcat: {e}")
+            self._parse_existing_logcat()
 
-    def _get_error_handler(self):
-        """Lazy import e inicialização do ErrorHandler."""
-        if self.error_handler is None:
-            from rvandroid.util.error.error_handler import ErrorHandler
-            self.error_handler = ErrorHandler.get_instance()
-        return self.error_handler
+    def _execute_impl(self, context: Dict[str, Any]) -> bool:
+        """
+        Execute coverage tracking for the task.
+        
+        Args:
+            context: Task execution context
+            
+        Returns:
+            True if coverage tracking was initialized successfully
+        """
+        return self.initialize_tracker()
 
     def _parse_existing_logcat(self) -> None:
         """Parse existing logcat file if available."""
         import os
-        if os.path.exists(self.task.result.logcat_file):
+        if self.task.result.logcat_file and os.path.exists(self.task.result.logcat_file):
             self.logger.info(f"Parsing existing logcat file: {self.task.result.logcat_file}")
             try:
                 self.repository = parse_logcat_file(self.task.result.logcat_file)
@@ -101,8 +95,11 @@ class CoverageComponent:
                 self.logger.info(LOG_START.format(operation="initializing coverage tracker"))
                 self.coverage_tracker = CoverageTracker(
                     logcat_file=self.task.result.logcat_file,
-                    static_data=self.task.static_data
+                    static_data=self.task.static_data,
+                    task_start_time=self.task.result.start_time
                 )
+                
+                
                 self.logger.info(LOG_COMPLETE.format(operation="initializing coverage tracker"))
                 return True
             except Exception as e:

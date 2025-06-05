@@ -13,7 +13,7 @@ from typing import Dict, Any, List, Optional
 from rvandroid.analysis.results.base_result import (
     CoverageResult, ErrorResult
 )
-from rvandroid.analysis.results.result_manager import ResultManager
+from rvandroid.experiment.workflow.result_manager import ResultManager
 from rvandroid.analysis.results.analysis import AnalysisResult, CoverageMetrics, PerformanceMetrics, ErrorMetrics
 from rvandroid.domain.log import RvErrorLog
 from rvandroid.parser.log.logcat_parser import parse_logcat_file
@@ -51,7 +51,13 @@ class ResultsProcessor:
         )
         
         # Initialize or use provided result manager
-        self.result_manager = result_manager or ResultManager()
+        if result_manager:
+            self.result_manager = result_manager
+        else:
+            # If no result manager provided, we can't create one without proper TaskStorage
+            # This should not happen in normal workflow - log a warning
+            self.logger.warning("No ResultManager provided - some functionality may be limited")
+            self.result_manager = None
         
         # Store static analysis data for each app
         self.static_data_map = {}
@@ -173,19 +179,22 @@ class ResultsProcessor:
             app_dirs: List of app directories
         """
         try:
-            # Try to import task storage here to avoid circular imports
-            from rvandroid.experiment.task.task_storage import TaskStorage
-            task_storage = TaskStorage.get_instance()
-            
-            # Look for tasks related to this experiment
-            for app_id in app_dirs:
-                tasks = task_storage.get_tasks_by_app_id(app_id)
-                if tasks:
-                    # Get static data from the first task for this app (all tasks should share the same static data)
-                    first_task = tasks[0]
-                    if hasattr(first_task, 'static_data') and first_task.static_data:
-                        self.set_static_data(app_id, first_task.static_data)
-                        self.logger.info(f"Loaded static analysis data for {app_id} from task storage")
+            # If we have a result manager, we can access task storage through it
+            if hasattr(self, 'result_manager') and self.result_manager and hasattr(self.result_manager, 'task_storage'):
+                task_storage = self.result_manager.task_storage
+                
+                # Look for tasks related to this experiment
+                for app_id in app_dirs:
+                    if hasattr(task_storage, 'get_tasks_by_app_id'):
+                        tasks = task_storage.get_tasks_by_app_id(app_id)
+                        if tasks:
+                            # Get static data from the first task for this app (all tasks should share the same static data)
+                            first_task = tasks[0]
+                            if hasattr(first_task, 'static_data') and first_task.static_data:
+                                self.set_static_data(app_id, first_task.static_data)
+                                self.logger.info(f"Loaded static analysis data for {app_id} from task storage")
+            else:
+                self.logger.debug("No task storage available for loading static data")
                 
         except (ImportError, AttributeError, Exception) as e:
             self.logger.warning(f"Could not load static data from task storage: {e}")

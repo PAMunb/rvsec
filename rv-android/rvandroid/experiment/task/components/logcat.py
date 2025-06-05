@@ -1,17 +1,16 @@
-# rvandroid/experiment/components/logcat.py
-from typing import Optional
+# rvandroid/experiment/task/components/logcat.py
+from typing import Optional, Dict, Any
 
 from rvandroid.experiment.event.bus import EventBus
+from rvandroid.experiment.task.component import BaseTaskComponent
 from rvandroid.experiment.task.task_model import Task
-from rvandroid.util.error.error_handler import ErrorHandler
 from rvandroid.util.exceptions import AnalysisError
 from rvandroid.util.logcat_manager import LogcatManager
-from rvandroid.util.logging.constants import CONTEXT_TASK_ID, CONTEXT_APP_NAME, CONTEXT_COMPONENT, LOG_START, \
+from rvandroid.util.logging.constants import CONTEXT_TASK_ID, CONTEXT_APP_NAME, LOG_START, \
     LOG_COMPLETE, LOG_ERROR
-from rvandroid.util.logging.manager import LoggingManager
 
 
-class LogcatComponent:
+class LogcatComponent(BaseTaskComponent):
     """
     Component responsible for managing logcat operations.
     Handles logcat capture and filtering.
@@ -29,21 +28,29 @@ class LogcatComponent:
 
     def __init__(self, task: Task, event_bus: Optional[EventBus] = None):
         """Initialize with task and optional event bus."""
+        super().__init__("LogcatComponent", event_bus)
         self.task = task
-        self.event_bus = event_bus or EventBus.get_instance()
-        self.error_handler = ErrorHandler.get_instance()
         self.logcat_manager = LogcatManager()
 
-        # Set up standardized logger with proper context
-        logging_manager = LoggingManager.get_instance()
-        self.logger = logging_manager.get_logger(
-            'experiment.components.logcat',
-            {
-                CONTEXT_TASK_ID: task.id,
-                CONTEXT_APP_NAME: task.config.apk_name,
-                CONTEXT_COMPONENT: 'LogcatComponent'
-            }
-        )
+        # Update logger context with task information
+        self.logger.push_context(**{
+            CONTEXT_TASK_ID: task.id,
+            CONTEXT_APP_NAME: task.config.apk_name
+        })
+
+    def _execute_impl(self, context: Dict[str, Any]) -> bool:
+        """
+        Execute logcat setup for the task.
+        
+        Args:
+            context: Task execution context
+            
+        Returns:
+            True if logcat setup was successful
+        """
+        # This component primarily provides logcat management utilities
+        # The actual logcat capture is handled by the task executor
+        return True
 
     def start_capture(self) -> bool:
         """

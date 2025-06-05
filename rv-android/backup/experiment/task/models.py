@@ -15,36 +15,16 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Dict, List, Any, Optional, Type, TypeVar, Generic
 
-# TYPE_CHECKING import to avoid missing dependencies during tests
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from rvandroid.app import App
-else:
-    # Fallback for when full dependencies aren't available
-    App = Any
-if TYPE_CHECKING:
-    from rvandroid.domain.coverage import LogcatRepository
-    from rvandroid.domain.log import RvCoverageLog, RvErrorLog
-else:
-    # Fallback for when full dependencies aren't available
-    LogcatRepository = Any
-    RvCoverageLog = Any
-    RvErrorLog = Any
+from rvandroid.app import App
+from rvandroid.domain.coverage import LogcatRepository
+from rvandroid.domain.log import RvCoverageLog, RvErrorLog
 from rvandroid.experiment.task.interfaces import (
     TaskState, 
     ITaskConfiguration, 
     ITaskResult, 
     ITask
 )
-if TYPE_CHECKING:
-    from rvandroid.util.logging.manager import LoggingManager
-else:
-    # Fallback for when full dependencies aren't available
-    try:
-        from rvandroid.util.logging.manager import LoggingManager
-    except ImportError:
-        LoggingManager = None
+from rvandroid.util.logging.manager import LoggingManager
 
 
 @dataclass
@@ -184,9 +164,9 @@ class TaskResult:
             timestamp = datetime.now()
             
         self.state_transitions.append({
-            "state": state.name,
+            "state": state,
             "timestamp": timestamp.isoformat(),
-            "previous_state": self.state.name
+            "previous_state": self.state
         })
         
         self.state = state
@@ -282,19 +262,15 @@ class Task:
         self.result = TaskResult()
         
         # Get logger
-        if LoggingManager:
-            logging_manager = LoggingManager.get_instance()
-            self.logger = logging_manager.get_logger(
-                'experiment.task',
-                {
-                    'task_id': self.id,
-                    'apk_name': self.config.apk_name,
-                    'tool_name': self.config.tool_name
-                }
-            )
-        else:
-            # Fallback to standard logging
-            self.logger = logging.getLogger('experiment.task')
+        logging_manager = LoggingManager.get_instance()
+        self.logger = logging_manager.get_logger(
+            'experiment.task',
+            {
+                'task_id': self.id,
+                'apk_name': self.config.apk_name,
+                'tool_name': self.config.tool_name
+            }
+        )
 
         # Runtime data
         self.app: Optional[App] = None
@@ -302,10 +278,7 @@ class Task:
         self.static_data = None
 
         # Standard repository for coverage and error data
-        if LogcatRepository != Any:
-            self.repository = LogcatRepository()
-        else:
-            self.repository = None
+        self.repository = LogcatRepository()
         
         # Record creation
         self.result.add_state_transition(TaskState.CREATED)
@@ -320,14 +293,10 @@ class Task:
         """
         # Ensure repository exists
         if not hasattr(self, 'repository') or self.repository is None:
-            if LogcatRepository != Any:
-                self.repository = LogcatRepository()
-            else:
-                self.repository = None
+            self.repository = LogcatRepository()
 
         # Add to repository
-        if self.repository is not None:
-            self.repository.register_rv_error(error)
+        self.repository.register_rv_error(error)
         
         # Log the error
         self.logger.info(f"Error registered: {error}")
@@ -341,14 +310,10 @@ class Task:
         """
         # Ensure repository exists
         if not hasattr(self, 'repository') or self.repository is None:
-            if LogcatRepository != Any:
-                self.repository = LogcatRepository()
-            else:
-                self.repository = None
+            self.repository = LogcatRepository()
 
         # Add to repository
-        if self.repository is not None:
-            self.repository.register_method_call(coverage_log)
+        self.repository.register_method_call(coverage_log)
 
     def update_coverage(self) -> None:
         """
@@ -390,10 +355,7 @@ class Task:
             The task's LogcatRepository
         """
         if not hasattr(self, 'repository') or self.repository is None:
-            if LogcatRepository != Any:
-                self.repository = LogcatRepository()
-            else:
-                self.repository = None
+            self.repository = LogcatRepository()
 
             # If logcat file exists, parse it and populate the repository
             if hasattr(self, 'result') and self.result.logcat_file and os.path.exists(self.result.logcat_file):

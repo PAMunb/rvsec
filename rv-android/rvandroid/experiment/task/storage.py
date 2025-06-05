@@ -16,6 +16,7 @@ from typing import Dict, List, Optional
 
 from rvandroid.experiment.task.interfaces import ITaskStorage, ITask, TaskState
 from rvandroid.experiment.task.task_model import Task, TaskFactory
+from rvandroid.util.error.error_handler import ErrorHandler
 from rvandroid.util.logging.manager import LoggingManager
 
 
@@ -92,6 +93,13 @@ class TaskStorage(ITaskStorage):
 
             except Exception as e:
                 self.logger.error(f"Error loading tasks: {e}")
+                error_handler = ErrorHandler.get_instance()
+                error_context = {
+                    "component": "TaskStorage",
+                    "operation": "load_tasks",
+                    "storage_file": self.storage_file
+                }
+                error_handler.handle_error(e, error_context)
                 return False
 
     def save(self) -> bool:
@@ -135,6 +143,14 @@ class TaskStorage(ITaskStorage):
 
             except Exception as e:
                 self.logger.error(f"Error saving tasks: {e}")
+                error_handler = ErrorHandler.get_instance()
+                error_context = {
+                    "component": "TaskStorage",
+                    "operation": "save_tasks",
+                    "storage_file": self.storage_file,
+                    "task_count": len(self.tasks)
+                }
+                error_handler.handle_error(e, error_context)
 
                 # Clean up temporary file if it exists
                 if temp_file and os.path.exists(temp_file):
@@ -142,6 +158,11 @@ class TaskStorage(ITaskStorage):
                         os.remove(temp_file)
                     except Exception as cleanup_error:
                         self.logger.warning(f"Failed to remove temporary file: {cleanup_error}")
+                        error_handler.handle_error(cleanup_error, {
+                            "component": "TaskStorage",
+                            "operation": "cleanup_temp_file",
+                            "temp_file": temp_file
+                        })
 
                 return False
 
@@ -234,6 +255,18 @@ class TaskStorage(ITaskStorage):
         """
         return [task for task in self.get_tasks() if task.result.state == state]
 
+    def get_completed_tasks(self) -> List[ITask]:
+        """
+        Get tasks that are completed.
+        
+        If a transaction is in progress, the returned list includes all tasks
+        with any modifications from the transaction buffer.
+
+        Returns:
+            List of completed tasks
+        """
+        return self.get_tasks_by_state(TaskState.COMPLETED)
+
     def get_pending_tasks(self) -> List[ITask]:
         """
         Get tasks that are not yet completed, failed, or canceled.
@@ -291,6 +324,13 @@ class TaskStorage(ITaskStorage):
 
             except Exception as e:
                 self.logger.error(f"Error committing transaction: {e}")
+                error_handler = ErrorHandler.get_instance()
+                error_context = {
+                    "component": "TaskStorage",
+                    "operation": "commit_transaction",
+                    "transaction_task_count": len(self.transaction_tasks)
+                }
+                error_handler.handle_error(e, error_context)
                 return False
 
     def rollback_transaction(self) -> None:
@@ -412,5 +452,12 @@ class TaskStorage(ITaskStorage):
 
             except Exception as e:
                 self.logger.error(f"Error in bulk update: {e}")
+                error_handler = ErrorHandler.get_instance()
+                error_context = {
+                    "component": "TaskStorage",
+                    "operation": "bulk_update",
+                    "task_count": len(tasks)
+                }
+                error_handler.handle_error(e, error_context)
                 self.rollback_transaction()
                 return False

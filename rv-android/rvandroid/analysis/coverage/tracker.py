@@ -6,7 +6,7 @@ from contextlib import contextmanager
 from datetime import datetime
 from typing import Optional, List, Dict
 
-from rvandroid.analysis.coverage.repository import CoverageRepository
+from rvandroid.domain.coverage import LogcatRepository
 from rvandroid.domain.static import StaticAnalysisData
 from rvandroid.experiment.event.bus import EventBus, EventType
 from rvandroid.parser.log.logcat_parser import parse_logcat_line
@@ -16,33 +16,44 @@ from rvandroid.util.logging.manager import LoggingManager
 
 class CoverageTracker:
     """
-    Tracks code coverage during test execution.
-    Processes logcat output to extract coverage information.
+    Tracks code coverage during test execution with direct repository integration.
+    Processes logcat output to extract coverage information and maintains real-time metrics.
 
     ### Architectural Decisions:
-    - Separates coverage tracking from data storage
-    - Uses event-driven architecture for real-time updates
-    - Leverages standardized repository pattern for data management
-    - Integrates with the unified analysis component structure
+    - Uses LogcatRepository directly without wrapper layers for optimal performance
+    - Implements event-driven architecture for real-time coverage updates
+    - Separates coverage tracking concerns from data storage concerns
+    - Integrates seamlessly with the unified analysis component structure
+    - Eliminates unnecessary abstraction layers that previously added complexity
 
     ### Role in the System:
-    - Monitors method execution in real-time
-    - Extracts coverage data from logcat output
-    - Updates repository with coverage information
-    - Publishes coverage events for monitoring
-    - Provides metrics for the unified result system
+    - Monitors method execution in real-time during test execution
+    - Extracts coverage data from logcat output streams
+    - Updates LogcatRepository directly with coverage information
+    - Publishes coverage events through the event bus for monitoring
+    - Provides metrics for the unified result processing system
+    - Maintains coverage state consistency across the experiment lifecycle
+
+    ### Key Considerations:
+    - Direct LogcatRepository usage eliminates the CoverageRepository wrapper
+    - Thread-safe operation for concurrent logcat processing
+    - Real-time metric calculation with change detection for efficiency
+    - Event-driven updates for decoupled component communication
+    - Comprehensive error handling for logcat parsing failures
     """
 
-    def __init__(self, logcat_file: str, static_data: Optional[StaticAnalysisData] = None):
+    def __init__(self, logcat_file: str, static_data: Optional[StaticAnalysisData] = None, task_start_time: Optional[datetime] = None):
         """
         Initialize the coverage tracker.
 
         Args:
             logcat_file: Path to the logcat file to monitor
             static_data: Optional static analysis data
+            task_start_time: When the task started (for calculating relative timing)
         """
         self.logcat_file = logcat_file
         self.static_data = static_data
+        self.task_start_time = task_start_time
 
         # Set up logging
         logging_manager = LoggingManager.get_instance()
@@ -51,11 +62,9 @@ class CoverageTracker:
             {CONTEXT_COMPONENT: 'CoverageTracker'}
         )
 
-        # Initialize repository
-        self.repository = CoverageRepository()
-
-        # Get the core repository for direct operations
-        self.core_repository = self.repository.get_underlying_repository()
+        # Initialize LogcatRepository directly for optimal performance
+        # Direct repository usage provides better performance and simpler data flow
+        self.repository = LogcatRepository()
 
         # Event bus for publishing events
         self.event_bus = EventBus.get_instance()
@@ -71,7 +80,7 @@ class CoverageTracker:
         self.total_errors = 0
         self.total_method_calls = 0
 
-        # Track previous metrics for change detection
+        # Track previous metrics for change detection and performance optimization
         self._previous_metrics = {
             "method_coverage": 0.0,
             "activity_coverage": 0.0,
@@ -80,6 +89,9 @@ class CoverageTracker:
             "total_activities": 0,
             "unique_errors": 0
         }
+        
+        # Performance optimization: track if data has changed since last metrics calculation
+        self._data_changed_since_last_update = False
 
         # Initialize repository with static data
         if static_data and static_data.classes:
@@ -101,8 +113,8 @@ class CoverageTracker:
                     is_main_activity=getattr(class_info, "is_main_activity", False)
                 )
 
-                # Add to repository
-                self.core_repository.add_class(class_data)
+                # Add to repository directly - no wrapper layer needed
+                self.repository.add_class(class_data)
 
                 # Add methods to class
                 for method in class_info.methods:
@@ -122,7 +134,7 @@ class CoverageTracker:
             # Log summary of initialized data
             total_methods = sum(len(class_info.methods) for class_info in classes.classes.values())
             self.logger.info(
-                f"Initialized repository with {len(self.core_repository.classes)} classes "
+                f"Initialized repository with {len(self.repository.classes)} classes "
                 f"and {total_methods} methods from static data"
             )
 
@@ -205,17 +217,21 @@ class CoverageTracker:
                     with self._reader_lock:
                         new_lines = f.readlines()
 
-                    # Process new lines
+                    # Process new lines if any
                     if new_lines:
                         self.process_lines(new_lines)
-
-                    # Update metrics periodically
-                    if (datetime.now() - self.last_update_time).total_seconds() >= 5:
+                        # Update metrics immediately after processing new data
                         self._update_coverage_metrics()
                         self.last_update_time = datetime.now()
+                    else:
+                        # Only update metrics periodically if no new data
+                        if (datetime.now() - self.last_update_time).total_seconds() >= 10:
+                            self._update_coverage_metrics()
+                            self.last_update_time = datetime.now()
 
-                    # Sleep to avoid busy waiting
-                    time.sleep(0.2)
+                    # Longer sleep when no new data to reduce CPU usage
+                    sleep_time = 0.5 if new_lines else 1.0
+                    time.sleep(sleep_time)
 
         except Exception as e:
             self.logger.error(f"Error tracking coverage: {e}", exc_info=True)
@@ -269,41 +285,69 @@ class CoverageTracker:
             # Parse line for coverage or error info
             error_log, coverage_log = parse_logcat_line(line)
 
+            # Calculate time since task start for timing accuracy
+            if self.task_start_time:
+                current_time = datetime.now()
+                time_since_start = int((current_time - self.task_start_time).total_seconds())
+                time_since_start = max(0, time_since_start)  # Ensure non-negative
+            else:
+                time_since_start = 0
+
             # Update repository
             if error_log:
-                self.repository.register_error(error_log)
+                # Set timing info for error
+                error_log.time_since_task_start = time_since_start
+                self.repository.register_rv_error(error_log)
                 self.total_errors += 1
+                self._data_changed_since_last_update = True  # Mark data as changed
                 self.logger.info(
                     f"Tracked formal property violation in {error_log.class_full_name}.{error_log.method}: {error_log.message}"
                 )
 
             elif coverage_log:
+                # Set timing info for coverage
+                coverage_log.time_since_task_start = time_since_start
                 self.repository.register_method_call(coverage_log)
                 self.total_method_calls += 1
+                self._data_changed_since_last_update = True  # Mark data as changed
                 self.logger.debug(
-                    f"Processed method call: {coverage_log.clazz}.{coverage_log.method}"
+                    f"Processed method call: {coverage_log.clazz}.{coverage_log.method} at t={time_since_start}s"
                 )
 
         except Exception as e:
             self.logger.error(f"Error processing logcat line: {e}", exc_info=True)
 
     def _update_coverage_metrics(self) -> None:
-        """Update coverage metrics and publish events only when metrics change."""
+        """
+        Update coverage metrics and publish events only when data has changed.
+        
+        ### Performance Optimization:
+        Uses data change tracking to avoid unnecessary metric calculations and
+        only processes metrics when new data has been added since the last update.
+        This significantly reduces CPU usage by eliminating redundant calculations.
+        """
         try:
+            # Only calculate metrics if data has changed since last update
+            if not self._data_changed_since_last_update:
+                return
+            
             # Get repository for metrics calculation
             metrics = self.repository.calculate_metrics()
+            
+            # Convert to dict once to avoid multiple expensive calls
+            metrics_dict = metrics.to_dict()
 
-            # Extract metrics from the metrics object
+            # Extract metrics from the cached dict
             current_metrics = {
-                "method_coverage": metrics.to_dict().get("method_coverage", 0.0),
-                "activity_coverage": metrics.to_dict().get("activity_coverage", 0.0),
-                "mop_method_coverage": metrics.to_dict().get("mop_method_coverage", 0.0),
+                "method_coverage": metrics_dict.get("method_coverage", 0.0),
+                "activity_coverage": metrics_dict.get("activity_coverage", 0.0),
+                "mop_method_coverage": metrics_dict.get("mop_method_coverage", 0.0),
                 "called_methods": metrics.called_methods,
                 "total_activities": metrics.total_activities,
                 "unique_errors": metrics.unique_errors
             }
 
-            # Check if any metrics have changed
+            # Check if any metrics have actually changed from previous values
             changed = False
             for key, value in current_metrics.items():
                 if self._previous_metrics.get(key) != value:
@@ -329,6 +373,9 @@ class CoverageTracker:
                     f"MOP Methods: {current_metrics['mop_method_coverage']:.2f}%, "
                     f"Called methods: {current_metrics['called_methods']}"
                 )
+            
+            # Reset data changed flag after processing
+            self._data_changed_since_last_update = False
 
         except Exception as e:
             self.logger.error(f"Error updating coverage metrics: {e}", exc_info=True)
@@ -340,4 +387,5 @@ class CoverageTracker:
         Returns:
             Dictionary with coverage metrics
         """
-        return self.repository.get_metrics()
+        metrics = self.repository.calculate_metrics()
+        return metrics.to_dict()

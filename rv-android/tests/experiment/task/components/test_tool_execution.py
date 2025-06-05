@@ -56,7 +56,7 @@ def tool_execution_component(mock_task, mock_tool, mock_event_bus, mock_error_ha
 
 
 def test_execute_tool_success(tool_execution_component, mock_task, mock_tool, mock_event_bus):
-    result = tool_execution_component.execute_tool()
+    result = tool_execution_component.run_tool()
 
     assert result is True
     mock_tool.execute.assert_called_once_with(mock_task, mock_task.app)
@@ -76,8 +76,11 @@ def test_execute_tool_success(tool_execution_component, mock_task, mock_tool, mo
 
 def test_execute_tool_failure(tool_execution_component, mock_task, mock_tool, mock_event_bus, mock_error_handler):
     mock_tool.execute.side_effect = Exception("Tool execution failed")
+    
+    # Mock the _get_error_handler method to return our mock
+    tool_execution_component._get_error_handler = Mock(return_value=mock_error_handler)
 
-    result = tool_execution_component.execute_tool()
+    result = tool_execution_component.run_tool()
 
     assert result is False
     mock_error_handler.handle_error.assert_called_once()
@@ -98,7 +101,7 @@ def test_execute_tool_without_event_bus(mock_task, mock_tool, mock_logger):
         mock_logging_manager.return_value.get_logger.return_value = mock_logger
         component = ToolExecutionComponent(mock_task, mock_tool, event_bus=None)
 
-        result = component.execute_tool()
+        result = component.run_tool()
         assert result is True
         mock_tool.execute.assert_called_once_with(mock_task, mock_task.app)
 

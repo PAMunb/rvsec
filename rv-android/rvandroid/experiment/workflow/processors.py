@@ -21,6 +21,7 @@ from rvandroid.experiment.workflow.components import (
     ComponentLifecycle
 )
 from rvandroid.experiment.event import EventBus, get_event_bus
+from rvandroid.util.error.error_handler import ErrorHandler
 
 
 class BasePhaseProcessor(BaseWorkflowComponent, IPhaseProcessor):
@@ -177,7 +178,14 @@ class SetupProcessor(BasePhaseProcessor):
             return True
             
         except Exception as e:
-            self.logger.error(f"Error during setup phase: {e}")
+            error_handler = ErrorHandler.get_instance()
+            error_context = {
+                "component": "SetupProcessor",
+                "operation": "setup_phase",
+                "experiment_id": context.experiment_id,
+                "results_dir": context.results_dir
+            }
+            error_handler.handle_error(e, error_context)
             return False
 
 
@@ -259,7 +267,14 @@ class StaticAnalysisProcessor(BasePhaseProcessor):
             return True
             
         except Exception as e:
-            self.logger.error(f"Error during static analysis phase: {e}")
+            error_handler = ErrorHandler.get_instance()
+            error_context = {
+                "component": "StaticAnalysisProcessor",
+                "operation": "static_analysis_phase",
+                "experiment_id": context.experiment_id,
+                "app": str(context.get("experiment.app", "unknown"))
+            }
+            error_handler.handle_error(e, error_context)
             return False
 
 
@@ -351,7 +366,14 @@ class ExecutionProcessor(BasePhaseProcessor):
             return result.success
             
         except Exception as e:
-            self.logger.error(f"Error during execution phase: {e}")
+            error_handler = ErrorHandler.get_instance()
+            error_context = {
+                "component": "ExecutionProcessor",
+                "operation": "execution_phase",
+                "experiment_id": context.experiment_id,
+                "task": str(context.get("experiment.task", "unknown"))
+            }
+            error_handler.handle_error(e, error_context)
             return False
 
 
@@ -451,7 +473,14 @@ class AnalysisProcessor(BasePhaseProcessor):
             return True
             
         except Exception as e:
-            self.logger.error(f"Error during analysis phase: {e}")
+            error_handler = ErrorHandler.get_instance()
+            error_context = {
+                "component": "AnalysisProcessor",
+                "operation": "analysis_phase",
+                "experiment_id": context.experiment_id,
+                "execution_completed": context.get("execution.completed", False)
+            }
+            error_handler.handle_error(e, error_context)
             return False
 
 
@@ -534,7 +563,14 @@ class ReportingProcessor(BasePhaseProcessor):
             return True
             
         except Exception as e:
-            self.logger.error(f"Error during reporting phase: {e}")
+            error_handler = ErrorHandler.get_instance()
+            error_context = {
+                "component": "ReportingProcessor",
+                "operation": "reporting_phase",
+                "experiment_id": context.experiment_id,
+                "has_analysis_results": context.has("analysis.results")
+            }
+            error_handler.handle_error(e, error_context)
             return False
 
 
@@ -620,7 +656,14 @@ class CleanupProcessor(BasePhaseProcessor):
             return True
             
         except Exception as e:
-            self.logger.error(f"Error during cleanup phase: {e}")
+            error_handler = ErrorHandler.get_instance()
+            error_context = {
+                "component": "CleanupProcessor",
+                "operation": "cleanup_phase",
+                "experiment_id": context.experiment_id,
+                "results_dir": context.results_dir
+            }
+            error_handler.handle_error(e, error_context)
             return False
 
 

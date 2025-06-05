@@ -87,7 +87,7 @@ class EventBus:
         # Configure logging
         logging_manager = LoggingManager.get_instance()
         self.logger = logging_manager.get_logger(
-            "llm.action_service",
+            "experiment.event.bus",
             {
                 CONTEXT_COMPONENT: "EventBus"
             }

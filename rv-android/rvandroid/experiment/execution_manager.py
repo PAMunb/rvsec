@@ -13,10 +13,19 @@ from typing import List, Dict, Any, Optional
 from rvandroid.app import App
 from rvandroid.constants import EXTENSION_REACH, EXTENSION_GATOR, EXTENSION_GESDA, EXTENSION_METHODS
 from rvandroid.experiment.event.bus import EventBus, EventType
-from rvandroid.experiment.task.task_executor import TaskExecutor
-from rvandroid.experiment.task.task_model import Task, TaskConfiguration, TaskStatus
-from rvandroid.experiment.task.task_storage import TaskStorage
+from rvandroid.experiment.task.executor import TaskExecutor
+from rvandroid.experiment.task.components import (
+    StaticAnalysisComponent,
+    CoverageComponent,
+    EmulatorComponent,
+    LogcatComponent,
+    ToolExecutionComponent
+)
+from rvandroid.experiment.task.task_model import Task, TaskConfiguration
+from rvandroid.experiment.task.interfaces import TaskState
+from rvandroid.experiment.task.storage import TaskStorage
 from rvandroid.tools.tool_spec import AbstractTool
+from rvandroid.util.error.error_handler import ErrorHandler
 from settings import INSTRUMENTED_DIR
 
 
@@ -70,6 +79,7 @@ class ExecutionManager:
         self.storage = storage
         self.event_bus = event_bus or EventBus.get_instance()
         self.logger = logging.getLogger(__name__)
+        self.error_handler = ErrorHandler.get_instance()
         self.tools: Dict[str, AbstractTool] = {}
         self.apks: Dict[str, App] = {}
         self.base_results_dir = os.path.dirname(self.storage.storage_file)
@@ -188,13 +198,33 @@ class ExecutionManager:
         try:
             # Get pending tasks
             tasks = self.storage.get_pending_tasks()
-            self.logger.info(f"Starting execution of {len(tasks)} tasks")
+            completed_tasks = self.storage.get_completed_tasks()
+            
+            self.logger.info(f"EXPERIMENT STATUS: Starting execution of {len(tasks)} pending tasks")
+            self.logger.info(f"EXPERIMENT STATUS: {len(completed_tasks)} tasks already completed")
+            self.logger.info(f"EXPERIMENT STATUS: Total tasks in experiment: {len(tasks) + len(completed_tasks)}")
 
-            # Execute each task
-            for task in tasks:
+            # Execute each task with detailed status logging
+            for i, task in enumerate(tasks, 1):
+                self.logger.info(f"EXPERIMENT STATUS: Executing task {i}/{len(tasks)} (Total progress: {len(completed_tasks) + i - 1}/{len(tasks) + len(completed_tasks)})")
+                self.logger.info(f"EXPERIMENT STATUS: Remaining tasks: {len(tasks) - i}")
+                
                 result = self.run_task(task)
                 if not result:
                     has_errors = True
+                    self.logger.error(f"EXPERIMENT STATUS: Task {i}/{len(tasks)} FAILED: {task.config}")
+                else:
+                    self.logger.info(f"EXPERIMENT STATUS: Task {i}/{len(tasks)} COMPLETED successfully: {task.config}")
+                
+                # Update completed count for progress tracking
+                completed_count = len(completed_tasks) + i
+                total_count = len(tasks) + len(completed_tasks)
+                progress_pct = (completed_count / total_count) * 100
+                self.logger.info(f"EXPERIMENT STATUS: Overall progress: {completed_count}/{total_count} ({progress_pct:.1f}%)")
+                
+                if i < len(tasks):  # Not the last task
+                    self.logger.info(f"EXPERIMENT STATUS: Proceeding to next task...")
+                    self.logger.info("=" * 80)
 
             # Publish experiment completed event
             self.event_bus.publish_experiment_event(
@@ -206,6 +236,41 @@ class ExecutionManager:
 
             self.logger.info("Execution completed")
             return not has_errors
+
+        except Exception as e:
+            # Create comprehensive error context for the error handler
+            error_context = {
+                "component": "ExecutionManager",
+                "phase": "experiment_execution",
+                "total_tasks": len(tasks) if 'tasks' in locals() else 0,
+                "completed_tasks": len(completed_tasks) if 'completed_tasks' in locals() else 0,
+                "current_task_index": i if 'i' in locals() else 0,
+                "experiment_timestamp": self.running_timestamp.isoformat() if self.running_timestamp else None,
+                "base_results_dir": self.base_results_dir
+            }
+            
+            # Add current task info if available
+            if self.current_task:
+                error_context["current_task_id"] = self.current_task.id
+                error_context["current_task_config"] = self.current_task.config.to_dict()
+            
+            # Use ErrorHandler for proper exception handling
+            self.error_handler.handle_error(e, error_context)
+            
+            # Log experiment-level exception
+            self.logger.error(f"EXPERIMENT EXCEPTION: Experiment execution failed with exception")
+            self.logger.error(f"EXPERIMENT EXCEPTION: Exception type: {type(e).__name__}")
+            self.logger.error(f"EXPERIMENT EXCEPTION: Exception message: {str(e)}")
+            
+            # Publish experiment failed event
+            self.event_bus.publish_experiment_event(
+                EventType.EXPERIMENT_FAILED,
+                experiment_id=f"experiment-{self.running_timestamp.strftime('%Y%m%d%H%M%S')}" if self.running_timestamp else "experiment-unknown",
+                message=f"Experiment failed with exception: {str(e)}",
+                source="ExecutionManager"
+            )
+            
+            return False
 
         finally:
             self.is_running = False
@@ -226,45 +291,143 @@ class ExecutionManager:
             bool: True if the task was executed successfully, False if the task failed due to
                   missing tool/app or encountered an error during execution.
         """
-        self.logger.info(f"Running task {task.id}: {task.config}")
+        # Detailed task start logging
+        self.logger.info("=" * 80)
+        self.logger.info(f"TASK START: {task.id}")
+        self.logger.info(f"TASK CONFIG: APK={task.config.apk_name}, Tool={task.config.tool_name}")
+        self.logger.info(f"TASK CONFIG: Repetition={task.config.repetition}, Timeout={task.config.timeout}s")
+        self.logger.info(f"TASK CONFIG: Device={task.config.device_id}, No-window={task.config.no_window}")
+        self.logger.info(f"TASK CONFIG: Clean-logcat={task.config.clean_logcat}, Skip-install={task.config.skip_installation}")
+        self.logger.info(f"TASK STATE: Current state = {task.result.state.name}")
+        
+        # Log task timing info
+        if task.result.start_time:
+            self.logger.info(f"TASK TIMING: Task started at {task.result.start_time}")
+        else:
+            task.result.start_time = datetime.now()
+            self.logger.info(f"TASK TIMING: Setting task start time to {task.result.start_time}")
+        
+        # Log results directory
+        self.logger.info(f"TASK OUTPUT: Results will be saved to {task.results_dir}")
+        self.logger.info(f"TASK OUTPUT: Logcat file: {task.result.logcat_file}")
+        self.logger.info(f"TASK OUTPUT: Trace file: {task.result.trace_file}")
+        
+        self.logger.info("=" * 80)
+        
         self.current_task = task
 
-        # Get tool
+        # Get tool with detailed logging
+        self.logger.info(f"TASK RESOLUTION: Looking for tool '{task.config.tool_name}'")
         tool = self.tools.get(task.config.tool_name)
         if not tool:
-            self.logger.error(f"Tool not found: {task.config.tool_name}")
-            task.mark_error(f"Tool not found: {task.config.tool_name}")
+            available_tools = list(self.tools.keys())
+            self.logger.error(f"TASK ERROR: Tool '{task.config.tool_name}' not found")
+            self.logger.error(f"TASK ERROR: Available tools: {available_tools}")
+            task.update_state(TaskState.ERROR, f"Tool not found: {task.config.tool_name}")
             self.storage.update_task(task)
             return False
+        self.logger.info(f"TASK RESOLUTION: Tool '{task.config.tool_name}' found successfully")
 
-        # Get app
+        # Get app with detailed logging
+        self.logger.info(f"TASK RESOLUTION: Looking for app '{task.config.apk_name}'")
         app = self.apks.get(task.config.apk_name)
         if not app:
-            self.logger.error(f"App not found: {task.config.apk_name}")
-            task.mark_error(f"App not found: {task.config.apk_name}")
+            available_apps = list(self.apks.keys())
+            self.logger.error(f"TASK ERROR: App '{task.config.apk_name}' not found")
+            self.logger.error(f"TASK ERROR: Available apps: {available_apps}")
+            task.update_state(TaskState.ERROR, f"App not found: {task.config.apk_name}")
             self.storage.update_task(task)
             return False
+        self.logger.info(f"TASK RESOLUTION: App '{task.config.apk_name}' found successfully")
+        self.logger.info(f"TASK RESOLUTION: App path: {app.instrumented_path if hasattr(app, 'instrumented_path') else 'N/A'}")
+        self.logger.info(f"TASK RESOLUTION: App package: {app.package if hasattr(app, 'package') else 'N/A'}")
+        self.logger.info(f"TASK RESOLUTION: App size: {app.size_mb if hasattr(app, 'size_mb') else 'N/A'} MB")
 
         # Ensure app is set
+        self.logger.info(f"TASK SETUP: Setting app for task")
         task.set_app(app)
 
         # Copy static analysis files
+        self.logger.info(f"TASK SETUP: Copying static analysis files to {task.results_dir}")
         self.copy_static_analysis_files(task.app.name, task.results_dir)
 
         try:
-            # Execute task
+            # Create executor with required components
+            self.logger.info(f"TASK EXECUTION: Creating TaskExecutor with tool '{tool.name}'")
             executor = TaskExecutor(task, tool, self.event_bus)
+            
+            # Register necessary components for task execution
+            components = [
+                ('StaticAnalysisComponent', StaticAnalysisComponent(task, self.event_bus)),
+                ('CoverageComponent', CoverageComponent(task, self.event_bus)),
+                ('EmulatorComponent', EmulatorComponent(task, self.event_bus)),
+                ('LogcatComponent', LogcatComponent(task, self.event_bus)),
+                ('ToolExecutionComponent', ToolExecutionComponent(task, tool, self.event_bus))
+            ]
+            
+            self.logger.info(f"TASK EXECUTION: Registering {len(components)} components")
+            for component_name, component in components:
+                executor.register_component(component)
+                self.logger.debug(f"TASK EXECUTION: Registered {component_name}")
+            
+            # Execute task
+            self.logger.info(f"TASK EXECUTION: Starting task execution")
+            task_start_time = datetime.now()
             success = executor.execute()
+            task_end_time = datetime.now()
+            
+            execution_duration = (task_end_time - task_start_time).total_seconds()
+            
+            if success:
+                self.logger.info(f"TASK RESULT: Task completed successfully in {execution_duration:.2f} seconds")
+                if hasattr(task.result, 'coverage_metrics') and task.result.coverage_metrics:
+                    metrics = task.result.coverage_metrics
+                    self.logger.info(f"TASK METRICS: Method coverage: {metrics.get('method_coverage', 0):.2f}%")
+                    self.logger.info(f"TASK METRICS: Activity coverage: {metrics.get('activities_coverage', 0):.2f}%")
+                    self.logger.info(f"TASK METRICS: Total errors: {metrics.get('total_errors', 0)}")
+            else:
+                self.logger.error(f"TASK RESULT: Task failed after {execution_duration:.2f} seconds")
+                if task.result.error_message:
+                    self.logger.error(f"TASK ERROR: {task.result.error_message}")
 
             # Update task in storage
+            self.logger.info(f"TASK FINALIZATION: Updating task in storage")
             self.storage.update_task(task)
             return success
 
         except Exception as e:
-            self.logger.error(f"Error executing task {task.id}: {e}")
-            task.mark_error(str(e))
+            execution_duration = (datetime.now() - task_start_time).total_seconds() if 'task_start_time' in locals() else 0
+            
+            # Create comprehensive error context for the error handler
+            error_context = {
+                "component": "ExecutionManager",
+                "phase": "task_execution", 
+                "task_id": task.id,
+                "task_config": task.config.to_dict(),
+                "execution_duration": execution_duration,
+                "app_name": task.config.apk_name,
+                "tool_name": task.config.tool_name,
+                "current_state": task.result.state.name,
+                "results_dir": task.results_dir
+            }
+            
+            # Use ErrorHandler for proper exception handling
+            self.error_handler.handle_error(e, error_context)
+            
+            # Log additional task-specific information
+            self.logger.error(f"TASK EXCEPTION: Task {task.id} failed with exception after {execution_duration:.2f} seconds")
+            self.logger.error(f"TASK EXCEPTION: Exception type: {type(e).__name__}")
+            self.logger.error(f"TASK EXCEPTION: Exception message: {str(e)}")
+            self.logger.error(f"TASK EXCEPTION: Task config: {task.config}")
+            
+            task.update_state(TaskState.ERROR, str(e))
             self.storage.update_task(task)
             return False
+        
+        finally:
+            # Cleanup logging
+            self.logger.info(f"TASK CLEANUP: Task {task.id} finished, setting current_task to None")
+            self.current_task = None
 
     def copy_static_analysis_files(self, apk: str, app_results_dir: str) -> bool:
         """
@@ -303,6 +466,20 @@ class ExecutionManager:
             return True
 
         except Exception as e:
+            # Create error context for the error handler
+            error_context = {
+                "component": "ExecutionManager",
+                "phase": "static_analysis_file_copy",
+                "apk_name": apk,
+                "target_directory": app_results_dir,
+                "extensions_checked": extensions,
+                "copied_files_count": copied_files
+            }
+            
+            # Use ErrorHandler for proper exception handling
+            self.error_handler.handle_error(e, error_context)
+            
+            # Log additional information
             self.logger.error(f"Error copying static analysis files for {apk}: {e}")
             return False
 
@@ -315,8 +492,8 @@ class ExecutionManager:
         """
         tasks = self.storage.get_tasks()
         total = len(tasks)
-        completed = len([t for t in tasks if t.result.status == TaskStatus.EXECUTED])
-        failed = len([t for t in tasks if t.result.status == TaskStatus.ERROR])
+        completed = len([t for t in tasks if t.result.state == TaskState.COMPLETED])
+        failed = len([t for t in tasks if t.result.state == TaskState.ERROR])
         pending = total - completed - failed
 
         pct_complete = (completed * 100 / total) if total > 0 else 0
@@ -362,7 +539,7 @@ class ExecutionManager:
         }
 
         # Get completed tasks
-        completed_tasks = [t for t in self.storage.get_tasks() if t.result.status == TaskStatus.EXECUTED]
+        completed_tasks = [t for t in self.storage.get_tasks() if t.result.state == TaskState.COMPLETED]
 
         if not completed_tasks:
             return report

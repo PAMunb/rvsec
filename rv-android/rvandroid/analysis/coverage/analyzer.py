@@ -5,7 +5,7 @@ Centralized coverage analyzer module.
 from typing import Dict, Optional, Any, List
 
 from rvandroid.analysis.base_analyzer import BaseAnalyzer
-from rvandroid.analysis.coverage.repository import CoverageRepository
+from rvandroid.domain.coverage import LogcatRepository
 from rvandroid.domain.log import RvCoverageLog, RvErrorLog
 from rvandroid.domain.static import StaticAnalysisData
 
@@ -35,8 +35,9 @@ class CoverageAnalyzer(BaseAnalyzer[Dict[str, Any]]):
         """
         super().__init__(analyzer_name="coverage", static_data=static_data)
 
-        # Initialize repository
-        self.repository = CoverageRepository()
+        # Initialize repository directly for optimal performance
+        # Direct repository usage provides better performance and simpler data flow
+        self.repository = LogcatRepository()
 
         # Initialize repository from static_data if available
         if static_data and static_data.classes:
@@ -47,8 +48,8 @@ class CoverageAnalyzer(BaseAnalyzer[Dict[str, Any]]):
         try:
             self.logger.info("Initializing analyzer from static analysis data")
 
-            # Get underlying repository for direct operations
-            core_repo = self.repository.get_underlying_repository()
+            # Repository is now direct LogcatRepository - no wrapper needed
+            core_repo = self.repository
 
             # Process classes from static data
             classes = self.static_data.classes
@@ -145,8 +146,8 @@ class CoverageAnalyzer(BaseAnalyzer[Dict[str, Any]]):
         # Parse logcat file
         parsed_repo = parse_logcat_file(logcat_file)
 
-        # Get our repository's underlying core
-        core_repo = self.repository.get_underlying_repository()
+        # Repository is now direct LogcatRepository - no wrapper needed
+        core_repo = self.repository
 
         # Transfer errors
         for error in parsed_repo.errors:
@@ -174,7 +175,7 @@ class CoverageAnalyzer(BaseAnalyzer[Dict[str, Any]]):
         Args:
             error_log: Error log entry
         """
-        self.repository.register_error(error_log)
+        self.repository.register_rv_error(error_log)
 
     def get_coverage_metrics(self) -> Dict[str, Any]:
         """
@@ -183,7 +184,8 @@ class CoverageAnalyzer(BaseAnalyzer[Dict[str, Any]]):
         Returns:
             Dictionary with metrics
         """
-        metrics = self.repository.get_metrics()
+        metrics_obj = self.repository.calculate_metrics()
+        metrics = metrics_obj.to_dict()
 
         return {
             "SUMMARY": metrics,

@@ -11,8 +11,9 @@ from rvandroid.app import App
 from rvandroid.constants import EXTENSION_METHODS, EXTENSION_GESDA, EXTENSION_GATOR, EXTENSION_REACH
 from rvandroid.experiment.event.bus import EventBus
 from rvandroid.experiment.execution_manager import ExecutionManager
-from rvandroid.experiment.task.task_storage import TaskStorage
+from rvandroid.experiment.task.storage import TaskStorage
 from rvandroid.tools.tool_spec import AbstractTool
+from rvandroid.util.error.error_handler import ErrorHandler
 from rvandroid.util.logging.constants import CONTEXT_COMPONENT, LOG_START, LOG_COMPLETE, LOG_ERROR
 from rvandroid.util.logging.manager import LoggingManager
 from settings import INSTRUMENTED_DIR
@@ -49,8 +50,9 @@ class ExecutionController:
         # Create execution manager
         self.execution_manager = ExecutionManager(task_storage, event_bus)
 
-        # Configure logging
+        # Configure logging and error handling
         self.logging_manager = LoggingManager.get_instance()
+        self.error_handler = ErrorHandler.get_instance()
         self.logger = self.logging_manager.get_logger(
             'experiment_workflow.execution_controller',
             {
@@ -171,6 +173,20 @@ class ExecutionController:
             return True
 
         except Exception as e:
+            # Create error context for the error handler
+            error_context = {
+                "component": "ExecutionController",
+                "phase": "static_analysis_file_copy",
+                "apk_name": apk,
+                "target_directory": app_results_dir,
+                "extensions_checked": extensions,
+                "copied_files_count": copied_files
+            }
+            
+            # Use ErrorHandler for proper exception handling
+            self.error_handler.handle_error(e, error_context)
+            
+            # Log additional information
             self.logger.error(LOG_ERROR.format(
                 operation=f"copying static analysis files for {apk}",
                 error=str(e)

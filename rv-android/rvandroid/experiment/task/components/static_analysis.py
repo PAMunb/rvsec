@@ -1,17 +1,16 @@
-# rvandroid/experiment/components/static_analysis.py
+# rvandroid/experiment/task/components/static_analysis.py
 from typing import Dict, Any, Optional
 
 from rvandroid.experiment.event.bus import EventBus, EventType
+from rvandroid.experiment.task.component import BaseTaskComponent
 from rvandroid.experiment.task.task_model import Task
 from rvandroid.parser.static import static_analysis_parser
-from rvandroid.util.error.error_handler import ErrorHandler
 from rvandroid.util.exceptions import AnalysisError
-from rvandroid.util.logging.constants import CONTEXT_TASK_ID, CONTEXT_APP_NAME, CONTEXT_COMPONENT, LOG_START, \
+from rvandroid.util.logging.constants import CONTEXT_TASK_ID, CONTEXT_APP_NAME, LOG_START, \
     LOG_COMPLETE, LOG_SKIPPED, LOG_ERROR
-from rvandroid.util.logging.manager import LoggingManager
 
 
-class StaticAnalysisComponent:
+class StaticAnalysisComponent(BaseTaskComponent):
     """
     Component responsible for handling static analysis data loading.
     Separates this concern from the main TaskExecutor.
@@ -29,20 +28,26 @@ class StaticAnalysisComponent:
 
     def __init__(self, task: Task, event_bus: Optional[EventBus] = None):
         """Initialize with task and optional event bus."""
+        super().__init__("StaticAnalysisComponent", event_bus)
         self.task = task
-        self.event_bus = event_bus or EventBus.get_instance()
-        self.error_handler = ErrorHandler.get_instance()
+        
+        # Update logger context with task information
+        self.logger.push_context(**{
+            CONTEXT_TASK_ID: task.id,
+            CONTEXT_APP_NAME: task.config.apk_name
+        })
 
-        # Set up standardized logger with proper context
-        logging_manager = LoggingManager.get_instance()
-        self.logger = logging_manager.get_logger(
-            'experiment.components.static_analysis',
-            {
-                CONTEXT_TASK_ID: task.id,
-                CONTEXT_APP_NAME: task.config.apk_name,
-                CONTEXT_COMPONENT: 'StaticAnalysisComponent'
-            }
-        )
+    def _execute_impl(self, context: Dict[str, Any]) -> bool:
+        """
+        Execute static analysis data loading for the task.
+        
+        Args:
+            context: Task execution context
+            
+        Returns:
+            True if static analysis data was loaded successfully
+        """
+        return self.load_static_data(context)
 
     def load_static_data(self, task_context: Dict[str, Any]) -> bool:
         """
@@ -93,7 +98,7 @@ class StaticAnalysisComponent:
                     error=str(e)
                 ))
                 # Convert to AnalysisError but don't raise
-                self.error_handler.handle_error(
+                self._get_error_handler().handle_error(
                     AnalysisError("Failed to load static analysis data", e),
                     task_context
                 )

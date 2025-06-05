@@ -129,8 +129,8 @@ class TestCoverageAnalyzer:
         analyzer.add_error(error_log)
 
         # Verify error tracking
-        assert len(analyzer.repository.get_underlying_repository().errors) == 1
-        assert error_log in analyzer.repository.get_underlying_repository().errors
+        assert len(analyzer.repository.errors) == 1
+        assert error_log in analyzer.repository.errors
 
     @patch('rvandroid.analysis.coverage.tracker.EventBus')
     def test_get_coverage_metrics(self, mock_event_bus, mock_static_data):

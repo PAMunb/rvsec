@@ -7,6 +7,7 @@ import json
 import os
 
 from rvandroid.experiment.event.bus import EventBus, EventType
+from rvandroid.util.error.error_handler import ErrorHandler
 from rvandroid.util.logging.constants import CONTEXT_COMPONENT, LOG_START, LOG_COMPLETE, LOG_ERROR
 from rvandroid.util.logging.manager import LoggingManager
 
@@ -28,7 +29,7 @@ class PostProcessor:
     - Generates experiment summaries and metrics
     """
 
-    def __init__(self, results_dir: str, event_bus: EventBus, execution_controller=None):
+    def __init__(self, results_dir: str, event_bus: EventBus, execution_controller=None, result_manager=None):
         """
         Initialize the post-processor.
 
@@ -36,10 +37,13 @@ class PostProcessor:
             results_dir: Directory containing experiment results
             event_bus: Event bus for publishing events
             execution_controller: Reference to the execution controller
+            result_manager: Result manager for processing results
         """
         self.results_dir = results_dir
         self.event_bus = event_bus
         self.execution_controller = execution_controller
+        self.result_manager = result_manager
+        self.error_handler = ErrorHandler.get_instance()
 
         # Configure logging
         self.logging_manager = LoggingManager.get_instance()
@@ -115,33 +119,31 @@ class PostProcessor:
     def _analyze_results(self):
         """
         Perform detailed analysis of experiment results.
-        Uses standardized models for result processing.
+        Uses the configured ResultManager for result processing.
         """
         with self.logger.with_context(phase="results_analysis"):
             self.logger.info(LOG_START.format(operation="results analysis"))
 
             try:
-                # Import here to avoid circular imports
-                from rvandroid.analysis.results.processor import process_results
-
-                # Process results using standardized analysis
-                results = process_results(self.results_dir)
-
-                # Save analysis results
-                analysis_path = os.path.join(self.results_dir, "analysis_results.json")
-                with open(analysis_path, 'w') as f:
-                    json.dump(results, f, indent=2)
-
-                self.logger.info(f"Analysis results saved to {analysis_path}")
+                # Use the configured ResultManager instead of creating a new one
+                if self.result_manager:
+                    self.logger.info("Generating comprehensive experiment reports")
+                    self.result_manager.generate_reports()
+                    self.logger.info("Results generated successfully by ResultManager")
+                else:
+                    self.logger.warning("No ResultManager available - skipping detailed analysis")
 
                 # Generate performance and error diagnostics
                 self._generate_diagnostics()
 
             except Exception as e:
-                self.logger.error(LOG_ERROR.format(
-                    operation="results analysis",
-                    error=str(e)
-                ))
+                error_context = {
+                    "component": "PostProcessor",
+                    "operation": "results_analysis",
+                    "results_dir": self.results_dir,
+                    "has_result_manager": self.result_manager is not None
+                }
+                self.error_handler.handle_error(e, error_context)
 
             self.logger.info(LOG_COMPLETE.format(operation="results analysis"))
 
@@ -163,9 +165,11 @@ class PostProcessor:
                 self.logger.info(f"Diagnostic report saved to {report_path}")
 
             except Exception as e:
-                self.logger.error(LOG_ERROR.format(
-                    operation="generating diagnostics",
-                    error=str(e)
-                ))
+                error_context = {
+                    "component": "PostProcessor",
+                    "operation": "generating_diagnostics",
+                    "results_dir": self.results_dir
+                }
+                self.error_handler.handle_error(e, error_context)
 
             self.logger.info(LOG_COMPLETE.format(operation="generating diagnostics"))

@@ -701,6 +701,8 @@ def get_tools_obj(names: list[str], logger: logging.Logger):
     return selected_tool_objects
 
 
+# from main_tracker import track_modules
+# @track_modules()
 def run_local():
     """
     Runs a local experiment with predefined configuration settings.
@@ -739,18 +741,14 @@ def run_local():
     config = Configuration.get_instance()
 
     # Set configuration values
-    config.set("repetitions", 1)
-    config.set("timeouts", [60])
-    config.set("generate_monitors", False)
-    config.set("instrument", False)
-    config.set("static_analysis", False)
+    config.set("repetitions", 2)
+    config.set("timeouts", [60, 120])
+    config.set("generate_monitors", True)
+    config.set("instrument", True)
+    config.set("static_analysis", True)
     config.set("skip_experiment", False)
     config.set("no_window", True)
     config.set("memory_file", "")
-
-    # Set enhanced experiment configuration
-    # config.set("use_enhanced_controller", False)
-    # config.set("orchestration_mode", OrchestrationMode.SEQUENTIAL.name)
 
     # ape = OK
     # ares
@@ -768,7 +766,7 @@ def run_local():
     # rvdroid
 
     # Get selected tools as objects
-    selected_tool_objects = get_tools_obj(["ape"], logger)
+    selected_tool_objects = get_tools_obj(["ape", "monkey"], logger)
 
     # Log explicitly for the selected tools
     logger.info(f"Selected tools for local experiment: {[tool.name for tool in selected_tool_objects]}")

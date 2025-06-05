@@ -38,9 +38,11 @@ def emulator_component(mock_task, mock_event_bus):
             patch('rvandroid.util.logging.manager.LoggingManager') as logging_manager, \
             patch('rvandroid.util.error.error_handler.ErrorHandler.get_instance') as error_handler:
         logging_manager.get_instance.return_value.get_logger.return_value = Mock()
-        error_handler.return_value = Mock()
+        mock_error_handler = Mock()
+        error_handler.return_value = mock_error_handler
         component = EmulatorComponent(mock_task, mock_event_bus)
         component.emulator_manager = manager_class.return_value
+        component.error_handler = mock_error_handler
         return component
 
 

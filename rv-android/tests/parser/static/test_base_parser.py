@@ -13,7 +13,7 @@ from rvandroid.domain.window import Windows
 from rvandroid.parser.static.base_parser import BaseStaticAnalysisParser
 
 
-class TestParser(BaseStaticAnalysisParser):
+class MockParser(BaseStaticAnalysisParser):
     """A concrete implementation of BaseStaticAnalysisParser for testing."""
 
     def __init__(self, parser_name="test_parser"):
@@ -33,14 +33,14 @@ class TestBaseStaticAnalysisParser:
 
     def test_initialization(self):
         """Test parser initialization."""
-        parser = TestParser("custom_parser")
+        parser = MockParser("custom_parser")
 
         assert parser.parser_name == "custom_parser"
         assert parser.logger is not None
 
     def test_validate_package(self):
         """Test package validation."""
-        parser = TestParser()
+        parser = MockParser()
 
         # Should return True if package is part of class name
         assert parser.validate_package("com.example.MyClass", "com.example") is True
@@ -60,7 +60,7 @@ class TestBaseStaticAnalysisParser:
         mock_instance.get_logger.return_value = mock_logger
         mock_logging_manager.get_instance.return_value = mock_instance
 
-        parser = TestParser()
+        parser = MockParser()
         parser.logger = mock_logger
 
         # Test
@@ -79,7 +79,7 @@ class TestBaseStaticAnalysisParser:
         mock_instance.get_logger.return_value = mock_logger
         mock_logging_manager.get_instance.return_value = mock_instance
 
-        parser = TestParser()
+        parser = MockParser()
         parser.logger = mock_logger
 
         stats = {"classes": 10, "methods": 50}
@@ -106,7 +106,7 @@ class TestBaseStaticAnalysisParser:
         mock_instance.get_logger.return_value = mock_logger
         mock_logging_manager.get_instance.return_value = mock_instance
 
-        parser = TestParser()
+        parser = MockParser()
         parser.logger = mock_logger
 
         error = ValueError("Test error")
@@ -120,7 +120,7 @@ class TestBaseStaticAnalysisParser:
 
     def test_abstract_method_called(self):
         """Test that the abstract method is called when implemented."""
-        parser = TestParser()
+        parser = MockParser()
         parser.return_value = "test_result"
 
         result = parser.parse_file("file.txt", "com.example", None, None)

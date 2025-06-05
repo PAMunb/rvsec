@@ -12,7 +12,11 @@ from datetime import datetime
 from enum import Enum, auto
 from typing import Dict, List, Any, Optional, TypeVar, Generic, Protocol
 
-from rvandroid.domain.coverage import LogcatRepository
+# TYPE_CHECKING import to avoid circular dependencies
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from rvandroid.domain.coverage import LogcatRepository
 
 
 class TaskState(Enum):
@@ -127,7 +131,7 @@ class ITask(Protocol):
     id: str                                  # Unique identifier for the task
     config: ITaskConfiguration               # Task configuration
     result: ITaskResult                      # Task execution result
-    repository: Optional[LogcatRepository]   # Repository for coverage data
+    repository: Optional['LogcatRepository']   # Repository for coverage data
     results_dir: str                         # Directory for task results
     app: Any                                 # App instance for the task
     static_data: Any                         # Static analysis data
@@ -156,7 +160,7 @@ class ITask(Protocol):
         """Update coverage metrics based on repository data."""
         pass
     
-    def get_repository(self) -> LogcatRepository:
+    def get_repository(self) -> 'LogcatRepository':
         """Get the task's coverage repository."""
         pass
     

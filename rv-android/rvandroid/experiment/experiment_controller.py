@@ -12,13 +12,14 @@ from rvandroid.experiment.event import (
     EventType,
     get_event_bus
 )
-from rvandroid.experiment.task.task_storage import TaskStorage
+from rvandroid.experiment.task.storage import TaskStorage
 from rvandroid.experiment.workflow.execution_controller import ExecutionController
 from rvandroid.experiment.workflow.post_processor import PostProcessor
 from rvandroid.experiment.workflow.pre_processor import PreProcessor
 from rvandroid.experiment.workflow.result_manager import ResultManager
 from rvandroid.experiment.workflow.workflow_factory import WorkflowFactory
 from rvandroid.tools.tool_spec import AbstractTool
+from rvandroid.util.error.error_handler import ErrorHandler
 from rvandroid.util.logging.constants import CONTEXT_COMPONENT, LOG_START, LOG_COMPLETE, LOG_ERROR
 from rvandroid.util.logging.manager import LoggingManager
 from settings import TIMESTAMP, RESULTS_DIR
@@ -56,8 +57,9 @@ class ExperimentController:
         # Set up experiment identifier
         self.experiment_id = f"experiment_{TIMESTAMP}"
 
-        # Configure logging
+        # Configure logging and error handling
         self.logging_manager = LoggingManager.get_instance()
+        self.error_handler = ErrorHandler.get_instance()
         self.logger = self.logging_manager.get_logger(
             'experiment_workflow.controller',
             {
@@ -250,11 +252,8 @@ class ExperimentController:
                 # Run the experiment tasks
                 self.execution_controller.run()
 
-                # Process results
+                # Process results (includes report generation through integrated ResultManager)
                 self.post_processor.process()
-
-                # Generate reports
-                self.result_manager.generate_reports()
 
             # Publish experiment completed event
             self.event_bus.publish_experiment_event(
@@ -310,6 +309,19 @@ class ExperimentController:
                     error=f"Memory file contains invalid JSON: {e}"
                 ))
             except Exception as e:
+                # Create error context for the error handler
+                error_context = {
+                    "component": "ExperimentController",
+                    "phase": "resume_from_memory",
+                    "memory_file": memory_file,
+                    "experiment_id": self.experiment_id,
+                    "results_dir": self.results_dir
+                }
+                
+                # Use ErrorHandler for proper exception handling
+                self.error_handler.handle_error(e, error_context)
+                
+                # Log additional information
                 self.logger.error(LOG_ERROR.format(
                     operation="resuming from memory file",
                     error=str(e)

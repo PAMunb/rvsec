@@ -27,7 +27,7 @@ from rvandroid.util.exceptions import (
     ADBError,
     InstrumentationError,
     AnalysisError,
-    TestExecutionError,
+    ExecutionError,
     MonitorError,
     RvTimeoutError,
     TaskExecutionError,
@@ -123,11 +123,11 @@ class TestDerivedExceptions:
         assert str(error) == "AnalysisError: Analysis error"
 
     def test_test_execution_error(self):
-        """Test TestExecutionError initialization and inheritance."""
-        error = TestExecutionError("Test execution error")
+        """Test ExecutionError initialization and inheritance."""
+        error = ExecutionError("Test execution error")
         assert isinstance(error, RVAndroidError)
         assert error.message == "Test execution error"
-        assert str(error) == "TestExecutionError: Test execution error"
+        assert str(error) == "ExecutionError: Test execution error"
 
     def test_monitor_error(self):
         """Test MonitorError initialization and inheritance."""
@@ -150,7 +150,7 @@ class TestSpecializedExceptions:
     def test_task_execution_error(self):
         """Test TaskExecutionError with task_id."""
         error = TaskExecutionError("Task failed", 42)
-        assert isinstance(error, TestExecutionError)
+        assert isinstance(error, ExecutionError)
         assert error.message == "Task failed"
         assert error.task_id == 42
         assert str(error) == "TaskExecutionError: Task failed (Task ID: 42)"
@@ -167,7 +167,7 @@ class TestSpecializedExceptions:
     def test_tool_error(self):
         """Test ToolError with tool_name."""
         error = ToolError("Tool failed", "DroidBot")
-        assert isinstance(error, TestExecutionError)
+        assert isinstance(error, ExecutionError)
         assert error.message == "Tool failed"
         assert error.tool_name == "DroidBot"
         assert str(error) == "ToolError: Tool failed (Tool: DroidBot)"
@@ -215,11 +215,11 @@ class TestExceptionHierarchy:
         assert issubclass(LogcatError, RVAndroidError)
         assert issubclass(CoverageError, RVAndroidError)
 
-    def test_testExecutionError_inheritance(self):
-        """Test TestExecutionError inheritance structure."""
-        assert issubclass(TestExecutionError, RVAndroidError)
-        assert issubclass(TaskExecutionError, TestExecutionError)
-        assert issubclass(ToolError, TestExecutionError)
+    def test_execution_error_inheritance(self):
+        """Test ExecutionError inheritance structure."""
+        assert issubclass(ExecutionError, RVAndroidError)
+        assert issubclass(TaskExecutionError, ExecutionError)
+        assert issubclass(ToolError, ExecutionError)
         assert issubclass(TaskExecutionError, RVAndroidError)
         assert issubclass(ToolError, RVAndroidError)
 

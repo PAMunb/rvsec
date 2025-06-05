@@ -125,3 +125,53 @@ class CoverageRepository(BaseRepository):
             List of errors
         """
         return self.repository.errors
+
+    def get_method_calls(self) -> List[Dict[str, Any]]:
+        """
+        Get all method calls as a list of dictionaries for export/reporting.
+        Delegates to the underlying LogcatRepository.
+        
+        Returns:
+            List of method call dictionaries with timing information
+        """
+        return self.repository.get_method_calls()
+
+    def get_errors(self) -> List[Dict[str, Any]]:
+        """
+        Get all monitored operations errors as a list of dictionaries for export/reporting.
+        Delegates to the underlying LogcatRepository.
+        
+        Returns:
+            List of error dictionaries with details
+        """
+        return self.repository.get_errors()
+
+    def get_static_methods(self) -> List[str]:
+        """
+        Get all method signatures from static analysis.
+        Delegates to the underlying LogcatRepository.
+        
+        Returns:
+            List of method signatures
+        """
+        return self.repository.get_static_methods()
+
+    def get_static_activities(self) -> List[str]:
+        """
+        Get all activity class names from static analysis.
+        Delegates to the underlying LogcatRepository.
+        
+        Returns:
+            List of activity class names
+        """
+        return self.repository.get_static_activities()
+
+    def get_mop_methods(self) -> List[str]:
+        """
+        Get all MOP-reachable method signatures from static analysis.
+        Delegates to the underlying LogcatRepository.
+        
+        Returns:
+            List of MOP-reachable method signatures
+        """
+        return self.repository.get_mop_methods()

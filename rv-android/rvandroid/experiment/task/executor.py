@@ -202,12 +202,8 @@ class TaskExecutor(ITaskExecutor):
                 if not self.components.initialize_all(context):
                     raise TaskExecutionError("Failed to initialize components", self.task.id)
                 
-                # Execute all components in order
-                for component in self.components.get_all():
-                    with self.performance_monitor.measure_time(f"component_{component.name.lower()}", context):
-                        self.logger.info(f"Executing component: {component.name}")
-                        if not component.execute(context):
-                            raise TaskExecutionError(f"Component {component.name} execution failed", self.task.id)
+                # Execute components in specialized order with proper coordination
+                self._execute_coordinated_components(context)
                             
                 # Clean up all components
                 self.components.cleanup_all(context)
@@ -266,6 +262,98 @@ class TaskExecutor(ITaskExecutor):
 
             return False
 
+    def _execute_coordinated_components(self, context: Dict[str, Any]) -> None:
+        """
+        Execute components in a coordinated manner, managing emulator lifecycle properly.
+        
+        Args:
+            context: Task execution context
+        """
+        # Get components by type
+        static_component = None
+        coverage_component = None
+        emulator_component = None
+        logcat_component = None
+        tool_component = None
+        
+        for component in self.components.get_all():
+            if "StaticAnalysis" in component.name:
+                static_component = component
+            elif "Coverage" in component.name:
+                coverage_component = component
+            elif "Emulator" in component.name:
+                emulator_component = component
+            elif "Logcat" in component.name:
+                logcat_component = component
+            elif "ToolExecution" in component.name:
+                tool_component = component
+        
+        # Phase 1: Load static data
+        if static_component:
+            with self.performance_monitor.measure_time(f"component_{static_component.name.lower()}", context):
+                self.logger.info(f"Executing component: {static_component.name}")
+                if not static_component.execute(context):
+                    raise TaskExecutionError(f"Component {static_component.name} execution failed", self.task.id)
+        
+        # Phase 2: Initialize coverage tracking
+        if coverage_component:
+            with self.performance_monitor.measure_time(f"component_{coverage_component.name.lower()}", context):
+                self.logger.info(f"Executing component: {coverage_component.name}")
+                if not coverage_component.execute(context):
+                    raise TaskExecutionError(f"Component {coverage_component.name} execution failed", self.task.id)
+        
+        # Phase 3: Start emulator session and execute tool
+        if emulator_component and tool_component:
+            self._run_emulator_session(emulator_component, logcat_component, coverage_component, tool_component, context)
+        else:
+            self.logger.warning("Missing emulator or tool component - skipping emulator session")
+
+    def _run_emulator_session(self, emulator_component, logcat_component, coverage_component, tool_component, context: Dict[str, Any]) -> None:
+        """
+        Run emulator session with proper lifecycle management.
+        
+        Args:
+            emulator_component: Emulator component
+            logcat_component: Logcat component  
+            coverage_component: Coverage component
+            tool_component: Tool execution component
+            context: Task execution context
+        """
+        with self.performance_monitor.measure_time("environment_setup", context):
+            # Start emulator using context manager
+            with emulator_component.start_emulator("RVSec") as android:
+                # Install app if needed
+                if not self.task.config.skip_installation:
+                    self.logger.info("Installing application")
+                    if not emulator_component.install_app(android, self.task.app):
+                        raise TaskExecutionError("Failed to install application", self.task.id)
+                
+                # Set up logcat and coverage tracking
+                if logcat_component:
+                    self.logger.info("Starting logcat capture")
+                    logcat_component.start_capture()
+                
+                if coverage_component:
+                    self.logger.info("Starting coverage tracking")
+                    coverage_component.start_tracking()
+                
+                # Execute the tool
+                with self.performance_monitor.measure_time(f"component_{tool_component.name.lower()}", context):
+                    self.logger.info(f"Executing component: {tool_component.name}")
+                    if not tool_component.execute(context):
+                        raise TaskExecutionError(f"Component {tool_component.name} execution failed", self.task.id)
+                
+                # Stop tracking and process results
+                if coverage_component:
+                    self.logger.info("Stopping coverage tracking")
+                    coverage_component.stop_tracking()
+                    self.logger.info("Processing coverage results")
+                    coverage_component.process_results()
+                
+                if logcat_component:
+                    self.logger.info("Stopping logcat capture")
+                    logcat_component.stop_capture()
+
     def _cleanup_resources(self) -> None:
         """Clean up resources in case of error."""
         context = self.get_task_context()
@@ -274,6 +362,15 @@ class TaskExecutor(ITaskExecutor):
                 # Clean up all components
                 self.components.cleanup_all(context)
             except Exception as e:
+                # Create error context for cleanup failure
+                cleanup_context = self.get_task_context()
+                cleanup_context["phase"] = "component_cleanup"
+                cleanup_context["component_count"] = len(self.components.get_all())
+                
+                # Use ErrorHandler for proper exception handling
+                self.error_handler.handle_error(e, cleanup_context)
+                
+                # Log cleanup warning
                 self.logger.warning(LOG_ERROR.format(
                     operation="cleaning up components",
                     error=str(e)

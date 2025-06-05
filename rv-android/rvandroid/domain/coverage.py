@@ -29,13 +29,20 @@ class MethodCoverageData:
     first_called_at: Optional[datetime] = None
     last_called_at: Optional[datetime] = None
     from_static_analysis: bool = False  # New field to track source
+    time_since_task_start: int = 0  # Time in seconds when first called (from RvCoverageLog)
 
-    def register_call(self, timestamp: Optional[datetime] = None) -> None:
+    def register_call(self, timestamp: Optional[datetime] = None, time_since_task_start: Optional[int] = None) -> None:
         """
         Register a call to this method.
+        
+        ### Critical Architecture Decision:
+        This method preserves timing data from RvCoverageLog objects to maintain
+        accurate timing information throughout the data flow. The time_since_task_start
+        is essential for generating correct CSV reports with actual execution times.
 
         Args:
             timestamp: When the call occurred (defaults to now)
+            time_since_task_start: Seconds since task execution started (from RvCoverageLog)
         """
         current_time = timestamp or datetime.now()
         self.called = True
@@ -43,6 +50,9 @@ class MethodCoverageData:
 
         if not self.first_called_at:
             self.first_called_at = current_time
+            # Store the time_since_task_start from the FIRST call for CSV export
+            if time_since_task_start is not None:
+                self.time_since_task_start = time_since_task_start
 
         self.last_called_at = current_time
 
@@ -105,6 +115,9 @@ class MethodCoverageData:
 
         # Register the call with the timestamp from the log
         instance.register_call(log.time_occurred)
+        
+        # Store the time since task start from the original log
+        instance.time_since_task_start = log.time_since_task_start
 
         return instance
 
@@ -166,19 +179,24 @@ class ClassCoverageData:
         """
         self.methods[method.signature] = method
 
-    def register_method_call(self, signature: str, timestamp: Optional[datetime] = None) -> bool:
+    def register_method_call(self, signature: str, timestamp: Optional[datetime] = None, time_since_task_start: Optional[int] = None) -> bool:
         """
         Register a call to a method in this class.
+        
+        ### Critical Architecture Decision:
+        This method propagates timing data from RvCoverageLog through the coverage
+        data structure to ensure accurate timing information in reports.
 
         Args:
             signature: Method signature
             timestamp: When the call occurred (optional)
+            time_since_task_start: Seconds since task execution started (from RvCoverageLog)
 
         Returns:
             True if the method was found and updated, False otherwise
         """
         if signature in self.methods:
-            self.methods[signature].register_call(timestamp)
+            self.methods[signature].register_call(timestamp, time_since_task_start)
             return True
         return False
 
@@ -312,9 +330,15 @@ class LogcatRepository:
         """
         Register a method call from a coverage log entry.
         Only registers calls to methods that exist in static analysis data.
+        
+        ### Critical Architecture Decision:
+        This method is the primary entry point for preserving timing data from
+        RvCoverageLog objects into the coverage data structure. It ensures that
+        the time_since_task_start calculated by CoverageTracker is preserved
+        throughout the data flow to generate accurate CSV reports.
 
         Args:
-            coverage_log: Coverage log entry
+            coverage_log: Coverage log entry with timing information
         """
         class_name = coverage_log.clazz
         signature = coverage_log.signature
@@ -326,8 +350,13 @@ class LogcatRepository:
             return
 
         # Only register calls to methods that exist in static analysis data
+        # CRITICAL: Pass both timestamp AND time_since_task_start from RvCoverageLog
         if signature in class_data.methods:
-            class_data.register_method_call(signature, coverage_log.time_occurred)
+            class_data.register_method_call(
+                signature, 
+                coverage_log.time_occurred, 
+                coverage_log.time_since_task_start
+            )
         else:
             self.logger.debug(f"Ignoring method call not found in static analysis: {signature}")
 
@@ -487,3 +516,91 @@ class LogcatRepository:
                 "items": [error.to_dict() for error in self.errors]
             }
         }
+
+    def get_method_calls(self) -> List[Dict[str, Any]]:
+        """
+        Get all method calls as a list of dictionaries for export/reporting.
+        
+        ### Critical Architecture Decision:
+        This method provides the final data structure used by ResultManager to generate
+        CSV reports. It returns ONE entry per method (based on first call time) to avoid
+        duplicates in coverage.csv. The time_since_task_start from RvCoverageLog objects
+        is correctly propagated to maintain accurate timing data throughout the complete
+        data flow: RvCoverageLog -> MethodCoverageData -> CSV.
+        
+        Returns:
+            List of unique method call dictionaries sorted by first call time
+        """
+        method_calls = []
+        
+        for class_name, class_data in self.classes.items():
+            for signature, method_data in class_data.methods.items():
+                if method_data.called:
+                    # CRITICAL: Use time_since_task_start preserved from RvCoverageLog
+                    # Each method appears only ONCE based on its first call time
+                    call_data = {
+                        'time': method_data.time_since_task_start,  # Time of FIRST call from RvCoverageLog
+                        'class_name': class_name,
+                        'method_name': method_data.method_name,
+                        'signature': signature,
+                        'is_mop_method': method_data.reaches_mop,
+                        'activity': class_name if class_data.is_activity else None,
+                        'call_count': method_data.call_count,
+                        'first_called_at': method_data.first_called_at.isoformat() if method_data.first_called_at else None,
+                        'last_called_at': method_data.last_called_at.isoformat() if method_data.last_called_at else None
+                    }
+                    method_calls.append(call_data)
+        
+        # Sort method calls by time_since_task_start to maintain chronological order
+        # This ensures progressive coverage calculation works correctly in CSV
+        return sorted(method_calls, key=lambda x: x['time'])
+
+    def get_errors(self) -> List[Dict[str, Any]]:
+        """
+        Get all monitored operations errors as a list of dictionaries for export/reporting.
+        
+        ### Critical Architecture Decision:
+        This method returns errors sorted by time_since_task_start to maintain chronological
+        order in the errors.csv output, enabling proper temporal analysis of security violations.
+        
+        Returns:
+            List of error dictionaries sorted by occurrence time
+        """
+        error_dicts = [error.to_dict() for error in self.errors]
+        # Sort by time_since_task_start to maintain chronological order in errors.csv
+        return sorted(error_dicts, key=lambda x: x.get('time_since_task_start', 0))
+
+    def get_static_methods(self) -> List[str]:
+        """
+        Get all method signatures from static analysis.
+        
+        Returns:
+            List of method signatures
+        """
+        signatures = []
+        for class_data in self.classes.values():
+            signatures.extend(class_data.methods.keys())
+        return signatures
+
+    def get_static_activities(self) -> List[str]:
+        """
+        Get all activity class names from static analysis.
+        
+        Returns:
+            List of activity class names
+        """
+        return [name for name, class_data in self.classes.items() if class_data.is_activity]
+
+    def get_mop_methods(self) -> List[str]:
+        """
+        Get all MOP-reachable method signatures from static analysis.
+        
+        Returns:
+            List of MOP-reachable method signatures
+        """
+        mop_signatures = []
+        for class_data in self.classes.values():
+            for signature, method_data in class_data.methods.items():
+                if method_data.reaches_mop:
+                    mop_signatures.append(signature)
+        return mop_signatures

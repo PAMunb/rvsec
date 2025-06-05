@@ -1,17 +1,16 @@
-# rvandroid/experiment/components/tool_execution.py
-from typing import Optional
+# rvandroid/experiment/task/components/tool_execution.py
+from typing import Optional, Dict, Any
 
 from rvandroid.experiment.event.bus import EventBus, EventType
+from rvandroid.experiment.task.component import BaseTaskComponent
 from rvandroid.experiment.task.task_model import Task
 from rvandroid.tools.tool_spec import AbstractTool
-from rvandroid.util.error.error_handler import ErrorHandler
 from rvandroid.util.exceptions import ToolError
-from rvandroid.util.logging.constants import CONTEXT_TASK_ID, CONTEXT_APP_NAME, CONTEXT_TOOL_NAME, CONTEXT_COMPONENT, \
+from rvandroid.util.logging.constants import CONTEXT_TASK_ID, CONTEXT_APP_NAME, CONTEXT_TOOL_NAME, \
     LOG_START, LOG_COMPLETE, LOG_ERROR
-from rvandroid.util.logging.manager import LoggingManager
 
 
-class ToolExecutionComponent:
+class ToolExecutionComponent(BaseTaskComponent):
     """
     Component responsible for managing tool execution.
     Handles tool invocation and result processing.
@@ -28,25 +27,31 @@ class ToolExecutionComponent:
     """
 
     def __init__(self, task: Task, tool: AbstractTool, event_bus: Optional[EventBus] = None):
-        """Initialize with task, tool, and optional event bus."""
+        """Initialize with task, tool and optional event bus."""
+        super().__init__("ToolExecutionComponent", event_bus)
         self.task = task
         self.tool = tool
-        self.event_bus = event_bus or EventBus.get_instance()
-        self.error_handler = ErrorHandler.get_instance()
 
-        # Set up standardized logger with proper context
-        logging_manager = LoggingManager.get_instance()
-        self.logger = logging_manager.get_logger(
-            'experiment.components.tool_execution',
-            {
-                CONTEXT_TASK_ID: task.id,
-                CONTEXT_APP_NAME: task.config.apk_name,
-                CONTEXT_TOOL_NAME: tool.name,
-                CONTEXT_COMPONENT: 'ToolExecutionComponent'
-            }
-        )
+        # Update logger context with task and tool information
+        self.logger.push_context(**{
+            CONTEXT_TASK_ID: task.id,
+            CONTEXT_APP_NAME: task.config.apk_name,
+            CONTEXT_TOOL_NAME: tool.name
+        })
 
-    def execute_tool(self) -> bool:
+    def _execute_impl(self, context: Dict[str, Any]) -> bool:
+        """
+        Execute the testing tool for the task.
+        
+        Args:
+            context: Task execution context
+            
+        Returns:
+            True if tool execution was successful
+        """
+        return self.run_tool()
+
+    def run_tool(self) -> bool:
         """
         Execute the tool on the current task.
 
@@ -86,7 +91,7 @@ class ToolExecutionComponent:
                     operation=f"executing tool {self.tool.name}",
                     error=str(e)
                 ))
-                self.error_handler.handle_error(
+                self._get_error_handler().handle_error(
                     ToolError(f"Error executing tool {self.tool.name}", self.tool.name, e),
                     {"task_id": self.task.id, "tool_name": self.tool.name}
                 )

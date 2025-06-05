@@ -10,7 +10,8 @@ from rvandroid.commands.command import Command
 # Import ComponentConfigurator only when needed, not at module level
 # from rvandroid.config.component_configurator import ComponentConfigurator
 from rvandroid.experiment.event.bus import EventBus, EventType
-from rvandroid.experiment.task.task_model import Task, TaskConfig, TaskResult, TaskStatus
+from rvandroid.experiment.task.task_model import Task, TaskConfiguration, TaskResult
+from rvandroid.experiment.task.interfaces import TaskState
 from rvandroid.llm.constants import ScreenParserType
 from rvandroid.parser.screen.visitor.visitor_factory import VisitorFactory
 from rvandroid.rvdroid.core.service import RVDroidService

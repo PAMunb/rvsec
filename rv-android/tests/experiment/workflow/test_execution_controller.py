@@ -4,7 +4,7 @@ import pytest
 
 from rvandroid.app import App
 from rvandroid.experiment.event.bus import EventBus
-from rvandroid.experiment.task.task_storage import TaskStorage
+from rvandroid.experiment.task.storage import TaskStorage
 from rvandroid.experiment.workflow.execution_controller import ExecutionController
 from rvandroid.tools.tool_spec import AbstractTool
 

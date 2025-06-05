@@ -16,13 +16,6 @@ from rvandroid.experiment.workflow.components import (
     ComponentMetadata,
     ComponentProvider
 )
-
-from rvandroid.experiment.workflow.registry import ComponentRegistry
-from rvandroid.experiment.workflow.injection import (
-    ComponentInjector,
-    ComponentDecorator,
-    autowired
-)
 from rvandroid.experiment.workflow.processors import (
     BasePhaseProcessor,
     SetupProcessor,
@@ -32,7 +25,7 @@ from rvandroid.experiment.workflow.processors import (
     ReportingProcessor,
     CleanupProcessor
 )
-from rvandroid.experiment.workflow.conductor import WorkflowConductor
+from rvandroid.experiment.workflow.registry import ComponentRegistry
 
 __all__ = [
     # Component interfaces and base classes
@@ -43,13 +36,10 @@ __all__ = [
     'ComponentLifecycle',
     'ComponentMetadata',
     'ComponentProvider',
-    
-    # Registry and injection
+
+    # Registry
     'ComponentRegistry',
-    'ComponentInjector',
-    'ComponentDecorator',
-    'autowired',
-    
+
     # Processors
     'BasePhaseProcessor',
     'SetupProcessor',
@@ -57,8 +47,5 @@ __all__ = [
     'ExecutionProcessor',
     'AnalysisProcessor',
     'ReportingProcessor',
-    'CleanupProcessor',
-    
-    # Conductor
-    'WorkflowConductor'
+    'CleanupProcessor'
 ]

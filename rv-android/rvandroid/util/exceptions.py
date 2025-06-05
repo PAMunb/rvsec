@@ -50,7 +50,7 @@ class AnalysisError(RVAndroidError):
     pass
 
 
-class TestExecutionError(RVAndroidError):
+class ExecutionError(RVAndroidError):
     """Error raised when there's a problem during test execution."""
     pass
 
@@ -65,7 +65,7 @@ class RvTimeoutError(RVAndroidError):
     pass
 
 
-class TaskExecutionError(TestExecutionError):
+class TaskExecutionError(ExecutionError):
     """Error raised specifically during task execution."""
 
     def __init__(self, message: str, task_id: int, cause: Optional[Exception] = None):
@@ -76,7 +76,7 @@ class TaskExecutionError(TestExecutionError):
         return f"{super().__str__()} (Task ID: {self.task_id})"
 
 
-class ToolError(TestExecutionError):
+class ToolError(ExecutionError):
     """Error raised when a specific testing tool fails."""
 
     def __init__(self, message: str, tool_name: str, cause: Optional[Exception] = None):
@@ -97,7 +97,7 @@ class CoverageError(AnalysisError):
     pass
 
 
-class ActionExecutionError(TestExecutionError):
+class ActionExecutionError(ExecutionError):
     """Error raised specifically during action execution."""
 
     def __init__(self, message: str, action_id: Optional[int] = None, cause: Optional[Exception] = None):

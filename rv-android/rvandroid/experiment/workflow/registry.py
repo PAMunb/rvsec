@@ -15,6 +15,7 @@ import pkgutil
 from typing import Dict, List, Any, Type, Optional, TypeVar, Generic, cast, Set, Callable, Iterable
 
 from rvandroid.experiment.workflow.components import IComponent, ComponentMetadata
+from rvandroid.util.error.error_handler import ErrorHandler
 
 T = TypeVar('T', bound=IComponent)
 
@@ -324,7 +325,14 @@ class ComponentRegistry(Generic[T]):
                 except TypeError:
                     self.logger.debug(f"Failed to register {obj.__name__}: not a valid component type")
                 except Exception as e:
-                    self.logger.warning(f"Error registering component {obj.__name__}: {e}")
+                    error_handler = ErrorHandler.get_instance()
+                    error_context = {
+                        "component": "ComponentRegistry",
+                        "operation": "component_registration",
+                        "component_name": obj.__name__,
+                        "module": module_or_package.__name__
+                    }
+                    error_handler.handle_error(e, error_context)
                     
         self.logger.info(f"Registered {registered_count} components from {module_or_package.__name__}")
         return registered_count
@@ -366,7 +374,14 @@ class ComponentRegistry(Generic[T]):
                 
             return component
         except Exception as e:
-            self.logger.error(f"Error creating component of type {component_type.__name__}: {e}")
+            error_handler = ErrorHandler.get_instance()
+            error_context = {
+                "component": "ComponentRegistry",
+                "operation": "component_creation",
+                "component_type": component_type.__name__,
+                "kwargs": list(kwargs.keys())
+            }
+            error_handler.handle_error(e, error_context)
             raise
             
     def discover_components(self, package_name: str) -> int:

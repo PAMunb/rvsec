@@ -57,7 +57,8 @@ def test_initialize_tracker_success(coverage_component, mock_task):
         assert result is True
         mock_tracker_cls.assert_called_once_with(
             logcat_file=mock_task.result.logcat_file,
-            static_data=mock_task.static_data
+            static_data=mock_task.static_data,
+            task_start_time=mock_task.result.start_time
         )
 
 

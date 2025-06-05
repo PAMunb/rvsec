@@ -13,6 +13,11 @@ def pytest_configure(config):
 
     Configures logging, sets up test environment, and provides global fixtures.
     """
+    # Register custom markers
+    config.addinivalue_line(
+        "markers", "performance: mark test as performance-related test that measures execution time"
+    )
+    
     # Optional: Configure logging
     import logging
     logging.basicConfig(level=logging.INFO)

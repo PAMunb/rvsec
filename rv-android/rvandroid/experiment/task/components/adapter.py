@@ -14,6 +14,7 @@ from rvandroid.experiment.event import EventBus, get_event_bus
 from rvandroid.experiment.task.component import BaseTaskComponent
 from rvandroid.experiment.task.interfaces import ITask
 from rvandroid.experiment.task.task_model import Task
+from rvandroid.util.error.error_handler import ErrorHandler
 
 
 class LegacyCoverageComponentAdapter(BaseTaskComponent):
@@ -67,6 +68,13 @@ class LegacyCoverageComponentAdapter(BaseTaskComponent):
             return True
         except Exception as e:
             self.logger.error(f"Error executing legacy coverage component: {e}")
+            error_handler = ErrorHandler.get_instance()
+            error_context = {
+                "component": "LegacyCoverageComponentAdapter",
+                "operation": "execute_coverage",
+                "task_id": self.task.id
+            }
+            error_handler.handle_error(e, error_context)
             return False
             
     def cleanup(self, context: Dict[str, Any]) -> bool:
@@ -85,6 +93,13 @@ class LegacyCoverageComponentAdapter(BaseTaskComponent):
             return True
         except Exception as e:
             self.logger.error(f"Error cleaning up legacy coverage component: {e}")
+            error_handler = ErrorHandler.get_instance()
+            error_context = {
+                "component": "LegacyCoverageComponentAdapter",
+                "operation": "cleanup_coverage",
+                "task_id": self.task.id
+            }
+            error_handler.handle_error(e, error_context)
             return False
 
 
@@ -135,6 +150,13 @@ class LegacyEmulatorComponentAdapter(BaseTaskComponent):
             return True
         except Exception as e:
             self.logger.error(f"Error executing legacy emulator component: {e}")
+            error_handler = ErrorHandler.get_instance()
+            error_context = {
+                "component": "LegacyEmulatorComponentAdapter",
+                "operation": "execute_emulator",
+                "task_id": self.task.id
+            }
+            error_handler.handle_error(e, error_context)
             return False
             
     def cleanup(self, context: Dict[str, Any]) -> bool:
@@ -154,6 +176,13 @@ class LegacyEmulatorComponentAdapter(BaseTaskComponent):
             return True
         except Exception as e:
             self.logger.error(f"Error cleaning up legacy emulator component: {e}")
+            error_handler = ErrorHandler.get_instance()
+            error_context = {
+                "component": "LegacyEmulatorComponentAdapter",
+                "operation": "cleanup_emulator",
+                "task_id": self.task.id
+            }
+            error_handler.handle_error(e, error_context)
             return False
 
 
@@ -198,6 +227,13 @@ class LegacyLogcatComponentAdapter(BaseTaskComponent):
             return True
         except Exception as e:
             self.logger.error(f"Error executing legacy logcat component: {e}")
+            error_handler = ErrorHandler.get_instance()
+            error_context = {
+                "component": "LegacyLogcatComponentAdapter",
+                "operation": "execute_logcat",
+                "task_id": self.task.id
+            }
+            error_handler.handle_error(e, error_context)
             return False
             
     def cleanup(self, context: Dict[str, Any]) -> bool:
@@ -216,6 +252,13 @@ class LegacyLogcatComponentAdapter(BaseTaskComponent):
             return True
         except Exception as e:
             self.logger.error(f"Error cleaning up legacy logcat component: {e}")
+            error_handler = ErrorHandler.get_instance()
+            error_context = {
+                "component": "LegacyLogcatComponentAdapter",
+                "operation": "cleanup_logcat",
+                "task_id": self.task.id
+            }
+            error_handler.handle_error(e, error_context)
             return False
 
 
@@ -259,6 +302,13 @@ class LegacyStaticAnalysisComponentAdapter(BaseTaskComponent):
             return self.legacy_component.load_static_data(context)
         except Exception as e:
             self.logger.error(f"Error executing legacy static analysis component: {e}")
+            error_handler = ErrorHandler.get_instance()
+            error_context = {
+                "component": "LegacyStaticAnalysisComponentAdapter",
+                "operation": "execute_static_analysis",
+                "task_id": self.task.id
+            }
+            error_handler.handle_error(e, error_context)
             return False
             
     def cleanup(self, context: Dict[str, Any]) -> bool:
@@ -317,6 +367,13 @@ class LegacyToolExecutionComponentAdapter(BaseTaskComponent):
             return True
         except Exception as e:
             self.logger.error(f"Error executing legacy tool execution component: {e}")
+            error_handler = ErrorHandler.get_instance()
+            error_context = {
+                "component": "LegacyToolExecutionComponentAdapter",
+                "operation": "execute_tool",
+                "task_id": self.task.id
+            }
+            error_handler.handle_error(e, error_context)
             return False
             
     def cleanup(self, context: Dict[str, Any]) -> bool:
@@ -335,6 +392,13 @@ class LegacyToolExecutionComponentAdapter(BaseTaskComponent):
             return True
         except Exception as e:
             self.logger.error(f"Error cleaning up legacy tool execution component: {e}")
+            error_handler = ErrorHandler.get_instance()
+            error_context = {
+                "component": "LegacyToolExecutionComponentAdapter",
+                "operation": "cleanup_tool",
+                "task_id": self.task.id
+            }
+            error_handler.handle_error(e, error_context)
             return False
 
 

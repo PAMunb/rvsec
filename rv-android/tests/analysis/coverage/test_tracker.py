@@ -131,8 +131,8 @@ class TestCoverageTracker:
 
         tracker.process_lines(lines)
 
-        # Get detailed metrics from the underlying repository
-        detailed_metrics = tracker.repository.get_underlying_repository().to_dict()
+        # Get detailed metrics from the repository
+        detailed_metrics = tracker.repository.to_dict()
 
         # Verify structure of detailed metrics
         assert 'metrics' in detailed_metrics

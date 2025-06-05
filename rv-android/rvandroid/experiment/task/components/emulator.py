@@ -1,18 +1,17 @@
-# rvandroid/experiment/components/emulator.py
-from typing import Any, Optional
+# rvandroid/experiment/task/components/emulator.py
+from typing import Any, Optional, Dict
 
 from rvandroid.app import App
 from rvandroid.experiment.event.bus import EventBus, EventType
+from rvandroid.experiment.task.component import BaseTaskComponent
 from rvandroid.experiment.task.task_model import Task
 from rvandroid.util.emulator_manager import EmulatorManager
-from rvandroid.util.error.error_handler import ErrorHandler
 from rvandroid.util.exceptions import EmulatorError
-from rvandroid.util.logging.constants import CONTEXT_TASK_ID, CONTEXT_APP_NAME, CONTEXT_COMPONENT, LOG_START, LOG_ERROR, \
+from rvandroid.util.logging.constants import CONTEXT_TASK_ID, CONTEXT_APP_NAME, LOG_START, LOG_ERROR, \
     LOG_SKIPPED, LOG_COMPLETE
-from rvandroid.util.logging.manager import LoggingManager
 
 
-class EmulatorComponent:
+class EmulatorComponent(BaseTaskComponent):
     """
     Component responsible for managing emulator operations.
     Handles emulator lifecycle and app installation.
@@ -30,21 +29,29 @@ class EmulatorComponent:
 
     def __init__(self, task: Task, event_bus: Optional[EventBus] = None):
         """Initialize with task and optional event bus."""
+        super().__init__("EmulatorComponent", event_bus)
         self.task = task
-        self.event_bus = event_bus or EventBus.get_instance()
-        self.error_handler = ErrorHandler.get_instance()
         self.emulator_manager = EmulatorManager()
 
-        # Set up standardized logger with proper context
-        logging_manager = LoggingManager.get_instance()
-        self.logger = logging_manager.get_logger(
-            'experiment.components.emulator',
-            {
-                CONTEXT_TASK_ID: task.id,
-                CONTEXT_APP_NAME: task.config.apk_name,
-                CONTEXT_COMPONENT: 'EmulatorComponent'
-            }
-        )
+        # Update logger context with task information
+        self.logger.push_context(**{
+            CONTEXT_TASK_ID: task.id,
+            CONTEXT_APP_NAME: task.config.apk_name
+        })
+
+    def _execute_impl(self, context: Dict[str, Any]) -> bool:
+        """
+        Execute emulator setup for the task.
+        
+        Args:
+            context: Task execution context
+            
+        Returns:
+            True if emulator setup was successful
+        """
+        # This component primarily provides context managers and utilities
+        # The actual emulator management is handled by the task executor
+        return True
 
     def start_emulator(self, avd_name: str = "RVSec") -> Any:
         """

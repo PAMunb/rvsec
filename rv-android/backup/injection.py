@@ -20,6 +20,7 @@ from rvandroid.experiment.workflow.components import (
     ComponentLifecycle
 )
 from rvandroid.experiment.workflow.registry import ComponentRegistry
+from rvandroid.util.error.error_handler import ErrorHandler
 
 T = TypeVar('T', bound=IComponent)
 
@@ -279,7 +280,14 @@ class ComponentInjector(Generic[T], ComponentProvider[T]):
         try:
             return component_type(**constructor_args)
         except Exception as e:
-            self.logger.error(f"Error creating component {component_type.__name__}: {e}")
+            error_handler = ErrorHandler.get_instance()
+            error_context = {
+                "component": "ComponentInjector",
+                "operation": "component_creation",
+                "component_type": component_type.__name__,
+                "constructor_args": list(constructor_args.keys())
+            }
+            error_handler.handle_error(e, error_context)
             raise
             
     def _inject_dependency(self, component: T, dependency: T) -> None:
@@ -477,8 +485,15 @@ def autowired(target_class: Optional[Type] = None):
                             # Try to create it
                             try:
                                 dependency = provider.create(component_type)
-                            except Exception:
-                                pass
+                            except Exception as e:
+                                error_handler = ErrorHandler.get_instance()
+                                error_context = {
+                                    "component": "ComponentDecorator",
+                                    "operation": "autowired_dependency_creation",
+                                    "dependency_name": name,
+                                    "component_type": component_type.__name__ if component_type else "unknown"
+                                }
+                                error_handler.handle_error(e, error_context)
                                 
                         if dependency:
                             setattr(self, name, dependency)

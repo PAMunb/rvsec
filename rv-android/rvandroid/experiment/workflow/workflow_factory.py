@@ -4,7 +4,7 @@ Factory for creating experiment workflow components.
 Enables centralized component creation and configuration.
 """
 from rvandroid.experiment.event.bus import EventBus
-from rvandroid.experiment.task.task_storage import TaskStorage
+from rvandroid.experiment.task.storage import TaskStorage
 from rvandroid.experiment.workflow.execution_controller import ExecutionController
 from rvandroid.experiment.workflow.post_processor import PostProcessor
 from rvandroid.experiment.workflow.pre_processor import PreProcessor
@@ -71,7 +71,8 @@ class WorkflowFactory:
             Configured PostProcessor instance
         """
         execution_controller = self.create_execution_controller()
-        return PostProcessor(results_dir, self.event_bus, execution_controller)
+        result_manager = self.create_result_manager(results_dir)
+        return PostProcessor(results_dir, self.event_bus, execution_controller, result_manager)
 
     def create_result_manager(self, results_dir: str) -> ResultManager:
         """
@@ -83,4 +84,4 @@ class WorkflowFactory:
         Returns:
             Configured ResultManager instance
         """
-        return ResultManager(results_dir, self.event_bus)
+        return ResultManager(results_dir, self.storage, self.event_bus)
