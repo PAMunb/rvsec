@@ -1,0 +1,19 @@
+# modules/rv-static-analysis/pyproject.toml
+[tool.poetry]
+name = "rv-static-analysis"
+version = "0.1.0"
+description = "Static analysis tools integration (GATOR, GESDA, REACH) and result parsing"
+authors = ["RV-Android Team"]
+readme = "README.md"
+packages = [{include = "rv_static_analysis", from = "src"}]
+
+[tool.poetry.dependencies]
+python = ">=3.12,<4.0"
+rv-android-core = {path = "../rv-android-core", develop = true}
+
+[tool.poetry.scripts]
+rv-static-analysis = "rv_static_analysis.__main__:main"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

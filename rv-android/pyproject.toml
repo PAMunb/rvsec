@@ -15,9 +15,12 @@ psutil = "^7.0.0"
 networkx = "^3.5"
 androguard = "3.4.0a1"
 
-# Path dependencies (only tested modules)
+# Path dependencies
 rv-android-core = {path = "modules/rv-android-core", develop = true}
 rv-monitor-generator = {path = "modules/rv-monitor-generator", develop = true}
+rv-static-analysis = {path = "modules/rv-static-analysis", develop = true}
+rv-screen-parser = {path = "modules/rv-screen-parser", develop = true}
+rv-coverage = {path = "modules/rv-coverage", develop = true}
 
 # Excluded from CI testing
 # rv-instrumentation = {path = "modules/rv-instrumentation", develop = true}

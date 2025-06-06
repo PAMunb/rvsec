@@ -1,0 +1,19 @@
+[tool.poetry]
+name = "rv-screen-parser"
+version = "0.1.0"
+description = "Android screen parsing for DroidBot and UIAutomator with visitor pattern"
+authors = ["RV-Android Team"]
+readme = "README.md"
+packages = [{include = "rv_screen_parser", from = "src"}]
+
+[tool.poetry.dependencies]
+python = ">=3.12,<4.0"
+rv-android-core = {path = "../rv-android-core", develop = true}
+rv-static-analysis = {path = "../rv-static-analysis", develop = true}
+# Adicione dependências específicas do screen parsing se houver
+lxml = "*"  # Para parsing XML
+beautifulsoup4 = "*"  # Para parsing HTML/XML alternativo
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
