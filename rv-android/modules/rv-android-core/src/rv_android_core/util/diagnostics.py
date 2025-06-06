@@ -1,0 +1,338 @@
+# rvandroid/util/diagnostics.py
+
+"""
+Diagnostic tool for generating system reports.
+Provides insights into experiment execution and resource usage.
+"""
+
+import functools
+
+
+# Function decorator for logging function calls with parameters and timing
+def log_wrapper(logger):
+    """
+    Decorator that logs function calls with parameters and execution time.
+    
+    Args:
+        logger: Logger instance to use for logging
+        
+    Returns:
+        Decorated function
+    """
+    def decorator(func):
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            # Prepare argument strings for logging
+            args_str = ", ".join([str(a) for a in args])
+            kwargs_str = ", ".join([f"{k}={v}" for k, v in kwargs.items()])
+            all_args = f"{args_str}{', ' if args_str and kwargs_str else ''}{kwargs_str}"
+            
+            # Log function call
+            logger.debug(f"Calling {func.__name__}({all_args})")
+            
+            # Call function and time it
+            import time
+            start = time.time()
+            try:
+                result = func(*args, **kwargs)
+                end = time.time()
+                logger.debug(f"{func.__name__} completed in {(end-start)*1000:.2f}ms")
+                return result
+            except Exception as e:
+                end = time.time()
+                logger.error(f"{func.__name__} failed after {(end-start)*1000:.2f}ms: {e}")
+                raise
+        return wrapper
+    return decorator
+
+import json
+import logging
+import os
+import platform
+import sys
+from dataclasses import dataclass, field
+from datetime import datetime
+from typing import Dict, Any, List
+
+# Import psutil conditionally to handle cases where it might not be available
+try:
+    import psutil
+
+    PSUTIL_AVAILABLE = True
+except ImportError:
+    PSUTIL_AVAILABLE = False
+
+
+@dataclass
+class DiagnosticReport:
+    """Standardized diagnostic report structure."""
+    timestamp: str = field(default_factory=lambda: datetime.now().isoformat())
+    system_info: Dict[str, Any] = field(default_factory=dict)
+    python_info: Dict[str, Any] = field(default_factory=dict)
+    resource_usage: Dict[str, Any] = field(default_factory=dict)
+    experiment_stats: Dict[str, Any] = field(default_factory=dict)
+    detected_issues: List[Dict[str, Any]] = field(default_factory=list)
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert report to dictionary."""
+        return {
+            "timestamp": self.timestamp,
+            "system_info": self.system_info,
+            "python_info": self.python_info,
+            "resource_usage": self.resource_usage,
+            "experiment_stats": self.experiment_stats,
+            "detected_issues": self.detected_issues
+        }
+
+    def save_to_file(self, filepath: str) -> bool:
+        """
+        Save report to a JSON file.
+
+        Args:
+            filepath: Path to save the report
+
+        Returns:
+            True if saved successfully, False otherwise
+        """
+        try:
+            # Ensure directory exists
+            os.makedirs(os.path.dirname(filepath), exist_ok=True)
+
+            # Save to file
+            with open(filepath, 'w') as f:
+                json.dump(self.to_dict(), f, indent=2)
+
+            return True
+        except Exception as e:
+            logging.error(f"Error saving diagnostic report: {e}")
+            return False
+
+
+class DiagnosticTool:
+    """
+    Diagnostic tool for generating system reports.
+
+    Collects information about the system, resource usage, and experiment execution
+    to help identify potential issues and optimize performance.
+    """
+
+    def __init__(self):
+        """Initialize the diagnostic tool."""
+        self.logger = logging.getLogger(__name__)
+
+    def generate_report(self) -> DiagnosticReport:
+        """
+        Generate a comprehensive diagnostic report.
+
+        Returns:
+            DiagnosticReport with system information and resource usage
+        """
+        report = DiagnosticReport()
+
+        # Get system information
+        report.system_info = self._get_system_info()
+
+        # Get Python information
+        report.python_info = self._get_python_info()
+
+        # Get resource usage
+        report.resource_usage = self._get_resource_usage()
+
+        # Get experiment statistics
+        report.experiment_stats = self._get_experiment_stats()
+
+        # Identify potential issues
+        report.detected_issues = self._identify_issues(report)
+
+        return report
+
+    def _get_system_info(self) -> Dict[str, Any]:
+        """
+        Get information about the host system.
+
+        Returns:
+            Dictionary with system information
+        """
+        try:
+            info = {
+                "platform": platform.platform(),
+                "system": platform.system(),
+                "release": platform.release(),
+                "version": platform.version(),
+                "machine": platform.machine(),
+                "processor": platform.processor(),
+                "cpu_count": os.cpu_count(),
+            }
+
+            # Add memory info if psutil is available
+            if PSUTIL_AVAILABLE:
+                info["memory_total"] = psutil.virtual_memory().total
+
+            return info
+        except Exception as e:
+            self.logger.error(f"Error getting system info: {e}")
+            return {"error": str(e)}
+
+    def _get_python_info(self) -> Dict[str, Any]:
+        """
+        Get information about the Python environment.
+
+        Returns:
+            Dictionary with Python information
+        """
+        try:
+            return {
+                "version": sys.version,
+                "implementation": platform.python_implementation(),
+                "compiler": platform.python_compiler(),
+                "build": platform.python_build(),
+                "executable": sys.executable,
+                "path": sys.path
+            }
+        except Exception as e:
+            self.logger.error(f"Error getting Python info: {e}")
+            return {"error": str(e)}
+
+    def _get_resource_usage(self) -> Dict[str, Any]:
+        """
+        Get current resource usage statistics.
+
+        Returns:
+            Dictionary with resource usage information
+        """
+        if not PSUTIL_AVAILABLE:
+            return {"error": "psutil module not available"}
+
+        try:
+            process = psutil.Process()
+
+            return {
+                "cpu_percent": process.cpu_percent(),
+                "memory_percent": process.memory_percent(),
+                "memory_info": {
+                    "rss": process.memory_info().rss,
+                    "vms": process.memory_info().vms
+                },
+                "open_files": len(process.open_files()),
+                "threads": process.num_threads(),
+                "system": {
+                    "cpu_percent": psutil.cpu_percent(),
+                    "memory_percent": psutil.virtual_memory().percent,
+                    "swap_percent": psutil.swap_memory().percent,
+                    "disk_usage": {
+                        "/": psutil.disk_usage('/').percent
+                    }
+                }
+            }
+        except Exception as e:
+            self.logger.error(f"Error getting resource usage: {e}")
+            return {"error": str(e)}
+
+    def _get_experiment_stats(self) -> Dict[str, Any]:
+        """
+        Get statistics about the experiment execution.
+
+        Returns:
+            Dictionary with experiment statistics
+        """
+        try:
+            # Import here to avoid circular imports
+            from rv_android_core.util.performance_monitor import PerformanceMonitor
+
+            # Get performance monitor instance
+            monitor = PerformanceMonitor.get_instance()
+
+            # Gather statistics for various metrics
+            stats = {}
+
+            # Task execution times
+            task_times = monitor.get_metrics_stats("task_execution_total")
+            if task_times["count"] > 0:
+                stats["task_execution"] = task_times
+
+            # Tool execution times
+            tool_times = monitor.get_metrics_stats("tool_execution")
+            if tool_times["count"] > 0:
+                stats["tool_execution"] = tool_times
+
+            # Coverage processing times
+            coverage_times = monitor.get_metrics_stats("process_coverage")
+            if coverage_times["count"] > 0:
+                stats["coverage_processing"] = coverage_times
+
+            return stats
+        except Exception as e:
+            self.logger.error(f"Error getting experiment stats: {e}")
+            return {"error": str(e)}
+
+    def _identify_issues(self, report: DiagnosticReport) -> List[Dict[str, Any]]:
+        """
+        Identify potential issues based on diagnostic information.
+
+        Args:
+            report: Diagnostic report with system and resource information
+
+        Returns:
+            List of detected issues
+        """
+        issues = []
+
+        try:
+            # Check memory usage
+            memory_percent = report.resource_usage.get("memory_percent", 0)
+            if memory_percent > 80:
+                issues.append({
+                    "severity": "high",
+                    "type": "resource",
+                    "title": "High memory usage",
+                    "description": f"Process is using {memory_percent:.1f}% of system memory",
+                    "recommendation": "Consider reducing batch size or optimizing memory usage"
+                })
+
+            # Check CPU usage
+            cpu_percent = report.resource_usage.get("cpu_percent", 0)
+            if cpu_percent > 90:
+                issues.append({
+                    "severity": "medium",
+                    "type": "resource",
+                    "title": "High CPU usage",
+                    "description": f"Process is using {cpu_percent:.1f}% of CPU",
+                    "recommendation": "Check for CPU-intensive operations that could be optimized"
+                })
+
+            # Check disk usage
+            system_info = report.resource_usage.get("system", {})
+            disk_usage = system_info.get("disk_usage", {}).get("/", 0)
+            if disk_usage > 90:
+                issues.append({
+                    "severity": "high",
+                    "type": "resource",
+                    "title": "High disk usage",
+                    "description": f"Disk usage is at {disk_usage:.1f}%",
+                    "recommendation": "Clear temporary files or increase disk space"
+                })
+
+            # Check for long task execution times
+            task_execution = report.experiment_stats.get("task_execution", {})
+            avg_task_time = task_execution.get("avg", 0)
+            if avg_task_time > 300:  # 5 minutes
+                issues.append({
+                    "severity": "medium",
+                    "type": "performance",
+                    "title": "Long task execution times",
+                    "description": f"Average task execution time is {avg_task_time:.1f} seconds",
+                    "recommendation": "Review task timeout settings and tool configurations"
+                })
+
+            return issues
+
+        except Exception as e:
+            self.logger.error(f"Error identifying issues: {e}")
+            issues.append({
+                "severity": "low",
+                "type": "system",
+                "title": "Error during issue detection",
+                "description": f"Failed to identify all potential issues: {e}",
+                "recommendation": "Review logs for more details"
+            })
+            return issues

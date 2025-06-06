@@ -1,0 +1,24 @@
+[tool.poetry]
+name = "rv-android-core"
+version = "0.1.0"
+description = "Core utilities and domain models for RV-Android"
+authors = ["RV-Android Team"]
+packages = [{include = "rv_android_core", from = "src"}]
+
+[tool.poetry.dependencies]
+python = ">=3.12,<4.0"
+androguard = "3.4.0a1"
+psutil = "^7.0.0"
+networkx = "^3.5"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^7.0"
+
+[tool.pytest.ini_options]
+markers = [
+    "performance: marks tests as performance tests (may be slow)",
+]
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

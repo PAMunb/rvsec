@@ -1,0 +1,18 @@
+[tool.poetry]
+name = "rvandroid"
+version = "0.1.0"
+description = "RV-Android Platform (current project as module)"
+authors = ["RV-Android Team"]
+
+[tool.poetry.dependencies]
+python = ">=3.12,<4.0"
+rv-android-core = {path = "../rv-android-core", develop = true}
+rv-monitor-generator = {path = "../rv-monitor-generator", develop = true}
+# Adicione aqui as dependências que o projeto atual usa
+# Por exemplo:
+# pandas = "*"
+# matplotlib = "*"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

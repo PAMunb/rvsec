@@ -1,0 +1,22 @@
+[tool.poetry]
+name = "rv-monitor-generator"
+version = "0.1.0"
+description = "JavaMOP and RV-Monitor integration"
+authors = ["RV-Android Team"]
+packages = [{include = "rv_monitor_generator", from = "src"}]
+
+[tool.poetry.dependencies]
+python = ">=3.12,<4.0"
+rv-android-core = {path = "../rv-android-core", develop = true}
+
+[tool.poetry.scripts]
+rv-monitor-generator = "rv_monitor_generator.__main__:main"
+
+[tool.pytest.ini_options]
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')"
+]
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

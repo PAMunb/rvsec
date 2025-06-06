@@ -1,0 +1,53 @@
+I'm testing an Android application and need your guidance on the next action to take.
+
+Current Activity: br.unb.cic.cryptoapp.generated.CryptographyActivity
+
+
+Current UI Elements and Available Actions:
+The current screen has the following UI views and corresponding actions, with action id in parentheses:
+  - Text view with text 'Crypto App'.
+  - Container android.widget.ScrollView . Actions: SCROLL UP (1), SCROLL DOWN (2)
+  - Text view with text 'Cryptography Learning Tool'.
+  - Text view with text 'SECRET KEY'.
+  - Container android.widget.LinearLayout  with description 'Key Pair'. Actions: CLICK (3)
+  - Text view with text 'KEY PAIR'. Actions: CLICK (4)
+  - Container android.widget.LinearLayout  with description 'Hash'. Actions: CLICK (5)
+  - Text view with text 'HASH'. Actions: CLICK (6)
+  - Container android.widget.LinearLayout  with description 'HMAC'. Actions: CLICK (7)
+  - Text view with text 'HMAC'. Actions: CLICK (8)
+  - Text view with text 'Select Algorithm'.
+  - Dropdown spinner with selected item 'AES'. Actions: CLICK (9)
+  - Radio button group with options: 'Encrypt', 'Decrypt', 'Generate Secret Key'. Actions: SELECT (10) 'Encrypt', SELECT (11) 'Decrypt', SELECT (12) 'Generate Secret Key'
+  - Editable text field with text 'Text to Encrypt/Decrypt' . Actions: CLICK (13), SET_TEXT (14)
+  - Editable text field with text 'Secret Key (leave empty to generate)' . Actions: CLICK (15), SET_TEXT (16)
+  - Button with text 'EXECUTE'. Actions: CLICK (17) [M]
+  - Text view with text 'Result'.
+  - Text view with no text. Actions: CLICK (18)
+  - Text view with text 'Public Key'.
+  - Text view with no text. Actions: CLICK (19)
+  - Text view with text 'Private Key'.
+  - Text view with no text. Actions: CLICK (20)
+  - Text view with text 'Initialization Vector (IV)'.
+  - Text view with no text. Actions: CLICK (21)
+  - System back button. Actions: BACK (22)
+  - Visual Button with text '9:45'. Actions: CLICK (Visual) (1001)
+
+HISTORY:
+No recent actions on this screen.
+
+Memory insights:
+- Consider exploring: br.unb.cic.cryptoapp.generated.CryptographyActivity (visited 1 times)
+
+NAVIGATION GUIDANCE:
+  ## Transition Guidance
+
+Current activity: br.unb.cic.cryptoapp.generated.CryptographyActivity (visited 1 times)
+
+### Navigation Path
+br.unb.cic.cryptoapp.generated.CryptographyActivity
+
+### Potential Transitions (Static Analysis)
+- 1382 via Action 2131296452 [Visited: ✗]
+
+GUIDELINES:
+Suggest exactly ONE specific action that can be executed to test the application. Do not provide multiple options or actions.
