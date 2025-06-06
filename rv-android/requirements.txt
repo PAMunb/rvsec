@@ -1,5 +1,5 @@
 accelerate
-androguard
+androguard==3.4.0a1
 anthropic
 bitsandbytes
 boto3
