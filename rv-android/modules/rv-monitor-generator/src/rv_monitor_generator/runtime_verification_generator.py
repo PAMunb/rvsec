@@ -56,7 +56,7 @@ class RuntimeVerificationGenerator:
             'rv_monitor_generator.RuntimeVerificationGenerator',
             {
                 CONTEXT_COMPONENT: 'RuntimeVerificationGenerator',
-                'module': 'rv-monitor-generator'
+                'component_module': 'rv-monitor-generator'
             }
         )
         

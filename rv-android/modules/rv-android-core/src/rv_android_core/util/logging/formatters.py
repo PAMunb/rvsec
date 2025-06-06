@@ -24,7 +24,7 @@ class JsonFormatter(logging.Formatter):
             'timestamp': getattr(record, 'timestamp', datetime.now().isoformat()),
             'level': record.levelname,
             'message': record.getMessage(),
-            'module': record.module,
+            'module': getattr(record, 'module', None) or record.name,
             'function': record.funcName,
             'line': record.lineno,
             'thread_id': getattr(record, 'thread_id', threading.current_thread().ident),
