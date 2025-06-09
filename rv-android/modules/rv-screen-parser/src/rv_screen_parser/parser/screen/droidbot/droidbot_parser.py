@@ -1,28 +1,50 @@
-# rvandroid/parser/screen/droidbot/droidbot_parser.py
+"""
+DroidBot screen state parser for Android UI monitoring operations.
+
+Specialized parser implementation for processing DroidBot-generated state data
+into standardized ScreenDescription objects for monitored operations analysis.
+"""
+
 from typing import Dict, Any, Optional, Type
 
 from rv_android_core.domain.static import StaticAnalysisData
-from rv_android_core.parser.screen.abstract_parser import AbstractScreenParser
-from rv_android_core.parser.screen.visitor.abstract_visitor import AbstractScreenVisitor
-from rv_android_core.parser.screen.visitor.model import ScreenDescription, Node
+from rv_screen_parser.parser.screen.base_parser import BaseScreenParser
+from rv_screen_parser.parser.screen.visitor.abstract_visitor import AbstractScreenVisitor
+from rv_screen_parser.parser.screen.visitor.model import ScreenDescription, Node
 
 
-class DroidBotParser(AbstractScreenParser):
+class DroidBotParser(BaseScreenParser[ScreenDescription]):
     """
-    Parser for DroidBot state data.
-    Converts DroidBot state data into a ScreenDescription.
+    Specialized parser for DroidBot-generated Android UI state data.
+
+    ### Architectural Decisions:
+    - Implements direct inheritance from BaseScreenParser for full modern architecture benefits
+    - Provides specialized handling for DroidBot's unique state data format and structure
+    - Uses comprehensive error handling through ErrorHandler integration for robust parsing operations
+    - Implements visitor pattern delegation for flexible UI element processing strategies
+    - Supports integration with static analysis data for enhanced context-aware parsing
+
+    ### Role in the System:
+    - Serves as the primary interface for processing DroidBot state captures in monitored operations
+    - Transforms DroidBot's JSON-based state format into standardized ScreenDescription objects
+    - Enables seamless integration with the broader screen parsing framework architecture
+    - Provides specialized handling for DroidBot-specific data structures and hierarchy patterns
+    - Facilitates consistent UI state analysis across different monitoring tool outputs
+
+    ### Design Note - DroidBot Specifics:
+    DroidBot generates state data with specific hierarchy structures and activity information.
+    This parser handles DroidBot's unique 'view_tree', 'stack', and activity naming conventions
+    while normalizing the data into the framework's standard representation.
     """
 
     def __init__(self, visitor_class: Optional[Type[AbstractScreenVisitor]] = None):
         """
-        Initialize the DroidBot parser.
+        Initialize the DroidBot parser with specialized configuration.
 
         Args:
-            visitor_class: Optional visitor class to use for parsing
+            visitor_class: Optional visitor class for custom UI element processing strategies
         """
-        super().__init__(visitor_class)
-        self.parser_name = "droidbot"
-        self.logger = self.logging_manager.get_logger(f"parser.screen.{self.parser_name}")
+        super().__init__("droidbot", visitor_class)
 
     def _parse_implementation(self, state_data: Dict[str, Any],
                               static_data: Optional[StaticAnalysisData],

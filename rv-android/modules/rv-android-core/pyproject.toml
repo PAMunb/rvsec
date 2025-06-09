@@ -3,6 +3,7 @@ name = "rv-android-core"
 version = "0.1.0"
 description = "Core utilities and domain models for RV-Android"
 authors = ["RV-Android Team"]
+readme = "README.md"
 packages = [{include = "rv_android_core", from = "src"}]
 
 [tool.poetry.dependencies]
@@ -12,7 +13,8 @@ psutil = "^7.0.0"
 networkx = "^3.5"
 
 [tool.poetry.group.dev.dependencies]
-pytest = "^7.0"
+pytest = "^7.4.0"
+pytest-cov = "^4.1.0"
 
 [tool.pytest.ini_options]
 markers = [

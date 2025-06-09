@@ -8,11 +8,11 @@ import pytest
 # Add the parent directory to the path to make imports work correctly
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 
-from rvandroid.domain.classes import Classes
-from rvandroid.domain.window import Windows
-from rvandroid.domain.widget import WidgetEventType
-from rvandroid.domain.wtg import WindowTransitionGraph
-from rvandroid.parser.static.gator_parser import GatorParser, parse_gator_file
+from rv_android_core.domain.classes import Classes
+from rv_android_core.domain.window import Windows
+from rv_android_core.domain.widget import WidgetEventType
+from rv_android_core.domain.wtg import WindowTransitionGraph
+from rv_static_analysis.parser.static.gator_parser import GatorParser, parse_gator_file
 
 # Sample WTG file data for testing
 SAMPLE_WTG_DATA = {
@@ -66,7 +66,7 @@ class TestGatorParser:
         return Windows()
 
     @patch("os.path.exists")
-    @patch("rvandroid.util.utils.read_json")
+    @patch("rv_android_core.util.utils.read_json")
     def test_parse_file_success(self, mock_read_json, mock_exists, parser, classes, windows):
         """Test successful parsing of a WTG file."""
         # Setup
@@ -110,7 +110,7 @@ class TestGatorParser:
         assert len(windows.windows) == 0
 
     @patch("os.path.exists")
-    @patch("rvandroid.util.utils.read_json")
+    @patch("rv_android_core.util.utils.read_json")
     def test_parse_file_exception(self, mock_read_json, mock_exists, parser, classes, windows):
         """Test handling of exceptions during parsing."""
         # Setup
@@ -304,7 +304,7 @@ class TestGatorParser:
         assert result.name == window_name
 
     @patch("os.path.exists")
-    @patch("rvandroid.util.utils.read_json")
+    @patch("rv_android_core.util.utils.read_json")
     def test_parse_gator_file_function(self, mock_read_json, mock_exists, classes, windows):
         """Test the parse_gator_file convenience function."""
         # Setup
@@ -320,7 +320,7 @@ class TestGatorParser:
         assert len(result.transitions) == 1
 
     @patch("os.path.exists")
-    @patch("rvandroid.util.utils.read_json")
+    @patch("rv_android_core.util.utils.read_json")
     def test_full_parse_with_real_data(self, mock_read_json, mock_exists, parser, classes, windows):
         """Test parsing with real WTG data from the provided example."""
         # Setup - load the real data from the test file

@@ -8,10 +8,10 @@ import pytest
 # Add the parent directory to the path to make imports work correctly
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 
-from rvandroid.domain.classes import Classes
-from rvandroid.domain.window import Windows, WindowType
-from rvandroid.domain.widget import WidgetEventType, Widget
-from rvandroid.parser.static.gesda_parser import GesdaParser, parse_gesda_file
+from rv_android_core.domain.classes import Classes
+from rv_android_core.domain.window import Windows, WindowType
+from rv_android_core.domain.widget import WidgetEventType, Widget
+from rv_static_analysis.parser.static.gesda_parser import GesdaParser
 
 # Sample GESDA data for testing
 SAMPLE_GESDA_DATA = {
@@ -68,7 +68,7 @@ class TestGesdaParser:
         return Windows()
 
     @patch("os.path.exists")
-    @patch("rvandroid.util.utils.read_json")
+    @patch("rv_android_core.util.utils.read_json")
     def test_parse_file_success(self, mock_read_json, mock_exists, parser, classes, windows):
         """Test successful parsing of a GESDA file."""
         # Setup
@@ -240,7 +240,7 @@ class TestGesdaParser:
         # Setup
         window = windows.create_new_window("br.unb.cic.cryptoapp.MainActivity")
         # Create the widget - need to use WidgetType enum, not string
-        from rvandroid.domain.widget import WidgetType
+        from rv_android_core.domain.widget import WidgetType
         existing = Widget("2131296356", "buttonCipher", WidgetType.BUTTON)
         windows.add_widget(window, existing)
 
@@ -375,7 +375,7 @@ class TestGesdaParser:
     #     assert window.name == "br.unb.cic.cryptoapp.MainActivity"
 
     @patch("os.path.exists")
-    @patch("rvandroid.util.utils.read_json")
+    @patch("rv_android_core.util.utils.read_json")
     def test_full_parse_with_real_data(self, mock_read_json, mock_exists, parser, classes, windows):
         """Test parsing with real GESDA data from the provided example."""
         # Setup - load the real data from the test file

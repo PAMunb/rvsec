@@ -1,0 +1,44 @@
+[tool.poetry]
+name = "rv-llm"
+version = "0.1.0"
+description = "LLM integration infrastructure and prompt framework for RV-Android"
+authors = ["RV-Android Team"]
+readme = "README.md"
+packages = [{include = "rv_llm", from = "src"}]
+
+[tool.poetry.dependencies]
+python = ">=3.12,<4.0"
+rv-android-core = {path = "../rv-android-core", develop = true}
+rv-monitor-generator = {path = "../rv-monitor-generator", develop = true}
+rv-static-analysis = {path = "../rv-static-analysis", develop = true}
+rv-screen-parser = {path = "../rv-screen-parser", develop = true}
+rv-coverage = {path = "../rv-coverage", develop = true}
+
+# LLM-specific dependencies
+requests = "*"  # Para APIs HTTP
+httpx = "*"  # Cliente HTTP async moderno
+jinja2 = "*"  # Template engine para prompts
+pydantic = "*"  # Validação de dados e configuração
+
+# Provider-specific dependencies
+ollama = "*"  # Ollama SDK
+openai = "*"  # OpenAI API
+anthropic = "*"  # Anthropic Claude API
+boto3 = "*"  # AWS Bedrock
+google-generativeai = "*"  # Google Gemini API
+
+# HuggingFace dependencies
+torch = "*"  # PyTorch for HuggingFace models
+transformers = "*"  # HuggingFace transformers
+accelerate = "*"  # For model optimization
+bitsandbytes = "*"  # For quantization
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^7.4.0"
+pytest-cov = "^4.1.0"
+
+# Sem CLI inicialmente - apenas uso programático
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

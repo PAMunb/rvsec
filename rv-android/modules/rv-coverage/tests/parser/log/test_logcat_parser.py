@@ -310,7 +310,7 @@ class TestLogcatParser:
     def test_convert_to_datetime_year_transition(self):
         """Test handling of year transitions in timestamp conversion."""
         # Simulate December log in January (previous year)
-        with patch('rvandroid.parser.log.logcat_parser.datetime') as mock_datetime:
+        with patch('rv_coverage.parser.log.logcat_parser.datetime') as mock_datetime:
             # Mock current date as January 2nd
             mock_now = Mock()
             mock_now.year = 2023
@@ -484,7 +484,7 @@ class TestLogcatParser:
         current_year = 2023
 
         for current_month, log_month, expected_year_delta in current_month_scenarios:
-            with patch('rvandroid.parser.log.logcat_parser.datetime') as mock_datetime:
+            with patch('rv_coverage.parser.log.logcat_parser.datetime') as mock_datetime:
                 # Mock current date
                 mock_now = Mock()
                 mock_now.year = current_year

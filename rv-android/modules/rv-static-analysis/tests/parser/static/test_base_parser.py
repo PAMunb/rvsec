@@ -8,9 +8,9 @@ import pytest
 # Add the parent directory to the path to make imports work correctly
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 
-from rvandroid.domain.classes import Classes
-from rvandroid.domain.window import Windows
-from rvandroid.parser.static.base_parser import BaseStaticAnalysisParser
+from rv_android_core.domain.classes import Classes
+from rv_android_core.domain.window import Windows
+from rv_static_analysis.parser.static.base_parser import BaseStaticAnalysisParser
 
 
 class MockParser(BaseStaticAnalysisParser):
@@ -51,7 +51,7 @@ class TestBaseStaticAnalysisParser:
         # Should handle empty package
         assert parser.validate_package("com.example.MyClass", "") is True
 
-    @patch('rvandroid.util.logging.manager.LoggingManager')
+    @patch('rv_android_core.util.logging.manager.LoggingManager')
     def test_log_parse_start(self, mock_logging_manager):
         """Test log_parse_start method."""
         # Setup
@@ -70,7 +70,7 @@ class TestBaseStaticAnalysisParser:
         mock_logger.info.assert_called_once()
         assert "Starting to parse file: /path/to/file.txt" in mock_logger.info.call_args[0][0]
 
-    @patch('rvandroid.util.logging.manager.LoggingManager')
+    @patch('rv_android_core.util.logging.manager.LoggingManager')
     def test_log_parse_complete(self, mock_logging_manager):
         """Test log_parse_complete method."""
         # Setup
@@ -97,7 +97,7 @@ class TestBaseStaticAnalysisParser:
         # Check subsequent calls for stats
         assert len(mock_logger.debug.call_args_list) == 3  # Main message + 2 stats entries
 
-    @patch('rvandroid.util.logging.manager.LoggingManager')
+    @patch('rv_android_core.util.logging.manager.LoggingManager')
     def test_log_parse_error(self, mock_logging_manager):
         """Test log_parse_error method."""
         # Setup

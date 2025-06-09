@@ -7,12 +7,12 @@ import pytest
 # Add the parent directory to the path to make imports work correctly
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 
-from rvandroid.domain.classes import Classes
-from rvandroid.domain.window import Windows
-from rvandroid.domain.wtg import WindowTransitionGraph
-from rvandroid.domain.static import StaticAnalysisData
-from rvandroid.constants import EXTENSION_REACH, EXTENSION_GATOR, EXTENSION_GESDA
-from rvandroid.parser.static.static_analysis_parser import (
+from rv_android_core.domain.classes import Classes
+from rv_android_core.domain.window import Windows
+from rv_android_core.domain.wtg import WindowTransitionGraph
+from rv_android_core.domain.static import StaticAnalysisData
+from rv_android_core.constants import EXTENSION_REACH, EXTENSION_GATOR, EXTENSION_GESDA
+from rv_static_analysis.parser.static.static_analysis_parser import (
     StaticAnalysisParser,
     parse,
     read_static_analysis_files,
@@ -171,7 +171,7 @@ class TestStaticAnalysisParser:
         mock_gator_parser.parse_file.assert_called_once()
         mock_gesda_parser.parse_file.assert_called_once()
 
-    @patch("rvandroid.parser.static.static_analysis_parser._instance.parse")
+    @patch("rv_static_analysis.parser.static.static_analysis_parser._instance.parse")
     def test_parse_function(self, mock_parse):
         """Test the parse convenience function."""
         # Setup
@@ -184,7 +184,7 @@ class TestStaticAnalysisParser:
         assert isinstance(result, StaticAnalysisData)
         mock_parse.assert_called_once_with("reach_file.csv", "gator_file.json", "gesda_file.json", "com.example")
 
-    @patch("rvandroid.parser.static.static_analysis_parser._instance.read_static_analysis_files")
+    @patch("rv_static_analysis.parser.static.static_analysis_parser._instance.read_static_analysis_files")
     def test_read_static_analysis_files_function(self, mock_read):
         """Test the read_static_analysis_files convenience function."""
         # Setup
@@ -197,7 +197,7 @@ class TestStaticAnalysisParser:
         assert isinstance(result, StaticAnalysisData)
         mock_read.assert_called_once_with("/path/to/results", "app.apk", "com.example")
 
-    @patch("rvandroid.parser.static.static_analysis_parser._instance.parse")
+    @patch("rv_static_analysis.parser.static.static_analysis_parser._instance.parse")
     def test_parse_all_function(self, mock_parse):
         """Test the deprecated parse_all convenience function."""
         # Setup
@@ -232,9 +232,9 @@ class TestStaticAnalysisParserIntegration:
         """Initialize a real StaticAnalysisParser instance for testing."""
         return StaticAnalysisParser()
 
-    @patch("rvandroid.parser.static.reach_parser.ReachParser.parse_file")
-    @patch("rvandroid.parser.static.gator_parser.GatorParser.parse_file")
-    @patch("rvandroid.parser.static.gesda_parser.GesdaParser.parse_file")
+    @patch("rv_static_analysis.parser.static.reach_parser.ReachParser.parse_file")
+    @patch("rv_static_analysis.parser.static.gator_parser.GatorParser.parse_file")
+    @patch("rv_static_analysis.parser.static.gesda_parser.GesdaParser.parse_file")
     def test_parse_integration(self, mock_gesda_parse, mock_gator_parse, mock_reach_parse, parser):
         """Test StaticAnalysisParser integration with mocked parsers."""
         # Setup mock return values

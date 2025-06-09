@@ -1,7 +1,7 @@
 import pytest
 
-from rvandroid.domain.widget import WidgetEventType
-from rvandroid.parser.screen.visitor.model import (
+from rv_android_core.domain.widget import WidgetEventType
+from rv_screen_parser.parser.screen.visitor.model import (
     ItemAction, ScreenItem, ScreenDescription, Counter, UiElementType, Node
 )
 

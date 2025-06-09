@@ -18,13 +18,15 @@ androguard = "3.4.0a1"
 # Path dependencies
 rv-android-core = {path = "modules/rv-android-core", develop = true}
 rv-monitor-generator = {path = "modules/rv-monitor-generator", develop = true}
+rv-instrumentation = {path = "modules/rv-instrumentation", develop = true}
 rv-static-analysis = {path = "modules/rv-static-analysis", develop = true}
 rv-screen-parser = {path = "modules/rv-screen-parser", develop = true}
 rv-coverage = {path = "modules/rv-coverage", develop = true}
-
-# Excluded from CI testing
-# rv-instrumentation = {path = "modules/rv-instrumentation", develop = true}
-# rvandroid = {path = "modules/rvandroid", develop = true}
+rv-llm = {path = "modules/rv-llm", develop = true}
+rv-tools = {path = "modules/rv-tools", develop = true}
+rvandroid-tool = {path = "modules/rvandroid-tool", develop = true}
+rv-experiment = {path = "modules/rv-experiment", develop = true}
+#rvandroid = {path = "modules/rvandroid", develop = true}
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^7.0"

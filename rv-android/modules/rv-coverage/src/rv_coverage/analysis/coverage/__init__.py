@@ -1,10 +1,16 @@
-# rvandroid/analysis/coverage/__init__.py
-from rv_coverage.analysis.coverage.analyzer import CoverageAnalyzer
-from rv_coverage.analysis.coverage.tracker import CoverageTracker
+"""
+Coverage analysis components.
 
-# Export the coverage API
-# Note: CoverageRepository wrapper has been eliminated in favor of direct LogcatRepository usage
+This package provides core coverage analysis functionality including:
+- Real-time coverage tracking during test execution
+- Batch analysis of coverage data from logcat files
+- Coverage metrics calculation and reporting
+"""
+
+from .analyzer import CoverageAnalyzer
+from .tracker import CoverageTracker
+
 __all__ = [
-    'CoverageAnalyzer',
-    'CoverageTracker'
+    "CoverageAnalyzer",
+    "CoverageTracker"
 ]

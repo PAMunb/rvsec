@@ -2,10 +2,10 @@
 from typing import Dict, Type, Optional, List
 
 from rv_android_core.domain.static import StaticAnalysisData
-from rv_android_core.parser.screen.visitor.abstract_visitor import AbstractScreenVisitor
-from rv_android_core.parser.screen.visitor.basic_visitor import BasicTextVisitor
-from rv_android_core.parser.screen.visitor.default_visitor import DefaultTextVisitor
-from rv_android_core.parser.screen.visitor.enhanced_visitor import EnhancedTextVisitor
+from rv_screen_parser.parser.screen.visitor.abstract_visitor import AbstractScreenVisitor
+from rv_screen_parser.parser.screen.visitor.basic_visitor import BasicTextVisitor
+from rv_screen_parser.parser.screen.visitor.default_visitor import DefaultTextVisitor
+from rv_screen_parser.parser.screen.visitor.enhanced_visitor import EnhancedTextVisitor
 
 
 class VisitorFactory:

@@ -2,13 +2,13 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from rvandroid.domain.classes import Classes
-from rvandroid.domain.static import StaticAnalysisData
-from rvandroid.domain.widget import WidgetEventType
-from rvandroid.domain.window import Windows
-from rvandroid.domain.wtg import WindowTransitionGraph
-from rvandroid.parser.screen.visitor.basic_visitor import BasicTextVisitor
-from rvandroid.parser.screen.visitor.model import ItemAction, ScreenItem, ScreenDescription, Node
+from rv_android_core.domain.classes import Classes
+from rv_android_core.domain.static import StaticAnalysisData
+from rv_android_core.domain.widget import WidgetEventType
+from rv_android_core.domain.window import Windows
+from rv_android_core.domain.wtg import WindowTransitionGraph
+from rv_screen_parser.parser.screen.visitor.basic_visitor import BasicTextVisitor
+from rv_screen_parser.parser.screen.visitor.model import ItemAction, ScreenItem, ScreenDescription, Node
 
 
 class TestBasicTextVisitor:
@@ -17,7 +17,7 @@ class TestBasicTextVisitor:
     @pytest.fixture(autouse=True)
     def setup_logging(self):
         """Fixture to set up logging and suppress log messages during tests"""
-        with patch('rvandroid.util.logging.manager.LoggingManager') as mock_logging_manager:
+        with patch('rv_android_core.util.logging.manager.LoggingManager') as mock_logging_manager:
             mock_logger = MagicMock()
             mock_logging_manager.get_instance.return_value = mock_logging_manager
             mock_logging_manager.get_logger.return_value = mock_logger

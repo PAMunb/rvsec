@@ -9,13 +9,13 @@ import os
 
 import pytest
 
-from rvandroid.domain.classes import Classes
-from rvandroid.domain.static import StaticAnalysisData
-from rvandroid.domain.window import Windows
-from rvandroid.domain.wtg import WindowTransitionGraph
-from rvandroid.parser.screen.uiautomator.uiautomator_parser import UIAutomator2Parser
-from rvandroid.parser.screen.visitor.basic_visitor import BasicTextVisitor
-from rvandroid.parser.screen.visitor.model import ScreenDescription
+from rv_android_core.domain.classes import Classes
+from rv_android_core.domain.static import StaticAnalysisData
+from rv_android_core.domain.window import Windows
+from rv_android_core.domain.wtg import WindowTransitionGraph
+from rv_screen_parser.parser.screen.uiautomator.uiautomator_parser import UIAutomator2Parser
+from rv_screen_parser.parser.screen.visitor.basic_visitor import BasicTextVisitor
+from rv_screen_parser.parser.screen.visitor.model import ScreenDescription
 
 
 @pytest.fixture

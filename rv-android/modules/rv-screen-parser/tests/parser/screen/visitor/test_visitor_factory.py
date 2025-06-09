@@ -2,12 +2,12 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from rvandroid.domain.static import StaticAnalysisData
-from rvandroid.parser.screen.visitor.abstract_visitor import AbstractScreenVisitor
-from rvandroid.parser.screen.visitor.basic_visitor import BasicTextVisitor
-from rvandroid.parser.screen.visitor.default_visitor import DefaultTextVisitor
-from rvandroid.parser.screen.visitor.enhanced_visitor import EnhancedTextVisitor
-from rvandroid.parser.screen.visitor.visitor_factory import VisitorFactory
+from rv_android_core.domain.static import StaticAnalysisData
+from rv_screen_parser.parser.screen.visitor.abstract_visitor import AbstractScreenVisitor
+from rv_screen_parser.parser.screen.visitor.basic_visitor import BasicTextVisitor
+from rv_screen_parser.parser.screen.visitor.default_visitor import DefaultTextVisitor
+from rv_screen_parser.parser.screen.visitor.enhanced_visitor import EnhancedTextVisitor
+from rv_screen_parser.parser.screen.visitor.visitor_factory import VisitorFactory
 
 
 class TestVisitorFactory:
@@ -16,7 +16,7 @@ class TestVisitorFactory:
     @pytest.fixture(autouse=True)
     def setup_logging(self):
         """Fixture to set up logging and suppress log messages during tests"""
-        with patch('rvandroid.util.logging.manager.LoggingManager') as mock_logging_manager:
+        with patch('rv_android_core.util.logging.manager.LoggingManager') as mock_logging_manager:
             mock_logger = MagicMock()
             mock_logging_manager.get_instance.return_value = mock_logging_manager
             mock_logging_manager.get_logger.return_value = mock_logger
@@ -26,9 +26,9 @@ class TestVisitorFactory:
     def static_data(self):
         """Fixture for mock static analysis data."""
         # Create more complete mock with required components
-        from rvandroid.domain.classes import Classes
-        from rvandroid.domain.window import Windows
-        from rvandroid.domain.wtg import WindowTransitionGraph
+        from rv_android_core.domain.classes import Classes
+        from rv_android_core.domain.window import Windows
+        from rv_android_core.domain.wtg import WindowTransitionGraph
 
         mock_classes = MagicMock(spec=Classes)
         mock_windows = MagicMock(spec=Windows)
@@ -88,7 +88,7 @@ class TestVisitorFactory:
         activity = "com.example.TestActivity"
 
         # Mock the DefaultTextVisitor.__init__ to verify kwargs are passed through
-        with patch('rvandroid.parser.screen.visitor.default_visitor.DefaultTextVisitor.__init__') as mock_init:
+        with patch('rv_screen_parser.parser.screen.visitor.default_visitor.DefaultTextVisitor.__init__') as mock_init:
             mock_init.return_value = None  # __init__ returns None
 
             VisitorFactory.create(

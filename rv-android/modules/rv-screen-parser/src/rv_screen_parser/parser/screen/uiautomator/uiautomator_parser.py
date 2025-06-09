@@ -1,4 +1,9 @@
-# rvandroid/parser/screen/uiautomator/uiautomator_parser.py
+"""
+UIAutomator2 XML hierarchy parser for Android UI monitoring operations.
+
+Specialized parser implementation for processing UIAutomator2-generated XML hierarchy data
+into standardized ScreenDescription objects for comprehensive monitored operations analysis.
+"""
 
 import xml.etree.ElementTree as ET
 from typing import Dict, Any, Optional, Type
@@ -6,32 +11,43 @@ from typing import Dict, Any, Optional, Type
 from rv_android_core.domain.static import StaticAnalysisData
 from rv_android_core.util.decorators import task_phase
 from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
-from rv_android_core.parser.screen.abstract_parser import AbstractScreenParser
-from rv_android_core.parser.screen.visitor.abstract_visitor import AbstractScreenVisitor
-from rv_android_core.parser.screen.visitor.model import ScreenDescription, Node
+from rv_screen_parser.parser.screen.base_parser import BaseScreenParser
+from rv_screen_parser.parser.screen.visitor.abstract_visitor import AbstractScreenVisitor
+from rv_screen_parser.parser.screen.visitor.model import ScreenDescription, Node
 
 
-class UIAutomator2Parser(AbstractScreenParser):
+class UIAutomator2Parser(BaseScreenParser[ScreenDescription]):
     """
-    Parser for UIAutomator2 XML hierarchy data.
+    Specialized parser for UIAutomator2 XML hierarchy data in monitored operations framework.
 
     ### Architectural Decisions:
-    - Implements a standardized parsing approach for UIAutomator2 XML
-    - Uses a visitor pattern to separate parsing logic from UI hierarchy traversal
-    - Provides consistent element attribute normalization
-    - Handles system navigation filtering through parsing configuration
-    - Maintains compatibility with RV-Android's parser architecture
+    - Implements direct inheritance from BaseScreenParser for complete modern architecture integration
+    - Provides comprehensive XML parsing with robust error handling through ErrorHandler framework
+    - Uses visitor pattern delegation for flexible UI element processing and analysis strategies
+    - Implements standardized attribute normalization for consistent cross-tool data representation
+    - Supports advanced filtering capabilities for system navigation and irrelevant UI elements
+
+    ### Role in the System:
+    - Serves as the primary interface for processing UIAutomator2 XML dumps in monitored operations
+    - Transforms XML hierarchy data into standardized ScreenDescription objects for framework integration
+    - Enables seamless interoperability with other parser implementations through unified interface
+    - Provides specialized handling for UIAutomator2-specific XML structure and attribute conventions
+    - Facilitates comprehensive UI state analysis for security monitoring and verification operations
+
+    ### Design Note - XML Processing:
+    UIAutomator2 generates hierarchical XML representing the complete Android UI tree structure.
+    This parser handles complex XML parsing, attribute normalization, and coordinate processing
+    while maintaining high performance and memory efficiency for large UI hierarchies.
     """
 
     def __init__(self, visitor_class: Optional[Type[AbstractScreenVisitor]] = None):
         """
-        Initialize the UIAutomator2 parser.
+        Initialize the UIAutomator2 parser with specialized XML processing configuration.
 
         Args:
-            visitor_class: Optional visitor class to use for parsing
+            visitor_class: Optional visitor class for custom UI element processing strategies
         """
-        super().__init__(visitor_class)
-        self.parser_name = "uiautomator"
+        super().__init__("uiautomator", visitor_class)
 
         # Configure logging with context adapter
         self.logger = self.logging_manager.get_logger(

@@ -12,12 +12,13 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from rvandroid.domain.classes import Classes
-from rvandroid.domain.static import StaticAnalysisData
-from rvandroid.domain.window import Windows
-from rvandroid.domain.wtg import WindowTransitionGraph
-from rvandroid.parser.screen.uiautomator.uiautomator_parser import UIAutomator2Parser
-from rvandroid.parser.screen.visitor.model import Node, ScreenDescription
+from rv_android_core.domain.classes import Classes
+from rv_android_core.domain.static import StaticAnalysisData
+from rv_android_core.domain.window import Windows
+from rv_android_core.domain.wtg import WindowTransitionGraph
+from rv_android_core.util.exceptions import RVParsingError
+from rv_screen_parser.parser.screen.uiautomator.uiautomator_parser import UIAutomator2Parser
+from rv_screen_parser.parser.screen.visitor.model import Node, ScreenDescription
 
 
 @pytest.fixture
@@ -254,5 +255,5 @@ class TestUIAutomator2Parser:
 
     def test_error_handling_invalid_xml(self, parser):
         """Test handling of invalid XML data."""
-        with pytest.raises(ValueError):
+        with pytest.raises(RVParsingError):
             parser.parse_screen({"hierarchy": "<invalid>"})

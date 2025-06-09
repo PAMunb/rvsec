@@ -11,13 +11,14 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from rvandroid.domain.classes import Classes
-from rvandroid.domain.static import StaticAnalysisData
-from rvandroid.domain.window import Windows
-from rvandroid.domain.wtg import WindowTransitionGraph
-from rvandroid.parser.screen.droidbot.droidbot_parser import DroidBotParser
-from rvandroid.parser.screen.visitor.basic_visitor import BasicTextVisitor
-from rvandroid.parser.screen.visitor.model import Node, ScreenDescription
+from rv_android_core.domain.classes import Classes
+from rv_android_core.domain.static import StaticAnalysisData
+from rv_android_core.domain.window import Windows
+from rv_android_core.domain.wtg import WindowTransitionGraph
+from rv_android_core.util.exceptions import RVParsingError
+from rv_screen_parser.parser.screen.droidbot.droidbot_parser import DroidBotParser
+from rv_screen_parser.parser.screen.visitor.basic_visitor import BasicTextVisitor
+from rv_screen_parser.parser.screen.visitor.model import Node, ScreenDescription
 
 
 @pytest.fixture
@@ -184,7 +185,7 @@ class TestDroidBotParserIntegration:
 
     def test_parse_screen_invalid_data(self, parser):
         """Test the parse_screen method with invalid data."""
-        with pytest.raises(ValueError):
+        with pytest.raises(RVParsingError):
             parser.parse_screen({})  # Missing view_tree
 
     def test_basic_visitor_integration(self, parser_with_basic_visitor, sample_state_data):

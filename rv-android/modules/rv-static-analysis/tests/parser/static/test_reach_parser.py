@@ -1,5 +1,4 @@
 import os
-import os
 import sys
 from io import StringIO
 from unittest.mock import patch, mock_open
@@ -9,9 +8,9 @@ import pytest
 # Add the parent directory to the path to make imports work correctly
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 
-from rvandroid.domain.classes import Classes, Method
-from rvandroid.domain.window import Windows
-from rvandroid.parser.static.reach_parser import ReachParser, read_reachable_methods
+from rv_android_core.domain.classes import Classes, Method
+from rv_android_core.domain.window import Windows
+from rv_static_analysis.parser.static.reach_parser import ReachParser, read_reachable_methods
 
 # Sample CSV data for testing
 SAMPLE_CSV_DATA = """class,is_activity,is_main_activity,method,params,reachable,reaches_mop,directly_reaches_mop,signature,mop_methods_reached

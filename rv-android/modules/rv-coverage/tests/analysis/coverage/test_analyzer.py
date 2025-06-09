@@ -67,10 +67,10 @@ class TestCoverageAnalyzer:
             wtg=None
         )
 
-    @patch('rvandroid.analysis.coverage.tracker.EventBus')
+    @patch('rv_android_core.event.bus.EventBus')
     def test_initialization_with_static_data(self, mock_event_bus, mock_static_data):
         """Test analyzer initialization with realistic static data."""
-        from rvandroid.analysis.coverage.analyzer import CoverageAnalyzer
+        from rv_coverage.analysis.coverage.analyzer import CoverageAnalyzer
 
         mock_event_bus.get_instance.return_value = MagicMock()
 
@@ -81,10 +81,10 @@ class TestCoverageAnalyzer:
         assert "br.unb.cic.cryptoapp.MainActivity" in analyzer.repository.classes
         assert "br.unb.cic.cryptoapp.generated.CryptographyActivity" in analyzer.repository.classes
 
-    @patch('rvandroid.analysis.coverage.tracker.EventBus')
+    @patch('rv_android_core.event.bus.EventBus')
     def test_add_method_call(self, mock_event_bus, mock_static_data):
         """Test adding a method call to the repository with realistic data."""
-        from rvandroid.analysis.coverage.analyzer import CoverageAnalyzer
+        from rv_coverage.analysis.coverage.analyzer import CoverageAnalyzer
 
         mock_event_bus.get_instance.return_value = MagicMock()
 
@@ -108,10 +108,10 @@ class TestCoverageAnalyzer:
         )
         assert method_found
 
-    @patch('rvandroid.analysis.coverage.tracker.EventBus')
+    @patch('rv_android_core.event.bus.EventBus')
     def test_add_error(self, mock_event_bus, mock_static_data):
         """Test adding an error to the repository with realistic data."""
-        from rvandroid.analysis.coverage.analyzer import CoverageAnalyzer
+        from rv_coverage.analysis.coverage.analyzer import CoverageAnalyzer
 
         mock_event_bus.get_instance.return_value = MagicMock()
 
@@ -132,10 +132,10 @@ class TestCoverageAnalyzer:
         assert len(analyzer.repository.errors) == 1
         assert error_log in analyzer.repository.errors
 
-    @patch('rvandroid.analysis.coverage.tracker.EventBus')
+    @patch('rv_android_core.event.bus.EventBus')
     def test_get_coverage_metrics(self, mock_event_bus, mock_static_data):
         """Test getting coverage metrics with realistic method calls and errors."""
-        from rvandroid.analysis.coverage.analyzer import CoverageAnalyzer
+        from rv_coverage.analysis.coverage.analyzer import CoverageAnalyzer
 
         mock_event_bus.get_instance.return_value = MagicMock()
 

@@ -1,13 +1,12 @@
 import os
-import tempfile
 import shutil
+import tempfile
 from unittest.mock import patch, MagicMock
-from pathlib import Path
 
 import pytest
 
+from rv_monitor_generator.config import RVGeneratorConfig
 from rv_monitor_generator.runtime_verification_generator import RuntimeVerificationGenerator
-from rv_monitor_generator.config import RVGeneratorConfig, ConfigurationError
 
 
 class TestRuntimeVerificationGenerator:
@@ -15,23 +14,23 @@ class TestRuntimeVerificationGenerator:
     Unit tests for RuntimeVerificationGenerator with proper architectural patterns.
     
     These tests follow the modern test architecture patterns and use proper
-    configuration discovery mechanisms based on the rv-android settings approach.
+    configuration discovery mechanisms based on modular configuration classes.
     """
 
     @pytest.fixture
     def rvsec_root_dir(self):
         """
-        Discover RVSEC root directory using the same logic as rv-android settings.
+        Discover RVSEC root directory using configuration discovery logic.
         
-        This mimics the approach used in rv-android/settings.py:
-        RVSEC_ROOT_DIR = os.path.join(WORKING_DIR, os.path.abspath(".."))
+        This follows the modular configuration approach where each module
+        handles its own directory discovery independently.
         """
         # Get the current working directory (should be rv-android when tests run)
         working_dir = os.getcwd()
-        
+
         # Navigate to RVSEC root (one level up from rv-android)
         rvsec_root = os.path.join(working_dir, os.path.abspath(".."))
-        
+
         # Validate that this looks like a RVSEC installation
         expected_dirs = ['javamop', 'rv-monitor', 'rvsec']
         if all(os.path.exists(os.path.join(rvsec_root, d)) for d in expected_dirs):
@@ -43,7 +42,7 @@ class TestRuntimeVerificationGenerator:
     def temp_environment(self):
         """Create temporary directory structure for isolated testing."""
         temp_dir = tempfile.mkdtemp()
-        
+
         # Create mock RVSEC structure
         rvsec_structure = {
             'javamop/bin': ['javamop'],
@@ -52,11 +51,11 @@ class TestRuntimeVerificationGenerator:
             'rvsec/rvsec-mop/src/main/resources/generic': ['generic1.mop'],
             'rvsec/rvsec-mop/src/main/resources/aspect': ['logging.aj']
         }
-        
+
         for dir_path, files in rvsec_structure.items():
             full_dir = os.path.join(temp_dir, dir_path)
             os.makedirs(full_dir, exist_ok=True)
-            
+
             for file_name in files:
                 file_path = os.path.join(full_dir, file_name)
                 with open(file_path, 'w') as f:
@@ -66,11 +65,11 @@ class TestRuntimeVerificationGenerator:
                         f.write(f'// Test AspectJ file: {file_name}')
                     else:
                         f.write('#!/bin/bash\necho "Mock tool execution"')
-                
+
                 # Make binaries executable
                 if dir_path.endswith('/bin'):
                     os.chmod(file_path, 0o755)
-        
+
         yield temp_dir
         shutil.rmtree(temp_dir)
 
@@ -85,42 +84,40 @@ class TestRuntimeVerificationGenerator:
     def test_initialization_with_config(self, mock_config):
         """Test RuntimeVerificationGenerator initialization with explicit config."""
         with patch('rv_monitor_generator.runtime_verification_generator.LoggingManager') as mock_logging_mgr, \
-             patch('rv_monitor_generator.runtime_verification_generator.ErrorHandler') as mock_error_handler:
-            
+                patch('rv_monitor_generator.runtime_verification_generator.ErrorHandler') as mock_error_handler:
             # Setup mocks
             mock_logger = MagicMock()
             mock_logging_mgr.get_instance.return_value.get_logger.return_value = mock_logger
             mock_error_handler.get_instance.return_value = MagicMock()
-            
+
             # Initialize generator
             generator = RuntimeVerificationGenerator(mock_config)
-            
+
             # Verify initialization
             assert generator.config == mock_config
             assert generator._logger == mock_logger
-            
+
             # Verify logging manager was called with proper context
             mock_logging_mgr.get_instance.assert_called_once()
             mock_logging_mgr.get_instance.return_value.get_logger.assert_called_once()
-            
+
             # Verify logger was called with initialization message
             mock_logger.info.assert_called_once()
 
     def test_initialization_without_config(self):
         """Test RuntimeVerificationGenerator initialization with auto-config."""
         with patch('rv_monitor_generator.runtime_verification_generator.LoggingManager') as mock_logging_mgr, \
-             patch('rv_monitor_generator.runtime_verification_generator.ErrorHandler') as mock_error_handler, \
-             patch('rv_monitor_generator.runtime_verification_generator.RVGeneratorConfig') as mock_config_class:
-            
+                patch('rv_monitor_generator.runtime_verification_generator.ErrorHandler') as mock_error_handler, \
+                patch('rv_monitor_generator.runtime_verification_generator.RVGeneratorConfig') as mock_config_class:
             # Setup mocks
             mock_config_instance = MagicMock()
             mock_config_class.return_value = mock_config_instance
             mock_logger = MagicMock()
             mock_logging_mgr.get_instance.return_value.get_logger.return_value = mock_logger
-            
+
             # Initialize generator without explicit config
             generator = RuntimeVerificationGenerator()
-            
+
             # Verify auto-config creation
             mock_config_class.assert_called_once_with()
             assert generator.config == mock_config_instance
@@ -128,75 +125,75 @@ class TestRuntimeVerificationGenerator:
     def test_generate_monitors_success(self, mock_config):
         """Test successful monitor generation pipeline."""
         output_dir = tempfile.mkdtemp()
-        
+
         try:
             with patch('rv_monitor_generator.runtime_verification_generator.LoggingManager') as mock_logging_mgr, \
-                 patch('rv_monitor_generator.runtime_verification_generator.ErrorHandler') as mock_error_handler, \
-                 patch('rv_android_core.util.utils.reset_folder') as mock_reset, \
-                 patch('rv_android_core.util.utils.execute_command') as mock_execute, \
-                 patch('rv_android_core.util.utils.move_files_by_extension') as mock_move, \
-                 patch('rv_android_core.util.utils.copy_files_by_extension') as mock_copy, \
-                 patch('rv_android_core.util.utils.delete_files_by_extension') as mock_delete:
-                
+                    patch('rv_monitor_generator.runtime_verification_generator.ErrorHandler') as mock_error_handler, \
+                    patch('rv_android_core.util.utils.reset_folder') as mock_reset, \
+                    patch('rv_android_core.util.utils.execute_command') as mock_execute, \
+                    patch('rv_android_core.util.utils.move_files_by_extension') as mock_move, \
+                    patch('rv_android_core.util.utils.copy_files_by_extension') as mock_copy, \
+                    patch('rv_android_core.util.utils.delete_files_by_extension') as mock_delete:
+
                 # Setup mocks
                 mock_logger = MagicMock()
                 mock_logging_mgr.get_instance.return_value.get_logger.return_value = mock_logger
                 mock_error_handler.get_instance.return_value = MagicMock()
-                
+
                 # Initialize and execute
                 generator = RuntimeVerificationGenerator(mock_config)
                 result = generator.generate_monitors(output_dir)
-                
+
                 # Verify success
                 assert result is True
-                
+
                 # Verify pipeline execution
                 mock_reset.assert_called_once_with(output_dir)
                 assert mock_execute.call_count == 2  # JavaMOP + RV-Monitor
                 mock_move.assert_called_once()  # Move RVM files
                 mock_copy.assert_called_once()  # Copy AspectJ files
                 mock_delete.assert_called_once()  # Delete intermediate RVM files
-                
+
                 # Verify logging
                 assert mock_logger.info.call_count >= 3  # Init + Start + Complete
-                
+
         finally:
             shutil.rmtree(output_dir)
 
     def test_generate_monitors_failure(self, mock_config):
         """Test monitor generation pipeline failure handling."""
         output_dir = tempfile.mkdtemp()
-        
+
         try:
             with patch('rv_monitor_generator.runtime_verification_generator.LoggingManager') as mock_logging_mgr, \
-                 patch('rv_monitor_generator.runtime_verification_generator.ErrorHandler') as mock_error_handler, \
-                 patch('rv_android_core.util.utils.reset_folder') as mock_reset, \
-                 patch('rv_android_core.util.utils.execute_command') as mock_execute:
-                
+                    patch('rv_monitor_generator.runtime_verification_generator.ErrorHandler') as mock_error_handler, \
+                    patch('rv_android_core.util.utils.reset_folder') as mock_reset, \
+                    patch('rv_android_core.util.utils.execute_command') as mock_execute:
+
                 # Setup mocks
                 mock_logger = MagicMock()
                 mock_logging_mgr.get_instance.return_value.get_logger.return_value = mock_logger
                 mock_error_handler_instance = MagicMock()
                 mock_error_handler.get_instance.return_value = mock_error_handler_instance
-                
+
                 # Simulate failure
                 mock_execute.side_effect = Exception("Tool execution failed")
-                
+
                 # Initialize and execute
                 generator = RuntimeVerificationGenerator(mock_config)
                 result = generator.generate_monitors(output_dir)
-                
+
                 # Verify failure handling
                 assert result is False
                 mock_error_handler_instance.handle_error.assert_called_once()
-                
+
         finally:
             shutil.rmtree(output_dir)
 
     def test_get_generation_summary(self, mock_config):
         """Test generation summary functionality."""
         output_dir = tempfile.mkdtemp()
-        
+
         try:
             # Create mock generated files
             test_files = [
@@ -206,23 +203,23 @@ class TestRuntimeVerificationGenerator:
                 ('Monitor2.java', '// Java monitor class'),
                 ('Monitor3.java', '// Java monitor class')
             ]
-            
+
             for filename, content in test_files:
                 with open(os.path.join(output_dir, filename), 'w') as f:
                     f.write(content)
-            
+
             with patch('rv_monitor_generator.runtime_verification_generator.LoggingManager') as mock_logging_mgr, \
-                 patch('rv_monitor_generator.runtime_verification_generator.ErrorHandler') as mock_error_handler:
-                
+                    patch('rv_monitor_generator.runtime_verification_generator.ErrorHandler') as mock_error_handler:
+
                 # Setup mocks
                 mock_logger = MagicMock()
                 mock_logging_mgr.get_instance.return_value.get_logger.return_value = mock_logger
                 mock_error_handler.get_instance.return_value = MagicMock()
-                
+
                 # Initialize and get summary
                 generator = RuntimeVerificationGenerator(mock_config)
                 summary = generator.get_generation_summary(output_dir)
-                
+
                 # Verify summary content
                 assert summary['output_directory'] == output_dir
                 assert summary['aspectj_files']['count'] == 2
@@ -230,26 +227,25 @@ class TestRuntimeVerificationGenerator:
                 assert 'purpose' in summary['aspectj_files']
                 assert 'purpose' in summary['monitor_classes']
                 assert 'specs_processed' in summary
-                
+
         finally:
             shutil.rmtree(output_dir)
 
     def test_mop_specs_discovery(self, mock_config):
         """Test MOP specification file discovery."""
         with patch('rv_monitor_generator.runtime_verification_generator.LoggingManager') as mock_logging_mgr, \
-             patch('rv_monitor_generator.runtime_verification_generator.ErrorHandler') as mock_error_handler:
-            
+                patch('rv_monitor_generator.runtime_verification_generator.ErrorHandler') as mock_error_handler:
             # Setup mocks
             mock_logger = MagicMock()
             mock_logging_mgr.get_instance.return_value.get_logger.return_value = mock_logger
             mock_error_handler.get_instance.return_value = MagicMock()
-            
+
             # Initialize generator
             generator = RuntimeVerificationGenerator(mock_config)
-            
+
             # Test spec discovery
             specs = generator._get_mop_specs()
-            
+
             # Verify specs found
             assert len(specs) == 2  # test1.mop and test2.mop from fixture
             assert all(spec.endswith('.mop') for spec in specs)
@@ -267,7 +263,7 @@ class TestRuntimeVerificationGeneratorIntegration:
         """Discover RVSEC root directory dynamically."""
         working_dir = os.getcwd()
         rvsec_root = os.path.join(working_dir, os.path.abspath(".."))
-        
+
         # Validate RVSEC installation
         required_components = [
             'javamop/bin/javamop',
@@ -275,7 +271,7 @@ class TestRuntimeVerificationGeneratorIntegration:
             'rvsec/rvsec-mop/src/main/resources/jca',
             'rvsec/rvsec-mop/src/main/resources/aspect'
         ]
-        
+
         if all(os.path.exists(os.path.join(rvsec_root, comp)) for comp in required_components):
             return rvsec_root
         else:
@@ -288,13 +284,13 @@ class TestRuntimeVerificationGeneratorIntegration:
             rvsec_root=rvsec_root_dir,
             mop_specs_dir=os.path.join(rvsec_root_dir, 'rvsec/rvsec-mop/src/main/resources/jca')
         )
-        
+
         # Verify configuration is valid
         assert os.path.exists(jca_config.javamop_bin)
         assert os.path.exists(jca_config.rvmonitor_bin)
         assert os.path.exists(jca_config.mop_specs_dir)
         assert os.path.exists(jca_config.aspects_dir)
-        
+
         # Test generic configuration if available
         generic_specs_dir = os.path.join(rvsec_root_dir, 'rvsec/rvsec-mop/src/main/resources/generic')
         if os.path.exists(generic_specs_dir):
@@ -311,7 +307,7 @@ class TestRuntimeVerificationGeneratorIntegration:
             config = RVGeneratorConfig(
                 mop_specs_dir=os.path.join(rvsec_root_dir, 'rvsec/rvsec-mop/src/main/resources/jca')
             )
-            
+
             # Verify environment-based configuration
             assert config.javamop_bin.startswith(rvsec_root_dir)
             assert config.rvmonitor_bin.startswith(rvsec_root_dir)
@@ -323,10 +319,10 @@ class TestRuntimeVerificationGeneratorIntegration:
             rvsec_root=rvsec_root_dir,
             mop_specs_dir=os.path.join(rvsec_root_dir, 'rvsec/rvsec-mop/src/main/resources/jca')
         )
-        
+
         # This test validates that the tools can actually be executed
         # The _validate_tool_functionality method is called during config initialization
         # If we get here without an exception, the tools are functional
-        
+
         assert config.javamop_bin.endswith('javamop')
         assert config.rvmonitor_bin.endswith('rv-monitor')

@@ -4,7 +4,7 @@ from typing import List, Optional, Set
 
 from rv_android_core.domain.static import StaticAnalysisData
 from rv_android_core.domain.widget import WidgetEventType  # Import the enum
-from rv_android_core.parser.screen.visitor.model import ItemAction, ScreenItem, Node
+from rv_screen_parser.parser.screen.visitor.model import ItemAction, ScreenItem, Node
 
 
 # TODO deprecated

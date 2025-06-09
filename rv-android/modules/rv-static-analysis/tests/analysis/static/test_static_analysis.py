@@ -15,6 +15,7 @@ from rv_static_analysis.analysis.static.static_analysis import (
     StaticAnalyzer,
     StaticAnalysisException
 )
+from rv_static_analysis.config import RVStaticAnalysisConfig
 from rv_android_core.app import App
 from rv_android_core.commands.command import Command
 from rv_android_core.commands.command_result import CommandResult
@@ -37,10 +38,24 @@ def output_dir():
 
 
 @pytest.fixture
-def analyzer(mock_app, output_dir):
+def mock_config():
+    """Fixture that provides a mocked RVStaticAnalysisConfig instance."""
+    config = MagicMock(spec=RVStaticAnalysisConfig)
+    config.output_dir = "/tmp/test_output"
+    config.get_static_analysis_tools.return_value = {
+        'gesda_jar': '/fake/gesda.jar',
+        'gator_jar': '/fake/gator.jar',
+        'reach_jar': '/fake/reach.jar'
+    }
+    config.get_tool_command.return_value = ["java", "-jar", "/fake/tool.jar"]
+    return config
+
+
+@pytest.fixture
+def analyzer(mock_app, mock_config, output_dir):
     """Fixture that provides a StaticAnalyzer instance."""
     with patch('os.makedirs') as mock_makedirs:
-        analyzer = StaticAnalyzer(mock_app, output_dir)
+        analyzer = StaticAnalyzer(mock_app, mock_config, output_dir)
         mock_makedirs.assert_called_once_with(output_dir, exist_ok=True)
         return analyzer
 
@@ -59,7 +74,7 @@ class TestStaticAnalyzer:
         assert analyzer.result.gator_file == analyzer.gator_file
         assert analyzer.result.reach_file == analyzer.reach_file
 
-    @patch('rvandroid.analysis.static.static_analysis.Command')
+    @patch('rv_static_analysis.analysis.static.static_analysis.Command')
     def test_run_gesda(self, mock_command, analyzer):
         """Test that GESDA analysis is run correctly."""
         # Setup
@@ -76,7 +91,7 @@ class TestStaticAnalyzer:
         # Don't check exact command arguments, just verify it was called
         mock_command_instance.invoke.assert_called_once_with(stdout=sys.stdout)
 
-    @patch('rvandroid.analysis.static.static_analysis.Command')
+    @patch('rv_static_analysis.analysis.static.static_analysis.Command')
     def test_run_gesda_skip_if_exists(self, mock_command, analyzer):
         """Test that GESDA analysis is skipped if the result file already exists."""
         # Setup
@@ -93,7 +108,7 @@ class TestStaticAnalyzer:
         # Just verify the .invoke() method was not called on our mock
         mock_command_instance.invoke.assert_not_called()
 
-    @patch('rvandroid.analysis.static.static_analysis.Command')
+    @patch('rv_static_analysis.analysis.static.static_analysis.Command')
     def test_run_gator(self, mock_command, analyzer):
         """Test that GATOR analysis is run correctly."""
         # Setup
@@ -110,7 +125,7 @@ class TestStaticAnalyzer:
         # Don't check exact command arguments, just verify it was called
         mock_command_instance.invoke.assert_called_once_with(stdout=sys.stdout)
 
-    @patch('rvandroid.analysis.static.static_analysis.Command')
+    @patch('rv_static_analysis.analysis.static.static_analysis.Command')
     def test_run_reachability(self, mock_command, analyzer):
         """Test that reachability analysis is run correctly."""
         # Setup
@@ -127,7 +142,7 @@ class TestStaticAnalyzer:
         # Don't check exact command arguments, just verify it was called
         mock_command_instance.invoke.assert_called_once_with(stdout=sys.stdout)
 
-    @patch('rvandroid.analysis.static.static_analysis.Command')
+    @patch('rv_static_analysis.analysis.static.static_analysis.Command')
     def test_execute_command_success(self, mock_command, analyzer):
         """Test command execution with successful result."""
         # Setup
@@ -143,7 +158,7 @@ class TestStaticAnalyzer:
         assert result.code == 0
         assert "TEST" in analyzer.execution_times
 
-    @patch('rvandroid.analysis.static.static_analysis.Command')
+    @patch('rv_static_analysis.analysis.static.static_analysis.Command')
     def test_execute_command_failure(self, mock_command, analyzer):
         """Test command execution with failure result."""
         # Setup
@@ -220,7 +235,7 @@ class TestStaticAnalyzer:
         parser_mock.parse.return_value = mock_static_data
 
         # Act
-        with patch('rvandroid.analysis.static.static_analysis.StaticAnalysisParser',
+        with patch('rv_static_analysis.analysis.static.static_analysis.StaticAnalysisParser',
                    return_value=parser_mock):
             result = analyzer.get_static_data()
 
@@ -228,7 +243,7 @@ class TestStaticAnalyzer:
         assert result is not None
         parser_mock.parse.assert_called_once()
 
-    @patch('rvandroid.parser.static.static_analysis_parser.StaticAnalysisParser')
+    @patch('rv_static_analysis.parser.static.static_analysis_parser.StaticAnalysisParser')
     def test_get_static_data_analysis_failed(self, mock_parser_class, analyzer):
         """Test get_static_data when analysis was not successful."""
         # Setup
@@ -251,7 +266,7 @@ class TestStaticAnalyzer:
         parser_mock.parse.side_effect = Exception("Parser error")
 
         # Act
-        with patch('rvandroid.analysis.static.static_analysis.StaticAnalysisParser',
+        with patch('rv_static_analysis.analysis.static.static_analysis.StaticAnalysisParser',
                    return_value=parser_mock):
             result = analyzer.get_static_data()
 
@@ -260,88 +275,3 @@ class TestStaticAnalyzer:
         parser_mock.parse.assert_called_once()
 
 
-class TestLegacyFunctions:
-    """Tests for the legacy API functions."""
-
-    @patch.object(StaticAnalyzer, 'analyze')
-    def test_run_static_analysis(self, mock_analyze, mock_app):
-        """Test the legacy run_static_analysis function."""
-        # Setup
-        gesda_file = "/tmp/test.gesda"
-        gator_file = "/tmp/test.wtg"
-        reach_file = "/tmp/test.reach"
-
-        # Act
-        with patch('rvandroid.analysis.static.static_analysis.StaticAnalyzer') as mock_analyzer_class:
-            mock_analyzer = MagicMock()
-            mock_analyzer_class.return_value = mock_analyzer
-
-            from rvandroid.analysis.static.static_analysis import run_static_analysis
-            run_static_analysis(mock_app, gesda_file, gator_file, reach_file)
-
-        # Assert
-        mock_analyzer_class.assert_called_once_with(mock_app)
-        assert mock_analyzer.gesda_file == gesda_file
-        assert mock_analyzer.gator_file == gator_file
-        assert mock_analyzer.reach_file == reach_file
-        mock_analyzer.analyze.assert_called_once()
-
-    @patch.object(StaticAnalyzer, '_run_gesda')
-    def test_run_gesda(self, mock_run_gesda, mock_app):
-        """Test the legacy run_gesda function."""
-        # Setup
-        gesda_file = "/tmp/test.gesda"
-
-        # Act
-        with patch('rvandroid.analysis.static.static_analysis.StaticAnalyzer') as mock_analyzer_class:
-            mock_analyzer = MagicMock()
-            mock_analyzer_class.return_value = mock_analyzer
-
-            from rvandroid.analysis.static.static_analysis import run_gesda
-            run_gesda(mock_app, gesda_file)
-
-        # Assert
-        mock_analyzer_class.assert_called_once_with(mock_app)
-        assert mock_analyzer.gesda_file == gesda_file
-        mock_analyzer._run_gesda.assert_called_once()
-
-    @patch.object(StaticAnalyzer, '_run_gator')
-    def test_run_gator(self, mock_run_gator, mock_app):
-        """Test the legacy run_gator function."""
-        # Setup
-        gator_file = "/tmp/test.wtg"
-
-        # Act
-        with patch('rvandroid.analysis.static.static_analysis.StaticAnalyzer') as mock_analyzer_class:
-            mock_analyzer = MagicMock()
-            mock_analyzer_class.return_value = mock_analyzer
-
-            from rvandroid.analysis.static.static_analysis import run_gator
-            run_gator(mock_app, gator_file)
-
-        # Assert
-        mock_analyzer_class.assert_called_once_with(mock_app)
-        assert mock_analyzer.gator_file == gator_file
-        mock_analyzer._run_gator.assert_called_once()
-
-    @patch.object(StaticAnalyzer, '_run_reachability')
-    def test_run_reachability(self, mock_run_reachability, mock_app):
-        """Test the legacy run_reachability function."""
-        # Setup
-        reach_file = "/tmp/test.reach"
-        mop_dir = "/tmp/mop"
-        gesda_file = "/tmp/test.gesda"
-
-        # Act
-        with patch('rvandroid.analysis.static.static_analysis.StaticAnalyzer') as mock_analyzer_class:
-            mock_analyzer = MagicMock()
-            mock_analyzer_class.return_value = mock_analyzer
-
-            from rvandroid.analysis.static.static_analysis import run_reachability
-            run_reachability(mock_app, reach_file, mop_dir, gesda_file)
-
-        # Assert
-        mock_analyzer_class.assert_called_once_with(mock_app)
-        assert mock_analyzer.reach_file == reach_file
-        assert mock_analyzer.gesda_file == gesda_file
-        mock_analyzer._run_reachability.assert_called_once()

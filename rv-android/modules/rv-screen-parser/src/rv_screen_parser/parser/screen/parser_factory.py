@@ -1,21 +1,50 @@
-# rvandroid/parser/screen/parser_factory.py
+"""
+Parser factory for dynamic screen parser instantiation in monitored operations framework.
+
+Provides centralized factory pattern implementation for creating appropriate parser instances
+based on input source type, enabling seamless integration with diverse monitoring tools.
+"""
+
 from enum import Enum
 from typing import Dict, Type, Optional
 
-from rv_android_core.parser.screen.base_parser import BaseScreenParser
-from rv_android_core.parser.screen.visitor.abstract_visitor import AbstractScreenVisitor
+from rv_screen_parser.parser.screen.base_parser import BaseScreenParser
+from rv_screen_parser.parser.screen.visitor.abstract_visitor import AbstractScreenVisitor
 
 
 class ParserType(Enum):
-    """Enumeration of supported parser types"""
+    """
+    Enumeration of supported Android UI monitoring parser types.
+    
+    Defines the available parser implementations for different monitoring tool outputs
+    used in the RV-Android monitored operations framework.
+    """
     DROIDBOT = "droidbot"
     UIAUTOMATOR = "uiautomator"
 
 
 class ParserFactory:
     """
-    Factory for creating parser instances.
-    Centralizes the creation of different parser types.
+    Factory pattern implementation for dynamic parser instantiation in monitored operations.
+
+    ### Architectural Decisions:
+    - Implements factory pattern for dynamic parser selection based on monitoring tool output format
+    - Uses registry pattern for extensible parser type management and registration
+    - Provides type-safe parser instantiation with comprehensive error handling
+    - Supports dependency injection through visitor class parameterization
+    - Enables runtime parser configuration for diverse monitoring scenarios
+
+    ### Role in the System:
+    - Serves as the central entry point for parser instantiation across the framework
+    - Facilitates seamless integration with different Android monitoring tools and their outputs
+    - Provides abstraction layer for parser selection logic and configuration management
+    - Enables extensible architecture for adding new parser implementations without code modification
+    - Supports polymorphic parser usage through unified BaseScreenParser interface
+
+    ### Design Note - Extensibility:
+    The factory uses a registry pattern to enable dynamic parser registration.
+    New parser types can be added by implementing BaseScreenParser and registering
+    through register_parser_type() without modifying existing factory code.
     """
 
     # Registry of parser types and their implementations
@@ -24,8 +53,8 @@ class ParserFactory:
     @classmethod
     def register_default_parsers(cls):
         """Register the default parser implementations."""
-        from rv_android_core.parser.screen.droidbot.droidbot_parser import DroidBotParser
-        from rv_android_core.parser.screen.uiautomator.uiautomator_parser import UIAutomator2Parser
+        from rv_screen_parser.parser.screen.droidbot.droidbot_parser import DroidBotParser
+        from rv_screen_parser.parser.screen.uiautomator.uiautomator_parser import UIAutomator2Parser
 
         cls.register_parser_type(ParserType.DROIDBOT, DroidBotParser)
         cls.register_parser_type(ParserType.UIAUTOMATOR, UIAutomator2Parser)

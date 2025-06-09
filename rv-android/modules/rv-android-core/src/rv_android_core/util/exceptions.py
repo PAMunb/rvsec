@@ -107,3 +107,100 @@ class ActionExecutionError(ExecutionError):
     def __str__(self):
         action_info = f" (Action ID: {self.action_id})" if self.action_id else ""
         return f"{super().__str__()}{action_info}"
+
+
+# Enhanced exception hierarchy for improved automatic handling
+
+class RVTaskError(RVAndroidError):
+    """Base exception for task-related errors in the experiment framework."""
+    
+    def __init__(self, message: str, task_id: Optional[str] = None, cause: Optional[Exception] = None):
+        super().__init__(message, cause)
+        self.task_id = task_id
+    
+    def __str__(self):
+        task_info = f" (Task: {self.task_id})" if self.task_id else ""
+        return f"{super().__str__()}{task_info}"
+
+
+class RVTaskExecutionError(RVTaskError):
+    """Exception for task execution failures in experiment workflows."""
+    pass
+
+
+class RVTaskConfigurationError(RVTaskError):
+    """Exception for task configuration errors in experiment setup."""
+    pass
+
+
+class RVTaskTimeoutError(RVTaskError):
+    """Exception for task timeout errors during experiment execution."""
+    pass
+
+
+class RVToolError(RVAndroidError):
+    """Base exception for tool-related errors in the testing framework."""
+    
+    def __init__(self, message: str, tool_name: Optional[str] = None, cause: Optional[Exception] = None):
+        super().__init__(message, cause)
+        self.tool_name = tool_name
+    
+    def __str__(self):
+        tool_info = f" (Tool: {self.tool_name})" if self.tool_name else ""
+        return f"{super().__str__()}{tool_info}"
+
+
+class RVToolExecutionError(RVToolError):
+    """Exception for tool execution failures during testing operations."""
+    pass
+
+
+class RVToolConfigurationError(RVToolError):
+    """Exception for tool configuration errors during setup."""
+    pass
+
+
+class RVExperimentError(RVAndroidError):
+    """Base exception for experiment-related errors in the research framework."""
+    
+    def __init__(self, message: str, experiment_id: Optional[str] = None, cause: Optional[Exception] = None):
+        super().__init__(message, cause)
+        self.experiment_id = experiment_id
+    
+    def __str__(self):
+        exp_info = f" (Experiment: {self.experiment_id})" if self.experiment_id else ""
+        return f"{super().__str__()}{exp_info}"
+
+
+class RVExperimentSetupError(RVExperimentError):
+    """Exception for experiment setup failures during configuration."""
+    pass
+
+
+class RVExperimentExecutionError(RVExperimentError):
+    """Exception for experiment execution failures during runtime."""
+    pass
+
+
+class RVParsingError(RVAndroidError):
+    """Base exception for parsing-related errors in analysis components."""
+    
+    def __init__(self, message: str, parser_type: Optional[str] = None, cause: Optional[Exception] = None):
+        super().__init__(message, cause)
+        self.parser_type = parser_type
+    
+    def __str__(self):
+        parser_info = f" (Parser: {self.parser_type})" if self.parser_type else ""
+        return f"{super().__str__()}{parser_info}"
+
+
+class RVLLMError(RVAndroidError):
+    """Base exception for language model related errors."""
+    
+    def __init__(self, message: str, model_name: Optional[str] = None, cause: Optional[Exception] = None):
+        super().__init__(message, cause)
+        self.model_name = model_name
+    
+    def __str__(self):
+        model_info = f" (Model: {self.model_name})" if self.model_name else ""
+        return f"{super().__str__()}{model_info}"

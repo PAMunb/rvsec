@@ -13,6 +13,10 @@ rv-android-core = {path = "../rv-android-core", develop = true}
 regex = "*"  # Para expressões regulares avançadas
 python-dateutil = "*"  # Para parsing de timestamps
 
+[tool.poetry.group.dev.dependencies]
+pytest = "^7.4.0"
+pytest-cov = "^4.1.0"
+
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"

@@ -6,7 +6,7 @@ from rv_android_core.domain.static import StaticAnalysisData
 from rv_android_core.domain.widget import WidgetEventType, Widget
 from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
 from rv_android_core.util.logging.manager import LoggingManager
-from rv_android_core.parser.screen.visitor.model import ItemAction, ScreenItem, ScreenDescription, Counter, Node
+from rv_screen_parser.parser.screen.visitor.model import ItemAction, ScreenItem, ScreenDescription, Counter, Node
 
 
 class AbstractScreenVisitor(ABC):

@@ -1,0 +1,37 @@
+[tool.poetry]
+name = "rv-experiment"
+version = "0.1.0"
+description = "Experiment orchestration and coordination for RV-Android platform"
+authors = ["RV-Android Team"]
+readme = "README.md"
+packages = [{include = "rv_experiment", from = "src"}]
+
+[tool.poetry.dependencies]
+python = ">=3.12,<4.0"
+# Dependências de todos os módulos (orquestrador final)
+rv-android-core = {path = "../rv-android-core", develop = true}
+rv-monitor-generator = {path = "../rv-monitor-generator", develop = true}
+rv-instrumentation = {path = "../rv-instrumentation", develop = true}
+rv-static-analysis = {path = "../rv-static-analysis", develop = true}
+rv-screen-parser = {path = "../rv-screen-parser", develop = true}
+rv-coverage = {path = "../rv-coverage", develop = true}
+rv-llm = {path = "../rv-llm", develop = true}
+rv-tools = {path = "../rv-tools", develop = true}
+# Dependências específicas para orquestração
+celery = "*"  # Para execução assíncrona de tarefas (opcional)
+redis = "*"  # Backend para Celery (opcional)
+pandas = "*"  # Para análise de resultados
+matplotlib = "*"  # Para visualizações
+seaborn = "*"  # Para gráficos avançados
+
+[tool.poetry.group.dev.dependencies]
+pytest = "*"
+pytest-cov = "*"
+pytest-asyncio = "*"
+
+[tool.poetry.scripts]
+rv-experiment = "rv_experiment.__main__:main"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

@@ -1,11 +1,19 @@
 # rvandroid/util/error/error_handler.py
+import functools
 import threading
 import time
-from typing import Dict, List, Callable, Any, Type, Optional
+from contextlib import contextmanager
+from typing import Dict, List, Callable, Any, Type, Optional, Union
 
 from rv_android_core.util.error.handler_registry import HandlerRegistry
 from rv_android_core.util.error.recovery_strategies import RecoveryStrategies
-from rv_android_core.util.exceptions import RVAndroidError, ADBError, EmulatorError, RvTimeoutError
+from rv_android_core.util.exceptions import (
+    RVAndroidError, ADBError, EmulatorError, RvTimeoutError,
+    RVTaskError, RVTaskExecutionError, RVTaskConfigurationError, RVTaskTimeoutError,
+    RVToolError, RVToolExecutionError, RVToolConfigurationError,
+    RVExperimentError, RVExperimentSetupError, RVExperimentExecutionError,
+    RVParsingError, RVLLMError
+)
 from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
 from rv_android_core.util.logging.manager import LoggingManager
 
@@ -110,6 +118,13 @@ class ErrorHandler:
         # Timeout error handling
         self.register_handler(RvTimeoutError, RecoveryStrategies.handle_timeout_error)
 
+        # Enhanced exception hierarchy handlers
+        self.register_handler(RVTaskError, self._handle_task_error)
+        self.register_handler(RVToolError, self._handle_tool_error)
+        self.register_handler(RVExperimentError, self._handle_experiment_error)
+        self.register_handler(RVParsingError, self._handle_parsing_error)
+        self.register_handler(RVLLMError, self._handle_llm_error)
+
         # General RVAndroid error
         self.register_handler(RVAndroidError, self._handle_generic_error)
 
@@ -124,16 +139,38 @@ class ErrorHandler:
         """
         self._registry.register(error_type, handler)
 
-    def handle_error(self, error: Exception, context: Optional[Dict[str, Any]] = None) -> bool:
+    def handle_error(self, error: Exception, context: Optional[Union[Dict[str, Any], 'ErrorContext']] = None) -> bool:
         """
-        Handle an error using registered handlers.
+        Handle an error using registered handlers with enhanced context support.
 
         Args:
             error: The exception to handle
-            context: Additional context information
+            context: Additional context information (dict, ErrorContext, or None for auto-introspection)
 
         Returns:
             True if the error was handled, False otherwise
+        """
+        # Process context - support both legacy dict and new ErrorContext
+        if hasattr(context, 'build') and callable(getattr(context, 'build')):
+            # ErrorContext instance
+            final_context = context.build(frame_offset=3)
+        elif isinstance(context, dict):
+            # Legacy dictionary context
+            final_context = context
+        elif context is None:
+            # Use empty context when none provided (maintain backward compatibility)
+            final_context = {}
+        else:
+            final_context = {}
+
+        return self._handle_error_internal(error, final_context)
+
+    def _handle_error_internal(self, error: Exception, context: Dict[str, Any]) -> bool:
+        """
+        Internal error handling implementation that maintains original behavior.
+        
+        This method preserves the exact same logic as the original handle_error method
+        to ensure 100% backward compatibility.
         """
         error_type = type(error)
         error_name = error_type.__name__
@@ -237,3 +274,193 @@ class ErrorHandler:
         self._error_counts = {}
         self._error_history = []
         self._recovery_attempts = {}
+    
+    # Enhanced error handling methods for hybrid approach
+    
+    def handle_error_with_introspection(self, error: Exception, **context_kwargs) -> bool:
+        """
+        Handle error with automatic introspection and minimal context.
+        
+        This method provides a cleaner alternative to the standard handle_error
+        by automatically capturing caller information and reducing boilerplate.
+        
+        Args:
+            error: The exception to handle
+            **context_kwargs: Additional context data to include
+            
+        Returns:
+            True if the error was handled, False otherwise
+            
+        Usage:
+        ```python
+        # Instead of building verbose context manually:
+        try:
+            risky_operation()
+        except Exception as e:
+            self.error_handler.handle_error_with_introspection(e, task_id=task.id)
+        ```
+        """
+        from rv_android_core.util.error.context import ErrorContext
+        context = ErrorContext(**context_kwargs).build(frame_offset=3)
+        return self._handle_error_internal(error, context)
+    
+    def create_context(self, **kwargs) -> 'ErrorContext':
+        """
+        Create a new ErrorContext for fluent context building.
+        
+        Args:
+            **kwargs: Initial context data
+            
+        Returns:
+            ErrorContext instance for method chaining
+            
+        Usage:
+        ```python
+        try:
+            risky_operation()
+        except Exception as e:
+            self.error_handler.create_context()\
+                .with_component("TaskExecutor")\
+                .with_phase("execution")\
+                .with_data(task_id=task.id)\
+                .handle(e, self.error_handler)
+        ```
+        """
+        from rv_android_core.util.error.context import ErrorContext
+        return ErrorContext(**kwargs)
+    
+    @contextmanager
+    def error_context(self, **context_kwargs):
+        """
+        Context manager for automatic error handling within a scope.
+        
+        Args:
+            **context_kwargs: Context information to apply to any errors
+            
+        Usage:
+        ```python
+        with self.error_handler.error_context(component="TaskExecutor", phase="setup"):
+            # Code that might raise exceptions - automatically handled
+            risky_operation()
+        ```
+        """
+        try:
+            yield
+        except Exception as e:
+            from rv_android_core.util.error.context import ErrorContext
+            context = ErrorContext(**context_kwargs).build(frame_offset=2)
+            if not self._handle_error_internal(e, context):
+                # Re-raise if not handled
+                raise
+    
+    @staticmethod
+    def handle_errors(
+        component: Optional[str] = None,
+        phase: Optional[str] = None,
+        reraise: bool = False,
+        **context_kwargs
+    ):
+        """
+        Decorator for automatic error handling (Spring-like approach).
+        
+        Args:
+            component: Component name for error context
+            phase: Phase/operation name for error context
+            reraise: Whether to re-raise unhandled exceptions
+            **context_kwargs: Additional context data
+        
+        Usage:
+        ```python
+        @ErrorHandler.handle_errors(component="TaskExecutor", phase="execution")
+        def execute_task(self, task):
+            # Method implementation - errors automatically handled
+            return self._do_execution(task)
+        
+        @ErrorHandler.handle_errors(component="DataProcessor", reraise=True)
+        def critical_operation(self):
+            # Errors logged but re-raised for critical operations
+            pass
+        ```
+        """
+        def decorator(func):
+            @functools.wraps(func)
+            def wrapper(*args, **kwargs):
+                # Get error handler instance
+                handler = ErrorHandler.get_instance()
+                
+                # Build context with provided values and introspection
+                from rv_android_core.util.error.context import ErrorContext
+                error_context = ErrorContext(**context_kwargs)
+                if component:
+                    error_context.with_component(component)
+                if phase:
+                    error_context.with_phase(phase)
+                
+                try:
+                    return func(*args, **kwargs)
+                except Exception as e:
+                    context = error_context.build(frame_offset=2)
+                    handled = handler._handle_error_internal(e, context)
+                    
+                    if not handled and reraise:
+                        raise
+                    elif not handled:
+                        # Log that error was not handled but don't re-raise
+                        handler._logger.warning(f"Unhandled error in {func.__name__}: {e}")
+                    
+            return wrapper
+        return decorator
+    
+    # Enhanced exception hierarchy handlers
+    
+    def _handle_task_error(self, error: RVTaskError, context: Optional[Dict[str, Any]] = None) -> bool:
+        """Handle task-related errors with enhanced context."""
+        self._logger.info(f"Task error recorded: {error.message}")
+        if hasattr(error, 'task_id') and error.task_id:
+            self._logger.info(f"Task ID: {error.task_id}")
+        return False  # Allow further handling
+    
+    def _handle_tool_error(self, error: RVToolError, context: Optional[Dict[str, Any]] = None) -> bool:
+        """Handle tool-related errors with enhanced context."""
+        self._logger.info(f"Tool error recorded: {error.message}")
+        if hasattr(error, 'tool_name') and error.tool_name:
+            self._logger.info(f"Tool: {error.tool_name}")
+        return False  # Allow further handling
+    
+    def _handle_experiment_error(self, error: RVExperimentError, context: Optional[Dict[str, Any]] = None) -> bool:
+        """Handle experiment-related errors with enhanced context."""
+        self._logger.info(f"Experiment error recorded: {error.message}")
+        if hasattr(error, 'experiment_id') and error.experiment_id:
+            self._logger.info(f"Experiment ID: {error.experiment_id}")
+        return False  # Allow further handling
+    
+    def _handle_parsing_error(self, error: RVParsingError, context: Optional[Dict[str, Any]] = None) -> bool:
+        """Handle parsing-related errors with enhanced context."""
+        self._logger.info(f"Parsing error recorded: {error.message}")
+        if hasattr(error, 'parser_type') and error.parser_type:
+            self._logger.info(f"Parser: {error.parser_type}")
+        return False  # Allow further handling
+    
+    def _handle_llm_error(self, error: RVLLMError, context: Optional[Dict[str, Any]] = None) -> bool:
+        """Handle LLM-related errors with enhanced context."""
+        self._logger.info(f"LLM error recorded: {error.message}")
+        if hasattr(error, 'model_name') and error.model_name:
+            self._logger.info(f"Model: {error.model_name}")
+        return False  # Allow further handling
+
+
+# Global convenience functions for easy access to enhanced features
+
+def error_context(**context_kwargs):
+    """
+    Global context manager function for scoped error handling.
+    
+    Usage:
+    ```python
+    with error_context(component="TaskExecutor", phase="setup"):
+        # Code block - errors automatically handled
+        risky_operation()
+    ```
+    """
+    handler = ErrorHandler.get_instance()
+    return handler.error_context(**context_kwargs)

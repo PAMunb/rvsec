@@ -1,252 +1,311 @@
 # RV-Android: Runtime Verification for Android Applications
 
-A modular framework for runtime verification of Android applications, supporting both JCA (Java Cryptographic Architecture) and generic monitored operations specifications through JavaMOP and RV-Monitor integration.
+A modular framework for runtime verification of Android applications, supporting monitored operations through JavaMOP and RV-Monitor integration. Enables monitoring of both JCA (Java Cryptographic Architecture) and generic programming patterns.
 
 ## 🏗️ Architecture Overview
 
-### Modular Design
-RV-Android follows a **Poetry workspace architecture** optimized for integrated development while maintaining logical separation:
+RV-Android uses a modular Poetry workspace architecture optimized for development productivity while maintaining clear separation of concerns:
 
 ```
-rv-android/                           # 🏠 Main workspace
+rv-android/
 ├── modules/                          # 📦 Independent modules
-│   ├── rv-android-core/             # 🧠 Core utilities and commands
-│   ├── rv-monitor-generator/        # 🔧 Monitor generation engine
-│   └── rvandroid/                   # 🎯 Main application framework
+│   ├── rv-android-core/             # 🧠 Core infrastructure
+│   ├── rv-monitor-generator/        # 🔧 Monitor generation
+│   ├── rv-instrumentation/          # 📱 APK instrumentation
+│   ├── rv-static-analysis/          # 🔍 Static analysis tools
+│   ├── rv-coverage/                 # 📊 Coverage analysis
+│   ├── rv-screen-parser/            # 📱 UI parsing framework
+│   ├── rv-llm/                      # 🤖 LLM integration
+│   ├── rv-tools/                    # 🛠️ Testing tools registry
+│   ├── rv-experiment/               # 🧪 Experiment framework
+│   ├── rvandroid-tool/              # 🎯 AI-driven testing server
+│   └── rvandroid/                   # 📦 Tool registry and patterns
 ├── pyproject.toml                   # 📋 Workspace configuration
-└── README.md                        # 📖 This file
+└── modules/install.sh               # 🚀 Module installer
 ```
 
-### Core Modules
+### Modules Overview
 
-#### 🧠 **rv-android-core**
-- **Purpose**: Foundation utilities and command execution infrastructure
-- **Key Components**: ErrorHandler, LoggingManager, Command execution, Android utilities
-- **Dependencies**: None (base module)
+| Module | Purpose | README |
+|--------|---------|--------|
+| **rv-android-core** | Foundation infrastructure (ErrorHandler, EventBus, domain models) | [📖](modules/rv-android-core/README.md) |
+| **rv-monitor-generator** | JavaMOP/RV-Monitor integration for generating monitors | [📖](modules/rv-monitor-generator/README.md) |
+| **rv-instrumentation** | APK instrumentation with monitor weaving | [📖](modules/rv-instrumentation/README.md) |
+| **rv-static-analysis** | Static analysis tools (GATOR, GESDA, REACH) | [📖](modules/rv-static-analysis/README.md) |
+| **rv-coverage** | Coverage analysis and tracking | [📖](modules/rv-coverage/README.md) |
+| **rv-screen-parser** | Android UI parsing with visitor patterns | [📖](modules/rv-screen-parser/README.md) |
+| **rv-llm** | Language model integration framework | [📖](modules/rv-llm/README.md) |
+| **rv-tools** | Testing tool plugin system | [📖](modules/rv-tools/README.md) |
+| **rv-experiment** | Experiment orchestration and coordination | [📖](modules/rv-experiment/README.md) |
+| **rvandroid-tool** | AI-driven testing server with LLM integration | [📖](modules/rvandroid-tool/README.md) |
+| **rvandroid** | Tool registry and UI pattern detection | [📖](modules/rvandroid/README.md) |
 
-#### 🔧 **rv-monitor-generator** 
-- **Purpose**: JavaMOP and RV-Monitor integration for generating monitoring artifacts
-- **Key Components**: RuntimeVerificationGenerator, RVGeneratorConfig, CLI interface
-- **Dependencies**: rv-android-core
-- **Supports**: JCA specifications, Generic operation monitoring
+## 🚀 Quick Start Guide
 
-#### 🎯 **rvandroid**
-- **Purpose**: Main application framework for Android testing and analysis
-- **Key Components**: Experiment management, Tool integration, Analysis pipelines
-- **Dependencies**: rv-android-core, rv-monitor-generator
+### 1. First-Time Setup (New Project)
 
-## 🚀 Development Workflow
-
-### Prerequisites
-```bash
-# Required tools
-- Python >= 3.12
-- Poetry >= 1.8.0
+**Prerequisites:**
+- Python 3.12+
+- Poetry 1.8+
 - Java 11+
 - Android SDK
-- JavaMOP and RV-Monitor tools (in RVSEC environment)
+- RVSEC environment
 
-# Environment setup
-export RVSEC_HOME="/path/to/rvsec"  # Optional: for auto-discovery
-```
+**Complete setup sequence:**
 
-### Initial Setup
 ```bash
-# Clone and install workspace
+# 1. Install RVSEC (required for monitor generation)
+cd /path/to/rvsec
+./configure.sh
+mvn clean install -DskipTests -DskipMopAgent
+
+# 2. Set environment variables
+export RVSEC_HOME="/path/to/rvsec"
+export ANDROID_HOME="/path/to/android-sdk"
+
+# 3. Clone and setup RV-Android
 git clone <repository-url>
 cd rv-android
 
-# Install all modules and dependencies
-poetry install
+# 4. Install all modules in dependency order
+cd modules
+./install.sh
 
-# Verify installation
-poetry run python -c "import rv_android_core, rv_monitor_generator, rvandroid; print('✅ All modules loaded')"
+# 5. Verify installation
+cd ..
+poetry run python -c "import rv_android_core, rv_monitor_generator; print('✅ Setup complete')"
 ```
 
-### Development Commands
+### 2. Development Update (Existing Project)
 
-#### 🧪 **Testing**
 ```bash
-# Run all tests across all modules
+# 1. Pull latest changes
+git pull
+
+# 2. Update dependencies across all modules
+cd modules
+./install.sh --verbose
+
+# 3. Run tests to verify update
+cd ..
+poetry run pytest modules/*/tests/ -v
+```
+
+### 3. Creating a New Module
+
+```bash
+# 1. Create module structure
+cd modules
+mkdir rv-new-module
+cd rv-new-module
+
+# 2. Initialize Poetry project
+poetry init --name rv-new-module --dependency rv-android-core
+mkdir -p src/rv_new_module tests
+
+# 3. Create basic structure
+cat > src/rv_new_module/__init__.py << 'EOF'
+"""RV New Module - Description of functionality."""
+__version__ = "0.1.0"
+EOF
+
+# 4. Add to install script
+# Edit modules/install.sh and add "rv-new-module" to MODULES array
+
+# 5. Install and test
+cd ..
+./install.sh rv-new-module
+poetry run pytest rv-new-module/tests/
+```
+
+## 💻 Development Workflows
+
+### Daily Development Commands
+
+```bash
+# Navigate to project root
+cd /path/to/rv-android
+
+# Run all tests
 poetry run pytest
 
 # Test specific module
-poetry run pytest modules/rv-android-core/tests/
-poetry run pytest modules/rv-monitor-generator/tests/
-poetry run pytest modules/rvandroid/tests/
+poetry run pytest modules/rv-monitor-generator/tests/ -v
 
-# Test with coverage
+# Install single module (after changes)
+cd modules
+./install.sh rv-android-core --verbose
+
+# Run with coverage
 poetry run pytest --cov=modules --cov-report=html
-
-# Test specific functionality
-poetry run pytest -k "test_runtime_verification" -v
-
-# Skip slow integration tests (for faster development)
-poetry run pytest -m "not slow"
-
-# Run only slow/integration tests
-poetry run pytest -m "slow"
 ```
 
-#### 🔧 **Monitor Generation**
+### Monitor Generation Workflow
+
 ```bash
-# Using CLI (JCA specifications)
+# Generate JCA cryptography monitors
 poetry run rv-monitor-generator generate \
-  --specs-dir /rvsec/rvsec-mop/src/main/resources/jca \
+  --specs-dir $RVSEC_HOME/rvsec/rvsec-mop/src/main/resources/jca \
   --output ./output/jca-monitors
 
-# Using CLI (Generic specifications)  
+# Generate generic pattern monitors
 poetry run rv-monitor-generator generate \
-  --specs-dir /rvsec/rvsec-mop/src/main/resources/generic \
+  --specs-dir $RVSEC_HOME/rvsec/rvsec-mop/src/main/resources/generic \
   --output ./output/generic-monitors
 
-# Environment-based auto-discovery
-poetry run rv-monitor-generator generate --output ./output/auto
+# Auto-discover specifications (requires RVSEC_HOME)
+poetry run rv-monitor-generator generate --output ./output/auto-monitors
 ```
 
-#### 📊 **Analysis and Experiments**
+### Static Analysis Workflow
+
 ```bash
-# Run experiment framework
+# Analyze single APK
+poetry run rv-static-analysis analyze \
+  --apk /path/to/app.apk \
+  --output /analysis/results
+
+# Batch analysis
+poetry run rv-static-analysis batch \
+  --apks-dir /path/to/apks \
+  --output /analysis/batch-results
+```
+
+### Experiment Execution
+
+```bash
+# Run complete experiment
 poetry run python run_test_framework.py
 
-# Execute main RV-Android application
+# Execute main application
 poetry run python main.py
 
-# Run specific analysis
-poetry run rvandroid --help
+# Run specific experiment configuration
+poetry run python -m rv_experiment \
+  --config ./tf_configs/basic_config.json
 ```
 
-#### 🛠️ **Development Tools**
+## 🔧 PyCharm Development Setup
+
+### Project Configuration
+
+1. **Open Project**: Open the `rv-android` directory (workspace root) in PyCharm
+2. **Python Interpreter**: Configure Poetry environment
+   - File → Settings → Project → Python Interpreter
+   - Add → Poetry Environment → Existing environment
+   - Select the Poetry virtual environment for rv-android
+
+3. **Source Roots**: Mark module source directories
+   - Right-click `modules/rv-android-core/src` → Mark Directory as → Sources Root
+   - Repeat for all modules: `modules/*/src`
+
+4. **Test Configuration**: 
+   - Run/Debug Configurations → Templates → Python tests → pytest
+   - Working directory: `$PROJECT_DIR$`
+   - Additional arguments: `-v`
+
+### Debugging Workflow
+
 ```bash
-# Code formatting
-poetry run black modules/
-
-# Type checking  
-poetry run mypy modules/
-
-# Linting
-poetry run flake8 modules/
-
-# Dependency analysis
-poetry show --tree
-
-# Test markers and configuration
-# Custom pytest markers are configured in each module's pyproject.toml:
-# - slow: Integration tests that require external tools (RVSEC)
-# - Use: pytest -m "not slow" for fast development cycles
+# Set up debugging in PyCharm
+# 1. Create Python configuration
+# 2. Script path: modules/rv-monitor-generator/src/rv_monitor_generator/__main__.py
+# 3. Parameters: generate --specs-dir /path/to/specs --output /tmp/debug
+# 4. Working directory: /path/to/rv-android
+# 5. Environment variables: RVSEC_HOME=/path/to/rvsec
 ```
 
-### Module-Specific Development
+## 🧪 Testing Strategy
 
-#### Working on rv-android-core
+### Test Organization
+
 ```bash
-# Navigate to module
+# Fast unit tests (no external dependencies)
+poetry run pytest -m "not slow" -v
+
+# Integration tests (requires RVSEC)
+poetry run pytest -m "slow" -v
+
+# Module-specific tests
+poetry run pytest modules/rv-android-core/tests/ -v
+poetry run pytest modules/rv-monitor-generator/tests/test_runtime_verification_generator_complete.py -v
+
+# Test with debugging
+poetry run pytest --tb=long --capture=no -vvv
+```
+
+### Continuous Testing
+
+```bash
+# Watch mode for development
+poetry run pytest-watch modules/rv-android-core/tests/
+
+# Coverage report
+poetry run pytest --cov=modules --cov-report=html
+# View: open htmlcov/index.html
+```
+
+## 🏗️ Module Development Patterns
+
+### Working on rv-android-core
+
+```bash
 cd modules/rv-android-core
 
 # Run module tests
 poetry run pytest tests/ -v
 
-# Test in isolation (if needed)
-poetry install --only-root
-poetry run pytest tests/
+# Test domain models
+poetry run pytest tests/domain/ -v
+
+# Test error handling
+poetry run pytest tests/util/error/ -v
 ```
 
-#### Working on rv-monitor-generator
-```bash
-# Test monitor generation pipeline
-poetry run pytest modules/rv-monitor-generator/tests/test_runtime_verification_generator_complete.py -v
+### Working on rv-monitor-generator
 
-# Test CLI functionality
+```bash
+# Test monitor generation
+poetry run pytest modules/rv-monitor-generator/tests/ -k "test_generate" -v
+
+# Test CLI interface
 poetry run rv-monitor-generator --help
 
-# Test with real RVSEC environment
-poetry run pytest modules/rv-monitor-generator/tests/ -k "Integration" -v
-```
-
-## 📦 Production Deployment Strategy
-
-### Hybrid Approach: Development vs Production
-
-#### Development Mode (Current)
-- **Structure**: Integrated workspace with path dependencies
-- **Benefits**: Full PyCharm integration, cross-module refactoring, unified debugging
-- **Commands**: All development commands above
-
-#### Production Mode (Future)
-For independent module deployment, each module would have dual configuration:
-
-**Development Configuration** (current):
-```toml
-# modules/rv-monitor-generator/pyproject.toml
-[tool.poetry.dependencies]
-rv-android-core = {path = "../rv-android-core", develop = true}
-```
-
-**Production Configuration** (future):
-```toml
-# modules/rv-monitor-generator/pyproject-prod.toml  
-[tool.poetry.dependencies]
-rv-android-core = "^0.1.0"  # Published PyPI package
-```
-
-**Build Pipeline** (future):
-```bash
-# Step 1: Build and publish core
-cd modules/rv-android-core
-poetry build
-poetry publish
-
-# Step 2: Update dependent modules
-cd ../rv-monitor-generator
-cp pyproject-prod.toml pyproject.toml
-poetry update rv-android-core
-poetry build
-poetry publish
-
-# Step 3: Build applications
-cd ../rvandroid  
-cp pyproject-prod.toml pyproject.toml
-poetry update rv-android-core rv-monitor-generator
-poetry build
-```
-
-## 🎯 Monitored Operations Support
-
-### JCA Specifications
-- **Purpose**: Monitor Java Cryptographic Architecture usage
-- **Specifications**: MessageDigest, SecureRandom, Cipher operations
-- **Location**: `/rvsec/rvsec-mop/src/main/resources/jca/`
-- **Usage**: Cryptographic API compliance checking
-
-### Generic Specifications  
-- **Purpose**: Monitor general programming patterns
-- **Specifications**: Iterator, Collection, Stream operations
-- **Location**: `/rvsec/rvsec-mop/src/main/resources/generic/`
-- **Usage**: General API contract enforcement
-
-### Example: Experiment Separation
-```bash
-# Experiment 1: JCA Monitoring
+# Debug with real RVSEC
 poetry run rv-monitor-generator generate \
-  --specs-dir /rvsec/rvsec-mop/src/main/resources/jca \
-  --output ./experiments/crypto-monitoring
-
-# Experiment 2: Generic Monitoring  
-poetry run rv-monitor-generator generate \
-  --specs-dir /rvsec/rvsec-mop/src/main/resources/generic \
-  --output ./experiments/pattern-monitoring
+  --specs-dir $RVSEC_HOME/examples/MOPSyntax \
+  --output /tmp/debug-monitors \
+  --verbose
 ```
 
-## 🐛 Troubleshooting
+### Working on rv-experiment
+
+```bash
+# Test experiment framework
+poetry run pytest modules/rv-experiment/tests/ -v
+
+# Run basic experiment
+poetry run python -c "
+from rv_experiment.experiment.experiment_controller import ExperimentController
+controller = ExperimentController()
+print('Experiment framework ready')
+"
+```
+
+## 🛠️ Troubleshooting
 
 ### Common Issues
 
-#### Import Errors
+#### Module Import Errors
 ```bash
-# If you see "No module named 'rv_android_core'"
-# Make sure you're running from workspace root:
-cd /path/to/rv-android  # Not modules/rv-monitor-generator!
+# Error: "No module named 'rv_android_core'"
+# Solution: Ensure you're in workspace root
+cd /path/to/rv-android  # NOT modules/rv-*/
 poetry run pytest modules/rv-monitor-generator/tests/
+
+# Verify Poetry environment
+poetry env info
+poetry show --tree
 ```
 
 #### RVSEC Environment Issues
@@ -254,38 +313,86 @@ poetry run pytest modules/rv-monitor-generator/tests/
 # Set RVSEC_HOME if auto-discovery fails
 export RVSEC_HOME="/path/to/rvsec"
 
-# Verify RVSEC tools are accessible
+# Verify RVSEC installation
 ls $RVSEC_HOME/javamop/bin/javamop
 ls $RVSEC_HOME/rv-monitor/bin/rv-monitor
+
+# Test RVSEC integration
+poetry run rv-monitor-generator generate --dry-run
+```
+
+#### Poetry Installation Issues
+```bash
+# Clean and reinstall
+cd modules
+for module in */; do
+  cd "$module"
+  poetry env remove --all
+  poetry install
+  cd ..
+done
+
+# Verify installation
+./install.sh --dry-run --verbose
 ```
 
 #### Test Failures
 ```bash
-# Run tests with more verbose output
-poetry run pytest -vvv --tb=long
+# Debug test failures
+poetry run pytest --tb=long --capture=no -vvv
 
-# Skip slow integration tests during development
+# Skip slow tests during development
 poetry run pytest -m "not slow"
 
-# Run tests with full debugging information
-poetry run pytest --tb=long --capture=no -v
+# Run single test with full output
+poetry run pytest modules/rv-android-core/tests/test_app.py::test_app_creation -vvv
+```
+
+### Environment Validation
+
+```bash
+# Quick environment check
+cd modules
+./install.sh --dry-run
+
+# Comprehensive validation
+poetry run python -c "
+import sys
+print(f'Python: {sys.version}')
+
+try:
+    import rv_android_core
+    print('✅ rv-android-core')
+except ImportError as e:
+    print(f'❌ rv-android-core: {e}')
+
+try:
+    import rv_monitor_generator
+    print('✅ rv-monitor-generator')
+except ImportError as e:
+    print(f'❌ rv-monitor-generator: {e}')
+
+import os
+rvsec_home = os.environ.get('RVSEC_HOME')
+print(f'RVSEC_HOME: {rvsec_home or \"Not set\"}')
+"
 ```
 
 ## 📚 Additional Resources
 
-- **Architecture Documentation**: `docs/`
 - **Configuration Examples**: `tf_configs/`, `plateau_config_example.json`
-- **Tool Integration**: `rvandroid/tools/`
-- **Analysis Framework**: `rvandroid/test_framework/`
+- **Architecture Documentation**: `docs/`
+- **Module Documentation**: Each module's `README.md`
+- **Test Data**: `modules/*/tests/resources/`
 
 ## 🤝 Contributing
 
-1. **Development**: Use workspace mode for all development
-2. **Testing**: Always run tests from workspace root
-3. **Modules**: Follow architectural patterns in existing modules
-4. **Documentation**: Update relevant docs when adding features
+1. **Development Environment**: Always use workspace mode for development
+2. **Testing**: Run tests from workspace root, not individual modules
+3. **New Modules**: Follow the module creation pattern above
+4. **Documentation**: Update relevant READMEs when adding features
 5. **Dependencies**: Add new dependencies to appropriate module only
 
 ---
 
-**Note**: This workspace is optimized for integrated development. For production deployments, consider the hybrid approach described above to maintain both development productivity and deployment flexibility.
+**Development Note**: This workspace is optimized for integrated development with Poetry path dependencies. All development should be done from the workspace root to ensure proper module resolution and dependency management.

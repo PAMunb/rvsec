@@ -4,8 +4,8 @@ from typing import List, Optional, Set, Dict, Any
 
 from rv_android_core.domain.static import StaticAnalysisData
 from rv_android_core.domain.widget import WidgetEventType
-from rv_android_core.parser.screen.visitor.abstract_visitor import AbstractScreenVisitor
-from rv_android_core.parser.screen.visitor.model import ItemAction, ScreenItem, ScreenDescription, Counter, Node
+from rv_screen_parser.parser.screen.visitor.abstract_visitor import AbstractScreenVisitor
+from rv_screen_parser.parser.screen.visitor.model import ItemAction, ScreenItem, ScreenDescription, Counter, Node
 
 
 class EnhancedTextVisitor(AbstractScreenVisitor):

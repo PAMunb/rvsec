@@ -9,8 +9,9 @@ from unittest.mock import patch, Mock
 
 import pytest
 
-from rvandroid.parser.screen.uiautomator.uiautomator_parser import UIAutomator2Parser
-from rvandroid.parser.screen.visitor.model import ScreenDescription, Node
+from rv_screen_parser.parser.screen.uiautomator.uiautomator_parser import UIAutomator2Parser
+from rv_screen_parser.parser.screen.visitor.model import ScreenDescription, Node
+from rv_android_core.util.exceptions import RVParsingError
 
 
 @pytest.fixture
@@ -52,7 +53,7 @@ class TestUIAutomator2ParserEdgeCases:
             "activity": "TestActivity"
         }
 
-        with pytest.raises(ValueError):
+        with pytest.raises(RVParsingError):
             parser.parse_screen(state_data)
 
     def test_invalid_xml_format(self, parser):
@@ -63,7 +64,7 @@ class TestUIAutomator2ParserEdgeCases:
             "activity": "TestActivity"
         }
 
-        with pytest.raises(ValueError):
+        with pytest.raises(RVParsingError):
             parser.parse_screen(state_data)
 
     def test_unknown_attributes(self, parser, mock_visitor):

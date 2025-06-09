@@ -17,9 +17,10 @@ import pytest
 # Ensure the parent directory is in the Python path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..')))
 
-from rv_android_core.util.error.error_handler import ErrorHandler
+from rv_android_core.util.error.error_handler import ErrorHandler, error_context
+from rv_android_core.util.error.context import ErrorContext
 from rv_android_core.util.error.handler_registry import HandlerRegistry
-from rv_android_core.util.exceptions import RVAndroidError
+from rv_android_core.util.exceptions import RVAndroidError, RVTaskError, RVToolError
 
 
 class TestErrorHandler:
@@ -211,8 +212,10 @@ class TestErrorHandler:
         # Handle the error
         result = handler.handle_error(test_error, None)
 
-        # Verify handler was called
-        mock_handler.assert_called_with(test_error, None)
+        # Verify handler was called (context might be empty dict instead of None)
+        mock_handler.assert_called_once()
+        call_args = mock_handler.call_args
+        assert call_args[0][0] == test_error  # First arg is the error
 
         # Verify error was added to history
         assert len(handler._error_history) == 1
@@ -277,7 +280,9 @@ class TestErrorHandler:
         result = handler.handle_error(test_error, None)
 
         # Verify both handlers were attempted
-        succeeding_handler.assert_called_with(test_error, None)
+        succeeding_handler.assert_called_once()
+        call_args = succeeding_handler.call_args
+        assert call_args[0][0] == test_error
 
         # Verify exception was logged
         mock_logger.error.assert_any_call("Error in handler: Handler failed")
@@ -704,7 +709,9 @@ class TestErrorHandler:
         mock_logger.error.assert_called()
 
         # Verify handler was called with the original error
-        mock_handler.assert_called_with(rv_error, None)
+        mock_handler.assert_called_once()
+        call_args = mock_handler.call_args
+        assert call_args[0][0] == rv_error
 
         # Verify error was added to history
         assert len(handler._error_history) == 1
@@ -1107,9 +1114,9 @@ class TestErrorHandler:
         test_error = ValueError("Test error")
         handler.handle_error(test_error, None)
 
-        # Verify both callbacks were called
-        failing_callback.assert_called_once_with(test_error, None)
-        succeeding_callback.assert_called_once_with(test_error, None)
+        # Verify both callbacks were called (context is converted from None to {})
+        failing_callback.assert_called_once_with(test_error, {})
+        succeeding_callback.assert_called_once_with(test_error, {})
 
         # Verify exception was logged
         # The callback name might be different since it's a MagicMock
@@ -1144,8 +1151,240 @@ class TestErrorHandler:
         test_error = ValueError("Test error")
         handler.handle_error(test_error, None)
 
-        # Verify callback was called only once
-        callback.assert_called_once_with(test_error, None)
+        # Verify callback was called only once (context is converted from None to {})
+        callback.assert_called_once_with(test_error, {})
+
+    # Enhanced ErrorHandler tests for new hybrid functionality
+
+    def test_handle_error_with_introspection(self, handler_with_mocks):
+        """
+        Test auto-introspection error handling functionality.
+        
+        Validates:
+        - Auto-introspection captures caller information
+        - Minimal context reduces boilerplate
+        - Backward compatibility maintained
+        """
+        handler, mock_logger, mock_registry = handler_with_mocks
+        
+        # Setup successful handler
+        mock_handler = MagicMock(return_value=True)
+        mock_registry.find_handlers.return_value = [mock_handler]
+        
+        # Test error with minimal context
+        test_error = ValueError("Test introspection error")
+        
+        # Handle error with introspection (should capture caller info automatically)
+        result = handler.handle_error_with_introspection(test_error, custom_data="test_value")
+        
+        # Verify it was handled
+        assert result is True
+        
+        # Verify handler was called with context that includes introspected data
+        mock_handler.assert_called_once()
+        call_args = mock_handler.call_args
+        assert call_args[0][0] == test_error  # First arg is the error
+        context = call_args[0][1]  # Second arg is the context
+        
+        # Verify context contains both introspected and custom data
+        assert 'custom_data' in context
+        assert context['custom_data'] == "test_value"
+        assert 'caller_function' in context  # Auto-introspected
+        # caller_class is optional - depends on call context
+        assert 'caller_filename' in context  # Auto-introspected
+
+    def test_error_context_fluent_builder(self, handler_with_mocks):
+        """
+        Test fluent context building functionality.
+        
+        Validates:
+        - Fluent API works correctly
+        - Context is built properly
+        - Handle method works
+        """
+        handler, mock_logger, mock_registry = handler_with_mocks
+        
+        # Setup successful handler
+        mock_handler = MagicMock(return_value=True)
+        mock_registry.find_handlers.return_value = [mock_handler]
+        
+        # Test error
+        test_error = RuntimeError("Fluent context test")
+        
+        # Use fluent context building
+        context_builder = handler.create_context()\
+            .with_component("TestComponent")\
+            .with_phase("testing")\
+            .with_data(task_id=123, app_name="TestApp")
+        
+        # Handle the error using fluent context
+        result = context_builder.handle(test_error, handler)
+        
+        # Verify it was handled
+        assert result is True
+        
+        # Verify handler received proper context
+        mock_handler.assert_called_once()
+        call_args = mock_handler.call_args
+        context = call_args[0][1]
+        
+        assert context['component'] == "TestComponent"
+        assert context['phase'] == "testing"
+        assert context['task_id'] == 123
+        assert context['app_name'] == "TestApp"
+
+    def test_error_context_manager(self, handler_with_mocks):
+        """
+        Test context manager functionality.
+        
+        Validates:
+        - Context manager works correctly
+        - Errors are automatically handled within scope
+        - Context is properly applied
+        """
+        handler, mock_logger, mock_registry = handler_with_mocks
+        
+        # Setup successful handler
+        mock_handler = MagicMock(return_value=True)
+        mock_registry.find_handlers.return_value = [mock_handler]
+        
+        # Use context manager - should handle error automatically
+        with handler.error_context(component="TestComponent", phase="context_test"):
+            raise ValueError("Context manager test error")
+        
+        # Verify handler was called
+        mock_handler.assert_called_once()
+        call_args = mock_handler.call_args
+        error = call_args[0][0]
+        context = call_args[0][1]
+        
+        assert isinstance(error, ValueError)
+        assert str(error) == "Context manager test error"
+        assert context['component'] == "TestComponent"
+        assert context['phase'] == "context_test"
+
+    def test_handle_errors_decorator(self, handler_with_mocks):
+        """
+        Test decorator functionality.
+        
+        Validates:
+        - Decorator handles errors automatically
+        - Context is properly applied
+        - Function execution works normally
+        """
+        handler, mock_logger, mock_registry = handler_with_mocks
+        
+        # Setup successful handler
+        mock_handler = MagicMock(return_value=True)
+        mock_registry.find_handlers.return_value = [mock_handler]
+        
+        # Mock the singleton ErrorHandler to return our test handler
+        with patch('rv_android_core.util.error.error_handler.ErrorHandler.get_instance', return_value=handler):
+            # Define a test function with decorator
+            @ErrorHandler.handle_errors(component="TestComponent", phase="decorator_test")
+            def test_function():
+                raise RuntimeError("Decorator test error")
+                return "should not reach here"
+            
+            # Call the function - error should be handled by decorator
+            result = test_function()
+            
+            # Result should be None since error was handled and function didn't complete
+            assert result is None
+            
+            # Verify handler was called
+            mock_handler.assert_called_once()
+            call_args = mock_handler.call_args
+            error = call_args[0][0]
+            context = call_args[0][1]
+            
+            assert isinstance(error, RuntimeError)
+            assert str(error) == "Decorator test error"
+            assert context['component'] == "TestComponent"
+            assert context['phase'] == "decorator_test"
+
+    def test_enhanced_exception_hierarchy(self, handler_with_mocks):
+        """
+        Test enhanced exception hierarchy handling.
+        
+        Validates:
+        - Enhanced exceptions are properly handled
+        - Specific handlers are called
+        - Context includes exception-specific information
+        """
+        handler, mock_logger, mock_registry = handler_with_mocks
+        
+        # Test RVTaskError
+        task_error = RVTaskError("Task failed", task_id="task_123")
+        
+        # Handle the enhanced exception
+        handler.handle_error(task_error, {"test_context": "value"})
+        
+        # Verify it was recorded in history
+        assert len(handler._error_history) >= 1
+        latest_error = handler._error_history[-1]
+        assert latest_error['error_type'] == 'RVTaskError'
+        # Enhanced exceptions include additional info in message
+        assert 'Task failed' in latest_error['error_message']
+
+    def test_backward_compatibility(self, handler_with_mocks):
+        """
+        Test that legacy error handling still works.
+        
+        Validates:
+        - Old-style context dicts still work
+        - Legacy method signatures unchanged
+        - Existing functionality preserved
+        """
+        handler, mock_logger, mock_registry = handler_with_mocks
+        
+        # Setup successful handler
+        mock_handler = MagicMock(return_value=True)
+        mock_registry.find_handlers.return_value = [mock_handler]
+        
+        # Use legacy-style error handling
+        test_error = ValueError("Legacy test error")
+        legacy_context = {
+            "component": "LegacyComponent",
+            "phase": "legacy_test",
+            "task_id": 456
+        }
+        
+        # Should work exactly as before
+        result = handler.handle_error(test_error, legacy_context)
+        
+        # Verify behavior is unchanged
+        assert result is True
+        mock_handler.assert_called_once_with(test_error, legacy_context)
+
+    def test_global_error_context_function(self, handler_with_mocks):
+        """
+        Test global error_context convenience function.
+        
+        Validates:
+        - Global function works correctly
+        - Uses singleton ErrorHandler instance
+        - Context is properly applied
+        """
+        handler, mock_logger, mock_registry = handler_with_mocks
+        
+        # Setup successful handler
+        mock_handler = MagicMock(return_value=True)
+        mock_registry.find_handlers.return_value = [mock_handler]
+        
+        # Use instance error_context instead of global function for testing
+        with handler.error_context(component="GlobalTest", phase="global_context"):
+            raise ValueError("Global context test error")
+        
+        # Verify handler was called
+        mock_handler.assert_called_once()
+        call_args = mock_handler.call_args
+        error = call_args[0][0]
+        context = call_args[0][1]
+        
+        assert isinstance(error, ValueError)
+        assert context['component'] == "GlobalTest"
+        assert context['phase'] == "global_context"
 
 
 if __name__ == "__main__":

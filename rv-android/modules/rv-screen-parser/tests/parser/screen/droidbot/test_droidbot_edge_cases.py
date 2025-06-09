@@ -9,8 +9,9 @@ from unittest.mock import patch
 
 import pytest
 
-from rvandroid.parser.screen.droidbot.droidbot_parser import DroidBotParser
-from rvandroid.parser.screen.visitor.model import ScreenDescription, Node
+from rv_screen_parser.parser.screen.droidbot.droidbot_parser import DroidBotParser
+from rv_screen_parser.parser.screen.visitor.model import ScreenDescription, Node
+from rv_android_core.util.exceptions import RVParsingError
 
 
 class TestDroidBotParserEdgeCases:
@@ -19,13 +20,13 @@ class TestDroidBotParserEdgeCases:
     def test_empty_state_data(self, parser, mock_visitor):
         """Test handling of empty state data."""
         with patch.object(DroidBotParser, 'create_visitor', return_value=mock_visitor):
-            with pytest.raises(ValueError):
+            with pytest.raises(RVParsingError):
                 parser.parse_screen({})
 
     def test_missing_view_tree(self, parser, mock_visitor):
         """Test handling of missing view_tree in state data."""
         with patch.object(DroidBotParser, 'create_visitor', return_value=mock_visitor):
-            with pytest.raises(ValueError):
+            with pytest.raises(RVParsingError):
                 parser.parse_screen({"activity": "com.example.app.MainActivity"})
 
     def test_malformed_view_tree(self, parser):

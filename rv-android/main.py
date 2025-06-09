@@ -1,4 +1,33 @@
 # main.py
+"""
+RV-Android Main Entry Point - Tool Management and Experiment Delegation
+
+### Architectural Evolution:
+This main.py has been updated to focus on tool management while delegating 
+experiment execution to the modern rv-experiment module. This maintains 
+backward compatibility while enabling progressive migration to the new 
+modular architecture.
+
+### Key Responsibilities:
+- Tool discovery, loading, and variant registration
+- Command-line argument parsing and configuration management
+- Tool specification parsing and validation
+- Experiment delegation to rv-experiment module via bridge interface
+- Fallback to legacy experiment execution if bridge is not available
+
+### Bridge Pattern Implementation:
+- Uses rv_experiment.bridge to delegate experiment execution
+- Maintains compatibility with existing CLI interface
+- Provides graceful fallback to legacy ExperimentController
+- Enables progressive migration without breaking existing workflows
+
+### Module Independence:
+- Tool management remains in main.py (independent of experiment execution)
+- Experiment orchestration delegated to rv-experiment module
+- Clear separation of concerns between tool management and experiment coordination
+- Maintains existing CLI interface for backward compatibility
+"""
+
 import argparse
 import importlib
 import json
@@ -9,16 +38,26 @@ import time
 from argparse import Namespace
 from typing import Dict, Any
 
-from rvandroid.config.configuration import Configuration
-from rvandroid.config.configuration_manager import ConfigurationManager
-from rvandroid.constants import *
-from rvandroid.experiment.experiment_controller import ExperimentController
-from rvandroid.experiment.experiment_controller import execute as experiment_execute
-from rvandroid.llm.ollama_llm import OllamaLLM
-from rvandroid.tools.registry import ToolRegistry
-from rvandroid.tools.tool_factory import ToolFactory
-from rvandroid.util import utils
-from rvandroid.util.logging.manager import LoggingManager
+from rv_llm.config.configuration import Configuration
+from rv_llm.config.configuration_manager import ConfigurationManager
+from rv_android_core.constants import *
+from rv_llm.llm.ollama_llm import OllamaLLM
+from rv_tools.tools.registry import ToolRegistry
+from rv_tools.registry.factory import ToolFactory
+from rv_android_core.util import utils
+from rv_android_core.util.logging.manager import LoggingManager
+
+# Import experiment bridge for delegation to rv-experiment module
+try:
+    from rv_experiment.bridge import execute_experiment_via_bridge, execute_config_file_via_bridge
+    BRIDGE_AVAILABLE = True
+except ImportError as e:
+    print(f"Warning: rv-experiment bridge not available: {e}")
+    print("Falling back to legacy experiment execution")
+    BRIDGE_AVAILABLE = False
+    # Fallback imports for legacy execution
+    from rv_experiment.experiment.experiment_controller import ExperimentController
+    from rv_experiment.experiment.experiment_controller import execute as experiment_execute
 
 """
 RV-Android Usage Guide
@@ -253,9 +292,19 @@ def run_cli():
                 logger.error("Failed to load configuration file")
                 sys.exit(1)
 
-            # Execute experiment with loaded configuration
-            execute_with_config(experiment_config)
-            sys.exit(0)
+            # Execute experiment with loaded configuration via bridge
+            if BRIDGE_AVAILABLE:
+                success = execute_config_file_via_bridge(args.c)
+                if success:
+                    logger.info("Experiment completed successfully via rv-experiment bridge")
+                    sys.exit(0)
+                else:
+                    logger.error("Experiment failed via rv-experiment bridge")
+                    sys.exit(1)
+            else:
+                # Fallback to legacy execution
+                execute_with_config(experiment_config)
+                sys.exit(0)
         else:
             logger.error(f"Configuration file not found: {args.c}")
             sys.exit(1)
@@ -300,10 +349,17 @@ def run_cli():
     # Determine which controller to use
     use_enhanced = config.get_bool("use_enhanced_controller", False)
 
-    logger.info("Using standard experiment controller")
-
-    # Execute experiment using the standard controller
-    experiment_execute(tools=selected_tools)
+    # Execute experiment using rv-experiment bridge or fallback to legacy
+    if BRIDGE_AVAILABLE:
+        logger.info("Using rv-experiment bridge for modern experiment execution")
+        success = execute_experiment_via_bridge(tools=selected_tools)
+        if not success:
+            logger.error("Experiment execution failed via bridge")
+            sys.exit(1)
+    else:
+        logger.info("Using legacy experiment controller")
+        # Execute experiment using the standard controller
+        experiment_execute(tools=selected_tools)
 
     end = time.time()
     elapsed = end - start
@@ -627,10 +683,17 @@ def execute_with_config(config: Dict[str, Any]):
     # Execute experiment
     logger.info(f"Executing experiment with tools: {[tool.name for tool in selected_tools]}")
 
-    logger.info("Using standard experiment controller")
-
-    # Execute experiment using the standard controller
-    experiment_execute(tools=selected_tools)
+    # Execute experiment using rv-experiment bridge or fallback to legacy
+    if BRIDGE_AVAILABLE:
+        logger.info("Using rv-experiment bridge for modern experiment execution")
+        success = execute_experiment_via_bridge(tools=selected_tools)
+        if not success:
+            logger.error("Experiment execution failed via bridge")
+            return
+    else:
+        logger.info("Using legacy experiment controller")
+        # Execute experiment using the standard controller
+        experiment_execute(tools=selected_tools)
 
 
 def create_argument_parser():
@@ -780,28 +843,35 @@ def run_local():
     # Execute experiment with the selected tool objects
     logger.info(f"Executing experiment with tools: {[tool.name for tool in selected_tool_objects]}")
 
-    logger.info("Instantiating experiment controller")
-
-    # Create and execute experiment with standard controller
-    controller = ExperimentController()
-    controller.execute(
-        repetitions=config.get_int("repetitions", 1),
-        timeouts=config.get_list("timeouts", [60]),
-        tools=selected_tool_objects,
-        memory_file=config.get_str("memory_file", ""),
-        generate_monitors=config.get_bool("generate_monitors", True),
-        instrument=config.get_bool("instrument", True),
-        static_analysis=config.get_bool("static_analysis", True),
-        skip_experiment=config.get_bool("skip_experiment", False),
-        no_window=config.get_bool("no_window", True)
-    )
+    # Execute experiment using rv-experiment bridge or fallback to legacy
+    if BRIDGE_AVAILABLE:
+        logger.info("Using rv-experiment bridge for modern local experiment execution")
+        success = execute_experiment_via_bridge(tools=selected_tool_objects)
+        if not success:
+            logger.error("Local experiment execution failed via bridge")
+            return
+    else:
+        logger.info("Instantiating legacy experiment controller")
+        # Create and execute experiment with standard controller
+        controller = ExperimentController()
+        controller.execute(
+            repetitions=config.get_int("repetitions", 1),
+            timeouts=config.get_list("timeouts", [60]),
+            tools=selected_tool_objects,
+            memory_file=config.get_str("memory_file", ""),
+            generate_monitors=config.get_bool("generate_monitors", True),
+            instrument=config.get_bool("instrument", True),
+            static_analysis=config.get_bool("static_analysis", True),
+            skip_experiment=config.get_bool("skip_experiment", False),
+            no_window=config.get_bool("no_window", True)
+        )
 
     logger.info("Local experiment completed successfully")
 
 
 if __name__ == '__main__':
     # Register models to resolve circular import issue
-    from rvandroid.llm import register_models
+    from rv_llm.llm import register_models
 
     register_models()
 

@@ -1,4 +1,4 @@
-# rvandroid/analysis/coverage/tracker.py
+# rv_coverage/analysis/coverage/tracker.py
 import os
 import threading
 import time
@@ -10,36 +10,84 @@ from rv_android_core.domain.coverage import LogcatRepository
 from rv_android_core.domain.static import StaticAnalysisData
 from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
 from rv_android_core.util.logging.manager import LoggingManager
-# from rv_android_core.experiment.event.bus import EventBus, EventType
+from rv_android_core.event.bus import EventBus, EventType
 from rv_coverage.parser.log.logcat_parser import parse_logcat_line
 
 
 class CoverageTracker:
     """
-    Tracks code coverage during test execution with direct repository integration.
-    Processes logcat output to extract coverage information and maintains real-time metrics.
+    Real-time coverage tracking system for Android application testing.
+    
+    The CoverageTracker monitors logcat output in real-time, extracting coverage
+    information and formal property violations as they occur during test execution.
+    It serves as the primary real-time monitoring component in the RV-Android system.
 
     ### Architectural Decisions:
-    - Uses LogcatRepository directly without wrapper layers for optimal performance
-    - Implements event-driven architecture for real-time coverage updates
-    - Separates coverage tracking concerns from data storage concerns
-    - Integrates seamlessly with the unified analysis component structure
-    - Eliminates unnecessary abstraction layers that previously added complexity
+    - **Real-Time Processing**: Continuously monitors logcat files for new entries,
+      providing immediate coverage feedback during test execution
+    - **Direct Repository Integration**: Uses LogcatRepository directly without wrapper
+      layers for optimal performance and minimal latency
+    - **Event-Driven Architecture**: Publishes coverage and error events through EventBus
+      for real-time system integration and monitoring
+    - **Thread-Safe Operation**: Implements proper threading patterns for concurrent
+      logcat processing without blocking test execution
+    - **Performance Optimization**: Uses change detection to minimize unnecessary
+      metric calculations and reduce CPU overhead
+    - **Context Manager Support**: Provides convenient context manager interface
+      for automated lifecycle management
 
     ### Role in the System:
-    - Monitors method execution in real-time during test execution
-    - Extracts coverage data from logcat output streams
-    - Updates LogcatRepository directly with coverage information
-    - Publishes coverage events through the event bus for monitoring
-    - Provides metrics for the unified result processing system
-    - Maintains coverage state consistency across the experiment lifecycle
+    - **Real-Time Monitor**: Primary component for live coverage monitoring during tests
+    - **Event Publisher**: Publishes coverage updates and MOP error events for system
+      integration and real-time dashboards
+    - **Data Collector**: Extracts and processes coverage information from logcat streams
+    - **Metric Provider**: Calculates and maintains up-to-date coverage metrics
+    - **Error Detector**: Identifies and reports formal property violations as they occur
+    - **State Manager**: Maintains consistent coverage state throughout test lifecycle
 
-    ### Key Considerations:
-    - Direct LogcatRepository usage eliminates the CoverageRepository wrapper
-    - Thread-safe operation for concurrent logcat processing
-    - Real-time metric calculation with change detection for efficiency
-    - Event-driven updates for decoupled component communication
-    - Comprehensive error handling for logcat parsing failures
+    ### Integration Points:
+    - **EventBus**: Publishes COVERAGE_UPDATED and COVERAGE_ERROR_DETECTED events
+    - **LogcatRepository**: Direct repository access for immediate data storage
+    - **LoggingManager**: Standardized logging with contextual information
+    - **ErrorHandler**: Robust error handling for logcat parsing failures
+    - **StaticAnalysisData**: Initialization from static analysis results
+
+    ### Performance Considerations:
+    - **Change Detection**: Only calculates metrics when data has actually changed
+    - **Efficient Threading**: Uses optimized sleep patterns based on data availability
+    - **Memory Management**: Processes logcat entries incrementally without accumulation
+    - **CPU Optimization**: Minimizes redundant calculations through caching strategies
+    - **I/O Efficiency**: Uses file positioning to avoid re-reading processed data
+
+    ### Event Publishing Strategy:
+    - **Coverage Events**: Published when method coverage metrics change significantly
+    - **Error Events**: Immediate publication when MOP violations are detected
+    - **Contextual Data**: All events include timing and contextual information
+    - **Decoupled Design**: Event consumers can subscribe without affecting tracking performance
+
+    ### Usage Patterns:
+    ```python
+    # Context manager usage (recommended)
+    with CoverageTracker(logcat_file, static_data) as tracker:
+        # Run tests, tracker monitors automatically
+        pass
+    
+    # Manual lifecycle management
+    tracker = CoverageTracker(logcat_file, static_data)
+    tracker.start()
+    try:
+        # Run tests
+        pass
+    finally:
+        tracker.stop()
+    
+    # Get real-time metrics
+    metrics = tracker.get_coverage_metrics()
+    ```
+
+    ### Thread Safety:
+    All public methods are thread-safe and can be called from multiple threads
+    concurrently. Internal state is protected by appropriate locking mechanisms.
     """
 
     def __init__(self, logcat_file: str, static_data: Optional[StaticAnalysisData] = None,
@@ -67,8 +115,8 @@ class CoverageTracker:
         # Direct repository usage provides better performance and simpler data flow
         self.repository = LogcatRepository()
 
-        # Event bus for publishing events
-        self.event_bus = None  # TODO EventBus.get_instance() ............ IMPORTANTE !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+        # Event bus for publishing coverage and MOP error events
+        self.event_bus = EventBus.get_instance()
 
         # Initialize running state
         self.is_running = False
@@ -301,6 +349,21 @@ class CoverageTracker:
                 self.repository.register_rv_error(error_log)
                 self.total_errors += 1
                 self._data_changed_since_last_update = True  # Mark data as changed
+                
+                # Publish MOP error event for real-time monitoring
+                self.event_bus.publish_analysis_event(
+                    EventType.COVERAGE_ERROR_DETECTED,
+                    data={
+                        "spec": error_log.spec,
+                        "error_type": error_log.error_type,
+                        "class_name": error_log.class_full_name,
+                        "method": error_log.method,
+                        "message": error_log.message,
+                        "time_since_start": time_since_start
+                    },
+                    source="CoverageTracker"
+                )
+                
                 self.logger.info(
                     f"Tracked formal property violation in {error_log.class_full_name}.{error_log.method}: {error_log.message}"
                 )

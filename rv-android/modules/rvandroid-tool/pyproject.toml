@@ -1,0 +1,64 @@
+[tool.poetry]
+name = "rvandroid-tool"
+version = "0.1.0"
+description = "RVAndroid testing tool with DroidBot and LLM integration"
+authors = ["RV-Android Team"]
+readme = "README.md"
+packages = [{include = "rvandroid_tool", from = "src"}]
+
+[tool.poetry.dependencies]
+python = ">=3.12,<4.0"
+rv-android-core = {path = "../rv-android-core", develop = true}
+rv-screen-parser = {path = "../rv-screen-parser", develop = true}
+rv-llm = {path = "../rv-llm", develop = true}
+rv-tools = {path = "../rv-tools", develop = true}
+# Dependências específicas do RVAndroid
+flask = "*"  # Para REST API server
+flask-cors = "*"  # Para CORS no servidor
+#droidbot = "*"  # Integração com DroidBot (se disponível via pip)
+# requests já vem do workspace
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^7.4.0"
+pytest-cov = "^4.1.0"
+pytest-flask = "*"  # Para testes do servidor Flask
+
+# Plugin registration for rv-tools
+[tool.poetry.plugins."rv_tools.plugins"]
+rvandroid = "rvandroid_tool.tools.rvandroid.tool:RVAndroidTool"
+
+# Sem CLI próprio inicialmente - apenas uso programático via plugin
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = [
+    "--strict-markers",
+    "--strict-config",
+    "--verbose",
+]
+markers = [
+    "integration: Integration tests that require external dependencies",
+    "slow: Slow running tests",
+]
+
+[tool.coverage.run]
+source = ["src"]
+omit = [
+    "*/tests/*",
+    "*/test_*.py",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+]
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

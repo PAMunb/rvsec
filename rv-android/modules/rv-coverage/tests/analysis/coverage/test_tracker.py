@@ -70,7 +70,7 @@ class TestCoverageTracker:
         logcat_path.write_text(logcat_content)
         return str(logcat_path)
 
-    @patch('rvandroid.analysis.coverage.tracker.EventBus')
+    @patch('rv_android_core.event.bus.EventBus')
     def test_parse_real_logcat_entries(self, mock_event_bus, sample_logcat_file):
         """Test parsing real logcat entries."""
         with open(sample_logcat_file, 'r') as f:
@@ -90,10 +90,10 @@ class TestCoverageTracker:
                     assert error_log.class_full_name is not None
                     assert error_log.method is not None
 
-    @patch('rvandroid.analysis.coverage.tracker.EventBus')
+    @patch('rv_android_core.event.bus.EventBus')
     def test_process_real_logcat_file(self, mock_event_bus, mock_static_data, sample_logcat_file):
         """Test processing a real logcat file."""
-        from rvandroid.analysis.coverage.tracker import CoverageTracker
+        from rv_coverage.analysis.coverage.tracker import CoverageTracker
 
         mock_bus_instance = MagicMock()
         mock_event_bus.get_instance.return_value = mock_bus_instance
@@ -118,7 +118,7 @@ class TestCoverageTracker:
 
     def test_get_detailed_metrics(self, mock_static_data, sample_logcat_file):
         """Test retrieving detailed coverage metrics."""
-        from rvandroid.analysis.coverage.tracker import CoverageTracker
+        from rv_coverage.analysis.coverage.tracker import CoverageTracker
 
         tracker = CoverageTracker(sample_logcat_file, mock_static_data)
 
