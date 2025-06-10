@@ -7,7 +7,7 @@ exactly one action per response.
 
 from typing import Any, Dict, List, Optional
 
-from rv_llm.config.component_configurator import ComponentConfigurator
+from rv_android_core.util.error.error_handler import ErrorHandler
 from rv_llm.llm.constants import (PromptStrategyType)
 from rv_llm.llm.prompt.information.fragment_manager import InformationManager
 from rv_llm.llm.prompt.strategy.base_strategy import PromptStrategy

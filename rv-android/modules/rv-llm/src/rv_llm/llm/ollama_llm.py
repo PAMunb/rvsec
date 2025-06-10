@@ -1,5 +1,9 @@
-# rvandroid/llm/ollama_llm.py
-"""Ollama language model implementation."""
+"""
+Ollama language model implementation for local AI inference.
+
+This module provides Ollama integration for local language model operations
+in Android testing experiments and AI-driven analysis workflows.
+"""
 import time
 from typing import List, Optional, ClassVar
 
@@ -208,7 +212,7 @@ class OllamaLLM(LanguageModel):
 # Register the model
 def register():
     """Register Ollama model with the configurator."""
-    from rv_android_core.config.component_configurator import ComponentConfigurator
+    from rv_llm.factories import LLMFactory, PromptStrategyFactory
 
     # Check if this LLM is already registered
     if OllamaLLM.NAME in ComponentConfigurator._registries.get('llm', {}).get_names():

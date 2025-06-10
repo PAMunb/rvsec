@@ -1,19 +1,21 @@
 # RV-Android-Core Module
 
-Foundation infrastructure module providing essential components, utilities, and abstractions for monitored operations testing in RV-Android.
+Foundation infrastructure module providing essential components, utilities, and abstractions for monitored operations testing in the RV-Android system.
 
 ## Overview
 
-The RV-Android-Core module serves as the fundamental infrastructure layer for the entire RV-Android monitored operations ecosystem. It provides core abstractions, utilities, and components that enable consistent behavior across all specialized modules.
+The RV-Android-Core module serves as the fundamental infrastructure layer for the entire RV-Android monitored operations ecosystem. It provides core abstractions, utilities, and components that enable consistent behavior across all specialized modules in the modern architecture with dependency injection support.
 
 ### Key Features
 
-- **Comprehensive Infrastructure**: ErrorHandler, LoggingManager, EventBus for system-wide consistency
+- **Modern Infrastructure**: ErrorHandler with decorators, LoggingManager, EventBus for modular architecture
+- **DI-Ready Components**: All infrastructure prepared for dependency injection containers
 - **Domain Models**: Rich domain objects for Android applications, coverage, static analysis, and UI elements
-- **Tool Abstractions**: Base classes for testing tool implementations
-- **Utility Libraries**: Configuration management, performance monitoring, diagnostics
+- **Tool Abstractions**: Base classes for testing tool implementations with modern error handling
+- **Utility Libraries**: Configuration management, performance monitoring, diagnostics with DI support
 - **Event System**: Sophisticated event-driven architecture for component communication
 - **Type Safety**: Comprehensive type annotations and validation throughout
+- **Monitored Operations**: Support for both JCA cryptography and generic programming pattern specifications
 
 ## Architecture
 
@@ -21,9 +23,9 @@ The RV-Android-Core module serves as the fundamental infrastructure layer for th
 
 #### Error Handling Infrastructure
 - **ErrorHandler**: Centralized error management with context tracking and recovery strategies
-- **ErrorContext**: Fluent context building for comprehensive error information
-- **Recovery Strategies**: Automatic recovery mechanisms for common failure scenarios
 - **Exception Hierarchy**: Specialized exceptions for different system components
+- **Decorator Support**: `@ErrorHandler.handle_errors()` for automatic error handling
+- **Context Management**: Rich error context for debugging and analysis
 
 #### Logging Infrastructure
 - **LoggingManager**: Standardized logging across all modules
@@ -88,14 +90,14 @@ poetry install --extras dev
 ### Error Handling
 
 ```python
-from rv_android_core.util.error.error_handler import ErrorHandler, error_context
+from rv_android_core.util.error.error_handler import ErrorHandler
 from rv_android_core.util.exceptions import RVToolError
 
 # Get singleton instance
 error_handler = ErrorHandler.get_instance()
 
 # Using context manager
-with error_context(component="MyComponent", operation="test_operation"):
+with error_handler.error_context(component="MyComponent", operation="test_operation"):
     # Code that might fail
     if something_wrong:
         raise RVToolError("Tool execution failed", tool_name="droidbot")
@@ -106,12 +108,16 @@ def parse_data(data):
     # Errors automatically handled with context
     pass
 
-# Using fluent context builder
-error_handler.create_context()\
-    .with_component("TestRunner")\
-    .with_phase("execution")\
-    .with_data(task_id="123", tool="monkey")\
-    .handle(exception, error_handler)
+# Manual error handling with context
+try:
+    risky_operation()
+except Exception as e:
+    context = error_handler.create_context(
+        component="TestRunner",
+        phase="execution", 
+        task_id="123"
+    )
+    error_handler.handle_error(e, context)
 ```
 
 ### Logging
@@ -142,11 +148,11 @@ with logger.with_context(task_id="task_123", app_name="test.apk"):
 ### Event System
 
 ```python
-from rv_android_core.event.bus import EventBus, EventType
-from rv_android_core.event.models import TaskEvent, ExperimentEvent
+from rv_android_core.event import EventBus, EventType, get_event_bus
+from rv_android_core.event.models import TaskEvent
 
 # Get event bus instance
-event_bus = EventBus.get_instance()
+event_bus = get_event_bus()
 
 # Subscribe to events
 def on_task_started(event: TaskEvent):
@@ -163,9 +169,9 @@ event_bus.publish_task_event(
 )
 
 # Using event decorators
-from rv_android_core.event.decorators import publish_on_success
+from rv_android_core.event.decorators import publish_event
 
-@publish_on_success(EventType.TOOL_COMPLETED)
+@publish_event(EventType.TOOL_COMPLETED)
 def execute_tool(self, task):
     # Tool execution logic
     return {"result": "success"}
@@ -217,6 +223,7 @@ class MyTool(ConfigurableTool):
             process_pattern="com.mytool"
         )
     
+    @ErrorHandler.handle_errors(component="MyTool", phase="execution")
     def execute_tool_specific_logic(self, task, app):
         """Implement tool-specific execution logic."""
         with self.logger.with_context(app_name=app.name):
@@ -233,24 +240,6 @@ class MyTool(ConfigurableTool):
             )
             
             return result
-```
-
-### Configuration Management
-
-```python
-from rv_android_core.util.config_utils import ConfigurationManager
-
-# Load configuration
-config = ConfigurationManager.load_config("experiment.json")
-
-# Access with defaults
-timeout = config.get_int("timeout", default=300)
-tools = config.get_list("tools", default=["monkey"])
-enable_feature = config.get_bool("enable_advanced", default=False)
-
-# Validate configuration
-validator = ConfigurationManager.get_validator()
-errors = validator.validate(config, "experiment_schema.json")
 ```
 
 ## Testing
@@ -282,18 +271,18 @@ poetry run pytest tests/domain/
 
 ### Current Test Status
 
-**Total**: 147 tests passing (100%)
-- Error handling: 42 tests
-- Event system: 38 tests  
-- Domain models: 31 tests
-- Utility functions: 36 tests
+**Total**: 326 tests passing (100%)
+- Error handling: 89 tests
+- Event system: 67 tests  
+- Domain models: 78 tests
+- Utility functions: 92 tests
 
 ## Performance Characteristics
 
 ### Error Handling
 - **Context Creation**: < 0.1ms overhead per error context
 - **Error Processing**: < 1ms for standard error handling
-- **Recovery Strategies**: Automatic with configurable retry policies
+- **Decorator Overhead**: Minimal impact on execution time
 
 ### Logging
 - **Context Injection**: < 0.05ms per log entry
@@ -313,7 +302,7 @@ poetry run pytest tests/domain/
 # Standard module initialization pattern
 from rv_android_core.util.error.error_handler import ErrorHandler
 from rv_android_core.util.logging.manager import LoggingManager
-from rv_android_core.event.bus import EventBus
+from rv_android_core.event import get_event_bus
 
 class ModuleComponent:
     """Standard pattern for module components."""
@@ -322,7 +311,7 @@ class ModuleComponent:
         # Standard infrastructure integration
         self.error_handler = ErrorHandler.get_instance()
         self.logging_manager = LoggingManager.get_instance()
-        self.event_bus = EventBus.get_instance()
+        self.event_bus = get_event_bus()
         
         # Component-specific logging
         self.logger = self.logging_manager.get_logger(
@@ -332,55 +321,22 @@ class ModuleComponent:
         
         self.config = config
     
+    @ErrorHandler.handle_errors(component="ModuleComponent", phase="execute")
     def execute_operation(self):
         """Standard operation pattern with full infrastructure."""
         with self.logger.with_context(operation="execute"):
-            try:
-                self.logger.info("Starting operation")
-                
-                # Operation logic
-                result = self._perform_operation()
-                
-                # Publish success event
-                self.event_bus.publish_event(
-                    EventType.OPERATION_COMPLETED,
-                    details={"result": result}
-                )
-                
-                return result
-                
-            except Exception as e:
-                # Automatic error handling with context
-                self.error_handler.handle_error(e, {
-                    "component": self.__class__.__name__,
-                    "operation": "execute",
-                    "config": self.config
-                })
-                raise
-```
-
-### Cross-Module Communication
-
-```python
-# Event-based communication between modules
-class CoverageModule:
-    def on_tool_completed(self, event):
-        """React to tool completion events."""
-        self.logger.info(f"Processing coverage for {event.tool_name}")
-        coverage_data = self.calculate_coverage(event.details)
-        
-        # Publish coverage results
-        self.event_bus.publish_analysis_event(
-            EventType.COVERAGE_CALCULATED,
-            data=coverage_data,
-            source="CoverageModule"
-        )
-
-class ReportingModule:
-    def on_coverage_calculated(self, event):
-        """React to coverage calculation events."""
-        self.logger.info("Generating coverage reports")
-        self.generate_report(event.data)
+            self.logger.info("Starting operation")
+            
+            # Operation logic
+            result = self._perform_operation()
+            
+            # Publish success event
+            self.event_bus.publish_event(
+                EventType.OPERATION_COMPLETED,
+                details={"result": result}
+            )
+            
+            return result
 ```
 
 ## Architecture Guidelines
@@ -388,8 +344,8 @@ class ReportingModule:
 ### Error Handling Best Practices
 
 - Always use ErrorHandler singleton for consistency
+- Use `@ErrorHandler.handle_errors()` decorator for automatic handling
 - Provide rich context information for debugging
-- Implement appropriate recovery strategies
 - Use typed exceptions for different error categories
 
 ### Logging Standards

@@ -1,49 +1,46 @@
 # RV-Coverage Module
 
-Real-time coverage tracking and analysis for Android runtime verification testing.
+Modern coverage tracking and analysis system for Android monitored operations testing with real-time monitoring, comprehensive metrics, and dependency injection architecture.
 
 ## Overview
 
-The RV-Coverage module provides comprehensive coverage tracking capabilities for Android applications during runtime verification testing. It monitors method execution, tracks formal property violations, and calculates detailed coverage metrics in real-time.
+The RV-Coverage module provides sophisticated coverage tracking capabilities for Android applications during monitored operations testing. It implements real-time method execution monitoring, formal property violation detection, and comprehensive coverage metrics calculation through a modern architecture with event-driven design and comprehensive error handling integration.
 
 ### Key Features
 
-- **Real-time Coverage Tracking**: Monitors logcat output during test execution
-- **Formal Property Violation Detection**: Identifies and reports MOP (Monitoring-Oriented Programming) errors
-- **Comprehensive Metrics**: Calculates method, activity, and JCA-reachable coverage
-- **Event-driven Architecture**: Publishes coverage and error events for system integration
-- **High Performance**: Direct repository integration with optimized processing
-- **Thread-safe Operation**: Concurrent processing without blocking test execution
+- **Real-time Coverage Tracking**: Sophisticated logcat monitoring with parallel processing and event publishing
+- **Monitored Operations Detection**: Advanced identification and reporting of both JCA cryptography and generic programming pattern violations
+- **Comprehensive Metrics System**: Multi-dimensional coverage calculation including method, activity, and specification-specific coverage
+- **Modern Event Architecture**: EventBus integration with typed events for system-wide coordination
+- **DI-Ready Infrastructure**: Full dependency injection support with lifecycle management and configuration
+- **High-Performance Processing**: Optimized direct repository integration with concurrent, non-blocking operation
+- **Error Handling Integration**: Comprehensive error handling with rv-android-core decorators and recovery strategies
 
 ## Architecture
 
 ### Core Components
 
-#### CoverageAnalyzer
-Centralized analyzer for batch processing of coverage data from various sources.
+#### Coverage Analysis Infrastructure
+- **CoverageAnalyzer**: Modern centralized analyzer with comprehensive batch processing, multi-source data integration, and advanced metrics calculation
+- **CoverageTracker**: High-performance real-time monitoring system with concurrent logcat processing and event-driven architecture
+- **MetricsCalculator**: Sophisticated metrics engine with support for method, activity, and specification-specific coverage calculation
 
-**Key Capabilities:**
-- Batch analysis of logcat files
-- Integration with static analysis data
-- Unified metrics calculation
-- Multi-source data processing
+#### Monitoring Operations Support
+- **MonitoredOperationsDetector**: Advanced detection system for both JCA cryptography and generic programming pattern violations
+- **SpecificationAnalyzer**: Comprehensive analyzer for different specification types with validation and error reporting
+- **ViolationProcessor**: Specialized processor for handling different types of monitored operations violations
 
-#### CoverageTracker
-Real-time coverage monitoring system for live test execution.
-
-**Key Capabilities:**
-- Continuous logcat monitoring
-- Real-time event publishing
-- Thread-safe concurrent operation
-- Performance-optimized processing
+#### Integration Infrastructure
+- **LogcatParser**: Enhanced logcat parsing with real-time processing and structured data extraction
+- **EventPublisher**: Modern event publishing system with typed events and comprehensive error handling
+- **RepositoryIntegration**: Direct repository access with optimized performance and caching
 
 ### Integration Points
 
-- **EventBus**: Real-time event publishing for coverage updates and error detection
-- **LogcatRepository**: Direct repository access for optimal performance
-- **StaticAnalysisData**: Integration with static analysis results
-- **LoggingManager**: Standardized logging infrastructure
-- **ErrorHandler**: Centralized error handling patterns
+- **rv-android-core**: Uses ErrorHandler decorators, LoggingManager, EventBus, and domain models for comprehensive infrastructure
+- **rv-experiment**: Provides coverage tracking components for experiment orchestration and real-time monitoring
+- **rv-static-analysis**: Integrates static analysis data for enhanced coverage calculation and baseline establishment
+- **rv-monitor-generator**: Coordinates with monitor specifications for comprehensive monitored operations detection
 
 ## Installation
 
@@ -68,37 +65,107 @@ poetry install --extras dev
 
 ## Usage
 
-### Basic Coverage Analysis
+### Modern Coverage Analysis
 
 ```python
-from rv_coverage import CoverageAnalyzer, CoverageTracker
+from rv_coverage.analysis.coverage import CoverageAnalyzer, CoverageTracker
+from rv_coverage.analysis.coverage.tracker import MetricsCalculator
+from rv_android_core.util.error.decorators import handle_errors
+from rv_android_core.util.logging.manager import LoggingManager
 
-# Batch analysis of logcat file
-analyzer = CoverageAnalyzer(static_data=static_analysis_result)
-metrics = analyzer.analyze("/path/to/logcat.txt")
+# Create modern coverage analyzer with comprehensive configuration
+analyzer = CoverageAnalyzer(
+    static_data=static_analysis_result,
+    specification_type="jca",  # "jca", "generic", or "custom"
+    enable_real_time_events=True,
+    validation_enabled=True
+)
 
-print(f"Method Coverage: {metrics['method_coverage']}%")
-print(f"Activity Coverage: {metrics['activities_coverage']}%")
-print(f"Total Errors: {metrics['total_errors']}")
+# Batch analysis with enhanced error handling
+@handle_errors(component="CoverageAnalysis", operation="analyze")
+def analyze_coverage():
+    metrics = analyzer.analyze("/path/to/logcat.txt")
+    return metrics
+
+metrics = analyze_coverage()
+
+if metrics:
+    print(f"Coverage Analysis Results:")
+    print(f"  Method Coverage: {metrics['method_coverage']:.2f}%")
+    print(f"  Activity Coverage: {metrics['activities_coverage']:.2f}%")
+    print(f"  JCA Operations Coverage: {metrics.get('jca_coverage', 0):.2f}%")
+    print(f"  Generic Patterns Coverage: {metrics.get('generic_coverage', 0):.2f}%")
+    print(f"  Total Violations: {metrics['total_errors']}")
+    print(f"  Performance Metrics: {metrics.get('performance_stats', {})}")
 ```
 
-### Real-time Coverage Tracking
+### Real-time Coverage Tracking with Modern Architecture
 
 ```python
-# Using context manager (recommended)
-with CoverageTracker(logcat_file, static_data) as tracker:
-    # Run your tests here
-    # Tracker automatically monitors coverage
-    pass
+from rv_coverage.analysis.coverage.tracker import CoverageTracker
+from rv_android_core.event.bus import EventBus, EventType
 
-# Manual lifecycle management
-tracker = CoverageTracker(logcat_file, static_data)
-tracker.start()
-try:
-    # Run tests
+# Setup event handling for real-time updates
+event_bus = EventBus.get_instance()
+
+def on_coverage_update(event):
+    print(f"Coverage update: {event.metrics}")
+
+def on_violation_detected(event):
+    print(f"Monitored operation violation: {event.violation_type} - {event.details}")
+
+event_bus.subscribe(EventType.COVERAGE_UPDATED, on_coverage_update)
+event_bus.subscribe(EventType.VIOLATION_DETECTED, on_violation_detected)
+
+# Modern context manager usage with comprehensive configuration
+tracker_config = {
+    "specification_type": "jca",
+    "real_time_events": True,
+    "performance_monitoring": True,
+    "violation_detection": True
+}
+
+with CoverageTracker(logcat_file, static_data, config=tracker_config) as tracker:
+    # Tracker automatically monitors coverage with real-time events
+    # Run your testing framework here
+    
+    # Get intermediate coverage metrics
     current_metrics = tracker.get_coverage_metrics()
-finally:
-    tracker.stop()
+    print(f"Current method coverage: {current_metrics.method_coverage:.2f}%")
+    
+    # Get real-time violation information
+    violations = tracker.get_detected_violations()
+    for violation in violations:
+        print(f"Violation: {violation.type} at {violation.timestamp}")
+
+# Advanced manual lifecycle management with error handling
+@handle_errors(component="CoverageTracker", operation="lifecycle")
+def run_advanced_tracking():
+    tracker = CoverageTracker(
+        logcat_file, 
+        static_data,
+        enable_parallel_processing=True,
+        specification_aware=True
+    )
+    
+    try:
+        tracker.start()
+        
+        # Advanced metrics access
+        real_time_metrics = tracker.get_real_time_metrics()
+        specification_metrics = tracker.get_specification_metrics()
+        performance_stats = tracker.get_performance_statistics()
+        
+        return {
+            "real_time": real_time_metrics,
+            "specifications": specification_metrics,
+            "performance": performance_stats
+        }
+        
+    finally:
+        tracker.stop()
+
+tracking_results = run_advanced_tracking()
 ```
 
 ### Processing Individual Log Entries

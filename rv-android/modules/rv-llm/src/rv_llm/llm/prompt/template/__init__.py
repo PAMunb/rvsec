@@ -2,13 +2,18 @@
 
 This package provides the template layer components of the prompt system,
 which are responsible for structuring messages and managing templates.
+
+### Architectural Decision:
+- Modern implementation using Jinja2TemplateRepository
+- Legacy PromptTemplate and TemplateRepository moved to backup
+- Follows the established architectural pattern from rv-android-core
 """
 
-from .prompt_template import PromptTemplate
-from .template_repository import TemplateRepository
+from .jinja_repository import Jinja2TemplateRepository
+from .jinja_template import Jinja2Template, FragmentDictLoader
 
 __all__ = [
-    "PromptTemplate",
-    "TemplateRepository",
+    "Jinja2TemplateRepository",
+    "Jinja2Template", 
+    "FragmentDictLoader",
 ]
-# TODO atualizar: colocar os novos e remover esses antigos

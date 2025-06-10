@@ -7,7 +7,7 @@ from rv_android_core.event.bus import EventBus
 from rv_experiment.experiment.task.storage import TaskStorage
 from rv_experiment.experiment.workflow.execution_controller import ExecutionController
 from rv_android_core.tools.abstract_tool import AbstractTool
-from rv_experiment.config import ExperimentConfiguration
+from rv_experiment.config import ExperimentConfig
 
 
 class DummyTool(AbstractTool):
@@ -44,8 +44,8 @@ def mock_app():
 
 @pytest.fixture
 def mock_config(tmp_path):
-    """Create a mock ExperimentConfiguration."""
-    mock_config = MagicMock(spec=ExperimentConfiguration)
+    """Create a mock ExperimentConfig."""
+    mock_config = MagicMock(spec=ExperimentConfig)
     mock_config.output_dir = str(tmp_path)
     mock_config.get_instrumented_dir.return_value = str(tmp_path / "instrumented")
     mock_config.get_timestamp_string.return_value = "20230101_120000"

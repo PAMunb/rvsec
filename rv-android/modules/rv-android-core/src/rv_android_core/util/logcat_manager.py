@@ -81,7 +81,7 @@ class LogcatManager:
                     self.logcat_process = logcat_cmd.invoke_as_deamon(stdout=log_file)
                     self.logcat_file_handle = log_file
                     self.logger.info(LOG_COMPLETE.format(
-                        operation=f"logcat capture to {output_file}"
+                        phase=f"logcat capture to {output_file}"
                     ))
                     return True
 
@@ -89,14 +89,14 @@ class LogcatManager:
                     # Close file handle if command fails
                     log_file.close()
                     self.logger.error(LOG_ERROR.format(
-                        operation="starting logcat capture",
+                        phase="starting logcat capture",
                         error=str(e)
                     ))
                     return False
 
             except Exception as e:
                 self.logger.error(LOG_ERROR.format(
-                    operation="setting up logcat capture",
+                    phase="setting up logcat capture",
                     error=str(e)
                 ))
                 return False
@@ -119,7 +119,7 @@ class LogcatManager:
                     self.logcat_process = None
                 except Exception as e:
                     self.logger.warning(LOG_ERROR.format(
-                        operation="stopping logcat process",
+                        phase="stopping logcat process",
                         error=str(e)
                     ))
                     success = False
@@ -132,14 +132,14 @@ class LogcatManager:
                     self.logcat_file_handle = None
                 except Exception as e:
                     self.logger.warning(LOG_ERROR.format(
-                        operation="closing logcat file",
+                        phase="closing logcat file",
                         error=str(e)
                     ))
                     success = False
 
             if success:
                 self.logger.info(LOG_COMPLETE.format(
-                    operation="logcat capture shutdown"
+                    phase="logcat capture shutdown"
                 ))
 
             return success

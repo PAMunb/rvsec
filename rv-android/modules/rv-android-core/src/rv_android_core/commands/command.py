@@ -152,7 +152,7 @@ class Command:
         cmd_str = ' '.join(cmd_args)
 
         with self.logger.with_context(command=cmd_str, timeout=self._timeout):
-            self.logger.debug(LOG_START.format(operation=f"command: {cmd_str}"))
+            self.logger.debug(LOG_START.format(phase=f"command: {cmd_str}"))
 
             # Normalize stdin if it's a string
             if isinstance(stdin, str):
@@ -165,7 +165,7 @@ class Command:
                     stdout_data, stderr_data = proc.communicate(stdin, timeout=self._timeout)
 
                     self.logger.debug(LOG_COMPLETE.format(
-                        operation=f"command with exit code {proc.returncode}"
+                        phase=f"command with exit code {proc.returncode}"
                     ))
 
                     return CommandResult(proc.returncode, stdout_data, stderr_data)
@@ -179,7 +179,7 @@ class Command:
 
                 except OSError as e:
                     self.logger.error(LOG_ERROR.format(
-                        operation=f"executing command {cmd_str}",
+                        phase=f"executing command {cmd_str}",
                         error=str(e)
                     ))
                     raise CommandNotFoundError(f"The command {self._command} was not found")
@@ -201,14 +201,14 @@ class Command:
                         timer.cancel()
 
                     self.logger.debug(LOG_COMPLETE.format(
-                        operation=f"command with exit code {proc.returncode}"
+                        phase=f"command with exit code {proc.returncode}"
                     ))
 
                     return CommandResult(proc.returncode, stdout_data, stderr_data)
 
                 except OSError as e:
                     self.logger.error(LOG_ERROR.format(
-                        operation=f"executing command {cmd_str}",
+                        phase=f"executing command {cmd_str}",
                         error=str(e)
                     ))
                     raise CommandNotFoundError(f"The command {self._command} was not found")
@@ -248,7 +248,7 @@ class Command:
         cmd_str = ' '.join(cmd_args)
 
         with self.logger.with_context(command=cmd_str):
-            self.logger.debug(LOG_START.format(operation=f"daemon command: {cmd_str}"))
+            self.logger.debug(LOG_START.format(phase=f"daemon command: {cmd_str}"))
 
             try:
                 process = Popen(cmd_args, stderr=stderr, stdout=stdout)
@@ -256,7 +256,7 @@ class Command:
                 return process
             except OSError as e:
                 self.logger.error(LOG_ERROR.format(
-                    operation=f"starting daemon process for command {cmd_str}",
+                    phase=f"starting daemon process for command {cmd_str}",
                     error=str(e)
                 ))
                 raise CommandNotFoundError(f"The command {self._command} was not found")

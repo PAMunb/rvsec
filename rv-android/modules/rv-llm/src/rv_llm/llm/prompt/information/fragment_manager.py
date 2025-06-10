@@ -9,7 +9,7 @@ from typing import Any, Dict, List, Optional
 from rv_android_core.util.error.error_handler import ErrorHandler
 from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
 from rv_android_core.util.logging.manager import LoggingManager
-from rv_llm.config.component_configurator import ComponentConfigurator
+from rv_llm.config.strategy_config import PromptStrategyConfig
 from .base_fragment import InformationFragment
 
 
@@ -36,14 +36,43 @@ class InformationManager:
         # Initialize fragment registry
         self.fragments: Dict[str, InformationFragment] = {}
 
-    def configure(self, config: ComponentConfigurator) -> None:
+    @ErrorHandler.handle_errors(
+        component="InformationManager",
+        phase="configuration"
+    )
+    def configure(self, config: Optional[PromptStrategyConfig] = None) -> None:
         """Configure the InformationManager with the given configuration.
         
+        ### Architectural Decision:
+        - Uses typed configuration class instead of dictionary
+        - Provides error handling with decorator pattern
+        - Follows the established architectural pattern from rv-android-core
+        
         Args:
-            config: The configuration to use.
+            config: Optional typed configuration instance.
         """
         self.logger.debug("Configuring InformationManager")
-        # Any configuration specific logic can be added here
+        
+        if config is None:
+            config = PromptStrategyConfig()
+            
+        # Validate configuration
+        is_valid, errors = config.validate()
+        if not is_valid:
+            self.logger.warning(f"Configuration validation errors: {errors}")
+            
+        # Configure all registered fragments
+        for fragment_name, fragment in self.fragments.items():
+            if hasattr(fragment, 'configure'):
+                try:
+                    # Get fragment-specific configuration
+                    fragment_config = config.get_fragment_config(fragment_name)
+                    fragment.configure(fragment_config)
+                    self.logger.debug(f"Configured fragment: {fragment_name}")
+                except Exception as e:
+                    self.logger.warning(f"Failed to configure fragment {fragment_name}: {e}")
+                    
+        self.logger.debug("InformationManager configuration completed")
 
     def register_fragment(self, fragment: InformationFragment) -> None:
         """Register an information fragment.

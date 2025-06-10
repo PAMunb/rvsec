@@ -10,7 +10,7 @@ compatibility and respecting module independence.
 - **Backward Compatibility**: Maintains compatibility with existing main.py interface
 - **Progressive Migration**: Enables gradual migration from legacy to modern architecture
 - **Module Independence**: Preserves tool management in main.py while delegating experiments
-- **Configuration Translation**: Translates between legacy Configuration and ExperimentConfiguration
+- **Configuration Translation**: Translates between legacy Configuration and ExperimentConfig
 
 ### Role in the System:
 - Bridges legacy main.py with modern rv-experiment module
@@ -38,7 +38,7 @@ from rv_android_core.util.error.error_handler import ErrorHandler
 from rv_android_core.util.logging.manager import LoggingManager
 from rv_android_core.util.logging.constants import CONTEXT_COMPONENT, LOG_START, LOG_COMPLETE
 
-from rv_experiment.config import ExperimentConfiguration, ToolConfiguration, ApplicationConfiguration
+from rv_experiment.config import ExperimentConfig, ToolConfiguration
 from rv_experiment.orchestrator import ExperimentOrchestrator
 
 
@@ -48,7 +48,7 @@ class ExperimentBridge:
     
     ### Architectural Decisions:
     - Provides backward-compatible interface for main.py
-    - Translates legacy configuration to modern ExperimentConfiguration
+    - Translates legacy configuration to modern ExperimentConfig
     - Delegates actual experiment execution to ExperimentOrchestrator
     - Maintains logging and error handling consistency
     
@@ -60,7 +60,7 @@ class ExperimentBridge:
     
     ### Integration Points:
     - Interfaces with legacy Configuration singleton from main.py
-    - Translates to modern ExperimentConfiguration format
+    - Translates to modern ExperimentConfig format
     - Delegates execution to ExperimentOrchestrator
     - Maintains compatibility with existing tool management
     """
@@ -91,11 +91,11 @@ class ExperimentBridge:
             True if experiment completed successfully, False otherwise
         """
         with self.logger.with_context(
-            operation="execute_experiment_with_legacy_config",
+            phase="execute_experiment_with_legacy_config",
             tools=[tool.name for tool in tools]
         ):
             self.logger.info(LOG_START.format(
-                operation="experiment execution via bridge"
+                phase="experiment execution via bridge"
             ))
             
             try:
@@ -131,7 +131,7 @@ class ExperimentBridge:
                 
                 if success:
                     self.logger.info(LOG_COMPLETE.format(
-                        operation="experiment execution via bridge"
+                        phase="experiment execution via bridge"
                     ))
                 else:
                     self.logger.error("Experiment execution failed")
@@ -158,7 +158,7 @@ class ExperimentBridge:
             True if experiment completed successfully, False otherwise
         """
         with self.logger.with_context(
-            operation="execute_experiment_with_config_file",
+            phase="execute_experiment_with_config_file",
             config_file=config_file
         ):
             try:
@@ -205,16 +205,16 @@ class ExperimentBridge:
             "tools": ["monkey"]
         }
     
-    def _convert_legacy_config(self, legacy_config: Any, tools: List[AbstractTool]) -> ExperimentConfiguration:
+    def _convert_legacy_config(self, legacy_config: Any, tools: List[AbstractTool]) -> ExperimentConfig:
         """
-        Convert legacy configuration to modern ExperimentConfiguration.
+        Convert legacy configuration to modern ExperimentConfig.
         
         Args:
             legacy_config: Legacy Configuration instance
             tools: List of tool instances
             
         Returns:
-            Modern ExperimentConfiguration instance
+            Modern ExperimentConfig instance
         """
         try:
             # Extract values from legacy config with fallbacks
@@ -243,7 +243,7 @@ class ExperimentBridge:
                 tool_configs.append(tool_config)
             
             # Create experiment configuration
-            experiment_config = ExperimentConfiguration(
+            experiment_config = ExperimentConfig(
                 name=f"legacy_experiment_{datetime.now().strftime('%Y%m%d_%H%M%S')}",
                 description="Experiment migrated from legacy main.py execution",
                 tools=[tool.name for tool in tools],
@@ -274,13 +274,13 @@ class ExperimentBridge:
         except Exception as e:
             self.logger.error(f"Error converting legacy configuration: {e}")
             # Return minimal configuration as fallback
-            return ExperimentConfiguration(
+            return ExperimentConfig(
                 name="fallback_experiment",
                 tools=[tool.name for tool in tools],
                 tool_configs=[ToolConfiguration(name=tool.name) for tool in tools]
             )
     
-    def _load_and_convert_config_file(self, config_file: str) -> ExperimentConfiguration:
+    def _load_and_convert_config_file(self, config_file: str) -> ExperimentConfig:
         """
         Load configuration file and convert to modern format if necessary.
         
@@ -288,14 +288,14 @@ class ExperimentBridge:
             config_file: Path to configuration file
             
         Returns:
-            Modern ExperimentConfiguration instance
+            Modern ExperimentConfig instance
         """
         with open(config_file, 'r') as f:
             config_data = json.load(f)
         
         # Check if it's already in modern format
         if self._is_modern_config_format(config_data):
-            return ExperimentConfiguration.from_dict(config_data)
+            return ExperimentConfig.from_dict(config_data)
         else:
             # Convert legacy format
             return self._convert_legacy_config_dict(config_data)
@@ -306,7 +306,7 @@ class ExperimentBridge:
         modern_keys = ['execution', 'processing', 'applications', 'tool_configs']
         return any(key in config_data for key in modern_keys)
     
-    def _convert_legacy_config_dict(self, config_data: Dict[str, Any]) -> ExperimentConfiguration:
+    def _convert_legacy_config_dict(self, config_data: Dict[str, Any]) -> ExperimentConfig:
         """
         Convert legacy configuration dictionary to modern format.
         
@@ -314,7 +314,7 @@ class ExperimentBridge:
             config_data: Legacy configuration dictionary
             
         Returns:
-            Modern ExperimentConfiguration instance
+            Modern ExperimentConfig instance
         """
         # Extract tool configurations
         tools_config = config_data.get("tools", [])
@@ -346,7 +346,7 @@ class ExperimentBridge:
                 ))
         
         # Create modern configuration
-        return ExperimentConfiguration(
+        return ExperimentConfig(
             name=config_data.get("name", f"converted_experiment_{datetime.now().strftime('%Y%m%d_%H%M%S')}"),
             description=config_data.get("description", "Converted from legacy configuration"),
             tools=tool_names,

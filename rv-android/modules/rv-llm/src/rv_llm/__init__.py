@@ -26,7 +26,7 @@ This module provides comprehensive LLM integration capabilities including:
 #### Configuration:
 - **LLMConfiguration**: Type-safe LLM configuration management
 - **ConfigurationManager**: Comprehensive configuration facade
-- **ComponentConfigurator**: Component registration and management
+- **PromptStrategyConfig**: Typed configuration for prompt strategies
 
 ### Architectural Principles:
 - **Provider Agnostic**: Seamless switching between different LLM providers
@@ -61,7 +61,7 @@ from .llm.prompt.prompt_strategy import PromptStrategy as BasePromptStrategy
 
 # Configuration
 from .config.configuration_manager import ConfigurationManager
-from .config.component_configurator import ComponentConfigurator
+from .config.strategy_config import PromptStrategyConfig
 
 __version__ = "0.1.0"
 __all__ = [
@@ -86,7 +86,7 @@ __all__ = [
     
     # Configuration
     "ConfigurationManager",
-    "ComponentConfigurator"
+    "PromptStrategyConfig"
 ]
 
 

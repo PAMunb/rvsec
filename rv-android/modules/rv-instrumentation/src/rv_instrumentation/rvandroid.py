@@ -8,7 +8,6 @@ from typing import Dict, Any, Optional
 from rv_android_core.app import App
 from rv_android_core.commands.command import Command
 from rv_android_core.commands.command_exception import CommandException
-from rv_android_core.util.error import handle_errors
 from rv_android_core.util.error.error_handler import ErrorHandler
 from rv_android_core.util.exceptions import InstrumentationError
 from rv_android_core.util.logging.manager import LoggingManager
@@ -203,7 +202,7 @@ class RVInstrumentation:
 
             try:
                 # Execute instrumentation pipeline with comprehensive error handling
-                with handle_errors({"app_name": app.name, "phase": "instrumentation"}):
+                with ErrorHandler.get_instance().error_context(app_name=app.name, phase="instrumentation"):
                     # Validate APK before processing
                     self.config.validate_apk_input(app.path)
                     

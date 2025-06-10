@@ -6,7 +6,7 @@ from rv_android_core.util.emulator_manager import EmulatorManager
 from rv_android_core.util.exceptions import EmulatorError
 from rv_android_core.util.logging.constants import CONTEXT_TASK_ID, CONTEXT_APP_NAME, LOG_START, LOG_ERROR, \
     LOG_SKIPPED, LOG_COMPLETE
-from rv_android_core.event.bus import EventBus, EventType
+from rv_android_core.event import EventBus, EventType
 from rv_experiment.experiment.task.component import BaseTaskComponent
 from rv_experiment.experiment.task.task_model import Task
 
@@ -65,7 +65,7 @@ class EmulatorComponent(BaseTaskComponent):
         """
         with self.logger.with_context(avd_name=avd_name, phase="start_emulator"):
             try:
-                self.logger.info(LOG_START.format(operation=f"emulator {avd_name}"))
+                self.logger.info(LOG_START.format(phase=f"emulator {avd_name}"))
 
                 # Get emulator context manager
                 emulator_context = self.emulator_manager.start_emulator(
@@ -86,7 +86,7 @@ class EmulatorComponent(BaseTaskComponent):
 
             except Exception as e:
                 self.logger.error(LOG_ERROR.format(
-                    operation=f"starting emulator {avd_name}",
+                    phase=f"starting emulator {avd_name}",
                     error=str(e)
                 ))
                 self.error_handler.handle_error(
@@ -109,15 +109,15 @@ class EmulatorComponent(BaseTaskComponent):
         with self.logger.with_context(phase="install_app"):
             if self.task.config.skip_installation:
                 self.logger.info(LOG_SKIPPED.format(
-                    operation="app installation",
+                    phase="app installation",
                     reason="skipped as requested in configuration"
                 ))
                 return True
 
             try:
-                self.logger.info(LOG_START.format(operation=f"installing app {app.name}"))
+                self.logger.info(LOG_START.format(phase=f"installing app {app.name}"))
                 self.emulator_manager.install_app(app)
-                self.logger.info(LOG_COMPLETE.format(operation=f"installing app {app.name}"))
+                self.logger.info(LOG_COMPLETE.format(phase=f"installing app {app.name}"))
 
                 # Publish event
                 if self.event_bus:
@@ -132,7 +132,7 @@ class EmulatorComponent(BaseTaskComponent):
 
             except Exception as e:
                 self.logger.error(LOG_ERROR.format(
-                    operation=f"installing app {app.name}",
+                    phase=f"installing app {app.name}",
                     error=str(e)
                 ))
                 self.error_handler.handle_error(
@@ -150,14 +150,14 @@ class EmulatorComponent(BaseTaskComponent):
         """
         with self.logger.with_context(phase="clean_logcat"):
             try:
-                self.logger.debug(LOG_START.format(operation="cleaning logcat buffer"))
+                self.logger.debug(LOG_START.format(phase="cleaning logcat buffer"))
                 result = self.emulator_manager.clear_logcat()
                 if result:
-                    self.logger.debug(LOG_COMPLETE.format(operation="cleaning logcat buffer"))
+                    self.logger.debug(LOG_COMPLETE.format(phase="cleaning logcat buffer"))
                 return result
             except Exception as e:
                 self.logger.warning(LOG_ERROR.format(
-                    operation="clearing logcat",
+                    phase="clearing logcat",
                     error=str(e)
                 ))
                 # Non-critical error, just log and continue

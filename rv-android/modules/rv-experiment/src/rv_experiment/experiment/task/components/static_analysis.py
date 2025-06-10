@@ -4,7 +4,7 @@ from typing import Dict, Any, Optional
 from rv_android_core.util.exceptions import AnalysisError
 from rv_android_core.util.logging.constants import CONTEXT_TASK_ID, CONTEXT_APP_NAME, LOG_START, \
     LOG_COMPLETE, LOG_SKIPPED, LOG_ERROR
-from rv_android_core.event.bus import EventBus, EventType
+from rv_android_core.event import EventBus, EventType
 from rv_experiment.experiment.task.component import BaseTaskComponent
 from rv_experiment.experiment.task.task_model import Task
 from rv_static_analysis.parser.static import static_analysis_parser
@@ -65,7 +65,7 @@ class StaticAnalysisComponent(BaseTaskComponent):
                 return True
 
             try:
-                self.logger.info(LOG_START.format(operation="loading static analysis data"))
+                self.logger.info(LOG_START.format(phase="loading static analysis data"))
 
                 self.task.static_data = static_analysis_parser.read_static_analysis_files(
                     self.task.results_dir,
@@ -74,7 +74,7 @@ class StaticAnalysisComponent(BaseTaskComponent):
                 )
 
                 if self.task.static_data:
-                    self.logger.info(LOG_COMPLETE.format(operation="loading static analysis data"))
+                    self.logger.info(LOG_COMPLETE.format(phase="loading static analysis data"))
 
                     # Publish event
                     if self.event_bus:
@@ -87,14 +87,14 @@ class StaticAnalysisComponent(BaseTaskComponent):
                     return True
                 else:
                     self.logger.warning(LOG_SKIPPED.format(
-                        operation="static analysis data loading",
+                        phase="static analysis data loading",
                         reason="No data found, coverage tracking will be limited"
                     ))
                     return False
 
             except Exception as e:
                 self.logger.warning(LOG_ERROR.format(
-                    operation="loading static data",
+                    phase="loading static data",
                     error=str(e)
                 ))
                 # Convert to AnalysisError but don't raise

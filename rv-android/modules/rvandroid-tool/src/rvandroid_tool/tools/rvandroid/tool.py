@@ -393,7 +393,7 @@ class RVAndroidTool(ConfigurableTool):
         try:
             # Import required components dynamically
             from rvandroid.llm.service.action_service import LLMActionService
-            from rv_llm.config.component_configurator import ComponentConfigurator
+            from rv_llm.factories import LLMFactory, PromptStrategyFactory
             from rv_llm.llm.constants import PromptStrategyType, ScreenParserType
             from rv_screen_parser.parser.screen.visitor.visitor_factory import VisitorFactory
             
@@ -401,13 +401,7 @@ class RVAndroidTool(ConfigurableTool):
             configurator = ComponentConfigurator(task.static_data)
             
             # Configure LLM backend
-            configurator.set_llm(
-                llm_type=self.tool_config['llm_backend'],
-                model=self.tool_config['llm_model'],
-                base_url=self.tool_config['llm_base_url'],
-                temperature=self.tool_config['llm_temperature'],
-                max_tokens=self.tool_config['llm_max_tokens']
-            )
+            # LLM configuration moved to factory creation
             
             # Configure strategy and parser
             strategy_map = {
@@ -415,7 +409,7 @@ class RVAndroidTool(ConfigurableTool):
                 'batch_action': PromptStrategyType.BATCH_ACTION,
                 'context_aware': PromptStrategyType.STANDARD  # Map to available strategy
             }
-            configurator.set_strategy(strategy_map.get(self.tool_config['prompt_strategy'], PromptStrategyType.STANDARD))
+            # Strategy configuration moved to factory creation)
             
             parser_map = {
                 'droidbot': ScreenParserType.DROIDBOT,

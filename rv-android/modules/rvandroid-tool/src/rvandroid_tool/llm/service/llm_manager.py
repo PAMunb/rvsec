@@ -9,7 +9,7 @@ from typing import List, Dict, Optional, Any, Union
 from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
 from rv_android_core.util.logging.manager import LoggingManager
 from rv_android_core.util.performance_monitor import PerformanceMonitor
-from rvandroid.config.component_configurator import ComponentConfigurator
+from rv_llm.factories import LLMFactory, PromptStrategyFactory
 from rv_android_core.event.bus import EventBus, EventType
 from rvandroid.llm.data_structures import LLMMessage, LLMResponse
 from rvandroid.llm.language_model import LanguageModel
@@ -39,6 +39,8 @@ class LLMManager:
     # TODO usar error handler
     # TODO usar o event bus direito
     def __init__(self, config: Union[ComponentConfigurator, LLMConfiguration], **model_kwargs):
+                # Initialize factories for DI-ready architecture
+        self.llm_factory = LLMFactory()
         """
         Initialize the LLM manager.
 
@@ -98,17 +100,13 @@ class LLMManager:
             # Create the LLM instance
             if self.configurator:
                 # Use configurator-based creation if available
-                self.llm = self.configurator.create_llm()
+                self.llm = self.llm_factory.create_ollama()
             else:
                 # Create a temporary configurator to create the LLM
                 temp_configurator = ComponentConfigurator()
-                temp_configurator.set_llm(
-                    self.model_type,
-                    self.model_name,
-                    **self.model_kwargs
-                )
+                # LLM configuration moved to factory creation
                 self._set_configurator(temp_configurator)
-                self.llm = temp_configurator.create_llm()
+                self.llm = llm_factory.create_ollama()
 
             self.logger.info(f"Successfully initialized {self.model_type} model")
 

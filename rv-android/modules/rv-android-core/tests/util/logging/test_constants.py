@@ -60,30 +60,30 @@ class TestLoggingConstants:
 
     def test_log_message_patterns_have_format_placeholders(self):
         """Test that log message patterns have the expected format placeholders"""
-        assert "{operation}" in LOG_START
-        assert "{operation}" in LOG_COMPLETE
-        assert "{operation}" in LOG_ERROR
+        assert "{phase}" in LOG_START
+        assert "{phase}" in LOG_COMPLETE
+        assert "{phase}" in LOG_ERROR
         assert "{error}" in LOG_ERROR
-        assert "{operation}" in LOG_SKIPPED
+        assert "{phase}" in LOG_SKIPPED
         assert "{reason}" in LOG_SKIPPED
 
     def test_log_message_formatting(self):
         """Test that log message patterns can be formatted correctly"""
         # Test LOG_START
-        formatted = LOG_START.format(operation="test operation")
+        formatted = LOG_START.format(phase="test operation")
         assert "test operation" in formatted
 
         # Test LOG_COMPLETE
-        formatted = LOG_COMPLETE.format(operation="test operation")
+        formatted = LOG_COMPLETE.format(phase="test operation")
         assert "test operation" in formatted
 
         # Test LOG_ERROR
-        formatted = LOG_ERROR.format(operation="test operation", error="test error")
+        formatted = LOG_ERROR.format(phase="test operation", error="test error")
         assert "test operation" in formatted
         assert "test error" in formatted
 
         # Test LOG_SKIPPED
-        formatted = LOG_SKIPPED.format(operation="test operation", reason="test reason")
+        formatted = LOG_SKIPPED.format(phase="test operation", reason="test reason")
         assert "test operation" in formatted
         assert "test reason" in formatted
 

@@ -5,7 +5,7 @@ from rv_android_core.util.exceptions import AnalysisError
 from rv_android_core.util.logcat_manager import LogcatManager
 from rv_android_core.util.logging.constants import CONTEXT_TASK_ID, CONTEXT_APP_NAME, LOG_START, \
     LOG_COMPLETE, LOG_ERROR
-from rv_android_core.event.bus import EventBus
+from rv_android_core.event import EventBus
 from rv_experiment.experiment.task.component import BaseTaskComponent
 from rv_experiment.experiment.task.task_model import Task
 
@@ -66,7 +66,7 @@ class LogcatComponent(BaseTaskComponent):
         ):
             try:
                 self.logger.info(LOG_START.format(
-                    operation=f"logcat capture to {self.task.result.logcat_file}"
+                    phase=f"logcat capture to {self.task.result.logcat_file}"
                 ))
 
                 result = self.logcat_manager.start_capture(
@@ -76,7 +76,7 @@ class LogcatComponent(BaseTaskComponent):
 
                 if result:
                     self.logger.info(LOG_COMPLETE.format(
-                        operation=f"starting logcat capture to {self.task.result.logcat_file}"
+                        phase=f"starting logcat capture to {self.task.result.logcat_file}"
                     ))
                 else:
                     self.logger.warning("Failed to start logcat capture")
@@ -85,7 +85,7 @@ class LogcatComponent(BaseTaskComponent):
 
             except Exception as e:
                 self.logger.error(LOG_ERROR.format(
-                    operation="starting logcat capture",
+                    phase="starting logcat capture",
                     error=str(e)
                 ))
                 self.error_handler.handle_error(
@@ -103,11 +103,11 @@ class LogcatComponent(BaseTaskComponent):
         """
         with self.logger.with_context(phase="stop_capture"):
             try:
-                self.logger.info(LOG_START.format(operation="stopping logcat capture"))
+                self.logger.info(LOG_START.format(phase="stopping logcat capture"))
                 result = self.logcat_manager.stop_capture()
 
                 if result:
-                    self.logger.info(LOG_COMPLETE.format(operation="stopping logcat capture"))
+                    self.logger.info(LOG_COMPLETE.format(phase="stopping logcat capture"))
                 else:
                     self.logger.warning("Issues stopping logcat capture")
 
@@ -115,7 +115,7 @@ class LogcatComponent(BaseTaskComponent):
 
             except Exception as e:
                 self.logger.warning(LOG_ERROR.format(
-                    operation="stopping logcat capture",
+                    phase="stopping logcat capture",
                     error=str(e)
                 ))
                 return False

@@ -52,7 +52,7 @@ class EmulatorManager:
             EmulatorError: If emulator fails to start
         """
         with self.logger.with_context(avd_name=avd_name, no_window=no_window, phase="startup"):
-            self.logger.info(LOG_START.format(operation=f"emulator: {avd_name}"))
+            self.logger.info(LOG_START.format(phase=f"emulator: {avd_name}"))
             self.android = Android()
 
             try:
@@ -60,14 +60,14 @@ class EmulatorManager:
                 self.android.start_emulator(avd_name, no_window)
                 self._active_emulators.add(avd_name)
                 self.logger.info(LOG_COMPLETE.format(
-                    operation=f"emulator {avd_name} startup"
+                    phase=f"emulator {avd_name} startup"
                 ))
 
                 yield self.android
 
             except Exception as e:
                 self.logger.error(LOG_ERROR.format(
-                    operation=f"starting emulator {avd_name}",
+                    phase=f"starting emulator {avd_name}",
                     error=str(e)
                 ))
                 raise EmulatorError(f"Failed to start emulator {avd_name}", cause=e)
@@ -82,7 +82,7 @@ class EmulatorManager:
                             self._active_emulators.remove(avd_name)
                     except Exception as e:
                         self.logger.warning(LOG_ERROR.format(
-                            operation=f"shutting down emulator {avd_name}",
+                            phase=f"shutting down emulator {avd_name}",
                             error=str(e)
                         ))
 
@@ -96,7 +96,7 @@ class EmulatorManager:
                 return True
             except Exception as e:
                 self.logger.warning(LOG_ERROR.format(
-                    operation="clearing logcat",
+                    phase="clearing logcat",
                     error=str(e)
                 ))
                 return False
@@ -129,13 +129,13 @@ class EmulatorManager:
                     self.android.install_apk(app)
 
                 self.logger.info(LOG_COMPLETE.format(
-                    operation=f"installation of app: {app.name}"
+                    phase=f"installation of app: {app.name}"
                 ))
                 return True
 
             except Exception as e:
                 self.logger.error(LOG_ERROR.format(
-                    operation=f"installing app {app.name}",
+                    phase=f"installing app {app.name}",
                     error=str(e)
                 ))
                 return False

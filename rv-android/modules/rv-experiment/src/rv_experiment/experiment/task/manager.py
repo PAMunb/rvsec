@@ -26,7 +26,7 @@ from rv_experiment.experiment.task.interfaces import TaskState, ITask
 from rv_experiment.experiment.task.storage import TaskStorage
 from rv_experiment.experiment.task.task_model import Task, TaskConfiguration, TaskFactory
 from rv_android_core.tools.abstract_tool import AbstractTool
-from rv_experiment.config import ExperimentConfiguration
+from rv_experiment.config import ExperimentConfig
 
 
 class TaskManager:
@@ -48,7 +48,7 @@ class TaskManager:
 
     def __init__(self,
                  storage: TaskStorage,
-                 config: ExperimentConfiguration,
+                 config: ExperimentConfig,
                  event_bus: Optional[EventBus] = None):
         """
         Initialize the task manager.

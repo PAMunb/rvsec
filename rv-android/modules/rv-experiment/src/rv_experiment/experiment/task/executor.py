@@ -169,13 +169,13 @@ class TaskExecutor(ITaskExecutor):
         Returns:
             bool: True if task execution was successful, False otherwise
         """
-        self.logger.info(LOG_START.format(operation=f"execution of task {self.task}"))
+        self.logger.info(LOG_START.format(phase=f"execution of task {self.task}"))
 
         if not self.task.app:
             error_msg = "Task has no app instance set"
             self.task.update_state(TaskState.ERROR, error_msg)
             self.logger.error(LOG_ERROR.format(
-                operation="task execution",
+                phase="task execution",
                 error="app instance not set"
             ))
             self._publish_task_failed_event(error_msg)
@@ -217,7 +217,7 @@ class TaskExecutor(ITaskExecutor):
             # Publish completed event
             self._publish_task_completed_event()
             self.logger.info(LOG_COMPLETE.format(
-                operation=f"Task {self.task.id}"
+                phase=f"Task {self.task.id}"
             ))
 
             # Run post-execution hooks
@@ -233,7 +233,7 @@ class TaskExecutor(ITaskExecutor):
             # Still need to update task status
             error_message = str(e)
             self.logger.error(LOG_ERROR.format(
-                operation=f"execution of task {self.task.id}",
+                phase=f"execution of task {self.task.id}",
                 error=error_message
             ))
             self.task.update_state(TaskState.ERROR, error_message)
@@ -369,7 +369,7 @@ class TaskExecutor(ITaskExecutor):
 
                 # Log cleanup warning
                 self.logger.warning(LOG_ERROR.format(
-                    operation="cleaning up components",
+                    phase="cleaning up components",
                     error=str(e)
                 ))
 

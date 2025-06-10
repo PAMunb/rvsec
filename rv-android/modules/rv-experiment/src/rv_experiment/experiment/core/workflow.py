@@ -146,7 +146,7 @@ class BaseWorkflow(IWorkflow):
         )
 
         with self.logger.with_context(workflow=self._name):
-            self.logger.info(LOG_START.format(operation=f"Workflow {self._name}"))
+            self.logger.info(LOG_START.format(phase=f"Workflow {self._name}"))
 
             success = True
 
@@ -170,7 +170,7 @@ class BaseWorkflow(IWorkflow):
                     source="BaseWorkflow",
                     channel=EventBus.LIFECYCLE_CHANNEL
                 )
-                self.logger.info(LOG_COMPLETE.format(operation=f"Workflow {self._name}"))
+                self.logger.info(LOG_COMPLETE.format(phase=f"Workflow {self._name}"))
             else:
                 self._context.event_bus.publish_workflow_event(
                     event_type=EventType.WORKFLOW_FAILED,
@@ -181,7 +181,7 @@ class BaseWorkflow(IWorkflow):
                     channel=EventBus.LIFECYCLE_CHANNEL
                 )
                 self.logger.error(LOG_ERROR.format(
-                    operation=f"Workflow {self._name}",
+                    phase=f"Workflow {self._name}",
                     error="One or more phases failed"
                 ))
 
@@ -215,7 +215,7 @@ class BaseWorkflow(IWorkflow):
             )
 
             with self.logger.with_context(workflow=self._name, phase=phase.name):
-                self.logger.info(LOG_START.format(operation=f"Phase {phase.name}"))
+                self.logger.info(LOG_START.format(phase=f"Phase {phase.name}"))
 
                 # Execute pre-phase hooks
                 self._execute_hooks(phase)
@@ -229,14 +229,14 @@ class BaseWorkflow(IWorkflow):
 
                         if not processor_success:
                             self.logger.error(LOG_ERROR.format(
-                                operation=f"Processor {processor.name}",
+                                phase=f"Processor {processor.name}",
                                 error="Processing failed"
                             ))
                             success = False
 
                     except Exception as e:
                         self.logger.error(LOG_ERROR.format(
-                            operation=f"Processor {processor.name}",
+                            phase=f"Processor {processor.name}",
                             error=str(e)
                         ))
                         success = False
@@ -254,7 +254,7 @@ class BaseWorkflow(IWorkflow):
                         source="BaseWorkflow",
                         channel=EventBus.LIFECYCLE_CHANNEL
                     )
-                    self.logger.info(LOG_COMPLETE.format(operation=f"Phase {phase.name}"))
+                    self.logger.info(LOG_COMPLETE.format(phase=f"Phase {phase.name}"))
                 else:
                     self._context.event_bus.publish_workflow_event(
                         event_type=EventType.PHASE_FAILED,
@@ -265,7 +265,7 @@ class BaseWorkflow(IWorkflow):
                         channel=EventBus.LIFECYCLE_CHANNEL
                     )
                     self.logger.error(LOG_ERROR.format(
-                        operation=f"Phase {phase.name}",
+                        phase=f"Phase {phase.name}",
                         error="Phase execution failed"
                     ))
 
@@ -296,7 +296,7 @@ class BaseWorkflow(IWorkflow):
                 hook(self._context)
             except Exception as e:
                 self.logger.error(LOG_ERROR.format(
-                    operation=f"Executing hook for phase {phase.name}",
+                    phase=f"Executing hook for phase {phase.name}",
                     error=str(e)
                 ))
 

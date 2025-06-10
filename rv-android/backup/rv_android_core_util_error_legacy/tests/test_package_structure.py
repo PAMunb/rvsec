@@ -15,14 +15,10 @@ def test_error_package_exports():
     # Import the components from the package
     from rv_android_core.util.error import HandlerRegistry
     from rv_android_core.util.error import RecoveryStrategies
-    from rv_android_core.util.error import handle_errors
-    from rv_android_core.util.error import retry
 
     # Verify that all expected components are exported
     assert HandlerRegistry is not None
     assert RecoveryStrategies is not None
-    assert handle_errors is not None
-    assert retry is not None
 
 
 def test_error_package_structure():
@@ -30,9 +26,9 @@ def test_error_package_structure():
     # Get the path to the error package
     error_path = os.path.dirname(os.path.abspath(handler_registry.__file__))
 
-    # Check that expected modules exist
+    # Check that expected modules exist (modern error handling architecture)
     assert os.path.exists(os.path.join(error_path, "handler_registry.py"))
     assert os.path.exists(os.path.join(error_path, "recovery_strategies.py"))
-    assert os.path.exists(os.path.join(error_path, "context_managers.py"))
-    assert os.path.exists(os.path.join(error_path, "decorators.py"))
+    assert os.path.exists(os.path.join(error_path, "error_handler.py"))
+    assert os.path.exists(os.path.join(error_path, "context.py"))
     assert os.path.exists(os.path.join(error_path, "__init__.py"))

@@ -10,7 +10,7 @@ from typing import Any, Dict, List, Optional
 from rv_android_core.util.error.error_handler import ErrorHandler
 from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
 from rv_android_core.util.logging.manager import LoggingManager
-from rv_llm.config.component_configurator import ComponentConfigurator
+from rv_llm.config.strategy_config import PromptStrategyConfig
 from rv_llm.llm.constants import ContextEntry, PromptStrategyType
 from rv_llm.llm.data_structures import LLMMessage, LLMRole, LLMTextContent
 
@@ -54,15 +54,23 @@ class PromptStrategy(abc.ABC):
         # Set up error handling
         self.error_handler = ErrorHandler.get_instance()
 
-    def configure(self, config: ComponentConfigurator) -> None:
+    def configure(self, config: PromptStrategyConfig) -> None:
         """Configure the strategy with the given configuration.
         
         Args:
-            config: The configuration to use.
+            config: The typed configuration to use.
         """
         self.logger.info(f"Configuring strategy: {self.name}")
+        
+        # Validate the configuration
+        is_valid, errors = config.validate()
+        if not is_valid:
+            error_msg = f"Invalid configuration for strategy {self.name}: {errors}"
+            self.logger.error(error_msg)
+            raise ValueError(error_msg)
+        
         self.config = config
-        # Any configuration specific logic can be added here
+        self.logger.debug(f"Strategy {self.name} configured successfully")
 
     def get_template_name(self, context: Optional[Dict[str, Any]] = None) -> str:
         """Get the template name to use for prompt generation.
@@ -82,7 +90,7 @@ class PromptStrategy(abc.ABC):
             # First priority: context-specified template
             return context[ContextEntry.TEMPLATE]
 
-        if self.config is not None and hasattr(self.config, 'template_name'):
+        if self.config is not None and self.config.template_name is not None:
             # Second priority: configuration-specified template
             return self.config.template_name
 

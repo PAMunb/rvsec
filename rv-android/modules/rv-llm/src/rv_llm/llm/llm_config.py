@@ -447,16 +447,20 @@ class LLMConfiguration:
         Returns:
             List of compatible model names
         """
-        # Import here to avoid circular imports
-        from rv_android_core.config.component_configurator import ComponentConfigurator
-
+        # Import factories to get available models
+        from rv_llm.factories.llm_factory import LLMFactory
+        
         try:
-            # Get the registry for this model type
-            registry = ComponentConfigurator._registries['llm']
-            if registry.has(self.model_type):
-                model_class = registry.get(self.model_type)
-                if model_class and hasattr(model_class, 'models'):
-                    return model_class.models()
+            # Use factory to get available models for this type
+            if self.model_type == "ollama":
+                from rv_llm.llm.ollama_llm import OllamaLLM
+                return OllamaLLM.models() if hasattr(OllamaLLM, 'models') else []
+            elif self.model_type == "huggingface":
+                from rv_llm.llm.huggingface_llm import HuggingFaceLLM
+                return HuggingFaceLLM.models() if hasattr(HuggingFaceLLM, 'models') else []
+            elif self.model_type == "frontier":
+                from rv_llm.llm.frontier_models import FrontierModel
+                return FrontierModel.models() if hasattr(FrontierModel, 'models') else []
             return []
         except Exception:
             return []

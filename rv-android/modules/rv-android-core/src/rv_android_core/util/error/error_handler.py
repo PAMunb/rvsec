@@ -5,8 +5,7 @@ import time
 from contextlib import contextmanager
 from typing import Dict, List, Callable, Any, Type, Optional, Union
 
-from rv_android_core.util.error.handler_registry import HandlerRegistry
-from rv_android_core.util.error.recovery_strategies import RecoveryStrategies
+# Remove legacy dependencies - using simplified error handling
 from rv_android_core.util.exceptions import (
     RVAndroidError, ADBError, EmulatorError, RvTimeoutError,
     RVTaskError, RVTaskExecutionError, RVTaskConfigurationError, RVTaskTimeoutError,
@@ -65,9 +64,6 @@ class ErrorHandler:
             }
         )
 
-        # Initialize handler registry
-        self._registry = HandlerRegistry()
-
         # Error callbacks for external integration
         self._error_callbacks: List[Callable[[Exception, Optional[Dict[str, Any]]], None]] = []
 
@@ -75,9 +71,6 @@ class ErrorHandler:
         self._error_counts: Dict[str, int] = {}
         self._error_history: List[Dict[str, Any]] = []
         self._recovery_attempts: Dict[str, int] = {}
-
-        # Configure default error handlers
-        self._configure_default_handlers()
 
     def register_error_callback(self, callback: Callable[[Exception, Optional[Dict[str, Any]]], None]) -> None:
         """
@@ -107,37 +100,19 @@ class ErrorHandler:
         except ValueError:
             return False
 
-    def _configure_default_handlers(self):
-        """Set up default error handlers for common errors."""
-        # ADB error handling
-        self.register_handler(ADBError, RecoveryStrategies.handle_adb_error)
-
-        # Emulator error handling
-        self.register_handler(EmulatorError, RecoveryStrategies.handle_emulator_error)
-
-        # Timeout error handling
-        self.register_handler(RvTimeoutError, RecoveryStrategies.handle_timeout_error)
-
-        # Enhanced exception hierarchy handlers
-        self.register_handler(RVTaskError, self._handle_task_error)
-        self.register_handler(RVToolError, self._handle_tool_error)
-        self.register_handler(RVExperimentError, self._handle_experiment_error)
-        self.register_handler(RVParsingError, self._handle_parsing_error)
-        self.register_handler(RVLLMError, self._handle_llm_error)
-
-        # General RVAndroid error
-        self.register_handler(RVAndroidError, self._handle_generic_error)
-
     def register_handler(self, error_type: Type[Exception],
                          handler: Callable[[Exception, Optional[Dict[str, Any]]], bool]):
         """
         Register a handler for a specific error type.
+        
+        Note: Simplified implementation - currently only supports callback registration.
 
         Args:
             error_type: The type of exception to handle
             handler: Function to call when this error occurs, should return True if handled
         """
-        self._registry.register(error_type, handler)
+        # Simplified implementation - just add to callbacks
+        self._error_callbacks.append(lambda e, c: handler(e, c) if isinstance(e, error_type) else None)
 
     def handle_error(self, error: Exception, context: Optional[Union[Dict[str, Any], 'ErrorContext']] = None) -> bool:
         """
@@ -189,22 +164,17 @@ class ErrorHandler:
             # Notify registered callbacks
             self._notify_error_callbacks(error, context)
 
-            # Find and execute handlers for this error type and its parent types
-            handlers = self._registry.find_handlers(error_type)
-
-            # Execute handlers
+            # Execute callbacks (simplified error handling)
             handled = False
-            for handler in handlers:
+            for callback in self._error_callbacks:
                 try:
-                    self._logger.debug(f"Trying handler for {error_name}")
-                    if handler(error, context):
+                    result = callback(error, context)
+                    if result is True:
                         handled = True
-                        self._logger.debug(
-                            f"Error handled by {handler.__name__ if hasattr(handler, '__name__') else 'unnamed handler'}")
-                        # Once an error is handled, we can stop (unless we want multiple handlers)
+                        self._logger.debug(f"Error handled by callback")
                         break
                 except Exception as e:
-                    self._logger.error(f"Error in handler: {e}")
+                    self._logger.error(f"Error in callback: {e}")
 
             if not handled:
                 self._logger.debug(f"No handler successfully processed {error_name}")
@@ -300,34 +270,34 @@ class ErrorHandler:
             self.error_handler.handle_error_with_introspection(e, task_id=task.id)
         ```
         """
-        from rv_android_core.util.error.context import ErrorContext
-        context = ErrorContext(**context_kwargs).build(frame_offset=3)
+        # Use simplified context without ErrorContext dependency
+        context = context_kwargs.copy()
         return self._handle_error_internal(error, context)
     
-    def create_context(self, **kwargs) -> 'ErrorContext':
+    def create_context(self, **kwargs) -> Dict[str, Any]:
         """
-        Create a new ErrorContext for fluent context building.
+        Create a new context dictionary for error handling.
         
         Args:
             **kwargs: Initial context data
             
         Returns:
-            ErrorContext instance for method chaining
+            Context dictionary for error handling
             
         Usage:
         ```python
         try:
             risky_operation()
         except Exception as e:
-            self.error_handler.create_context()\
-                .with_component("TaskExecutor")\
-                .with_phase("execution")\
-                .with_data(task_id=task.id)\
-                .handle(e, self.error_handler)
+            context = self.error_handler.create_context(
+                component="TaskExecutor",
+                phase="execution",
+                task_id=task.id
+            )
+            self.error_handler.handle_error(e, context)
         ```
         """
-        from rv_android_core.util.error.context import ErrorContext
-        return ErrorContext(**kwargs)
+        return kwargs.copy()
     
     @contextmanager
     def error_context(self, **context_kwargs):
@@ -347,8 +317,8 @@ class ErrorHandler:
         try:
             yield
         except Exception as e:
-            from rv_android_core.util.error.context import ErrorContext
-            context = ErrorContext(**context_kwargs).build(frame_offset=2)
+            # Use simplified context without ErrorContext dependency
+            context = context_kwargs.copy()
             if not self._handle_error_internal(e, context):
                 # Re-raise if not handled
                 raise
@@ -388,18 +358,16 @@ class ErrorHandler:
                 # Get error handler instance
                 handler = ErrorHandler.get_instance()
                 
-                # Build context with provided values and introspection
-                from rv_android_core.util.error.context import ErrorContext
-                error_context = ErrorContext(**context_kwargs)
+                # Build context with provided values (simplified)
+                context = context_kwargs.copy()
                 if component:
-                    error_context.with_component(component)
+                    context['component'] = component
                 if phase:
-                    error_context.with_phase(phase)
+                    context['phase'] = phase
                 
                 try:
                     return func(*args, **kwargs)
                 except Exception as e:
-                    context = error_context.build(frame_offset=2)
                     handled = handler._handle_error_internal(e, context)
                     
                     if not handled and reraise:

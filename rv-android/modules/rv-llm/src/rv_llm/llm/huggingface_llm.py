@@ -13,7 +13,6 @@ from rv_android_core.util.logging.manager import LoggingManager
 from rv_llm.llm.data_structures import LLMMessage, LLMResponse
 from rv_llm.llm.language_model import LanguageModel
 from rv_llm.llm.llm_config import LLMConfiguration
-from rv_llm.config.component_configurator import ComponentConfigurator
 
 
 class HuggingFaceLLM(LanguageModel):
@@ -339,13 +338,4 @@ class HuggingFaceLLM(LanguageModel):
         )
 
 
-# Register the model
-def register():
-    """Register HuggingFace model with the configurator."""
-    # Check if this LLM is already registered
-    if "huggingface" in ComponentConfigurator._registries.get('llm', {}).get_names():
-        # Already registered, skip registration
-        return
-
-    # Register the LLM
-    ComponentConfigurator.register_llm("huggingface", HuggingFaceLLM)
+# Legacy register function removed - now using LLMFactory for component creation

@@ -257,7 +257,7 @@ class UIAutomator2Parser(BaseScreenParser[ScreenDescription]):
             Root Node of the UI hierarchy or None if parsing fails
         """
         try:
-            with self.logger.with_context(operation="parse_xml"):
+            with self.logger.with_context(phase="parse_xml"):
                 self.logger.debug(f"Parsing XML data ({len(xml_data)} bytes)")
 
                 # Parse XML string

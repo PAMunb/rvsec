@@ -1,7 +1,8 @@
-# rvandroid/experiment_workflow/experiment_controller.py
 """
-Main experiment controller for RV-Android.
-Coordinates the overall experiment workflow and lifecycle.
+Main experiment controller for RV-Android testing orchestration.
+
+This module implements the central experiment coordination system that manages the complete
+lifecycle of Android testing experiments, from configuration to execution and results processing.
 """
 import json
 import os
@@ -22,28 +23,35 @@ from rv_experiment.experiment.workflow.pre_processor import PreProcessor
 from rv_experiment.experiment.workflow.result_manager import ResultManager
 from rv_experiment.experiment.workflow.workflow_factory import WorkflowFactory
 from rv_android_core.tools.abstract_tool import AbstractTool
-from rv_experiment.config import ExperimentConfiguration
+from rv_experiment.config import ExperimentConfig
+from rv_experiment.constants import EXPERIMENT_LOGS_DIR, EXPERIMENT_TASKS_FILE
 
 
 class ExperimentController:
     """
-    A comprehensive experiment controller that manages the lifecycle of Android testing experiments.
+    Comprehensive experiment controller that manages the lifecycle of Android testing experiments.
 
     ### Architectural Decisions:
     - Implements a modular, component-based approach to experiment management
-    - Delegates specific responsibilities to specialized components
+    - Delegates specific responsibilities to specialized workflow components
     - Provides a unified interface for experiment configuration and execution
-    - Ensures proper coordination between workflow phases
+    - Ensures proper coordination between pre-processing, execution, and post-processing phases
 
     ### Role in the System:
     - Acts as the primary entry point for running experiments
     - Orchestrates the entire experiment workflow from setup to completion
-    - Manages component lifecycle and configuration
-    - Provides a consistent interface for experiment execution
-    - Facilitates proper resource management and experiment tracking
+    - Manages component lifecycle and configuration coordination
+    - Provides consistent interface for experiment execution across different tool types
+    - Facilitates proper resource management and experiment state tracking
+
+    ### Component Integration:
+    - Pre-processor: Handles monitor generation, APK instrumentation, and static analysis
+    - Execution Controller: Manages task execution and tool coordination
+    - Post-processor: Handles results analysis and report generation
+    - Result Manager: Coordinates comprehensive result collection and storage
     """
 
-    def __init__(self, config: ExperimentConfiguration, event_bus: Optional[EventBus] = None):
+    def __init__(self, config: ExperimentConfig, event_bus: Optional[EventBus] = None):
         """
         Initialize the experiment controller with modular components.
         
@@ -78,16 +86,16 @@ class ExperimentController:
 
         # Set up file logging for this experiment
         self.logging_manager.setup_file_logging(
-            log_dir=os.path.join(self.results_dir, "logs"),
+            log_dir=os.path.join(self.results_dir, EXPERIMENT_LOGS_DIR),
             experiment_id=self.experiment_id
         )
 
         # Create task storage
-        storage_file = os.path.join(self.results_dir, "tasks.json")
+        storage_file = os.path.join(self.results_dir, EXPERIMENT_TASKS_FILE)
         self.task_storage = TaskStorage(storage_file)
 
         # Create workflow factory
-        self.factory = WorkflowFactory(self.task_storage, self.event_bus)
+        self.factory = WorkflowFactory(self.task_storage, self.event_bus, self.config)
 
         # Initialize workflow components
         self.pre_processor: PreProcessor = self.factory.create_pre_processor(self.results_dir)
@@ -116,7 +124,7 @@ class ExperimentController:
 
             with self.logger.with_context(phase="experiment_start"):
                 self.logger.info(LOG_START.format(
-                    operation=f"Experiment {experiment_id}"
+                    phase=f"Experiment {experiment_id}"
                 ))
 
         def on_experiment_completed(event):
@@ -126,7 +134,7 @@ class ExperimentController:
 
             with self.logger.with_context(phase="experiment_completion"):
                 self.logger.info(LOG_COMPLETE.format(
-                    operation=f"Experiment {experiment_id}"
+                    phase=f"Experiment {experiment_id}"
                 ))
 
         def on_task_started(event):
@@ -141,7 +149,7 @@ class ExperimentController:
                     **task_config
             ):
                 self.logger.info(LOG_START.format(
-                    operation=f"Task {task_id} ({task_config.get('apk_name', 'unknown')}, "
+                    phase=f"Task {task_id} ({task_config.get('apk_name', 'unknown')}, "
                               f"{task_config.get('tool_name', 'unknown')})"
                 ))
 
@@ -158,7 +166,7 @@ class ExperimentController:
                     error=error
             ):
                 self.logger.error(LOG_ERROR.format(
-                    operation=f"Task {task_id}",
+                    phase=f"Task {task_id}",
                     error=error
                 ))
 
@@ -219,7 +227,7 @@ class ExperimentController:
                 no_window=no_window,
                 phase="execute"
         ):
-            self.logger.info(LOG_START.format(operation="Experiment"))
+            self.logger.info(LOG_START.format(phase="Experiment"))
 
             # Publish experiment started event
             self.event_bus.publish_experiment_event(
@@ -241,12 +249,19 @@ class ExperimentController:
 
             # Run experiment if not skipped
             if not skip_experiment:
-                # Configure execution parameters
-                instrumented_apks = self.pre_processor.get_instrumented_apks()
+                # Configure execution parameters - use instrumented APKs if instrumentation was performed,
+                # otherwise use original APKs from application configuration
+                if instrument:
+                    apks = self.pre_processor.get_instrumented_apks()
+                else:
+                    # Use original APKs from application configuration
+                    from rv_android_core.app import App
+                    application_paths = self.config.applications.get_applications()
+                    apks = [App(app_path) for app_path in application_paths]
 
                 # Set up experiment execution
                 self.execution_controller.setup(
-                    apks=instrumented_apks,
+                    apks=apks,
                     repetitions=repetitions,
                     timeouts=timeouts,
                     tools=tools,
@@ -268,7 +283,7 @@ class ExperimentController:
                 channel=EventBus.LIFECYCLE_CHANNEL
             )
 
-            self.logger.info(LOG_COMPLETE.format(operation="Experiment"))
+            self.logger.info(LOG_COMPLETE.format(phase="Experiment"))
 
     def _resume_from_memory(self, memory_file: str):
         """
@@ -280,7 +295,7 @@ class ExperimentController:
         with self.logger.with_context(phase="resume_from_memory"):
             if not os.path.exists(memory_file):
                 self.logger.error(LOG_ERROR.format(
-                    operation="finding memory file",
+                    phase="finding memory file",
                     error=f"Memory file not found: {memory_file}"
                 ))
                 return
@@ -297,7 +312,7 @@ class ExperimentController:
 
                 if not load_success:
                     self.logger.error(LOG_ERROR.format(
-                        operation="loading memory file",
+                        phase="loading memory file",
                         error=f"Failed to load tasks from {memory_file}"
                     ))
                     return
@@ -309,7 +324,7 @@ class ExperimentController:
 
             except json.JSONDecodeError as e:
                 self.logger.error(LOG_ERROR.format(
-                    operation="parsing memory file",
+                    phase="parsing memory file",
                     error=f"Memory file contains invalid JSON: {e}"
                 ))
             except Exception as e:
@@ -327,58 +342,52 @@ class ExperimentController:
 
                 # Log additional information
                 self.logger.error(LOG_ERROR.format(
-                    operation="resuming from memory file",
+                    phase="resuming from memory file",
                     error=str(e)
                 ))
 
 
-def execute(tools: Optional[List[AbstractTool]] = None):
+def execute_with_config(config: ExperimentConfig, tools: Optional[List[AbstractTool]] = None):
     """
-    Execute experiment with configuration from the Configuration singleton.
+    Execute experiment with provided configuration.
     
-    This function uses the Configuration singleton to configure and execute
-    an experiment using the ExperimentController.
+    This function configures and executes an experiment using the ExperimentController
+    with the provided ExperimentConfig instance.
 
     Args:
-        tools: Provided list of tool objects to use (THESE WILL OVERRIDE CONFIGURATION)
+        config: Experiment configuration instance
+        tools: Optional list of tool objects to use
     """
-    # Set up standardized logging for this function
+    # Set up logging for this function
     logging_manager = LoggingManager.get_instance()
-    logger = logging_manager.get_logger('experiment_workflow.execute', {'function': 'execute'})
+    logger = logging_manager.get_logger('experiment_controller.execute', {'function': 'execute_with_config'})
 
-    from rv_android_core.config.configuration import Configuration
     from rv_tools.registry.registry import ToolRegistry
 
     with logger.with_context(phase="configuration"):
-        # Get configuration instance
-        config = Configuration.get_instance()
-
-        # Get experiment configuration
-        repetitions = config.get_int("repetitions", 1)
-        timeouts = config.get_list("timeouts", [60])
-        memory_file = config.get_str("memory_file", "")
-        generate_monitors = config.get_bool("generate_monitors", True)
-        instrument = config.get_bool("instrument", True)
-        static_analysis = config.get_bool("static_analysis", True)
-        skip_experiment = config.get_bool("skip_experiment", False)
-        no_window = config.get_bool("no_window", False)
+        # Get experiment parameters from config
+        repetitions = config.repetitions
+        timeouts = config.timeouts
+        generate_monitors = config.generate_monitors
+        instrument = config.instrument_apks
+        static_analysis = config.run_static_analysis
+        no_window = config.no_window
 
         # Log configuration values
-        logger.info(f"Configuration values from singleton:")
+        logger.info(f"Configuration values:")
         logger.info(f"  - repetitions: {repetitions}")
         logger.info(f"  - timeouts: {timeouts}")
         logger.info(f"  - generate_monitors: {generate_monitors}")
         logger.info(f"  - instrument: {instrument}")
         logger.info(f"  - static_analysis: {static_analysis}")
-        logger.info(f"  - skip_experiment: {skip_experiment}")
         logger.info(f"  - no_window: {no_window}")
-        logger.info(f"  - memory_file: {memory_file}")
 
         # Handle tools configuration
         if tools is not None:
             logger.info(f"Using explicitly provided tools: {[tool.name for tool in tools]}")
         else:
-            tool_names = config.get_list("tools", ["monkey"])
+            # Get tools from configuration
+            tool_names = [tc.name for tc in config.tool_configs]
             logger.info(f"Using tools from configuration: {tool_names}")
 
             # Get the tool registry
@@ -390,17 +399,15 @@ def execute(tools: Optional[List[AbstractTool]] = None):
 
     # Create experiment controller and execute
     with logger.with_context(phase="experiment_execution"):
-        logger.info(LOG_START.format(operation="experiment execution"))
-        experiment = ExperimentController()
+        logger.info(LOG_START.format(phase="experiment execution"))
+        experiment = ExperimentController(config)
         experiment.execute(
             repetitions=repetitions,
             timeouts=timeouts,
             tools=tools,
-            memory_file=memory_file,
             generate_monitors=generate_monitors,
             instrument=instrument,
             static_analysis=static_analysis,
-            skip_experiment=skip_experiment,
             no_window=no_window
         )
-        logger.info(LOG_COMPLETE.format(operation="experiment execution"))
+        logger.info(LOG_COMPLETE.format(phase="experiment execution"))

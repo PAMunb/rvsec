@@ -112,7 +112,7 @@ class PerformanceMonitor:
             Nothing, just executes the block and measures time
         """
         start_time = time.time()
-        with self.logger.with_context(operation=name, **({} if context is None else context)):
+        with self.logger.with_context(phase=name, **({} if context is None else context)):
             try:
                 self.logger.debug(f"Starting timed operation: {name}")
                 yield
@@ -208,7 +208,7 @@ class PerformanceMonitor:
                 callback(metric)
             except Exception as e:
                 self.logger.error(LOG_ERROR.format(
-                    operation="metric subscriber",
+                    phase="metric subscriber",
                     error=str(e)
                 ))
 
@@ -218,7 +218,7 @@ class PerformanceMonitor:
                 callback(metric)
             except Exception as e:
                 self.logger.error(LOG_ERROR.format(
-                    operation="global metric subscriber",
+                    phase="global metric subscriber",
                     error=str(e)
                 ))
 

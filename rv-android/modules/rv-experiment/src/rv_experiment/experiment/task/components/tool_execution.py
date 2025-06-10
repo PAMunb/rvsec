@@ -4,7 +4,7 @@ from typing import Optional, Dict, Any
 from rv_android_core.util.exceptions import ToolError
 from rv_android_core.util.logging.constants import CONTEXT_TASK_ID, CONTEXT_APP_NAME, CONTEXT_TOOL_NAME, \
     LOG_START, LOG_COMPLETE, LOG_ERROR
-from rv_android_core.event.bus import EventBus, EventType
+from rv_android_core.event import EventBus, EventType
 from rv_experiment.experiment.task.component import BaseTaskComponent
 from rv_experiment.experiment.task.task_model import Task
 from rv_android_core.tools.abstract_tool import AbstractTool
@@ -60,7 +60,7 @@ class ToolExecutionComponent(BaseTaskComponent):
         """
         with self.logger.with_context(phase="execute_tool"):
             try:
-                self.logger.info(LOG_START.format(operation=f"tool: {self.tool.name}"))
+                self.logger.info(LOG_START.format(phase=f"tool: {self.tool.name}"))
 
                 # Publish tool started event
                 if self.event_bus:
@@ -73,7 +73,7 @@ class ToolExecutionComponent(BaseTaskComponent):
 
                 # Execute the tool
                 self.tool.execute(self.task, self.task.app)
-                self.logger.info(LOG_COMPLETE.format(operation=f"tool: {self.tool.name}"))
+                self.logger.info(LOG_COMPLETE.format(phase=f"tool: {self.tool.name}"))
 
                 # Publish tool stopped event
                 if self.event_bus:
@@ -88,7 +88,7 @@ class ToolExecutionComponent(BaseTaskComponent):
 
             except Exception as e:
                 self.logger.error(LOG_ERROR.format(
-                    operation=f"executing tool {self.tool.name}",
+                    phase=f"executing tool {self.tool.name}",
                     error=str(e)
                 ))
                 self._get_error_handler().handle_error(
@@ -116,14 +116,14 @@ class ToolExecutionComponent(BaseTaskComponent):
             if hasattr(self.tool, 'process_pattern') and self.tool.process_pattern:
                 try:
                     self.logger.debug(LOG_START.format(
-                        operation=f"cleaning up processes for tool: {self.tool.name}"
+                        phase=f"cleaning up processes for tool: {self.tool.name}"
                     ))
                     self.tool.kill_related_processes(self.tool.process_pattern)
                     self.logger.debug(LOG_COMPLETE.format(
-                        operation=f"cleaning up processes for tool: {self.tool.name}"
+                        phase=f"cleaning up processes for tool: {self.tool.name}"
                     ))
                 except Exception as e:
                     self.logger.warning(LOG_ERROR.format(
-                        operation=f"cleaning up processes for tool: {self.tool.name}",
+                        phase=f"cleaning up processes for tool: {self.tool.name}",
                         error=str(e)
                     ))

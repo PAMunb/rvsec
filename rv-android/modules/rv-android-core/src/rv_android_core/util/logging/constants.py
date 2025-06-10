@@ -22,7 +22,7 @@ CONTEXT_COMPONENT = "component"
 CONTEXT_PHASE = "phase"
 
 # Common log messages patterns
-LOG_START = "Starting {operation}"
-LOG_COMPLETE = "Completed {operation}"
-LOG_ERROR = "Error in {operation}: {error}"
-LOG_SKIPPED = "Skipped {operation}: {reason}"
+LOG_START = "Starting {phase}"
+LOG_COMPLETE = "Completed {phase}"
+LOG_ERROR = "Error in {phase}: {error}"
+LOG_SKIPPED = "Skipped {phase}: {reason}"

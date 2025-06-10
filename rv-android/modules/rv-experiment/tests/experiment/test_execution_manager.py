@@ -11,7 +11,7 @@ from rv_experiment.experiment.execution_manager import ExecutionManager
 from rv_experiment.experiment.task.task_model import Task
 from rv_experiment.experiment.task.interfaces import TaskState
 from rv_experiment.experiment.task.storage import TaskStorage
-from rv_experiment.config import ExperimentConfiguration
+from rv_experiment.config import ExperimentConfig
 from rv_android_core.tools.abstract_tool import AbstractTool
 
 
@@ -44,8 +44,8 @@ class TestExecutionManager:
 
     @pytest.fixture
     def mock_config(self, temp_dir):
-        """Create a mock ExperimentConfiguration."""
-        mock_config = MagicMock(spec=ExperimentConfiguration)
+        """Create a mock ExperimentConfig."""
+        mock_config = MagicMock(spec=ExperimentConfig)
         mock_config.output_dir = temp_dir
         mock_config.get_instrumented_dir.return_value = os.path.join(temp_dir, "instrumented")
         mock_config.get_timestamp_string.return_value = "20230101_120000"

@@ -1,20 +1,20 @@
 # RVAndroid-Tool Module
 
-AI-driven Android testing server with LLM integration, screenshot analysis, and intelligent action generation for monitored operations testing.
+Modern AI-driven Android testing server with advanced LLM integration, sophisticated screenshot analysis, and intelligent action generation for comprehensive monitored operations testing with dependency injection architecture.
 
 ## Overview
 
-The RVAndroid-Tool module provides an intelligent testing server that combines Large Language Model (LLM) integration with sophisticated Android UI analysis to generate contextually-aware testing actions. It serves as the core implementation for AI-guided testing in the RV-Android monitored operations ecosystem.
+The RVAndroid-Tool module provides a sophisticated AI-driven testing server that combines cutting-edge Large Language Model integration with advanced Android UI analysis to generate contextually-aware and semantically-rich testing actions. It serves as the premier implementation for AI-guided testing in the RV-Android ecosystem, implementing modern architecture patterns with comprehensive error handling, memory management, and multi-provider LLM support.
 
 ### Key Features
 
-- **LLM Integration**: Seamless integration with multiple language model providers (Ollama, OpenAI, Anthropic, etc.)
-- **Screenshot Analysis**: Advanced UI analysis and action recommendation system
-- **Memory Management**: Sophisticated memory systems for action history and context retention
-- **HTTP Server Interface**: RESTful API for integration with testing frameworks
-- **Action Generation**: Context-aware Android action generation with constraint handling
-- **State Analysis**: Intelligent UI state understanding and transition planning
-- **Tool Integration**: Direct integration with Android testing tools and emulators
+- **Advanced LLM Integration**: Comprehensive integration with multiple language model providers using rv-llm factories for Ollama, OpenAI, Anthropic, and other providers
+- **Sophisticated Screenshot Analysis**: Advanced UI analysis with intelligent action recommendation, visual element detection, and context-aware interpretation
+- **Modern Memory Management**: Multi-layered memory systems with long-term pattern learning, short-term context retention, and state transition optimization
+- **RESTful Server Architecture**: Modern HTTP server with comprehensive API endpoints, error handling, and standardized response formatting
+- **Intelligent Action Generation**: Context-aware Android action generation with constraint handling, semantic understanding, and goal-oriented planning
+- **Advanced State Analysis**: Sophisticated UI state understanding with transition planning, pattern recognition, and optimization strategies
+- **DI-Ready Tool Integration**: Seamless integration with Android testing tools, emulators, and testing frameworks through modern architecture patterns
 
 ## Architecture
 
@@ -46,8 +46,12 @@ The RVAndroid-Tool module provides an intelligent testing server that combines L
 
 ### Integration Points
 
-- **rv-llm**: Language model infrastructure and prompt framework
-- **rv-screen-parser**: UI parsing for screen state analysis
+- **rv-llm**: Uses LLMFactory and PromptStrategyFactory for advanced language model integration and sophisticated prompt generation
+- **rv-screen-parser**: Integrates screen parsing capabilities for comprehensive UI state analysis and element detection
+- **rv-android-core**: Uses ErrorHandler decorators, LoggingManager, EventBus, and domain models for complete infrastructure integration
+- **rv-experiment**: Provides AI-driven testing capabilities for experiment orchestration and intelligent test execution
+- **rv-static-analysis**: Integrates static analysis data for enhanced context and intelligent action planning
+- **rv-coverage**: Coordinates with coverage tracking for goal-oriented testing and optimization strategies
 - **rv-android-core**: Base infrastructure, error handling, and event system
 - **rv-coverage**: Coverage information for testing optimization
 - **Testing Tools**: Direct integration with DroidBot, Monkey, and other testing frameworks

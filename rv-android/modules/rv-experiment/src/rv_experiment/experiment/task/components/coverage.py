@@ -7,7 +7,7 @@ from rv_android_core.util.logging.constants import CONTEXT_TASK_ID, CONTEXT_APP_
     LOG_COMPLETE, LOG_ERROR, LOG_SKIPPED
 from rv_coverage.analysis.coverage.tracker import CoverageTracker
 from rv_coverage.parser.log.logcat_parser import parse_logcat_file
-from rv_android_core.event.bus import EventBus, EventType
+from rv_android_core.event import EventBus, EventType
 from rv_experiment.experiment.task.component import BaseTaskComponent
 from rv_experiment.experiment.task.task_model import Task
 
@@ -92,18 +92,18 @@ class CoverageComponent(BaseTaskComponent):
         """
         with self.logger.with_context(phase="initialize_tracker"):
             try:
-                self.logger.info(LOG_START.format(operation="initializing coverage tracker"))
+                self.logger.info(LOG_START.format(phase="initializing coverage tracker"))
                 self.coverage_tracker = CoverageTracker(
                     logcat_file=self.task.result.logcat_file,
                     static_data=self.task.static_data,
                     task_start_time=self.task.result.start_time
                 )
 
-                self.logger.info(LOG_COMPLETE.format(operation="initializing coverage tracker"))
+                self.logger.info(LOG_COMPLETE.format(phase="initializing coverage tracker"))
                 return True
             except Exception as e:
                 self.logger.error(LOG_ERROR.format(
-                    operation="initializing coverage tracker",
+                    phase="initializing coverage tracker",
                     error=str(e)
                 ))
                 self.error_handler.handle_error(
@@ -125,7 +125,7 @@ class CoverageComponent(BaseTaskComponent):
                 return False
 
             try:
-                self.logger.info(LOG_START.format(operation="coverage tracking"))
+                self.logger.info(LOG_START.format(phase="coverage tracking"))
                 self.coverage_tracker.start()
 
                 # Publish event
@@ -139,7 +139,7 @@ class CoverageComponent(BaseTaskComponent):
                 return True
             except Exception as e:
                 self.logger.error(LOG_ERROR.format(
-                    operation="starting coverage tracking",
+                    phase="starting coverage tracking",
                     error=str(e)
                 ))
                 self.error_handler.handle_error(
@@ -160,9 +160,9 @@ class CoverageComponent(BaseTaskComponent):
                 return True
 
             try:
-                self.logger.info(LOG_START.format(operation="stopping coverage tracking"))
+                self.logger.info(LOG_START.format(phase="stopping coverage tracking"))
                 self.coverage_tracker.stop()
-                self.logger.info(LOG_COMPLETE.format(operation="stopping coverage tracking"))
+                self.logger.info(LOG_COMPLETE.format(phase="stopping coverage tracking"))
 
                 # Publish event
                 if self.event_bus:
@@ -174,7 +174,7 @@ class CoverageComponent(BaseTaskComponent):
                 return True
             except Exception as e:
                 self.logger.error(LOG_ERROR.format(
-                    operation="stopping coverage tracking",
+                    phase="stopping coverage tracking",
                     error=str(e)
                 ))
                 self.error_handler.handle_error(
@@ -194,13 +194,13 @@ class CoverageComponent(BaseTaskComponent):
         with self.logger.with_context(phase="process_results"):
             if not self.coverage_tracker:
                 self.logger.warning(LOG_SKIPPED.format(
-                    operation="coverage data processing",
+                    phase="coverage data processing",
                     reason="No coverage tracker available"
                 ))
                 return False
 
             try:
-                self.logger.info(LOG_START.format(operation="processing coverage data"))
+                self.logger.info(LOG_START.format(phase="processing coverage data"))
 
                 # Get repository from coverage tracker
                 repository = self.coverage_tracker.repository
@@ -238,12 +238,12 @@ class CoverageComponent(BaseTaskComponent):
                         source="CoverageComponent"
                     )
 
-                self.logger.info(LOG_COMPLETE.format(operation="processing coverage data"))
+                self.logger.info(LOG_COMPLETE.format(phase="processing coverage data"))
                 return True
 
             except Exception as e:
                 self.logger.error(LOG_ERROR.format(
-                    operation="processing coverage data",
+                    phase="processing coverage data",
                     error=str(e)
                 ))
                 self.error_handler.handle_error(

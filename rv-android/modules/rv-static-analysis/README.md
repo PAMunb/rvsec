@@ -1,19 +1,20 @@
-# RV-Static-Analysis
+# RV-Static-Analysis Module
 
-Static analysis tools integration (GATOR, GESDA, REACH) and result parsing for Android applications with runtime verification monitor integration.
+Modern static analysis orchestration system for Android applications with comprehensive tool integration, unified result parsing, and dependency injection architecture.
 
 ## Overview
 
-The `rv-static-analysis` module orchestrates multiple static analysis tools to extract comprehensive application structure and reachability information from Android APKs. It provides a unified interface for executing GATOR, GESDA, and REACH tools while parsing their outputs into a consistent domain model.
+The RV-Static-Analysis module provides sophisticated static analysis capabilities for Android applications through orchestrated execution of multiple analysis tools (GATOR, GESDA, REACH). It implements a modern architecture with comprehensive error handling, flexible configuration management, and unified result parsing into consistent domain models for integration with the broader RV-Android ecosystem.
 
-## Features
+### Key Features
 
-- **Multi-Tool Integration**: Orchestrates GATOR, GESDA, and REACH static analysis tools
-- **Unified Result Parsing**: Converts tool outputs into consistent domain objects
-- **Flexible Configuration**: Environment-based or explicit configuration with validation
-- **Batch Processing**: Support for single APK or batch analysis workflows
-- **CLI Interface**: Command-line interface for standalone operation
-- **Reachability Analysis**: Security-relevant code reachability with MOP specifications
+- **Modern Tool Orchestration**: Sophisticated coordination of GATOR, GESDA, and REACH static analysis tools with lifecycle management
+- **Unified Result Parsing**: Advanced parsing system converting tool outputs into consistent domain objects with validation
+- **DI-Ready Architecture**: Full dependency injection support with comprehensive configuration management and error handling
+- **Flexible Configuration**: Multi-source configuration system with environment variables, explicit parameters, and validation
+- **Batch Processing**: High-performance batch analysis workflows with parallel execution and error recovery
+- **Modern CLI Interface**: Advanced command-line interface with comprehensive options and progress reporting
+- **Monitored Operations Analysis**: Specialized analysis for both JCA cryptography and generic programming pattern reachability
 
 ## Architecture
 
@@ -24,12 +25,28 @@ The `rv-static-analysis` module orchestrates multiple static analysis tools to e
 3. **REACH Analysis**: Determines reachability of security-relevant code from entry points
 4. **Result Parsing**: Converts tool outputs into unified `StaticAnalysisData` objects
 
-### Key Components
+### Core Components
 
-- `StaticAnalyzer`: Core analysis orchestrator for coordinating tool execution
-- `RVStaticAnalysisConfig`: Configuration management with flexible path resolution
-- `StaticAnalysisParser`: Unified parser for converting tool outputs to domain objects
-- CLI: Command-line interface for analysis operations
+#### Analysis Infrastructure
+- **StaticAnalyzer**: Modern analysis orchestrator with comprehensive tool coordination, error handling, and result management
+- **StaticAnalysisManager**: High-level analysis coordination with batch processing and lifecycle management
+- **AnalysisEngine**: Core execution engine with parallel processing and resource management
+
+#### Configuration System
+- **RVStaticAnalysisConfig**: Advanced configuration management with multi-source support, validation, and type safety
+- **ConfigurationProvider**: Flexible configuration provider with environment integration and validation
+- **PathResolver**: Intelligent path resolution with fallback mechanisms and validation
+
+#### Parsing Infrastructure
+- **StaticAnalysisParser**: Unified parsing system with comprehensive format support and validation
+- **ToolResultParser**: Specialized parsers for GATOR, GESDA, and REACH output formats
+- **DomainModelConverter**: Advanced conversion system for creating consistent domain objects
+
+#### Integration Points
+
+- **rv-android-core**: Uses App domain model, ErrorHandler decorators, LoggingManager, and configuration utilities
+- **rv-experiment**: Provides static analysis components for experiment orchestration and task management
+- **rv-monitor-generator**: Integrates with monitor specifications for reachability analysis and monitored operations detection
 
 ## Installation
 
@@ -105,36 +122,45 @@ rv-static-analysis analyze --apk /path/to/app.apk --output /tmp --dry-run
 
 ```python
 from rv_static_analysis import RVStaticAnalysisConfig, StaticAnalyzer
+from rv_static_analysis.analysis.static import StaticAnalysis
 from rv_android_core.app import App
+from rv_android_core.util.error.error_handler import ErrorHandler
 
-# Create configuration
+# Create configuration with validation
 config = RVStaticAnalysisConfig(
     rvsec_root="/path/to/rvsec",
     lib_dir="/path/to/tools",
     output_dir="/output"
 )
 
-# Create App object
+# Create App object with metadata
 app = App("/path/to/app.apk")
 
-# Initialize analyzer
+# Initialize analyzer with error handling
 analyzer = StaticAnalyzer(app, config)
 
-# Run analysis
-result = analyzer.analyze()
+# Run analysis with error handling
+@ErrorHandler.handle_errors(component="StaticAnalysisExample", phase="analyze")
+def run_analysis():
+    result = analyzer.analyze(tools=["gator", "gesda", "reach"])
+    return result
 
-# Check results
-if result.success:
-    print("Analysis completed successfully")
+result = run_analysis()
+
+# Process results
+if result and result.success:
+    print("Static analysis completed successfully")
     
     # Get parsed domain objects
     static_data = analyzer.get_static_data()
     if static_data:
-        print(f"Found {len(static_data.classes.classes)} classes")
-        print(f"Found {len(static_data.windows.windows)} windows")
-        print(f"WTG has {len(static_data.wtg.nodes)} nodes")
+        print(f"Application structure:")
+        print(f"  Classes: {len(static_data.classes.classes)}")
+        print(f"  Windows: {len(static_data.windows.windows) if static_data.windows else 0}")
+        print(f"  WTG nodes: {len(static_data.wtg.nodes) if static_data.wtg else 0}")
+        print(f"  Reachable methods: {len(static_data.reach.reachable_methods) if static_data.reach else 0}")
 else:
-    print(f"Analysis failed: {result.errors}")
+    print(f"Static analysis failed: {result.errors if result else 'Unknown error'}")
 ```
 
 ## CLI Options
@@ -438,47 +464,3 @@ rv-static-analysis analyze \
 ## License
 
 This module is part of the RV-Android project and follows the same licensing terms.
-- `batch`: Batch analyze multiple APKs
-
-### Configuration Options
-
-- `--rvsec-root`: RVSEC installation root directory
-- `--lib-dir`: Directory containing static analysis tool JARs
-- `--android-platforms-dir`: Android SDK platforms directory
-- `--rt-jar`: Java runtime JAR path
-- `--mop-dir`: Monitor-Oriented Programming specifications directory
-- `--working-dir`: Working directory for temporary files
-
-### Tool-Specific Options
-
-- `--gesda-jar`: Path to GESDA JAR file
-- `--gator-dir`: Path to GATOR tools directory
-- `--reach-jar`: Path to REACH JAR file
-
-### Input/Output Options
-
-- `--apk`: APK file to analyze (single mode)
-- `--apks-dir`: Directory containing APKs (batch mode)
-- `--output`: Output directory for analysis results
-- `--force`: Force re-analysis even if results exist
-
-### Utility Options
-
-- `--verbose, -v`: Enable verbose output
-- `--summary`: Display analysis summary
-- `--dry-run`: Validate configuration only
-
-## Dependencies
-
-- `rv-android-core`: Core Android utilities and domain models
-- Python 3.12+
-- Android SDK with platform tools
-- Java 8+ for static analysis tool execution
-- GATOR, GESDA, REACH analysis tools
-
-## Contributing
-
-1. Follow the existing code style and documentation patterns
-2. Add comprehensive tests for new features
-3. Update CLI help and README for new options
-4. Ensure backward compatibility with existing configurations

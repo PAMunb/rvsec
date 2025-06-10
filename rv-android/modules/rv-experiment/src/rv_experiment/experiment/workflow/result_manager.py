@@ -103,7 +103,7 @@ class ResultManager:
         creating standardized CSV and JSON files for experiment analysis.
         """
         with self.logger.with_context(phase="result_generation"):
-            self.logger.info(LOG_START.format(operation="comprehensive result generation"))
+            self.logger.info(LOG_START.format(phase="comprehensive result generation"))
 
             try:
                 # Load and validate completed tasks
@@ -122,7 +122,7 @@ class ResultManager:
                 # Create experiment summary
                 self._create_experiment_summary(completed_tasks)
 
-                self.logger.info(LOG_COMPLETE.format(operation="comprehensive result generation"))
+                self.logger.info(LOG_COMPLETE.format(phase="comprehensive result generation"))
 
                 # Publish completion event
                 self._publish_completion_event(len(completed_tasks))
@@ -130,7 +130,7 @@ class ResultManager:
             except Exception as e:
                 self.error_handler.handle_error(e, {"component": "ResultManager", "phase": "result_generation"})
                 self.logger.error(LOG_ERROR.format(
-                    operation="generating experiment results",
+                    phase="generating experiment results",
                     error=str(e)
                 ))
 
@@ -155,7 +155,7 @@ class ResultManager:
 
         except Exception as e:
             self.logger.error(LOG_ERROR.format(
-                operation="loading completed tasks",
+                phase="loading completed tasks",
                 error=str(e)
             ))
             return []
@@ -168,7 +168,7 @@ class ResultManager:
             completed_tasks: List of completed tasks to process
         """
         with self.logger.with_context(phase="coverage_csv_generation"):
-            self.logger.info(LOG_START.format(operation="coverage CSV generation"))
+            self.logger.info(LOG_START.format(phase="coverage CSV generation"))
 
             try:
                 coverage_file = os.path.join(self.results_dir, "coverage.csv")
@@ -190,7 +190,7 @@ class ResultManager:
 
             except Exception as e:
                 self.logger.error(LOG_ERROR.format(
-                    operation="generating coverage CSV",
+                    phase="generating coverage CSV",
                     error=str(e)
                 ))
 
@@ -299,7 +299,7 @@ class ResultManager:
             completed_tasks: List of completed tasks to process
         """
         with self.logger.with_context(phase="errors_csv_generation"):
-            self.logger.info(LOG_START.format(operation="errors CSV generation"))
+            self.logger.info(LOG_START.format(phase="errors CSV generation"))
 
             try:
                 errors_file = os.path.join(self.results_dir, "errors.csv")
@@ -321,7 +321,7 @@ class ResultManager:
 
             except Exception as e:
                 self.logger.error(LOG_ERROR.format(
-                    operation="generating errors CSV",
+                    phase="generating errors CSV",
                     error=str(e)
                 ))
 
@@ -395,7 +395,7 @@ class ResultManager:
             completed_tasks: List of completed tasks to process
         """
         with self.logger.with_context(phase="summary_csv_generation"):
-            self.logger.info(LOG_START.format(operation="summary CSV generation"))
+            self.logger.info(LOG_START.format(phase="summary CSV generation"))
 
             try:
                 summary_file = os.path.join(self.results_dir, "summary.csv")
@@ -416,7 +416,7 @@ class ResultManager:
 
             except Exception as e:
                 self.logger.error(LOG_ERROR.format(
-                    operation="generating summary CSV",
+                    phase="generating summary CSV",
                     error=str(e)
                 ))
 
@@ -482,7 +482,7 @@ class ResultManager:
             completed_tasks: List of completed tasks to process
         """
         with self.logger.with_context(phase="results_json_generation"):
-            self.logger.info(LOG_START.format(operation="results JSON generation"))
+            self.logger.info(LOG_START.format(phase="results JSON generation"))
 
             try:
                 results_file = os.path.join(self.results_dir, "results.json")
@@ -520,7 +520,7 @@ class ResultManager:
 
             except Exception as e:
                 self.logger.error(LOG_ERROR.format(
-                    operation="generating results JSON",
+                    phase="generating results JSON",
                     error=str(e)
                 ))
 
@@ -613,7 +613,7 @@ class ResultManager:
             completed_tasks: List of completed tasks to process
         """
         with self.logger.with_context(phase="instrument_errors_json_generation"):
-            self.logger.info(LOG_START.format(operation="instrumentation errors JSON generation"))
+            self.logger.info(LOG_START.format(phase="instrumentation errors JSON generation"))
 
             try:
                 # Collect instrumentation errors
@@ -642,7 +642,7 @@ class ResultManager:
 
             except Exception as e:
                 self.logger.error(LOG_ERROR.format(
-                    operation="generating instrumentation errors JSON",
+                    phase="generating instrumentation errors JSON",
                     error=str(e)
                 ))
 

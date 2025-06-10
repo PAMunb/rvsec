@@ -2,7 +2,7 @@
 import functools
 from typing import Callable
 
-from rv_android_core.util.error import handle_errors
+from rv_android_core.util.error.error_handler import ErrorHandler
 from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
 from rv_android_core.util.logging.manager import LoggingManager
 
@@ -42,14 +42,14 @@ def task_phase(phase_name: str, measure_performance: bool = True, handle_task_er
                     with self.performance_monitor.measure_time(phase_name, context):
                         # Optional error handling
                         if handle_task_errors:
-                            with handle_errors(context):
+                            with ErrorHandler.get_instance().error_context(**context):
                                 return func(self, *args, **kwargs)
                         else:
                             return func(self, *args, **kwargs)
                 else:
                     # Just error handling without performance monitoring
                     if handle_task_errors:
-                        with handle_errors(context):
+                        with ErrorHandler.get_instance().error_context(**context):
                             return func(self, *args, **kwargs)
                     else:
                         return func(self, *args, **kwargs)

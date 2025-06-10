@@ -6,7 +6,7 @@ prompt generation strategy for generating batches of testing actions.
 
 from typing import Any, Dict, List, Optional
 
-from rv_llm.config.component_configurator import ComponentConfigurator
+from rv_android_core.util.error.error_handler import ErrorHandler
 from rv_llm.llm.constants import (ContextEntry, FragmentType, PromptStrategyType,
                                      StateEntry)
 from rv_llm.llm.prompt.information.fragment_manager import InformationManager

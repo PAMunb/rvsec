@@ -1,7 +1,8 @@
-# rvandroid/experiment/execution_manager.py
 """
-Execution manager for coordinating tasks.
-Provides dependency injection and event-based execution coordination.
+Execution manager for coordinating experiment tasks.
+
+This module implements a sophisticated orchestration system for managing and coordinating 
+the execution of complex experimental tasks in Android testing environments.
 """
 
 import logging
@@ -14,7 +15,7 @@ from rv_android_core.app import App
 from rv_android_core.constants import EXTENSION_REACH, EXTENSION_GATOR, EXTENSION_GESDA, EXTENSION_METHODS
 from rv_android_core.util.error.error_handler import ErrorHandler, error_context
 from rv_android_core.util.exceptions import RVExperimentError, RVExperimentExecutionError, RVTaskExecutionError
-from rv_android_core.event.bus import EventBus, EventType
+from rv_android_core.event import EventBus, EventType
 from rv_experiment.experiment.task.components import (
     StaticAnalysisComponent,
     CoverageComponent,
@@ -27,7 +28,8 @@ from rv_experiment.experiment.task.interfaces import TaskState
 from rv_experiment.experiment.task.storage import TaskStorage
 from rv_experiment.experiment.task.task_model import Task, TaskConfiguration
 from rv_android_core.tools.abstract_tool import AbstractTool
-from rv_experiment.config import ExperimentConfiguration
+from rv_experiment.config import ExperimentConfig
+from rv_experiment.constants import INSTRUMENTED_DIR, get_static_analysis_source_path
 
 
 class ExecutionManager:
@@ -69,7 +71,7 @@ class ExecutionManager:
     - Provides granular performance metrics and execution insights
     """
 
-    def __init__(self, storage: TaskStorage, config: ExperimentConfiguration, event_bus: Optional[EventBus] = None):
+    def __init__(self, storage: TaskStorage, config: ExperimentConfig, event_bus: Optional[EventBus] = None):
         """
         Initialize with storage and configuration.
 
@@ -465,7 +467,6 @@ class ExecutionManager:
         Returns:
             True if at least one file was copied, False otherwise
         """
-        # Example: Decorator handles errors automatically, code is cleaner
         self.logger.info(f"Copying static analysis files for {apk} to {app_results_dir}")
         extensions = [EXTENSION_METHODS, EXTENSION_GESDA, EXTENSION_GATOR, EXTENSION_REACH]
         copied_files = 0
@@ -474,10 +475,7 @@ class ExecutionManager:
         os.makedirs(app_results_dir, exist_ok=True)
 
         for extension in extensions:
-            file_name = f"{apk}{extension}"
-            # Use base results directory as instrumented directory if not defined
-            instrumented_dir = os.environ.get('INSTRUMENTED_DIR', self.base_results_dir)
-            file_path = os.path.join(instrumented_dir, file_name)
+            file_path = get_static_analysis_source_path(apk, extension)
             self.logger.debug(f"Checking file: {file_path}")
 
             if os.path.exists(file_path):

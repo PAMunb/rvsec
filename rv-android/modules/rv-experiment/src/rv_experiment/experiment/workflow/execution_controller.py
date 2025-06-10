@@ -12,11 +12,11 @@ from rv_android_core.constants import EXTENSION_METHODS, EXTENSION_GESDA, EXTENS
 from rv_android_core.util.error.error_handler import ErrorHandler
 from rv_android_core.util.logging.constants import CONTEXT_COMPONENT, LOG_START, LOG_COMPLETE, LOG_ERROR
 from rv_android_core.util.logging.manager import LoggingManager
-from rv_android_core.event.bus import EventBus
+from rv_android_core.event import EventBus
 from rv_experiment.experiment.execution_manager import ExecutionManager
 from rv_experiment.experiment.task.storage import TaskStorage
 from rv_android_core.tools.abstract_tool import AbstractTool
-from rv_experiment.config import ExperimentConfiguration
+from rv_experiment.config import ExperimentConfig
 
 
 class ExecutionController:
@@ -36,7 +36,7 @@ class ExecutionController:
     - Handles static analysis file management for tasks
     """
 
-    def __init__(self, task_storage: TaskStorage, config: ExperimentConfiguration, event_bus: EventBus):
+    def __init__(self, task_storage: TaskStorage, config: ExperimentConfig, event_bus: EventBus):
         """
         Initialize the execution controller.
 
@@ -96,7 +96,7 @@ class ExecutionController:
                 no_window=no_window,
                 phase="setup"
         ):
-            self.logger.info(LOG_START.format(operation="execution setup"))
+            self.logger.info(LOG_START.format(phase="execution setup"))
 
             # Register apps and tools
             for app in apks:
@@ -116,7 +116,7 @@ class ExecutionController:
                     no_window=no_window
                 )
 
-            self.logger.info(LOG_COMPLETE.format(operation="execution setup"))
+            self.logger.info(LOG_COMPLETE.format(phase="execution setup"))
 
     def run(self) -> bool:
         """
@@ -126,7 +126,7 @@ class ExecutionController:
             True if all tasks completed successfully, False if there were errors
         """
         with self.logger.with_context(phase="execution"):
-            self.logger.info(LOG_START.format(operation="task execution"))
+            self.logger.info(LOG_START.format(phase="task execution"))
 
             # Run all tasks
             result = self.execution_manager.run_all_tasks()
@@ -136,7 +136,7 @@ class ExecutionController:
             stats = self.execution_manager.get_statistics()
             self.logger.info(f"Execution statistics: {stats}")
 
-            self.logger.info(LOG_COMPLETE.format(operation="task execution"))
+            self.logger.info(LOG_COMPLETE.format(phase="task execution"))
             return result
 
     def copy_static_analysis_files(self, apk: str, app_results_dir: str) -> bool:
@@ -190,7 +190,7 @@ class ExecutionController:
 
             # Log additional information
             self.logger.error(LOG_ERROR.format(
-                operation=f"copying static analysis files for {apk}",
+                phase=f"copying static analysis files for {apk}",
                 error=str(e)
             ))
             return False

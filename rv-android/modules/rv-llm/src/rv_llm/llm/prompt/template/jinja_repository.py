@@ -14,12 +14,11 @@ import jinja2
 from rv_android_core.util.error.error_handler import ErrorHandler
 from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
 from rv_android_core.util.logging.manager import LoggingManager
-from rv_llm.config.component_configurator import ComponentConfigurator
+from rv_llm.config.strategy_config import PromptStrategyConfig
 from rv_llm.llm.data_structures import LLMMessage, LLMRole, LLMTextContent
 from .jinja_template import Jinja2Template, FragmentDictLoader
-from .xml_utils import (create_default_templates, extract_template_metadata,
-                        extract_template_roles, extract_template_variables,
-                        load_xml_file)
+from .xml_utils import (extract_template_metadata, extract_template_roles, 
+                        extract_template_variables, load_xml_file)
 
 
 class Jinja2TemplateRepository:
@@ -118,29 +117,52 @@ class Jinja2TemplateRepository:
 
         return env
 
-    def configure(self, config: ComponentConfigurator) -> None:
+    @ErrorHandler.handle_errors(
+        component="Jinja2TemplateRepository",
+        phase="configuration"
+    )
+    def configure(self, config: Optional[PromptStrategyConfig] = None) -> None:
         """Configure the repository with the given configuration.
 
+        ### Architectural Decision:
+        - Uses typed configuration class for validation and type safety
+        - Provides error handling with decorator pattern
+        - Supports custom template and fragment directories
+
         Args:
-            config: The configuration to use.
+            config: Optional typed configuration instance.
         """
         self.logger.info("Configuring Jinja2TemplateRepository")
+        
+        if config is None:
+            config = PromptStrategyConfig()
+            
+        # Validate configuration
+        is_valid, errors = config.validate()
+        if not is_valid:
+            self.logger.warning(f"Configuration validation errors: {errors}")
 
-        # Check if custom template directory is specified
-        if hasattr(config, 'llm_config') and hasattr(config.llm_config, 'template_dir'):
-            custom_template_dir = config.llm_config.template_dir
-            if custom_template_dir:
-                self.logger.info(f"Custom template directory specified: {custom_template_dir}")
-                self.template_dir = custom_template_dir
-                self._load_templates()
+        # Check if custom template directory is specified in kwargs
+        custom_template_dir = config.kwargs.get('template_dir')
+        if custom_template_dir:
+            self.logger.info(f"Custom template directory specified: {custom_template_dir}")
+            self.template_dir = custom_template_dir
+            self._load_templates()
 
-        # Check if custom fragment directory is specified
-        if hasattr(config, 'llm_config') and hasattr(config.llm_config, 'fragment_dir'):
-            custom_fragment_dir = config.llm_config.fragment_dir
-            if custom_fragment_dir:
-                self.logger.info(f"Custom fragment directory specified: {custom_fragment_dir}")
-                self.fragment_dir = custom_fragment_dir
-                self._load_fragments()
+        # Check if custom fragment directory is specified in kwargs
+        custom_fragment_dir = config.kwargs.get('fragment_dir')
+        if custom_fragment_dir:
+            self.logger.info(f"Custom fragment directory specified: {custom_fragment_dir}")
+            self.fragment_dir = custom_fragment_dir
+            self._load_fragments()
+            
+        # Apply template format configuration
+        if config.template_format:
+            self.logger.debug(f"Using template format: {config.template_format}")
+            
+        # Apply template validation configuration
+        if config.template_validation:
+            self.logger.debug("Template validation enabled")
 
         # Ensure critical fragments are available
         self._ensure_critical_fragments()
