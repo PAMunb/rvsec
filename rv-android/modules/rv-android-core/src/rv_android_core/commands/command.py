@@ -45,16 +45,16 @@ def kill_process_tree(pid: int):
 
 class Command:
     """
-    A robust system command execution utility with comprehensive process management and error handling capabilities.
+    A system command execution utility with process management and error handling capabilities.
 
     ### Architectural Decisions:
     - Implements a flexible and secure approach to system command execution
-    - Provides standardized handling of command invocation and result processing
+    - Provides handling of command invocation and result processing
     - Supports timeout enforcement and process tree management
     - Ensures consistent output and error capturing across different command scenarios
 
     ### Role in the System:
-    - Acts as a critical utility for executing system commands across the RV-Android framework
+    - Acts as a utility for executing system commands across the RV-Android framework
     - Abstracts low-level command execution complexities
     - Provides a uniform interface for invoking shell commands, ADB operations, and tool interactions
     - Manages process lifecycle, including timeout handling and clean termination
@@ -62,23 +62,23 @@ class Command:
 
     ### Key Considerations:
     - Handles cross-platform command execution challenges
-    - Implements robust process management and termination strategies
+    - Implements process management and termination strategies
     - Supports multiple execution modes (synchronous and daemon)
-    - Provides comprehensive error handling and reporting
+    - Provides error handling and reporting
     - Ensures secure and controlled command invocation
 
     ### Integration Strategy:
-    - Deeply integrated with Android testing and instrumentation tools
+    - Integrated with Android testing and instrumentation tools
     - Compatible with various system command scenarios
     - Supports flexible timeout and process management configurations
-    - Enables seamless command execution across different modules
-    - Provides standardized result object for consistent processing
+    - Enables command execution across different modules
+    - Provides result object for consistent processing
 
     ### Performance and Scalability:
     - Designed for efficient and lightweight command execution
     - Minimizes resource overhead during command processing
     - Supports timeout mechanisms to prevent long-running commands
-    - Implements recursive process tree termination for comprehensive cleanup
+    - Implements recursive process tree termination for cleanup
     - Adaptable to different command complexity and system environments
     """
 

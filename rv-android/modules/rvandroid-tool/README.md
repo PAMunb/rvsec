@@ -1,59 +1,57 @@
 # RVAndroid-Tool Module
 
-Modern AI-driven Android testing server with advanced LLM integration, sophisticated screenshot analysis, and intelligent action generation for comprehensive monitored operations testing with dependency injection architecture.
+AI-driven Android testing server with LLM integration, screenshot analysis, and action generation for monitored operations testing.
 
 ## Overview
 
-The RVAndroid-Tool module provides a sophisticated AI-driven testing server that combines cutting-edge Large Language Model integration with advanced Android UI analysis to generate contextually-aware and semantically-rich testing actions. It serves as the premier implementation for AI-guided testing in the RV-Android ecosystem, implementing modern architecture patterns with comprehensive error handling, memory management, and multi-provider LLM support.
+The RVAndroid-Tool module provides an AI-driven testing server that combines Large Language Model integration with Android UI analysis to generate testing actions. It serves as an implementation for AI-guided testing in the RV-Android ecosystem, implementing architecture patterns with error handling, memory management, and multi-provider LLM support.
 
 ### Key Features
 
-- **Advanced LLM Integration**: Comprehensive integration with multiple language model providers using rv-llm factories for Ollama, OpenAI, Anthropic, and other providers
-- **Sophisticated Screenshot Analysis**: Advanced UI analysis with intelligent action recommendation, visual element detection, and context-aware interpretation
-- **Modern Memory Management**: Multi-layered memory systems with long-term pattern learning, short-term context retention, and state transition optimization
-- **RESTful Server Architecture**: Modern HTTP server with comprehensive API endpoints, error handling, and standardized response formatting
-- **Intelligent Action Generation**: Context-aware Android action generation with constraint handling, semantic understanding, and goal-oriented planning
-- **Advanced State Analysis**: Sophisticated UI state understanding with transition planning, pattern recognition, and optimization strategies
-- **DI-Ready Tool Integration**: Seamless integration with Android testing tools, emulators, and testing frameworks through modern architecture patterns
+- **LLM Integration**: Integration with multiple language model providers using rv-llm factories for Ollama, OpenAI, Anthropic, and other providers
+- **Screenshot Analysis**: UI analysis with action recommendation, visual element detection, and context interpretation
+- **Memory Management**: Multi-layered memory systems with long-term pattern learning, short-term context retention, and state transition optimization
+- **RESTful Server Architecture**: HTTP server with API endpoints, error handling, and response formatting
+- **Action Generation**: Context-aware Android action generation with constraint handling, semantic understanding, and goal-oriented planning
+- **State Analysis**: UI state understanding with transition planning, pattern recognition, and optimization strategies
+- **Tool Integration**: Integration with Android testing tools, emulators, and testing frameworks through architecture patterns
 
 ## Architecture
 
 ### Core Components
 
 #### LLM Service Layer
-- **LLMManager**: Centralized language model orchestration and configuration
+- **LLMManager**: Language model orchestration and configuration
 - **ActionService**: LLM-powered action generation with context awareness
-- **ActionGenerator**: Sophisticated action planning and optimization
+- **ActionGenerator**: Action planning and optimization
 - **ResponseProcessor**: LLM response parsing and validation
 - **StateAnalyzer**: UI state analysis and interpretation
 
 #### Memory Management
-- **MemoryManager**: Comprehensive memory coordination and persistence
+- **MemoryManager**: Memory coordination and persistence
 - **LongTermMemory**: Persistent storage for learned patterns and strategies
 - **ShortTermMemory**: Session-based context and action history management
 - **StateEnricher**: Context enhancement with historical and static analysis data
 - **TransitionManager**: State transition tracking and optimization
 
 #### Screenshot Analysis
-- **ScreenshotAnalyzer**: Advanced UI element detection and classification
+- **ScreenshotAnalyzer**: UI element detection and classification
 - **ScreenshotActionComplementor**: Action enhancement based on visual analysis
 - **ScreenshotManager**: Screenshot capture and processing coordination
 
 #### Server Infrastructure
 - **Server**: Main HTTP server with RESTful API endpoints
 - **RequestHandler**: HTTP request processing and routing
-- **ResponseFormatter**: Standardized response formatting and error handling
+- **ResponseFormatter**: Response formatting and error handling
 
 ### Integration Points
 
-- **rv-llm**: Uses LLMFactory and PromptStrategyFactory for advanced language model integration and sophisticated prompt generation
-- **rv-screen-parser**: Integrates screen parsing capabilities for comprehensive UI state analysis and element detection
-- **rv-android-core**: Uses ErrorHandler decorators, LoggingManager, EventBus, and domain models for complete infrastructure integration
-- **rv-experiment**: Provides AI-driven testing capabilities for experiment orchestration and intelligent test execution
-- **rv-static-analysis**: Integrates static analysis data for enhanced context and intelligent action planning
-- **rv-coverage**: Coordinates with coverage tracking for goal-oriented testing and optimization strategies
-- **rv-android-core**: Base infrastructure, error handling, and event system
-- **rv-coverage**: Coverage information for testing optimization
+- **rv-llm**: Uses PromptFramework and LLMConfig for language model integration and prompt generation
+- **rv-screen-parser**: Integrates screen parsing capabilities for UI state analysis and element detection
+- **rv-android-core**: Uses ErrorHandler decorators, LoggingManager, EventBus, and domain models for infrastructure integration
+- **rv-experiment**: Provides AI-driven testing capabilities for experiment orchestration and test execution
+- **rv-static-analysis**: Integrates static analysis data for context and action planning
+- **rv-coverage**: Coordinates with coverage tracking for testing and optimization strategies
 - **Testing Tools**: Direct integration with DroidBot, Monkey, and other testing frameworks
 
 ## Installation
@@ -96,7 +94,7 @@ rvandroid-tool server \
     --llm-model llama3.2:3b \
     --temperature 0.2
 
-# Start with advanced memory configuration
+# Start with memory configuration
 rvandroid-tool server \
     --port 8080 \
     --memory-dir /path/to/memory \

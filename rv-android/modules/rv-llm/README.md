@@ -1,54 +1,53 @@
 # RV-LLM Module
 
-Language Model integration infrastructure and modern factory-based prompt framework for AI-driven Android application testing with dependency injection architecture.
+Language Model integration infrastructure and prompt framework for AI-driven Android application testing.
 
 ## Overview
 
-The RV-LLM module provides comprehensive LLM integration capabilities for the RV-Android system, enabling sophisticated AI-driven Android application testing through modern factory patterns, advanced prompt generation, and seamless provider abstraction. The module implements a DI-ready architecture with comprehensive error handling and performance monitoring.
+The RV-LLM module provides LLM integration capabilities for the RV-Android system, enabling AI-driven Android application testing through component architecture, prompt generation, and provider abstraction. The module implements a configuration approach with error handling.
 
 ### Key Features
 
-- **Modern Factory Architecture**: LLMFactory and PromptStrategyFactory with DI-ready interfaces for flexible component creation
-- **Multi-Provider Support**: Seamless integration with Ollama, HuggingFace, OpenAI, Anthropic, Google, and AWS Bedrock
-- **Advanced Prompt Framework**: Sophisticated prompt generation using strategy patterns and template systems
-- **Type-Safe Configuration**: Comprehensive configuration management with validation and error handling
+- **Multi-Provider Support**: Integration with Ollama, HuggingFace, OpenAI, Anthropic, Google, and AWS Bedrock
+- **Prompt Framework**: Prompt generation using strategy patterns and template systems
+- **Type-Safe Configuration**: Configuration management with validation and error handling
+- **Component Factory**: Component creation through factory patterns
 - **Performance Monitoring**: Built-in metrics and performance tracking with structured logging
-- **DI Integration**: Full dependency injection support with lifecycle management
 
 ## Architecture
 
 ### Core Components
 
-#### Modern Factory System
-- **LLMFactory**: Central factory for creating LLM instances with comprehensive provider support
-- **ILLMFactory**: Interface defining factory contract for dependency injection
-- **PromptStrategyFactory**: Factory for creating prompt generation strategies with configuration support
-- **IPromptStrategyFactory**: Interface for strategy factory implementations
-
 #### Language Models
 - **LanguageModel**: Base abstraction for all LLM implementations with standardized interface
-- **OllamaLLM**: Local LLM integration via Ollama for privacy and control with enhanced configuration
+- **OllamaLLM**: Local LLM integration via Ollama for privacy and control
 - **HuggingFaceLLM**: Direct HuggingFace transformers integration with quantization support
 - **FrontierModel**: Cloud provider integration (OpenAI, Anthropic, Google Gemini, AWS Bedrock)
 
 #### Prompt Framework
 - **PromptFramework**: Unified prompt generation system with strategy coordination and context management
 - **PromptStrategy**: Strategy pattern for different prompt generation approaches with template support
-- **InformationManager**: Fragment-based information gathering and composition with validation
-- **TemplateRepository**: Jinja2-based template management with XML support and caching
+- **InformationManager**: Fragment-based information gathering and composition with direct parameter passing
+- **Jinja2TemplateRepository**: Template management with XML support and caching
 
 #### Configuration Management
-- **LLMConfiguration**: Type-safe LLM configuration with comprehensive validation and error reporting
-- **ConfigurationManager**: Modern configuration facade with multi-source support and validation
+- **LLMConfig**: LLM configuration with validation and error reporting
+- **ComponentFactory**: Component creation through factory patterns
+
+#### Data Structures
+- **LLMMessage**: Message structure for LLM communication
+- **LLMRole**: Role enumeration (system, user, assistant, tool)
+- **LLMResponse**: Structured response from LLM interactions
+- **LLMTextContent**: Text content handling for messages
 
 ### Integration Points
 
-- **rv-android-core**: Uses ErrorHandler decorators, LoggingManager, and EventBus for infrastructure
-- **rv-experiment**: Provides LLMFactory and PromptStrategyFactory for orchestration and experiment management
+- **rv-android-core**: Uses ErrorHandler decorators and LoggingManager for error handling and logging
+- **rv-experiment**: Provides prompt framework and LLM integration for AI-driven testing tools
 - **rv-screen-parser**: Screen parsing integration for UI analysis and context enhancement
-- **rv-static-analysis**: Static analysis data integration for prompt context and validation
+- **rv-static-analysis**: Static analysis data integration for prompt context
 - **rv-coverage**: Coverage information for prompt enrichment and testing strategy optimization
-- **rv-monitor-generator**: Monitor generation context and constraint integration
+- **rv-monitor-generator**: Monitor generation context integration
 
 ## Installation
 
@@ -77,11 +76,11 @@ poetry install --extras dev
 ### Basic Language Model Usage
 
 ```python
-from rv_llm import OllamaLLM, LLMConfiguration, LLMMessage, LLMRole, LLMTextContent
+from rv_llm import OllamaLLM, LLMConfig, LLMMessage, LLMRole, LLMTextContent
 
 # Initialize model with configuration
-config = LLMConfiguration(
-    model_name="llama3.2:3b",
+config = LLMConfig(
+    model="llama3.2:3b",
     temperature=0.2,
     max_tokens=800
 )
@@ -94,70 +93,27 @@ messages = [
 ]
 
 # Generate response with performance metrics
-response = model.generate(messages, config)
+response = model.generate(messages, config.get_llm_parameters())
 print(f"Response: {response.content}")
 print(f"Tokens: {response.output_tokens}")
 print(f"Duration: {response.total_duration}ms")
 ```
 
-### Modern Factory Usage
+### Prompt Framework Usage
 
 ```python
-from rv_llm.factories import LLMFactory, PromptStrategyFactory
+from rv_llm import PromptFramework
 
-# Create factories with DI-ready design
-llm_factory = LLMFactory()
-strategy_factory = PromptStrategyFactory()
+# Create framework with clean architecture
+framework = PromptFramework.create()
 
-# Create LLM instances through factory
-ollama_llm = llm_factory.create_ollama(
-    model="llama3.2:3b",
-    temperature=0.3,
-    base_url="http://localhost:11434"
+# Configure framework with direct parameters
+framework.configure(
+    template_format="jinja2",
+    template_validation=True
 )
 
-frontier_llm = llm_factory.create_frontier(
-    provider="anthropic",
-    model="claude-3-sonnet",
-    api_key="your-key"
-)
-
-# Create prompt strategies through factory
-standard_strategy = strategy_factory.create_standard(
-    use_context_enhancement=True,
-    include_ui_analysis=True
-)
-
-batch_strategy = strategy_factory.create_batch_action(
-    batch_size=3,
-    use_action_coordination=True
-)
-
-# Configuration-driven creation
-llm_config = {
-    "provider": "ollama",
-    "model": "llama3",
-    "temperature": 0.2
-}
-llm = llm_factory.create_from_config(llm_config)
-```
-
-### Advanced Prompt Framework Integration
-
-```python
-from rv_llm import PromptFramework, ConfigurationManager
-from rv_llm.factories import PromptStrategyFactory
-
-# Create framework with factory-created strategy
-strategy_factory = PromptStrategyFactory()
-strategy = strategy_factory.create_standard(
-    use_context_enhancement=True,
-    include_static_analysis=True
-)
-
-framework = PromptFramework.create(strategy=strategy)
-
-# Generate sophisticated prompts with enhanced context
+# Generate sophisticated prompts with context
 state = {
     "current_screen": screen_data,
     "action_history": previous_actions,
@@ -166,15 +122,37 @@ state = {
 }
 
 context = {
-    "strategy": "exploration",
+    "strategy_type": "exploration",
     "constraints": ["avoid_destructive_actions"]
 }
 
 # Generate context-aware prompts
 prompt_messages = framework.generate_prompt(state, context)
 
-# Use with factory-created LLM
-response = ollama_llm.generate(prompt_messages, config)
+# Use with configured LLM
+response = model.generate(prompt_messages, config.get_llm_parameters())
+```
+
+### Configuration Management
+
+```python
+from rv_llm.config.llm_config import LLMConfig
+
+# Create configuration from CLI variants
+config = LLMConfig.from_variants_and_params(
+    variants=["llama", "batch_action"],
+    params={"temperature": "0.3", "max_tokens": "1000"}
+)
+
+# Validate configuration
+is_valid, errors = config.validate()
+if not is_valid:
+    print(f"Configuration errors: {errors}")
+
+# Get specific parameter sets
+llm_params = config.get_llm_parameters()
+strategy_params = config.get_strategy_parameters()
+parser_params = config.get_parser_parameters()
 ```
 
 ## Configuration
@@ -182,11 +160,11 @@ response = ollama_llm.generate(prompt_messages, config)
 ### LLM Configuration Options
 
 ```python
-from rv_llm import LLMConfiguration
+from rv_llm import LLMConfig
 
-config = LLMConfiguration(
-    model_type="ollama",           # Provider type
-    model_name="llama3.2:3b",     # Specific model
+config = LLMConfig(
+    llm_type="ollama",            # Provider type
+    model="llama3.2:3b",          # Specific model
     temperature=0.2,              # Creativity control
     max_tokens=800,               # Response length limit
     top_p=1.0,                    # Nucleus sampling
@@ -232,12 +210,12 @@ Current test status: **4/4 tests passing (100%)**
 
 ### Architecture Guidelines
 
-- Use LLMFactory and PromptStrategyFactory for all component creation
-- Implement DI-ready interfaces for new components
+- Use PromptFramework.create() for framework initialization
+- Use direct parameter passing for component configuration
 - Integrate with ErrorHandler decorators for comprehensive error management
-- Follow factory patterns for consistent component lifecycle
+- Use LLMConfig for configuration management with validation
 - Maintain provider-agnostic interfaces with clear abstraction layers
-- Use configuration-driven component creation where possible
+- Use simple factory methods for component creation
 
 ## License
 

@@ -29,7 +29,7 @@ from rv_experiment.constants import EXPERIMENT_LOGS_DIR, EXPERIMENT_TASKS_FILE
 
 class ExperimentController:
     """
-    Comprehensive experiment controller that manages the lifecycle of Android testing experiments.
+    Experiment controller that manages the lifecycle of Android testing experiments.
 
     ### Architectural Decisions:
     - Implements a modular, component-based approach to experiment management

@@ -326,7 +326,9 @@ class APETool(ConfigurableTool):
             '--ape', strategy
         ], timeout_seconds)
 
-        self.logger.debug(f"APE command: {' '.join(ape_cmd.cmd)}")
+        # Build command string for logging
+        cmd_str = f"{ape_cmd.command} {' '.join(ape_cmd.args)}"
+        self.logger.debug(f"APE command: {cmd_str}")
         
         try:
             # Execute APE command

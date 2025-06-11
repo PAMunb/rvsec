@@ -40,15 +40,6 @@ class StandardStrategy(PromptStrategy):
         """
         super().__init__(name, information_manager, template_repository)
 
-    def configure(self, config: ComponentConfigurator) -> None:
-        """Configure the strategy with the given configuration.
-        
-        Args:
-            config: The configuration to use.
-        """
-        super().configure(config)
-
-        # Other configuration specific logic can be added here
 
     def _generate_prompt(
             self,

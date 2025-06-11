@@ -1,20 +1,19 @@
 # RV-Monitor-Generator Module
 
-Modern runtime verification monitor generation system with JavaMOP and RV-Monitor integration for comprehensive monitored operations testing with dependency injection architecture.
+Runtime verification monitor generation system with JavaMOP and RV-Monitor integration for monitored operations testing.
 
 ## Overview
 
-The RV-Monitor-Generator module provides sophisticated runtime verification monitor generation capabilities through integrated JavaMOP and RV-Monitor tools. It transforms formal property specifications into optimized runtime verification monitors, AspectJ aspects, and Java monitor classes for seamless integration with Android applications. The module implements a modern architecture with comprehensive error handling, flexible configuration management, and support for both JCA cryptography and generic programming pattern specifications.
+The RV-Monitor-Generator module provides runtime verification monitor generation capabilities through integrated JavaMOP and RV-Monitor tools. It transforms formal property specifications into runtime verification monitors, AspectJ aspects, and Java monitor classes for integration with Android applications. The module supports both JCA cryptography and generic programming pattern specifications.
 
 ### Key Features
 
-- **Modern JavaMOP Integration**: Advanced integration with JavaMOP compiler featuring comprehensive error handling and performance optimization
-- **RV-Monitor Support**: Sophisticated monitor generation using RV-Monitor with enhanced runtime verification capabilities
-- **AspectJ Generation**: Intelligent generation of AspectJ aspects with pointcut optimization and weaving support
-- **Comprehensive Specification Management**: Multi-specification support for JCA cryptography, generic patterns, and custom specification sets
-- **DI-Ready Configuration**: Modern configuration system with multi-source support, validation, and dependency injection preparation
-- **High-Performance Batch Processing**: Optimized batch monitor generation with parallel processing and error recovery
-- **Advanced CLI Interface**: Modern command-line interface with comprehensive options, progress reporting, and validation
+- **JavaMOP Integration**: Integration with JavaMOP compiler for monitor generation
+- **RV-Monitor Support**: Monitor generation using RV-Monitor with runtime verification capabilities
+- **AspectJ Generation**: Generation of AspectJ aspects with pointcut support
+- **Specification Management**: Multi-specification support for JCA, generic patterns, and custom sets
+- **Configuration System**: Configuration system with multi-source support and validation
+- **Batch Processing**: Batch monitor generation with error recovery
 
 ## Architecture
 
@@ -22,7 +21,7 @@ The RV-Monitor-Generator module provides sophisticated runtime verification moni
 
 1. **Specification Parsing**: Parse MOP specifications from .mop files
 2. **JavaMOP Processing**: Generate Java monitor classes using JavaMOP compiler
-3. **RV-Monitor Integration**: Apply RV-Monitor optimizations for enhanced performance
+3. **RV-Monitor Integration**: Apply RV-Monitor optimizations for performance
 4. **AspectJ Generation**: Create AspectJ aspects for runtime weaving
 5. **Library Integration**: Package supporting runtime verification libraries
 6. **Output Organization**: Structure generated artifacts for instrumentation pipeline
@@ -30,417 +29,265 @@ The RV-Monitor-Generator module provides sophisticated runtime verification moni
 ### Core Components
 
 #### Monitor Generation Infrastructure
-- **RuntimeVerificationGenerator**: Modern core generator with comprehensive pipeline orchestration, error handling, and performance optimization
-- **MonitorFactory**: Advanced factory for creating specialized monitors based on specification types and optimization requirements
-- **GenerationEngine**: High-performance generation engine with parallel processing and resource management
-
-#### Configuration and Specification Management
-- **RVMonitorGeneratorConfig**: Sophisticated configuration management with multi-source support, validation, and DI preparation
-- **SpecificationManager**: Comprehensive management system for JCA, generic, and custom specification sets with validation and metadata
-- **SpecificationValidator**: Advanced validation system ensuring specification correctness and compatibility
+- **RuntimeVerificationGenerator**: Core generator with pipeline orchestration and error handling
+- **RVGeneratorConfig**: Configuration management with multi-source support and validation
 
 #### Integration Points
-- **rv-android-core**: Uses ErrorHandler decorators, LoggingManager, and configuration utilities for comprehensive infrastructure
-- **rv-experiment**: Provides monitor generation components for experiment orchestration and specification integration
-- **rv-static-analysis**: Coordinates with static analysis for optimized monitor placement and specification validation
-- **rv-instrumentation**: Integrates generated monitors with instrumentation pipeline for seamless deployment
+- **rv-android-core**: Uses ErrorHandler decorators, LoggingManager for infrastructure
+- **rv-experiment**: Provides monitor generation components for experiment orchestration
+- **rv-static-analysis**: Coordinates with static analysis for monitor placement
+- **rv-instrumentation**: Integrates generated monitors with instrumentation pipeline
 
 ### Specification Categories
 
 #### JCA Cryptography Specifications
-- **Purpose**: Monitor Java Cryptography Architecture (JCA) API usage patterns
-- **Focus**: Detect cryptographic API misuse and security violations
-- **Examples**: Improper key generation, weak algorithms, incorrect cipher usage
-- **Location**: `specs/jca/` directory
+- **Purpose**: Monitor Java Cryptography Architecture API usage patterns
+- **Specifications**: Cipher, MessageDigest, SecureRandom, KeyGenerator, etc.
+- **Use Cases**: Cryptographic security testing, compliance validation
 
-#### Generic Pattern Specifications  
-- **Purpose**: Monitor general programming patterns and API usage
-- **Focus**: Detect common programming errors and API misuse
-- **Examples**: Iterator usage (hasNext before next), resource management, collection patterns
-- **Location**: `specs/generic/` directory
+#### Generic Programming Pattern Specifications
+- **Purpose**: Monitor common programming patterns and best practices
+- **Specifications**: Iterator patterns, Collections usage, Resource management
+- **Use Cases**: General software quality assurance, pattern compliance
+
+#### Custom Specification Sets
+- **Purpose**: User-defined monitoring specifications
+- **Format**: Standard MOP specification format
+- **Use Cases**: Domain-specific monitoring, specialized testing requirements
 
 ## Installation
 
 ```bash
-# Install using Poetry (recommended)
+# Install using Poetry
 cd modules/rv-monitor-generator
 poetry install
 
-# Install in development mode with pip
-pip install -e .
+# Run tests
+poetry run pytest
 ```
 
 ## Configuration
 
-The module uses a priority-based configuration system:
-
-1. **Individual parameters** (highest priority)
-2. **Explicit rvsec_root parameter**
-3. **RVSEC_HOME environment variable**
-4. **Error if no valid source**
-
 ### Required Dependencies
 
-- JavaMOP compiler and runtime
-- RV-Monitor tools (optional, for optimized generation)
+- **JavaMOP**: Monitor-oriented programming compiler
+- **RV-Monitor**: Runtime verification monitor generator  
+- **AspectJ**: Aspect-oriented programming framework
 - Java 8+ for tool execution
-- AspectJ compiler (ajc) in classpath
 
-### Environment Setup
+### Environment Variables
 
-```bash
-# Set RVSEC_HOME environment variable
-export RVSEC_HOME=/path/to/rvsec
-
-# Ensure JavaMOP is available
-export JAVAMOP_HOME=/path/to/javamop
-
-# Optional: RV-Monitor for optimizations
-export RVMONITOR_HOME=/path/to/rv-monitor
-```
+- `RVSEC_HOME`: RVSEC installation root directory
+- `JAVAMOP_HOME`: JavaMOP installation directory (optional)
 
 ## Usage
-
-### Command Line Interface
-
-#### Generate Monitors from Specification Directory
-
-```bash
-# Generate monitors for JCA cryptography specifications
-rv-monitor-generator generate \
-    --specs-dir /path/to/specs/jca \
-    --output /output/monitors/jca \
-    --summary
-
-# Generate monitors for generic pattern specifications  
-rv-monitor-generator generate \
-    --specs-dir /path/to/specs/generic \
-    --output /output/monitors/generic \
-    --summary
-```
-
-#### Batch Generation with Custom Configuration
-
-```bash
-# Batch generate with custom JavaMOP installation
-rv-monitor-generator generate \
-    --specs-dir /path/to/specs \
-    --output /output/monitors \
-    --javamop-home /custom/javamop \
-    --aspectj-home /custom/aspectj \
-    --verbose
-
-# Complete custom configuration
-rv-monitor-generator generate \
-    --rvsec-root /custom/rvsec \
-    --specs-dir /custom/specs \
-    --output /output/monitors \
-    --force \
-    --summary
-```
-
-#### Configuration Validation
-
-```bash
-# Validate configuration without generating monitors
-rv-monitor-generator generate \
-    --specs-dir /path/to/specs \
-    --output /tmp \
-    --dry-run
-```
 
 ### Programmatic Interface
 
 ```python
-from rv_monitor_generator import RuntimeVerificationGenerator, RVMonitorGeneratorConfig
+from rv_monitor_generator import RuntimeVerificationGenerator, RVGeneratorConfig
 
 # Create configuration
-config = RVMonitorGeneratorConfig(
+config = RVGeneratorConfig(
     rvsec_root="/path/to/rvsec",
-    javamop_home="/path/to/javamop",
-    output_dir="/output/monitors"
+    javamop_bin="/path/to/javamop",
+    rvmonitor_bin="/path/to/rv-monitor",
+    mop_specs_dir="/path/to/specifications",
+    aspects_dir="/path/to/aspects"
 )
 
 # Initialize generator
 generator = RuntimeVerificationGenerator(config)
 
-# Generate monitors for specific specification set
-errors = generator.generate_monitors(
-    specs_dir="/path/to/specs/jca",
-    output_dir="/output/monitors/jca",
-    force_generation=False
-)
+# Generate monitors
+output_dir = "/path/to/output"
+generator.generate_monitors(output_dir)
 
-# Check results
-if not errors:
-    print("All monitors generated successfully")
-else:
-    print(f"Monitor generation failed for {len(errors)} specifications")
+print("Monitor generation completed")
 ```
 
-### Specification Set Management
+### Configuration Usage
 
 ```python
-# Generate different specification sets
-jca_errors = generator.generate_monitors(
-    specs_dir="/rvsec/specs/jca",
-    output_dir="/monitors/jca"
+from rv_monitor_generator.config import RVGeneratorConfig
+
+# Basic configuration with defaults
+config = RVGeneratorConfig(
+    rvsec_root="/path/to/rvsec"
 )
 
-generic_errors = generator.generate_monitors(
-    specs_dir="/rvsec/specs/generic", 
-    output_dir="/monitors/generic"
+# JCA cryptography specifications
+config_jca = RVGeneratorConfig(
+    rvsec_root="/path/to/rvsec",
+    mop_specs_dir="/path/to/rvsec/specs/jca"
 )
 
-# Use appropriate monitor set in experiments
-if experiment_type == "cryptography":
-    monitor_dir = "/monitors/jca"
-elif experiment_type == "general":
-    monitor_dir = "/monitors/generic"
+# Generic programming patterns
+config_generic = RVGeneratorConfig(
+    rvsec_root="/path/to/rvsec", 
+    mop_specs_dir="/path/to/rvsec/specs/generic"
+)
+
+# Custom specifications
+config_custom = RVGeneratorConfig(
+    rvsec_root="/path/to/rvsec",
+    mop_specs_dir="/path/to/custom/specs"
+)
 ```
 
-## CLI Options
+## Output Structure
 
-### Commands
-
-- `generate`: Generate monitors from MOP specifications
-
-### Configuration Options
-
-- `--rvsec-root`: RVSEC installation root directory
-- `--specs-dir`: Directory containing MOP specification files
-- `--javamop-home`: JavaMOP installation directory
-- `--aspectj-home`: AspectJ installation directory (optional)
-- `--rvmonitor-home`: RV-Monitor installation directory (optional)
-- `--working-dir`: Base working directory for generation
-- `--tmp-dir`: Temporary directory for processing
-
-### Input/Output Options
-
-- `--specs-dir`: Directory containing .mop specification files
-- `--output`: Output directory for generated monitors
-- `--force`: Force regeneration of existing monitors
-
-### Utility Options
-
-- `--verbose, -v`: Enable verbose output
-- `--summary`: Display generation summary
-- `--dry-run`: Validate configuration only
-
-## Generated Artifacts
-
-### Monitor Structure
+### Generated Artifacts
 
 ```
-monitors/
-   aspectj/
-      MonitorAspect1.aj     # AspectJ aspects for runtime weaving
-      MonitorAspect2.aj
-      ...
-   classes/
-      Monitor1.java         # Java monitor classes
-      Monitor2.java
-      ...
-   lib/
-      javamop-rt.jar       # JavaMOP runtime library
-      rv-monitor-rt.jar    # RV-Monitor runtime (if used)
-      aspectjrt.jar        # AspectJ runtime
-   META-INF/
-       monitor-info.json     # Generation metadata
+output/
+├── *.rvm                    # RV-Monitor files
+├── *.aj                     # AspectJ aspects 
+├── *.java                   # Java monitor classes
+└── MultiSpec_*MonitorAspect.aj  # Combined aspects
 ```
 
-### Monitor Types
+### Monitor Integration
 
-#### JCA Cryptography Monitors
-- **KeyGenerator Monitors**: Detect weak key generation patterns
-- **Cipher Monitors**: Monitor cipher initialization and usage
-- **MessageDigest Monitors**: Track hash algorithm usage
-- **SecureRandom Monitors**: Monitor random number generation
+```bash
+# Generated monitors are ready for instrumentation
+# AspectJ files: Used by rv-instrumentation for APK weaving
+# Java files: Compiled and included in instrumented applications
+# RVM files: Intermediate representation for debugging
+```
 
-#### Generic Pattern Monitors
-- **Iterator Monitors**: Enforce hasNext() before next() pattern
-- **Resource Monitors**: Track resource acquisition and release
-- **Collection Monitors**: Monitor collection usage patterns
-- **State Machine Monitors**: Validate object state transitions
+## Specification Management
+
+### JCA Cryptography Monitoring
+
+```python
+# Configuration for JCA specifications
+config = RVGeneratorConfig(
+    rvsec_root="/path/to/rvsec",
+    mop_specs_dir="/path/to/rvsec/specs/jca"
+)
+
+# Generates monitors for:
+# - Cipher usage patterns
+# - MessageDigest operations  
+# - SecureRandom generation
+# - Key management operations
+# - SSL/TLS context usage
+```
+
+### Generic Pattern Monitoring
+
+```python
+# Configuration for generic specifications
+config = RVGeneratorConfig(
+    rvsec_root="/path/to/rvsec",
+    mop_specs_dir="/path/to/rvsec/specs/generic"
+)
+
+# Generates monitors for:
+# - Iterator usage patterns
+# - Collections operations
+# - Resource management
+# - Threading patterns
+```
+
+### Custom Specifications
+
+```python
+# Configuration for custom specifications
+config = RVGeneratorConfig(
+    rvsec_root="/path/to/rvsec",
+    mop_specs_dir="/path/to/custom/specs"
+)
+
+# User-defined MOP specifications
+# Standard .mop file format
+# Custom monitoring logic
+```
+
+## Testing
+
+### Running Tests
+
+```bash
+# Run all tests
+poetry run pytest
+
+# Run with coverage
+poetry run pytest --cov=rv_monitor_generator
+
+# Run specific tests
+poetry run pytest tests/test_runtime_verification_generator.py
+```
+
+### Test Structure
+
+- `tests/`: Core generator functionality tests
+- Test specification parsing and validation
+- Test monitor generation pipeline
+- Test configuration management
 
 ## Integration
+
+### With rv-experiment
+
+```python
+# Integration through experiment configuration
+from rv_experiment.config import ExperimentConfig
+
+config = ExperimentConfig(
+    name="monitor_experiment",
+    specification_set="jca",  # or "generic" or "custom"
+    generate_monitors=True
+)
+
+# Monitor generation configuration is created automatically
+monitor_config = config.get_monitored_operations_config()
+```
 
 ### With rv-instrumentation
 
 ```bash
-# 1. Generate monitors for desired specification set
-rv-monitor-generator generate \
-    --specs-dir /rvsec/specs/jca \
-    --output /monitors/jca
+# 1. Generate monitors
+rv-monitor-generator generate --specs-dir /specs/jca --output /monitors
 
-# 2. Instrument APKs with generated monitors
-rv-instrumentation batch \
-    --monitor-dir /monitors/jca \
-    --apks-dir /path/to/apks \
-    --output /instrumented
+# 2. Use monitors for instrumentation
+rv-instrumentation instrument --apk app.apk --monitors /monitors --output /instrumented
 ```
 
-### With Experiment Framework
-
-```python
-# Configure experiment with appropriate monitor set
-from rv_experiment.config import ExperimentConfiguration
-
-# JCA cryptography experiment
-jca_config = ExperimentConfiguration(
-    name="jca_cryptography_analysis",
-    monitor_spec_type="jca",
-    monitor_dir="/monitors/jca",
-    # ... other configuration
-)
-
-# Generic patterns experiment  
-generic_config = ExperimentConfiguration(
-    name="generic_patterns_analysis",
-    monitor_spec_type="generic",
-    monitor_dir="/monitors/generic",
-    # ... other configuration
-)
-```
-
-### Environment Variables
-
-- `RVSEC_HOME`: RVSEC installation root directory
-- `JAVAMOP_HOME`: JavaMOP installation directory
-- `RVMONITOR_HOME`: RV-Monitor installation directory (optional)
-- `ASPECTJ_HOME`: AspectJ installation directory (optional)
-
-## Monitor Performance
+## Performance Characteristics
 
 ### Generation Performance
-- **Small Specifications**: < 5 seconds per monitor
-- **Large Specification Sets**: Parallel processing support
-- **Memory Usage**: Efficient streaming for large specification sets
-- **Incremental Generation**: Only regenerate modified specifications
 
-### Runtime Performance
-- **Monitor Overhead**: < 2% runtime overhead per monitored method
-- **Memory Footprint**: Minimal heap impact with optimized monitor states
-- **AspectJ Weaving**: Compile-time weaving for zero runtime weaving cost
-
-## Specification Examples
-
-### JCA Cryptography Specification
-
-```java
-// KeyGenerator proper usage pattern
-KeyGenerator(KeyGenerator kg) {
-    event init(KeyGenerator kg) {}
-    event genKey(KeyGenerator kg) {}
-    
-    ere : init genKey*
-    
-    @match {
-        System.err.println("KeyGenerator used without proper initialization");
-    }
-}
-```
-
-### Generic Pattern Specification
-
-```java
-// Iterator hasNext/next pattern
-Iterator(Iterator i) {
-    event hasNext(Iterator i) {}
-    event next(Iterator i) {}
-    
-    ere : (hasNext next)*
-    
-    @fail {
-        System.err.println("Iterator.next() called without hasNext() check");
-    }
-}
-```
-
-## Error Handling
-
-The monitor generation pipeline provides comprehensive error tracking:
-
-- **Specification Errors**: Invalid MOP syntax, malformed specifications
-- **Tool Errors**: JavaMOP/RV-Monitor execution failures
-- **Configuration Errors**: Missing tools, invalid paths, permission issues
-- **Output Errors**: File system issues, insufficient disk space
-- **Error Reports**: JSON error reports saved to output directory
-
-## Examples
-
-### Basic Workflow
-
-```bash
-# 1. Set environment
-export RVSEC_HOME=/path/to/rvsec
-export JAVAMOP_HOME=/path/to/javamop
-
-# 2. Generate JCA cryptography monitors
-rv-monitor-generator generate \
-    --specs-dir $RVSEC_HOME/specs/jca \
-    --output /tmp/monitors/jca \
-    --summary
-
-# 3. Generate generic pattern monitors
-rv-monitor-generator generate \
-    --specs-dir $RVSEC_HOME/specs/generic \
-    --output /tmp/monitors/generic \
-    --summary
-
-# 4. Results
-ls /tmp/monitors/jca/aspectj/     # JCA AspectJ aspects
-ls /tmp/monitors/generic/classes/ # Generic monitor classes
-```
-
-### Development Workflow
-
-```bash
-# Validate configuration
-rv-monitor-generator generate \
-    --specs-dir /test/specs \
-    --output /tmp \
-    --dry-run
-
-# Test with single specification directory
-rv-monitor-generator generate \
-    --specs-dir /test/specs/single \
-    --output /tmp/test \
-    --verbose \
-    --summary
-
-# Force regeneration for development
-rv-monitor-generator generate \
-    --specs-dir /dev/specs \
-    --output /dev/monitors \
-    --force \
-    --summary
-```
+- **Small Specification Sets** (< 5 specs): < 30 seconds
+- **Medium Specification Sets** (5-15 specs): 30-90 seconds  
+- **Large Specification Sets** (> 15 specs): 90-180 seconds
+- **Memory Usage**: 512MB-2GB depending on specification complexity
 
 ## Dependencies
 
-- `rv-android-core`: Core infrastructure and configuration management
-- JavaMOP: Monitor generation from MOP specifications
-- RV-Monitor: Advanced monitor optimizations (optional)
-- AspectJ: Runtime weaving infrastructure
-- Java 8+: Tool execution environment
+- `rv-android-core`: Core utilities and error handling
+- JavaMOP: Monitor-oriented programming compiler
+- RV-Monitor: Runtime verification monitor generator
+- AspectJ: Aspect-oriented programming framework
+- Java 8+ runtime
 
 ## Contributing
 
-### Specification Guidelines
+### Adding New Specifications
 
-1. Follow MOP specification syntax standards
-2. Include comprehensive property descriptions
-3. Use meaningful event and monitor names
-4. Test specifications with representative applications
-5. Document expected monitor behavior
+1. Create .mop specification files following JavaMOP format
+2. Place in appropriate specification directory (jca, generic, custom)
+3. Test monitor generation and validation
+4. Add tests for new specifications
+5. Update documentation
 
 ### Code Standards
 
-1. Follow existing code style and documentation patterns
-2. Add comprehensive tests for new specification sets
-3. Update CLI help and README for new options
-4. Ensure backward compatibility with existing workflows
+1. Follow existing code style and patterns
+2. Add comprehensive tests for new functionality
+3. Use rv-android-core infrastructure for error handling
+4. Maintain backward compatibility
 
 ## License
 

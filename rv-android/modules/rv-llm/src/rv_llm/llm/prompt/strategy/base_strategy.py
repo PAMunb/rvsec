@@ -10,7 +10,7 @@ from typing import Any, Dict, List, Optional
 from rv_android_core.util.error.error_handler import ErrorHandler
 from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
 from rv_android_core.util.logging.manager import LoggingManager
-from rv_llm.config.strategy_config import PromptStrategyConfig
+from rv_llm.config.llm_config import LLMConfig
 from rv_llm.llm.constants import ContextEntry, PromptStrategyType
 from rv_llm.llm.data_structures import LLMMessage, LLMRole, LLMTextContent
 
@@ -54,23 +54,85 @@ class PromptStrategy(abc.ABC):
         # Set up error handling
         self.error_handler = ErrorHandler.get_instance()
 
-    def configure(self, config: PromptStrategyConfig) -> None:
-        """Configure the strategy with the given configuration.
+    def configure(self, config_dict: Dict[str, Any]) -> None:
+        """
+        Configure the strategy with configuration dictionary.
+        
+        ### Configuration Strategy:
+        - Accepts configuration parameters as dictionary
+        - Validates required parameters for strategy operation
+        - Stores configuration for template and context management
+        - Provides error handling for invalid configurations
         
         Args:
-            config: The typed configuration to use.
+            config_dict: Dictionary with strategy configuration parameters
+            
+        Raises:
+            ValueError: If configuration is invalid or missing required parameters
         """
         self.logger.info(f"Configuring strategy: {self.name}")
         
-        # Validate the configuration
-        is_valid, errors = config.validate()
-        if not is_valid:
-            error_msg = f"Invalid configuration for strategy {self.name}: {errors}"
+        # Validate required configuration parameters
+        required_params = ["strategy_name"]
+        missing_params = [param for param in required_params if param not in config_dict]
+        if missing_params:
+            error_msg = f"Missing required configuration parameters: {missing_params}"
             self.logger.error(error_msg)
             raise ValueError(error_msg)
         
-        self.config = config
+        # Store configuration as dictionary
+        self.config = config_dict
         self.logger.debug(f"Strategy {self.name} configured successfully")
+
+    @ErrorHandler.handle_errors(
+        component="PromptStrategy",
+        operation="configure_from_config"
+    )
+    def configure_from_config(self, config: LLMConfig) -> None:
+        """
+        Configure strategy with LLMConfig for monitored operations testing.
+        
+        ### Architectural Note:
+        This method provides the primary interface for strategy configuration
+        using the modern LLMConfig system. It extracts strategy-specific parameters
+        and applies them to the strategy for prompt generation operations.
+        
+        ### Configuration Strategy:
+        - Extracts strategy-specific parameters from LLMConfig
+        - Creates configuration dictionary for internal processing
+        - Validates configuration before applying
+        - Provides error handling and logging for configuration failures
+        
+        Args:
+            config: LLMConfig instance with strategy configuration
+            
+        Raises:
+            ValueError: If configuration is invalid or conversion fails
+        """
+        self.logger.info(f"Configuring strategy {self.name} from LLMConfig")
+        
+        try:
+            # Extract strategy parameters from LLMConfig
+            strategy_params = config.get_strategy_parameters()
+            
+            # Create configuration dictionary from LLMConfig parameters
+            config_dict = {
+                "strategy_name": config.strategy_type,
+                "template_name": config.template_name,
+                "enable_context_caching": config.enable_context_caching,
+                "max_context_length": config.max_context_length,
+                **{k: v for k, v in strategy_params.items() if k.startswith("strategy_")}
+            }
+            
+            # Use existing configure method with converted config
+            self.configure(config_dict)
+            
+            self.logger.info(f"Strategy {self.name} configured successfully from LLMConfig")
+            
+        except Exception as e:
+            error_msg = f"Failed to configure strategy {self.name} from LLMConfig: {e}"
+            self.logger.error(error_msg)
+            raise ValueError(error_msg) from e
 
     def get_template_name(self, context: Optional[Dict[str, Any]] = None) -> str:
         """Get the template name to use for prompt generation.
@@ -90,9 +152,11 @@ class PromptStrategy(abc.ABC):
             # First priority: context-specified template
             return context[ContextEntry.TEMPLATE]
 
-        if self.config is not None and self.config.template_name is not None:
+        if (self.config is not None and 
+            isinstance(self.config, dict) and 
+            self.config.get("template_name") is not None):
             # Second priority: configuration-specified template
-            return self.config.template_name
+            return self.config["template_name"]
 
         # Third priority: strategy default template
         if self.DEFAULT_TEMPLATE is not None:

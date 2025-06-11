@@ -14,7 +14,6 @@ import jinja2
 from rv_android_core.util.error.error_handler import ErrorHandler
 from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
 from rv_android_core.util.logging.manager import LoggingManager
-from rv_llm.config.strategy_config import PromptStrategyConfig
 from rv_llm.llm.data_structures import LLMMessage, LLMRole, LLMTextContent
 from .jinja_template import Jinja2Template, FragmentDictLoader
 from .xml_utils import (extract_template_metadata, extract_template_roles, 
@@ -121,47 +120,38 @@ class Jinja2TemplateRepository:
         component="Jinja2TemplateRepository",
         phase="configuration"
     )
-    def configure(self, config: Optional[PromptStrategyConfig] = None) -> None:
-        """Configure the repository with the given configuration.
-
-        ### Architectural Decision:
-        - Uses typed configuration class for validation and type safety
-        - Provides error handling with decorator pattern
-        - Supports custom template and fragment directories
+    def configure(self, config_dict: Optional[Dict[str, Any]] = None) -> None:
+        """Configure the repository with direct parameter passing.
 
         Args:
-            config: Optional typed configuration instance.
+            config_dict: Configuration dictionary containing template and fragment settings
         """
         self.logger.info("Configuring Jinja2TemplateRepository")
         
-        if config is None:
-            config = PromptStrategyConfig()
-            
-        # Validate configuration
-        is_valid, errors = config.validate()
-        if not is_valid:
-            self.logger.warning(f"Configuration validation errors: {errors}")
+        if config_dict is None:
+            config_dict = {}
 
-        # Check if custom template directory is specified in kwargs
-        custom_template_dir = config.kwargs.get('template_dir')
+        # Check if custom template directory is specified
+        custom_template_dir = config_dict.get('template_dir')
         if custom_template_dir:
             self.logger.info(f"Custom template directory specified: {custom_template_dir}")
             self.template_dir = custom_template_dir
             self._load_templates()
 
-        # Check if custom fragment directory is specified in kwargs
-        custom_fragment_dir = config.kwargs.get('fragment_dir')
+        # Check if custom fragment directory is specified
+        custom_fragment_dir = config_dict.get('fragment_dir')
         if custom_fragment_dir:
             self.logger.info(f"Custom fragment directory specified: {custom_fragment_dir}")
             self.fragment_dir = custom_fragment_dir
             self._load_fragments()
             
         # Apply template format configuration
-        if config.template_format:
-            self.logger.debug(f"Using template format: {config.template_format}")
+        template_format = config_dict.get('template_format', 'jinja2')
+        self.logger.debug(f"Using template format: {template_format}")
             
         # Apply template validation configuration
-        if config.template_validation:
+        template_validation = config_dict.get('template_validation', True)
+        if template_validation:
             self.logger.debug("Template validation enabled")
 
         # Ensure critical fragments are available

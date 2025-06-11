@@ -10,7 +10,7 @@ import subprocess
 from pathlib import Path
 from typing import Optional, Dict, Any
 from rv_android_core.util.exceptions import ConfigurationError
-from rv_android_core.constants import ENV_RVSEC_HOME, ENV_ANDROID_HOME
+from rv_android_core.constants import ENV_RVSEC_HOME, ENV_ANDROID_HOME, ENV_RT_JAR
 
 
 class RVStaticAnalysisConfig:
@@ -28,6 +28,7 @@ class RVStaticAnalysisConfig:
                  rvsec_root: Optional[str] = None,
                  lib_dir: Optional[str] = None,
                  android_platforms_dir: Optional[str] = None,
+                 android_jar: Optional[str] = None,
                  rt_jar: Optional[str] = None,
                  mop_dir: Optional[str] = None,
                  output_dir: Optional[str] = None,
@@ -43,7 +44,8 @@ class RVStaticAnalysisConfig:
             rvsec_root: RVSEC installation root directory
             lib_dir: Directory containing static analysis tool JARs
             android_platforms_dir: Android SDK platforms directory
-            rt_jar: Java runtime JAR path
+            android_jar: Android SDK JAR path (android.jar)
+            rt_jar: Java runtime JAR path (rt.jar) - uses RV_RT_JAR environment variable
             mop_dir: Monitor-Oriented Programming specifications directory
             output_dir: Base output directory for analysis results
             working_dir: Working directory for temporary files
@@ -59,6 +61,7 @@ class RVStaticAnalysisConfig:
         self.rvsec_root = rvsec_root
         self.lib_dir = lib_dir
         self.android_platforms_dir = android_platforms_dir
+        self.android_jar = android_jar
         self.rt_jar = rt_jar
         self.mop_dir = mop_dir
         self.output_dir = output_dir
@@ -102,14 +105,19 @@ class RVStaticAnalysisConfig:
             if android_home:
                 self.android_platforms_dir = str(Path(android_home) / "platforms")
         
-        # Runtime JAR - try common Android SDK locations
-        if not self.rt_jar and self.android_platforms_dir:
+        # Android JAR - try common Android SDK locations
+        if not self.android_jar and self.android_platforms_dir:
             # Try Android API 29 first, then 28, 27
             for api_level in ["29", "28", "27", "26"]:
                 candidate = Path(self.android_platforms_dir) / f"android-{api_level}" / "android.jar"
                 if candidate.exists():
-                    self.rt_jar = str(candidate)
+                    self.android_jar = str(candidate)
                     break
+        
+        # Java Runtime JAR - use RV_RT_JAR environment variable with SDKMAN fallback
+        if not self.rt_jar:
+            default_rt_jar = str(Path.home() / ".sdkman" / "candidates" / "java" / "8.0.302-open" / "jre" / "lib" / "rt.jar")
+            self.rt_jar = os.environ.get(ENV_RT_JAR, default_rt_jar)
         
         # MOP directory for monitor specifications
         if not self.mop_dir:
@@ -139,7 +147,7 @@ class RVStaticAnalysisConfig:
     def _normalize_paths(self) -> None:
         """Convert all paths to absolute paths."""
         path_attributes = [
-            'rvsec_root', 'lib_dir', 'android_platforms_dir', 'rt_jar',
+            'rvsec_root', 'lib_dir', 'android_platforms_dir', 'android_jar', 'rt_jar',
             'mop_dir', 'output_dir', 'working_dir', 'gesda_jar', 'gator_dir', 'reach_jar'
         ]
         
@@ -174,25 +182,37 @@ class RVStaticAnalysisConfig:
     
     def _validate_tool_availability(self) -> None:
         """Validate that all static analysis tools are available."""
-        tools = self.get_static_analysis_tools()
+        # Validate tool components (not the logical tools returned by get_static_analysis_tools)
+        components = self.get_tool_components()
         
-        for tool_name, tool_path in tools.items():
-            if not os.path.isfile(tool_path):
-                raise ConfigurationError(f"Static analysis tool '{tool_name}' not found: {tool_path}")
+        for component_name, component_path in components.items():
+            if component_name == 'gator_python':
+                # GATOR python script might not have .py extension
+                if not os.path.isfile(component_path):
+                    raise ConfigurationError(f"Static analysis tool component '{component_name}' not found: {component_path}")
+            elif component_name in ['gesda_jar', 'gator_client_jar', 'reach_jar']:
+                if not os.path.isfile(component_path):
+                    raise ConfigurationError(f"Static analysis tool component '{component_name}' not found: {component_path}")
     
     def _validate_android_sdk(self) -> None:
-        """Validate Android SDK configuration."""
+        """Validate Android SDK and Java runtime configuration."""
         if not self.android_platforms_dir:
             raise ConfigurationError("Android platforms directory not configured")
         
         if not os.path.isdir(self.android_platforms_dir):
             raise ConfigurationError(f"Android platforms directory does not exist: {self.android_platforms_dir}")
         
+        if not self.android_jar:
+            raise ConfigurationError("Android JAR (android_jar) not configured")
+        
+        if not os.path.isfile(self.android_jar):
+            raise ConfigurationError(f"Android JAR does not exist: {self.android_jar}")
+        
         if not self.rt_jar:
-            raise ConfigurationError("Android runtime JAR (rt_jar) not configured")
+            raise ConfigurationError(f"Java runtime JAR (rt_jar) not configured. Set {ENV_RT_JAR} environment variable")
         
         if not os.path.isfile(self.rt_jar):
-            raise ConfigurationError(f"Android runtime JAR does not exist: {self.rt_jar}")
+            raise ConfigurationError(f"Java runtime JAR does not exist: {self.rt_jar}. Set {ENV_RT_JAR} environment variable to correct path.")
     
     def _validate_mop_directory(self) -> None:
         """Validate MOP specifications directory."""
@@ -204,10 +224,23 @@ class RVStaticAnalysisConfig:
     
     def get_static_analysis_tools(self) -> Dict[str, str]:
         """
-        Get paths to all static analysis tools.
+        Get paths to static analysis tools (3 logical tools: GESDA, GATOR, REACH).
         
         Returns:
-            Dictionary mapping tool names to executable paths
+            Dictionary mapping tool names to primary executable paths
+        """
+        return {
+            'gesda': self.gesda_jar,
+            'gator': self.gator_dir,
+            'reach': self.reach_jar
+        }
+    
+    def get_tool_components(self) -> Dict[str, str]:
+        """
+        Get detailed paths to all tool components for internal use.
+        
+        Returns:
+            Dictionary mapping component names to executable paths
         """
         gator_path = Path(self.gator_dir)
         
@@ -254,19 +287,20 @@ class RVStaticAnalysisConfig:
             ConfigurationError: If tool is not supported
         """
         tools = self.get_static_analysis_tools()
+        components = self.get_tool_components()
         
         if tool_name == 'gesda':
             return [
-                'java', '-jar', tools['gesda_jar'],
+                'java', '-jar', components['gesda_jar'],
                 '--android-dir', self.android_platforms_dir,
                 '--rt-jar', self.rt_jar,
                 '--output', output_file,
                 '--apk', apk_path
             ]
         elif tool_name == 'gator':
-            client_jar = kwargs.get('client_jar', tools['gator_client_jar'])
+            client_jar = kwargs.get('client_jar', components['gator_client_jar'])
             return [
-                'python', tools['gator_python'], 'a',
+                'python', components['gator_python'], 'a',
                 '-p', apk_path,
                 '--client-jar', client_jar,
                 '--out', output_file,
@@ -279,8 +313,9 @@ class RVStaticAnalysisConfig:
             
             timeout = kwargs.get('timeout', 300)
             return [
-                'java', '-jar', tools['reach_jar'],
+                'java', '-jar', components['reach_jar'],
                 '--android-dir', self.android_platforms_dir,
+                '--rt-jar', self.rt_jar,
                 '--mop-dir', self.mop_dir,
                 '--gesda', gesda_file,
                 '--writer', 'csv',
@@ -299,6 +334,7 @@ class RVStaticAnalysisConfig:
             Dictionary with configuration details
         """
         tools = self.get_static_analysis_tools()
+        components = self.get_tool_components()
         
         return {
             'rvsec_integration': {
@@ -308,19 +344,24 @@ class RVStaticAnalysisConfig:
                 'output_dir': self.output_dir,
                 'working_dir': self.working_dir
             },
-            'android_integration': {
-                'platforms_dir': self.android_platforms_dir,
-                'rt_jar': self.rt_jar
+            'java_android_integration': {
+                'android_platforms_dir': getattr(self, 'android_platforms_dir', None),
+                'android_jar': getattr(self, 'android_jar', None),
+                'rt_jar': getattr(self, 'rt_jar', None)
             },
             'static_analysis_tools': {
-                'gesda_jar': tools['gesda_jar'],
-                'gator_directory': self.gator_dir,
-                'gator_python': tools['gator_python'],
-                'gator_client_jar': tools['gator_client_jar'],
-                'reach_jar': tools['reach_jar']
+                'gesda': tools['gesda'],
+                'gator': tools['gator'],
+                'reach': tools['reach']
+            },
+            'tool_components': {
+                'gesda_jar': components['gesda_jar'],
+                'gator_python': components['gator_python'],
+                'gator_client_jar': components['gator_client_jar'],
+                'reach_jar': components['reach_jar']
             },
             'tool_availability': {
-                tool_name: os.path.isfile(tool_path)
+                tool_name: os.path.isfile(tool_path) if tool_name != 'gator' else os.path.isdir(tool_path)
                 for tool_name, tool_path in tools.items()
             },
             'validation_status': 'Validated'

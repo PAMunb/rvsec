@@ -445,7 +445,9 @@ class FastBotTool(ConfigurableTool):
             '--throttle', str(throttle)
         ] + verbosity_flags, timeout_seconds)
 
-        self.logger.debug(f"FastBot command: {' '.join(fastbot_cmd.cmd)}")
+        # Build command string for logging
+        cmd_str = f"{fastbot_cmd.command} {' '.join(fastbot_cmd.args)}"
+        self.logger.debug(f"FastBot command: {cmd_str}")
         
         try:
             # Execute FastBot command

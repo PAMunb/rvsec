@@ -46,6 +46,12 @@ from rv_experiment.constants import (
     DEFAULT_SPEC_SET, get_experiment_dir
 )
 
+# Configuration class imports for proper type usage
+from rv_monitor_generator.config import RVGeneratorConfig, ConfigurationError as MonitorConfigError
+from rv_instrumentation.config import RVInstrumentationConfig, ConfigurationError as InstrumentationConfigError
+from rv_static_analysis.config import RVStaticAnalysisConfig
+from rv_llm.config.llm_config import LLMConfig
+
 # Just-in-time imports - only import when needed
 if TYPE_CHECKING:
     pass
@@ -513,27 +519,26 @@ class CLIExperimentConfig:
 @dataclass
 class ExperimentConfig:
     """
-    Primary experiment configuration implementing clean architecture for Android testing.
+    Primary experiment configuration for Android testing experiments.
     
     ### Architectural Overview:
-    This class serves as the central configuration coordinator implementing clean
-    architecture principles. It provides simple, type-safe configuration with 
-    just-in-time sub-module configuration.
+    This class serves as the central configuration coordinator providing 
+    type-safe configuration with on-demand sub-module configuration.
     
     ### Key Features:
-    - **Clean Design**: Direct class naming and focused responsibility
-    - **Just-in-Time Configuration**: Sub-modules configured only when accessed
-    - **DI-Ready Design**: Factory pattern preparation for dependency injection
+    - **Configuration Management**: Focused class responsibility for experiment settings
+    - **On-Demand Configuration**: Sub-modules configured only when accessed
+    - **Factory Pattern**: Preparation for dependency injection
     - **Monitored Operations**: Support for JCA crypto and generic programming pattern monitoring
     - **Specification Sets**: Support for JCA crypto vs generic programming patterns
-    - **English Documentation**: Comprehensive architectural comments and documentation
+    - **Documentation**: Comprehensive architectural comments and documentation
     
     ### Role in the System:
     - Primary configuration class for all experiment types
-    - Just-in-time coordinator for sub-module configuration
-    - Factory-ready structure for dependency injection preparation
+    - Coordinator for sub-module configuration
+    - Factory structure for dependency injection
     - Template generator for different experiment scenarios
-    - Validation coordinator with comprehensive error handling
+    - Validation coordinator with error handling
     - Configuration bridge between CLI and orchestration components
     """
     
@@ -558,6 +563,8 @@ class ExperimentConfig:
     
     # Monitored operations specification set
     specification_set: str = DEFAULT_SPEC_SET  # "jca", "generic", "custom"
+    custom_specs_dir: Optional[str] = None  # Custom specification directory for "custom" specification set
+    custom_aspects_dir: Optional[str] = None  # Custom AspectJ aspects directory (optional)
     
     # APK sources
     apk_path: Optional[str] = None
@@ -706,25 +713,29 @@ class ExperimentConfig:
         
         return apks
     
-    def get_monitored_operations_config(self) -> Dict[str, Any]:
+    def get_monitored_operations_config(self) -> RVGeneratorConfig:
         """
         Just-in-time configuration for monitor generation based on specification set.
         
-        ### Just-in-Time Configuration Pattern:
-        This method implements the just-in-time configuration pattern by creating
-        monitor generation configuration only when needed, eliminating complex
-        upfront coordination while maintaining module independence.
+        ### Configuration Pattern:
+        This method creates monitor generation configuration only when needed,
+        providing flexibility while maintaining module independence.
         
         ### Specification Set Support:
         - **JCA**: Java Cryptography Architecture API monitoring
         - **Generic**: Generic programming patterns (Iterator, Collections, etc.)
         - **Custom**: User-defined specification sets
         
+        ### Implementation:
+        Returns a typed RVGeneratorConfig instance that provides type safety,
+        validation, and integration with the configuration architecture.
+        
         Returns:
-            Dictionary with monitor generation configuration
+            RVGeneratorConfig instance with monitor generation configuration
             
         Raises:
             ConfigurationError: If specification set is not supported
+            MonitorConfigError: If RVGeneratorConfig validation fails
         """
         rvsec_root = os.getenv("RVSEC_HOME")
         if not rvsec_root:
@@ -733,37 +744,43 @@ class ExperimentConfig:
                 "This is required for monitored operations specification location."
             )
         
-        base_config = {
-            "rvsec_root": rvsec_root,
-            "timeout": 300,
-            "specification_set": self.specification_set
-        }
-        
-        # Configure specification-specific parameters
+        # Determine specification set directory
+        mop_specs_dir = None
         if self.specification_set == "jca":
-            base_config.update({
-                "mop_specs_dir": os.path.join(rvsec_root, "specs", "jca"),
-                "description": "JCA cryptography API monitored operations",
-                "focus": "crypto_api_usage_patterns"
-            })
+            mop_specs_dir = os.path.join(rvsec_root, "specs", "jca")
         elif self.specification_set == "generic":
-            base_config.update({
-                "mop_specs_dir": os.path.join(rvsec_root, "specs", "generic"),
-                "description": "Generic programming patterns monitored operations",
-                "focus": "programming_patterns"
-            })
+            mop_specs_dir = os.path.join(rvsec_root, "specs", "generic")
         elif self.specification_set == "custom":
-            base_config.update({
-                "mop_specs_dir": os.path.join(rvsec_root, "specs", "custom"),
-                "description": "Custom monitored operations specification set",
-                "focus": "user_defined_patterns"
-            })
+            if self.custom_specs_dir:
+                mop_specs_dir = self.custom_specs_dir
+            else:
+                # Fallback to default custom directory
+                mop_specs_dir = os.path.join(rvsec_root, "specs", "custom")
         else:
             raise ConfigurationError(f"Unsupported specification set: {self.specification_set}")
         
-        return base_config
+        try:
+            # Create RVGeneratorConfig instance with explicit paths
+            # to ensure mop_specs_dir is not overridden by automatic resolution
+            
+            # Determine aspects directory: custom if provided, otherwise standard RVSEC
+            if self.custom_aspects_dir:
+                aspects_dir = self.custom_aspects_dir
+            else:
+                # Use standard aspects directory from RVSEC
+                aspects_dir = os.path.join(rvsec_root, "rvsec", "rvsec-mop", "src", "main", "resources", "aspect")
+            
+            return RVGeneratorConfig(
+                rvsec_root=rvsec_root,
+                javamop_bin=os.path.join(rvsec_root, "javamop", "bin", "javamop"),
+                rvmonitor_bin=os.path.join(rvsec_root, "rv-monitor", "bin", "rv-monitor"),
+                mop_specs_dir=mop_specs_dir,
+                aspects_dir=aspects_dir
+            )
+        except MonitorConfigError as e:
+            raise ConfigurationError(f"Monitor generation configuration failed: {e}") from e
     
-    def get_instrumentation_config(self) -> Dict[str, Any]:
+    def get_instrumentation_config(self) -> RVInstrumentationConfig:
         """
         Just-in-time configuration for APK instrumentation.
         
@@ -772,66 +789,126 @@ class ExperimentConfig:
         deriving parameters from experiment configuration while maintaining
         module independence through simple parameter passing.
         
+        ### Implementation:
+        Returns a typed RVInstrumentationConfig instance that provides type safety,
+        validation, and integration with the configuration architecture.
+        
         Returns:
-            Dictionary with instrumentation configuration
+            RVInstrumentationConfig instance with instrumentation configuration
+            
+        Raises:
+            ConfigurationError: If APK configuration is invalid
+            InstrumentationConfigError: If RVInstrumentationConfig validation fails
         """
-        # Determine input sources from APK configuration
-        apks = self.get_apk_list()
-        if not apks:
-            raise ConfigurationError("No APK files available for instrumentation")
+        # Get RVSEC root directory for proper path resolution
+        rvsec_root = os.getenv("RVSEC_HOME")
+        if not rvsec_root:
+            raise ConfigurationError(
+                "RVSEC_HOME environment variable not set. "
+                "This is required for instrumentation configuration."
+            )
         
-        # Use directory from first APK or specified directory
-        first_apk = Path(apks[0])
-        input_dir = str(first_apk.parent if first_apk.is_file() else first_apk)
+        # Determine monitor output directory from experiment
+        monitor_output_dir = os.path.join(self.output_dir, "mop_out") if self.output_dir else None
         
-        return {
-            "input_dir": input_dir,
-            "output_dir": INSTRUMENTED_DIR,
-            "enable_coverage": True,
-            "instrumentation_level": "method",
-            "keystore_password": "password"
-        }
+        # Use rv-android directory as working directory (where lib/ and tools are)
+        rv_android_dir = os.path.join(rvsec_root, "rv-android")
+        
+        try:
+            # Create RVInstrumentationConfig instance with tool paths
+            return RVInstrumentationConfig(
+                rvsec_root=rvsec_root,
+                monitor_output_dir=monitor_output_dir,
+                working_dir=rv_android_dir,  # Use rv-android dir where lib/ exists
+                instrumented_dir=os.path.join(rv_android_dir, INSTRUMENTED_DIR),
+                keystore_password="password"
+            )
+        except InstrumentationConfigError as e:
+            raise ConfigurationError(f"Instrumentation configuration failed: {e}") from e
     
-    def get_static_analysis_config(self) -> Dict[str, Any]:
+    def get_static_analysis_config(self) -> RVStaticAnalysisConfig:
         """
         Just-in-time configuration for static analysis.
         
-        ### Just-in-Time Configuration Pattern:
+        ### Configuration Pattern:
         This method creates static analysis configuration only when needed,
-        providing intelligent defaults while allowing experiment-specific
-        customization through simple parameter specification.
+        providing defaults while allowing experiment-specific customization
+        through parameter specification.
+        
+        ### Implementation:
+        Returns a typed RVStaticAnalysisConfig instance that provides type safety,
+        validation, and integration with the configuration architecture.
         
         Returns:
-            Dictionary with static analysis configuration
+            RVStaticAnalysisConfig instance with static analysis configuration
+            
+        Raises:
+            ConfigurationError: If static analysis configuration fails
         """
-        return {
-            "tools": ["gator", "gesda", "reach"],
-            "timeout": 600,
-            "output_dir": INSTRUMENTED_DIR,
-            "parallel_execution": False,
-            "max_parallel_tools": 2
-        }
+        rvsec_root = os.getenv("RVSEC_HOME")
+        if not rvsec_root:
+            raise ConfigurationError(
+                "RVSEC_HOME environment variable not set. "
+                "This is required for static analysis configuration."
+            )
+        
+        # Use rv-android directory as base for lib tools
+        rv_android_dir = os.path.join(rvsec_root, "rv-android")
+        lib_dir = os.path.join(rv_android_dir, "lib")
+        
+        try:
+            # Create RVStaticAnalysisConfig instance with tool paths
+            return RVStaticAnalysisConfig(
+                rvsec_root=rvsec_root,
+                lib_dir=lib_dir,  # Point to rv-android/lib where tools are located
+                output_dir=self.output_dir,
+                working_dir=self.output_dir,
+                validate_on_init=False  # Defer validation to avoid initialization issues
+            )
+        except Exception as e:
+            raise ConfigurationError(f"Static analysis configuration failed: {e}") from e
     
-    def get_llm_config(self) -> Dict[str, Any]:
+    def get_llm_config(self) -> LLMConfig:
         """
         Just-in-time configuration for LLM integration.
         
-        ### Just-in-Time Configuration Pattern:
+        ### Configuration Pattern:
         This method creates LLM configuration only when needed for tools that
-        require AI integration, providing intelligent defaults while supporting
+        require AI integration, providing defaults while supporting
         experiment-specific model and parameter selection.
         
+        ### Implementation:
+        Returns a typed LLMConfig instance that provides type safety,
+        validation, and integration with the configuration architecture.
+        
         Returns:
-            Dictionary with LLM configuration
+            LLMConfig instance with LLM configuration
+            
+        Raises:
+            ConfigurationError: If LLM configuration fails validation
         """
-        return {
-            "provider": "ollama",
-            "model": "llama3",
-            "temperature": 0.3,
-            "max_tokens": 2048,
-            "timeout": 30,
-            "base_url": "http://127.0.0.1:11434"
-        }
+        try:
+            # Create LLMConfig instance with default settings
+            config = LLMConfig(
+                llm_type="ollama",
+                model="llama3.2:3b",
+                base_url="http://127.0.0.1:11434",
+                temperature=0.3,
+                max_tokens=2048,
+                provider="ollama",
+                strategy_type="standard",
+                parser_type="droidbot",
+                visitor_type="enhanced"
+            )
+            
+            # Validate configuration
+            is_valid, errors = config.validate()
+            if not is_valid:
+                raise ConfigurationError(f"LLM configuration validation failed: {errors}")
+                
+            return config
+        except Exception as e:
+            raise ConfigurationError(f"LLM configuration failed: {e}") from e
     
     def to_dict(self) -> Dict[str, Any]:
         """
@@ -929,6 +1006,44 @@ class ExperimentConfig:
             f.write(self.to_json())
         
         self.logger.info(f"Configuration saved to: {file_path}")
+    
+    def get_module_config(self, module_name: str) -> Union[RVGeneratorConfig, RVInstrumentationConfig, RVStaticAnalysisConfig, LLMConfig, Dict[str, Any]]:
+        """
+        Get module-specific configuration based on the module name.
+        
+        ### Configuration Class Integration:
+        This method now returns properly typed configuration class instances
+        instead of dictionaries, providing better type safety and validation.
+        
+        Args:
+            module_name: Name of the module to get configuration for
+            
+        Returns:
+            Configuration class instance specific to the requested module
+        """
+        if module_name == "rv-monitor-generator":
+            return self.get_monitored_operations_config()
+        elif module_name == "rv-instrumentation":
+            return self.get_instrumentation_config()
+        elif module_name == "rv-static-analysis":
+            return self.get_static_analysis_config()
+        elif module_name == "rv-llm":
+            return self.get_llm_config()
+        else:
+            return {}
+    
+    def get_rv_instrumentation_config(self) -> RVInstrumentationConfig:
+        """
+        Get configuration for rv-instrumentation module.
+        
+        ### Configuration Class Integration:
+        This method now returns a properly typed RVInstrumentationConfig instance
+        instead of a dictionary, providing better type safety and validation.
+        
+        Returns:
+            RVInstrumentationConfig instance with instrumentation configuration
+        """
+        return self.get_instrumentation_config()
     
     def get_instrumented_dir(self) -> str:
         """

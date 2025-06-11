@@ -248,7 +248,9 @@ class MonkeyTool(ConfigurableTool):
         # Build Monkey command
         monkey_cmd = self._build_monkey_command(app, timeout_in_seconds)
         
-        self.logger.debug(f"Monkey command: {' '.join(monkey_cmd.cmd)}")
+        # Build command string for logging
+        cmd_str = f"{monkey_cmd.command} {' '.join(monkey_cmd.args)}"
+        self.logger.debug(f"Monkey command: {cmd_str}")
 
         # Execute Monkey testing
         with open(task.result.trace_file, 'wb') as trace_file:

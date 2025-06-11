@@ -23,18 +23,18 @@ class CoverageAnalyzer(BaseAnalyzer[Dict[str, Any]]):
 
     ### Architectural Decisions:
     - **Direct Repository Integration**: Uses LogcatRepository directly without wrapper
-      layers for optimal performance and reduced complexity
+      layers for performance and reduced complexity
     - **BaseAnalyzer Extension**: Implements the standard analyzer interface for
       consistent integration with the experiment framework
     - **Multi-Source Processing**: Supports analysis from logcat files, direct log
       entries, and streaming data sources
-    - **Unified Metrics**: Provides standardized coverage metrics across all analysis modes
+    - **Unified Metrics**: Provides coverage metrics across all analysis modes
     - **Event-Free Design**: Unlike CoverageTracker, focuses purely on analysis without
       event publishing, maintaining clear separation of concerns
 
     ### Role in the System:
     - **Primary Analysis Engine**: Main component for coverage data processing
-    - **Metrics Calculator**: Computes comprehensive coverage metrics from raw data
+    - **Metrics Calculator**: Computes coverage metrics from raw data
     - **Data Aggregator**: Combines coverage information with static analysis results
     - **Batch Processor**: Handles offline analysis of logcat files and historical data
     - **Integration Point**: Bridges coverage data with the broader analysis pipeline

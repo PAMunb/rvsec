@@ -108,7 +108,7 @@ class RuntimeVerificationGenerator:
             # Prepare clean generation environment
             utils.reset_folder(output_dir)
             self._logger.debug("Output directory prepared", extra={'output_dir': output_dir})
-            
+
             # Execute coordinated generation pipeline
             self._execute_javamop(output_dir)
             self._execute_rvmonitor(output_dir)
@@ -125,6 +125,7 @@ class RuntimeVerificationGenerator:
                 'component': 'RuntimeVerificationGenerator',
                 'operation': 'generate_monitors',
                 'output_dir': output_dir,
+                'mop_specs_dir': self.config.mop_specs_dir,
                 'pipeline_stage': 'failed'
             }
             

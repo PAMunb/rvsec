@@ -9,7 +9,6 @@ from typing import Any, Dict, List, Optional
 from rv_android_core.util.error.error_handler import ErrorHandler
 from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
 from rv_android_core.util.logging.manager import LoggingManager
-from rv_llm.config.strategy_config import PromptStrategyConfig
 from .base_fragment import InformationFragment
 
 
@@ -40,33 +39,24 @@ class InformationManager:
         component="InformationManager",
         phase="configuration"
     )
-    def configure(self, config: Optional[PromptStrategyConfig] = None) -> None:
-        """Configure the InformationManager with the given configuration.
-        
-        ### Architectural Decision:
-        - Uses typed configuration class instead of dictionary
-        - Provides error handling with decorator pattern
-        - Follows the established architectural pattern from rv-android-core
+    def configure(self, fragment_configs: Optional[Dict[str, Dict[str, Any]]] = None, **kwargs) -> None:
+        """Configure the InformationManager with direct parameter passing.
         
         Args:
-            config: Optional typed configuration instance.
+            fragment_configs: Dictionary mapping fragment names to their configuration parameters
+            **kwargs: Additional configuration parameters for manager-level settings
         """
         self.logger.debug("Configuring InformationManager")
         
-        if config is None:
-            config = PromptStrategyConfig()
-            
-        # Validate configuration
-        is_valid, errors = config.validate()
-        if not is_valid:
-            self.logger.warning(f"Configuration validation errors: {errors}")
+        if fragment_configs is None:
+            fragment_configs = {}
             
         # Configure all registered fragments
         for fragment_name, fragment in self.fragments.items():
             if hasattr(fragment, 'configure'):
                 try:
-                    # Get fragment-specific configuration
-                    fragment_config = config.get_fragment_config(fragment_name)
+                    # Get fragment-specific configuration or use empty dict
+                    fragment_config = fragment_configs.get(fragment_name, {})
                     fragment.configure(fragment_config)
                     self.logger.debug(f"Configured fragment: {fragment_name}")
                 except Exception as e:

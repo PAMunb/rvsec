@@ -1,8 +1,28 @@
-"""Unified framework for prompt generation.
+"""
+Framework for Prompt Generation
 
-This module defines the PromptFramework class, which coordinates the
-prompt generation process by integrating information gathering, template
-management, and strategy execution.
+### Architectural Overview:
+This module implements a prompt generation framework that coordinates
+the prompt generation process through factory patterns, with direct component integration.
+
+### Key Architectural Decisions:
+- **Factory Pattern**: Uses factory pattern for strategy and LLM creation
+- **Direct Integration**: Direct configuration dependencies
+- **Component Composition**: Coordinates information gathering, template management, and strategy execution
+- **Error Handling**: Error handling using rv-android-core decorators
+- **Configuration**: Uses parameter passing instead of configuration objects
+
+### Role in the System:
+- Central coordination point for prompt generation activities
+- Factory orchestration for strategy and LLM component creation
+- Integration layer between information fragments and template management
+- Primary interface for LLM-driven prompt generation workflows
+
+### Design Patterns:
+- **Factory Pattern**: Strategy and LLM creation through factories
+- **Facade Pattern**: Interface over prompt generation subsystem
+- **Strategy Pattern**: Dynamic prompt generation strategy selection
+- **Composition Pattern**: Coordinates multiple specialized components
 """
 
 from typing import Any, Dict, List, Optional
@@ -10,7 +30,6 @@ from typing import Any, Dict, List, Optional
 from rv_android_core.util.error.error_handler import ErrorHandler
 from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
 from rv_android_core.util.logging.manager import LoggingManager
-from rv_llm.config.strategy_config import PromptStrategyConfig
 from rv_llm.llm.constants import PromptStrategyType
 from rv_llm.llm.data_structures import LLMMessage
 from rv_llm.llm.prompt.information.fragment_manager import InformationManager
@@ -23,26 +42,33 @@ from rv_llm.llm.prompt.template.jinja_repository import Jinja2TemplateRepository
 
 
 class PromptFramework:
-    """Unified framework for prompt generation.
+    """
+    Framework for prompt generation.
     
-    The PromptFramework integrates the three layers of the prompt system:
-    1. Information gathering through fragments
-    2. Template management through repository
-    3. Strategy execution for generating prompts
+    ### Architectural Overview:
+    This framework integrates the three layers of the prompt system using
+    architecture principles and factory patterns:
+    1. **Information Gathering**: Through specialized fragments for different data types
+    2. **Template Management**: Through repository pattern with Jinja2 rendering
+    3. **Strategy Execution**: Through factory-created strategies for prompt generation
     
-    It serves as the central entry point for prompt generation and LLM interaction.
+    ### Key Features:
+    - **Factory-Based Creation**: Uses factory pattern for component creation
+    - **Interface**: Facade over prompt generation subsystem
+    - **Configuration**: Direct parameter passing instead of configuration objects
+    - **Error Handling**: Uses rv-android-core error handling decorators
+    - **Template Integration**: Jinja2-based templating with capabilities
     
-    This implementation uses Jinja2 for template rendering, providing advanced
-    templating capabilities while maintaining compatibility with the XML-based
-    template structure.
+    ### Role in the System:
+    - Central entry point for prompt generation and LLM interaction
+    - Coordinates information gathering, template management, and strategy execution
+    - Provides interface for different prompt generation strategies
+    - Manages component lifecycle and configuration coordination
     
-    Architecture Notes:
-    ------------------
-    - The framework uses ComponentConfigurator directly for strategy management,
-      eliminating the need for a separate StrategyRegistry
-    - This design creates a single source of truth for component registration
-    - The framework acts as a facade over the underlying components, providing
-      a simplified interface for prompt generation
+    ### Design Evolution:
+    This implementation eliminates ComponentConfigurator dependencies in favor
+    of direct factory pattern usage, providing separation of concerns and
+    component integration.
     """
 
     def __init__(
@@ -135,46 +161,54 @@ class PromptFramework:
         component="PromptFramework",
         phase="configuration"
     )
-    def configure(self, config: Optional[PromptStrategyConfig] = None) -> None:
-        """Configure the framework and its components.
+    def configure(
+        self, 
+        template_format: str = "jinja2",
+        template_validation: bool = True,
+        **kwargs
+    ) -> None:
+        """Configure the framework and its components using direct parameter passing.
         
         ### Architectural Decision:
-        - Uses typed configuration class instead of dictionary
-        - Provides comprehensive component configuration
-        - Follows the established architectural pattern from rv-android-core
+        - Uses direct parameter passing instead of complex configuration objects
+        - Provides simple configuration management following clean architecture principles
+        - Eliminates legacy configuration dependencies in favor of modern patterns
         
         Args:
-            config: Optional typed configuration instance for components.
+            template_format: Template format to use (default: "jinja2")
+            template_validation: Enable template validation (default: True)
+            **kwargs: Additional configuration parameters for component customization
         """
-        self.logger.info("Configuring PromptFramework")
-        
-        if config is None:
-            config = PromptStrategyConfig()
-            
-        # Validate configuration
-        is_valid, errors = config.validate()
-        if not is_valid:
-            self.logger.warning(f"Configuration validation errors: {errors}")
+        self.logger.info("Configuring PromptFramework with modern parameter passing")
 
-        # Configure components with validation
+        # Configure information manager if available
         if self.information_manager and hasattr(self.information_manager, 'configure'):
             try:
-                self.information_manager.configure(config)
+                # Pass relevant parameters to information manager
+                info_config = {k: v for k, v in kwargs.items() if k.startswith('info_')}
+                if info_config:
+                    self.information_manager.configure(**info_config)
+                    self.logger.debug("Information manager configured with custom parameters")
             except Exception as e:
                 self.logger.warning(f"Failed to configure information manager: {e}")
 
+        # Configure template repository with direct parameters
         if self.template_repository and hasattr(self.template_repository, 'configure'):
             try:
-                # Template repository might use different config format
                 template_config = {
-                    'template_format': config.template_format,
-                    'template_validation': config.template_validation
+                    'template_format': template_format,
+                    'template_validation': template_validation
                 }
+                # Add any template-specific parameters from kwargs
+                template_specific = {k[9:]: v for k, v in kwargs.items() if k.startswith('template_')}
+                template_config.update(template_specific)
+                
                 self.template_repository.configure(template_config)
+                self.logger.debug(f"Template repository configured with format: {template_format}")
             except Exception as e:
                 self.logger.warning(f"Failed to configure template repository: {e}")
                 
-        self.logger.debug("PromptFramework configuration completed")
+        self.logger.debug("PromptFramework configuration completed with modern architecture")
 
     @ErrorHandler.handle_errors(
         component="PromptFramework",

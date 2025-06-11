@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Modern Test Runner for RV-Android
+# Test Runner for RV-Android
 # Manages isolated testing of monitored operations modules
 # Solves conftest.py conflicts through directory-based test isolation
 
@@ -378,7 +378,7 @@ print_usage() {
     cat << 'EOF'
 Usage: ./test.sh [OPTIONS] [MODULES...]
 
-Modern test runner for RV-Android monitored operations modules.
+Test runner for RV-Android monitored operations modules.
 Supports experiments with JCA cryptography specifications and generic runtime specifications.
 Runs tests in isolation to avoid conftest.py conflicts.
 

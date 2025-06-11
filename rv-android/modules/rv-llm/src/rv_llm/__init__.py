@@ -60,8 +60,7 @@ from .llm.prompt.framework import PromptFramework
 from .llm.prompt.prompt_strategy import PromptStrategy as BasePromptStrategy
 
 # Configuration
-from .config.configuration_manager import ConfigurationManager
-from .config.strategy_config import PromptStrategyConfig
+from .config.llm_config import LLMConfig
 
 __version__ = "0.1.0"
 __all__ = [
@@ -85,8 +84,7 @@ __all__ = [
     "BasePromptStrategy",
     
     # Configuration
-    "ConfigurationManager",
-    "PromptStrategyConfig"
+    "LLMConfig"
 ]
 
 
@@ -94,7 +92,7 @@ __all__ = [
 def register_models():
     """Register all model implementations"""
     from .llm.ollama_llm import register as register_ollama
-    from .llm.huggingface_llm import register as register_huggingface
+    # from .llm.huggingface_llm import register as register_huggingface
 
     register_ollama()
-    register_huggingface()
+    # register_huggingface()

@@ -5,7 +5,7 @@ import time
 from contextlib import contextmanager
 from typing import Dict, List, Callable, Any, Type, Optional, Union
 
-# Remove legacy dependencies - using simplified error handling
+# Using simplified error handling
 from rv_android_core.util.exceptions import (
     RVAndroidError, ADBError, EmulatorError, RvTimeoutError,
     RVTaskError, RVTaskExecutionError, RVTaskConfigurationError, RVTaskTimeoutError,

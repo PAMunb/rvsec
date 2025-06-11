@@ -40,15 +40,6 @@ class BatchActionStrategy(PromptStrategy):
         """
         super().__init__(name, information_manager, template_repository)
 
-    def configure(self, config: ComponentConfigurator) -> None:
-        """Configure the strategy with the given configuration.
-        
-        Args:
-            config: The configuration to use.
-        """
-        super().configure(config)
-
-        # Other configuration specific logic can be added here
 
     def should_use_batch(self, state: Dict[str, Any]) -> bool:
         """Determine if batch actions should be used for the current state.

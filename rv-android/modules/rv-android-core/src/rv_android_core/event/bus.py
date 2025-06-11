@@ -16,23 +16,23 @@ class EventBus:
     """
     Central event bus for managing event subscriptions and publishing.
 
-    A robust, thread-safe publish-subscribe event management system for decoupled communication across the rvandroid framework.
+    A thread-safe publish-subscribe event management system for decoupled communication across the rvandroid framework.
 
     ### Architectural Decisions:
-    - Implements a sophisticated pub/sub pattern with high flexibility
+    - Implements a pub/sub pattern with flexibility
     - Provides thread-safe event handling and subscription management
     - Supports multiple event types and granular filtering
     - Enables dynamic event registration and unregistration
-    - Maintains a configurable event history for traceability
+    - Maintains event history for traceability
     - Supports asynchronous event processing with priority queuing
     - Provides dedicated event channels for different system components
 
     ### Role in the System:
-    - Serves as the central communication backbone for the experimental framework
+    - Serves as the central communication backbone for the framework
     - Facilitates loose coupling between different system components
     - Enables real-time event tracking and notification
-    - Supports complex event-driven workflows across experiment lifecycle
-    - Provides a standardized mechanism for inter-component communication
+    - Supports event-driven workflows across experiment lifecycle
+    - Provides a mechanism for inter-component communication
     """
 
     _instance = None

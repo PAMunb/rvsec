@@ -2,30 +2,44 @@
 LLM Factories - Modern Factory Pattern for Language Model Components
 
 ### Architectural Overview:
-This module provides DI-ready factory implementations for language model components
-with clean, testable factory interfaces. The factories are designed to be easily 
-integrated with dependency injection containers while maintaining simplicity and clarity.
+This module provides modern factory implementations for language model components
+with clean, testable factory interfaces. The factories use the simplified LLMConfig-based 
+approach for monitored operations testing.
 
 ### Key Factory Components:
-- **ILLMFactory**: Interface for LLM component creation (DI container ready)
-- **LLMFactory**: Concrete implementation with comprehensive error handling
-- **IPromptStrategyFactory**: Interface for prompt strategy creation (DI container ready)
-- **PromptStrategyFactory**: Concrete implementation for prompt strategy management
+- **LLMComponentFactory**: Main factory for creating LLM components (backends and strategies)
+- Clean, stateless factory operations for thread safety
+- Comprehensive error handling using rv-android-core decorators
+- Direct integration with LLMConfig for type-safe configuration
+- Respects module boundaries - no external tool dependencies
 
 ### Design Principles:
-- **DI-Ready**: All factories implement interfaces suitable for dependency injection
+- **Clean Architecture**: Simple data classes for configuration, factories for creation
 - **Error Handling**: Comprehensive error handling using rv-android-core decorators
 - **Logging Integration**: Consistent logging throughout factory operations
-- **Configuration Driven**: Factory methods accept configuration dictionaries
+- **Type Safety**: Full type annotations and validation
 - **Testability**: Clean interfaces enable easy mocking and testing
+
+### Migration Notes:
+This module has been modernized to remove all legacy ComponentConfigurator dependencies.
+All factories now use the clean LLMConfig system for monitored operations testing.
+
+### Usage Examples:
+```python
+# Modern approach with LLMConfig
+from rv_llm.factories import LLMComponentFactory
+from rv_llm.config import LLMConfig
+
+config = LLMConfig(llm_type="ollama", strategy_type="batch_action")
+
+# Individual component creation
+llm = LLMComponentFactory.create_llm(config)
+strategy = LLMComponentFactory.create_strategy(config)
+```
 """
 
-from .llm_factory import ILLMFactory, LLMFactory
-from .prompt_strategy_factory import IPromptStrategyFactory, PromptStrategyFactory
+from .component_factory import LLMComponentFactory
 
 __all__ = [
-    'ILLMFactory',
-    'LLMFactory', 
-    'IPromptStrategyFactory',
-    'PromptStrategyFactory'
+    'LLMComponentFactory'
 ]

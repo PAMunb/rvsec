@@ -33,8 +33,8 @@ class ResultManager:
 
     ### Architectural Decisions:
     - Centralizes all result management functionality in a single component
-    - Generates standardized CSV and JSON output formats for data analysis
-    - Provides streamlined reporting without complex visualizations
+    - Generates CSV and JSON output formats for data analysis
+    - Provides reporting without visualizations
     - Integrates with the experiment workflow for automated result processing
     - Supports both individual task results and aggregated experiment summaries
 

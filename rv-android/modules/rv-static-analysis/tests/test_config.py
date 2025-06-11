@@ -107,7 +107,7 @@ class TestRVStaticAnalysisConfig(unittest.TestCase):
             config.gator_dir = str(lib_dir / "gator")
             config.reach_jar = str(lib_dir / "reach" / "rvsec-reach.jar")
             
-            tools = config.get_static_analysis_tools()
+            tools = config.get_tool_components()
             
             expected_tools = ['gesda_jar', 'gator_python', 'gator_client_jar', 'reach_jar']
             self.assertEqual(set(tools.keys()), set(expected_tools))
@@ -166,7 +166,7 @@ class TestRVStaticAnalysisConfig(unittest.TestCase):
             config.rvsec_root = str(temp_path)
             config.lib_dir = str(temp_path / "lib")
             config.android_platforms_dir = str(temp_path / "platforms")
-            config.rt_jar = str(temp_path / "android.jar")
+            config.rt_jar = str(temp_path / "rt.jar")
             config.mop_dir = str(temp_path / "mop")
             config.output_dir = str(temp_path / "output")
             config.working_dir = str(temp_path / "working")
@@ -178,7 +178,7 @@ class TestRVStaticAnalysisConfig(unittest.TestCase):
             
             # Verify summary structure
             self.assertIn('rvsec_integration', summary)
-            self.assertIn('android_integration', summary)
+            self.assertIn('java_android_integration', summary)
             self.assertIn('static_analysis_tools', summary)
             self.assertIn('tool_availability', summary)
             self.assertEqual(summary['validation_status'], 'Validated')

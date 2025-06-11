@@ -1,75 +1,62 @@
 # RV-Experiment Module
 
-Modern experiment orchestration and management system for monitored operations testing in Android applications with dependency injection architecture.
+Simple CLI-based experiment orchestration system for monitored operations testing in Android applications.
 
 ## Overview
 
-The RV-Experiment module serves as the central orchestration hub for all monitored operations experiments in the RV-Android ecosystem. It provides comprehensive experiment management, execution coordination, and result analysis while supporting both JCA cryptography and generic programming pattern specifications through a modern, factory-based architecture.
+The RV-Experiment module provides a simplified CLI interface for executing monitored operations experiments in the RV-Android ecosystem. It offers direct experiment execution, configuration management, and result coordination while supporting both JCA cryptography and generic programming pattern specifications.
 
 ### Key Features
 
-- **Modern CLI**: Simplified 3-command interface with intelligent tool parsing and configuration
-- **DI-Ready Architecture**: Full dependency injection support with lifecycle management
-- **Experiment Orchestration**: Comprehensive experiment coordination with multi-tool support
-- **Directory Management**: Standardized ./out/ directory structure for all operations
-- **Configuration System**: Flexible configuration with templates and validation
-- **Factory Pattern**: Modern LLM and strategy factories for component creation
-- **Monitored Operations**: Support for both JCA crypto and generic specification monitoring
-- **Tool Integration**: Seamless integration with all rv-tools module testing tools
+- **CLI Interface**: Four core commands (run, config, list-tools, validate) with direct execution
+- **Tool Specification DSL**: tool:variant@parameter format parsing
+- **Configuration Templates**: Pre-built templates for different experiment scenarios  
+- **Direct Execution**: Execution via execute_with_config()
+- **Monitored Operations**: Support for JCA crypto and generic specification monitoring
+- **Tool Integration**: Integration with rv-tools registry and all testing tools
 
 ## Architecture
 
 ### Core Components
 
-#### Experiment Management
-- **SimpleExperimentConfig**: Simplified configuration with DI-ready design and template support
-- **SimplifiedOrchestrator**: Modern orchestrator using factory pattern and comprehensive error handling
-- **ExperimentDirectoryManager**: Standardized ./out/ directory structure with specification separation
+#### CLI Interface
+- **CLIContext**: CLI state management with logging and tool registry integration
+- **Command Structure**: Four focused commands (run, config, list-tools, validate)
+- **Tool Specification Parsing**: DSL parser for tool:variant@parameter format
+- **Configuration Templates**: Factory methods for different experiment scenarios
 
-#### Dependency Injection System
-- **ComponentLifecycleManager**: Complete lifecycle management with dependency graph resolution
-- **ConfigurationProvider**: Multi-source configuration (files, environment, programmatic)
-- **DependencyRegistry**: Full DI container with type-safe component registration
+#### Configuration Management
+- **ExperimentConfig**: Primary configuration class with validation and sub-module config
+- **ToolConfiguration**: Individual tool configuration with variant and parameter support
+- **Template Generation**: Pre-built configurations for basic, advanced, and research scenarios
 
-#### Tool Integration
-- **Tool Specification DSL**: Advanced tool parsing with variants and parameters
-- **Multi-Tool Coordination**: Seamless execution of multiple testing tools
-- **Result Aggregation**: Comprehensive result collection and analysis
+#### Execution System
+- **execute_with_config()**: Direct execution function for experiment orchestration
+- **Tool Registry Integration**: Direct access to rv-tools registry for tool creation
+- **Error Handling**: Comprehensive error management using rv-android-core decorators
 
 #### Directory Structure
 ```
-./out/
-├── experiments/{experiment_id}/     # Individual experiment results
-│   ├── config.json                  # Experiment configuration
-│   ├── logs/                        # Experiment-specific logs
-│   ├── results/                     # Results and analysis data
-│   └── traces/                      # Execution traces and coverage
-├── instrumented/                    # Shared instrumented APKs  
-│   ├── jca/                         # JCA crypto monitored APKs
-│   ├── generic/                     # Generic pattern monitored APKs
-│   └── cache/                       # Instrumentation cache
-├── monitors/                        # Generated monitor files
-│   ├── jca/                         # JCA crypto specifications
-│   ├── generic/                     # Generic programming patterns  
-│   └── custom/                      # Custom specification sets
-├── static/                          # Static analysis results
-│   ├── gator/                       # Gator analysis results
-│   ├── gesda/                       # GESDA analysis results
-│   └── reach/                       # Reachability analysis results
-└── cache/                           # Component and tool cache
-    ├── tools/                       # Tool-specific cache
-    ├── models/                      # LLM model cache
-    └── temp/                        # Temporary files
+./results/{experiment_id}/           # Individual experiment results
+├── config.json                     # Experiment configuration
+├── logs/                           # Experiment-specific logs
+├── results/                        # Results and analysis data
+└── traces/                         # Execution traces and coverage
+
+./out/                              # Shared processing artifacts
+├── instrumented/                   # Instrumented APKs
+├── monitors/                       # Generated monitor files
+└── static/                         # Static analysis results
 ```
 
 ### Integration Points
 
-- **rv-android-core**: Uses ErrorHandler decorators, LoggingManager, and EventBus
-- **rv-llm**: Integrates LLMFactory and PromptStrategyFactory for AI-driven testing
-- **rv-tools**: Coordinates with all testing tools through registry integration
-- **rv-static-analysis**: Manages static analysis integration and result processing
-- **rv-coverage**: Coordinates coverage tracking and analysis
-- **rv-monitor-generator**: Integrates monitor generation for both JCA and generic specs
+- **rv-android-core**: Uses ErrorHandler decorators, LoggingManager for consistent error handling and logging
+- **rv-tools**: Direct registry integration for tool discovery, creation, and execution
+- **rv-static-analysis**: Configuration for static analysis tools integration
+- **rv-coverage**: Configuration for coverage tracking and analysis
+- **rv-monitor-generator**: Configuration for monitor generation
+- **rv-instrumentation**: Configuration for APK instrumentation
 
 ## Installation
 
@@ -94,22 +81,22 @@ poetry install --extras dev
 
 ## Usage
 
-### Modern CLI Interface
+### CLI Interface
 
 #### Basic Experiment Execution
 
 ```bash
 # Simple experiment with single tool
-rv-experiment run --tools monkey
+python -m rv_experiment run --tools monkey
 
 # Multi-tool experiment with configuration
-rv-experiment run --tools monkey,droidbot:dfs_greedy,rvandroid:llama:batch@temperature=0.3
+python -m rv_experiment run --tools monkey,droidbot:dfs_greedy --repetitions 3
 
 # JCA cryptography monitoring experiment
-rv-experiment run --tools rvandroid:llama:standard@specification_set=jca,temperature=0.2
+python -m rv_experiment run --tools monkey --specification-set jca
 
 # Generic programming patterns experiment  
-rv-experiment run --tools droidbot:dfs_greedy,ape@specification_set=generic
+python -m rv_experiment run --tools droidbot:dfs_greedy --specification-set generic
 ```
 
 #### Tool Specification DSL
@@ -125,63 +112,72 @@ ape
 
 # Tools with variants
 droidbot:dfs_greedy
-rvandroid:llama:batch
-rvandroid:claude:standard
+droidbot:bfs_greedy
 
 # Tools with parameters
-rvandroid:llama@temperature=0.3,max_tokens=2048
-droidbot:dfs_greedy@timeout=600,enable_accessibility=true
+monkey@seed=42,throttle=100
+droidbot:dfs_greedy@count=1000,timeout=600
 
 # Multiple tools combination
-monkey,droidbot:dfs_greedy,rvandroid:llama:batch@temperature=0.2,specification_set=jca
+monkey,droidbot:dfs_greedy,ape@running_minutes=10
 ```
 
 #### Configuration Templates
 
 ```bash
 # Generate basic configuration template
-rv-experiment generate-config --template-type basic --output basic_config.json
+python -m rv_experiment config --template-type basic --output basic_config.json
 
-# Generate advanced configuration with all options
-rv-experiment generate-config --template-type advanced --format yaml --output advanced.yaml
+# Generate advanced configuration template
+python -m rv_experiment config --template-type advanced --output advanced_config.json
 
-# Generate LLM-focused configuration for AI-driven testing
-rv-experiment generate-config --template-type llm_focused --output llm_experiment.json
+# Generate research template
+python -m rv_experiment config --template-type research --output research_config.json
 ```
 
 #### Tool Management
 
 ```bash
 # List all available tools
-rv-experiment list-tools
+python -m rv_experiment list-tools
 
 # Show detailed tool information
-rv-experiment list-tools --detailed
+python -m rv_experiment list-tools --detailed
 
 # Filter by tool category
-rv-experiment list-tools --filter-by llm --detailed
+python -m rv_experiment list-tools --filter-by basic --detailed
+```
+
+#### Configuration Validation
+
+```bash
+# Validate configuration file
+python -m rv_experiment validate experiment_config.json
 ```
 
 ### Programmatic Usage
 
-#### Modern Configuration
+#### Configuration and Execution
 
 ```python
-from rv_experiment.config import SimpleExperimentConfig
-from rv_experiment.orchestrator import SimplifiedOrchestrator
+from rv_experiment.config import ExperimentConfig, ToolConfiguration
+from rv_experiment.experiment.experiment_controller import execute_with_config
+
+# Create tool configurations
+tools = [
+    ToolConfiguration(name="monkey"),
+    ToolConfiguration(name="droidbot", variants=["dfs_greedy"], parameters={"count": 1000})
+]
 
 # Create experiment configuration
-config = SimpleExperimentConfig(
-    experiment_dir="./out/",
-    experiment_id="crypto_analysis_001",
-    tools=[
-        {"name": "monkey", "variants": [], "parameters": {}},
-        {"name": "rvandroid", "variants": ["llama", "batch"], 
-         "parameters": {"temperature": 0.3, "specification_set": "jca"}}
-    ],
-    specification_set="jca",  # JCA cryptography monitoring
-    timeout=300,
+config = ExperimentConfig(
+    name="basic_experiment",
+    description="Basic monitored operations experiment",
+    tool_configs=tools,
     repetitions=3,
+    timeouts=[300],
+    specification_set="jca",  # JCA cryptography monitoring
+    apk_dir="./apks_examples/",
     apk_patterns=["*.apk"]
 )
 
@@ -189,159 +185,82 @@ config = SimpleExperimentConfig(
 config.validate()
 
 # Execute experiment
-orchestrator = SimplifiedOrchestrator(config)
-success = orchestrator.execute()
+execute_with_config(config)
 ```
 
-#### DI-Ready Architecture
+#### Configuration File Usage
 
 ```python
-from rv_experiment.di import ComponentLifecycleManager, ConfigurationProvider, DependencyRegistry
-from rv_experiment.di.interfaces import IExperimentOrchestrator, IDirectoryManager
+from rv_experiment.config import ExperimentConfig
 
-# Initialize DI system
-lifecycle_manager = ComponentLifecycleManager()
-config_provider = ConfigurationProvider(config_files=["experiment.yaml"])
-registry = DependencyRegistry()
+# Load configuration from file
+config = ExperimentConfig.from_file("experiment_config.json")
 
-# Register components
-registry.register(IExperimentOrchestrator, SimplifiedOrchestrator)
-registry.register(IDirectoryManager, ExperimentDirectoryManager)
-
-# Register component with lifecycle management
-lifecycle_manager.register_component(
-    "orchestrator", 
-    registry.get(IExperimentOrchestrator),
-    dependencies=["directory_manager", "llm_factory"],
-    config=config_provider.get_config("orchestrator")
-)
-
-# Initialize all components
-lifecycle_manager.initialize_all()
-lifecycle_manager.start_all()
-
-# Execute experiment
-orchestrator = registry.get(IExperimentOrchestrator)
-result = orchestrator.execute()
-
-# Graceful shutdown
-lifecycle_manager.stop_all()
+# Validate and execute
+config.validate()
+execute_with_config(config)
 ```
 
-#### Directory Management
+#### Just-in-Time Configuration
 
 ```python
-from rv_experiment.directory_manager import ExperimentDirectoryManager
+from rv_experiment.config import ExperimentConfig
 
-# Initialize directory manager
-dir_manager = ExperimentDirectoryManager("./out/")
-
-# Create complete directory structure
-dir_manager.create_full_structure()
-
-# Create experiment-specific directory
-experiment_dir = dir_manager.create_experiment_directory(
-    experiment_id="jca_crypto_001",
+# Configuration with just-in-time sub-module configuration
+config = ExperimentConfig(
+    name="jca_crypto_experiment",
     specification_set="jca"
 )
 
-# Get specification-specific directories
-jca_instrumented = dir_manager.get_instrumented_dir("jca")
-generic_instrumented = dir_manager.get_instrumented_dir("generic")
-jca_monitors = dir_manager.get_monitors_dir("jca")
+# Get just-in-time configurations for sub-modules
+monitor_config = config.get_monitored_operations_config()  # For rv-monitor-generator
+instrumentation_config = config.get_instrumentation_config()  # For rv-instrumentation
+static_analysis_config = config.get_static_analysis_config()  # For rv-static-analysis
 
-# Cache management
-models_cache = dir_manager.get_cache_dir("models")
-cleaned_files = dir_manager.cleanup_temp_files(max_age_hours=24)
+# These configs are generated only when needed, eliminating complex upfront coordination
 ```
 
-#### Factory Integration
-
-```python
-from rv_llm.factories import LLMFactory, PromptStrategyFactory
-
-# Create factories
-llm_factory = LLMFactory()
-strategy_factory = PromptStrategyFactory()
-
-# Create LLM for JCA cryptography monitoring
-jca_llm = llm_factory.create_ollama(
-    model="llama3",
-    temperature=0.2,
-    specification_context="jca_crypto"
-)
-
-# Create strategy for batch action generation
-batch_strategy = strategy_factory.create_batch_action(
-    batch_size=3,
-    use_action_coordination=True,
-    specification_aware=True
-)
-
-# Configuration-driven creation
-llm_config = {
-    "provider": "ollama",
-    "model": "llama3",
-    "temperature": 0.3,
-    "specification_set": "generic"
-}
-generic_llm = llm_factory.create_from_config(llm_config)
-```
-
-### Experiment Templates
+### Configuration Templates
 
 #### Basic Experiment Template
 
 ```json
 {
-  "experiment_id": "basic_001",
-  "specification_set": "generic",
-  "tools": [
-    {"name": "monkey", "variants": [], "parameters": {"timeout": 300}},
-    {"name": "droidbot", "variants": ["dfs_greedy"], "parameters": {}}
+  "name": "basic_experiment",
+  "description": "Basic experiment with standard tools",
+  "tool_configs": [
+    {"name": "monkey", "variants": [], "parameters": {}},
+    {"name": "droidbot", "variants": ["dfs_greedy"], "parameters": {"count": 1000}}
   ],
-  "timeout": 300,
   "repetitions": 1,
-  "apk_patterns": ["*.apk"],
+  "timeouts": [300],
+  "specification_set": "jca",
   "generate_monitors": true,
   "instrument_apks": true,
-  "run_static_analysis": true
+  "run_static_analysis": true,
+  "apk_dir": "./apks_examples/",
+  "apk_patterns": ["*.apk"]
 }
 ```
 
-#### LLM-Focused Template
+#### Advanced Template
 
 ```json
 {
-  "experiment_id": "llm_jca_001", 
-  "specification_set": "jca",
-  "tools": [
-    {
-      "name": "rvandroid",
-      "variants": ["llama", "batch"],
-      "parameters": {
-        "temperature": 0.2,
-        "max_tokens": 2048,
-        "specification_context": "jca_crypto",
-        "monitored_operations_focus": true
-      }
-    },
-    {
-      "name": "rvandroid", 
-      "variants": ["claude", "standard"],
-      "parameters": {
-        "temperature": 0.1,
-        "specification_context": "jca_crypto"
-      }
-    }
+  "name": "advanced_experiment", 
+  "description": "Advanced experiment with multiple tools",
+  "tool_configs": [
+    {"name": "monkey", "variants": ["fixed_seed"], "parameters": {"seed": 42, "throttle": 100}},
+    {"name": "droidbot", "variants": ["dfs_greedy"], "parameters": {"count": 2000, "timeout": 600}},
+    {"name": "ape", "variants": [], "parameters": {"running_minutes": 10}}
   ],
-  "timeout": 600,
   "repetitions": 3,
-  "llm_config": {
-    "providers": ["ollama", "anthropic"],
-    "fallback_strategy": "graceful_degradation",
-    "context_management": "specification_aware"
-  }
+  "timeouts": [300, 600, 900],
+  "specification_set": "generic",
+  "generate_monitors": true,
+  "instrument_apks": true,
+  "run_static_analysis": true,
+  "apk_patterns": ["*.apk", "!*test*.apk", "!*debug*.apk"]
 }
 ```
 
@@ -357,35 +276,21 @@ poetry run pytest
 poetry run pytest --cov=rv_experiment
 
 # Run specific test categories
-poetry run pytest tests/experiment/
-poetry run pytest tests/di/
 poetry run pytest tests/config/
+poetry run pytest tests/experiment/
 ```
 
 ### Test Structure
 
-- `tests/experiment/`: Experiment management and orchestration tests
-- `tests/di/`: Dependency injection system tests
-- `tests/config/`: Configuration management tests
-- `tests/directory/`: Directory management tests
-- `tests/integration/`: Cross-component integration tests
+- `tests/config/`: Configuration management and validation tests
+- `tests/experiment/`: Experiment execution and workflow tests
 
 ## Performance Characteristics
 
 ### Experiment Execution
 - **Small Experiments** (1-3 tools): 2-5 minutes typical execution
 - **Large Experiments** (5+ tools): 10-30 minutes depending on tool configuration
-- **LLM Integration**: Additional 1-3 minutes for model initialization
-
-### DI System
-- **Component Resolution**: < 1ms for singleton resolution
-- **Lifecycle Management**: < 100ms for complete system startup
 - **Configuration Loading**: < 50ms for typical configuration files
-
-### Directory Management
-- **Structure Creation**: < 10ms for complete directory structure
-- **Experiment Setup**: < 5ms per experiment directory
-- **Cache Cleanup**: < 100ms for typical cache sizes
 
 ## Monitored Operations Support
 
@@ -393,133 +298,76 @@ poetry run pytest tests/config/
 
 ```bash
 # JCA-focused experiment
-rv-experiment run --tools rvandroid:llama:batch@specification_set=jca,crypto_context=true
+python -m rv_experiment run --tools monkey --specification-set jca
 
 # JCA specification monitoring with multiple tools
-rv-experiment run --tools monkey,rvandroid:llama:standard@specification_set=jca
+python -m rv_experiment run --tools monkey,droidbot:dfs_greedy --specification-set jca
 ```
 
 ### Generic Programming Pattern Specifications
 
 ```bash
 # Generic patterns experiment
-rv-experiment run --tools droidbot:dfs_greedy,rvandroid:claude:batch@specification_set=generic
+python -m rv_experiment run --tools droidbot:dfs_greedy --specification-set generic
 
-# Iterator pattern monitoring
-rv-experiment run --tools rvandroid:llama@specification_set=generic,pattern_focus=iterator
+# Generic pattern monitoring with multiple tools
+python -m rv_experiment run --tools monkey,ape --specification-set generic
 ```
 
 ### Custom Specification Sets
 
 ```bash
 # Custom specification experiment
-rv-experiment run --tools rvandroid:llama@specification_set=custom,spec_file=/path/to/custom.specs
+python -m rv_experiment run --tools monkey --specification-set custom
 ```
 
 ## Integration Examples
 
-### Cross-Module Integration
-
 ```python
-# Complete experiment with all modules
-from rv_experiment.config import SimpleExperimentConfig
-from rv_experiment.orchestrator import SimplifiedOrchestrator
-from rv_llm.factories import LLMFactory
-from rv_tools.registry import ToolRegistry
-from rv_static_analysis.analysis import StaticAnalysisManager
+# Complete experiment execution
+from rv_experiment.config import ExperimentConfig, ToolConfiguration
+from rv_experiment.experiment.experiment_controller import execute_with_config
 
 # Setup experiment for JCA cryptography monitoring
-config = SimpleExperimentConfig(
-    specification_set="jca",
-    tools=[
-        {"name": "rvandroid", "variants": ["llama", "batch"], 
-         "parameters": {"specification_context": "jca_crypto"}}
-    ]
+tools = [ToolConfiguration(name="monkey"), ToolConfiguration(name="droidbot", variants=["dfs_greedy"])]
+config = ExperimentConfig(
+    name="jca_crypto_test",
+    tool_configs=tools,
+    specification_set="jca"
 )
 
 # Execute with full integration
-orchestrator = SimplifiedOrchestrator(config)
-orchestrator.execute()
-```
-
-### Tool Integration Pattern
-
-```python
-# Standard tool integration with experiment framework
-from rv_experiment.interfaces import IToolExecutor
-from rv_android_core.util.error.decorators import handle_errors
-
-class CustomToolExecutor(IToolExecutor):
-    @handle_errors(component="CustomTool", operation="execute")
-    def execute(self, task, config):
-        """Execute tool with experiment framework integration."""
-        with self.logger.with_context(tool=self.name, specification=config.specification_set):
-            # Tool execution with monitored operations support
-            result = self._run_tool_with_monitoring(task, config)
-            
-            # Publish results to experiment framework
-            self.event_bus.publish_tool_event(
-                EventType.TOOL_COMPLETED,
-                tool_name=self.name,
-                specification_set=config.specification_set,
-                results=result
-            )
-            
-            return result
+execute_with_config(config)
 ```
 
 ## Architecture Guidelines
 
 ### Configuration Best Practices
 
-- Use SimpleExperimentConfig for all experiment definitions
+- Use ExperimentConfig for all experiment definitions
 - Leverage configuration templates for common scenarios
 - Validate configurations before experiment execution
 - Use specification_set parameter to separate JCA and generic monitoring
-
-### DI System Usage
-
-- Register components with clear interface contracts
-- Use lifecycle management for complex component hierarchies
-- Implement proper dependency ordering
-- Use configuration providers for flexible component setup
 
 ### Tool Integration Standards
 
 - Follow tool specification DSL for consistent parameter passing
 - Implement proper error handling with rv-android-core decorators
-- Use event system for loose coupling between components
 - Support both JCA and generic specification monitoring
-
-### Directory Management
-
-- Always use ExperimentDirectoryManager for path management
-- Maintain separation between JCA and generic specification directories
-- Use caching strategies for improved performance
-- Implement proper cleanup for temporary files
 
 ## Contributing
 
 ### Code Standards
 
-- Follow modern architecture patterns with DI-ready design
 - Use comprehensive type hints for all public interfaces
-- Include detailed docstrings following Google style
+- Include detailed docstrings with architectural context
 - Maintain separation between JCA crypto and generic specification logic
 
 ### Testing Requirements
 
-- Achieve 100% test coverage for all public interfaces
-- Include integration tests for cross-module functionality
+- Include tests for configuration management and validation
 - Test both JCA and generic specification scenarios
-- Implement performance benchmarks for critical paths
-
-### Architecture Principles
-
-- Maintain factory-based component creation
-- Use dependency injection for all component relationships
-- Implement comprehensive error handling with context
-- Follow event-driven architecture for component communication
+- Include integration tests for tool execution workflows
 
 ## License
 
