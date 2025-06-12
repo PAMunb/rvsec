@@ -1,4 +1,6 @@
 name: CI Pipeline
+# NOTE: Currently running with reduced scope (3 modules) to resolve disk space issues
+# Full pipeline will be restored after implementing parallel jobs strategy
 'on':
   push:
     branches:
@@ -84,8 +86,10 @@ jobs:
       
       - name: Run Python tests with coverage
         run: |
-          # Run tests using the module test runner for all modules - limit output
-          cd modules && ./test.sh --coverage --continue-on-error rv-android-core rv-monitor-generator rv-static-analysis rv-coverage rv-screen-parser rv-llm rv-tools rvandroid-tool rv-experiment --quiet
+          # TEMPORARY: Testing only critical modules to resolve disk space issues
+          # Full module list: rv-android-core rv-monitor-generator rv-static-analysis rv-coverage rv-screen-parser rv-llm rv-tools rvandroid-tool rv-experiment
+          # Currently testing: rv-android-core rv-llm rvandroid-tool
+          cd modules && ./test.sh --coverage --continue-on-error rv-android-core rv-llm rvandroid-tool --quiet
           # Clean up test artifacts to save space
           find . -name "*.pyc" -delete
           find . -name "__pycache__" -type d -exec rm -rf {} + 2>/dev/null || true
@@ -98,15 +102,10 @@ jobs:
           ls -la $RVSEC_HOME/javamop/bin/ >/dev/null 2>&1 || echo "JavaMOP not found"
           ls -la $RVSEC_HOME/rv-monitor/bin/ >/dev/null 2>&1 || echo "RV-Monitor not found"
           
-          # Run integration tests for key modules with limited output
-          cd modules
-          for module in rv-android-core rv-monitor-generator; do
-            if [ -d "$module" ]; then
-              echo "Running integration tests for $module"
-              cd "$module" && poetry run pytest -m "slow" --tb=short --quiet || true
-              cd ..
-            fi
-          done
+          # TEMPORARY: Testing only core module for integration tests (disk space optimization)
+          # Full integration test modules: rv-android-core rv-monitor-generator
+          # Currently testing: rv-android-core only
+          cd modules/rv-android-core && poetry run pytest -m "slow" --tb=short --quiet || true
         working-directory: rv-android
       
       - name: Upload coverage reports
