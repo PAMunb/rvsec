@@ -20,10 +20,10 @@ from rv_android_core.domain.static import StaticAnalysisData
 from rv_android_core.util.error.error_handler import ErrorHandler
 from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
 from rv_android_core.util.logging.manager import LoggingManager
-from rvandroid.core.memory.long_term_memory import LongTermMemory, MemoryAction, MemoryState
-from rvandroid.core.memory.short_term_memory import ShortTermMemory
-from rvandroid.llm.constants import StateEntry
-from rvandroid.llm.service.action_generator import GeneratedAction
+from rv_llm.llm.constants import StateEntry
+from rvandroid_tool.core.memory.long_term_memory import LongTermMemory, MemoryAction, MemoryState
+from rvandroid_tool.core.memory.short_term_memory import ShortTermMemory
+from rvandroid_tool.llm.service.action_generator import GeneratedAction
 
 
 class MemoryManager:

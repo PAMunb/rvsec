@@ -12,6 +12,7 @@ rv-android-core = {path = "../rv-android-core", develop = true}
 # Screen parsing dependencies
 lxml = "*"  # Para parsing XML
 beautifulsoup4 = "*"  # Para parsing HTML/XML alternativo
+uiautomator2 = "^3.3.1"
 
 # Screenshot analysis dependencies
 pytesseract = "*"  # OCR functionality

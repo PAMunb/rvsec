@@ -10,7 +10,7 @@ transition to the new system while maintaining compatibility with existing code.
 import logging
 from typing import Dict, Any, Optional, Type, TypeVar, Generic
 
-from rv_android_core.event import EventBus, get_event_bus
+from rv_android_core.event import EventBus
 from rv_experiment.experiment.task.component import BaseTaskComponent
 from rv_experiment.experiment.task.interfaces import ITask
 from rv_experiment.experiment.task.task_model import Task

@@ -45,10 +45,8 @@ jobs:
       - name: Cache Poetry dependencies
         uses: actions/cache@v3
         with:
-          path: |
-            rv-android/.venv
-            rv-android/modules/*/.*venv
-          key: poetry-${{ runner.os }}-${{ hashFiles('rv-android/poetry.lock', 'rv-android/modules/*/poetry.lock') }}
+          path: rv-android/.venv
+          key: poetry-${{ runner.os }}-${{ hashFiles('rv-android/poetry.lock') }}
           restore-keys: |
             poetry-${{ runner.os }}-
       
@@ -68,26 +66,15 @@ jobs:
       - name: Run code quality checks (informational)
         continue-on-error: true
         run: |
-          echo "Running Flake8 checks..."
-          poetry run flake8 modules/rv-android-core modules/rv-monitor-generator modules/rv-instrumentation modules/rv-static-analysis modules/rv-coverage modules/rv-screen-parser modules/rv-llm modules/rv-tools modules/rvandroid-tool modules/rv-experiment --count --select=E9,F63,F7,F82 --show-source --statistics
+          # Limit output to reduce disk usage
+          echo "Running essential Flake8 checks..."
+          poetry run flake8 modules/rv-android-core modules/rv-llm modules/rvandroid-tool --count --select=E9,F63,F7,F82 --statistics --quiet
           
-          echo "Running more comprehensive Flake8 checks (warnings only)..."
-          poetry run flake8 modules/rv-android-core modules/rv-monitor-generator modules/rv-instrumentation modules/rv-static-analysis modules/rv-coverage modules/rv-screen-parser modules/rv-llm modules/rv-tools modules/rvandroid-tool modules/rv-experiment --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+          echo "Running security checks with Bandit..."
+          poetry run bandit -r modules/rv-android-core modules/rv-llm modules/rvandroid-tool --format txt --quiet --exit-zero > bandit_report.txt || true
           
-          echo "Running Pylint checks (warnings only)..."
-          poetry run pylint --exit-zero --disable=all --enable=E,F,W,R $(find modules/rv-android-core modules/rv-monitor-generator modules/rv-instrumentation modules/rv-static-analysis modules/rv-coverage modules/rv-screen-parser modules/rv-llm modules/rv-tools modules/rvandroid-tool modules/rv-experiment -type f -name "*.py" 2>/dev/null || true)
-          
-          echo "Running type checking with MyPy (warnings only)..."
-          poetry run mypy modules/rv-android-core modules/rv-monitor-generator modules/rv-instrumentation modules/rv-static-analysis modules/rv-coverage modules/rv-screen-parser modules/rv-llm modules/rv-tools modules/rvandroid-tool modules/rv-experiment --ignore-missing-imports --disallow-untyped-defs --disallow-incomplete-defs --check-untyped-defs --disallow-untyped-calls --warn-redundant-casts --warn-return-any --warn-unused-ignores --no-strict-optional --no-error-summary || true
-          
-          echo "Running security checks with Bandit (warnings only)..."
-          poetry run bandit -r modules/rv-android-core modules/rv-monitor-generator modules/rv-instrumentation modules/rv-static-analysis modules/rv-coverage modules/rv-screen-parser modules/rv-llm modules/rv-tools modules/rvandroid-tool modules/rv-experiment --format txt --quiet --exit-zero || true
-          
-          echo "Checking code formatting with Black (warnings only)..."
-          poetry run black --check --diff modules/rv-android-core modules/rv-monitor-generator modules/rv-instrumentation modules/rv-static-analysis modules/rv-coverage modules/rv-screen-parser modules/rv-llm modules/rv-tools modules/rvandroid-tool modules/rv-experiment || true
-
           echo "Running Vulture to detect unused code..."
-          poetry run vulture modules/rv-android-core modules/rv-monitor-generator modules/rv-instrumentation modules/rv-static-analysis modules/rv-coverage modules/rv-screen-parser modules/rv-llm modules/rv-tools modules/rvandroid-tool modules/rv-experiment --min-confidence 80 > vulture_report.txt || true            
+          poetry run vulture modules/rv-android-core modules/rv-llm modules/rvandroid-tool --min-confidence 80 > vulture_report.txt || true            
         working-directory: rv-android
       
       - name: Create coverage config
@@ -98,23 +85,23 @@ jobs:
       
       - name: Run Python tests with coverage
         run: |
-          # Run tests using the module test runner
-          cd modules && ./test.sh --coverage --continue-on-error rv-android-core rv-monitor-generator rv-static-analysis rv-llm
+          # Run tests using the module test runner for all modules - limit output
+          cd modules && ./test.sh --coverage --continue-on-error rv-android-core rv-monitor-generator rv-static-analysis rv-coverage rv-screen-parser rv-llm rv-tools rvandroid-tool rv-experiment --quiet
         working-directory: rv-android
       
       - name: Run integration tests (with RVSEC)
         continue-on-error: true
         run: |
           # Verify RVSEC tools are available
-          ls -la $RVSEC_HOME/javamop/bin/ || echo "JavaMOP not found - integration tests may fail"
-          ls -la $RVSEC_HOME/rv-monitor/bin/ || echo "RV-Monitor not found - integration tests may fail"
+          ls -la $RVSEC_HOME/javamop/bin/ >/dev/null 2>&1 || echo "JavaMOP not found"
+          ls -la $RVSEC_HOME/rv-monitor/bin/ >/dev/null 2>&1 || echo "RV-Monitor not found"
           
-          # Run integration tests using individual module test runners
+          # Run integration tests for key modules with limited output
           cd modules
           for module in rv-android-core rv-monitor-generator; do
             if [ -d "$module" ]; then
               echo "Running integration tests for $module"
-              cd "$module" && poetry run pytest -m "slow" --tb=short -v || true
+              cd "$module" && poetry run pytest -m "slow" --tb=short --quiet || true
               cd ..
             fi
           done
@@ -134,23 +121,17 @@ jobs:
           echo "# Python Quality Report" > quality_report.md
           echo "## Test Coverage Summary" >> quality_report.md
           echo '```' >> quality_report.md
-          find modules -name "coverage.xml" -exec grep -A 5 "<summary" {} \; >> quality_report.md 2>/dev/null || echo "No coverage summary available" >> quality_report.md
+          find modules -name "coverage.xml" -exec grep -A 2 "<summary" {} \; >> quality_report.md 2>/dev/null || echo "No coverage summary available" >> quality_report.md
           echo '```' >> quality_report.md
           
-          echo "## Code Quality Issues" >> quality_report.md
-          echo "### Flake8 Issues (if any)" >> quality_report.md
+          echo "## Security Issues (if any)" >> quality_report.md
           echo '```' >> quality_report.md
-          poetry run flake8 modules/rv-android-core modules/rv-monitor-generator modules/rv-static-analysis modules/rv-llm --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics >> quality_report.md || echo "Flake8 analysis failed" >> quality_report.md
-          echo '```' >> quality_report.md
-          
-          echo "### Security Issues (if any)" >> quality_report.md
-          echo '```' >> quality_report.md
-          poetry run bandit -r modules/rv-android-core modules/rv-monitor-generator modules/rv-static-analysis modules/rv-llm -f txt --quiet --exit-zero >> quality_report.md || echo "Bandit analysis failed" >> quality_report.md
+          head -20 bandit_report.txt >> quality_report.md 2>/dev/null || echo "No security issues found" >> quality_report.md
           echo '```' >> quality_report.md
 
-          echo "### Unused Code Detected by Vulture" >> quality_report.md
+          echo "## Unused Code (top 10)" >> quality_report.md
           echo '```' >> quality_report.md
-          cat vulture_report.txt >> quality_report.md || echo "Vulture analysis failed" >> quality_report.md
+          head -10 vulture_report.txt >> quality_report.md 2>/dev/null || echo "No unused code detected" >> quality_report.md
           echo '```' >> quality_report.md
         working-directory: rv-android
         continue-on-error: true

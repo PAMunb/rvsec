@@ -10,11 +10,11 @@ from rv_android_core.domain.static import StaticAnalysisData
 from rv_android_core.util.error.error_handler import ErrorHandler
 from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
 from rv_android_core.util.logging.manager import LoggingManager
+from rv_llm.config.llm_config import LLMConfig
+from rv_llm.llm.constants import StateEntry
 from rv_screen_parser.parser.screen.visitor.default_visitor import DefaultTextVisitor
 from rv_screen_parser.parser.screen.visitor.model import ScreenDescription, ItemAction
-from rv_llm.factories import LLMFactory, PromptStrategyFactory
-from rvandroid.llm.constants import StateEntry
-from rv_llm.config.llm_config import LLMConfig
+
 
 class StateEnricher:
     """Enriches the state with additional information before prompt generation.

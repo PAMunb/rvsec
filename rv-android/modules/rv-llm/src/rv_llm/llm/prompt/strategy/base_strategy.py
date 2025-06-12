@@ -42,7 +42,7 @@ class PromptStrategy(abc.ABC):
         self.name = name
         self.information_manager = information_manager
         self.template_repository = template_repository
-        self.config = None
+        self.config = None # TODO deprecated
 
         # Set up logging
         logging_manager = LoggingManager.get_instance()

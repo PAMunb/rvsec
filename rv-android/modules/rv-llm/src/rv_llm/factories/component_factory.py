@@ -41,10 +41,13 @@ from typing import Any, Dict, List, Optional, Tuple
 from rv_android_core.util.error.error_handler import ErrorHandler
 from rv_android_core.util.logging.manager import LoggingManager
 from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
-from rv_android_core.util.exceptions import ConfigurationError, RVLLMError
+from rv_android_core.util.exceptions import ConfigurationError, RVLLMError, RVPromptError
 from rv_llm.config.llm_config import LLMConfig
 from rv_llm.llm.prompt.strategy.base_strategy import PromptStrategy
 from rv_llm.llm.language_model import LanguageModel
+from rv_llm.llm.prompt.information.fragment_manager import InformationManager
+from rv_llm.llm.prompt.strategy.base_strategy import PromptStrategy
+from rv_llm.llm.prompt.template.jinja_repository import Jinja2TemplateRepository
 
 
 class LLMComponentFactory:
@@ -223,31 +226,10 @@ class LLMComponentFactory:
         component="LLMComponentFactory",
         operation="create_strategy"
     )
-    def create_strategy(config: LLMConfig) -> PromptStrategy:
-        """
-        Create and configure prompt strategy based on configuration.
-        
-        ### Strategy Creation Strategy:
-        This method creates the appropriate prompt strategy implementation based on
-        the configured strategy type and applies the configuration parameters to it.
-        The strategy is responsible for generating prompts for LLM interaction.
-        
-        ### Supported Strategies:
-        - **standard**: Single action generation with balanced approach
-        - **batch_action**: Multiple action generation in structured format
-        - **frontier**: Advanced strategy for frontier model backends
-        
-        Args:
-            config: LLMConfig with strategy configuration
-            
-        Returns:
-            Configured prompt strategy instance
-            
-        Raises:
-            ConfigurationError: If strategy configuration is invalid
-            RVLLMError: If strategy creation fails
-            ImportError: If strategy module is not available
-        """
+    def create_strategy(config: LLMConfig,
+                        information_manager: Optional[InformationManager] = None,
+                        template_repository: Optional[Jinja2TemplateRepository] = None) -> PromptStrategy:
+
         logger = LLMComponentFactory._get_logger()
         strategy_params = config.get_strategy_parameters()
         
@@ -255,20 +237,16 @@ class LLMComponentFactory:
             if config.strategy_type == "batch_action":
                 from rv_llm.llm.prompt.strategy.strategies.batch_action_strategy import BatchActionStrategy
                 
-                strategy = BatchActionStrategy()
+                strategy = BatchActionStrategy(information_manager=information_manager,
+                                               template_repository=template_repository)
                 logger.debug("Created batch action strategy")
                 
             elif config.strategy_type in ["standard", "single_action"]:
                 from rv_llm.llm.prompt.strategy.strategies.standard_strategy import StandardStrategy
                 
-                strategy = StandardStrategy()
+                strategy = StandardStrategy(information_manager=information_manager,
+                                            template_repository=template_repository)
                 logger.debug("Created standard strategy")
-                
-            elif config.strategy_type == "frontier":
-                from rv_llm.llm.prompt.strategy.strategies.frontier_strategy import FrontierStrategy
-                
-                strategy = FrontierStrategy()
-                logger.debug("Created frontier strategy")
                 
             else:
                 raise ConfigurationError(f"Unsupported strategy type: {config.strategy_type}")
@@ -284,7 +262,14 @@ class LLMComponentFactory:
             logger.error(error_msg)
             raise ImportError(error_msg) from e
         
+        except ConfigurationError as e:
+            # Strategy configuration error - use RVPromptError
+            error_msg = f"Failed to create strategy '{config.strategy_type}': {e}"
+            logger.error(error_msg)
+            raise RVPromptError(error_msg, config.strategy_type, e) from e
+            
         except Exception as e:
+            # General LLM error - use RVLLMError
             error_msg = f"Failed to create strategy '{config.strategy_type}': {e}"
             logger.error(error_msg)
             raise RVLLMError(error_msg, config.model) from e

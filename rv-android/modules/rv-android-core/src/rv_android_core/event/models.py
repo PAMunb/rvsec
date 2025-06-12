@@ -61,7 +61,25 @@ class Event:
     source: Optional[str] = None
 
     def __str__(self) -> str:
-        return f"{self.type.name} at {self.timestamp.isoformat()} from {self.source or 'unknown'}"
+        timestamp_str = self.timestamp.isoformat() if self.timestamp else "unknown"
+        return f"{self.type.name} at {timestamp_str} from {self.source or 'unknown'}"
+    
+    def __lt__(self, other) -> bool:
+        """
+        Enable comparison for priority queue operations.
+        
+        Events are compared by timestamp for consistent ordering.
+        This method is required for PriorityQueue to handle Event objects.
+        
+        Args:
+            other: Another Event object to compare with
+            
+        Returns:
+            True if this event is older (has earlier timestamp) than the other
+        """
+        if not isinstance(other, Event):
+            return NotImplemented
+        return self.timestamp < other.timestamp
 
 
 @dataclass

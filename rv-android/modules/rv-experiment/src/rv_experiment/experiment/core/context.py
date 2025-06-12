@@ -13,7 +13,7 @@ from typing import Dict, Any, Optional
 
 from rv_android_core.util.logging.manager import LoggingManager
 from rv_experiment.experiment.core.interfaces import IExecutionContext
-from rv_android_core.event import EventBus, get_event_bus
+from rv_android_core.event import EventBus
 
 
 class ExecutionContext(IExecutionContext):
@@ -47,7 +47,7 @@ class ExecutionContext(IExecutionContext):
         """
         self._experiment_id = experiment_id
         self._results_dir = results_dir
-        self._event_bus = event_bus or get_event_bus()
+        self._event_bus = event_bus or EventBus.get_instance()
         self._data: Dict[str, Any] = {}
         self._lock = threading.RLock()
 

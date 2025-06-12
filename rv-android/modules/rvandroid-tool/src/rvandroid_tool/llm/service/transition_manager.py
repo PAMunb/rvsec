@@ -22,7 +22,7 @@ from rv_android_core.domain.wtg import WindowTransitionGraph
 from rv_android_core.util.error.error_handler import ErrorHandler
 from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
 from rv_android_core.util.logging.manager import LoggingManager
-from rvandroid.llm.constants import StateEntry
+from rv_llm.llm.constants import StateEntry
 
 
 class TransitionManager:

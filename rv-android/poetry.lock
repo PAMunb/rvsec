@@ -34,6 +34,27 @@ test-trackers = ["comet-ml", "dvclive", "matplotlib", "mlflow", "tensorboard", "
 testing = ["bitsandbytes", "datasets", "diffusers", "evaluate", "parameterized", "pytest (>=7.2.0,<=8.0.0)", "pytest-order", "pytest-subtests", "pytest-xdist", "scikit-learn", "scipy", "timm", "torchdata (>=0.8.0)", "torchpippy (>=0.2.0)", "tqdm", "transformers"]
 
 [[package]]
+name = "adbutils"
+version = "2.9.2"
+description = "Pure Python Adb Library"
+optional = false
+python-versions = ">=3.8"
+groups = ["main"]
+files = [
+    {file = "adbutils-2.9.2-py3-none-macosx_10_9_intel.macosx_10_9_x86_64.macosx_10_10_intel.macosx_10_10_x86_64.whl", hash = "sha256:18861cd2636a7465f8967eadfa30bf23d1d81781da360c7229543ee0ee8d9bec"},
+    {file = "adbutils-2.9.2-py3-none-manylinux1_x86_64.whl", hash = "sha256:8c62c7225f07b98dcdfa6647db61cb28ad593a9a7677439fff5443e826c1647e"},
+    {file = "adbutils-2.9.2-py3-none-win32.whl", hash = "sha256:7cff42dde892c385c4260b07047e789f73e56804937fa86463a50db8cf1ef120"},
+    {file = "adbutils-2.9.2-py3-none-win_amd64.whl", hash = "sha256:c9e1a55db06c30a38252eab5ef5d6787c89a786a7bc1fcdac341608f69a79b81"},
+    {file = "adbutils-2.9.2.tar.gz", hash = "sha256:6de68b4142c54df4dbea07240299c0527162531a08e8bafc36c3fd1ac9c4291e"},
+]
+
+[package.dependencies]
+deprecation = ">=2.0.6,<3.0"
+Pillow = "*"
+requests = "*"
+retry2 = ">=0.9,<1.0"
+
+[[package]]
 name = "amqp"
 version = "5.3.1"
 description = "Low-level AMQP client for Python (fork of amqplib)."
@@ -959,6 +980,21 @@ files = [
     {file = "decorator-5.2.1-py3-none-any.whl", hash = "sha256:d316bb415a2d9e2d2b3abcc4084c6502fc09240e292cd76a76afc106a1c8e04a"},
     {file = "decorator-5.2.1.tar.gz", hash = "sha256:65f266143752f734b0a7cc83c46f4618af75b8c5911b00ccb61d0ac9b6da0360"},
 ]
+
+[[package]]
+name = "deprecation"
+version = "2.1.0"
+description = "A library to handle automated deprecations"
+optional = false
+python-versions = "*"
+groups = ["main"]
+files = [
+    {file = "deprecation-2.1.0-py2.py3-none-any.whl", hash = "sha256:a10811591210e1fb0e768a8c25517cabeabcba6f0bf96564f8ff45189f90b14a"},
+    {file = "deprecation-2.1.0.tar.gz", hash = "sha256:72b3bde64e5d778694b0cf68178aed03d15e15477116add3fb773e581f9518ff"},
+]
+
+[package.dependencies]
+packaging = "*"
 
 [[package]]
 name = "dill"
@@ -3711,6 +3747,20 @@ socks = ["PySocks (>=1.5.6,!=1.5.7)"]
 use-chardet-on-py3 = ["chardet (>=3.0.2,<6)"]
 
 [[package]]
+name = "retry2"
+version = "0.9.5"
+description = "Easy to use retry decorator."
+optional = false
+python-versions = ">=2.6"
+groups = ["main"]
+files = [
+    {file = "retry2-0.9.5-py2.py3-none-any.whl", hash = "sha256:f7fee13b1e15d0611c462910a6aa72a8919823988dd0412152bc3719c89a4e55"},
+]
+
+[package.dependencies]
+decorator = ">=3.4.2"
+
+[[package]]
 name = "rich"
 version = "14.0.0"
 description = "Render rich text, tables, progress bars, syntax highlighting, markdown and more to the terminal"
@@ -3970,6 +4020,7 @@ opencv-python = "*"
 pillow = "*"
 pytesseract = "*"
 rv-android-core = {path = "../rv-android-core", develop = true}
+uiautomator2 = "^3.3.1"
 
 [package.source]
 type = "directory"
@@ -4583,6 +4634,25 @@ files = [
     {file = "tzdata-2025.2-py2.py3-none-any.whl", hash = "sha256:1a403fada01ff9221ca8044d701868fa132215d84beb92242d9acd2147f667a8"},
     {file = "tzdata-2025.2.tar.gz", hash = "sha256:b60a638fcc0daffadf82fe0f57e53d06bdec2f36c4df66280ae79bce6bd6f2b9"},
 ]
+
+[[package]]
+name = "uiautomator2"
+version = "3.3.1"
+description = "uiautomator for android device"
+optional = false
+python-versions = "<4.0,>=3.8"
+groups = ["main"]
+files = [
+    {file = "uiautomator2-3.3.1-py3-none-any.whl", hash = "sha256:316bb05c470f637a0109b015ffc59d3c3b99703666d0cb22bc299a2bddcbc277"},
+    {file = "uiautomator2-3.3.1.tar.gz", hash = "sha256:4c065ca1c7b40577e0e9c303febf874348fc18ed4e8472c2a8e362ac506b1b0e"},
+]
+
+[package.dependencies]
+adbutils = ">=2.9.1,<3.0.0"
+lxml = "*"
+Pillow = "*"
+requests = "*"
+retry2 = ">=0.9.5,<0.10.0"
 
 [[package]]
 name = "uritemplate"

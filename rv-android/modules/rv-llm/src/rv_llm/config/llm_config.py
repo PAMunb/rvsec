@@ -90,7 +90,7 @@ class LLMConfig:
     model: str = "llama3.2:3b"
     base_url: str = "http://localhost:11434"
     temperature: float = 0.2
-    max_tokens: int = 500
+    max_tokens: int = 800
     api_key: Optional[str] = None
     provider: Optional[str] = None
     
@@ -103,13 +103,13 @@ class LLMConfig:
     # Strategy Configuration
     strategy_type: str = "standard"
     template_name: Optional[str] = None
-    enable_context_caching: bool = True
-    max_context_length: int = 8192
+    enable_context_caching: bool = True # deprecated
+    max_context_length: int = 8192 # deprecated
     
     # Parser Configuration
     parser_type: str = "droidbot"
-    visitor_type: str = "enhanced"
-    enhanced_parsing: bool = True
+    visitor_type: str = "default"
+    enhanced_parsing: bool = True # deprecated
     
     # Additional Parameters
     kwargs: Dict[str, Any] = field(default_factory=dict)

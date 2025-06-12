@@ -14,17 +14,16 @@ of the LLM-based action generation workflow:
 - transition_manager.py: Manages application navigation models
 """
 
-from rvandroid.llm.service.action_generator import ActionGenerator
-from rvandroid.llm.service.llm_manager import LLMManager
-from rvandroid.llm.service.response_processor import ResponseProcessor
-from rvandroid.llm.service.state_analyzer import StateAnalyzer
-from rvandroid.llm.service.state_enricher import StateEnricher
-from rvandroid.llm.service.transition_manager import TransitionManager
+from rvandroid_tool.llm.service.action_generator import ActionGenerator
+from rvandroid_tool.llm.service.llm_manager import LLMManager
+from rvandroid_tool.llm.service.response_processor import ResponseProcessor
+from rvandroid_tool.llm.service.state_analyzer import StateAnalyzer
+from rvandroid_tool.llm.service.state_enricher import StateEnricher
+from rvandroid_tool.llm.service.transition_manager import TransitionManager
 
 __all__ = [
     'ActionGenerator',
     'LLMManager',
-    # 'PromptProcessor',
     'StateEnricher',
     'ResponseProcessor',
     'StateAnalyzer',

@@ -17,7 +17,7 @@ from rv_experiment.experiment.core.interfaces import (
     ExecutionPhase,
     IPhaseProcessor
 )
-from rv_android_core.event import EventBus, get_event_bus
+from rv_android_core.event import EventBus
 from rv_experiment.experiment.workflow.components import (
     BaseWorkflowComponent,
     ComponentLifecycle
@@ -132,7 +132,7 @@ class SetupProcessor(BasePhaseProcessor):
             processor_id="SetupProcessor",
             name="Setup Processor",
             description="Processor for experiment setup phase",
-            event_bus=event_bus or get_event_bus(),
+            event_bus=event_bus or EventBus.get_instance(),
             supported_phases=[ExecutionPhase.SETUP]
         )
         self.initialize(context)
@@ -218,7 +218,7 @@ class StaticAnalysisProcessor(BasePhaseProcessor):
             processor_id="StaticAnalysisProcessor",
             name="Static Analysis Processor",
             description="Processor for static analysis phase",
-            event_bus=event_bus or get_event_bus(),
+            event_bus=event_bus or EventBus.get_instance(),
             supported_phases=[ExecutionPhase.STATIC_ANALYSIS]
         )
         self.initialize(context)
@@ -307,7 +307,7 @@ class ExecutionProcessor(BasePhaseProcessor):
             processor_id="ExecutionProcessor",
             name="Execution Processor",
             description="Processor for experiment execution phase",
-            event_bus=event_bus or get_event_bus(),
+            event_bus=event_bus or EventBus.get_instance(),
             supported_phases=[ExecutionPhase.EXECUTION]
         )
         self.initialize(context)
@@ -406,7 +406,7 @@ class AnalysisProcessor(BasePhaseProcessor):
             processor_id="AnalysisProcessor",
             name="Analysis Processor",
             description="Processor for results analysis phase",
-            event_bus=event_bus or get_event_bus(),
+            event_bus=event_bus or EventBus.get_instance(),
             supported_phases=[ExecutionPhase.ANALYSIS]
         )
         self.initialize(context)
@@ -513,7 +513,7 @@ class ReportingProcessor(BasePhaseProcessor):
             processor_id="ReportingProcessor",
             name="Reporting Processor",
             description="Processor for reporting phase",
-            event_bus=event_bus or get_event_bus(),
+            event_bus=event_bus or EventBus.get_instance(),
             supported_phases=[ExecutionPhase.REPORTING]
         )
         self.initialize(context)
@@ -603,7 +603,7 @@ class CleanupProcessor(BasePhaseProcessor):
             processor_id="CleanupProcessor",
             name="Cleanup Processor",
             description="Processor for cleanup phase",
-            event_bus=event_bus or get_event_bus(),
+            event_bus=event_bus or EventBus.get_instance(),
             supported_phases=[ExecutionPhase.CLEANUP]
         )
         self.initialize(context)

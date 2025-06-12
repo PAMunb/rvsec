@@ -25,8 +25,7 @@ from rv_android_core.util.logging.manager import LoggingManager
 from rv_android_core.util.performance_monitor import PerformanceMonitor
 from rv_android_core.event import (
     EventBus,
-    EventType,
-    get_event_bus
+    EventType
 )
 from rv_experiment.experiment.task.component import ComponentRegistry
 from rv_experiment.experiment.task.interfaces import (
@@ -73,7 +72,7 @@ class TaskExecutor(ITaskExecutor):
         """
         self.task = task
         self.tool = tool
-        self.event_bus = event_bus or get_event_bus()
+        self.event_bus = event_bus or EventBus.get_instance()
         self.error_handler = error_handler or ErrorHandler.get_instance()
 
         # Initialize logging

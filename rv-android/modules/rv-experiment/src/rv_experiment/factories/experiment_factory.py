@@ -22,7 +22,7 @@ just-in-time configuration and DI-ready design.
 
 from typing import Optional, Any
 
-from rv_android_core.event import EventBus, get_event_bus
+from rv_android_core.event import EventBus
 from rv_android_core.util.error.error_handler import ErrorHandler
 from rv_android_core.util.logging.manager import LoggingManager
 from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
@@ -97,7 +97,7 @@ class ExperimentFactory:
         try:
             # Get or create event bus with proper initialization
             if event_bus is None:
-                event_bus = get_event_bus()
+                event_bus = EventBus.get_instance()
                 self.logger.debug("Created default event bus for orchestrator")
             
             # Get or create logger with proper context

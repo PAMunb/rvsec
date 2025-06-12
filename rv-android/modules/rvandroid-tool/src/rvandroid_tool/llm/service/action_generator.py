@@ -3,13 +3,13 @@ from typing import Dict, List, Any, Optional, Tuple
 
 from rv_android_core.domain.static import StaticAnalysisData
 from rv_android_core.domain.widget import WidgetEventType
+from rv_android_core.event.bus import EventBus
 from rv_android_core.util.error.error_handler import ErrorHandler
 from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
 from rv_android_core.util.logging.manager import LoggingManager
 from rv_android_core.util.performance_monitor import PerformanceMonitor
-from rv_llm.factories import LLMFactory, PromptStrategyFactory
-from rv_android_core.event.bus import EventBus
-from rvandroid.llm.constants import StateEntry
+from rv_llm import LLMConfig
+from rv_llm.llm.constants import StateEntry
 from rv_screen_parser.parser.screen.visitor.model import ScreenDescription, ItemAction
 
 
@@ -69,7 +69,7 @@ class ActionGenerator:
     - Maintains consistent output format regardless of input strategy
     """
 
-    def __init__(self, config: ComponentConfigurator, static_data: Optional[StaticAnalysisData] = None):
+    def __init__(self, config: LLMConfig, static_data: Optional[StaticAnalysisData] = None):
         """
         Initialize the action generator.
 
@@ -90,8 +90,8 @@ class ActionGenerator:
         )
 
         # Store configuration
-        self.config = config
-        self.static_data = static_data
+        self.config = config  # TODO deprecated
+        self.static_data = static_data  # TODO deprecated
 
         self.logger.info("Action generator initialized")
 

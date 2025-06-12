@@ -193,6 +193,16 @@ class RVParsingError(RVAndroidError):
         parser_info = f" (Parser: {self.parser_type})" if self.parser_type else ""
         return f"{super().__str__()}{parser_info}"
 
+class RVPromptError(RVAndroidError):
+    """Base exception for prompt framework related errors."""
+
+    def __init__(self, message: str, strategy: Optional[str] = None, cause: Optional[Exception] = None):
+        super().__init__(message, cause)
+        self.strategy_name = strategy
+
+    def __str__(self):
+        strategy_info = f" (Strategy: {self.strategy_name})" if self.strategy_name else ""
+        return f"{super().__str__()}{strategy_info}"
 
 class RVLLMError(RVAndroidError):
     """Base exception for language model related errors."""

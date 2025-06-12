@@ -14,10 +14,7 @@ from typing import Dict, Any, Optional, List, Type, TypeVar, Generic
 from rv_android_core.util.error.error_handler import ErrorHandler
 from rv_android_core.util.logging.constants import CONTEXT_TASK_ID, CONTEXT_COMPONENT, CONTEXT_APP_NAME
 from rv_android_core.util.logging.manager import LoggingManager
-from rv_android_core.event import (
-    EventBus,
-    get_event_bus
-)
+from rv_android_core.event import EventBus
 from rv_experiment.experiment.task.interfaces import ITaskComponent
 
 
@@ -49,7 +46,7 @@ class BaseTaskComponent(ITaskComponent):
             event_bus: Optional event bus for publishing events
         """
         self._name = component_name
-        self.event_bus = event_bus or get_event_bus()
+        self.event_bus = event_bus or EventBus.get_instance()
         self.error_handler = None  # Lazy-loaded to avoid circular imports
 
         # Create logger with basic context

@@ -1,10 +1,23 @@
-# rvandroid/experiment/event/decorators.py
+# rv_android_core/event/decorators.py
 """
-Decorators for working with events.
+Decorators for event-driven programming.
 
-This module provides decorators that simplify common event operations,
-such as publishing events when methods are called and subscribing
-methods to specific events.
+This module provides decorators that enable declarative event publishing and subscription,
+allowing methods to automatically publish events upon execution and subscribe to specific
+event types with minimal code changes.
+
+### Architectural Design:
+- Implements decorator pattern for event integration
+- Provides declarative event publishing through method decoration
+- Enables automatic event subscription via function decoration
+- Supports flexible event source and detail extraction
+- Maintains loose coupling between event producers and consumers
+
+### Usage Patterns:
+- Method decoration for automatic event publishing
+- Function decoration for event handler registration
+- Configurable event channels and priorities
+- Custom event detail extraction and filtering
 """
 
 import functools
@@ -13,7 +26,6 @@ from typing import Callable, TypeVar, Optional, Dict, Any, Union, List
 from rv_android_core.event.bus import EventBus
 from rv_android_core.event.handler import HandlerPriority
 from rv_android_core.event.models import Event, EventType
-from rv_android_core.event.provider import EventBusProvider
 
 F = TypeVar('F', bound=Callable)
 T = TypeVar('T')
@@ -24,7 +36,7 @@ def publish_event(event_type: EventType,
                   get_details: Optional[Callable[[Any, Any], Dict[str, Any]]] = None,
                   channel: str = EventBus.DEFAULT_CHANNEL,
                   async_mode: bool = False,
-                  event_bus_provider: Callable[[], EventBus] = EventBusProvider.get_default_bus) -> Callable[[F], F]:
+                  event_bus_provider: Callable[[], EventBus] = EventBus.get_instance) -> Callable[[F], F]:
     """
     Decorator to publish an event after a function is called.
     
@@ -83,7 +95,7 @@ def subscribe_to(event_types: Union[EventType, List[EventType]],
                  filter_fn: Optional[Callable[[Event], bool]] = None,
                  priority: HandlerPriority = HandlerPriority.NORMAL,
                  channel: str = EventBus.DEFAULT_CHANNEL,
-                 event_bus_provider: Callable[[], EventBus] = EventBusProvider.get_default_bus) -> Callable[[F], F]:
+                 event_bus_provider: Callable[[], EventBus] = EventBus.get_instance) -> Callable[[F], F]:
     """
     Decorator to subscribe a function to events.
     

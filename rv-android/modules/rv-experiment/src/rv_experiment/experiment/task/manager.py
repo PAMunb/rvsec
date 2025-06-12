@@ -17,7 +17,6 @@ from rv_android_core.constants import EXTENSION_REACH, EXTENSION_GATOR, EXTENSIO
 from rv_android_core.util.logging.manager import LoggingManager
 from rv_android_core.event import (
     EventBus,
-    get_event_bus,
     EventType
 )
 from rv_experiment.experiment.task.components.adapter import create_legacy_component_adapters
@@ -60,7 +59,7 @@ class TaskManager:
         """
         self.storage = storage
         self.config = config
-        self.event_bus = event_bus or get_event_bus()
+        self.event_bus = event_bus or EventBus.get_instance()
 
         # Initialize logging
         logging_manager = LoggingManager.get_instance()

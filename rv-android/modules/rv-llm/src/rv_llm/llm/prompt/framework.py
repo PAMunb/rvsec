@@ -28,8 +28,10 @@ the prompt generation process through factory patterns, with direct component in
 from typing import Any, Dict, List, Optional
 
 from rv_android_core.util.error.error_handler import ErrorHandler
+from rv_android_core.util.exceptions import RVLLMError, RVPromptError
 from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
 from rv_android_core.util.logging.manager import LoggingManager
+# from rv_llm import LLMConfig
 from rv_llm.llm.constants import PromptStrategyType
 from rv_llm.llm.data_structures import LLMMessage
 from rv_llm.llm.prompt.information.fragment_manager import InformationManager
@@ -75,28 +77,21 @@ class PromptFramework:
             self,
             information_manager: InformationManager,
             template_repository: Jinja2TemplateRepository,
-            llm_factory=None,
-            strategy_factory=None
+            config: Optional['LLMConfig']
     ):
         """Initialize the prompt framework.
         
         Args:
             information_manager: Manager for information fragments.
             template_repository: Repository for templates using Jinja2.
-            llm_factory: Factory for creating LLM instances.
-            strategy_factory: Factory for creating strategy instances.
+            config: LLM configuration.
         """
         # Store components
         self.information_manager = information_manager
         self.template_repository = template_repository
-        
-        # Use factory pattern for component creation
-        # Import factories here to avoid circular imports
-        from rv_llm.factories.llm_factory import LLMFactory
-        from rv_llm.factories.prompt_strategy_factory import PromptStrategyFactory
-        
-        self.llm_factory = llm_factory or LLMFactory()
-        self.strategy_factory = strategy_factory or PromptStrategyFactory()
+
+        from rv_llm import LLMConfig
+        self.config = config or LLMConfig()
 
         # Set up logging
         logging_manager = LoggingManager.get_instance()
@@ -109,33 +104,12 @@ class PromptFramework:
         self.error_handler = ErrorHandler.get_instance()
 
     @classmethod
-    def create(cls, llm_factory=None, strategy_factory=None) -> 'PromptFramework':
-        """Create and configure a new prompt framework with default components.
-        
-        This factory method instantiates all necessary components using the modern
-        factory pattern. It handles the initialization of the entire prompt generation system.
-        
-        Args:
-            llm_factory: Optional LLM factory instance.
-            strategy_factory: Optional strategy factory instance.
-            
-        Returns:
-            Configured PromptFramework instance.
-        """
-        # Import factories here to avoid circular imports
-        from rv_llm.factories.llm_factory import LLMFactory
-        from rv_llm.factories.prompt_strategy_factory import PromptStrategyFactory
-        
-        # Create factories if not provided
-        llm_factory = llm_factory or LLMFactory()
-        strategy_factory = strategy_factory or PromptStrategyFactory()
-
+    def create(cls, config: Optional['LLMConfig']) -> 'PromptFramework':
         # Create information manager and fragments
         information_manager = InformationManager()
 
         # Create and register default fragments
         fragments = [
-            # UIPatternFragment(),
             MonitoredOperationsFragment(),
             ScreenshotFragment(),
             HistoryFragment(),
@@ -151,8 +125,7 @@ class PromptFramework:
         framework = cls(
             information_manager=information_manager,
             template_repository=template_repository,
-            llm_factory=llm_factory,
-            strategy_factory=strategy_factory
+            config=config
         )
 
         return framework
@@ -162,10 +135,10 @@ class PromptFramework:
         phase="configuration"
     )
     def configure(
-        self, 
-        template_format: str = "jinja2",
-        template_validation: bool = True,
-        **kwargs
+            self,
+            template_format: str = "jinja2",
+            template_validation: bool = True,
+            **kwargs
     ) -> None:
         """Configure the framework and its components using direct parameter passing.
         
@@ -202,12 +175,12 @@ class PromptFramework:
                 # Add any template-specific parameters from kwargs
                 template_specific = {k[9:]: v for k, v in kwargs.items() if k.startswith('template_')}
                 template_config.update(template_specific)
-                
+
                 self.template_repository.configure(template_config)
                 self.logger.debug(f"Template repository configured with format: {template_format}")
             except Exception as e:
                 self.logger.warning(f"Failed to configure template repository: {e}")
-                
+
         self.logger.debug("PromptFramework configuration completed with modern architecture")
 
     @ErrorHandler.handle_errors(
@@ -230,86 +203,52 @@ class PromptFramework:
         else:
             self.logger.warning("Information manager not available for fragment registration")
 
-    @ErrorHandler.handle_errors(
-        component="PromptFramework",
-        phase="strategy_registration"
-    )
-    def register_strategy(self, strategy_name: str, strategy_class) -> None:
-        """Register a prompt generation strategy with the factory.
-        
-        ### Architectural Decision:
-        - Uses modern factory pattern instead of legacy ComponentConfigurator
-        - Provides error handling with decorator pattern
-        - Follows the established architectural pattern from rv-android-core
-        
-        Args:
-            strategy_name: The name/type of the strategy to register.
-            strategy_class: The strategy class to register.
-        """
-        if self.strategy_factory and hasattr(self.strategy_factory, 'register_strategy'):
-            self.strategy_factory.register_strategy(strategy_name, strategy_class)
-            self.logger.info(f"Registered strategy: {strategy_name}")
-        else:
-            self.logger.warning("Strategy factory not available for registration")
+    # @ErrorHandler.handle_errors(
+    #     component="PromptFramework",
+    #     phase="strategy_registration"
+    # )
+    # # TODO deprecated
+    # def register_strategy(self, strategy_name: str, strategy_class) -> None:
+    #     """Register a prompt generation strategy with the factory.
+    #
+    #     ### Architectural Decision:
+    #     - Uses modern factory pattern instead of legacy ComponentConfigurator
+    #     - Provides error handling with decorator pattern
+    #     - Follows the established architectural pattern from rv-android-core
+    #
+    #     Args:
+    #         strategy_name: The name/type of the strategy to register.
+    #         strategy_class: The strategy class to register.
+    #     """
+    #     if self.strategy_factory and hasattr(self.strategy_factory, 'register_strategy'):
+    #         self.strategy_factory.register_strategy(strategy_name, strategy_class)
+    #         self.logger.info(f"Registered strategy: {strategy_name}")
+    #     else:
+    #         self.logger.warning("Strategy factory not available for registration")
 
-    @ErrorHandler.handle_errors(
-        component="PromptFramework", 
-        phase="strategy_retrieval"
-    )
-    def get_strategy(self, name: Optional[str] = None) -> Optional:
-        """Get a strategy implementation by name using the factory pattern.
-        
-        ### Architectural Decision:
-        - Uses factory pattern for strategy creation
-        - Provides fallback mechanism for robustness
-        - Implements proper error handling with decorators
-        
-        Args:
-            name: The name of the strategy to retrieve. If None, uses standard strategy.
-                 
-        Returns:
-            The strategy implementation, or None if not found.
-        """
-        # Use default strategy if name not provided
-        if name is None:
-            name = PromptStrategyType.STANDARD
-            
-        self.logger.debug(f"Retrieving strategy: {name}")
+    def get_strategy(self, config: Optional['LLMConfig'] = None) -> Optional:
+        """Get a strategy implementation using the factory pattern."""
+        if config is None:
+            config = self.config
+
+        self.logger.debug(f"Retrieving strategy: {config.strategy_type}")
 
         # Use factory to create strategy
         try:
-            if name == PromptStrategyType.STANDARD:
-                return self.strategy_factory.create_standard(
-                    information_manager=self.information_manager,
-                    template_repository=self.template_repository
-                )
-            elif name == PromptStrategyType.BATCH_ACTION:
-                return self.strategy_factory.create_batch_action(
-                    information_manager=self.information_manager,
-                    template_repository=self.template_repository
-                )
-            else:
-                # Try generic factory method
-                return self.strategy_factory.create_strategy(
-                    strategy_type=name,
-                    information_manager=self.information_manager,
-                    template_repository=self.template_repository
-                )
+            from rv_llm.factories.component_factory import LLMComponentFactory
+            return LLMComponentFactory.create_strategy(
+                self.config,
+                information_manager=self.information_manager,
+                template_repository=self.template_repository
+            )
+        except RVPromptError:
+            # Re-raise RVPromptError without wrapping to avoid double handling
+            raise
         except Exception as e:
-            self.logger.error(f"Error creating strategy '{name}': {e}")
-
-            # Fall back to standard strategy if possible
-            if name != PromptStrategyType.STANDARD:
-                try:
-                    self.logger.info("Falling back to standard strategy")
-                    return self.strategy_factory.create_standard(
-                        information_manager=self.information_manager,
-                        template_repository=self.template_repository
-                    )
-                except Exception as fallback_error:
-                    self.logger.error(f"Standard strategy fallback failed: {fallback_error}")
-
-            return None
+            error_msg = f"Error creating strategy '{config.strategy_type}': {e}"
+            self.logger.error(error_msg)
+            # Only create new RVPromptError for non-RVPromptError exceptions
+            raise RVPromptError(error_msg, config.strategy_type, e) from e
 
     @ErrorHandler.handle_errors(
         component="PromptFramework",
@@ -340,7 +279,7 @@ class PromptFramework:
         # Determine strategy name from parameter or default
         if strategy_name is None:
             strategy_name = PromptStrategyType.STANDARD
-            
+
         # Extract strategy from context if provided
         if context and 'strategy_type' in context:
             strategy_name = context['strategy_type']

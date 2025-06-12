@@ -13,8 +13,7 @@ from rv_android_core.util.logging.constants import CONTEXT_COMPONENT, LOG_START,
 from rv_android_core.util.logging.manager import LoggingManager
 from rv_android_core.event import (
     EventBus,
-    EventType,
-    get_event_bus
+    EventType
 )
 from rv_experiment.experiment.task.storage import TaskStorage
 from rv_experiment.experiment.workflow.execution_controller import ExecutionController
@@ -64,7 +63,7 @@ class ExperimentController:
         self.config = config
         
         # Set up event bus (using dependency injection)
-        self.event_bus = event_bus or get_event_bus()
+        self.event_bus = event_bus or EventBus.get_instance()
 
         # Set up experiment identifier
         self.experiment_id = self.config.experiment_id or f"experiment_{self.config.get_timestamp_string()}"

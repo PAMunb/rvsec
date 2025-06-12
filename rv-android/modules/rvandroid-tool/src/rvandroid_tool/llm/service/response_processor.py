@@ -2,15 +2,15 @@
 import json
 from typing import Dict, List, Any, Optional, Tuple
 
+from rv_android_core.event.bus import EventBus
 from rv_android_core.util.error.error_handler import ErrorHandler
 from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
 from rv_android_core.util.logging.manager import LoggingManager
 from rv_android_core.util.performance_monitor import PerformanceMonitor
+from rv_llm import LLMConfig
+from rv_llm.llm.constants import StateEntry
 from rv_screen_parser.parser.screen.visitor.model import ItemAction
-from rv_llm.factories import LLMFactory, PromptStrategyFactory
-from rv_android_core.event.bus import EventBus
-from rvandroid.llm.constants import StateEntry
-from rvandroid.llm.response_parser import ResponseParser
+from rvandroid_tool.llm.response_parser import ResponseParser
 
 
 class ResponseProcessor:
@@ -32,7 +32,7 @@ class ResponseProcessor:
     - Integrates with the error handling and performance monitoring subsystems
     """
 
-    def __init__(self, config: ComponentConfigurator):
+    def __init__(self, config: LLMConfig):
         """
         Initialize the response processor.
 

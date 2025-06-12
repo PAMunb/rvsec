@@ -48,15 +48,15 @@ class ErrorHandler:
     @classmethod
     def get_instance(cls):
         """Get the singleton instance."""
-        if cls._instance is None:
-            with cls._lock:
-                # Double-check locking pattern
-                if cls._instance is None:
-                    cls._instance = ErrorHandler()
-        return cls._instance
+        with cls._lock:
+            if cls._instance is None:
+                cls._instance = ErrorHandler()
+            return cls._instance
 
     def __init__(self):
         """Initialize the error handler."""
+        print(f"DEBUG: Creating ErrorHandler instance, current instance: {ErrorHandler._instance}")
+        
         # Get standardized logger with context
         logging_manager = LoggingManager.get_instance()
         self._logger = logging_manager.get_logger(
@@ -131,27 +131,8 @@ class ErrorHandler:
             error_type: The type of exception to handle
             handler: Function to call when this error occurs, should return True if handled
         """
-        # Create handler wrapper with exact type matching and unique ID
-        import uuid
-        callback_id = str(uuid.uuid4())[:8]
-        
-        def handler_wrapper(e, c):
-            if type(e) == error_type:
-                return handler(e, c)
-            return None
-        
-        # Check if this exact handler is already registered to avoid duplicates  
-        handler_name = getattr(handler, '__name__', f'handler_{id(handler)}')
-        handler_signature = f"{error_type.__name__}:{handler_name}"
-        if not hasattr(self, '_registered_handlers'):
-            self._registered_handlers = set()
-            
-        if handler_signature not in self._registered_handlers:
-            self._error_callbacks.append(handler_wrapper)
-            self._registered_handlers.add(handler_signature)
-            self._logger.debug(f"Registered handler for {error_type.__name__}")
-        else:
-            self._logger.debug(f"Handler for {error_type.__name__} already registered, skipping")
+        # Use exact type matching to avoid duplicate handling in inheritance hierarchy
+        self._error_callbacks.append(lambda e, c: handler(e, c) if type(e) == error_type else None)
 
     def handle_error(self, error: Exception, context: Optional[Union[Dict[str, Any], 'ErrorContext']] = None) -> bool:
         """
@@ -185,7 +166,6 @@ class ErrorHandler:
         """
         error_type = type(error)
         error_name = error_type.__name__
-        
 
         # Update error counts for tracking patterns
         self._error_counts[error_name] = self._error_counts.get(error_name, 0) + 1
@@ -193,25 +173,30 @@ class ErrorHandler:
         # Record in history for analysis
         self._add_to_history(error, context)
 
-        # Log the error with context
-        self._log_error(error, context)
+        # Create a contextual logger for this specific error
+        with self._logger.with_context(error_type=error_name, **({} if context is None else context)):
+            # Log the error with context
+            self._log_error(error, context)
 
-        # Execute callbacks (simplified error handling)
-        handled = False
-        for callback in self._error_callbacks:
-            try:
-                result = callback(error, context)
-                if result is True:
-                    handled = True
-                    self._logger.debug(f"Error handled by callback")
-                    break
-            except Exception as e:
-                self._logger.error(f"Error in callback: {e}")
+            # Notify registered callbacks
+            self._notify_error_callbacks(error, context)
 
-        if not handled:
-            self._logger.debug(f"No handler successfully processed {error_name}")
+            # Execute callbacks (simplified error handling)
+            handled = False
+            for callback in self._error_callbacks:
+                try:
+                    result = callback(error, context)
+                    if result is True:
+                        handled = True
+                        self._logger.debug(f"Error handled by callback")
+                        break
+                except Exception as e:
+                    self._logger.error(f"Error in callback: {e}")
 
-        return handled
+            if not handled:
+                self._logger.debug(f"No handler successfully processed {error_name}")
+
+            return handled
 
     def _add_to_history(self, error: Exception, context: Optional[Dict[str, Any]]):
         """Add error to history with timestamp and context."""
@@ -402,17 +387,13 @@ class ErrorHandler:
                 except Exception as e:
                     handled = handler._handle_error_internal(e, context)
                     
-                    if handled:
-                        handler._logger.debug(f"Error handled by decorator in {func.__name__}")
-                        # Don't re-raise if handled successfully
-                        return None
-                    elif reraise:
-                        raise  # Not handled but reraise requested
-                    else:
-                        # Log that error was not handled but don't re-raise when reraise=False
+                    if not handled and reraise:
+                        raise
+                    elif not handled:
+                        # Log that error was not handled but don't re-raise
                         handler._logger.warning(f"Unhandled error in {func.__name__}: {e}")
-                        # Suppress the exception since reraise=False
-                        return None
+                        return None  # Return None instead of re-raising
+                    # If handled, just continue without raising
             return wrapper
         return decorator
     
@@ -451,14 +432,14 @@ class ErrorHandler:
         self._logger.info(f"Prompt error recorded: {error.message}")
         if hasattr(error, 'strategy_name') and error.strategy_name:
             self._logger.info(f"Strategy: {error.strategy_name}")
-        return True  # Successfully handled
+        return False  # Allow further handling
     
     def _handle_llm_error(self, error: RVLLMError, context: Optional[Dict[str, Any]] = None) -> bool:
         """Handle LLM-related errors with enhanced context."""
         self._logger.info(f"LLM error recorded: {error.message}")
         if hasattr(error, 'model_name') and error.model_name:
             self._logger.info(f"Model: {error.model_name}")
-        return True  # Successfully handled
+        return False  # Allow further handling
 
 
 # Global convenience functions for easy access to enhanced features

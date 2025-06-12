@@ -13,7 +13,7 @@ from enum import Enum, auto
 from typing import Dict, Any, List, Optional, Set, Type, TypeVar, Generic, Protocol
 
 from rv_experiment.experiment.core.interfaces import IExecutionContext, ExecutionPhase
-from rv_android_core.event import EventBus, get_event_bus
+from rv_android_core.event import EventBus
 
 
 class ComponentLifecycle(Enum):
@@ -563,7 +563,7 @@ class BaseWorkflowComponent(BaseComponent, IWorkflowComponent):
             Event bus instance
         """
         if self._event_bus is None:
-            self._event_bus = get_event_bus()
+            self._event_bus = EventBus.get_instance()
         return self._event_bus
 
     def execute(self, phase: ExecutionPhase, context: IExecutionContext) -> bool:
