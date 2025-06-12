@@ -8,21 +8,21 @@ AI-driven test action generation system using the PromptFramework.
 from typing import Any, Dict, List
 
 from rv_android_core.domain.static import StaticAnalysisData
+from rv_android_core.event.bus import EventBus, EventType
 from rv_android_core.util.error.error_handler import ErrorHandler
 from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
 from rv_android_core.util.logging.manager import LoggingManager
 from rv_android_core.util.performance_monitor import PerformanceMonitor
-from rv_llm.factories import LLMFactory, PromptStrategyFactory
-from rv_android_core.event.bus import EventBus, EventType
-from rvandroid.llm.constants import ContextEntry, StateEntry
-from rvandroid.llm.data_structures import LLMMessage, LLMResponse
-from rvandroid.llm.prompt.framework import PromptFramework
-from rvandroid.llm.service import LLMManager
-from rvandroid.llm.service.action_generator import ActionGenerator, GeneratedAction
-from rvandroid.llm.service.memory_manager import MemoryManager
-from rvandroid.llm.service.response_processor import ResponseProcessor
-from rvandroid.llm.service.state_enricher import StateEnricher
-from rvandroid.llm.service.transition_manager import TransitionManager
+from rv_llm.config.llm_config import LLMConfig
+from rv_llm.llm.constants import ContextEntry, StateEntry
+from rv_llm.llm.data_structures import LLMMessage, LLMResponse
+from rv_llm.llm.prompt.framework import PromptFramework
+from rvandroid_tool.llm.service.action_generator import ActionGenerator, GeneratedAction
+from rvandroid_tool.llm.service.llm_manager import LLMManager
+from rvandroid_tool.llm.service.memory_manager import MemoryManager
+from rvandroid_tool.llm.service.response_processor import ResponseProcessor
+from rvandroid_tool.llm.service.state_enricher import StateEnricher
+from rvandroid_tool.llm.service.transition_manager import TransitionManager
 
 
 class LLMActionService:
@@ -56,7 +56,7 @@ class LLMActionService:
     def __init__(
             self,
             static_data: StaticAnalysisData,
-            config: ComponentConfigurator,
+            config: LLMConfig,
             app_package: str,  # TODO: Remove this parameter
             **model_kwargs
     ):
@@ -81,7 +81,7 @@ class LLMActionService:
         )
 
         # Store configuration
-        self.config = config or ComponentConfigurator()
+        self.config = config or LLMConfig()
         self.static_data = static_data
         self.app_package = app_package
 

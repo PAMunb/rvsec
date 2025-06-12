@@ -9,7 +9,6 @@ import google.generativeai as genai
 import openai
 # Import model providers
 from anthropic import Anthropic
-# from rv_llm.llm.adapters.frontier_adapter import FrontierAdapter
 
 from rv_android_core.util.error.error_handler import ErrorHandler
 from rv_llm.llm.data_structures import LLMMessage
@@ -87,7 +86,7 @@ class FrontierModel(LanguageModel):
 
     def _get_adapter(self):
         """Get the appropriate MCP adapter for this model."""
-        return None # FrontierAdapter()
+        return None  # FrontierAdapter()
 
     def _infer_provider(self, model_name: str) -> str:
         """

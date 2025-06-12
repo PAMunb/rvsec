@@ -9,9 +9,9 @@ across different model providers and deployment types.
 from abc import ABC, abstractmethod
 from typing import List, Optional
 
+from rv_android_core.util.error.error_handler import ErrorHandler
 from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
 from rv_android_core.util.logging.manager import LoggingManager
-from rv_android_core.util.error.error_handler import ErrorHandler
 from .data_structures import LLMMessage, LLMResponse
 from .llm_config import LLMConfiguration
 
@@ -100,7 +100,7 @@ class LanguageModel(ABC):
 
         # Initialize error handler for robust error management
         self.error_handler = ErrorHandler.get_instance()
-        
+
         self.logger.info(f"Initialized {self.__class__.__name__} with model: {model_name}")
 
     @abstractmethod

@@ -7,7 +7,6 @@ exactly one action per response.
 
 from typing import Any, Dict, List, Optional
 
-from rv_android_core.util.error.error_handler import ErrorHandler
 from rv_llm.llm.constants import (PromptStrategyType)
 from rv_llm.llm.prompt.information.fragment_manager import InformationManager
 from rv_llm.llm.prompt.strategy.base_strategy import PromptStrategy
@@ -39,7 +38,6 @@ class StandardStrategy(PromptStrategy):
             template_repository: The template repository to use.
         """
         super().__init__(name, information_manager, template_repository)
-
 
     def _generate_prompt(
             self,

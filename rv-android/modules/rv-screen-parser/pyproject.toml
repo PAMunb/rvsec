@@ -9,7 +9,6 @@ packages = [{include = "rv_screen_parser", from = "src"}]
 [tool.poetry.dependencies]
 python = ">=3.12,<4.0"
 rv-android-core = {path = "../rv-android-core", develop = true}
-rv-static-analysis = {path = "../rv-static-analysis", develop = true}
 # Screen parsing dependencies
 lxml = "*"  # Para parsing XML
 beautifulsoup4 = "*"  # Para parsing HTML/XML alternativo

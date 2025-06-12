@@ -3163,7 +3163,6 @@ develop = true
 
 [package.dependencies]
 rv-android-core = {path = "../rv-android-core", develop = true}
-rv-monitor-generator = {path = "../rv-monitor-generator", develop = true}
 
 [package.source]
 type = "directory"
@@ -3192,10 +3191,7 @@ openai = "*"
 pydantic = "*"
 requests = "*"
 rv-android-core = {path = "../rv-android-core", develop = true}
-rv-coverage = {path = "../rv-coverage", develop = true}
-rv-monitor-generator = {path = "../rv-monitor-generator", develop = true}
 rv-screen-parser = {path = "../rv-screen-parser", develop = true}
-rv-static-analysis = {path = "../rv-static-analysis", develop = true}
 torch = "*"
 transformers = "*"
 
@@ -3238,7 +3234,6 @@ opencv-python = "*"
 pillow = "*"
 pytesseract = "*"
 rv-android-core = {path = "../rv-android-core", develop = true}
-rv-static-analysis = {path = "../rv-static-analysis", develop = true}
 
 [package.source]
 type = "directory"

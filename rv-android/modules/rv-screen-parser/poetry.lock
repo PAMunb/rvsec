@@ -1219,23 +1219,6 @@ type = "directory"
 url = "../rv-android-core"
 
 [[package]]
-name = "rv-static-analysis"
-version = "0.1.0"
-description = "Static analysis tools integration (GATOR, GESDA, REACH) and result parsing"
-optional = false
-python-versions = ">=3.12,<4.0"
-groups = ["main"]
-files = []
-develop = true
-
-[package.dependencies]
-rv-android-core = {path = "../rv-android-core", develop = true}
-
-[package.source]
-type = "directory"
-url = "../rv-static-analysis"
-
-[[package]]
 name = "six"
 version = "1.17.0"
 description = "Python 2 and 3 compatibility utilities"
@@ -1322,4 +1305,4 @@ files = [
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.12,<4.0"
-content-hash = "2402d96a6192f9a2207fade0c921515df004db9b1add648eefd8e5109959039f"
+content-hash = "ab3d79672af656de5008ece83644a1e01379ba5f2363e3e4773037b7469e89f4"

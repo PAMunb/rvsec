@@ -46,10 +46,12 @@ rv-android/
 
 **Prerequisites:**
 - Python 3.12+
-- Poetry 1.8+
-- Java 11+
+- Poetry 2.1+
+- Java 21+
+- Aspectj 1.9.6
 - Android SDK
 - RVSEC environment
+
 
 **Complete setup sequence:**
 
@@ -63,8 +65,7 @@ mvn clean install -DskipTests -DskipMopAgent
 export RVSEC_HOME="/path/to/rvsec"
 export ANDROID_HOME="/path/to/android-sdk"
 
-# 3. Clone and setup RV-Android
-git clone <repository-url>
+# 3. Setup RV-Android
 cd rv-android
 
 # 4. Install all modules in dependency order

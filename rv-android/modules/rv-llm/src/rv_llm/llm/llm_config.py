@@ -448,8 +448,7 @@ class LLMConfiguration:
             List of compatible model names
         """
         # Import factories to get available models
-        from rv_llm.factories.llm_factory import LLMFactory
-        
+
         try:
             # Use factory to get available models for this type
             if self.model_type == "ollama":

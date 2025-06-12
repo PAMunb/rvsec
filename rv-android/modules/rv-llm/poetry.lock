@@ -2829,42 +2829,6 @@ type = "directory"
 url = "../rv-android-core"
 
 [[package]]
-name = "rv-coverage"
-version = "0.1.0"
-description = "Android logcat parsing and analysis for runtime verification"
-optional = false
-python-versions = ">=3.12,<4.0"
-groups = ["main"]
-files = []
-develop = true
-
-[package.dependencies]
-python-dateutil = "*"
-regex = "*"
-rv-android-core = {path = "../rv-android-core", develop = true}
-
-[package.source]
-type = "directory"
-url = "../rv-coverage"
-
-[[package]]
-name = "rv-monitor-generator"
-version = "0.1.0"
-description = "JavaMOP and RV-Monitor integration"
-optional = false
-python-versions = ">=3.12,<4.0"
-groups = ["main"]
-files = []
-develop = true
-
-[package.dependencies]
-rv-android-core = {path = "../rv-android-core", develop = true}
-
-[package.source]
-type = "directory"
-url = "../rv-monitor-generator"
-
-[[package]]
 name = "rv-screen-parser"
 version = "0.1.0"
 description = "Android screen parsing for DroidBot and UIAutomator with visitor pattern"
@@ -2882,28 +2846,10 @@ opencv-python = "*"
 pillow = "*"
 pytesseract = "*"
 rv-android-core = {path = "../rv-android-core", develop = true}
-rv-static-analysis = {path = "../rv-static-analysis", develop = true}
 
 [package.source]
 type = "directory"
 url = "../rv-screen-parser"
-
-[[package]]
-name = "rv-static-analysis"
-version = "0.1.0"
-description = "Static analysis tools integration (GATOR, GESDA, REACH) and result parsing"
-optional = false
-python-versions = ">=3.12,<4.0"
-groups = ["main"]
-files = []
-develop = true
-
-[package.dependencies]
-rv-android-core = {path = "../rv-android-core", develop = true}
-
-[package.source]
-type = "directory"
-url = "../rv-static-analysis"
 
 [[package]]
 name = "s3transfer"
@@ -3358,4 +3304,4 @@ files = [
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.12,<4.0"
-content-hash = "97baea6d1b6984e389f0dcb04e6401b3d825f8d400d25e6437a817a112f5a449"
+content-hash = "d289fa073657d1ee0fa7a6cfeb65999e0feaffcabbbf235632163e0eac7f7069"

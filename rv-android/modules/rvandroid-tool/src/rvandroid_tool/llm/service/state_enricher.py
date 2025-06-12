@@ -14,7 +14,7 @@ from rv_screen_parser.parser.screen.visitor.default_visitor import DefaultTextVi
 from rv_screen_parser.parser.screen.visitor.model import ScreenDescription, ItemAction
 from rv_llm.factories import LLMFactory, PromptStrategyFactory
 from rvandroid.llm.constants import StateEntry
-
+from rv_llm.config.llm_config import LLMConfig
 
 class StateEnricher:
     """Enriches the state with additional information before prompt generation.
@@ -30,7 +30,7 @@ class StateEnricher:
     def __init__(
             self,
             static_data: StaticAnalysisData = None,
-            config: Optional[ComponentConfigurator] = None
+            config: Optional[LLMConfig] = None
     ):
         """Initialize the state enricher with parser support.
         

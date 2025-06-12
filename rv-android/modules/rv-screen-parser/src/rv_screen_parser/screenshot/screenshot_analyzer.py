@@ -26,17 +26,15 @@ pip3 install \
     numpy
 """
 
+import json
+import sys
+import time
+from dataclasses import dataclass, field
+from typing import Dict, List, Any, Optional
+
 import cv2
 import numpy as np
 import pytesseract
-import json
-import time
-import sys
-import os
-from dataclasses import dataclass, field
-from typing import Dict, List, Any, Optional, Tuple, Set
-
-from PIL import Image
 
 from rv_android_core.analysis.base_analyzer import BaseAnalyzer
 from rv_android_core.domain.static import StaticAnalysisData

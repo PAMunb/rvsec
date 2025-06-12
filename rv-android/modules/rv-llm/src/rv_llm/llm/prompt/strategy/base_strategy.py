@@ -71,7 +71,7 @@ class PromptStrategy(abc.ABC):
             ValueError: If configuration is invalid or missing required parameters
         """
         self.logger.info(f"Configuring strategy: {self.name}")
-        
+
         # Validate required configuration parameters
         required_params = ["strategy_name"]
         missing_params = [param for param in required_params if param not in config_dict]
@@ -79,7 +79,7 @@ class PromptStrategy(abc.ABC):
             error_msg = f"Missing required configuration parameters: {missing_params}"
             self.logger.error(error_msg)
             raise ValueError(error_msg)
-        
+
         # Store configuration as dictionary
         self.config = config_dict
         self.logger.debug(f"Strategy {self.name} configured successfully")
@@ -110,11 +110,11 @@ class PromptStrategy(abc.ABC):
             ValueError: If configuration is invalid or conversion fails
         """
         self.logger.info(f"Configuring strategy {self.name} from LLMConfig")
-        
+
         try:
             # Extract strategy parameters from LLMConfig
             strategy_params = config.get_strategy_parameters()
-            
+
             # Create configuration dictionary from LLMConfig parameters
             config_dict = {
                 "strategy_name": config.strategy_type,
@@ -123,12 +123,12 @@ class PromptStrategy(abc.ABC):
                 "max_context_length": config.max_context_length,
                 **{k: v for k, v in strategy_params.items() if k.startswith("strategy_")}
             }
-            
+
             # Use existing configure method with converted config
             self.configure(config_dict)
-            
+
             self.logger.info(f"Strategy {self.name} configured successfully from LLMConfig")
-            
+
         except Exception as e:
             error_msg = f"Failed to configure strategy {self.name} from LLMConfig: {e}"
             self.logger.error(error_msg)
@@ -152,9 +152,9 @@ class PromptStrategy(abc.ABC):
             # First priority: context-specified template
             return context[ContextEntry.TEMPLATE]
 
-        if (self.config is not None and 
-            isinstance(self.config, dict) and 
-            self.config.get("template_name") is not None):
+        if (self.config is not None and
+                isinstance(self.config, dict) and
+                self.config.get("template_name") is not None):
             # Second priority: configuration-specified template
             return self.config["template_name"]
 

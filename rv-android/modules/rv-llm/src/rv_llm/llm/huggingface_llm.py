@@ -337,5 +337,4 @@ class HuggingFaceLLM(LanguageModel):
             top_k=40
         )
 
-
 # Legacy register function removed - now using LLMFactory for component creation

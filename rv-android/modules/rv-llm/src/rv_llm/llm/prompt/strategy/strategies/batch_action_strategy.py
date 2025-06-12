@@ -6,9 +6,8 @@ prompt generation strategy for generating batches of testing actions.
 
 from typing import Any, Dict, List, Optional
 
-from rv_android_core.util.error.error_handler import ErrorHandler
 from rv_llm.llm.constants import (ContextEntry, FragmentType, PromptStrategyType,
-                                     StateEntry)
+                                  StateEntry)
 from rv_llm.llm.prompt.information.fragment_manager import InformationManager
 from rv_llm.llm.prompt.strategy.base_strategy import PromptStrategy
 from rv_llm.llm.prompt.template.jinja_repository import Jinja2TemplateRepository
@@ -39,7 +38,6 @@ class BatchActionStrategy(PromptStrategy):
             template_repository: The template repository to use.
         """
         super().__init__(name, information_manager, template_repository)
-
 
     def should_use_batch(self, state: Dict[str, Any]) -> bool:
         """Determine if batch actions should be used for the current state.

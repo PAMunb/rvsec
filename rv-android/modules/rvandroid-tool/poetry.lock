@@ -2913,25 +2913,6 @@ type = "directory"
 url = "../rv-android-core"
 
 [[package]]
-name = "rv-coverage"
-version = "0.1.0"
-description = "Android logcat parsing and analysis for runtime verification"
-optional = false
-python-versions = ">=3.12,<4.0"
-groups = ["main"]
-files = []
-develop = true
-
-[package.dependencies]
-python-dateutil = "*"
-regex = "*"
-rv-android-core = {path = "../rv-android-core", develop = true}
-
-[package.source]
-type = "directory"
-url = "../rv-coverage"
-
-[[package]]
 name = "rv-llm"
 version = "0.1.0"
 description = "LLM integration infrastructure and prompt framework for RV-Android"
@@ -2954,33 +2935,13 @@ openai = "*"
 pydantic = "*"
 requests = "*"
 rv-android-core = {path = "../rv-android-core", develop = true}
-rv-coverage = {path = "../rv-coverage", develop = true}
-rv-monitor-generator = {path = "../rv-monitor-generator", develop = true}
 rv-screen-parser = {path = "../rv-screen-parser", develop = true}
-rv-static-analysis = {path = "../rv-static-analysis", develop = true}
 torch = "*"
 transformers = "*"
 
 [package.source]
 type = "directory"
 url = "../rv-llm"
-
-[[package]]
-name = "rv-monitor-generator"
-version = "0.1.0"
-description = "JavaMOP and RV-Monitor integration"
-optional = false
-python-versions = ">=3.12,<4.0"
-groups = ["main"]
-files = []
-develop = true
-
-[package.dependencies]
-rv-android-core = {path = "../rv-android-core", develop = true}
-
-[package.source]
-type = "directory"
-url = "../rv-monitor-generator"
 
 [[package]]
 name = "rv-screen-parser"
@@ -3000,28 +2961,10 @@ opencv-python = "*"
 pillow = "*"
 pytesseract = "*"
 rv-android-core = {path = "../rv-android-core", develop = true}
-rv-static-analysis = {path = "../rv-static-analysis", develop = true}
 
 [package.source]
 type = "directory"
 url = "../rv-screen-parser"
-
-[[package]]
-name = "rv-static-analysis"
-version = "0.1.0"
-description = "Static analysis tools integration (GATOR, GESDA, REACH) and result parsing"
-optional = false
-python-versions = ">=3.12,<4.0"
-groups = ["main"]
-files = []
-develop = true
-
-[package.dependencies]
-rv-android-core = {path = "../rv-android-core", develop = true}
-
-[package.source]
-type = "directory"
-url = "../rv-static-analysis"
 
 [[package]]
 name = "rv-tools"

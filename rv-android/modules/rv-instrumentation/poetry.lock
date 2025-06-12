@@ -1182,23 +1182,6 @@ type = "directory"
 url = "../rv-android-core"
 
 [[package]]
-name = "rv-monitor-generator"
-version = "0.1.0"
-description = "JavaMOP and RV-Monitor integration"
-optional = false
-python-versions = ">=3.12,<4.0"
-groups = ["main"]
-files = []
-develop = true
-
-[package.dependencies]
-rv-android-core = {path = "../rv-android-core", develop = true}
-
-[package.source]
-type = "directory"
-url = "../rv-monitor-generator"
-
-[[package]]
 name = "six"
 version = "1.17.0"
 description = "Python 2 and 3 compatibility utilities"
@@ -1261,4 +1244,4 @@ files = [
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.12,<4.0"
-content-hash = "881001fa3949fd02a81064091f1c3c4cf47a7cce25690991b2ffc17d65830646"
+content-hash = "5928e2baaaca5cae05cd20fe0882278fbd5c4db2c16e70565f09676dea06887c"

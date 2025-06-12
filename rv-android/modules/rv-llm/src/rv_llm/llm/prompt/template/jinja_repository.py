@@ -16,7 +16,7 @@ from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
 from rv_android_core.util.logging.manager import LoggingManager
 from rv_llm.llm.data_structures import LLMMessage, LLMRole, LLMTextContent
 from .jinja_template import Jinja2Template, FragmentDictLoader
-from .xml_utils import (extract_template_metadata, extract_template_roles, 
+from .xml_utils import (extract_template_metadata, extract_template_roles,
                         extract_template_variables, load_xml_file)
 
 
@@ -127,7 +127,7 @@ class Jinja2TemplateRepository:
             config_dict: Configuration dictionary containing template and fragment settings
         """
         self.logger.info("Configuring Jinja2TemplateRepository")
-        
+
         if config_dict is None:
             config_dict = {}
 
@@ -144,11 +144,11 @@ class Jinja2TemplateRepository:
             self.logger.info(f"Custom fragment directory specified: {custom_fragment_dir}")
             self.fragment_dir = custom_fragment_dir
             self._load_fragments()
-            
+
         # Apply template format configuration
         template_format = config_dict.get('template_format', 'jinja2')
         self.logger.debug(f"Using template format: {template_format}")
-            
+
         # Apply template validation configuration
         template_validation = config_dict.get('template_validation', True)
         if template_validation:

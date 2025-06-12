@@ -1,8 +1,8 @@
-import os
 import glob
+import os
 import subprocess
-from typing import Optional, Dict, Any
 from pathlib import Path
+from typing import Optional, Dict, Any
 
 import rv_android_core.constants as constants
 
@@ -50,7 +50,7 @@ class RVInstrumentationConfig:
     - Supplies keystore configuration for APK signing and deployment
     - Integrates dex2jar tools for bytecode transformation workflows
     """
-    
+
     def __init__(self,
                  rvsec_root: Optional[str] = None,
                  monitor_output_dir: Optional[str] = None,
@@ -110,13 +110,13 @@ class RVInstrumentationConfig:
         self.lib_tmp_dir = lib_tmp_dir
         self.rvm_tmp_dir = rvm_tmp_dir
         self.dex2jar_home = dex2jar_home
-        
+
         # Resolve paths based on priority
         self._resolve_paths(rvsec_root)
-        
+
         # Validate configuration
         self._validate_configuration()
-    
+
     def _resolve_paths(self, rvsec_root: Optional[str]) -> None:
         """
         Execute intelligent path resolution based on configuration priority system.
@@ -144,16 +144,16 @@ class RVInstrumentationConfig:
             self.monitor_output_dir, self.android_jar_path, self.keystore_file,
             self.instrumented_dir, self.dex2jar_home
         ]
-        
+
         if all(path is not None for path in critical_paths):
             # All critical paths explicitly provided - highest priority resolution
             # Fill in optional paths with defaults if not provided
             self._apply_default_paths()
             return
-        
+
         # Priority 2 & 3: Determine rvsec_root source for automatic path discovery
         resolved_rvsec_root = None
-        
+
         if rvsec_root is not None:
             # Priority 2: Explicit rvsec_root provided
             resolved_rvsec_root = rvsec_root
@@ -168,10 +168,10 @@ class RVInstrumentationConfig:
                     self.working_dir = os.getcwd()
                 self._resolve_from_working_dir()
                 return
-        
+
         # Perform automatic path discovery from resolved rvsec_root
         self._resolve_from_rvsec_root(resolved_rvsec_root)
-    
+
     def _resolve_from_rvsec_root(self, rvsec_root: str) -> None:
         """
         Resolve individual tool paths from RVSEC root directory using standard layout.
@@ -192,18 +192,18 @@ class RVInstrumentationConfig:
         # Set working directory to rv-android subdirectory
         if self.working_dir is None:
             self.working_dir = os.path.join(rvsec_root, "rv-android")
-        
+
         # Resolve monitor output directory from standard RVSEC layout
         if self.monitor_output_dir is None:
             self.monitor_output_dir = os.path.join(self.working_dir, "mop_out")
-        
+
         # Resolve Android SDK paths from environment or standard locations
         if self.android_jar_path is None or self.android_platforms_dir is None:
             self._resolve_android_sdk()
-        
+
         # Apply remaining default paths based on working directory
         self._apply_default_paths()
-    
+
     def _resolve_from_working_dir(self) -> None:
         """
         Resolve paths using current working directory as base for relative path resolution.
@@ -215,13 +215,13 @@ class RVInstrumentationConfig:
         # Monitor output directory defaults to mop_out in working directory
         if self.monitor_output_dir is None:
             self.monitor_output_dir = os.path.join(self.working_dir, "mop_out")
-        
+
         # Resolve Android SDK paths from environment
         self._resolve_android_sdk()
-        
+
         # Apply remaining default paths
         self._apply_default_paths()
-    
+
     def _resolve_android_sdk(self) -> None:
         """
         Resolve Android SDK paths from environment variables and standard configurations.
@@ -239,17 +239,17 @@ class RVInstrumentationConfig:
                 "ANDROID_HOME environment variable not set. "
                 "Please configure Android SDK environment or provide explicit paths."
             )
-        
+
         # Standard Android SDK platform configuration
         android_platform = "android-29"  # Default platform version
-        
+
         if self.android_platforms_dir is None:
             self.android_platforms_dir = os.path.join(android_home, "platforms")
-        
+
         if self.android_jar_path is None:
             platform_lib = os.path.join(self.android_platforms_dir, android_platform)
             self.android_jar_path = os.path.join(platform_lib, "android.jar")
-    
+
     def _apply_default_paths(self) -> None:
         """
         Apply default path configurations for optional parameters not explicitly provided.
@@ -264,29 +264,29 @@ class RVInstrumentationConfig:
             module_dir = Path(__file__).parent.parent.parent
             assets_dir = module_dir / "assets"
             self.keystore_file = str(assets_dir / "keystore.jks")
-        
+
         if self.keystore_password is None:
             self.keystore_password = "password"  # Default development password
-        
+
         # Default output directory for instrumented APKs
         if self.instrumented_dir is None:
             self.instrumented_dir = os.path.join(self.working_dir, "out")
-        
+
         # Default temporary directories for intermediate processing
         if self.tmp_dir is None:
             self.tmp_dir = os.path.join(self.working_dir, "tmp")
-        
+
         if self.lib_tmp_dir is None:
             self.lib_tmp_dir = os.path.join(self.working_dir, "lib_tmp")
-        
+
         if self.rvm_tmp_dir is None:
             self.rvm_tmp_dir = os.path.join(self.working_dir, "rvm_tmp")
-        
+
         # Default dex2jar tools directory
         if self.dex2jar_home is None:
             lib_dir = os.path.join(self.working_dir, "lib")
             self.dex2jar_home = os.path.join(lib_dir, "dex2jar")
-    
+
     def _validate_configuration(self) -> None:
         """
         Execute comprehensive configuration validation to ensure operational readiness.
@@ -310,19 +310,19 @@ class RVInstrumentationConfig:
         self._validate_directory(self.monitor_output_dir, "Monitor output")
         self._validate_directory(self.android_platforms_dir, "Android platforms")
         self._validate_directory(self.dex2jar_home, "dex2jar tools")
-        
+
         # Phase 2: Android SDK integration validation
         self._validate_android_jar()
-        
+
         # Phase 3: Keystore validation
         self._validate_keystore()
-        
+
         # Phase 4: Monitor artifacts validation
         self._validate_monitor_artifacts()
-        
+
         # Phase 5: Create required output directories
         self._ensure_output_directories()
-    
+
     def _validate_directory(self, directory_path: str, directory_purpose: str) -> None:
         """
         Validate directory existence and accessibility.
@@ -336,10 +336,10 @@ class RVInstrumentationConfig:
         """
         if not os.path.isdir(directory_path):
             raise ConfigurationError(f"{directory_purpose} directory not found: {directory_path}")
-        
+
         if not os.access(directory_path, os.R_OK):
             raise ConfigurationError(f"{directory_purpose} directory not readable: {directory_path}")
-    
+
     def _validate_android_jar(self) -> None:
         """
         Validate Android SDK android.jar accessibility and format.
@@ -349,10 +349,10 @@ class RVInstrumentationConfig:
         """
         if not os.path.isfile(self.android_jar_path):
             raise ConfigurationError(f"Android JAR not found: {self.android_jar_path}")
-        
+
         if not os.access(self.android_jar_path, os.R_OK):
             raise ConfigurationError(f"Android JAR not readable: {self.android_jar_path}")
-    
+
     def _validate_keystore(self) -> None:
         """
         Validate keystore file accessibility and basic format validation.
@@ -369,10 +369,10 @@ class RVInstrumentationConfig:
                 f"Keystore file not found: {self.keystore_file}\n"
                 f"Generate keystore using: keytool -genkey -keystore {self.keystore_file}"
             )
-        
+
         if not os.access(self.keystore_file, os.R_OK):
             raise ConfigurationError(f"Keystore file not readable: {self.keystore_file}")
-    
+
     def _validate_monitor_artifacts(self) -> None:
         """
         Validate availability of monitor artifacts from rv-monitor-generator.
@@ -392,7 +392,7 @@ class RVInstrumentationConfig:
                 f"No AspectJ monitor files (*{constants.EXTENSION_AJ}) found in: {self.monitor_output_dir}\n"
                 f"Generate monitors using rv-monitor-generator before instrumentation"
             )
-        
+
         # Check for Java monitor classes
         java_files = glob.glob(os.path.join(self.monitor_output_dir, f"*{constants.EXTENSION_JAVA}"))
         if not java_files:
@@ -400,7 +400,7 @@ class RVInstrumentationConfig:
                 f"No Java monitor files (*{constants.EXTENSION_JAVA}) found in: {self.monitor_output_dir}\n"
                 f"Generate monitors using rv-monitor-generator before instrumentation"
             )
-    
+
     def _ensure_output_directories(self) -> None:
         """
         Create required output and temporary directories if they don't exist.
@@ -417,13 +417,13 @@ class RVInstrumentationConfig:
             self.lib_tmp_dir,
             self.rvm_tmp_dir
         ]
-        
+
         for directory in directories_to_create:
             try:
                 Path(directory).mkdir(parents=True, exist_ok=True)
             except (OSError, PermissionError) as e:
                 raise ConfigurationError(f"Cannot create directory: {directory} - {e}")
-    
+
     def get_dex2jar_tools(self) -> Dict[str, str]:
         """
         Get paths to dex2jar tool suite components.
@@ -436,7 +436,7 @@ class RVInstrumentationConfig:
             'asm_verify': os.path.join(self.dex2jar_home, "d2j-asm-verify.sh"),
             'apk_sign': os.path.join(self.dex2jar_home, "d2j-apk-sign.sh")
         }
-    
+
     def validate_apk_input(self, apk_path: str) -> None:
         """
         Validate input APK file for instrumentation processing.
@@ -449,13 +449,13 @@ class RVInstrumentationConfig:
         """
         if not os.path.isfile(apk_path):
             raise ConfigurationError(f"APK file not found: {apk_path}")
-        
+
         if not apk_path.lower().endswith('.apk'):
             raise ConfigurationError(f"File is not an APK: {apk_path}")
-        
+
         if not os.access(apk_path, os.R_OK):
             raise ConfigurationError(f"APK file not readable: {apk_path}")
-    
+
     def get_configuration_summary(self) -> Dict[str, Any]:
         """
         Generate comprehensive summary of current instrumentation configuration.
@@ -467,7 +467,7 @@ class RVInstrumentationConfig:
             'aspectj_count': len(glob.glob(os.path.join(self.monitor_output_dir, f"*{constants.EXTENSION_AJ}"))),
             'java_count': len(glob.glob(os.path.join(self.monitor_output_dir, f"*{constants.EXTENSION_JAVA}")))
         }
-        
+
         return {
             'android_integration': {
                 'android_jar_path': self.android_jar_path,
@@ -494,7 +494,7 @@ class RVInstrumentationConfig:
             'monitor_artifacts': monitor_files,
             'validation_status': 'Validated'
         }
-    
+
     def __str__(self) -> str:
         """Detailed string representation for debugging and logging."""
         return (

@@ -1,20 +1,19 @@
 import json
 import os
 import shutil
-import sys
 import time
 from typing import Dict, Any, Optional
 
+from rv_android_core import constants
 from rv_android_core.app import App
 from rv_android_core.commands.command import Command
 from rv_android_core.commands.command_exception import CommandException
+from rv_android_core.util import utils
 from rv_android_core.util.error.error_handler import ErrorHandler
 from rv_android_core.util.exceptions import InstrumentationError
-from rv_android_core.util.logging.manager import LoggingManager
 from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
-from rv_android_core.util import utils
-from rv_android_core import constants
-from rv_instrumentation.config import RVInstrumentationConfig, ConfigurationError
+from rv_android_core.util.logging.manager import LoggingManager
+from rv_instrumentation.config import RVInstrumentationConfig
 
 
 class RVInstrumentation:
@@ -83,7 +82,7 @@ class RVInstrumentation:
                    from environment variables or explicit paths.
         """
         self.config = config or RVInstrumentationConfig()
-        
+
         # Initialize structured logging through LoggingManager
         logging_manager = LoggingManager.get_instance()
         self._logger = logging_manager.get_logger(
@@ -93,10 +92,10 @@ class RVInstrumentation:
                 'component_module': 'rv-instrumentation'
             }
         )
-        
+
         # Initialize centralized error handling
         self._error_handler = ErrorHandler.get_instance()
-        
+
         self._logger.info("RVInstrumentation initialized", extra={
             'config_summary': self.config.get_configuration_summary()
         })
@@ -137,7 +136,7 @@ class RVInstrumentation:
             ConfigurationError: If instrumentation environment validation fails
         """
         errors = {}
-        
+
         self._logger.info("Starting batch APK instrumentation", extra={
             'apks_dir': apks_dir,
             'results_dir': results_dir,
@@ -153,7 +152,7 @@ class RVInstrumentation:
                 'error': str(e),
                 'pipeline_stage': 'preparation'
             })
-            
+
             context = {
                 'component': 'RVInstrumentation',
                 'operation': 'prepare_instrumentation',
@@ -174,7 +173,7 @@ class RVInstrumentation:
                 'error': str(e),
                 'pipeline_stage': 'apk_discovery'
             })
-            
+
             context = {
                 'component': 'RVInstrumentation',
                 'operation': 'get_apks',
@@ -205,13 +204,13 @@ class RVInstrumentation:
                 with ErrorHandler.get_instance().error_context(app_name=app.name, phase="instrumentation"):
                     # Validate APK before processing
                     self.config.validate_apk_input(app.path)
-                    
+
                     # Execute instrumentation if needed
                     self.instrument(app, results_dir, force_instrumentation)
 
                     # Verify successful instrumentation
                     self.check_if_instrumented(app)
-                    
+
                 self._logger.info(f"Successfully instrumented APK: {app.name}", extra={
                     'app_name': app.name,
                     'pipeline_stage': 'completed'
@@ -225,10 +224,10 @@ class RVInstrumentation:
                     'error_message': ex.message,
                     'pipeline_stage': 'command_execution'
                 })
-                
+
                 errors[app.name] = {
-                    "code": ex.code, 
-                    "tool": ex.tool, 
+                    "code": ex.code,
+                    "tool": ex.tool,
                     "message": ex.message,
                     "phase": "command_execution"
                 }
@@ -252,10 +251,10 @@ class RVInstrumentation:
                     'error': str(ex),
                     'pipeline_stage': 'general_error'
                 })
-                
+
                 errors[app.name] = {
-                    "code": -1, 
-                    "message": str(ex), 
+                    "code": -1,
+                    "message": str(ex),
                     "phase": "general_error"
                 }
 
@@ -285,16 +284,16 @@ class RVInstrumentation:
                 'success_rate': ((total_apks - len(errors)) / total_apks) * 100,
                 'pipeline_stage': 'error_reporting'
             })
-            
+
             # Save detailed error report
             errors_file = os.path.join(results_dir, "instrument_errors.json")
             with open(errors_file, 'w') as outfile:
                 json.dump(errors, outfile, indent=2)
-            
+
             self._logger.info(f"Error report saved to: {errors_file}", extra={
                 'errors_file': errors_file
             })
-            
+
             # Log individual error summaries
             for app_name, error_details in errors.items():
                 self._logger.warning(f"APK instrumentation failed: {app_name}", extra={
@@ -309,7 +308,7 @@ class RVInstrumentation:
                 'success_rate': 100.0,
                 'pipeline_stage': 'completed_successfully'
             })
-            
+
         return errors
 
     def prepare_instrumentation(self, results_dir: str) -> None:
@@ -331,17 +330,17 @@ class RVInstrumentation:
             'results_dir': results_dir,
             'pipeline_stage': 'environment_preparation'
         })
-        
+
         # Clean temporary directories from previous runs
         temp_dirs = [self.config.lib_tmp_dir, self.config.tmp_dir, self.config.rvm_tmp_dir]
         self.clear(temp_dirs)
-        
+
         # Execute Maven for dependency resolution
         self.__execute_maven()
-        
+
         # Create output directory structure
         utils.create_folder_if_not_exists(results_dir)
-        
+
         self._logger.debug("Instrumentation environment prepared successfully")
 
     def instrument(self, app: App, result_dir: str, force_instrumentation: bool = False) -> None:
@@ -425,7 +424,7 @@ class RVInstrumentation:
             # Calculate and log instrumentation metrics
             end = time.time()
             elapsed = end - start
-            
+
             self._logger.info(f"APK instrumentation completed successfully", extra={
                 'app_name': app.name,
                 'elapsed_time': utils.to_readable_time(elapsed),
@@ -472,31 +471,31 @@ class RVInstrumentation:
             'app_name': app.name,
             'pipeline_stage': 'decompilation'
         })
-        
+
         # Prepare clean temporary directory for decompilation
         utils.reset_folder(self.config.tmp_dir)
-        
+
         # Generate intermediate JAR file for decompilation
         no_monitor_jar_name = f"no_monitor_{app.name}.jar"
         no_monitor_jar = os.path.join(self.config.tmp_dir, no_monitor_jar_name)
-        
+
         # Execute dex2jar conversion
         self.__d2j_dex2jar(app, no_monitor_jar)
-        
+
         # Validate successful JAR creation
         if not os.path.exists(no_monitor_jar):
             raise InstrumentationError(
                 f"dex2jar failed to create JAR file: {no_monitor_jar}",
                 None
             )
-        
+
         # Perform structural verification (optional but recommended)
         self.__d2j_asm_verify(no_monitor_jar, skip_verify=True)
-        
+
         # Extract JAR contents for AspectJ weaving
         utils.unzip(no_monitor_jar, self.config.tmp_dir)
         utils.delete_file(no_monitor_jar)
-        
+
         self._logger.debug(f"APK decompilation completed", extra={
             'app_name': app.name,
             'decompiled_classes_dir': self.config.tmp_dir,
@@ -517,16 +516,16 @@ class RVInstrumentation:
         tag = "dex2jar"
         exception_file_name = f"exception_{app.name}.zip"
         exception_file = os.path.join(self.config.tmp_dir, exception_file_name)
-        
+
         dex2jar_tools = self.config.get_dex2jar_tools()
         dex2jar_cmd = Command(
             dex2jar_tools['dex2jar'],
             ['-f', '-o', output_jar_file, '-e', exception_file, app.path]
         )
-        
+
         # Execute dex2jar (skip stderr verification as dex2jar outputs to stderr normally)
         utils.execute_command(dex2jar_cmd, tag, True)
-        
+
         # Check for exception file indicating conversion errors
         if os.path.exists(exception_file):
             raise CommandException(tag, "-1", f"dex2jar conversion failed. See error details in {exception_file}")
@@ -541,7 +540,7 @@ class RVInstrumentation:
         """
         if skip_verify:
             return
-            
+
         dex2jar_tools = self.config.get_dex2jar_tools()
         asm_verify_cmd = Command(dex2jar_tools['asm_verify'], [jar_file])
         utils.execute_command(asm_verify_cmd, "asm_verify")
@@ -576,10 +575,10 @@ class RVInstrumentation:
             'lib_tmp_dir': self.config.lib_tmp_dir,
             'pipeline_stage': 'maven_dependencies'
         })
-        
+
         maven_cmd = Command('mvn', ['clean', 'compile'])
         utils.execute_command(maven_cmd, "maven")
-        
+
         self._logger.debug("Maven dependency resolution completed successfully")
 
     def __get_classpath(self, app: App) -> list:
@@ -594,12 +593,12 @@ class RVInstrumentation:
         """
         # Start with Android SDK JAR (TODO: make dynamic based on app target SDK)
         classpath = [self.__get_android_jar(app)]
-        
+
         # Add all runtime verification dependencies
         for lib in os.listdir(self.config.lib_tmp_dir):
             if lib.lower().endswith(constants.EXTENSION_JAR):
                 classpath.append(os.path.join(self.config.lib_tmp_dir, lib))
-                
+
         return classpath
 
     def __include_generated_monitors(self) -> None:
@@ -618,17 +617,17 @@ class RVInstrumentation:
             'integration_target': self.config.tmp_dir,
             'pipeline_stage': 'monitor_integration'
         })
-        
+
         # Verify monitor artifacts availability before copying
         if not os.path.exists(self.config.monitor_output_dir):
             raise InstrumentationError(
                 f"Monitor output directory not found: {self.config.monitor_output_dir}",
                 None
             )
-        
+
         # Copy all monitor artifacts to temporary directory
         utils.copy_files(self.config.monitor_output_dir, self.config.tmp_dir)
-        
+
         self._logger.debug("Monitor artifacts integration completed successfully")
 
     def __weave_monitors(self, app: App) -> None:
@@ -661,32 +660,32 @@ class RVInstrumentation:
             'app_name': app.name,
             'pipeline_stage': 'aspectj_weaving'
         })
-        
+
         # Build comprehensive classpath for AspectJ weaving
         classpath = self.__get_classpath(app)
         classpath_str = ':'.join(classpath)
-        
+
         self._logger.debug(f"AspectJ weaving classpath constructed", extra={
             'classpath_entries': len(classpath),
             'classpath': classpath_str
         })
-        
+
         # Execute AspectJ compiler with monitor weaving configuration
         ajc_cmd = Command("ajc", [
             '-cp', classpath_str,
             '-Xlint:ignore',  # Suppress AspectJ lint warnings for generated code
             '-inpath', self.config.tmp_dir,  # Process compiled classes
-            '-d', self.config.tmp_dir,       # Output directory for woven classes
-            '-source', '1.8',                # Java source compatibility
+            '-d', self.config.tmp_dir,  # Output directory for woven classes
+            '-source', '1.8',  # Java source compatibility
             '-sourceroots', self.config.tmp_dir  # Source directory for AspectJ files
         ])
-        
+
         utils.execute_command(ajc_cmd, "ajc")
-        
+
         # Clean up temporary source files after successful weaving
         utils.delete_files_by_extension(constants.EXTENSION_JAVA, self.config.tmp_dir)
         utils.delete_files_by_extension(constants.EXTENSION_AJ, self.config.tmp_dir)
-        
+
         self._logger.debug(f"AspectJ monitor weaving completed successfully", extra={
             'app_name': app.name,
             'pipeline_stage': 'aspectj_weaving_completed'
@@ -720,7 +719,7 @@ class RVInstrumentation:
             'app_name': app.name,
             'pipeline_stage': 'apk_creation'
         })
-        
+
         # Integrate runtime verification support libraries
         self.__merge_support_classes()
 
@@ -734,12 +733,12 @@ class RVInstrumentation:
         shutil.move(monitored_jar, self.config.tmp_dir)
         shutil.rmtree(self.config.rvm_tmp_dir)
         monitored_jar = os.path.join(self.config.tmp_dir, monitored_jar_name)
-        
+
         self._logger.debug(f"Instrumented classes assembled into JAR: {monitored_jar}")
 
         # Compile JAR to DEX format and create unsigned APK
         unsigned_apk = self.__d8(app, monitored_jar)
-        
+
         if not os.path.exists(unsigned_apk):
             raise InstrumentationError(
                 f"Failed to create unsigned APK: {unsigned_apk}",
@@ -750,7 +749,7 @@ class RVInstrumentation:
 
         # Sign APK for deployment readiness
         signed_apk = self.__sign_apk(app, unsigned_apk)
-        
+
         self._logger.debug(f"Instrumented APK creation completed: {signed_apk}")
         return signed_apk
 
@@ -775,43 +774,43 @@ class RVInstrumentation:
         self._logger.info("Integrating runtime verification support libraries", extra={
             'pipeline_stage': 'support_library_integration'
         })
-        
+
         # Prepare temporary directory for library extraction
         utils.reset_folder(self.config.rvm_tmp_dir)
-        
+
         # Define required runtime verification libraries
         required_jars = [
-            "rv-monitor-rt.jar",      # RV-Monitor runtime library
-            "rvsec-core.jar",         # RVSec core functionality
-            "rvsec-logger-logcat.jar", # Android logcat integration
-            "aspectjrt.jar"           # AspectJ runtime library
+            "rv-monitor-rt.jar",  # RV-Monitor runtime library
+            "rvsec-core.jar",  # RVSec core functionality
+            "rvsec-logger-logcat.jar",  # Android logcat integration
+            "aspectjrt.jar"  # AspectJ runtime library
         ]
-        
+
         # Extract each required library
         for jar_name in required_jars:
             jar_path = os.path.join(self.config.lib_tmp_dir, jar_name)
-            
+
             if not os.path.exists(jar_path):
                 raise InstrumentationError(
                     f"Required runtime verification library not found: {jar_path}",
                     None
                 )
-            
+
             self._logger.debug(f"Extracting support library: {jar_name}")
             utils.unzip(jar_path, self.config.rvm_tmp_dir)
-        
+
         # Remove conflicting manifest files
         metainf_dir = os.path.join(self.config.rvm_tmp_dir, "META-INF")
         utils.delete_dir(metainf_dir)
-        
+
         # Merge support classes with instrumented application classes
         shutil.copytree(self.config.rvm_tmp_dir, self.config.tmp_dir, dirs_exist_ok=True)
-        
+
         self._logger.debug(f"Support libraries integrated successfully", extra={
             'integration_target': self.config.tmp_dir,
             'libraries_count': len(required_jars)
         })
-        
+
         # Clean up temporary extraction directory
         shutil.rmtree(self.config.rvm_tmp_dir)
 
@@ -848,25 +847,25 @@ class RVInstrumentation:
         # Execute d8 compiler to convert JAR to DEX
         # TODO: Make min-api dynamic based on app.min_api when available
         d8_cmd = Command('d8', [
-            monitored_jar, 
+            monitored_jar,
             '--release',
             '--lib', self.__get_android_jar(app),
             '--min-api', '26'  # Conservative minimum API level
         ])
-        
+
         utils.execute_command(d8_cmd, "d8")
 
         # Create working copy of original APK
         unsigned_apk_name = f"unsigned_{app.name}"
         unsigned_apk = os.path.join(self.config.tmp_dir, unsigned_apk_name)
-        
+
         self._logger.debug(f"Creating unsigned APK copy", extra={
             'original_apk': app.path,
             'unsigned_apk': unsigned_apk
         })
-        
+
         shutil.copy2(app.path, unsigned_apk)
-        
+
         if not os.path.exists(unsigned_apk):
             raise InstrumentationError(
                 f"Failed to create unsigned APK copy: {unsigned_apk}",
@@ -878,7 +877,7 @@ class RVInstrumentation:
             'unsigned_apk': unsigned_apk_name,
             'pipeline_stage': 'dex_integration'
         })
-        
+
         d8_zip_cmd = Command('zip', ['-u', unsigned_apk, f'*{constants.EXTENSION_DEX}'])
         utils.execute_command(d8_zip_cmd, "d8_zip")
 
@@ -923,16 +922,16 @@ class RVInstrumentation:
             'unsigned_apk': unsigned_apk,
             'pipeline_stage': 'apk_signing'
         })
-        
+
         # Define target path for signed APK
         signed_apk = os.path.join(self.config.instrumented_dir, app.name)
-        
+
         # Execute initial dex2jar APK signing
         self.__d2j_apk_sign(signed_apk, unsigned_apk)
-        
+
         # Remove unsigned APK after successful initial signing
         os.remove(unsigned_apk)
-        
+
         # Validate initial signing success
         if not os.path.exists(signed_apk):
             raise InstrumentationError(
@@ -946,7 +945,7 @@ class RVInstrumentation:
 
         # Apply final keystore signature
         self.__jarsigner(signed_apk)
-        
+
         # Verify signature integrity
         self.__jarsigner_verify(signed_apk)
 
@@ -955,7 +954,7 @@ class RVInstrumentation:
             'signed_apk': signed_apk,
             'pipeline_stage': 'apk_signing_completed'
         })
-        
+
         return signed_apk
 
     def clear(self, folders: list) -> None:
@@ -969,7 +968,7 @@ class RVInstrumentation:
             if os.path.exists(folder):
                 self._logger.debug(f"Cleaning temporary directory: {folder}")
                 shutil.rmtree(folder, ignore_errors=True)
-        
+
         # Clean up any stray DEX files in working directory
         utils.delete_files_by_extension(constants.EXTENSION_DEX, self.config.working_dir)
 
@@ -1041,20 +1040,20 @@ class RVInstrumentation:
         original_hash = utils.file_hash(app.path)
         instrumented_path = os.path.join(self.config.instrumented_dir, app.name)
         instrumented_hash = utils.file_hash(instrumented_path)
-        
+
         if original_hash == instrumented_hash:
             self._logger.error(f"Instrumentation verification failed: APK unchanged", extra={
                 'app_name': app.name,
                 'original_hash': original_hash,
                 'instrumented_hash': instrumented_hash
             })
-            
+
             raise CommandException(
-                "instrumentation_verification", 
-                "-1", 
+                "instrumentation_verification",
+                "-1",
                 f"APK {app.name} was not actually instrumented - hashes match original"
             )
-        
+
         self._logger.debug(f"Instrumentation verification successful: APK modified", extra={
             'app_name': app.name,
             'original_hash': original_hash,

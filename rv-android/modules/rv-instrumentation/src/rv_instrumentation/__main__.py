@@ -7,16 +7,12 @@ operations-enabled artifacts ready for runtime verification testing.
 """
 
 import argparse
-import sys
 import os
-import json
-from typing import Optional, Dict, Any
-from pathlib import Path
+import sys
+from typing import Dict, Any
 
 from rv_instrumentation.config import RVInstrumentationConfig, ConfigurationError
 from rv_instrumentation.rvandroid import RVInstrumentation
-from rv_android_core.util.logging.manager import LoggingManager
-from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
 
 
 def create_parser() -> argparse.ArgumentParser:
@@ -76,33 +72,33 @@ Instrumentation Pipeline:
   6. APK Signing (create deployment-ready instrumented APK)
         """
     )
-    
+
     # Add subcommands
     subparsers = parser.add_subparsers(dest='command', help='Available instrumentation commands')
-    
+
     # Single APK instrumentation command
     instrument_parser = subparsers.add_parser(
         'instrument',
         help='Instrument a single APK with runtime verification monitors',
         description='Transform a single APK into a monitored operations-enabled artifact'
     )
-    
+
     # Batch APK instrumentation command
     batch_parser = subparsers.add_parser(
         'batch',
         help='Batch instrument multiple APKs with runtime verification monitors',
         description='Transform multiple APKs in a directory into monitored operations-enabled artifacts'
     )
-    
+
     # Add common arguments to both parsers
     for cmd_parser in [instrument_parser, batch_parser]:
         _add_configuration_arguments(cmd_parser)
         _add_output_arguments(cmd_parser)
         _add_utility_arguments(cmd_parser)
-    
+
     # Add APK-specific arguments
     _add_apk_arguments(instrument_parser, batch_parser)
-    
+
     return parser
 
 
@@ -113,14 +109,14 @@ def _add_configuration_arguments(parser: argparse.ArgumentParser) -> None:
         '--rvsec-root',
         help='Root directory of RVSEC installation (alternative to individual paths)'
     )
-    
+
     # Monitor configuration
     monitor_group = parser.add_argument_group('Monitor Configuration')
     monitor_group.add_argument(
         '--monitor-dir',
         help='Directory containing generated monitor artifacts from rv-monitor-generator'
     )
-    
+
     # Android SDK configuration
     android_group = parser.add_argument_group('Android SDK Configuration')
     android_group.add_argument(
@@ -131,7 +127,7 @@ def _add_configuration_arguments(parser: argparse.ArgumentParser) -> None:
         '--android-platforms-dir',
         help='Directory containing Android SDK platform libraries'
     )
-    
+
     # Signing configuration
     signing_group = parser.add_argument_group('APK Signing Configuration')
     signing_group.add_argument(
@@ -142,7 +138,7 @@ def _add_configuration_arguments(parser: argparse.ArgumentParser) -> None:
         '--keystore-password',
         help='Password for keystore access'
     )
-    
+
     # Directory configuration
     dirs_group = parser.add_argument_group('Working Directory Configuration')
     dirs_group.add_argument(
@@ -159,8 +155,8 @@ def _add_configuration_arguments(parser: argparse.ArgumentParser) -> None:
     )
 
 
-def _add_apk_arguments(instrument_parser: argparse.ArgumentParser, 
-                      batch_parser: argparse.ArgumentParser) -> None:
+def _add_apk_arguments(instrument_parser: argparse.ArgumentParser,
+                       batch_parser: argparse.ArgumentParser) -> None:
     """Add APK-specific arguments to parsers."""
     # Single APK argument
     apk_group = instrument_parser.add_argument_group('APK Input')
@@ -169,7 +165,7 @@ def _add_apk_arguments(instrument_parser: argparse.ArgumentParser,
         required=True,
         help='Path to APK file to be instrumented'
     )
-    
+
     # Batch APK arguments
     batch_group = batch_parser.add_argument_group('Batch APK Input')
     batch_group.add_argument(
@@ -222,7 +218,7 @@ def configure_logging(verbose: bool) -> None:
         verbose: Enable verbose logging if True
     """
     import logging
-    
+
     level = logging.DEBUG if verbose else logging.INFO
     logging.basicConfig(
         level=level,
@@ -258,9 +254,9 @@ def create_instrumentation_config(args) -> RVInstrumentationConfig:
     )
 
 
-def display_instrumentation_summary(errors: Dict[str, Dict[str, Any]], 
-                                  total_apks: int, 
-                                  operation_type: str) -> None:
+def display_instrumentation_summary(errors: Dict[str, Dict[str, Any]],
+                                    total_apks: int,
+                                    operation_type: str) -> None:
     """
     Display comprehensive instrumentation summary.
     
@@ -271,23 +267,23 @@ def display_instrumentation_summary(errors: Dict[str, Dict[str, Any]],
     """
     successful = total_apks - len(errors)
     success_rate = (successful / total_apks) * 100 if total_apks > 0 else 0
-    
-    print("\n" + "="*60)
+
+    print("\n" + "=" * 60)
     print(f"INSTRUMENTATION SUMMARY ({operation_type.upper()})")
-    print("="*60)
+    print("=" * 60)
     print(f"Total APKs Processed: {total_apks}")
     print(f"Successfully Instrumented: {successful}")
     print(f"Failed Instrumentations: {len(errors)}")
     print(f"Success Rate: {success_rate:.1f}%")
-    
+
     if errors:
         print(f"\nFailed APKs:")
         for apk_name, error_details in errors.items():
             tool = error_details.get('tool', 'unknown')
             phase = error_details.get('phase', 'unknown')
             print(f"  • {apk_name} - {tool} ({phase})")
-    
-    print("="*60)
+
+    print("=" * 60)
 
 
 def handle_instrument_command(args) -> int:
@@ -303,7 +299,7 @@ def handle_instrument_command(args) -> int:
     try:
         # Create configuration from command line arguments
         config = create_instrumentation_config(args)
-        
+
         if args.dry_run:
             print("✓ Configuration validation successful")
             print(f"Configuration Summary:")
@@ -313,17 +309,17 @@ def handle_instrument_command(args) -> int:
             print(f"  Keystore: {summary['signing']['keystore_file']}")
             print(f"  Output Directory: {summary['instrumentation_paths']['instrumented_dir']}")
             return 0
-        
+
         # Validate APK input
         config.validate_apk_input(args.apk)
-        
+
         # Initialize instrumentation engine
         instrumentation = RVInstrumentation(config)
-        
+
         # Execute single APK instrumentation
         print(f"Instrumenting APK: {os.path.basename(args.apk)}")
         print(f"Output directory: {args.output}")
-        
+
         # Create temporary APKs directory for single APK processing
         import tempfile
         with tempfile.TemporaryDirectory() as temp_apks_dir:
@@ -331,14 +327,14 @@ def handle_instrument_command(args) -> int:
             import shutil
             temp_apk_path = os.path.join(temp_apks_dir, os.path.basename(args.apk))
             shutil.copy2(args.apk, temp_apk_path)
-            
+
             # Execute instrumentation
             errors = instrumentation.instrument_apks(
                 apks_dir=temp_apks_dir,
                 results_dir=args.output,
                 force_instrumentation=args.force
             )
-        
+
         # Display results
         if not errors:
             print("✓ APK instrumentation completed successfully")
@@ -350,7 +346,7 @@ def handle_instrument_command(args) -> int:
             if args.summary:
                 display_instrumentation_summary(errors, 1, "single")
             return 1
-            
+
     except ConfigurationError as e:
         print(f"Configuration Error: {e}", file=sys.stderr)
         return 1
@@ -375,7 +371,7 @@ def handle_batch_command(args) -> int:
     try:
         # Create configuration from command line arguments
         config = create_instrumentation_config(args)
-        
+
         if args.dry_run:
             print("✓ Configuration validation successful")
             print(f"Configuration Summary:")
@@ -384,30 +380,30 @@ def handle_batch_command(args) -> int:
             print(f"  Monitor Directory: {summary['instrumentation_paths']['monitor_output_dir']}")
             print(f"  Android JAR: {summary['android_integration']['android_jar_path']}")
             print(f"  Output Directory: {summary['instrumentation_paths']['instrumented_dir']}")
-            
+
             # Count APKs in directory
             from rv_android_core.util import utils
             apks = utils.get_apks(args.apks_dir)
             print(f"  APKs Found: {len(apks)}")
             return 0
-        
+
         # Validate APKs directory
         if not os.path.isdir(args.apks_dir):
             raise FileNotFoundError(f"APKs directory not found: {args.apks_dir}")
-        
+
         # Initialize instrumentation engine
         instrumentation = RVInstrumentation(config)
-        
+
         # Execute batch instrumentation
         print(f"Batch instrumenting APKs from: {args.apks_dir}")
         print(f"Output directory: {args.output}")
-        
+
         errors = instrumentation.instrument_apks(
             apks_dir=args.apks_dir,
             results_dir=args.output,
             force_instrumentation=args.force
         )
-        
+
         # Count total APKs for summary
         from rv_android_core.util import utils
         try:
@@ -415,7 +411,7 @@ def handle_batch_command(args) -> int:
             total_apks = len(apks)
         except:
             total_apks = len(errors) if errors else 1
-        
+
         # Display results
         if not errors:
             print("✓ All APKs instrumented successfully")
@@ -428,11 +424,11 @@ def handle_batch_command(args) -> int:
                 print(f"⚠ Partial success: {successful}/{total_apks} APKs instrumented")
             else:
                 print("✗ All APK instrumentations failed")
-            
+
             if args.summary:
                 display_instrumentation_summary(errors, total_apks, "batch")
             return 1 if successful == 0 else 0
-            
+
     except ConfigurationError as e:
         print(f"Configuration Error: {e}", file=sys.stderr)
         return 1
@@ -453,10 +449,10 @@ def main() -> int:
     """
     parser = create_parser()
     args = parser.parse_args()
-    
+
     # Configure logging
     configure_logging(getattr(args, 'verbose', False))
-    
+
     # Handle commands
     if args.command == 'instrument':
         return handle_instrument_command(args)
