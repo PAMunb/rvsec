@@ -1,35 +1,94 @@
-# rvandroid/model/coverage.py
 """
 Unified model for method coverage tracking and analysis.
-This module provides standardized data structures for tracking method coverage and coverage metrics.
+
+This module provides validated data structures for tracking method coverage
+and coverage metrics during runtime verification execution.
 """
 import logging
-from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Dict, List, Optional, Set, Any
+from pydantic import Field, computed_field
 
 from rv_android_core.domain.log import RvCoverageLog, RvErrorLog
+from rv_android_core.util.validation import BaseValidatedModel
+from rv_android_core.util.validation.decorators import validated_model
 
 
-@dataclass
-class MethodCoverageData:
+@validated_model(['class_name', 'method_name', 'signature', 'parameters'])
+class MethodCoverageData(BaseValidatedModel):
     """
-    Standard data structure for method coverage information.
-    Contains detailed data about a method, including its coverage status and properties.
+    Validated data model for method coverage information and execution tracking.
+    
+    This model provides comprehensive tracking of method execution status including
+    static analysis reachability information and dynamic execution data with
+    precise timing correlation for experiment analysis.
+
+    ### Architectural Role:
+    - Represents individual method coverage state in the runtime verification system
+    - Bridges static analysis data with dynamic execution monitoring results
+    - Provides temporal correlation between method calls and experiment timeline
+    - Enables precise coverage calculation and progress tracking
+
+    ### Critical Timing Data Flow:
+    The time_since_task_start field preserves timing information from RvCoverageLog
+    objects throughout the complete data flow to maintain accurate timing data
+    for CSV report generation and temporal analysis.
+
+    ### Integration Points:
+    - Created from static analysis results during experiment initialization
+    - Updated by coverage monitoring during application execution
+    - Consumed by result analysis for coverage percentage calculation
+    - Used by reporting systems for detailed coverage analysis
     """
-    class_name: str
-    method_name: str
-    signature: str
-    parameters: List[str]
-    reachable: bool = False
-    reaches_mop: bool = False
-    directly_reaches_mop: bool = False
-    called: bool = False
-    call_count: int = 0
-    first_called_at: Optional[datetime] = None
-    last_called_at: Optional[datetime] = None
-    from_static_analysis: bool = False  # New field to track source
-    time_since_task_start: int = 0  # Time in seconds when first called (from RvCoverageLog)
+
+    class_name: str = Field(
+        description="Fully qualified class name containing this method"
+    )
+    method_name: str = Field(
+        description="Method name within the containing class"
+    )
+    signature: str = Field(
+        description="Complete method signature including parameters"
+    )
+    parameters: List[str] = Field(
+        description="List of parameter types for method signature"
+    )
+    reachable: bool = Field(
+        default=False,
+        description="Whether method is reachable according to static analysis"
+    )
+    reaches_mop: bool = Field(
+        default=False,
+        description="Whether method can reach monitor-oriented programming operations"
+    )
+    directly_reaches_mop: bool = Field(
+        default=False,
+        description="Whether method directly invokes monitored operations"
+    )
+    called: bool = Field(
+        default=False,
+        description="Whether method has been executed during runtime verification"
+    )
+    call_count: int = Field(
+        default=0,
+        description="Number of times method has been called during execution"
+    )
+    first_called_at: Optional[datetime] = Field(
+        default=None,
+        description="Timestamp when method was first called during execution"
+    )
+    last_called_at: Optional[datetime] = Field(
+        default=None,
+        description="Timestamp when method was most recently called"
+    )
+    from_static_analysis: bool = Field(
+        default=False,
+        description="Whether method data originates from static analysis results"
+    )
+    time_since_task_start: int = Field(
+        default=0,
+        description="Seconds elapsed since task start when method was first called (preserved from RvCoverageLog)"
+    )
 
     def register_call(self, timestamp: Optional[datetime] = None, time_since_task_start: Optional[int] = None) -> None:
         """
@@ -122,16 +181,43 @@ class MethodCoverageData:
         return instance
 
 
-@dataclass
-class ClassCoverageData:
+@validated_model(['name'])
+class ClassCoverageData(BaseValidatedModel):
     """
-    Standard data structure for class coverage information.
-    Tracks methods within a class and provides class-level metrics.
+    Validated data model for class-level coverage information and metrics.
+    
+    This model aggregates method coverage data at the class level and provides
+    comprehensive metrics for understanding application component coverage
+    during runtime verification execution.
+
+    ### Architectural Role:
+    - Aggregates method-level coverage data for comprehensive class analysis
+    - Provides class-level metrics for coverage calculation and reporting
+    - Enables efficient lookup and management of method coverage within classes
+    - Supports Activity-specific tracking for Android component analysis
+
+    ### Integration Points:
+    - Contains MethodCoverageData instances for all methods within the class
+    - Used by LogcatRepository for coverage data organization and retrieval
+    - Consumed by metrics calculation for class-level coverage percentages
+    - Integrated with reporting systems for detailed class analysis
     """
-    name: str
-    is_activity: bool = False
-    is_main_activity: bool = False
-    methods: Dict[str, MethodCoverageData] = field(default_factory=dict)
+
+    name: str = Field(
+        description="Fully qualified class name"
+    )
+    is_activity: bool = Field(
+        default=False,
+        description="Whether this class is an Android Activity component"
+    )
+    is_main_activity: bool = Field(
+        default=False,
+        description="Whether this class is the main (launcher) Activity"
+    )
+    methods: Dict[str, MethodCoverageData] = Field(
+        default_factory=dict,
+        description="Dictionary of method signatures to coverage data for all methods in class"
+    )
 
     @property
     def called(self) -> bool:
@@ -221,29 +307,80 @@ class ClassCoverageData:
         }
 
 
-@dataclass
-class CoverageMetrics:
+class CoverageMetrics(BaseValidatedModel):
     """
-    Standard container for coverage metrics.
-    Provides a consistent structure for storing and reporting coverage metrics.
+    Validated data model for comprehensive coverage metrics and analysis.
+    
+    This model provides standardized structure for storing and reporting coverage
+    metrics calculated from static analysis and dynamic execution data during
+    runtime verification experiments.
+
+    ### Architectural Role:
+    - Provides standardized metrics container for coverage calculation results
+    - Enables consistent coverage reporting across different experiment types
+    - Supports both raw counts and calculated percentages for analysis
+    - Facilitates comparison and aggregation of coverage data
+
+    ### Integration Points:
+    - Generated by LogcatRepository.calculate_metrics() from coverage data
+    - Consumed by result analysis and reporting systems
+    - Used by experiment orchestration for progress tracking
+    - Integrated with CSV and JSON output generation for analysis
     """
-    # Basic counts
-    total_classes: int = 0
-    total_activities: int = 0
-    total_methods: int = 0
-    total_reachable_methods: int = 0
-    total_mop_methods: int = 0
 
-    # Called counts
-    called_classes: int = 0
-    called_activities: int = 0
-    called_methods: int = 0
-    called_reachable_methods: int = 0
-    called_mop_methods: int = 0
+    # Basic counts from static analysis
+    total_classes: int = Field(
+        default=0,
+        description="Total number of classes identified in static analysis"
+    )
+    total_activities: int = Field(
+        default=0,
+        description="Total number of Android Activity classes in application"
+    )
+    total_methods: int = Field(
+        default=0,
+        description="Total number of methods identified in static analysis"
+    )
+    total_reachable_methods: int = Field(
+        default=0,
+        description="Total number of methods marked as reachable by static analysis"
+    )
+    total_mop_methods: int = Field(
+        default=0,
+        description="Total number of methods that can reach monitored operations"
+    )
 
-    # Error counts
-    total_errors: int = 0
-    unique_errors: int = 0
+    # Called counts from dynamic execution
+    called_classes: int = Field(
+        default=0,
+        description="Number of classes with at least one method called during execution"
+    )
+    called_activities: int = Field(
+        default=0,
+        description="Number of Activity classes with methods called during execution"
+    )
+    called_methods: int = Field(
+        default=0,
+        description="Number of methods actually called during execution"
+    )
+    called_reachable_methods: int = Field(
+        default=0,
+        description="Number of reachable methods that were called during execution"
+    )
+    called_mop_methods: int = Field(
+        default=0,
+        description="Number of MOP-reaching methods that were called during execution"
+    )
+
+    # Error counts from runtime verification
+    total_errors: int = Field(
+        default=0,
+        description="Total number of property violations detected during execution"
+    )
+    unique_errors: int = Field(
+        default=0,
+        description="Number of unique property violation types detected"
+    )
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert metrics to a dictionary with calculated percentages."""

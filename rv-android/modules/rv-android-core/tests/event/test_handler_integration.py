@@ -45,7 +45,7 @@ class TestEventHandlerIntegration:
         handler = EventHandler(callback)
 
         # Create a task event
-        task_event = TaskEvent(type=EventType.TASK_STARTED, task_id=1)
+        task_event = TaskEvent(type=EventType.TASK_STARTED, task_id="1")
 
         # Act - simulate direct event handling without EventBus
         result = handler.handle(task_event)
@@ -57,7 +57,7 @@ class TestEventHandlerIntegration:
         # Verify event properties were passed correctly
         args = callback.call_args[0][0]
         assert args.type == EventType.TASK_STARTED
-        assert args.task_id == 1
+        assert args.task_id == "1"
 
     def test_real_task_event_handling(self):
         """Test handling a real TaskEvent instance."""
@@ -68,7 +68,7 @@ class TestEventHandlerIntegration:
         # Create a real TaskEvent
         task_event = TaskEvent(
             type=EventType.TASK_STARTED,
-            task_id=42,
+            task_id="42",
             task_config={
                 "apk_name": "test_app.apk",
                 "repetition": 1,
@@ -89,7 +89,7 @@ class TestEventHandlerIntegration:
         # Verify event properties were preserved
         args = callback.call_args[0][0]
         assert args.type == EventType.TASK_STARTED
-        assert args.task_id == 42
+        assert args.task_id == "42"
         assert args.task_config["apk_name"] == "test_app.apk"
         assert args.source == "TaskExecutor"
 
@@ -100,13 +100,13 @@ class TestEventHandlerIntegration:
 
         # Create filter that only accepts events for task ID 1
         def task_id_filter(event):
-            return hasattr(event, 'task_id') and event.task_id == 1
+            return hasattr(event, 'task_id') and event.task_id == "1"
 
         handler = EventHandler(callback, task_id_filter)
 
         # Create task events with different IDs
-        task_event1 = TaskEvent(type=EventType.TASK_STARTED, task_id=1)
-        task_event2 = TaskEvent(type=EventType.TASK_STARTED, task_id=2)
+        task_event1 = TaskEvent(type=EventType.TASK_STARTED, task_id="1")
+        task_event2 = TaskEvent(type=EventType.TASK_STARTED, task_id="2")
 
         # Act
         result1 = handler.handle(task_event1)
@@ -160,7 +160,7 @@ class TestEventHandlerIntegration:
             handler_id = event_bus.subscribe(EventType.TASK_STARTED, callback)
 
             # Create and publish an event
-            task_event = TaskEvent(type=EventType.TASK_STARTED, task_id=1)
+            task_event = TaskEvent(type=EventType.TASK_STARTED, task_id="1")
             result = event_bus.publish(task_event)
 
             # Assert

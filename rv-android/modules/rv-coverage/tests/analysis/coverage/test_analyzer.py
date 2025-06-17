@@ -5,8 +5,7 @@ import pytest
 
 from rv_android_core.domain.classes import Classes, Method
 from rv_android_core.domain.log import RvCoverageLog, RvErrorLog
-from rv_android_core.domain.static import StaticAnalysisData
-
+from rv_android_core.domain.static import StaticAnalysisData, WindowTransitionGraph, Windows
 
 class TestCoverageAnalyzer:
     @pytest.fixture
@@ -63,8 +62,8 @@ class TestCoverageAnalyzer:
 
         return StaticAnalysisData(
             classes=classes,
-            windows=None,
-            wtg=None
+            windows=Windows(),
+            wtg=WindowTransitionGraph()
         )
 
     @patch('rv_android_core.event.bus.EventBus')

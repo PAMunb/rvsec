@@ -10,12 +10,12 @@ packages = [{include = "rv_llm", from = "src"}]
 python = ">=3.12,<4.0"
 rv-android-core = {path = "../rv-android-core", develop = true}
 rv-screen-parser = {path = "../rv-screen-parser", develop = true}
+pydantic = "^2.8.0"
 
 # LLM-specific dependencies
 requests = "*"  # Para APIs HTTP
 httpx = "*"  # Cliente HTTP async moderno
 jinja2 = "*"  # Template engine para prompts
-pydantic = "*"  # Validação de dados e configuração
 
 # Provider-specific dependencies
 ollama = "*"  # Ollama SDK

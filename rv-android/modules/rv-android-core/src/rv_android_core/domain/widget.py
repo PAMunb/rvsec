@@ -1,8 +1,17 @@
-# widget.py
+"""
+Widget and UI element models for Android application analysis.
+
+This module provides validated data models for representing Android UI widgets,
+their events, and associated metadata from static analysis and dynamic exploration.
+"""
+
 from enum import Enum
-from typing import List, Set
+from typing import List, Set, Dict, Any
+from pydantic import Field, model_validator
 
 from rv_android_core.util.logging.manager import LoggingManager
+from rv_android_core.util.validation import BaseValidatedModel
+from rv_android_core.util.validation.decorators import validated_model
 
 
 class WidgetEventType(Enum):
@@ -21,26 +30,45 @@ class WidgetEventType(Enum):
     OTHER = 12
 
 
-class WidgetEvent:
+@validated_model(['event_type', 'clazz', 'method', 'signature'])
+class WidgetEvent(BaseValidatedModel):
     """
-    Represents an event for widget.
-    Tracks the event type and associated method information.
+    Validated data model for widget interaction events.
+    
+    This model represents user interaction events with UI widgets and their
+    associated callback methods for comprehensive UI analysis.
+    
+    ### Architectural Role:
+    - Maps UI events to application code execution paths
+    - Provides structured representation of widget interaction capabilities
+    - Enables correlation between UI elements and monitored methods
+    - Supports comprehensive UI coverage analysis and testing
+    
+    ### Integration Points:
+    - Created during static analysis of UI event handlers
+    - Used by widget exploration for interaction simulation
+    - Consumed by coverage analysis for UI-to-code mapping
+    - Integrated with monitoring systems for event tracking
     """
-
-    def __init__(self, event_type: WidgetEventType, clazz: str, method: str, signature: str):
-        """
-        Initialize a widget event.
-
-        Args:
-            event_type: Type of the event
-            clazz: Class name handling the event
-            method: Method name handling the event
-            signature: Full method signature
-        """
-        self.type = event_type
-        self.clazz = clazz
-        self.method = method
-        self.signature = signature
+    
+    event_type: WidgetEventType = Field(
+        alias='type',
+        description="Type of user interaction event (click, long_click, etc.)"
+    )
+    clazz: str = Field(
+        description="Fully qualified class name containing the event handler method"
+    )
+    method: str = Field(
+        description="Method name that handles this widget event"
+    )
+    signature: str = Field(
+        description="Complete method signature including parameters and return type"
+    )
+    
+    @property
+    def type(self) -> WidgetEventType:
+        """Compatibility property for accessing event_type."""
+        return self.event_type
 
     def to_json(self):
         """
@@ -146,56 +174,107 @@ class WidgetType(Enum):
         return next((wt for wt in WidgetType if wt.value == class_name), WidgetType.OTHER)
 
 
-class Widget:
+@validated_model(['widget_id', 'name', 'widget_type'])
+class Widget(BaseValidatedModel):
     """
-    Represents a UI widget in the application.
-    Manages widget properties and associated listeners.
+    Validated data model for Android UI widget representation.
     
-    ### Architectural Decisions:
-    - Stores comprehensive metadata about UI elements
-    - Manages associated event handlers and callbacks
-    - Maintains both internal identifiers and Android resource IDs
-    - Supports integration with static analysis and runtime exploration
+    This model provides comprehensive representation of Android UI elements
+    with their properties, events, and associated handlers for static analysis
+    and dynamic exploration integration.
     
-    ### Role in the System:
-    - Provides rich representation of UI components
-    - Maps between UI events and code handlers
-    - Enables association between UI elements and monitored methods
-    - Supports advanced exploration through resource linking
+    ### Architectural Role:
+    - Provides structured representation of Android UI components
+    - Maps UI elements to event handlers and callback methods
+    - Enables correlation between UI interactions and monitored operations
+    - Supports comprehensive UI coverage analysis and exploration optimization
+    
+    ### Integration Points:
+    - Created during static analysis of application UI structure
+    - Used by exploration tools for systematic UI interaction
+    - Consumed by coverage analysis for UI-to-code correlation
+    - Integrated with monitoring systems for interaction tracking
+    
+    ### Critical UI Analysis Data:
+    The reaches_mop and directly_reaches_mop fields provide essential information
+    for prioritizing UI elements during exploration based on their potential
+    to trigger monitored operations and security-relevant code paths.
     """
-
-    def __init__(self, widget_id: str, name: str, widget_type: WidgetType):
-        """
-        Initialize a widget.
-
-        Args:
-            widget_id: Unique widget identifier
-            name: Widget name
-            widget_type: Type of the widget
-        """
-        # Configure logging
+    
+    widget_id: str = Field(
+        alias='id',
+        description="Unique identifier for the widget within the application"
+    )
+    name: str = Field(
+        description="Human-readable name or label of the widget"
+    )
+    widget_type: WidgetType = Field(
+        alias='type',
+        description="Android widget type classification"
+    )
+    text: str = Field(
+        default="",
+        description="Visible text content displayed by the widget"
+    )
+    hint: str = Field(
+        default="",
+        description="Hint text or placeholder content for input widgets"
+    )
+    field: str = Field(
+        default="",
+        description="Associated data field or attribute name"
+    )
+    input_type: str = Field(
+        default="",
+        description="Input type specification for text input widgets"
+    )
+    resource_id: str = Field(
+        default="",
+        description="Android resource identifier from layout XML"
+    )
+    class_name: str = Field(
+        default="",
+        description="Fully qualified class name of the widget implementation"
+    )
+    entries: List[str] = Field(
+        default_factory=list,
+        description="List of predefined entries for selection widgets"
+    )
+    events: Set[WidgetEvent] = Field(
+        default_factory=set,
+        description="Set of interaction events supported by this widget"
+    )
+    handlers: List[str] = Field(
+        default_factory=list,
+        description="List of event handler method signatures associated with the widget"
+    )
+    reaches_mop: bool = Field(
+        default=False,
+        description="Whether this widget can trigger paths to monitored operations"
+    )
+    directly_reaches_mop: bool = Field(
+        default=False,
+        description="Whether this widget directly invokes monitored operations"
+    )
+    
+    @property
+    def id(self) -> str:
+        """Compatibility property for accessing widget_id."""
+        return self.widget_id
+        
+    @property
+    def type(self) -> WidgetType:
+        """Compatibility property for accessing widget_type."""
+        return self.widget_type
+    
+    def model_post_init(self, __context) -> None:
+        """Initialize logging after model validation."""
         logging_manager = LoggingManager.get_instance()
-        self.logger = logging_manager.get_logger("model.widget.Widget", {
-            "widget_id": widget_id,
-            "widget_type": widget_type.name
-        })
-
-        self.id = widget_id
-        self.type = widget_type
-        self.name = name
-        self.text = ""
-        self.hint = ""
-        self.field = ""
-        self.input_type = ""
-        self.resource_id = ""  # Resource identifier in the layout XML
-        self.class_name = ""   # Class name of the widget
-        self.entries: List[str] = []
-        self.events: Set[WidgetEvent] = set()
-        self.handlers: List[str] = []  # List of handlers associated with the widget
-        self.reaches_mop = False  # Whether this widget can reach monitored methods
-        self.directly_reaches_mop = False  # Whether this widget directly reaches monitored methods
-
-        self.logger.debug(f"Widget created: {self.name or widget_id}")
+        object.__setattr__(self, 'logger', logging_manager.get_logger("domain.widget.Widget", {
+            "widget_id": self.widget_id,
+            "widget_type": self.widget_type.name
+        }))
+        self.logger.debug(f"Widget created: {self.name or self.widget_id}")
 
     def add_event(self, event: WidgetEvent) -> bool:
         """
@@ -208,14 +287,16 @@ class Widget:
             True if event was added, False if it already exists
         """
         if event in self.events:
-            self.logger.debug(f"Event '{event.signature}' already exists for widget {self.id}")
+            if hasattr(self, 'logger'):
+                self.logger.debug(f"Event '{event.signature}' already exists for widget {self.widget_id}")
             return False
 
-        self.logger.debug(f"Adding event '{event.signature}' to widget {self.id}")
+        if hasattr(self, 'logger'):
+            self.logger.debug(f"Adding event '{event.signature}' to widget {self.widget_id}")
         self.events.add(event)
         return True
 
-    def to_json(self):
+    def to_json(self) -> Dict[str, Any]:
         """
         Convert widget to JSON format.
 
@@ -223,8 +304,8 @@ class Widget:
             Dictionary representation for JSON serialization
         """
         return {
-            "id": self.id,
-            "type": self.type.name,
+            "id": self.widget_id,
+            "type": self.widget_type.name,
             "name": self.name,
             "text": self.text,
             "hint": self.hint,
@@ -250,7 +331,7 @@ class Widget:
             True if equal, False otherwise
         """
         if isinstance(value, Widget):
-            return self.id == value.id
+            return self.widget_id == value.widget_id
         return False
 
     def __hash__(self):
@@ -260,7 +341,7 @@ class Widget:
         Returns:
             Hash value based on id
         """
-        return hash(self.id)
+        return hash(self.widget_id)
 
     def __str__(self):
         """
@@ -269,7 +350,7 @@ class Widget:
         Returns:
             String representation
         """
-        return f"Widget=[id={self.id}, type={self.type}, name={self.name}, text={self.text}, hint={self.hint}, field={self.field}, input_type={self.input_type}, entries={self.entries}, events={self.events}]"
+        return f"Widget=[id={self.widget_id}, type={self.widget_type}, name={self.name}, text={self.text}, hint={self.hint}, field={self.field}, input_type={self.input_type}, entries={self.entries}, events={self.events}]"
 
     def __repr__(self):
         """
@@ -278,4 +359,4 @@ class Widget:
         Returns:
             Representation string
         """
-        return f"{self.id}"
+        return f"{self.widget_id}"

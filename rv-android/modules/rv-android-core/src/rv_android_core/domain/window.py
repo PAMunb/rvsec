@@ -1,9 +1,18 @@
-# window.py
+"""
+Window and screen models for Android application UI analysis.
+
+This module provides validated data models for representing Android application
+windows, screens, and their associated UI components for comprehensive UI analysis.
+"""
+
 from enum import Enum
-from typing import Optional, Dict, Set
+from typing import Optional, Dict, Set, List, Any
+from pydantic import Field
 
 from rv_android_core.domain.widget import Widget
 from rv_android_core.util.logging.manager import LoggingManager
+from rv_android_core.util.validation import BaseValidatedModel
+from rv_android_core.util.validation.decorators import validated_model
 
 
 class WindowType(Enum):
@@ -35,33 +44,69 @@ class WindowType(Enum):
         return type_mapping.get(window_type)
 
 
-class Window:
+@validated_model(['name'])
+class Window(BaseValidatedModel):
     """
-    Represents a window in the application.
-    Manages window properties and associated widgets.
+    Validated data model for Android application window representation.
+    
+    This model provides comprehensive representation of Android application windows
+    or screens with their associated UI widgets and metadata for static analysis
+    and dynamic exploration.
+    
+    ### Architectural Role:
+    - Represents individual screens or activities in Android applications
+    - Aggregates UI widgets and their interaction capabilities
+    - Provides window-level metadata for navigation and exploration
+    - Enables correlation between static analysis and dynamic exploration data
+    
+    ### Integration Points:
+    - Created during static analysis of application UI structure
+    - Used by window transition graph for navigation modeling
+    - Consumed by exploration tools for systematic UI interaction
+    - Integrated with coverage analysis for screen-level metrics
+    
+    ### Critical Navigation Data:
+    The activity and class_name fields provide essential mapping between
+    UI screens and their corresponding Android Activity implementations.
     """
-
-    def __init__(self, name: str):
-        """
-        Initialize a window with its name.
-
-        Args:
-            name: Window name
-        """
-        # Configure logging
+    
+    name: str = Field(
+        description="Window identifier or screen name"
+    )
+    id: str = Field(
+        default="",
+        description="Unique window identifier within the application"
+    )
+    type: WindowType = Field(
+        default=WindowType.ACTIVITY,
+        description="Window type classification (Activity, Dialog, Menu, etc.)"
+    )
+    layout_file: str = Field(
+        default="",
+        description="Associated layout XML file path from static analysis"
+    )
+    widgets: Dict[str, Widget] = Field(
+        default_factory=dict,
+        description="Dictionary mapping widget IDs to Widget instances in this window"
+    )
+    fields: Set[str] = Field(
+        default_factory=set,
+        description="Set of data fields or attributes associated with this window"
+    )
+    activity: str = Field(
+        default="",
+        description="Android Activity class name associated with this window"
+    )
+    class_name: str = Field(
+        default="",
+        description="Fully qualified class name of the Activity implementation"
+    )
+    
+    def model_post_init(self, __context) -> None:
+        """Initialize logging after model validation."""
         logging_manager = LoggingManager.get_instance()
-        self.logger = logging_manager.get_logger("model.window.Window", {"window": name})
-
-        self.id = ""
-        self.name = name
-        self.type: WindowType = WindowType.ACTIVITY
-        self.layout_file = ""
-        self.widgets: Dict[str, Widget] = {}
-        self.fields: Set[str] = set()
-        self.activity = ""  # Name of the Activity associated with this window
-        self.class_name = ""  # Class name of the Activity associated with this window
-
-        self.logger.debug(f"Window created: {name}")
+        object.__setattr__(self, 'logger', logging_manager.get_logger("domain.window.Window", {"window": self.name}))
+        self.logger.debug(f"Window created: {self.name}")
 
     def add_widget(self, widget: Widget) -> bool:
         """
@@ -73,13 +118,15 @@ class Window:
         Returns:
             True if widget was added, False if already exists
         """
-        widget_id = str(widget.id)
+        widget_id = str(widget.widget_id)
         if widget_id in self.widgets:
-            self.logger.debug(f"Widget {widget_id} already exists in window {self.name}")
+            if hasattr(self, 'logger'):
+                self.logger.debug(f"Widget {widget_id} already exists in window {self.name}")
             return False
 
         self.widgets[widget_id] = widget
-        self.logger.debug(f"Added widget {widget_id} to window {self.name}")
+        if hasattr(self, 'logger'):
+            self.logger.debug(f"Added widget {widget_id} to window {self.name}")
         return True
 
     def get_widget(self, widget_id: str) -> Optional[Widget]:
@@ -92,14 +139,17 @@ class Window:
         Returns:
             Widget if found, None otherwise
         """
-        self.logger.debug(f"Getting widget {widget_id} from window {self.name}")
+        if hasattr(self, 'logger'):
+            self.logger.debug(f"Getting widget {widget_id} from window {self.name}")
         widget = self.widgets.get(widget_id)
 
         if widget:
-            self.logger.debug(f"Widget {widget_id} found")
+            if hasattr(self, 'logger'):
+                self.logger.debug(f"Widget {widget_id} found")
             return widget
 
-        self.logger.debug(f"Widget {widget_id} not found")
+        if hasattr(self, 'logger'):
+            self.logger.debug(f"Widget {widget_id} not found")
         return None
 
     def get_widget_by_name(self, widget_name: str) -> Optional[Widget]:
@@ -112,27 +162,31 @@ class Window:
         Returns:
             Widget if found, None otherwise
         """
-        self.logger.debug(f"Looking for widget '{widget_name}' in window {self.name}")
+        if hasattr(self, 'logger'):
+            self.logger.debug(f"Looking for widget '{widget_name}' in window {self.name}")
 
         for widget in self.widgets.values():
             if widget.name == widget_name:
-                self.logger.debug(f"Widget '{widget_name}' found")
+                if hasattr(self, 'logger'):
+                    self.logger.debug(f"Widget '{widget_name}' found")
                 return widget
 
-        self.logger.debug(f"Widget '{widget_name}' not found")
+        if hasattr(self, 'logger'):
+            self.logger.debug(f"Widget '{widget_name}' not found")
         return None
         
-    def get_widgets(self):
+    def get_widgets(self) -> List[Widget]:
         """
         Get all widgets associated with this window.
         
         Returns:
             List of all widgets in this window
         """
-        self.logger.debug(f"Getting all widgets for window {self.name}, found {len(self.widgets)}")
+        if hasattr(self, 'logger'):
+            self.logger.debug(f"Getting all widgets for window {self.name}, found {len(self.widgets)}")
         return list(self.widgets.values())
 
-    def to_json(self):
+    def to_json(self) -> Dict[str, Any]:
         """
         Convert window to JSON format.
 
@@ -169,21 +223,43 @@ class Window:
         return self.name
 
 
-class Windows:
+class Windows(BaseValidatedModel):
     """
-    Manages all windows and their widgets in the application.
-    Provides functionality to add and retrieve windows and widgets.
+    Validated data model for managing all application windows and UI widgets.
+    
+    This model provides centralized management of Android application windows
+    and their associated widgets for comprehensive UI analysis and exploration.
+    
+    ### Architectural Role:
+    - Provides centralized repository for all application windows
+    - Aggregates widgets across all windows for global UI analysis
+    - Enables efficient window and widget lookup operations
+    - Supports comprehensive UI structure analysis and reporting
+    
+    ### Integration Points:
+    - Populated during static analysis of application UI structure
+    - Used by window transition graph for complete UI modeling
+    - Consumed by exploration tools for systematic UI navigation
+    - Integrated with coverage systems for application-wide UI metrics
+    
+    ### Performance Considerations:
+    Maintains both window-specific and global widget collections for
+    efficient access patterns during analysis and exploration operations.
     """
-
-    def __init__(self):
-        """Initialize the Windows container with logging."""
-        # Configure logging
+    
+    windows: Set[Window] = Field(
+        default_factory=set,
+        description="Set of all windows in the application"
+    )
+    widgets: Dict[str, Widget] = Field(
+        default_factory=dict,
+        description="Global dictionary mapping widget IDs to Widget instances across all windows"
+    )
+    
+    def model_post_init(self, __context) -> None:
+        """Initialize logging after model validation."""
         logging_manager = LoggingManager.get_instance()
-        self.logger = logging_manager.get_logger("model.window.Windows")
-
-        self.windows: Set[Window] = set()
-        self.widgets: Dict[str, Widget] = {}
-
+        object.__setattr__(self, 'logger', logging_manager.get_logger("domain.window.Windows"))
         self.logger.debug("Windows container initialized")
 
     def add_window(self, window: Window) -> bool:
@@ -197,11 +273,13 @@ class Windows:
             True if window was added, False if already exists
         """
         if window in self.windows:
-            self.logger.debug(f"Window {window.name} already exists")
+            if hasattr(self, 'logger'):
+                self.logger.debug(f"Window {window.name} already exists")
             return False
 
         self.windows.add(window)
-        self.logger.debug(f"Added window: {window.name}")
+        if hasattr(self, 'logger'):
+            self.logger.debug(f"Added window: {window.name}")
         self.__update_widgets_of_window(window)
         return True
 
@@ -235,7 +313,8 @@ class Windows:
             window.id = window_id
 
         self.add_window(window)
-        self.logger.debug(f"Created new window: {window_name} (ID: {window_id or 'not set'})")
+        if hasattr(self, 'logger'):
+            self.logger.debug(f"Created new window: {window_name} (ID: {window_id or 'not set'})")
         return window
 
     def __update_widgets_of_window(self, window: Window):
@@ -246,8 +325,9 @@ class Windows:
             window: Window containing widgets to update
         """
         for widget_id, widget in window.widgets.items():
-            self.logger.debug(f"Adding widget {widget.id} from window {window.name}")
-            self.widgets[widget.id] = widget
+            if hasattr(self, 'logger'):
+                self.logger.debug(f"Adding widget {widget.widget_id} from window {window.name}")
+            self.widgets[widget.widget_id] = widget
 
     def get_window_by_id(self, window_id: str) -> Optional[Window]:
         """
@@ -285,11 +365,13 @@ class Windows:
             True if widget was added, False if already exists
         """
         if window.add_widget(widget):
-            self.widgets[widget.id] = widget
-            self.logger.debug(f"Added widget {widget.id} to window {window.name}")
+            self.widgets[widget.widget_id] = widget
+            if hasattr(self, 'logger'):
+                self.logger.debug(f"Added widget {widget.widget_id} to window {window.name}")
             return True
 
-        self.logger.debug(f"Widget {widget.id} already exists in window {window.name}")
+        if hasattr(self, 'logger'):
+            self.logger.debug(f"Widget {widget.widget_id} already exists in window {window.name}")
         return False
 
     def get_widget(self, widget_id: str) -> Optional[Widget]:
@@ -305,23 +387,26 @@ class Windows:
         widget = self.widgets.get(widget_id)
 
         if widget:
-            self.logger.debug(f"Found widget {widget_id}")
+            if hasattr(self, 'logger'):
+                self.logger.debug(f"Found widget {widget_id}")
         else:
-            self.logger.debug(f"Widget {widget_id} not found")
+            if hasattr(self, 'logger'):
+                self.logger.debug(f"Widget {widget_id} not found")
 
         return widget
         
-    def get_windows(self):
+    def get_windows(self) -> Set[Window]:
         """
         Get all windows.
         
         Returns:
             Set of all windows
         """
-        self.logger.debug(f"Getting all windows, found {len(self.windows)}")
+        if hasattr(self, 'logger'):
+            self.logger.debug(f"Getting all windows, found {len(self.windows)}")
         return self.windows
 
-    def to_json(self):
+    def to_json(self) -> Dict[str, Any]:
         """
         Convert all windows to JSON format.
 

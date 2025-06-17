@@ -109,7 +109,7 @@ class TestTaskEvent:
 
     def test_task_event_initialization(self):
         """Test that TaskEvent initializes with correct values."""
-        task_id = 42
+        task_id = "42"  # Using string for UUID compatibility
         task_config = {"apk_name": "test.apk", "timeout": 60}
         details = {"status": "running", "progress": 50}
         source = "test_source"
@@ -132,21 +132,21 @@ class TestTaskEvent:
 
     def test_task_event_default_values(self):
         """Test that TaskEvent uses correct default values."""
-        event = TaskEvent(type=EventType.TASK_STARTED, task_id=42)
+        event = TaskEvent(type=EventType.TASK_STARTED, task_id="42")
 
-        assert event.task_id == 42
+        assert event.task_id == "42"
         assert event.task_config == {}
         assert event.details == {}
 
     def test_task_event_inheritance(self):
         """Test that TaskEvent properly inherits from Event."""
-        event = TaskEvent(type=EventType.TASK_STARTED, task_id=42)
+        event = TaskEvent(type=EventType.TASK_STARTED, task_id="42")
 
         assert isinstance(event, Event)
 
     def test_task_event_string_representation(self):
         """Test the string representation of TaskEvent objects."""
-        event = TaskEvent(type=EventType.TASK_STARTED, task_id=42)
+        event = TaskEvent(type=EventType.TASK_STARTED, task_id="42")
 
         # Check string representation contains task-specific information
         string_repr = str(event)
@@ -168,7 +168,7 @@ class TestExperimentEvent:
     def test_experiment_event_initialization(self):
         """Test that ExperimentEvent initializes with correct values."""
         experiment_id = "exp_2023_01_01"
-        affected_tasks = [1, 2, 3]
+        affected_tasks = ["1", "2", "3"]
         message = "Experiment started successfully"
         source = "test_source"
 
@@ -230,7 +230,7 @@ class TestAnalysisEvent:
     def test_analysis_event_initialization(self):
         """Test that AnalysisEvent initializes with correct values."""
         data = {"coverage": 75.5, "errors": 2}
-        related_task_id = 42
+        related_task_id = "42"
         source = "test_source"
 
         event = AnalysisEvent(
@@ -265,7 +265,7 @@ class TestAnalysisEvent:
         # With related task ID
         event1 = AnalysisEvent(
             type=EventType.COVERAGE_UPDATED,
-            related_task_id=42
+            related_task_id="42"
         )
 
         string_repr1 = str(event1)
@@ -293,7 +293,7 @@ class TestEventIntegration:
     def test_event_timestamp_consistency(self):
         """Test that events created close together have close timestamps."""
         event1 = Event(EventType.TASK_STARTED)
-        event2 = TaskEvent(EventType.TASK_STARTED, task_id=1)
+        event2 = TaskEvent(EventType.TASK_STARTED, task_id="1")
         event3 = ExperimentEvent(EventType.EXPERIMENT_STARTED, experiment_id="exp_1")
 
         # All events should have timestamps within a small window
@@ -307,7 +307,7 @@ class TestEventIntegration:
         """Test that events use the current time by default."""
         # Create events
         event1 = Event(EventType.TASK_STARTED)
-        event2 = TaskEvent(EventType.TASK_STARTED, task_id=1)
+        event2 = TaskEvent(EventType.TASK_STARTED, task_id="1")
         event3 = ExperimentEvent(EventType.EXPERIMENT_STARTED, experiment_id="exp_1")
 
         # Calculate the maximum time difference between any two events

@@ -1,29 +1,35 @@
 {
-  "name": "Basic Test with RVDroid",
-  "description": "Simple test with RVDroid using Qwen model and single_action strategy",
-  "tool_configurations": [
+  "name": "basic_experiment_template",
+  "description": "Basic experiment template with standard tools and JCA monitored operations",
+  "output_dir": "results/basic_experiment_template",
+  "experiment_id": "basic_experiment_template",
+  "tool_configs": [
     {
-      "tool_name": "rvdroid",
-      "timeout": 60,
-      "llm_type": "ollama",
-      "llm_model": "qwen2.5:3b",
-      "temperature": 0.2,
-      "max_tokens": 800,
-      "strategy_type": "single_action",
-      "strategy_params": {},
-      "parser_type": "uiautomator",
-      "parser_params": {},
-      "visitor_type": "enhanced",
-      "visitor_params": {},
-      "use_static_analysis": true,
-      "static_analysis_level": "standard",
-      "use_screenshot_analysis": true,
-      "screenshot_analysis_level": "standard",
-      "use_llm": true,
-      "extra_params": {}
+      "name": "monkey",
+      "variants": [],
+      "parameters": {},
+      "timeout_override": null,
+      "enabled": true
     }
   ],
-  "apps": ["/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec/rv-android/out"],
-  "output_dir": "test_results",
-  "repetitions": 1
+  "repetitions": 1,
+  "timeouts": [
+    60
+  ],
+  "no_window": true,
+  "generate_monitors": true,
+  "instrument_apks": true,
+  "run_static_analysis": true,
+  "specification_set": "jca",
+  "apk_path": null,
+  "apk_dir": "./apks_examples/",
+  "apk_patterns": [
+    "*.apk"
+  ],
+  "metadata": {
+    "template_type": "basic",
+    "target_audience": "general_testing",
+    "monitored_operations_focus": "JCA cryptography API monitoring"
+  },
+  "created_at": "2025-06-11T14:35:23.736601"
 }

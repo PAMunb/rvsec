@@ -5,9 +5,12 @@ This module provides utilities for tool specification parsing and metadata
 handling in the monitored operations testing framework.
 """
 
-from dataclasses import dataclass
 from typing import Dict, List, Any, Optional
 from enum import Enum
+from pydantic import Field
+
+from rv_android_core.util.validation import BaseValidatedModel
+from rv_android_core.util.validation.decorators import validated_model
 
 
 class ToolType(Enum):
@@ -28,8 +31,8 @@ class ToolCategory(Enum):
     HYBRID = "hybrid"
 
 
-@dataclass
-class ToolSpec:
+@validated_model(['name', 'description', 'version', 'tool_type', 'category'])
+class ToolSpec(BaseValidatedModel):
     """
     Specification and metadata for monitored operations testing tools.
     
@@ -46,25 +49,41 @@ class ToolSpec:
     - Provides metadata for tool configuration and validation
     """
     
-    name: str
-    description: str
-    version: str
-    tool_type: ToolType
-    category: ToolCategory
-    process_pattern: Optional[str] = None
-    dependencies: List[str] = None
-    capabilities: List[str] = None
-    configuration_schema: Dict[str, Any] = None
-    author: Optional[str] = None
-    
-    def __post_init__(self):
-        """Initialize default values after dataclass creation."""
-        if self.dependencies is None:
-            self.dependencies = []
-        if self.capabilities is None:
-            self.capabilities = []
-        if self.configuration_schema is None:
-            self.configuration_schema = {}
+    name: str = Field(
+        description="Tool name for identification and registry"
+    )
+    description: str = Field(
+        description="Detailed description of tool capabilities and purpose"
+    )
+    version: str = Field(
+        description="Tool version string for compatibility tracking"
+    )
+    tool_type: ToolType = Field(
+        description="Classification of tool type (builtin, external, plugin, etc.)"
+    )
+    category: ToolCategory = Field(
+        description="Tool category for monitored operations testing workflows"
+    )
+    process_pattern: Optional[str] = Field(
+        default=None,
+        description="Process pattern for tool cleanup and management"
+    )
+    dependencies: List[str] = Field(
+        default_factory=list,
+        description="List of required dependencies for tool execution"
+    )
+    capabilities: List[str] = Field(
+        default_factory=list,
+        description="List of tool capabilities for requirement matching"
+    )
+    configuration_schema: Dict[str, Any] = Field(
+        default_factory=dict,
+        description="Schema definition for tool configuration validation"
+    )
+    author: Optional[str] = Field(
+        default=None,
+        description="Tool author or maintainer information"
+    )
     
     @classmethod
     def create_builtin_spec(

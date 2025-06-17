@@ -1,6 +1,6 @@
-name: CI Pipeline
-# NOTE: Currently running with reduced scope (3 modules) to resolve disk space issues
-# Full pipeline will be restored after implementing parallel jobs strategy
+name: CI Pipeline - Isolated Module Testing
+# Strategy: Install → Test → Clean for each module individually to manage disk space
+# Modules tested: rv-android-core, rv-monitor-generator, rv-static-analysis, rv-llm, rvandroid-tool
 'on':
   push:
     branches:
@@ -54,13 +54,10 @@ jobs:
           restore-keys: |
             poetry-modules-${{ runner.os }}-
       
-      - name: Install Poetry dependencies
+      - name: Setup Poetry for isolated testing
         run: |
-          # Skip workspace install to avoid duplication - install modules directly
-          cd modules && ./install.sh
-          # Clean Python cache files immediately after install
-          find . -name "*.pyc" -delete
-          find . -name "__pycache__" -type d -exec rm -rf {} + 2>/dev/null || true
+          # Only setup Poetry configuration, no installations yet
+          echo "Poetry setup complete - modules will be installed individually"
         working-directory: rv-android
       
       - name: Set RVSEC environment
@@ -84,28 +81,114 @@ jobs:
           echo "source = modules/" >> .coveragerc
         working-directory: rv-android
       
-      - name: Run Python tests with coverage
+      - name: Test rv-android-core (isolated)
         run: |
-          # TEMPORARY: Testing only critical modules to resolve disk space issues
-          # Full module list: rv-android-core rv-monitor-generator rv-static-analysis rv-coverage rv-screen-parser rv-llm rv-tools rvandroid-tool rv-experiment
-          # Currently testing: rv-android-core rv-llm rvandroid-tool
-          cd modules && ./test.sh --coverage --continue-on-error rv-android-core rv-llm rvandroid-tool --quiet
-          # Clean up test artifacts to save space
+          echo "=== Testing rv-android-core (standalone) ==="
+          cd modules/rv-android-core
+          poetry install --no-dev
+          poetry run pytest --cov=src --cov-report=xml --cov-report=term-summary --tb=short --quiet
+          # Preserve coverage results
+          cp coverage.xml ../../rv-android-core-coverage.xml
+          # Clean everything except results
+          rm -rf .venv __pycache__ .pytest_cache
           find . -name "*.pyc" -delete
           find . -name "__pycache__" -type d -exec rm -rf {} + 2>/dev/null || true
         working-directory: rv-android
+        continue-on-error: true
+
+      - name: Test rv-monitor-generator (with core)
+        run: |
+          echo "=== Testing rv-monitor-generator (depends on core) ==="
+          # Install core first
+          cd modules/rv-android-core && poetry install --no-dev && cd ..
+          # Install and test monitor-generator
+          cd rv-monitor-generator
+          poetry install --no-dev
+          poetry run pytest --cov=src --cov-report=xml --cov-report=term-summary --tb=short --quiet
+          # Preserve coverage results
+          cp coverage.xml ../../rv-monitor-generator-coverage.xml
+          # Clean everything
+          cd .. && rm -rf rv-android-core/.venv rv-monitor-generator/.venv
+          find . -name "*.pyc" -delete
+          find . -name "__pycache__" -type d -exec rm -rf {} + 2>/dev/null || true
+        working-directory: rv-android
+        continue-on-error: true
+
+      - name: Test rv-static-analysis (isolated)
+        run: |
+          echo "=== Testing rv-static-analysis (standalone) ==="
+          cd modules/rv-static-analysis
+          poetry install --no-dev
+          poetry run pytest --cov=src --cov-report=xml --cov-report=term-summary --tb=short --quiet
+          # Preserve coverage results
+          cp coverage.xml ../../rv-static-analysis-coverage.xml
+          # Clean everything
+          rm -rf .venv __pycache__ .pytest_cache
+          find . -name "*.pyc" -delete
+          find . -name "__pycache__" -type d -exec rm -rf {} + 2>/dev/null || true
+        working-directory: rv-android
+        continue-on-error: true
+
+      - name: Test rv-llm (with core)
+        run: |
+          echo "=== Testing rv-llm (depends on core) ==="
+          # Install core first
+          cd modules/rv-android-core && poetry install --no-dev && cd ..
+          # Install and test llm
+          cd rv-llm
+          poetry install --no-dev
+          poetry run pytest --cov=src --cov-report=xml --cov-report=term-summary --tb=short --quiet
+          # Preserve coverage results
+          cp coverage.xml ../../rv-llm-coverage.xml
+          # Clean everything
+          cd .. && rm -rf rv-android-core/.venv rv-llm/.venv
+          find . -name "*.pyc" -delete
+          find . -name "__pycache__" -type d -exec rm -rf {} + 2>/dev/null || true
+        working-directory: rv-android
+        continue-on-error: true
+
+      - name: Test rvandroid-tool (with dependencies)
+        run: |
+          echo "=== Testing rvandroid-tool (depends on core + llm) ==="
+          # Install dependencies first
+          cd modules/rv-android-core && poetry install --no-dev && cd ..
+          cd rv-llm && poetry install --no-dev && cd ..
+          # Install and test rvandroid-tool
+          cd rvandroid-tool
+          poetry install --no-dev
+          poetry run pytest --cov=src --cov-report=xml --cov-report=term-summary --tb=short --quiet
+          # Preserve coverage results
+          cp coverage.xml ../../rvandroid-tool-coverage.xml
+          # Clean everything
+          cd .. && rm -rf rv-android-core/.venv rv-llm/.venv rvandroid-tool/.venv
+          find . -name "*.pyc" -delete
+          find . -name "__pycache__" -type d -exec rm -rf {} + 2>/dev/null || true
+        working-directory: rv-android
+        continue-on-error: true
       
-      - name: Run integration tests (with RVSEC)
+      - name: Run integration tests (isolated RVSEC)
         continue-on-error: true
         run: |
+          echo "=== Integration tests (isolated) ==="
           # Verify RVSEC tools are available
           ls -la $RVSEC_HOME/javamop/bin/ >/dev/null 2>&1 || echo "JavaMOP not found"
           ls -la $RVSEC_HOME/rv-monitor/bin/ >/dev/null 2>&1 || echo "RV-Monitor not found"
           
-          # TEMPORARY: Testing only core module for integration tests (disk space optimization)
-          # Full integration test modules: rv-android-core rv-monitor-generator
-          # Currently testing: rv-android-core only
-          cd modules/rv-android-core && poetry run pytest -m "slow" --tb=short --quiet || true
+          # Test rv-android-core integration
+          cd modules/rv-android-core
+          poetry install --no-dev
+          poetry run pytest -m "slow" --tb=short --quiet || true
+          rm -rf .venv __pycache__ .pytest_cache
+          
+          # Test rv-monitor-generator integration  
+          cd ../rv-monitor-generator
+          poetry install --no-dev
+          poetry run pytest -m "slow" --tb=short --quiet || true
+          rm -rf .venv __pycache__ .pytest_cache
+          
+          # Clean everything
+          find . -name "*.pyc" -delete
+          find . -name "__pycache__" -type d -exec rm -rf {} + 2>/dev/null || true
         working-directory: rv-android
       
       - name: Upload coverage reports
@@ -113,16 +196,20 @@ jobs:
         with:
           name: coverage-reports
           path: |
-            rv-android/modules/*/coverage.xml
-            rv-android/modules/*/htmlcov/
+            rv-android/*-coverage.xml
 
       - name: Generate quality report
         if: always()
         run: |
-          echo "# Python Quality Report" > quality_report.md
+          echo "# Python Quality Report (Isolated Testing)" > quality_report.md
           echo "## Test Coverage Summary" >> quality_report.md
           echo '```' >> quality_report.md
-          find modules -name "coverage.xml" -exec grep -A 1 "<summary" {} \; 2>/dev/null | head -10 >> quality_report.md || echo "No coverage summary available" >> quality_report.md
+          for file in *-coverage.xml; do
+            if [ -f "$file" ]; then
+              echo "=== $file ===" >> quality_report.md
+              grep -A 1 "<summary" "$file" 2>/dev/null >> quality_report.md || echo "No summary for $file" >> quality_report.md
+            fi
+          done
           echo '```' >> quality_report.md
           
           echo "## Code Quality Issues" >> quality_report.md

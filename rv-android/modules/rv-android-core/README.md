@@ -13,7 +13,8 @@ The RV-Android-Core module serves as the fundamental infrastructure layer for th
 - **Tool Abstractions**: Base classes for testing tool implementations with error handling
 - **Utility Libraries**: Configuration management, performance monitoring, diagnostics
 - **Event System**: Event-driven architecture for component communication
-- **Type Safety**: Type annotations and validation throughout
+- **Type Safety**: Type annotations and validation throughout with Pydantic v2
+- **Data Validation**: Environment-controlled validation with strong typing
 - **Monitored Operations**: Support for both JCA cryptography and generic programming pattern specifications
 
 ## Architecture
@@ -54,6 +55,7 @@ The RV-Android-Core module serves as the fundamental infrastructure layer for th
 - **Performance Monitor**: Real-time performance tracking and metrics
 - **Diagnostics**: System health monitoring and troubleshooting
 - **Android Utilities**: Emulator management and Android SDK integration
+- **Data Validation**: Pydantic v2 models with environment-controlled validation
 
 ### Integration Points
 
@@ -69,6 +71,7 @@ The RV-Android-Core module serves as the fundamental infrastructure layer for th
 
 - Python 3.12+
 - Poetry for dependency management
+- Pydantic v2.8.0+ for data validation
 - Android SDK (for emulator management utilities)
 
 ### Setup
@@ -77,11 +80,30 @@ The RV-Android-Core module serves as the fundamental infrastructure layer for th
 # Install dependencies
 poetry install
 
+# Enable validation in development (optional)
+export RV_PYDANTIC=true
+
 # Run tests
 poetry run pytest
 
 # Install in development mode
 poetry install --extras dev
+```
+
+### Environment Configuration
+
+The module supports environment-controlled data validation:
+
+- **Development**: Set `RV_PYDANTIC=true` to enable full validation
+- **Production**: Leave unset or set to `false` for performance optimization
+- **Testing**: Validation automatically enabled during test execution
+
+```bash
+# Enable validation
+export RV_PYDANTIC=true
+
+# Disable validation (default)
+export RV_PYDANTIC=false
 ```
 
 ## Usage
@@ -182,6 +204,7 @@ def execute_tool(self, task):
 from rv_android_core.app import App
 from rv_android_core.domain.coverage import CoverageMetrics
 from rv_android_core.domain.static import StaticAnalysisData
+from rv_android_core.commands.command_result import CommandResult
 
 # Android application model
 app = App("/path/to/app.apk")
@@ -204,6 +227,39 @@ static_data = StaticAnalysisData.from_files(
     gator_file="app.wtg",
     reach_file="app.reach"
 )
+
+# Command execution with validation
+result = CommandResult(
+    exit_code=0,
+    stdout=b"Command output",
+    stderr=None,
+    execution_time=1.5
+)
+print(f"Output: {result.get_stdout_text()}")
+```
+
+### Data Validation
+
+```python
+from rv_android_core.util.validation import BaseValidatedModel, validated_model
+from rv_android_core.event.models import TaskEvent, EventType
+
+# Using validated models with automatic validation
+task_event = TaskEvent(
+    type=EventType.TASK_STARTED,
+    task_id="123",
+    task_config={"timeout": 60}
+)
+
+# Using @validated_model decorator for backward compatibility
+@validated_model
+class CustomModel(BaseValidatedModel):
+    name: str
+    value: int
+
+# Supports both named and positional arguments
+model1 = CustomModel(name="test", value=42)
+model2 = CustomModel("test", 42)  # Positional arguments work too
 ```
 
 ### Tool Implementation

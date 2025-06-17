@@ -4,7 +4,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from rv_android_core.domain.classes import Classes, Method
-from rv_android_core.domain.static import StaticAnalysisData
+from rv_android_core.domain.static import StaticAnalysisData, WindowTransitionGraph, Windows
 from rv_coverage.parser.log.logcat_parser import parse_logcat_line
 
 
@@ -54,8 +54,8 @@ class TestCoverageTracker:
 
         return StaticAnalysisData(
             classes=classes,
-            windows=None,
-            wtg=None
+            windows=Windows(),
+            wtg=WindowTransitionGraph()
         )
 
     @pytest.fixture

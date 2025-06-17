@@ -101,11 +101,14 @@ class TestRVStaticAnalysisConfig(unittest.TestCase):
             lib_dir = Path(temp_dir) / "lib"
             lib_dir.mkdir()
             
-            config = RVStaticAnalysisConfig.__new__(RVStaticAnalysisConfig)
-            config.lib_dir = str(lib_dir)
-            config.gesda_jar = str(lib_dir / "gesda" / "rvsec-gesda.jar")
-            config.gator_dir = str(lib_dir / "gator")
-            config.reach_jar = str(lib_dir / "reach" / "rvsec-reach.jar")
+            # Use Pydantic constructor with validation disabled
+            config = RVStaticAnalysisConfig(
+                lib_dir=str(lib_dir),
+                gesda_jar=str(lib_dir / "gesda" / "rvsec-gesda.jar"),
+                gator_dir=str(lib_dir / "gator"),
+                reach_jar=str(lib_dir / "reach" / "rvsec-reach.jar"),
+                validate_on_init=False
+            )
             
             tools = config.get_tool_components()
             
@@ -128,14 +131,17 @@ class TestRVStaticAnalysisConfig(unittest.TestCase):
             lib_dir = temp_path / "lib"
             lib_dir.mkdir()
             
-            config = RVStaticAnalysisConfig.__new__(RVStaticAnalysisConfig)
-            config.lib_dir = str(lib_dir)
-            config.gesda_jar = str(lib_dir / "gesda" / "rvsec-gesda.jar")
-            config.gator_dir = str(lib_dir / "gator")
-            config.reach_jar = str(lib_dir / "reach" / "rvsec-reach.jar")
-            config.android_platforms_dir = str(temp_path / "platforms")
-            config.rt_jar = str(temp_path / "android.jar")
-            config.mop_dir = str(temp_path / "mop")
+            # Use Pydantic constructor with validation disabled
+            config = RVStaticAnalysisConfig(
+                lib_dir=str(lib_dir),
+                gesda_jar=str(lib_dir / "gesda" / "rvsec-gesda.jar"),
+                gator_dir=str(lib_dir / "gator"),
+                reach_jar=str(lib_dir / "reach" / "rvsec-reach.jar"),
+                android_platforms_dir=str(temp_path / "platforms"),
+                rt_jar=str(temp_path / "android.jar"),
+                mop_dir=str(temp_path / "mop"),
+                validate_on_init=False
+            )
             
             # Test GESDA command
             gesda_cmd = config.get_tool_command('gesda', '/test/app.apk', '/test/output.gesda')
@@ -162,17 +168,20 @@ class TestRVStaticAnalysisConfig(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
             
-            config = RVStaticAnalysisConfig.__new__(RVStaticAnalysisConfig)
-            config.rvsec_root = str(temp_path)
-            config.lib_dir = str(temp_path / "lib")
-            config.android_platforms_dir = str(temp_path / "platforms")
-            config.rt_jar = str(temp_path / "rt.jar")
-            config.mop_dir = str(temp_path / "mop")
-            config.output_dir = str(temp_path / "output")
-            config.working_dir = str(temp_path / "working")
-            config.gesda_jar = str(temp_path / "lib" / "gesda" / "rvsec-gesda.jar")
-            config.gator_dir = str(temp_path / "lib" / "gator")
-            config.reach_jar = str(temp_path / "lib" / "reach" / "rvsec-reach.jar")
+            # Use Pydantic constructor with validation disabled
+            config = RVStaticAnalysisConfig(
+                rvsec_root=str(temp_path),
+                lib_dir=str(temp_path / "lib"),
+                android_platforms_dir=str(temp_path / "platforms"),
+                rt_jar=str(temp_path / "rt.jar"),
+                mop_dir=str(temp_path / "mop"),
+                output_dir=str(temp_path / "output"),
+                working_dir=str(temp_path / "working"),
+                gesda_jar=str(temp_path / "lib" / "gesda" / "rvsec-gesda.jar"),
+                gator_dir=str(temp_path / "lib" / "gator"),
+                reach_jar=str(temp_path / "lib" / "reach" / "rvsec-reach.jar"),
+                validate_on_init=False
+            )
             
             summary = config.get_configuration_summary()
             
@@ -192,7 +201,11 @@ class TestRVStaticAnalysisConfig(unittest.TestCase):
             apk_file = temp_path / "test.apk"
             apk_file.touch()
             
-            config = RVStaticAnalysisConfig.__new__(RVStaticAnalysisConfig)
+            # Use Pydantic constructor with validation disabled
+            config = RVStaticAnalysisConfig(
+                validate_on_init=False,
+                rvsec_root=str(temp_path)
+            )
             
             # Valid APK should not raise exception
             try:

@@ -3884,6 +3884,7 @@ develop = true
 androguard = "3.4.0a1"
 networkx = "^3.5"
 psutil = "^7.0.0"
+pydantic = "^2.8.0"
 
 [package.source]
 type = "directory"

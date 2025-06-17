@@ -11,7 +11,8 @@ from rv_android_core.util.exceptions import (
     RVTaskError, RVTaskExecutionError, RVTaskConfigurationError, RVTaskTimeoutError,
     RVToolError, RVToolExecutionError, RVToolConfigurationError,
     RVExperimentError, RVExperimentSetupError, RVExperimentExecutionError,
-    RVParsingError, RVLLMError, RVPromptError
+    RVParsingError, RVLLMError, RVPromptError,
+    RVValidationError, CommandValidationError, LogcatValidationError
 )
 from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
 from rv_android_core.util.logging.manager import LoggingManager
@@ -81,6 +82,9 @@ class ErrorHandler:
         """Register all built-in error handlers."""
         # Register handlers for each error type
         # Order matters: register most specific handlers first
+        self.register_handler(CommandValidationError, self._handle_command_validation_error)
+        self.register_handler(LogcatValidationError, self._handle_logcat_validation_error)
+        self.register_handler(RVValidationError, self._handle_validation_error)
         self.register_handler(RVTaskError, self._handle_task_error)
         self.register_handler(RVToolError, self._handle_tool_error)
         self.register_handler(RVExperimentError, self._handle_experiment_error)
@@ -458,6 +462,36 @@ class ErrorHandler:
         self._logger.info(f"LLM error recorded: {error.message}")
         if hasattr(error, 'model_name') and error.model_name:
             self._logger.info(f"Model: {error.model_name}")
+        return True  # Successfully handled
+
+    def _handle_validation_error(self, error: RVValidationError, context: Optional[Dict[str, Any]] = None) -> bool:
+        """Handle validation-related errors with enhanced context."""
+        self._logger.warning(f"Validation error recorded: {error.message}")
+        if hasattr(error, 'field_name') and error.field_name:
+            self._logger.warning(f"Field: {error.field_name}")
+        return True  # Successfully handled
+
+    def _handle_command_validation_error(self, error: CommandValidationError, context: Optional[Dict[str, Any]] = None) -> bool:
+        """Handle command validation errors with specific context."""
+        self._logger.error(f"Command validation error: {error.message}")
+        if hasattr(error, 'field_name') and error.field_name:
+            self._logger.error(f"Invalid command field: {error.field_name}")
+        # Check for common command issues and suggest fixes
+        if context and 'command' in context:
+            self._logger.error(f"Failed command: {context['command']}")
+        return True  # Successfully handled
+
+    def _handle_logcat_validation_error(self, error: LogcatValidationError, context: Optional[Dict[str, Any]] = None) -> bool:
+        """Handle logcat validation errors with specific context."""
+        self._logger.error(f"Logcat validation error: {error.message}")
+        if hasattr(error, 'field_name') and error.field_name:
+            self._logger.error(f"Invalid logcat field: {error.field_name}")
+        # Check for common logcat configuration issues
+        if context:
+            if 'tags' in context:
+                self._logger.error(f"Failed tags: {context['tags']}")
+            if 'output_file' in context:
+                self._logger.error(f"Failed output file: {context['output_file']}")
         return True  # Successfully handled
 
 

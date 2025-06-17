@@ -161,12 +161,12 @@ class GesdaParser(BaseStaticAnalysisParser):
             # print(f"window ({type(window)})={window}")
             windows.add_widget(window, widget)
 
-        # Set optional properties
-        widget.field = widget_dict.get("field")
-        widget.text = widget_dict.get("text")
-        widget.hint = widget_dict.get("hint")
-        widget.entries = widget_dict.get("entries")
-        widget.input_type = widget_dict.get("inputType")
+        # Set optional properties with proper defaults for Pydantic validation
+        widget.field = widget_dict.get("field", "")
+        widget.text = widget_dict.get("text", "")
+        widget.hint = widget_dict.get("hint", "")
+        widget.entries = widget_dict.get("entries", [])
+        widget.input_type = widget_dict.get("inputType", "")
 
         return widget
 
@@ -189,10 +189,10 @@ class GesdaParser(BaseStaticAnalysisParser):
 
             callback = listener_dict["callbackMethod"]
             event = WidgetEvent(
-                event_type,
-                callback["className"],
-                callback["name"],
-                callback["signature"]
+                event_type=event_type,
+                clazz=callback["className"],
+                method=callback["name"],
+                signature=callback["signature"]
             )
             events.add(event)
 

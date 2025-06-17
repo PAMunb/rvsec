@@ -293,31 +293,39 @@ class TestEventModelErrorScenarios:
 
     def test_event_with_invalid_timestamp(self):
         """Test event creation with invalid timestamp values."""
-        # Test creating event with None timestamp (dataclass might not allow this)
+        # With Pydantic validation, None timestamp should raise ValidationError
+        from pydantic_core import ValidationError
+        
         try:
             event = Event(type=EventType.TASK_STARTED, source="test", timestamp=None)
-            assert event.timestamp is None
-            
-            # String representation should handle None timestamp gracefully
-            str_repr = str(event)
-            assert isinstance(str_repr, str)  # Should not crash
-        except TypeError:
-            # If dataclass doesn't allow None, that's also valid behavior
-            pass
+            # If we get here, None was accepted (shouldn't happen with current validation)
+            assert False, "Expected ValidationError for None timestamp"
+        except ValidationError as e:
+            # Expected behavior - Pydantic should reject None timestamp
+            assert "datetime" in str(e).lower()
+            assert "none" in str(e).lower() or "null" in str(e).lower()
+        except Exception as e:
+            # Other exceptions might be acceptable too
+            assert isinstance(e, (TypeError, ValueError, ValidationError))
 
     def test_task_event_with_invalid_task_id(self):
         """Test TaskEvent with various invalid task ID types."""
-        # Test with None task_id
-        event1 = TaskEvent(type=EventType.TASK_STARTED, task_id=None)
-        assert event1.task_id is None
+        from pydantic_core import ValidationError
         
-        # Test with empty string
+        # Test with None task_id - should raise ValidationError
+        try:
+            event1 = TaskEvent(type=EventType.TASK_STARTED, task_id=None)
+            assert False, "Expected ValidationError for None task_id"
+        except ValidationError as e:
+            assert "string" in str(e).lower()
+        
+        # Test with empty string - should be valid
         event2 = TaskEvent(type=EventType.TASK_STARTED, task_id="")
         assert event2.task_id == ""
         
-        # Test with numeric task_id (should be converted to string)
-        event3 = TaskEvent(type=EventType.TASK_STARTED, task_id=123)
-        # Depending on implementation, might need string conversion
+        # Test with string task_id - should be valid
+        event3 = TaskEvent(type=EventType.TASK_STARTED, task_id="123")
+        assert event3.task_id == "123"
 
     def test_experiment_event_with_invalid_affected_tasks(self):
         """Test ExperimentEvent with invalid affected_tasks values."""
@@ -341,6 +349,8 @@ class TestEventModelErrorScenarios:
 
     def test_analysis_event_with_invalid_data(self):
         """Test AnalysisEvent with invalid data structures."""
+        from pydantic_core import ValidationError
+        
         # Test with default data (not providing data field)
         event1 = AnalysisEvent(
             type=EventType.COVERAGE_UPDATED
@@ -349,13 +359,15 @@ class TestEventModelErrorScenarios:
         # Should use default empty dict
         assert event1.data == {}
         
-        # Test with non-dict data - dataclass will accept any type
-        event2 = AnalysisEvent(
-            type=EventType.ERROR_DETECTED,
-            data="string_data"
-        )
-        # Dataclass allows this, validation should happen at application level
-        assert event2.data == "string_data"
+        # Test with non-dict data - should raise ValidationError with Pydantic
+        try:
+            event2 = AnalysisEvent(
+                type=EventType.ERROR_DETECTED,
+                data="string_data"
+            )
+            assert False, "Expected ValidationError for non-dict data"
+        except ValidationError as e:
+            assert "dict" in str(e).lower()
 
 
 class TestConcurrencyErrorScenarios:

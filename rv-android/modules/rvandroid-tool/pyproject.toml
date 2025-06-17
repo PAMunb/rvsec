@@ -12,6 +12,7 @@ rv-android-core = {path = "../rv-android-core", develop = true}
 rv-screen-parser = {path = "../rv-screen-parser", develop = true}
 rv-llm = {path = "../rv-llm", develop = true}
 rv-tools = {path = "../rv-tools", develop = true}
+pydantic = "^2.8.0"
 # Dependências específicas do RVAndroid
 flask = "*"  # Para REST API server
 flask-cors = "*"  # Para CORS no servidor

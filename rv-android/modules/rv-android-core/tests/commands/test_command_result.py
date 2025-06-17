@@ -28,20 +28,19 @@ class TestCommandResult:
         assert result.stdout == b"New output"
         assert result.stderr == b"New error"
 
-    def test_command_result_with_string_output(self):
-        """Test with string output instead of bytes"""
-        # Note: In real scenarios, subprocess returns bytes, but we want
-        # to ensure the class handles string values for robustness
-        result = CommandResult(0, "String output", "String error")
+    def test_command_result_with_bytes_output(self):
+        """Test with bytes output (actual subprocess behavior)"""
+        # subprocess.communicate() returns bytes, this is the correct scenario
+        result = CommandResult(0, b"Bytes output", b"Bytes error")
 
         assert result.code == 0
-        assert result.stdout == "String output"
-        assert result.stderr == "String error"
+        assert result.stdout == b"Bytes output"
+        assert result.stderr == b"Bytes error"
 
-    def test_command_result_with_none_values(self):
-        """Test with None values"""
-        result = CommandResult(None, None, None)
+    def test_command_result_with_empty_values(self):
+        """Test with empty values (using proper types)"""
+        result = CommandResult(0, b"", b"")
 
-        assert result.code is None
-        assert result.stdout is None
-        assert result.stderr is None
+        assert result.code == 0
+        assert result.stdout == b""
+        assert result.stderr == b""

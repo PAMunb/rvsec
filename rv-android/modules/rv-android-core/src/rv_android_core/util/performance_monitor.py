@@ -1,34 +1,89 @@
-# rvandroid/util/performance_monitor.py
+"""
+Performance monitoring system for runtime verification operations.
+
+This module provides comprehensive performance tracking and metric collection
+for monitoring system resource usage and operation timing during experiment execution.
+"""
+
 import statistics
 import threading
 import time
 from contextlib import contextmanager
-from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Any, Callable
+from pydantic import Field
 
 from rv_android_core.util.logging.constants import CONTEXT_COMPONENT, LOG_ERROR
 from rv_android_core.util.logging.manager import LoggingManager
+from rv_android_core.util.validation import BaseValidatedModel
+from rv_android_core.util.validation.decorators import validated_model
 
 
-@dataclass
-class Metric:
+@validated_model(['name', 'value', 'unit', 'timestamp'])
+class Metric(BaseValidatedModel):
     """
-    Represents a single measured metric.
+    Validated data model for performance metric measurements.
+    
+    This model provides structured representation of performance measurements
+    with validation and type safety for runtime verification monitoring.
+    
+    ### Architectural Role:
+    - Provides standardized structure for performance data collection
+    - Enables type-safe metric aggregation and analysis
+    - Supports contextual information for detailed performance tracking
+    - Facilitates metric comparison and trend analysis across experiments
+    
+    ### Integration Points:
+    - Created by PerformanceMonitor during operation execution
+    - Consumed by diagnostic tools for performance analysis
+    - Used by reporting systems for performance visualization
+    - Integrated with logging systems for performance debugging
     """
-    name: str
-    value: float
-    unit: str
-    timestamp: float
-    context: Dict[str, Any] = field(default_factory=dict)
+    
+    name: str = Field(
+        description="Metric name for identification and categorization"
+    )
+    value: float = Field(
+        description="Numeric value of the measured metric"
+    )
+    unit: str = Field(
+        description="Unit of measurement for the metric value"
+    )
+    timestamp: float = Field(
+        description="Unix timestamp when the metric was recorded"
+    )
+    context: Dict[str, Any] = Field(
+        default_factory=dict,
+        description="Additional contextual information for metric analysis"
+    )
 
 
-@dataclass
+@validated_model(['name', 'value', 'unit', 'timestamp'])
 class TimingMetric(Metric):
     """
-    A metric specifically for timing measurements.
+    Validated data model for timing-specific performance measurements.
+    
+    This model extends the base Metric class with timing-specific fields
+    for detailed temporal analysis of operation execution.
+    
+    ### Architectural Role:
+    - Provides precise timing data for operation duration analysis
+    - Enables temporal correlation between operation phases
+    - Supports performance bottleneck identification and optimization
+    - Facilitates timing trend analysis across multiple executions
+    
+    ### Critical Timing Data:
+    The start_time and end_time fields provide precise timing boundaries
+    for operations, enabling detailed performance analysis and optimization.
     """
-    start_time: float = 0.0
-    end_time: float = 0.0
+    
+    start_time: float = Field(
+        default=0.0,
+        description="Unix timestamp when the timed operation started"
+    )
+    end_time: float = Field(
+        default=0.0,
+        description="Unix timestamp when the timed operation completed"
+    )
 
 
 class PerformanceMonitor:

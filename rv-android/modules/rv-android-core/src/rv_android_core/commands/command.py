@@ -1,19 +1,25 @@
-# rvandroid/commands/command.py - Improved version
+# rvandroid/commands/command.py - Pydantic v2 migrated version
 
 import os
 import signal
 import sys
 from subprocess import PIPE, Popen
 from threading import Timer
+from typing import List, Optional, Any
 
 import psutil
+from pydantic import Field, ConfigDict, field_validator, ValidationError as PydanticValidationError
 
 # Import TimeoutExpired for Python 3.3+
 if sys.version_info.major == 3 and sys.version_info.minor >= 3:
     from subprocess import TimeoutExpired
 
+from rv_android_core.util.validation import BaseValidatedModel
+from rv_android_core.util.validation.decorators import validated_model
 from rv_android_core.util.logging.constants import CONTEXT_COMPONENT, LOG_START, LOG_COMPLETE, LOG_ERROR
 from rv_android_core.util.logging.manager import LoggingManager
+from rv_android_core.util.exceptions import CommandValidationError
+from rv_android_core.util.error.error_handler import ErrorHandler
 from .command_not_found_error import CommandNotFoundError
 from .command_result import CommandResult
 
@@ -43,19 +49,21 @@ def kill_process_tree(pid: int):
         pass
 
 
-class Command:
+@validated_model(['command', 'args', 'timeout'])
+class Command(BaseValidatedModel):
     """
     A system command execution utility with process management and error handling capabilities.
 
     ### Architectural Decisions:
-    - Implements a flexible and secure approach to system command execution
-    - Provides handling of command invocation and result processing
-    - Supports timeout enforcement and process tree management
+    - Inherits from BaseValidatedModel for comprehensive validation and type safety
+    - Implements flexible and secure approach to system command execution
+    - Provides validated handling of command invocation and result processing
+    - Supports timeout enforcement and process tree management with validated parameters
     - Ensures consistent output and error capturing across different command scenarios
 
     ### Role in the System:
     - Acts as a utility for executing system commands across the RV-Android framework
-    - Abstracts low-level command execution complexities
+    - Abstracts low-level command execution complexities with type-safe parameters
     - Provides a uniform interface for invoking shell commands, ADB operations, and tool interactions
     - Manages process lifecycle, including timeout handling and clean termination
     - Enables reliable and predictable command execution in testing and automation workflows
@@ -64,8 +72,8 @@ class Command:
     - Handles cross-platform command execution challenges
     - Implements process management and termination strategies
     - Supports multiple execution modes (synchronous and daemon)
-    - Provides error handling and reporting
-    - Ensures secure and controlled command invocation
+    - Provides error handling and reporting with comprehensive logging integration
+    - Ensures secure and controlled command invocation with validated inputs
 
     ### Integration Strategy:
     - Integrated with Android testing and instrumentation tools
@@ -80,57 +88,95 @@ class Command:
     - Supports timeout mechanisms to prevent long-running commands
     - Implements recursive process tree termination for cleanup
     - Adaptable to different command complexity and system environments
+
+    ### Validation Features:
+    - Command string validation to prevent empty commands
+    - Argument list validation for proper parameter passing
+    - Timeout value validation to ensure positive values
+    - Type safety for all command execution parameters
     """
 
-    def __init__(self, command: str, args: list = None, timeout: float = None):
-        """
-        Initialize Command with execution parameters.
+    model_config = ConfigDict(
+        # Allow logger object as arbitrary type
+        arbitrary_types_allowed=True,
+        # Validate assignments for runtime safety
+        validate_assignment=True,
+    )
 
-        Args:
-            command (str): The command to execute
-            args (list): List of command arguments
-            timeout (float): Timeout in seconds for command execution
-        """
-        # Set up logging using LoggingManager
+    command: str = Field(
+        description="The command to execute"
+    )
+    
+    args: List[str] = Field(
+        default_factory=list,
+        description="List of command arguments"
+    )
+    
+    timeout: Optional[float] = Field(
+        default=None,
+        description="Timeout in seconds for command execution"
+    )
+
+    @field_validator('command')
+    @classmethod
+    def validate_command(cls, v):
+        """Validate command using system exceptions."""
+        if not v or not isinstance(v, str) or len(v.strip()) == 0:
+            raise CommandValidationError(
+                "Command must be a non-empty string",
+                field_name="command"
+            )
+        return v.strip()
+
+    @field_validator('timeout')
+    @classmethod  
+    def validate_timeout(cls, v):
+        """Validate timeout using system exceptions."""
+        if v is not None:
+            if not isinstance(v, (int, float)):
+                raise CommandValidationError(
+                    "Timeout must be a number",
+                    field_name="timeout" 
+                )
+            if v < 0:
+                raise CommandValidationError(
+                    "Timeout must be non-negative",
+                    field_name="timeout"
+                )
+        return v
+
+    @field_validator('args')
+    @classmethod
+    def validate_args(cls, v):
+        """Validate arguments using system exceptions."""
+        if v is None:
+            return []
+        if not isinstance(v, list):
+            raise CommandValidationError(
+                "Arguments must be a list",
+                field_name="args"
+            )
+        for i, arg in enumerate(v):
+            if not isinstance(arg, str):
+                raise CommandValidationError(
+                    f"Argument at position {i} must be a string",
+                    field_name="args"
+                )
+        return v
+
+    def model_post_init(self, __context):
+        """Initialize logging and error handling after model validation."""
+        # Use object.__setattr__ to bypass Pydantic validation for logger
         logging_manager = LoggingManager.get_instance()
-        self.logger = logging_manager.get_logger(
+        logger = logging_manager.get_logger(
             "commands.command",
             {CONTEXT_COMPONENT: "Command"}
         )
-
-        self._command = command
-        self._args = args or []
-        self._timeout = timeout
-
-    @property
-    def command(self) -> str:
-        """Return the command string"""
-        return self._command
-
-    @command.setter
-    def command(self, value: str):
-        """Set the command string"""
-        self._command = value
-
-    @property
-    def args(self) -> list:
-        """Return the command arguments"""
-        return self._args
-
-    @args.setter
-    def args(self, value: list):
-        """Set the command arguments"""
-        self._args = value
-
-    @property
-    def timeout(self) -> float:
-        """Return the command timeout"""
-        return self._timeout
-
-    @timeout.setter
-    def timeout(self, value: float):
-        """Set the command timeout"""
-        self._timeout = value
+        object.__setattr__(self, 'logger', logger)
+        
+        # Initialize error handler for integrated error management
+        error_handler = ErrorHandler.get_instance()
+        object.__setattr__(self, 'error_handler', error_handler)
 
     def invoke(self, stdout=PIPE, stderr=PIPE, stdin=None) -> CommandResult:
         """
@@ -148,10 +194,10 @@ class Command:
             CommandNotFoundError: If the command is not found
             TimeoutExpired: If the command exceeds timeout
         """
-        cmd_args = [self._command, *self._args]
+        cmd_args = [self.command, *self.args]
         cmd_str = ' '.join(cmd_args)
 
-        with self.logger.with_context(command=cmd_str, timeout=self._timeout):
+        with self.logger.with_context(command=cmd_str, timeout=self.timeout):
             self.logger.debug(LOG_START.format(phase=f"command: {cmd_str}"))
 
             # Normalize stdin if it's a string
@@ -162,7 +208,7 @@ class Command:
             if sys.version_info.major == 3 and sys.version_info.minor >= 3:
                 try:
                     proc = Popen(cmd_args, stderr=stderr, stdout=stdout)
-                    stdout_data, stderr_data = proc.communicate(stdin, timeout=self._timeout)
+                    stdout_data, stderr_data = proc.communicate(stdin, timeout=self.timeout)
 
                     self.logger.debug(LOG_COMPLETE.format(
                         phase=f"command with exit code {proc.returncode}"
@@ -171,7 +217,7 @@ class Command:
                     return CommandResult(proc.returncode, stdout_data, stderr_data)
 
                 except TimeoutExpired:
-                    self.logger.warning(f"Command timed out after {self._timeout} seconds")
+                    self.logger.warning(f"Command timed out after {self.timeout} seconds")
                     self.kill_process(proc)
                     stdout_data, stderr_data = proc.communicate()
 
@@ -182,7 +228,7 @@ class Command:
                         phase=f"executing command {cmd_str}",
                         error=str(e)
                     ))
-                    raise CommandNotFoundError(f"The command {self._command} was not found")
+                    raise CommandNotFoundError(f"The command {self.command} was not found")
 
             else:
                 # Legacy Python support
@@ -190,14 +236,14 @@ class Command:
                     proc = Popen(cmd_args, stderr=stderr, stdout=stdout)
 
                     # Setup timer for timeout if specified
-                    if self._timeout is not None:
-                        timer = Timer(self._timeout, self.kill_process, [proc])
+                    if self.timeout is not None:
+                        timer = Timer(self.timeout, self.kill_process, [proc])
                         timer.start()
 
                     stdout_data, stderr_data = proc.communicate(stdin)
 
                     # Cancel timer if it's still running
-                    if self._timeout is not None:
+                    if self.timeout is not None:
                         timer.cancel()
 
                     self.logger.debug(LOG_COMPLETE.format(
@@ -211,7 +257,7 @@ class Command:
                         phase=f"executing command {cmd_str}",
                         error=str(e)
                     ))
-                    raise CommandNotFoundError(f"The command {self._command} was not found")
+                    raise CommandNotFoundError(f"The command {self.command} was not found")
 
     def kill_process(self, p):
         """
@@ -221,7 +267,7 @@ class Command:
         Args:
             p: Process object to kill
         """
-        self.logger.warning(f"The command has timed out after {self._timeout} seconds")
+        self.logger.warning(f"The command has timed out after {self.timeout} seconds")
         try:
             kill_process_tree(p.pid)
         except Exception as e:
@@ -244,7 +290,7 @@ class Command:
         Raises:
             CommandNotFoundError: If the command is not found
         """
-        cmd_args = [self._command, *self._args]
+        cmd_args = [self.command, *self.args]
         cmd_str = ' '.join(cmd_args)
 
         with self.logger.with_context(command=cmd_str):
@@ -259,4 +305,4 @@ class Command:
                     phase=f"starting daemon process for command {cmd_str}",
                     error=str(e)
                 ))
-                raise CommandNotFoundError(f"The command {self._command} was not found")
+                raise CommandNotFoundError(f"The command {self.command} was not found")

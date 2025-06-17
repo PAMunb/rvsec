@@ -46,7 +46,6 @@ rv-android/
 
 **Prerequisites:**
 - Python 3.12+
-- Poetry 2.1+
 - Java 21+
 - Aspectj 1.9.6
 - Android SDK
@@ -64,6 +63,7 @@ mvn clean install -DskipTests -DskipMopAgent
 # 2. Set environment variables
 export RVSEC_HOME="/path/to/rvsec"
 export ANDROID_HOME="/path/to/android-sdk"
+export RV_PYDANTIC=true  # Enable validation in development
 
 # 3. Setup RV-Android
 cd rv-android
@@ -121,11 +121,32 @@ poetry run pytest rv-new-module/tests/
 
 ## 💻 Development Workflows
 
+### Environment Configuration
+
+RV-Android supports environment-controlled data validation:
+
+```bash
+# Development mode - full validation enabled
+export RV_PYDANTIC=true
+
+# Production mode - validation disabled for performance
+export RV_PYDANTIC=false
+# or leave unset (default)
+```
+
+**When to use:**
+- **Development**: Set `RV_PYDANTIC=true` for full type safety and error detection
+- **Production**: Leave unset or `false` for optimal performance
+- **Testing**: Automatically enabled during test execution
+
 ### Daily Development Commands
 
 ```bash
 # Navigate to project root
 cd /path/to/rv-android
+
+# Set development environment
+export RV_PYDANTIC=true
 
 # Run all tests
 poetry run pytest

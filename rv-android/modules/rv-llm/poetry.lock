@@ -34,6 +34,27 @@ test-trackers = ["comet-ml", "dvclive", "matplotlib", "mlflow", "tensorboard", "
 testing = ["bitsandbytes", "datasets", "diffusers", "evaluate", "parameterized", "pytest (>=7.2.0,<=8.0.0)", "pytest-order", "pytest-subtests", "pytest-xdist", "scikit-learn", "scipy", "timm", "torchdata (>=0.8.0)", "torchpippy (>=0.2.0)", "tqdm", "transformers"]
 
 [[package]]
+name = "adbutils"
+version = "2.9.2"
+description = "Pure Python Adb Library"
+optional = false
+python-versions = ">=3.8"
+groups = ["main"]
+files = [
+    {file = "adbutils-2.9.2-py3-none-macosx_10_9_intel.macosx_10_9_x86_64.macosx_10_10_intel.macosx_10_10_x86_64.whl", hash = "sha256:18861cd2636a7465f8967eadfa30bf23d1d81781da360c7229543ee0ee8d9bec"},
+    {file = "adbutils-2.9.2-py3-none-manylinux1_x86_64.whl", hash = "sha256:8c62c7225f07b98dcdfa6647db61cb28ad593a9a7677439fff5443e826c1647e"},
+    {file = "adbutils-2.9.2-py3-none-win32.whl", hash = "sha256:7cff42dde892c385c4260b07047e789f73e56804937fa86463a50db8cf1ef120"},
+    {file = "adbutils-2.9.2-py3-none-win_amd64.whl", hash = "sha256:c9e1a55db06c30a38252eab5ef5d6787c89a786a7bc1fcdac341608f69a79b81"},
+    {file = "adbutils-2.9.2.tar.gz", hash = "sha256:6de68b4142c54df4dbea07240299c0527162531a08e8bafc36c3fd1ac9c4291e"},
+]
+
+[package.dependencies]
+deprecation = ">=2.0.6,<3.0"
+Pillow = "*"
+requests = "*"
+retry2 = ">=0.9,<1.0"
+
+[[package]]
 name = "androguard"
 version = "3.4.0a1"
 description = "Androguard is a full python tool to play with Android files."
@@ -573,6 +594,21 @@ files = [
     {file = "decorator-5.2.1-py3-none-any.whl", hash = "sha256:d316bb415a2d9e2d2b3abcc4084c6502fc09240e292cd76a76afc106a1c8e04a"},
     {file = "decorator-5.2.1.tar.gz", hash = "sha256:65f266143752f734b0a7cc83c46f4618af75b8c5911b00ccb61d0ac9b6da0360"},
 ]
+
+[[package]]
+name = "deprecation"
+version = "2.1.0"
+description = "A library to handle automated deprecations"
+optional = false
+python-versions = "*"
+groups = ["main"]
+files = [
+    {file = "deprecation-2.1.0-py2.py3-none-any.whl", hash = "sha256:a10811591210e1fb0e768a8c25517cabeabcba6f0bf96564f8ff45189f90b14a"},
+    {file = "deprecation-2.1.0.tar.gz", hash = "sha256:72b3bde64e5d778694b0cf68178aed03d15e15477116add3fb773e581f9518ff"},
+]
+
+[package.dependencies]
+packaging = "*"
 
 [[package]]
 name = "distro"
@@ -2795,6 +2831,20 @@ socks = ["PySocks (>=1.5.6,!=1.5.7)"]
 use-chardet-on-py3 = ["chardet (>=3.0.2,<6)"]
 
 [[package]]
+name = "retry2"
+version = "0.9.5"
+description = "Easy to use retry decorator."
+optional = false
+python-versions = ">=2.6"
+groups = ["main"]
+files = [
+    {file = "retry2-0.9.5-py2.py3-none-any.whl", hash = "sha256:f7fee13b1e15d0611c462910a6aa72a8919823988dd0412152bc3719c89a4e55"},
+]
+
+[package.dependencies]
+decorator = ">=3.4.2"
+
+[[package]]
 name = "rsa"
 version = "4.9.1"
 description = "Pure-Python RSA implementation"
@@ -2823,6 +2873,7 @@ develop = true
 androguard = "3.4.0a1"
 networkx = "^3.5"
 psutil = "^7.0.0"
+pydantic = "^2.8.0"
 
 [package.source]
 type = "directory"
@@ -2844,8 +2895,10 @@ lxml = "*"
 numpy = "*"
 opencv-python = "*"
 pillow = "*"
+pydantic = "^2.8.0"
 pytesseract = "*"
 rv-android-core = {path = "../rv-android-core", develop = true}
+uiautomator2 = "^3.3.1"
 
 [package.source]
 type = "directory"
@@ -3260,6 +3313,25 @@ files = [
 typing-extensions = ">=4.12.0"
 
 [[package]]
+name = "uiautomator2"
+version = "3.3.2"
+description = "uiautomator for android device"
+optional = false
+python-versions = "<4.0,>=3.8"
+groups = ["main"]
+files = [
+    {file = "uiautomator2-3.3.2-py3-none-any.whl", hash = "sha256:dd7465e97ed2c9ff6d229924fe2dba340be976a45e4990d5e503a3cacf256df6"},
+    {file = "uiautomator2-3.3.2.tar.gz", hash = "sha256:4beb33a9804825ecde55314cc4373f7a41f44d6edc10006e01fea97e443d5428"},
+]
+
+[package.dependencies]
+adbutils = ">=2.9.1,<3.0.0"
+lxml = "*"
+Pillow = "*"
+requests = "*"
+retry2 = ">=0.9.5,<0.10.0"
+
+[[package]]
 name = "uritemplate"
 version = "4.2.0"
 description = "Implementation of RFC 6570 URI Templates"
@@ -3304,4 +3376,4 @@ files = [
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.12,<4.0"
-content-hash = "d289fa073657d1ee0fa7a6cfeb65999e0feaffcabbbf235632163e0eac7f7069"
+content-hash = "94fd1b8d1eccdc798e21110e13a22138bda3057c167fc1fea3c00b67554954ec"

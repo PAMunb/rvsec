@@ -171,7 +171,7 @@ class TestStaticAnalyzer:
             with pytest.raises(StaticAnalysisException) as exc_info:
                 analyzer._execute_command("TEST", "/tmp/test.out", mock_command_instance)
 
-        assert "Error while executing TEST" in str(exc_info.value)
+        assert "Static analysis tool TEST failed with exit code 1" in str(exc_info.value)
 
     @patch.object(StaticAnalyzer, '_run_gesda')
     @patch.object(StaticAnalyzer, '_run_gator')

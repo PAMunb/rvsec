@@ -96,7 +96,7 @@ class TestEventBusAdvanced:
         # Arrange
         # Create and publish different events
         event1 = Event(type=EventType.EXPERIMENT_STARTED, source="test1")
-        event2 = TaskEvent(type=EventType.TASK_STARTED, task_id=1, source="test2")
+        event2 = TaskEvent(type=EventType.TASK_STARTED, task_id="1", source="test2")
         event3 = ExperimentEvent(type=EventType.EXPERIMENT_COMPLETED, experiment_id="exp1", source="test3")
 
         self.event_bus.publish(event1)
@@ -116,9 +116,9 @@ class TestEventBusAdvanced:
         """Test filtering history by event type."""
         # Arrange
         event1 = Event(type=EventType.EXPERIMENT_STARTED, source="test1")
-        event2 = TaskEvent(type=EventType.TASK_STARTED, task_id=1, source="test2")
+        event2 = TaskEvent(type=EventType.TASK_STARTED, task_id="1", source="test2")
         event3 = ExperimentEvent(type=EventType.EXPERIMENT_COMPLETED, experiment_id="exp1", source="test3")
-        event4 = TaskEvent(type=EventType.TASK_COMPLETED, task_id=1, source="test4")
+        event4 = TaskEvent(type=EventType.TASK_COMPLETED, task_id="1", source="test4")
 
         self.event_bus.publish(event1)
         self.event_bus.publish(event2)
@@ -154,9 +154,9 @@ class TestEventBusAdvanced:
     def test_get_history_by_task_id(self):
         """Test filtering history by task ID."""
         # Arrange
-        event1 = TaskEvent(type=EventType.TASK_STARTED, task_id=1, source="test1")
-        event2 = TaskEvent(type=EventType.TASK_STARTED, task_id=2, source="test2")
-        event3 = TaskEvent(type=EventType.TASK_COMPLETED, task_id=1, source="test3")
+        event1 = TaskEvent(type=EventType.TASK_STARTED, task_id="1", source="test1")
+        event2 = TaskEvent(type=EventType.TASK_STARTED, task_id="2", source="test2")
+        event3 = TaskEvent(type=EventType.TASK_COMPLETED, task_id="1", source="test3")
         event4 = ExperimentEvent(type=EventType.EXPERIMENT_COMPLETED, experiment_id="exp1", source="test4")
 
         self.event_bus.publish(event1)
@@ -165,7 +165,7 @@ class TestEventBusAdvanced:
         self.event_bus.publish(event4)
 
         # Act
-        task1_events = self.event_bus.get_history(task_id=1)
+        task1_events = self.event_bus.get_history(task_id="1")
 
         # Assert
         assert len(task1_events) == 2

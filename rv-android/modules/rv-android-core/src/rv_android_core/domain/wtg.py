@@ -1,27 +1,64 @@
-from typing import List
+"""
+Window Transition Graph models for Android application navigation analysis.
+
+This module provides validated data models for representing navigation flows
+between application windows and their associated UI interaction events.
+"""
+
+from typing import List, Dict, Any, Set
+from pydantic import Field, ConfigDict
 
 import networkx as nx
 
 from rv_android_core.domain.widget import WidgetEventType
 from rv_android_core.domain.window import Window
+from rv_android_core.util.validation import BaseValidatedModel
+from rv_android_core.util.validation.decorators import validated_model
 
 
-class WindowTransition:
+@validated_model(['widget_id', 'event_type', 'method'])
+class WindowTransition(BaseValidatedModel):
     """
-    Represents a transition between windows triggered by a widget event.
+    Validated data model for window navigation transitions triggered by UI events.
+    
+    This model represents navigation events between application windows,
+    capturing the UI element, interaction type, and associated callback method
+    for comprehensive navigation analysis.
+    
+    ### Architectural Role:
+    - Models individual navigation events between application windows
+    - Links UI interactions to specific callback method implementations
+    - Provides structured data for navigation graph construction
+    - Enables analysis of user interaction flows and reachability
+    
+    ### Integration Points:
+    - Created during static analysis of window transition patterns
+    - Used by WindowTransitionGraph for navigation modeling
+    - Consumed by exploration tools for systematic navigation
+    - Integrated with coverage analysis for transition coverage metrics
     """
+    
+    widget_id: str = Field(
+        description="Unique identifier of the UI widget that triggers the transition"
+    )
+    event_type: WidgetEventType = Field(
+        description="Type of user interaction that triggers the navigation"
+    )
+    method: str = Field(
+        description="Complete method signature of the callback that handles the transition"
+    )
+    
+    @property
+    def transition_type(self) -> WidgetEventType:
+        """Compatibility property for accessing event_type."""
+        return self.event_type
+        
+    @property
+    def method_signature(self) -> str:
+        """Compatibility property for accessing method."""
+        return self.method
 
-    def __init__(
-            self,
-            widget_id: str,
-            transition_type: WidgetEventType,
-            method_signature: str
-    ):
-        self.widget_id = widget_id
-        self.event_type = transition_type
-        self.method = method_signature
-
-    def to_json(self):
+    def to_json(self) -> Dict[str, Any]:
         return {
             "widget_id": self.widget_id,
             "event_type": self.event_type.name,
@@ -36,29 +73,50 @@ class WindowTransition:
         return self.method
 
 
-class WindowTransitionGraph:
+class WindowTransitionGraph(BaseValidatedModel):
     """
-    Manages the graph of transitions between windows.
-    Uses NetworkX for graph representation.
+    Validated data model for comprehensive window navigation graph analysis.
     
-    ### Architectural Decisions:
-    - Uses NetworkX DiGraph for efficient graph operations and algorithms
-    - Maintains window IDs and transitions separately for quick access
-    - Provides path-finding capabilities for navigation between windows
-    - Maintains references between UI elements and transition events
+    This class provides structured representation of application navigation
+    flows using NetworkX graph algorithms for efficient path analysis and
+    reachability computation.
     
-    ### Role in the System:
-    - Models the navigation structure of the application
-    - Enables analysis of reachability between windows
-    - Supports exploration optimization with path finding
-    - Integrates with enhanced static analysis for navigation planning
+    ### Architectural Role:
+    - Models complete navigation structure of Android applications
+    - Provides efficient path-finding algorithms for exploration optimization
+    - Enables reachability analysis between application screens
+    - Supports systematic navigation planning and coverage analysis
+    
+    ### Integration Points:
+    - Populated during static analysis of application navigation flows
+    - Used by exploration tools for optimal navigation path planning
+    - Consumed by coverage analysis for navigation coverage metrics
+    - Integrated with monitoring systems for navigation tracking
+    
+    ### Performance Optimization:
+    Uses NetworkX DiGraph for efficient graph algorithms including shortest
+    path computation and reachability analysis essential for exploration.
+    
+    ### Validation Strategy:
+    Validates structured data (transitions, window_ids) while allowing
+    NetworkX graph as arbitrary type for algorithm efficiency.
     """
-
-    def __init__(self):
-        """Initialize the window transition graph."""
-        self.graph = nx.DiGraph()
-        self.transitions = []  # List of all transitions
-        self.window_ids = set()  # Set of window IDs in the graph
+    
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+    
+    transitions: List[Dict[str, Any]] = Field(
+        default_factory=list,
+        description="List of all window transitions with detailed metadata"
+    )
+    window_ids: Set[str] = Field(
+        default_factory=set,
+        description="Set of all window identifiers in the navigation graph"
+    )
+    graph: nx.DiGraph = Field(
+        default_factory=nx.DiGraph,
+        exclude=True,
+        description="NetworkX directed graph for efficient path algorithms (excluded from serialization)"
+    )
 
     def add_transition(
             self,
@@ -92,7 +150,7 @@ class WindowTransitionGraph:
             }
             self.transitions.append(transition)
 
-    def get_transitions(self) -> list:
+    def get_transitions(self) -> List[Dict[str, Any]]:
         """
         Get all transitions in the graph.
         
@@ -144,7 +202,7 @@ class WindowTransitionGraph:
             # In case of error, return an empty dictionary
             return {}
             
-    def get_window_transitions(self, window_id: str) -> list:
+    def get_window_transitions(self, window_id: str) -> List[Dict[str, Any]]:
         """
         Get all transitions originating from a specific window.
         
@@ -164,7 +222,7 @@ class WindowTransitionGraph:
                 
         return result
         
-    def get_path_between_windows(self, source_id: str, target_id: str) -> list:
+    def get_path_between_windows(self, source_id: str, target_id: str) -> List[str]:
         """
         Find the shortest path between two windows.
         

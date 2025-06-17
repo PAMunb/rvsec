@@ -1,3 +1,10 @@
+"""
+Configuration management for runtime verification monitor generation.
+
+This module provides robust configuration handling for the monitor generation pipeline,
+supporting flexible deployment scenarios and comprehensive validation.
+"""
+
 import os
 import glob
 import subprocess
@@ -5,20 +12,24 @@ from typing import Optional, Dict, Any
 from pathlib import Path
 
 import rv_android_core.constants as constants
+from rv_android_core.util.validation import BaseValidatedModel, validated_model
+from rv_android_core.util.exceptions import RVAndroidError
+from pydantic import Field, field_validator
 
 
-class ConfigurationError(Exception):
-    """Raised when there's an error in the configuration."""
+class ConfigurationError(RVAndroidError):
+    """Raised when configuration validation or resolution fails."""
     pass
 
 
-class RVGeneratorConfig:
+class RVGeneratorConfig(BaseValidatedModel):
     """
-    Configuration management for RuntimeVerificationGenerator with flexible path resolution.
+    Configuration management for RuntimeVerificationGenerator with intelligent path resolution.
     
-    The RVGeneratorConfig provides a sophisticated configuration system that supports
+    The RVGeneratorConfig provides comprehensive configuration management that supports
     multiple deployment scenarios from development environments to production systems.
-    It implements an intelligent path resolution strategy with fallback mechanisms.
+    It implements an intelligent path resolution strategy with fallback mechanisms
+    and extensive validation.
 
     ### Architectural Decisions:
     - Implements a priority-based path resolution system for maximum flexibility
@@ -41,46 +52,40 @@ class RVGeneratorConfig:
     4. Configuration error if no valid source is available
     """
     
-    def __init__(self,
-                 rvsec_root: Optional[str] = None,
-                 javamop_bin: Optional[str] = None,
-                 rvmonitor_bin: Optional[str] = None,
-                 mop_specs_dir: Optional[str] = None,
-                 aspects_dir: Optional[str] = None):
+    javamop_bin: Optional[str] = Field(
+        default=None,
+        description="Path to JavaMOP binary executable"
+    )
+    rvmonitor_bin: Optional[str] = Field(
+        default=None,
+        description="Path to RV-Monitor binary executable"
+    )
+    mop_specs_dir: Optional[str] = Field(
+        default=None,
+        description="Directory containing MOP specification files"
+    )
+    aspects_dir: Optional[str] = Field(
+        default=None,
+        description="Directory containing custom AspectJ files"
+    )
+    rvsec_root: Optional[str] = Field(
+        default=None,
+        description="Root directory of RVSEC installation for automatic path resolution"
+    )
+
+    def model_post_init(self, __context) -> None:
         """
-        Initialize RVGeneratorConfig with intelligent path resolution and validation.
+        Execute path resolution and validation after model initialization.
         
-        The initialization process follows a strict priority order for path resolution,
-        ensuring predictable behavior across different deployment scenarios. All paths
-        are validated for existence and accessibility during initialization.
-        
-        Args:
-            rvsec_root: Root directory of RVSEC installation. Used for automatic
-                       path discovery when individual paths are not provided.
-            javamop_bin: Explicit path to JavaMOP binary executable. Takes precedence
-                        over automatic discovery.
-            rvmonitor_bin: Explicit path to RV-Monitor binary executable. Takes precedence
-                          over automatic discovery.
-            mop_specs_dir: Directory containing MOP specification files (.mop). Must be
-                          explicitly provided as it determines the type of monitored operations.
-            aspects_dir: Directory containing custom AspectJ files (.aj). Takes precedence
-                        over automatic discovery.
-                        
-        Raises:
-            ConfigurationError: If path resolution fails or required tools are not accessible
+        This method is called automatically by Pydantic after the model is initialized
+        with validated field values. It performs the intelligent path resolution and
+        comprehensive validation required for operational readiness.
         """
-        self.javamop_bin = javamop_bin
-        self.rvmonitor_bin = rvmonitor_bin
-        self.mop_specs_dir = mop_specs_dir
-        self.aspects_dir = aspects_dir
-        
-        # Resolve paths based on priority
-        self._resolve_paths(rvsec_root)
-        
-        # Validate configuration
+        # Execute path resolution and validation
+        self._resolve_paths()
         self._validate_configuration()
-    
-    def _resolve_paths(self, rvsec_root: Optional[str]) -> None:
+
+    def _resolve_paths(self) -> None:
         """
         Execute intelligent path resolution based on configuration priority system.
         
@@ -94,9 +99,6 @@ class RVGeneratorConfig:
         2. Use explicit rvsec_root for automatic path discovery
         3. Fall back to ENV_RVSEC_HOME environment variable
         4. Raise ConfigurationError if no valid configuration source exists
-        
-        Args:
-            rvsec_root: Optional explicit RVSEC root directory
             
         Raises:
             ConfigurationError: If no valid configuration source is available
@@ -116,9 +118,9 @@ class RVGeneratorConfig:
         # Priority 2 & 3: Determine rvsec_root source for automatic path discovery
         resolved_rvsec_root = None
         
-        if rvsec_root is not None:
+        if self.rvsec_root is not None:
             # Priority 2: Explicit rvsec_root provided
-            resolved_rvsec_root = rvsec_root
+            resolved_rvsec_root = self.rvsec_root
         else:
             # Priority 3: Try ENV_RVSEC_HOME environment variable
             env_rvsec = os.getenv(constants.ENV_RVSEC_HOME)
@@ -135,7 +137,7 @@ class RVGeneratorConfig:
         
         # Perform automatic path discovery from resolved rvsec_root
         self._resolve_from_rvsec_root(resolved_rvsec_root)
-    
+
     def _resolve_from_rvsec_root(self, rvsec_root: str) -> None:
         """
         Resolve individual tool paths from RVSEC root directory using standard layout.
@@ -166,7 +168,7 @@ class RVGeneratorConfig:
             # Standard aspects directory location
             mop_base_dir = os.path.join(rvsec_root, "rvsec", "rvsec-mop", "src", "main", "resources")
             self.aspects_dir = os.path.join(mop_base_dir, "aspect")
-    
+
     def _validate_configuration(self) -> None:
         """
         Execute comprehensive configuration validation to ensure operational readiness.
@@ -197,13 +199,16 @@ class RVGeneratorConfig:
         
         # Phase 4: Tool functionality validation
         self._validate_tool_functionality()
-    
+
     def validate_output_directory(self, output_dir: str) -> None:
         """
-        Validate that output directory can be created/written to.
+        Validate that output directory can be created and written to.
         
         Args:
             output_dir: Directory where monitors will be generated
+            
+        Raises:
+            ConfigurationError: If output directory cannot be created or accessed
         """
         try:
             # Create directory if it doesn't exist
@@ -217,7 +222,7 @@ class RVGeneratorConfig:
             
         except (OSError, PermissionError) as e:
             raise ConfigurationError(f"Cannot write to output directory: {output_dir} - {e}")
-    
+
     def _validate_tool_binary(self, binary_path: str, tool_name: str) -> None:
         """
         Validate individual tool binary for existence and executable permissions.
@@ -234,7 +239,7 @@ class RVGeneratorConfig:
         
         if not os.access(binary_path, os.X_OK):
             raise ConfigurationError(f"{tool_name} binary not executable: {binary_path}")
-    
+
     def _validate_directory(self, directory_path: str, directory_purpose: str) -> None:
         """
         Validate directory existence and accessibility.
@@ -251,7 +256,7 @@ class RVGeneratorConfig:
         
         if not os.access(directory_path, os.R_OK):
             raise ConfigurationError(f"{directory_purpose} directory not readable: {directory_path}")
-    
+
     def _validate_mop_specifications(self) -> None:
         """
         Validate availability of MOP specification files in the configured directory.
@@ -267,7 +272,7 @@ class RVGeneratorConfig:
                 f"  - JCA: Java Cryptography Architecture monitored operations\n"
                 f"  - Generic: General programming pattern monitored operations"
             )
-    
+
     def _validate_tool_functionality(self) -> None:
         """
         Validate tool functionality through basic execution tests.
@@ -305,13 +310,13 @@ class RVGeneratorConfig:
                 raise ConfigurationError(f"RV-Monitor produced no output: {self.rvmonitor_bin}")
         except (subprocess.TimeoutExpired, FileNotFoundError) as e:
             raise ConfigurationError(f"RV-Monitor functionality test failed: {self.rvmonitor_bin}\nError: {e}")
-    
+
     def get_configuration_summary(self) -> Dict[str, Any]:
         """
         Generate comprehensive summary of current configuration.
         
         Returns:
-            Dict containing detailed configuration information
+            Dict containing detailed configuration information for logging and debugging
         """
         mop_files = glob.glob(os.path.join(self.mop_specs_dir, f"*{constants.EXTENSION_MOP}"))
         
@@ -331,7 +336,7 @@ class RVGeneratorConfig:
             },
             'validation_status': 'Validated'
         }
-    
+
     def __str__(self) -> str:
         """Detailed string representation for debugging and logging."""
         return (

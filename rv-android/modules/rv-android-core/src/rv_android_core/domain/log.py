@@ -1,65 +1,94 @@
-# rvandroid/model/log.py
 """
 Standardized logging models for runtime verification.
-This module defines consistent data structures for tracking coverage and errors.
+
+This module provides validated data models for tracking coverage and formal
+property violations during runtime verification execution.
 """
 
 from datetime import datetime
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
+from pydantic import Field, field_validator, computed_field
 
 from rv_android_core.util import utils
+from rv_android_core.util.validation import BaseValidatedModel
+from rv_android_core.util.validation.decorators import validated_model
 
 # Constants for log tags
 TAG_RVSEC = "RVSEC"
 TAG_RVSEC_COV = "RVSEC-COV"
 
 
-class RvErrorLog:
+@validated_model(['spec', 'error_type', 'class_full_name', 'method', 'source', 'message'])
+class RvErrorLog(BaseValidatedModel):
     """
-    Represents an error detected during runtime verification.
-    Provides a standardized structure for formal property violation data.
+    Validated data model for runtime verification property violations.
+    
+    This model provides structured representation of formal property violations
+    detected during runtime verification execution. It enforces data consistency
+    and enables reliable error reporting and analysis workflows.
 
-    IMPORTANT: This class should ONLY be used for runtime verification errors,
-    meaning violations of properties defined in formal specifications.
-    Do NOT use this class for general system errors, exceptions, or other
-    non-property-related failures. For those cases, use regular exceptions
-    or the error handling mechanisms provided in util.exceptions.
+    ### Critical Usage Guidelines:
+    This class should ONLY be used for runtime verification errors, meaning
+    violations of properties defined in formal specifications. Do NOT use this
+    class for general system errors, exceptions, or other non-property-related
+    failures. For those cases, use regular exceptions or the error handling
+    mechanisms provided in util.exceptions.
 
-    Examples of appropriate use:
-    - A security property violation detected by a monitor
-    - A temporal logic constraint violation
-    - A protocol state machine entering an error state
+    ### Appropriate Usage Examples:
+    - Security property violations detected by monitors
+    - Temporal logic constraint violations  
+    - Protocol state machine error state transitions
+    - Monitor specification breach detection
 
-    Examples of inappropriate use:
+    ### Inappropriate Usage Examples:
     - File not found errors
     - Network connection failures
     - Configuration errors
     - General system exceptions
+
+    ### Architectural Role:
+    - Provides standardized structure for property violation reporting
+    - Enables consistent error analysis and aggregation workflows
+    - Supports temporal correlation of violations with application execution
+    - Facilitates automated security analysis and reporting
     """
 
-    def __init__(self, spec: str, error_type: str, class_full_name: str, method: str, source: str, message: str):
-        """
-        Initialize a new RvErrorLog.
+    spec: str = Field(
+        description="Monitor specification identifier that detected the violation"
+    )
+    error_type: str = Field(
+        description="Classification of the property violation type"
+    )
+    class_full_name: str = Field(
+        description="Fully qualified class name where the violation occurred"
+    )
+    method: str = Field(
+        description="Method name where the violation was detected"
+    )
+    source: str = Field(
+        description="Source file or monitor location that detected the violation"
+    )
+    message: str = Field(
+        description="Detailed violation description and context information"
+    )
+    original_msg: str = Field(
+        default="",
+        description="Original raw message from the monitoring system"
+    )
+    time_occurred: datetime = Field(
+        default_factory=datetime.now,
+        description="Timestamp when the violation was detected"
+    )
+    time_since_task_start: int = Field(
+        default=0,
+        description="Seconds elapsed since task execution started when violation occurred"
+    )
 
-        Args:
-            spec: Specification identifier
-            error_type: Type of error
-            class_full_name: Full class name
-            method: Method name
-            source: Source file or location
-            message: Error message
-        """
-        self.spec = spec
-        self.error_type = error_type
-        self.class_full_name = class_full_name
-        self.method = method
-        self.source = source
-        self.message = message
-        # Create a unique identifier for this error
-        self.unique_msg: str = f"{class_full_name}:::{method}:::{spec}:::{error_type}:::{message}"
-        self.original_msg: str = ""
-        self.time_occurred: datetime = datetime.now()
-        self.time_since_task_start: int = 0  # in seconds
+    @computed_field
+    @property
+    def unique_msg(self) -> str:
+        """Generate unique identifier for this property violation."""
+        return f"{self.class_full_name}:::{self.method}:::{self.spec}:::{self.error_type}:::{self.message}"
 
     def to_dict(self) -> Dict[str, Any]:
         """
@@ -82,33 +111,32 @@ class RvErrorLog:
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> 'RvErrorLog':
         """
-        Create a RvErrorLog from a dictionary.
+        Create a RvErrorLog from a dictionary representation.
 
         Args:
-            data: Dictionary with error data
+            data: Dictionary containing error violation data
 
         Returns:
-            New RvErrorLog instance
+            New RvErrorLog instance with validated data
         """
-        instance = cls(
+        # Handle timestamp conversion if provided
+        time_occurred = None
+        if 'time_occurred' in data:
+            time_ms = data['time_occurred']
+            if isinstance(time_ms, (int, float)):
+                time_occurred = datetime.fromtimestamp(time_ms / 1000.0)
+
+        return cls(
             spec=data.get('spec', ''),
             error_type=data.get('error_type', ''),
             class_full_name=data.get('class_full_name', ''),
             method=data.get('method', ''),
             source=data.get('source', ''),
-            message=data.get('message', '')
+            message=data.get('message', ''),
+            original_msg=data.get('original_msg', ''),
+            time_occurred=time_occurred or datetime.now(),
+            time_since_task_start=data.get('time_since_task_start', 0)
         )
-
-        # Set timestamp if provided
-        if 'time_occurred' in data:
-            time_ms = data['time_occurred']
-            if isinstance(time_ms, (int, float)):
-                instance.time_occurred = datetime.fromtimestamp(time_ms / 1000.0)
-
-        if 'time_since_task_start' in data:
-            instance.time_since_task_start = data['time_since_task_start']
-
-        return instance
 
     def __str__(self):
         return (f"RvErrorLog(spec={self.spec}, type={self.error_type}, "
@@ -128,29 +156,52 @@ class RvErrorLog:
         return self.unique_msg == other.unique_msg
 
 
-class RvCoverageLog:
+@validated_model(['clazz', 'method', 'params', 'signature'])
+class RvCoverageLog(BaseValidatedModel):
     """
-    Represents a method execution coverage log entry.
-    Provides a standardized structure for method call data.
+    Validated data model for method execution coverage tracking.
+    
+    This model provides structured representation of method execution events
+    detected during runtime verification, enabling comprehensive coverage
+    analysis and temporal correlation with application behavior.
+
+    ### Architectural Role:
+    - Captures precise method execution events for coverage calculation
+    - Provides temporal correlation between static and dynamic analysis
+    - Enables coverage percentage computation and progress tracking
+    - Supports comprehensive execution flow analysis and reporting
+
+    ### Integration Points:
+    - Generated by instrumentation monitoring during application execution
+    - Consumed by coverage analyzers for static-dynamic correlation
+    - Used by experiment systems for execution progress tracking
+    - Integrated with result analysis and reporting pipelines
     """
 
-    def __init__(self, clazz: str, method: str, params: str, signature: str):
-        """
-        Initialize a new RvCoverageLog.
-
-        Args:
-            clazz: Class name
-            method: Method name
-            params: Parameter string (semicolon-separated)
-            signature: Full method signature
-        """
-        self.clazz = clazz
-        self.method = method
-        self.params = params
-        self.signature = signature
-        self.original_msg: str = ""
-        self.time_occurred: datetime = datetime.now()
-        self.time_since_task_start: int = 0  # in seconds
+    clazz: str = Field(
+        description="Fully qualified class name where method execution occurred"
+    )
+    method: str = Field(
+        description="Method name that was executed"
+    )
+    params: str = Field(
+        description="Method parameter types (semicolon-separated format)"
+    )
+    signature: str = Field(
+        description="Complete method signature including class, method, and parameters"
+    )
+    original_msg: str = Field(
+        default="",
+        description="Original raw message from the monitoring instrumentation"
+    )
+    time_occurred: datetime = Field(
+        default_factory=datetime.now,
+        description="Timestamp when the method execution was detected"
+    )
+    time_since_task_start: int = Field(
+        default=0,
+        description="Seconds elapsed since task execution started when method was called"
+    )
 
     def to_dict(self) -> Dict[str, Any]:
         """
@@ -172,34 +223,30 @@ class RvCoverageLog:
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> 'RvCoverageLog':
         """
-        Create a RvCoverageLog from a dictionary.
+        Create a RvCoverageLog from a dictionary representation.
 
         Args:
-            data: Dictionary with coverage data
+            data: Dictionary containing coverage execution data
 
         Returns:
-            New RvCoverageLog instance
+            New RvCoverageLog instance with validated data
         """
-        instance = cls(
-            clazz=data.get('class', ''),
-            method=data.get('method', ''),
-            params=data.get('params', ''),
-            signature=data.get('signature', '')
-        )
-
-        # Set timestamp if provided
+        # Handle timestamp conversion if provided
+        time_occurred = None
         if 'time_occurred' in data:
             time_ms = data['time_occurred']
             if isinstance(time_ms, (int, float)):
-                instance.time_occurred = datetime.fromtimestamp(time_ms / 1000.0)
+                time_occurred = datetime.fromtimestamp(time_ms / 1000.0)
 
-        if 'time_since_task_start' in data:
-            instance.time_since_task_start = data['time_since_task_start']
-
-        if 'original_msg' in data:
-            instance.original_msg = data['original_msg']
-
-        return instance
+        return cls(
+            clazz=data.get('class', ''),
+            method=data.get('method', ''),
+            params=data.get('params', ''),
+            signature=data.get('signature', ''),
+            original_msg=data.get('original_msg', ''),
+            time_occurred=time_occurred or datetime.now(),
+            time_since_task_start=data.get('time_since_task_start', 0)
+        )
 
     def get_parameters_list(self) -> List[str]:
         """

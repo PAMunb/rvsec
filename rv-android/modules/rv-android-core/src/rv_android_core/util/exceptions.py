@@ -214,3 +214,25 @@ class RVLLMError(RVAndroidError):
     def __str__(self):
         model_info = f" (Model: {self.model_name})" if self.model_name else ""
         return f"{super().__str__()}{model_info}"
+
+
+class RVValidationError(ConfigurationError):
+    """Base exception for data validation errors in Pydantic models."""
+    
+    def __init__(self, message: str, field_name: Optional[str] = None, cause: Optional[Exception] = None):
+        super().__init__(message, cause)
+        self.field_name = field_name
+    
+    def __str__(self):
+        field_info = f" (Field: {self.field_name})" if self.field_name else ""
+        return f"{super().__str__()}{field_info}"
+
+
+class CommandValidationError(RVValidationError):
+    """Exception for command parameter validation errors."""
+    pass
+
+
+class LogcatValidationError(RVValidationError):
+    """Exception for logcat configuration validation errors."""
+    pass

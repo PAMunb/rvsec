@@ -175,7 +175,7 @@ class TestEventHandler:
 
         task_event = TaskEvent(
             type=EventType.TASK_STARTED,
-            task_id=1,
+            task_id="1",
             task_config={"timeout": 60}
         )
 

@@ -36,7 +36,7 @@ class TestEventBusHelperMethods:
     def test_publish_task_event(self):
         """Test publishing a task event using the helper method."""
         # Arrange
-        task_id = 42
+        task_id = "42"
         task_config = {"timeout": 60, "tool": "monkey"}
         details = {"result": "success"}
         source = "test_source"
@@ -68,7 +68,7 @@ class TestEventBusHelperMethods:
         # Arrange
         experiment_id = "experiment_123"
         message = "Experiment started successfully"
-        affected_tasks = [1, 2, 3]
+        affected_tasks = ["1", "2", "3"]
         source = "test_source"
 
         # Act
@@ -97,7 +97,7 @@ class TestEventBusHelperMethods:
         """Test publishing an analysis event using the helper method."""
         # Arrange
         data = {"coverage": 85.5, "errors": 0}
-        related_task_id = 42
+        related_task_id = "42"
         source = "test_source"
 
         # Act
@@ -124,7 +124,7 @@ class TestEventBusHelperMethods:
         """Test publishing an error event using the helper method."""
         # Arrange
         error = Exception("Test error")
-        context = {"phase": "execution", "task_id": 42}
+        context = {"phase": "execution", "task_id": "42"}
 
         # Act
         result = self.event_bus.publish_error_event(error, context)
@@ -140,7 +140,7 @@ class TestEventBusHelperMethods:
         assert event.data["error_type"] == "Exception"
         assert event.data["error_message"] == "Test error"
         assert event.data["context"] == context
-        assert event.related_task_id == 42  # Should extract from context
+        assert event.related_task_id == "42"  # Should extract from context
         assert event.source == "ErrorHandler"
 
     def test_publish_error_event_without_task_id(self):
