@@ -51,7 +51,7 @@ from rv_llm.config.llm_config import LLMConfig
 # Configuration class imports for proper type usage
 from rv_monitor_generator.config import RVGeneratorConfig, ConfigurationError as MonitorConfigError
 from rv_static_analysis.config import RVStaticAnalysisConfig
-from rvandroid.constants import EXTENSION_MOP
+from rv_android_core.constants import EXTENSION_MOP
 
 # Just-in-time imports - only import when needed
 if TYPE_CHECKING:

@@ -1,7 +1,7 @@
 """
-Simple unit tests for RVInstrumentationConfig.
+Unit tests for RVInstrumentationConfig Pydantic models.
 
-These basic tests verify configuration initialization and path resolution
+These tests verify configuration initialization, path resolution, and Pydantic model validation
 without requiring external dependencies or full instrumentation setup.
 """
 
@@ -11,14 +11,21 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch, MagicMock
 
-from rv_instrumentation.config import RVInstrumentationConfig, ConfigurationError
+from rv_android_core.util.exceptions import ConfigurationError
+from rv_instrumentation.config import (
+    RVInstrumentationConfig, 
+    Dex2jarTools, 
+    ConfigurationSummary,
+    InstrumentationError as InstrumentationErrorModel,
+    InstrumentationResults
+)
 
 
 class TestRVInstrumentationConfig(unittest.TestCase):
-    """Basic tests for RVInstrumentationConfig functionality."""
+    """Tests for RVInstrumentationConfig Pydantic model functionality."""
 
     def test_config_initialization_with_defaults(self):
-        """Test that configuration initializes with default values."""
+        """Test that configuration initializes with default values and validates properly."""
         # Mock environment variables to avoid dependency on actual environment
         with patch.dict(os.environ, {}, clear=True):
             with patch('rv_instrumentation.config.os.getcwd') as mock_getcwd:
@@ -29,7 +36,7 @@ class TestRVInstrumentationConfig(unittest.TestCase):
                     RVInstrumentationConfig()
 
     def test_config_with_explicit_paths(self):
-        """Test configuration with all explicit paths provided."""
+        """Test configuration with all explicit paths provided using Pydantic validation."""
         # Create temporary directories for testing
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
@@ -64,11 +71,11 @@ class TestRVInstrumentationConfig(unittest.TestCase):
             instrumented_dir = temp_path / "instrumented"
             working_dir = temp_path / "working"
             
-            # Mock subprocess.run to avoid actual tool execution
-            with patch('rv_instrumentation.config.subprocess.run') as mock_run:
-                mock_run.return_value = MagicMock(stdout="test output", stderr="", returncode=0)
+            # Mock LoggingManager and ErrorHandler to avoid dependency issues
+            with patch('rv_instrumentation.config.LoggingManager') as mock_logging:
+                mock_logging.get_instance.return_value.get_logger.return_value = MagicMock()
                 
-                # Test configuration with explicit paths
+                # Test configuration with explicit paths (both positional and named work)
                 config = RVInstrumentationConfig(
                     monitor_output_dir=str(monitor_dir),
                     android_jar_path=str(android_jar),
@@ -80,48 +87,19 @@ class TestRVInstrumentationConfig(unittest.TestCase):
                     dex2jar_home=str(dex2jar_home)
                 )
                 
-                # Verify configuration values
+                # Verify configuration values using Pydantic attributes
                 self.assertEqual(config.monitor_output_dir, str(monitor_dir))
                 self.assertEqual(config.android_jar_path, str(android_jar))
                 self.assertEqual(config.keystore_file, str(keystore_file))
                 self.assertEqual(config.keystore_password, "testpassword")
                 self.assertEqual(config.dex2jar_home, str(dex2jar_home))
+                
+                # Test that model is a proper Pydantic instance
+                self.assertTrue(hasattr(config, 'model_dump'))
+                self.assertTrue(hasattr(RVInstrumentationConfig, 'model_fields'))
 
-    # def test_bundled_keystore_path_resolution(self):
-    #     """Test that bundled keystore path is resolved correctly."""
-    #     # Create a minimal config just to test keystore path resolution
-    #     config = RVInstrumentationConfig.__new__(RVInstrumentationConfig)
-    #     config.keystore_file = None
-    #     config.keystore_password = None
-    #
-    #     # Call the method that sets default paths
-    #     config._apply_default_paths()
-    #
-    #     # Verify keystore path points to bundled keystore
-    #     self.assertIsNotNone(config.keystore_file)
-    #     self.assertTrue(config.keystore_file.endswith("keystore.jks"))
-    #     self.assertEqual(config.keystore_password, "password")
-
-    def test_dex2jar_tools_configuration(self):
-        """Test dex2jar tools path configuration."""
-        with tempfile.TemporaryDirectory() as temp_dir:
-            dex2jar_home = Path(temp_dir) / "dex2jar"
-            dex2jar_home.mkdir()
-            
-            config = RVInstrumentationConfig.__new__(RVInstrumentationConfig)
-            config.dex2jar_home = str(dex2jar_home)
-            
-            tools = config.get_dex2jar_tools()
-            
-            expected_tools = ['dex2jar', 'asm_verify', 'apk_sign']
-            self.assertEqual(set(tools.keys()), set(expected_tools))
-            
-            # Verify tool paths
-            for tool_name, tool_path in tools.items():
-                self.assertTrue(tool_path.startswith(str(dex2jar_home)))
-
-    def test_configuration_summary(self):
-        """Test configuration summary generation."""
+    def test_positional_constructor_compatibility(self):
+        """Test that @validated_model decorator enables positional arguments."""
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
             
@@ -131,32 +109,251 @@ class TestRVInstrumentationConfig(unittest.TestCase):
             (monitor_dir / "test.aj").touch()
             (monitor_dir / "test.java").touch()
             
-            config = RVInstrumentationConfig.__new__(RVInstrumentationConfig)
-            config.monitor_output_dir = str(monitor_dir)
-            config.android_jar_path = "/mock/android.jar"
-            config.android_platforms_dir = "/mock/platforms"
-            config.working_dir = str(temp_path)
-            config.instrumented_dir = str(temp_path / "out")
-            config.tmp_dir = str(temp_path / "tmp")
-            config.lib_tmp_dir = str(temp_path / "lib_tmp")
-            config.rvm_tmp_dir = str(temp_path / "rvm_tmp")
-            config.dex2jar_home = str(temp_path / "dex2jar")
-            config.keystore_file = str(temp_path / "test.jks")
-            config.keystore_password = "test"
+            android_platforms = temp_path / "android" / "platforms"
+            android_platforms.mkdir(parents=True)
+            android_jar = android_platforms / "android-29" / "android.jar"
+            android_jar.parent.mkdir()
+            android_jar.touch()
             
-            summary = config.get_configuration_summary()
+            keystore_file = temp_path / "test.jks"
+            keystore_file.touch()
             
-            # Verify summary structure
-            self.assertIn('android_integration', summary)
-            self.assertIn('instrumentation_paths', summary)
-            self.assertIn('temporary_directories', summary)
-            self.assertIn('tools', summary)
-            self.assertIn('signing', summary)
-            self.assertIn('monitor_artifacts', summary)
-            self.assertEqual(summary['validation_status'], 'Validated')
+            dex2jar_home = temp_path / "dex2jar"
+            dex2jar_home.mkdir()
+            for tool in ['d2j-dex2jar.sh', 'd2j-asm-verify.sh', 'd2j-apk-sign.sh']:
+                tool_path = dex2jar_home / tool
+                tool_path.touch()
+                tool_path.chmod(0o755)
+            
+            with patch('rv_instrumentation.config.LoggingManager') as mock_logging:
+                mock_logging.get_instance.return_value.get_logger.return_value = MagicMock()
+                
+                # Test positional constructor (legacy compatibility)
+                config = RVInstrumentationConfig(
+                    None,  # rvsec_root
+                    str(monitor_dir),  # monitor_output_dir
+                    str(android_jar),  # android_jar_path
+                    str(android_platforms),  # android_platforms_dir
+                    str(keystore_file),  # keystore_file
+                    "password",  # keystore_password
+                    str(temp_path),  # working_dir
+                    str(temp_path / "out"),  # instrumented_dir
+                    str(temp_path / "tmp"),  # tmp_dir
+                    str(temp_path / "lib_tmp"),  # lib_tmp_dir
+                    str(temp_path / "rvm_tmp"),  # rvm_tmp_dir
+                    str(dex2jar_home)  # dex2jar_home
+                )
+                
+                # Verify positional arguments were mapped correctly
+                self.assertEqual(config.monitor_output_dir, str(monitor_dir))
+                self.assertEqual(config.android_jar_path, str(android_jar))
+                self.assertEqual(config.keystore_file, str(keystore_file))
+                self.assertEqual(config.dex2jar_home, str(dex2jar_home))
+
+    def test_dex2jar_tools_pydantic_model(self):
+        """Test Dex2jarTools Pydantic model validation."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            dex2jar_home = Path(temp_dir) / "dex2jar"
+            dex2jar_home.mkdir()
+            
+            # Create tool files
+            tools_files = {
+                'd2j-dex2jar.sh': 'dex2jar',
+                'd2j-asm-verify.sh': 'asm_verify',
+                'd2j-apk-sign.sh': 'apk_sign'
+            }
+            
+            for filename in tools_files:
+                tool_path = dex2jar_home / filename
+                tool_path.touch()
+                tool_path.chmod(0o755)
+            
+            # Test Dex2jarTools model directly
+            tools = Dex2jarTools(
+                dex2jar=str(dex2jar_home / 'd2j-dex2jar.sh'),
+                asm_verify=str(dex2jar_home / 'd2j-asm-verify.sh'),
+                apk_sign=str(dex2jar_home / 'd2j-apk-sign.sh')
+            )
+            
+            # Verify Pydantic model behavior
+            self.assertIsInstance(tools.model_dump(), dict)
+            self.assertEqual(tools.dex2jar, str(dex2jar_home / 'd2j-dex2jar.sh'))
+            self.assertEqual(tools.asm_verify, str(dex2jar_home / 'd2j-asm-verify.sh'))
+            self.assertEqual(tools.apk_sign, str(dex2jar_home / 'd2j-apk-sign.sh'))
+
+    def test_dex2jar_tools_validation_failure(self):
+        """Test that Dex2jarTools model validates tool existence."""
+        # Test with non-existent tool paths
+        with self.assertRaises(ValueError) as context:
+            Dex2jarTools(
+                dex2jar="/nonexistent/path",
+                asm_verify="/another/nonexistent/path", 
+                apk_sign="/third/nonexistent/path"
+            )
+        
+        self.assertIn("dex2jar tool not found", str(context.exception))
+
+    def test_configuration_summary_pydantic_model(self):
+        """Test ConfigurationSummary Pydantic model structure."""
+        summary = ConfigurationSummary(
+            android_integration={'android_jar_path': '/path/to/android.jar'},
+            instrumentation_paths={'working_dir': '/path/to/work'},
+            temporary_directories={'tmp_dir': '/path/to/tmp'},
+            tools={'dex2jar_home': '/path/to/dex2jar'},
+            signing={'keystore_file': '/path/to/keystore'},
+            monitor_artifacts={'aspectj_count': 2, 'java_count': 3},
+            validation_status='Validated'
+        )
+        
+        # Verify Pydantic model behavior
+        self.assertIsInstance(summary.model_dump(), dict)
+        self.assertEqual(summary.validation_status, 'Validated')
+        self.assertEqual(summary.monitor_artifacts['aspectj_count'], 2)
+
+    def test_instrumentation_error_model(self):
+        """Test InstrumentationError Pydantic model."""
+        error = InstrumentationErrorModel(
+            code=-1,
+            tool="dex2jar",
+            message="Tool execution failed",
+            phase="decompilation"
+        )
+        
+        # Verify Pydantic model behavior
+        self.assertEqual(error.code, -1)
+        self.assertEqual(error.tool, "dex2jar")
+        self.assertEqual(error.message, "Tool execution failed")
+        self.assertEqual(error.phase, "decompilation")
+        self.assertIsInstance(error.model_dump(), dict)
+
+    def test_instrumentation_results_model(self):
+        """Test InstrumentationResults Pydantic model with computed field."""
+        results = InstrumentationResults(
+            total_count=10,
+            success_count=8
+        )
+        
+        # Test computed field
+        self.assertEqual(results.success_rate, 80.0)
+        
+        # Test with errors
+        error = InstrumentationErrorModel(
+            code=-1,
+            message="Failed to process",
+            phase="test",
+            tool=None
+        )
+        results.errors["app1"] = error
+        
+        # Verify model dump includes errors
+        dumped = results.model_dump()
+        self.assertIn('errors', dumped)
+        self.assertIn('success_rate', dumped)
+        self.assertEqual(dumped['success_rate'], 80.0)
+
+    def test_get_dex2jar_tools_returns_pydantic_model(self):
+        """Test that get_dex2jar_tools returns validated Pydantic model."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+            
+            # Create minimal required structure
+            monitor_dir = temp_path / "monitors"
+            monitor_dir.mkdir()
+            (monitor_dir / "test.aj").touch()
+            (monitor_dir / "test.java").touch()
+            
+            android_platforms = temp_path / "android" / "platforms"
+            android_platforms.mkdir(parents=True)
+            android_jar = android_platforms / "android-29" / "android.jar"
+            android_jar.parent.mkdir()
+            android_jar.touch()
+            
+            keystore_file = temp_path / "test.jks"
+            keystore_file.touch()
+            
+            dex2jar_home = temp_path / "dex2jar"
+            dex2jar_home.mkdir()
+            
+            # Create dex2jar tools
+            for tool in ['d2j-dex2jar.sh', 'd2j-asm-verify.sh', 'd2j-apk-sign.sh']:
+                tool_path = dex2jar_home / tool
+                tool_path.touch()
+                tool_path.chmod(0o755)
+            
+            with patch('rv_instrumentation.config.LoggingManager') as mock_logging:
+                mock_logging.get_instance.return_value.get_logger.return_value = MagicMock()
+                
+                config = RVInstrumentationConfig(
+                    monitor_output_dir=str(monitor_dir),
+                    android_jar_path=str(android_jar),
+                    android_platforms_dir=str(android_platforms),
+                    keystore_file=str(keystore_file),
+                    keystore_password="testpassword",
+                    working_dir=str(temp_path),
+                    instrumented_dir=str(temp_path / "out"),
+                    dex2jar_home=str(dex2jar_home)
+                )
+                
+                # Test that method returns Pydantic model
+                tools = config.get_dex2jar_tools()
+                self.assertIsInstance(tools, Dex2jarTools)
+                self.assertTrue(hasattr(tools, 'model_dump'))
+
+    def test_get_configuration_summary_returns_pydantic_model(self):
+        """Test that get_configuration_summary returns validated Pydantic model."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+            
+            # Create minimal required structure
+            monitor_dir = temp_path / "monitors"
+            monitor_dir.mkdir()
+            (monitor_dir / "test.aj").touch()
+            (monitor_dir / "test.java").touch()
+            
+            android_platforms = temp_path / "android" / "platforms"
+            android_platforms.mkdir(parents=True)
+            android_jar = android_platforms / "android-29" / "android.jar"
+            android_jar.parent.mkdir()
+            android_jar.touch()
+            
+            keystore_file = temp_path / "test.jks"
+            keystore_file.touch()
+            
+            dex2jar_home = temp_path / "dex2jar"
+            dex2jar_home.mkdir()
+            
+            # Create dex2jar tools
+            for tool in ['d2j-dex2jar.sh', 'd2j-asm-verify.sh', 'd2j-apk-sign.sh']:
+                tool_path = dex2jar_home / tool
+                tool_path.touch()
+                tool_path.chmod(0o755)
+            
+            with patch('rv_instrumentation.config.LoggingManager') as mock_logging:
+                mock_logging.get_instance.return_value.get_logger.return_value = MagicMock()
+                
+                config = RVInstrumentationConfig(
+                    monitor_output_dir=str(monitor_dir),
+                    android_jar_path=str(android_jar),
+                    android_platforms_dir=str(android_platforms),
+                    keystore_file=str(keystore_file),
+                    keystore_password="testpassword",
+                    working_dir=str(temp_path),
+                    instrumented_dir=str(temp_path / "out"),
+                    dex2jar_home=str(dex2jar_home)
+                )
+                
+                # Test that method returns Pydantic model
+                summary = config.get_configuration_summary()
+                self.assertIsInstance(summary, ConfigurationSummary)
+                self.assertTrue(hasattr(summary, 'model_dump'))
+                
+                # Verify structure using Pydantic attributes
+                self.assertEqual(summary.validation_status, 'Validated')
+                self.assertIn('aspectj_count', summary.monitor_artifacts)
+                self.assertIn('java_count', summary.monitor_artifacts)
 
     def test_apk_input_validation(self):
-        """Test APK input validation functionality."""
+        """Test APK input validation functionality with Pydantic integration."""
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
             
@@ -164,20 +361,81 @@ class TestRVInstrumentationConfig(unittest.TestCase):
             apk_file = temp_path / "test.apk"
             apk_file.touch()
             
-            config = RVInstrumentationConfig.__new__(RVInstrumentationConfig)
+            # Create minimal config for testing validation method
+            monitor_dir = temp_path / "monitors"
+            monitor_dir.mkdir()
+            (monitor_dir / "test.aj").touch()
+            (monitor_dir / "test.java").touch()
             
-            # Valid APK should not raise exception
-            try:
-                config.validate_apk_input(str(apk_file))
-            except ConfigurationError:
-                self.fail("validate_apk_input raised ConfigurationError for valid APK")
+            android_platforms = temp_path / "android" / "platforms"
+            android_platforms.mkdir(parents=True)
+            android_jar = android_platforms / "android-29" / "android.jar"
+            android_jar.parent.mkdir()
+            android_jar.touch()
             
-            # Non-existent file should raise exception
-            with self.assertRaises(ConfigurationError):
-                config.validate_apk_input(str(temp_path / "nonexistent.apk"))
+            keystore_file = temp_path / "test.jks"
+            keystore_file.touch()
             
-            # Non-APK file should raise exception
-            non_apk = temp_path / "test.txt"
-            non_apk.touch()
-            with self.assertRaises(ConfigurationError):
-                config.validate_apk_input(str(non_apk))
+            dex2jar_home = temp_path / "dex2jar"
+            dex2jar_home.mkdir()
+            for tool in ['d2j-dex2jar.sh', 'd2j-asm-verify.sh', 'd2j-apk-sign.sh']:
+                tool_path = dex2jar_home / tool
+                tool_path.touch()
+                tool_path.chmod(0o755)
+            
+            with patch('rv_instrumentation.config.LoggingManager') as mock_logging:
+                mock_logging.get_instance.return_value.get_logger.return_value = MagicMock()
+                
+                config = RVInstrumentationConfig(
+                    monitor_output_dir=str(monitor_dir),
+                    android_jar_path=str(android_jar),
+                    android_platforms_dir=str(android_platforms),
+                    keystore_file=str(keystore_file),
+                    keystore_password="testpassword",
+                    working_dir=str(temp_path),
+                    instrumented_dir=str(temp_path / "out"),
+                    dex2jar_home=str(dex2jar_home)
+                )
+            
+                # Valid APK should not raise exception
+                try:
+                    config.validate_apk_input(str(apk_file))
+                except ConfigurationError:
+                    self.fail("validate_apk_input raised ConfigurationError for valid APK")
+                
+                # Non-existent file should raise exception
+                with self.assertRaises(ConfigurationError):
+                    config.validate_apk_input(str(temp_path / "nonexistent.apk"))
+                
+                # Non-APK file should raise exception
+                non_apk = temp_path / "test.txt"
+                non_apk.touch()
+                with self.assertRaises(ConfigurationError):
+                    config.validate_apk_input(str(non_apk))
+
+    def test_pydantic_serialization_methods(self):
+        """Test Pydantic model serialization capabilities."""
+        error = InstrumentationErrorModel(
+            code=-1,
+            tool="test_tool",
+            message="Test error message",
+            phase="test_phase"
+        )
+        
+        # Test model_dump
+        dumped = error.model_dump()
+        self.assertIsInstance(dumped, dict)
+        self.assertEqual(dumped['code'], -1)
+        self.assertEqual(dumped['tool'], "test_tool")
+        
+        # Test model_dump_json
+        json_str = error.model_dump_json()
+        self.assertIsInstance(json_str, str)
+        self.assertIn('"code":-1', json_str)
+        
+        # Test from_dict class method
+        recreated = InstrumentationErrorModel.from_dict(dumped)
+        self.assertEqual(recreated.code, error.code)
+        self.assertEqual(recreated.tool, error.tool)
+        self.assertEqual(recreated.message, error.message)
+        self.assertEqual(recreated.phase, error.phase)

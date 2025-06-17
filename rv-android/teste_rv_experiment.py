@@ -3,6 +3,7 @@ import os
 import sys
 
 from rv_android_core import constants
+from rv_android_core.util.logging.context_adapter import ContextAdapter
 from rv_android_core.util.logging.manager import LoggingManager
 from rv_experiment.config import ExperimentConfig, ToolConfiguration
 from rv_experiment.experiment.experiment_controller import execute_with_config
@@ -68,6 +69,6 @@ if __name__ == '__main__':
     parent_directory = os.path.dirname(current_directory)
     os.environ[constants.ENV_RVSEC_HOME] = parent_directory
 
-    logger = setup_logging()
+    logger: ContextAdapter = setup_logging()
 
     tmp_001()

@@ -13,21 +13,23 @@ and interoperability with the rest of the system.
 import os.path
 import sys
 import time
-from typing import Dict, Any, Optional, List, Union
+from typing import Dict, Any, Optional, List
+
+from pydantic import Field, field_validator
 
 from rv_android_core.analysis.base_analyzer import BaseAnalyzer
 from rv_android_core.app import App
 from rv_android_core.commands.command import Command
 from rv_android_core.commands.command_result import CommandResult
 from rv_android_core.domain.static import StaticAnalysisData
-from rv_android_core.util.exceptions import RVAndroidError
 from rv_android_core.util.error.error_handler import ErrorHandler
-from rv_android_core.util.logging.manager import LoggingManager
+from rv_android_core.util.exceptions import RVAndroidError
 from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
-from rv_android_core.util.validation import BaseValidatedModel
+from rv_android_core.util.logging.manager import LoggingManager
+from rv_android_core.util.logging.context_adapter import ContextAdapter
+from rv_android_core.util.validation import BaseValidatedModel, validated_model
 from rv_static_analysis.config import RVStaticAnalysisConfig
 from rv_static_analysis.parser.static.static_analysis_parser import StaticAnalysisParser
-from pydantic import Field
 
 
 class StaticAnalysisException(RVAndroidError):
@@ -77,7 +79,8 @@ class StaticAnalysisResult(BaseValidatedModel):
     )
 
 
-class StaticAnalyzer(BaseAnalyzer[StaticAnalysisResult]):
+@validated_model(['app', 'config', 'output_dir'])
+class StaticAnalyzer(BaseValidatedModel, BaseAnalyzer[StaticAnalysisResult]):
     """
     Comprehensive analyzer for static analysis of Android applications.
     
@@ -107,31 +110,59 @@ class StaticAnalyzer(BaseAnalyzer[StaticAnalysisResult]):
     - Provides data for UI navigation and security analysis components
     """
 
-    def __init__(self, 
-                 app: App, 
-                 config: Optional[RVStaticAnalysisConfig] = None,
-                 output_dir: Optional[str] = None):
+    app: App = Field(
+        ...,
+        description="Android application to analyze"
+    )
+    config: RVStaticAnalysisConfig = Field(
+        default_factory=RVStaticAnalysisConfig,
+        description="Configuration for static analysis tools"
+    )
+    output_dir: Optional[str] = Field(
+        default=None,
+        description="Directory for storing analysis output"
+    )
+
+    # BaseAnalyzer inherited fields (excluded from constructor but maintained internally)
+    analyzer_name: str = Field(default="static", exclude=True)
+    static_data: Optional[StaticAnalysisData] = Field(default=None, exclude=True)
+
+    # Internal state fields (not part of constructor)
+    execution_times: Dict[str, float] = Field(default_factory=dict, exclude=True)
+    result: StaticAnalysisResult = Field(default_factory=StaticAnalysisResult, exclude=True)
+    logger: Optional[ContextAdapter] = Field(default=None, exclude=True)
+    error_handler: Optional[ErrorHandler] = Field(default=None, exclude=True)
+    gesda_file: str = Field(default="", exclude=True)
+    gator_file: str = Field(default="", exclude=True)
+    reach_file: str = Field(default="", exclude=True)
+
+    @field_validator('app')
+    @classmethod
+    def validate_app(cls, v):
+        """Validate that app is a valid App instance."""
+        if not hasattr(v, 'name') or not hasattr(v, 'package_name') or not hasattr(v, 'path'):
+            raise ValueError("app must be a valid App instance with name, package_name, and path attributes")
+        return v
+
+    def model_post_init(self, __context) -> None:
         """
-        Initialize the static analyzer for comprehensive Android application analysis.
+        Initialize analyzer components after Pydantic model construction.
         
-        This initialization sets up all necessary components for static analysis execution,
+        This method sets up all necessary components for static analysis execution,
         including configuration validation, output directory preparation, and integration
         with centralized error handling and logging infrastructure.
-        
-        Args:
-            app: The Android application to analyze
-            config: Configuration for static analysis tools. If None, default configuration
-                   will be created with automatic path resolution.
-            output_dir: Optional directory for storing analysis output. If None, will be
-                       derived from config and application package name.
         """
-        super().__init__("static", None)
-        self.app = app
-        self.config = config if config is not None else RVStaticAnalysisConfig()
-        self.output_dir = output_dir or os.path.join(self.config.output_dir, app.package_name)
+        # Initialize BaseAnalyzer attributes manually (already set by Pydantic fields)
+        # BaseAnalyzer.__init__(self, "static", None) - not needed, fields are set
+
+        # Resolve output directory
+        if self.output_dir is None:
+            self.output_dir = os.path.join(self.config.output_dir, self.app.package_name)
+
+        # Initialize internal state
         self.execution_times = {}
         self.result = StaticAnalysisResult()
-        
+
         # Initialize structured logging through LoggingManager
         logging_manager = LoggingManager.get_instance()
         self.logger = logging_manager.get_logger(
@@ -139,7 +170,7 @@ class StaticAnalyzer(BaseAnalyzer[StaticAnalysisResult]):
             {
                 CONTEXT_COMPONENT: 'StaticAnalyzer',
                 'component_module': 'rv-static-analysis',
-                'app_package': app.package_name
+                'app_package': self.app.package_name
             }
         )
 
@@ -150,9 +181,9 @@ class StaticAnalyzer(BaseAnalyzer[StaticAnalysisResult]):
         os.makedirs(self.output_dir, exist_ok=True)
 
         # Setup file paths for analysis results using application name
-        self.gesda_file = os.path.join(self.output_dir, f"{app.name}.gesda")
-        self.gator_file = os.path.join(self.output_dir, f"{app.name}.wtg")
-        self.reach_file = os.path.join(self.output_dir, f"{app.name}.reach")
+        self.gesda_file = os.path.join(self.output_dir, f"{self.app.name}.gesda")
+        self.gator_file = os.path.join(self.output_dir, f"{self.app.name}.wtg")
+        self.reach_file = os.path.join(self.output_dir, f"{self.app.name}.reach")
 
         # Update result model with resolved file paths
         self.result.gesda_file = self.gesda_file
@@ -161,7 +192,7 @@ class StaticAnalyzer(BaseAnalyzer[StaticAnalysisResult]):
 
         self.logger.info("StaticAnalyzer initialized", extra={
             'output_dir': self.output_dir,
-            'app_name': app.name,
+            'app_name': self.app.name,
             'config_summary': self.config.get_configuration_summary()
         })
 
@@ -294,8 +325,8 @@ class StaticAnalyzer(BaseAnalyzer[StaticAnalysisResult]):
             StaticAnalysisException: If reachability analysis execution fails
         """
         cmd_args = self.config.get_tool_command(
-            'reach', 
-            self.app.path, 
+            'reach',
+            self.app.path,
             self.reach_file,
             gesda_file=self.gesda_file,
             timeout=300
@@ -324,10 +355,10 @@ class StaticAnalyzer(BaseAnalyzer[StaticAnalysisResult]):
         """
         # Use centralized error handling for consistent error management
         with self.error_handler.error_context(
-            component="StaticAnalyzer", 
-            phase="command_execution", 
-            tool_name=name,
-            app_name=self.app.name
+                component="StaticAnalyzer",
+                phase="command_execution",
+                tool_name=name,
+                app_name=self.app.name
         ):
             # Implement intelligent caching - skip if result already exists
             if os.path.isfile(result_file):
@@ -359,7 +390,7 @@ class StaticAnalyzer(BaseAnalyzer[StaticAnalysisResult]):
                 if cmd_result.stderr:
                     stderr_text = cmd_result.get_stderr_text()
                     error_msg += f". Error output: {stderr_text}"
-                
+
                 self.logger.error("Static analysis tool execution failed", extra={
                     'tool_name': name,
                     'exit_code': cmd_result.code,
@@ -391,7 +422,7 @@ class StaticAnalyzer(BaseAnalyzer[StaticAnalysisResult]):
             - Tool-specific performance characteristics
         """
         total_execution_time = sum(self.execution_times.values())
-        
+
         return {
             "execution_times": self.execution_times,
             "total_execution_time": total_execution_time,
@@ -443,14 +474,14 @@ class StaticAnalyzer(BaseAnalyzer[StaticAnalysisResult]):
                 self.reach_file,
                 self.app.package_name
             )
-            
+
             self.logger.info("Static analysis data parsed successfully", extra={
                 'package_name': self.app.package_name,
                 'data_available': static_data is not None
             })
-            
+
             return static_data
-            
+
         except Exception as e:
             self.logger.error("Error parsing static analysis data", extra={
                 'error_message': str(e),

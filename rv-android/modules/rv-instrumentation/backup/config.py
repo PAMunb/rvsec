@@ -4,163 +4,19 @@ import subprocess
 from pathlib import Path
 from typing import Optional, Dict, Any
 
-from pydantic import Field, field_validator, computed_field
-from rv_android_core import constants
-from rv_android_core.util.validation.base import BaseValidatedModel
-from rv_android_core.util.validation.decorators import validated_model
-from rv_android_core.util.exceptions import ConfigurationError
-from rv_android_core.util.error.error_handler import ErrorHandler
-from rv_android_core.util.logging.manager import LoggingManager
-from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
+import rv_android_core.constants as constants
 
 
-class Dex2jarTools(BaseValidatedModel):
+class ConfigurationError(Exception):
+    """Raised when there's an error in the instrumentation configuration."""
+    pass
+
+
+class RVInstrumentationConfig:
     """
-    Configuration model for dex2jar tool suite paths and validation.
+    Configuration management for RVInstrumentation with flexible path resolution.
     
-    ### Architectural Decisions:
-    - Implements type-safe access to dex2jar tool components
-    - Provides automatic validation of tool existence and executability
-    - Centralizes dex2jar tool path management for instrumentation pipeline
-    - Integrates with error handling system for robust tool validation
-    
-    ### Role in the System:
-    - Validates availability of required dex2jar tools during configuration
-    - Provides structured access to tool paths for command execution
-    - Ensures instrumentation pipeline dependencies are met before execution
-    - Enables clear error reporting when tools are missing or inaccessible
-    
-    ### Tool Components:
-    - dex2jar: Primary DEX to JAR conversion tool
-    - asm_verify: JAR structural verification utility
-    - apk_sign: APK signing tool for deployment preparation
-    """
-    
-    dex2jar: str = Field(..., description="Path to dex2jar executable for DEX conversion")
-    asm_verify: str = Field(..., description="Path to ASM verify tool for JAR validation")
-    apk_sign: str = Field(..., description="Path to APK signing tool for deployment")
-    
-    @field_validator('dex2jar', 'asm_verify', 'apk_sign')
-    @classmethod
-    def validate_tool_exists(cls, v: str) -> str:
-        """
-        Validate that dex2jar tool executable exists and is accessible.
-        
-        Args:
-            v: Tool path to validate
-            
-        Returns:
-            Validated tool path
-            
-        Raises:
-            ValueError: If tool is not found or not executable
-        """
-        if not os.path.exists(v):
-            raise ValueError(f"dex2jar tool not found: {v}")
-        
-        if not os.access(v, os.R_OK | os.X_OK):
-            raise ValueError(f"dex2jar tool not executable: {v}")
-        
-        return v
-
-
-class ConfigurationSummary(BaseValidatedModel):
-    """
-    Structured summary of instrumentation configuration for logging and debugging.
-    
-    ### Architectural Decisions:
-    - Provides comprehensive configuration overview for operational visibility
-    - Organizes configuration data into logical categories for analysis
-    - Supports automated configuration validation and reporting
-    - Integrates monitor artifact counting for pipeline verification
-    
-    ### Role in the System:
-    - Enables detailed configuration logging for debugging instrumentation issues
-    - Provides structured data for configuration validation reports
-    - Supports automated configuration analysis and verification
-    - Facilitates troubleshooting of instrumentation pipeline setup
-    """
-    
-    android_integration: Dict[str, str] = Field(..., description="Android SDK integration configuration")
-    instrumentation_paths: Dict[str, str] = Field(..., description="Instrumentation directory paths")
-    temporary_directories: Dict[str, str] = Field(..., description="Temporary processing directories")
-    tools: Dict[str, Any] = Field(..., description="Tool configurations and paths")
-    signing: Dict[str, Any] = Field(..., description="APK signing configuration")
-    monitor_artifacts: Dict[str, int] = Field(..., description="Monitor artifact counts")
-    validation_status: str = Field(..., description="Configuration validation status")
-
-
-class InstrumentationError(BaseValidatedModel):
-    """
-    Structured representation of instrumentation pipeline errors.
-    
-    ### Architectural Decisions:
-    - Provides consistent error structure for instrumentation failure tracking
-    - Integrates with existing error handling and logging infrastructure
-    - Supports detailed error classification for debugging and analysis
-    - Enables automated error reporting and recovery strategies
-    
-    ### Role in the System:
-    - Standardizes error information across instrumentation pipeline phases
-    - Enables structured error logging and analysis for debugging
-    - Supports automated error recovery and retry strategies
-    - Provides consistent error interface for experiment orchestration
-    """
-    
-    code: int = Field(..., description="Numeric error code for programmatic handling")
-    tool: Optional[str] = Field(default=None, description="Name of tool that failed during execution")
-    message: str = Field(..., description="Human-readable error description")
-    phase: str = Field(..., description="Pipeline phase where error occurred")
-
-
-class InstrumentationResults(BaseValidatedModel):
-    """
-    Comprehensive results and metrics from instrumentation pipeline execution.
-    
-    ### Architectural Decisions:
-    - Aggregates instrumentation outcomes for batch processing analysis
-    - Provides computed metrics for success rate calculation and reporting
-    - Structures error information for detailed failure analysis
-    - Integrates with experiment orchestration for batch operation tracking
-    
-    ### Role in the System:
-    - Tracks instrumentation success and failure metrics across batches
-    - Provides structured data for experiment result analysis
-    - Enables automated quality assessment of instrumentation operations
-    - Supports debugging and optimization of instrumentation workflows
-    """
-    
-    errors: Dict[str, InstrumentationError] = Field(
-        default_factory=dict, 
-        description="Detailed error information keyed by APK name"
-    )
-    success_count: int = Field(default=0, ge=0, description="Number of successfully instrumented APKs")
-    total_count: int = Field(default=0, ge=0, description="Total number of APKs processed")
-    
-    @computed_field
-    @property
-    def success_rate(self) -> float:
-        """
-        Calculate instrumentation success rate as percentage.
-        
-        Returns:
-            Success rate percentage (0.0 to 100.0)
-        """
-        if self.total_count == 0:
-            return 0.0
-        return (self.success_count / self.total_count) * 100
-
-
-@validated_model([
-    'rvsec_root', 'monitor_output_dir', 'android_jar_path', 'android_platforms_dir',
-    'keystore_file', 'keystore_password', 'working_dir', 'instrumented_dir',
-    'tmp_dir', 'lib_tmp_dir', 'rvm_tmp_dir', 'dex2jar_home'
-])
-class RVInstrumentationConfig(BaseValidatedModel):
-    """
-    Configuration management for RVInstrumentation with comprehensive path validation.
-    
-    The RVInstrumentationConfig provides a configuration system that supports
+    The RVInstrumentationConfig provides a sophisticated configuration system that supports
     multiple deployment scenarios from development environments to production systems.
     It implements an intelligent path resolution strategy with fallback mechanisms for
     Android APK instrumentation workflows.
@@ -195,65 +51,19 @@ class RVInstrumentationConfig(BaseValidatedModel):
     - Integrates dex2jar tools for bytecode transformation workflows
     """
 
-    # Core paths
-    rvsec_root: Optional[str] = Field(
-        default=None, 
-        description="Root directory of RVSEC installation for path discovery"
-    )
-    monitor_output_dir: Optional[str] = Field(
-        default=None, 
-        description="Directory containing generated monitor artifacts from rv-monitor-generator"
-    )
-    working_dir: Optional[str] = Field(
-        default=None, 
-        description="Base working directory for instrumentation operations"
-    )
-
-    # Android SDK paths
-    android_jar_path: Optional[str] = Field(
-        default=None, 
-        description="Path to Android SDK android.jar file for APK processing"
-    )
-    android_platforms_dir: Optional[str] = Field(
-        default=None, 
-        description="Android SDK platforms directory for API compatibility"
-    )
-
-    # Output directories
-    instrumented_dir: Optional[str] = Field(
-        default=None, 
-        description="Output directory for instrumented APK artifacts"
-    )
-    tmp_dir: Optional[str] = Field(
-        default=None, 
-        description="Temporary directory for intermediate processing files"
-    )
-    lib_tmp_dir: Optional[str] = Field(
-        default=None, 
-        description="Temporary directory for library extraction and processing"
-    )
-    rvm_tmp_dir: Optional[str] = Field(
-        default=None, 
-        description="Temporary directory for runtime verification monitor processing"
-    )
-
-    # Signing configuration
-    keystore_file: Optional[str] = Field(
-        default=None, 
-        description="Path to keystore file for APK signing"
-    )
-    keystore_password: Optional[str] = Field(
-        default=None, 
-        description="Password for keystore access"
-    )
-
-    # Tools
-    dex2jar_home: Optional[str] = Field(
-        default=None, 
-        description="Directory containing dex2jar tool suite"
-    )
-
-    def __init__(self, **data: Any):
+    def __init__(self,
+                 rvsec_root: Optional[str] = None,
+                 monitor_output_dir: Optional[str] = None,
+                 android_jar_path: Optional[str] = None,
+                 android_platforms_dir: Optional[str] = None,
+                 keystore_file: Optional[str] = None,
+                 keystore_password: Optional[str] = None,
+                 working_dir: Optional[str] = None,
+                 instrumented_dir: Optional[str] = None,
+                 tmp_dir: Optional[str] = None,
+                 lib_tmp_dir: Optional[str] = None,
+                 rvm_tmp_dir: Optional[str] = None,
+                 dex2jar_home: Optional[str] = None):
         """
         Initialize RVInstrumentationConfig with intelligent path resolution and validation.
         
@@ -261,29 +71,52 @@ class RVInstrumentationConfig(BaseValidatedModel):
         ensuring predictable behavior across different deployment scenarios. All paths
         are validated for existence and accessibility during initialization.
         
+        Args:
+            rvsec_root: Root directory of RVSEC installation. Used for automatic
+                       path discovery when individual paths are not provided.
+            monitor_output_dir: Directory containing generated monitor artifacts from
+                              rv-monitor-generator. Critical for instrumentation pipeline.
+            android_jar_path: Path to Android SDK android.jar file. Required for
+                            APK decompilation and recompilation workflows.
+            android_platforms_dir: Directory containing Android SDK platform libraries.
+                                 Used for Android API compatibility validation.
+            keystore_file: Path to keystore file for APK signing. Required for
+                         deployment-ready instrumented APKs.
+            keystore_password: Password for keystore access. Must match keystore_file.
+            working_dir: Base working directory for instrumentation operations.
+                        Defaults to current working directory if not provided.
+            instrumented_dir: Output directory for instrumented APK artifacts.
+                            Critical for experiment orchestration integration.
+            tmp_dir: Temporary directory for intermediate processing files.
+                    Automatically cleaned during instrumentation workflows.
+            lib_tmp_dir: Temporary directory for library extraction and processing.
+                       Used during APK dependency resolution.
+            rvm_tmp_dir: Temporary directory for runtime verification monitor processing.
+                       Bridges rv-monitor-generator and instrumentation workflows.
+            dex2jar_home: Directory containing dex2jar tool suite. Required for
+                        DEX bytecode transformation operations.
+                        
         Raises:
             ConfigurationError: If path resolution fails or required tools are not accessible
         """
-        # Store original values before calling super().__init__
-        original_rvsec_root = data.get('rvsec_root')
-        
-        # Call parent constructor first to set up Pydantic model
-        super().__init__(**data)
-        
-        # Set up logging
-        logging_manager = LoggingManager.get_instance()
-        self._logger = logging_manager.get_logger(
-            'rv_instrumentation.config.RVInstrumentationConfig',
-            {CONTEXT_COMPONENT: 'RVInstrumentationConfig'}
-        )
-        
+        self.monitor_output_dir = monitor_output_dir
+        self.android_jar_path = android_jar_path
+        self.android_platforms_dir = android_platforms_dir
+        self.keystore_file = keystore_file
+        self.keystore_password = keystore_password
+        self.working_dir = working_dir
+        self.instrumented_dir = instrumented_dir
+        self.tmp_dir = tmp_dir
+        self.lib_tmp_dir = lib_tmp_dir
+        self.rvm_tmp_dir = rvm_tmp_dir
+        self.dex2jar_home = dex2jar_home
+
         # Resolve paths based on priority
-        self._resolve_paths(original_rvsec_root)
+        self._resolve_paths(rvsec_root)
 
         # Validate configuration
         self._validate_configuration()
 
-    @ErrorHandler.handle_errors(component="RVInstrumentationConfig", phase="path_resolution", reraise=True)
     def _resolve_paths(self, rvsec_root: Optional[str]) -> None:
         """
         Execute intelligent path resolution based on configuration priority system.
@@ -389,7 +222,6 @@ class RVInstrumentationConfig(BaseValidatedModel):
         # Apply remaining default paths
         self._apply_default_paths()
 
-    @ErrorHandler.handle_errors(component="RVInstrumentationConfig", phase="android_sdk_resolution", reraise=True)
     def _resolve_android_sdk(self) -> None:
         """
         Resolve Android SDK paths from environment variables and standard configurations.
@@ -455,7 +287,6 @@ class RVInstrumentationConfig(BaseValidatedModel):
             lib_dir = os.path.join(self.working_dir, "lib")
             self.dex2jar_home = os.path.join(lib_dir, "dex2jar")
 
-    @ErrorHandler.handle_errors(component="RVInstrumentationConfig", phase="configuration_validation", reraise=True)
     def _validate_configuration(self) -> None:
         """
         Execute comprehensive configuration validation to ensure operational readiness.
@@ -593,20 +424,19 @@ class RVInstrumentationConfig(BaseValidatedModel):
             except (OSError, PermissionError) as e:
                 raise ConfigurationError(f"Cannot create directory: {directory} - {e}")
 
-    def get_dex2jar_tools(self) -> Dex2jarTools:
+    def get_dex2jar_tools(self) -> Dict[str, str]:
         """
-        Get validated dex2jar tool suite configuration.
+        Get paths to dex2jar tool suite components.
         
         Returns:
-            Dex2jarTools model with validated tool paths
+            Dict containing paths to dex2jar tools required for APK processing
         """
-        return Dex2jarTools(
-            dex2jar=os.path.join(self.dex2jar_home, "d2j-dex2jar.sh"),
-            asm_verify=os.path.join(self.dex2jar_home, "d2j-asm-verify.sh"),
-            apk_sign=os.path.join(self.dex2jar_home, "d2j-apk-sign.sh")
-        )
+        return {
+            'dex2jar': os.path.join(self.dex2jar_home, "d2j-dex2jar.sh"),
+            'asm_verify': os.path.join(self.dex2jar_home, "d2j-asm-verify.sh"),
+            'apk_sign': os.path.join(self.dex2jar_home, "d2j-apk-sign.sh")
+        }
 
-    @ErrorHandler.handle_errors(component="RVInstrumentationConfig", phase="apk_validation", reraise=True)
     def validate_apk_input(self, apk_path: str) -> None:
         """
         Validate input APK file for instrumentation processing.
@@ -626,44 +456,44 @@ class RVInstrumentationConfig(BaseValidatedModel):
         if not os.access(apk_path, os.R_OK):
             raise ConfigurationError(f"APK file not readable: {apk_path}")
 
-    def get_configuration_summary(self) -> ConfigurationSummary:
+    def get_configuration_summary(self) -> Dict[str, Any]:
         """
         Generate comprehensive summary of current instrumentation configuration.
         
         Returns:
-            ConfigurationSummary model with detailed configuration information
+            Dict containing detailed configuration information for logging and debugging
         """
         monitor_files = {
             'aspectj_count': len(glob.glob(os.path.join(self.monitor_output_dir, f"*{constants.EXTENSION_AJ}"))),
             'java_count': len(glob.glob(os.path.join(self.monitor_output_dir, f"*{constants.EXTENSION_JAVA}")))
         }
 
-        return ConfigurationSummary(
-            android_integration={
+        return {
+            'android_integration': {
                 'android_jar_path': self.android_jar_path,
                 'android_platforms_dir': self.android_platforms_dir
             },
-            instrumentation_paths={
+            'instrumentation_paths': {
                 'working_dir': self.working_dir,
                 'instrumented_dir': self.instrumented_dir,
                 'monitor_output_dir': self.monitor_output_dir
             },
-            temporary_directories={
+            'temporary_directories': {
                 'tmp_dir': self.tmp_dir,
                 'lib_tmp_dir': self.lib_tmp_dir,
                 'rvm_tmp_dir': self.rvm_tmp_dir
             },
-            tools={
+            'tools': {
                 'dex2jar_home': self.dex2jar_home,
-                'dex2jar_tools': self.get_dex2jar_tools().model_dump()
+                'dex2jar_tools': self.get_dex2jar_tools()
             },
-            signing={
+            'signing': {
                 'keystore_file': self.keystore_file,
                 'keystore_configured': self.keystore_password is not None
             },
-            monitor_artifacts=monitor_files,
-            validation_status='Validated'
-        )
+            'monitor_artifacts': monitor_files,
+            'validation_status': 'Validated'
+        }
 
     def __str__(self) -> str:
         """Detailed string representation for debugging and logging."""

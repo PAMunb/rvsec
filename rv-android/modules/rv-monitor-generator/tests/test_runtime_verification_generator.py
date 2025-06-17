@@ -108,19 +108,35 @@ class TestRuntimeVerificationGenerator:
         """Test RuntimeVerificationGenerator initialization with auto-config."""
         with patch('rv_monitor_generator.runtime_verification_generator.LoggingManager') as mock_logging_mgr, \
                 patch('rv_monitor_generator.runtime_verification_generator.ErrorHandler') as mock_error_handler, \
-                patch('rv_monitor_generator.runtime_verification_generator.RVGeneratorConfig') as mock_config_class:
-            # Setup mocks
-            mock_config_instance = MagicMock()
-            mock_config_class.return_value = mock_config_instance
+                patch('rv_monitor_generator.config.os.getenv') as mock_getenv, \
+                patch('rv_monitor_generator.config.os.path.exists') as mock_exists, \
+                patch('rv_monitor_generator.config.os.path.isfile') as mock_isfile, \
+                patch('rv_monitor_generator.config.os.path.isdir') as mock_isdir, \
+                patch('rv_monitor_generator.config.os.access') as mock_access, \
+                patch('rv_monitor_generator.config.subprocess.run') as mock_subprocess, \
+                patch('rv_monitor_generator.config.glob.glob') as mock_glob:
+            
+            # Setup mocks for RVGeneratorConfig internal dependencies
+            mock_getenv.return_value = '/fake/rvsec/path'
+            mock_exists.return_value = True
+            mock_isfile.return_value = True  # Binary files exist
+            mock_isdir.return_value = True   # Directories exist
+            mock_access.return_value = True  # Files are accessible
+            mock_subprocess.return_value.stdout = "tool output"
+            mock_subprocess.return_value.stderr = ""
+            mock_glob.return_value = ['/fake/spec1.mop', '/fake/spec2.mop']
+            
+            # Setup logging mocks
             mock_logger = MagicMock()
             mock_logging_mgr.get_instance.return_value.get_logger.return_value = mock_logger
 
             # Initialize generator without explicit config
             generator = RuntimeVerificationGenerator()
 
-            # Verify auto-config creation
-            mock_config_class.assert_called_once_with()
-            assert generator.config == mock_config_instance
+            # Verify that config is a real RVGeneratorConfig instance, not a mock
+            assert isinstance(generator.config, RVGeneratorConfig)
+            # Verify that environment variable was used
+            mock_getenv.assert_called()
 
     def test_generate_monitors_success(self, mock_config):
         """Test successful monitor generation pipeline."""

@@ -2,7 +2,7 @@ import json
 import os
 import shutil
 import time
-from typing import Optional
+from typing import Dict, Any, Optional
 
 from rv_android_core import constants
 from rv_android_core.app import App
@@ -13,12 +13,7 @@ from rv_android_core.util.error.error_handler import ErrorHandler
 from rv_android_core.util.exceptions import InstrumentationError
 from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
 from rv_android_core.util.logging.manager import LoggingManager
-from rv_instrumentation.config import (
-    RVInstrumentationConfig, 
-    InstrumentationResults, 
-    InstrumentationError as InstrumentationErrorModel,
-    Dex2jarTools
-)
+from rv_instrumentation.config import RVInstrumentationConfig
 
 
 class RVInstrumentation:
@@ -102,11 +97,11 @@ class RVInstrumentation:
         self._error_handler = ErrorHandler.get_instance()
 
         self._logger.info("RVInstrumentation initialized", extra={
-            'config_summary': self.config.get_configuration_summary().model_dump()
+            'config_summary': self.config.get_configuration_summary()
         })
 
-    @ErrorHandler.handle_errors(component="RVInstrumentation", phase="batch_instrumentation")
-    def instrument_apks(self, apks_dir: str, results_dir: str, force_instrumentation: bool = False) -> InstrumentationResults:
+    def instrument_apks(self, apks_dir: str, results_dir: str, force_instrumentation=False) -> Dict[
+        str, Dict[str, Any]]:
         """
         Execute batch instrumentation of multiple APKs with comprehensive error tracking.
         
@@ -131,12 +126,16 @@ class RVInstrumentation:
                                   Useful for configuration changes or monitor updates.
 
         Returns:
-            InstrumentationResults model containing comprehensive instrumentation outcomes
+            Dictionary of instrumentation errors, keyed by APK name, containing:
+            - code: Error code for programmatic handling
+            - tool: Name of tool that failed (if applicable)
+            - message: Human-readable error description
+            - phase: Pipeline phase where error occurred
             
         Raises:
-            InstrumentationError: If instrumentation environment validation fails
+            ConfigurationError: If instrumentation environment validation fails
         """
-        results = InstrumentationResults()
+        errors = {}
 
         self._logger.info("Starting batch APK instrumentation", extra={
             'apks_dir': apks_dir,
@@ -163,16 +162,7 @@ class RVInstrumentation:
                 InstrumentationError("Failed to prepare instrumentation environment", e),
                 context
             )
-            
-            setup_error = InstrumentationErrorModel(
-                code=-1, 
-                message=str(e), 
-                phase="preparation",
-                tool=None
-            )
-            results.errors["setup_error"] = setup_error
-            results.total_count = 1
-            return results
+            return {"setup_error": {"code": -1, "message": str(e), "phase": "preparation"}}
 
         # Discover and validate APKs for instrumentation
         try:
@@ -193,20 +183,9 @@ class RVInstrumentation:
                 InstrumentationError("Failed to retrieve APKs", e),
                 context
             )
-            
-            retrieval_error = InstrumentationErrorModel(
-                code=-1, 
-                message=str(e), 
-                phase="retrieval",
-                tool=None
-            )
-            results.errors["apk_retrieval_error"] = retrieval_error
-            results.total_count = 1
-            return results
+            return {"apk_retrieval_error": {"code": -1, "message": str(e), "phase": "retrieval"}}
 
         total_apks = len(apks)
-        results.total_count = total_apks
-        
         self._logger.info(f"Discovered {total_apks} APKs for instrumentation", extra={
             'total_apks': total_apks,
             'pipeline_stage': 'processing_start'
@@ -236,8 +215,6 @@ class RVInstrumentation:
                     'app_name': app.name,
                     'pipeline_stage': 'completed'
                 })
-                
-                results.success_count += 1
 
             except CommandException as ex:
                 self._logger.error(f"Command execution failed for APK: {app.name}", extra={
@@ -248,13 +225,12 @@ class RVInstrumentation:
                     'pipeline_stage': 'command_execution'
                 })
 
-                error_model = InstrumentationErrorModel(
-                    code=ex.code,
-                    tool=ex.tool,
-                    message=ex.message,
-                    phase="command_execution"
-                )
-                results.errors[app.name] = error_model
+                errors[app.name] = {
+                    "code": ex.code,
+                    "tool": ex.tool,
+                    "message": ex.message,
+                    "phase": "command_execution"
+                }
 
                 # Use centralized error handling
                 context = {
@@ -276,13 +252,11 @@ class RVInstrumentation:
                     'pipeline_stage': 'general_error'
                 })
 
-                error_model = InstrumentationErrorModel(
-                    code=-1,
-                    message=str(ex),
-                    phase="general_error",
-                    tool=None
-                )
-                results.errors[app.name] = error_model
+                errors[app.name] = {
+                    "code": -1,
+                    "message": str(ex),
+                    "phase": "general_error"
+                }
 
                 # Use centralized error handling
                 context = {
@@ -303,45 +277,40 @@ class RVInstrumentation:
         self.clear([self.config.lib_tmp_dir])
 
         # Generate comprehensive error report and summary
-        if results.errors:
-            self._logger.warning(f"Instrumentation completed with {len(results.errors)} errors", extra={
-                'total_errors': len(results.errors),
+        if errors:
+            self._logger.warning(f"Instrumentation completed with {len(errors)} errors", extra={
+                'total_errors': len(errors),
                 'total_apks': total_apks,
-                'success_rate': results.success_rate,
+                'success_rate': ((total_apks - len(errors)) / total_apks) * 100,
                 'pipeline_stage': 'error_reporting'
             })
 
             # Save detailed error report
             errors_file = os.path.join(results_dir, "instrument_errors.json")
             with open(errors_file, 'w') as outfile:
-                # Convert Pydantic models to serializable format
-                serializable_errors = {
-                    name: error.model_dump() for name, error in results.errors.items()
-                }
-                json.dump(serializable_errors, outfile, indent=2)
+                json.dump(errors, outfile, indent=2)
 
             self._logger.info(f"Error report saved to: {errors_file}", extra={
                 'errors_file': errors_file
             })
 
             # Log individual error summaries
-            for app_name, error_details in results.errors.items():
+            for app_name, error_details in errors.items():
                 self._logger.warning(f"APK instrumentation failed: {app_name}", extra={
                     'app_name': app_name,
-                    'tool': error_details.tool or 'unknown',
-                    'phase': error_details.phase,
-                    'error_code': error_details.code
+                    'tool': error_details.get('tool', 'unknown'),
+                    'phase': error_details.get('phase', 'unknown'),
+                    'error_code': error_details.get('code', -1)
                 })
         else:
             self._logger.info("All APKs instrumented successfully", extra={
                 'total_apks': total_apks,
-                'success_rate': results.success_rate,
+                'success_rate': 100.0,
                 'pipeline_stage': 'completed_successfully'
             })
 
-        return results
+        return errors
 
-    @ErrorHandler.handle_errors(component="RVInstrumentation", phase="preparation")
     def prepare_instrumentation(self, results_dir: str) -> None:
         """
         Prepare the instrumentation environment by cleaning temporary directories,
@@ -374,7 +343,6 @@ class RVInstrumentation:
 
         self._logger.debug("Instrumentation environment prepared successfully")
 
-    @ErrorHandler.handle_errors(component="RVInstrumentation", phase="single_apk_instrumentation")
     def instrument(self, app: App, result_dir: str, force_instrumentation: bool = False) -> None:
         """
         Execute the complete instrumentation pipeline for a single APK.
@@ -551,7 +519,7 @@ class RVInstrumentation:
 
         dex2jar_tools = self.config.get_dex2jar_tools()
         dex2jar_cmd = Command(
-            dex2jar_tools.dex2jar,
+            dex2jar_tools['dex2jar'],
             ['-f', '-o', output_jar_file, '-e', exception_file, app.path]
         )
 
@@ -574,7 +542,7 @@ class RVInstrumentation:
             return
 
         dex2jar_tools = self.config.get_dex2jar_tools()
-        asm_verify_cmd = Command(dex2jar_tools.asm_verify, [jar_file])
+        asm_verify_cmd = Command(dex2jar_tools['asm_verify'], [jar_file])
         utils.execute_command(asm_verify_cmd, "asm_verify")
 
     def __d2j_apk_sign(self, signed_apk: str, unsigned_apk: str) -> None:
@@ -587,12 +555,11 @@ class RVInstrumentation:
         """
         dex2jar_tools = self.config.get_dex2jar_tools()
         apk_sign_cmd = Command(
-            dex2jar_tools.apk_sign,
+            dex2jar_tools['apk_sign'],
             ['-f', '-o', signed_apk, unsigned_apk]
         )
         utils.execute_command(apk_sign_cmd, "apk_sign")
 
-    @ErrorHandler.handle_errors(component="RVInstrumentation", phase="maven_execution")
     def __execute_maven(self) -> None:
         """
         Execute Maven build to resolve and copy runtime verification dependencies.
@@ -634,7 +601,6 @@ class RVInstrumentation:
 
         return classpath
 
-    @ErrorHandler.handle_errors(component="RVInstrumentation", phase="monitor_integration")
     def __include_generated_monitors(self) -> None:
         """
         Include generated runtime verification monitor artifacts in the instrumentation pipeline.
@@ -664,7 +630,6 @@ class RVInstrumentation:
 
         self._logger.debug("Monitor artifacts integration completed successfully")
 
-    @ErrorHandler.handle_errors(component="RVInstrumentation", phase="aspect_weaving")
     def __weave_monitors(self, app: App) -> None:
         """
         Execute AspectJ weaving to integrate runtime verification monitors with application code.
@@ -726,7 +691,6 @@ class RVInstrumentation:
             'pipeline_stage': 'aspectj_weaving_completed'
         })
 
-    @ErrorHandler.handle_errors(component="RVInstrumentation", phase="apk_creation")
     def __create_apk(self, app: App) -> str:
         """
         Create final instrumented APK from woven classes and runtime verification dependencies.
@@ -789,7 +753,6 @@ class RVInstrumentation:
         self._logger.debug(f"Instrumented APK creation completed: {signed_apk}")
         return signed_apk
 
-    @ErrorHandler.handle_errors(component="RVInstrumentation", phase="library_integration")
     def __merge_support_classes(self) -> None:
         """
         Integrate runtime verification support libraries into the instrumented application.
@@ -924,7 +887,6 @@ class RVInstrumentation:
         self._logger.debug(f"DEX compilation and integration completed: {unsigned_apk}")
         return unsigned_apk
 
-    @ErrorHandler.handle_errors(component="RVInstrumentation", phase="apk_signing")
     def __sign_apk(self, app: App, unsigned_apk: str) -> str:
         """
         Sign instrumented APK for deployment readiness.
@@ -1061,7 +1023,6 @@ class RVInstrumentation:
         jarsigner_cmd = Command('jarsigner', ['-verify', '-certs', signed_apk])
         utils.execute_command(jarsigner_cmd, "jarsigner_verify")
 
-    @ErrorHandler.handle_errors(component="RVInstrumentation", phase="instrumentation_verification")
     def check_if_instrumented(self, app: App) -> None:
         """
         Verify that APK was actually instrumented by comparing file hashes.

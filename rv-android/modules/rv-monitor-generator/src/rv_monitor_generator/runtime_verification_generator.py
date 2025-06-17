@@ -7,7 +7,7 @@ This module provides the central component for transforming Monitoring-Oriented 
 
 import os
 import glob
-from typing import Optional, Dict, Any, Union
+from typing import Optional, Dict, Any
 
 import rv_android_core.constants as constants
 from rv_android_core.commands.command import Command
@@ -50,18 +50,14 @@ class RuntimeVerificationGenerator(BaseValidatedModel):
     - Integrated with CLI tooling for standalone monitor generation
     """
 
-    config: Union[RVGeneratorConfig, Any] = Field(
+    config: RVGeneratorConfig = Field(
         description="Configuration for monitor generation tools and paths"
     )
     
     @field_validator('config')
     @classmethod
     def validate_config(cls, v):
-        """Validate config field, allowing mock objects during testing."""
-        # Allow mock objects for testing
-        if hasattr(v, '_mock_name') or str(type(v)).startswith("<class 'unittest.mock"):
-            return v
-        # For real objects, ensure it's an RVGeneratorConfig instance
+        """Validate config field ensuring correct type."""
         if not isinstance(v, RVGeneratorConfig):
             raise ValueError("config must be an RVGeneratorConfig instance")
         return v
