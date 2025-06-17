@@ -36,8 +36,8 @@ class BasicTextVisitor(AbstractScreenVisitor):
         """
         # Add a default BACK action to the screen description
         back_action = ItemAction(
-            self.counter.inc(),
-            f"BACK ({self.counter.get()})",
+            self.counter.increment(),
+            f"BACK ({self.counter.get_current()})",
             WidgetEventType.KEY,
             False,
             False
@@ -64,7 +64,7 @@ class BasicTextVisitor(AbstractScreenVisitor):
             node: The node to visit
         """
         # Only process actionable containers that haven't been processed yet
-        node_id = node.get_unique_id()
+        node_id = node.unique_identifier
 
         if node_id in self.processed_parents:
             return
@@ -84,7 +84,7 @@ class BasicTextVisitor(AbstractScreenVisitor):
         Args:
             node: The leaf node to visit
         """
-        node_id = node.get_unique_id()
+        node_id = node.unique_identifier
 
         if node_id in self.processed_parents:
             return
@@ -252,8 +252,8 @@ class BasicTextVisitor(AbstractScreenVisitor):
         # Add click action
         if node.clickable:
             actions.append(ItemAction(
-                self.counter.inc(),
-                f"CLICK ({self.counter.get()})",
+                self.counter.increment(),
+                f"CLICK ({self.counter.get_current()})",
                 WidgetEventType.CLICK, False, False,
                 target_view=node.data
             ))
@@ -262,8 +262,8 @@ class BasicTextVisitor(AbstractScreenVisitor):
         # if node.scrollable:
         #     for direction in ["UP", "DOWN"]:
         #         actions.append(ItemAction(
-        #             self.counter.inc(),
-        #             f"SCROLL {direction} ({self.counter.get()})",
+        #             self.counter.increment(),
+        #             f"SCROLL {direction} ({self.counter.get_current()})",
         #             WidgetEventType.SCROLL, False, False,
         #             target_view=node.data
         #         ))
@@ -306,7 +306,7 @@ class BasicTextVisitor(AbstractScreenVisitor):
         """
         actions = self.get_possible_actions(node, self.counter)
         progress = node.progress if hasattr(node, 'progress') else 0
-        max_val = node.max if hasattr(node, 'max') else 100
+        max_val = node.max_progress if hasattr(node, 'max_progress') else 100
 
         if max_val > 0:
             percentage = int(progress * 100 / max_val)
@@ -316,88 +316,3 @@ class BasicTextVisitor(AbstractScreenVisitor):
         item = ScreenItem(node.data, f"Slider ({percentage}%)", actions)
         self.items.append(item)
         self.window_info["interactive_elements"] += 1
-
-    # def get_possible_actions(self, node: Node, counter: Counter, inherit_click: bool = False,
-    #                          prioritize_check: bool = False) -> List[ItemAction]:
-    #     """
-    #     Get possible actions for a node with minimal information.
-    #
-    #     Args:
-    #         node: The node to get actions for
-    #         counter: Counter for generating unique IDs
-    #         inherit_click: Whether to add click action from parent
-    #         prioritize_check: Whether to prioritize check/uncheck over click
-    #
-    #     Returns:
-    #         List of possible actions
-    #     """
-    #     actions = []
-    #     node_data = node.data
-    #
-    #     # Extract coordinates from node
-    #     coordinates = node.get_center_coordinates()
-    #
-    #     # Handle check/uncheck actions with priority if needed
-    #     if prioritize_check and node.checkable:
-    #         action_text = "UNCHECK" if node.checked else "CHECK"
-    #         actions.append(ItemAction(
-    #             id=counter.inc(),
-    #             text=f"{action_text} ({counter.get()})",
-    #             event=WidgetEventType.CLICK,
-    #             reaches_mop=False,
-    #             directly_reaches_mop=False,
-    #             target_view=node_data,
-    #             coordinates=coordinates
-    #         ))
-    #         return actions
-    #
-    #     # Handle click actions
-    #     if node.clickable or inherit_click:
-    #         actions.append(ItemAction(
-    #             id=counter.inc(),
-    #             text=f"CLICK ({counter.get()})",
-    #             event=WidgetEventType.CLICK,
-    #             reaches_mop=False,
-    #             directly_reaches_mop=False,
-    #             target_view=node_data,
-    #             coordinates=coordinates
-    #         ))
-    #
-    #     # Handle long click actions
-    #     if node.long_clickable:
-    #         actions.append(ItemAction(
-    #             id=counter.inc(),
-    #             text=f"LONG_CLICK ({counter.get()})",
-    #             event=WidgetEventType.LONG_CLICK,
-    #             reaches_mop=False,
-    #             directly_reaches_mop=False,
-    #             target_view=node_data,
-    #             coordinates=coordinates
-    #         ))
-    #
-    #     # Handle scroll actions
-    #     if node.scrollable:
-    #         for direction in ["UP", "DOWN", "LEFT", "RIGHT"]:
-    #             actions.append(ItemAction(
-    #                 id=counter.inc(),
-    #                 text=f"SCROLL {direction} ({counter.get()})",
-    #                 event=WidgetEventType.SCROLL,
-    #                 reaches_mop=False,
-    #                 directly_reaches_mop=False,
-    #                 target_view=node_data,
-    #                 coordinates=coordinates
-    #             ))
-    #
-    #     # Handle text input actions
-    #     if node.editable:
-    #         actions.append(ItemAction(
-    #             id=counter.inc(),
-    #             text=f"SET_TEXT ({counter.get()})",
-    #             event=WidgetEventType.TEXT_CHANGE,
-    #             reaches_mop=False,
-    #             directly_reaches_mop=False,
-    #             target_view=node_data,
-    #             coordinates=coordinates
-    #         ))
-    #
-    #     return actions

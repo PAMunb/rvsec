@@ -265,6 +265,6 @@ class TestDroidBotParserNodeProcessing:
         assert button_node is not None
 
         # Check center coordinates
-        center = button_node.get_center_coordinates()
+        center = button_node.center_coordinates
         assert center == (540, 273)  # Center of the button
        

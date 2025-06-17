@@ -112,8 +112,8 @@ class TestEnhancedTextVisitor:
     def test_get_screen_description(self, visitor):
         """Test get_screen_description method."""
         # Add test items
-        item1 = ScreenItem({"id": "item1"}, "Item 1", [])
-        item2 = ScreenItem({"id": "item2"}, "Item 2", [])
+        item1 = ScreenItem(view={"id": "item1"}, base_description="Item 1", actions=[])
+        item2 = ScreenItem(view={"id": "item2"}, base_description="Item 2", actions=[])
         visitor.items = [item1, item2]
 
         description = visitor.get_screen_description()
@@ -147,12 +147,12 @@ class TestEnhancedTextVisitor:
         visitor._format_bounds_info = MagicMock(return_value=" [100x50]")
 
         # Mock get_possible_actions to return a list of actions
-        action = ItemAction(1, "CLICK (1)", WidgetEventType.CLICK, False, False)
+        action = ItemAction(id=1, text="CLICK (1)", event=WidgetEventType.CLICK, reaches_mop=False, directly_reaches_mop=False)
         visitor.get_possible_actions = MagicMock(return_value=[action])
 
         # In EnhancedTextVisitor, visit_node only adds items if node has children
         # and child_handles_action is False, so we need to add children
-        child_node = MagicMock()
+        child_node = Node(data={"class": "android.widget.TextView", "resource_id": "child1"})
         child_node.actionable = False
         node.children = [child_node]
 
@@ -162,7 +162,7 @@ class TestEnhancedTextVisitor:
         visitor.visit_node(node)
 
         # Should update depth and structure
-        assert node.get_unique_id() in visitor.node_depth_map
+        assert node.unique_identifier in visitor.node_depth_map
         assert visitor.screen_structure["hierarchy_depth"] == 2
 
         # Should call required methods
@@ -180,7 +180,7 @@ class TestEnhancedTextVisitor:
 
         # Should update state
         assert visitor.window_info["interactive_elements"] == 1
-        assert node.get_unique_id() in visitor.processed_parents
+        assert node.unique_identifier in visitor.processed_parents
         assert visitor.screen_structure["element_count"] == 1
         assert visitor.screen_structure["actionable_count"] == 1
 
@@ -190,7 +190,7 @@ class TestEnhancedTextVisitor:
 
         # Mock _compute_node_depth to return a specific depth
         visitor._compute_node_depth = MagicMock(return_value=3)
-        visitor.node_depth_map[node.get_unique_id()] = 3
+        visitor.node_depth_map[node.unique_identifier] = 3
 
         # Mock _format_accessibility_info to return accessibility info
         visitor._format_accessibility_info = MagicMock(return_value=" [a11y: good]")
@@ -206,7 +206,7 @@ class TestEnhancedTextVisitor:
             mock_get_possible_actions.args = args
             mock_get_possible_actions.kwargs = kwargs
             # Return a mock action
-            return [ItemAction(1, "CLICK (1)", WidgetEventType.CLICK, False, False)]
+            return [ItemAction(id=1, text="CLICK (1)", event=WidgetEventType.CLICK, reaches_mop=False, directly_reaches_mop=False)]
 
         mock_get_possible_actions.args = None
         mock_get_possible_actions.kwargs = None
@@ -238,7 +238,7 @@ class TestEnhancedTextVisitor:
 
         # Should update state
         assert visitor.window_info["interactive_elements"] == 1
-        assert node.get_unique_id() in visitor.processed_parents
+        assert node.unique_identifier in visitor.processed_parents
         assert visitor.screen_structure["element_count"] == 1
         assert visitor.screen_structure["actionable_count"] == 1
 
@@ -257,7 +257,7 @@ class TestEnhancedTextVisitor:
         visitor._format_bounds_info = MagicMock(return_value=" [100x50]")
 
         # Mock get_possible_actions to return a list of actions
-        action = ItemAction(1, "CLICK (1)", WidgetEventType.CLICK, False, False)
+        action = ItemAction(id=1, text="CLICK (1)", event=WidgetEventType.CLICK, reaches_mop=False, directly_reaches_mop=False)
         visitor.get_possible_actions = MagicMock(return_value=[action])
 
         # Mock find_matching_widget to return None
@@ -307,7 +307,7 @@ class TestEnhancedTextVisitor:
         visitor._infer_validation_rules = MagicMock(return_value=" (required)")
 
         # Mock get_possible_actions to return a list of actions
-        action = ItemAction(1, "SET_TEXT (1)", WidgetEventType.TEXT_CHANGE, False, False)
+        action = ItemAction(id=1, text="SET_TEXT (1)", event=WidgetEventType.TEXT_CHANGE, reaches_mop=False, directly_reaches_mop=False)
         visitor.get_possible_actions = MagicMock(return_value=[action])
 
         # Mock find_matching_widget to return None
@@ -401,7 +401,7 @@ class TestEnhancedTextVisitor:
         assert "at " in bounds_info
 
         # Test with invalid bounds
-        node = Node({"bounds": None})
+        node = Node({"bounds": []})
         bounds_info = visitor._format_bounds_info(node)
         assert bounds_info == ""
 
@@ -451,7 +451,7 @@ class TestEnhancedTextVisitor:
         assert position != ""
 
         # Test with invalid bounds
-        node = Node({"bounds": None})
+        node = Node({"bounds": []})
         position = visitor._determine_position(node)
         assert position == ""
 
@@ -605,20 +605,20 @@ class TestEnhancedTextVisitor:
     def test_add_security_info(self, visitor, node):
         """Test _add_security_info method."""
         # Create an item
-        item = ScreenItem(node.data, "Test Item", [])
+        item = ScreenItem(view=node.data, base_description="Test Item", actions=[])
 
         # Test with no security-related actions
         visitor._add_security_info(item, node)
         assert item.base_description == "Test Item"
 
         # Test with sensitive actions
-        action1 = ItemAction(1, "CLICK (1)", WidgetEventType.CLICK, True, False)
+        action1 = ItemAction(id=1, text="CLICK (1)", event=WidgetEventType.CLICK, reaches_mop=True, directly_reaches_mop=False)
         item.actions = [action1]
         visitor._add_security_info(item, node)
         assert "SPECIFICATION SENSITIVE" in item.base_description
 
         # Test with critical actions
-        action2 = ItemAction(2, "CLICK (2)", WidgetEventType.CLICK, True, True)
+        action2 = ItemAction(id=2, text="CLICK (2)", event=WidgetEventType.CLICK, reaches_mop=True, directly_reaches_mop=True)
         item.actions = [action2]
         item.base_description = "Test Item"
         visitor._add_security_info(item, node)
@@ -649,7 +649,7 @@ class TestEnhancedTextVisitor:
     def test_update_action_mop_related_info(self, visitor, node):
         """Test _update_action_mop_related_info method."""
         # Create an action
-        action = ItemAction(1, "CLICK (1)", WidgetEventType.CLICK, False, False)
+        action = ItemAction(id=1, text="CLICK (1)", event=WidgetEventType.CLICK, reaches_mop=False, directly_reaches_mop=False)
 
         # Mock find_matching_widget to return None
         visitor.find_matching_widget = MagicMock(return_value=None)

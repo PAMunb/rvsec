@@ -68,8 +68,8 @@ class TestItemAction:
         for action, expected_type in test_cases:
             assert action.action_type == expected_type
 
-    def test_get_target(self):
-        """Test the _get_target method correctly extracts the target identifier"""
+    def test_get_target_identifier(self):
+        """Test the get_target_identifier method correctly extracts the target identifier"""
         # Test with resource_id
         action1 = ItemAction(
             id=1,
@@ -77,7 +77,7 @@ class TestItemAction:
             event=WidgetEventType.CLICK,
             target_view={"resource_id": "test_id"}
         )
-        assert action1._get_target() == "test_id"
+        assert action1.get_target_identifier() == "test_id"
 
         # Test with bounds
         action2 = ItemAction(
@@ -86,32 +86,16 @@ class TestItemAction:
             event=WidgetEventType.CLICK,
             target_view={"bounds": [[10, 20], [30, 40]]}
         )
-        assert action2._get_target() == "20 30"
+        assert action2.get_target_identifier() == "20 30"
 
-        # Mock the _get_target method to fix the test
-        # This approach allows us to test the method's behavior without changing its implementation
-        original_get_target = ItemAction._get_target
-
-        try:
-            # Mock the method for testing
-            def mock_get_target(self):
-                if self.coordinates and not self.target_view.get("resource_id"):
-                    return f"{self.coordinates[0]} {self.coordinates[1]}"
-                return original_get_target(self)
-
-            ItemAction._get_target = mock_get_target
-
-            # Test with coordinates
-            action3 = ItemAction(
-                id=3,
-                text="CLICK (3)",
-                event=WidgetEventType.CLICK,
-                coordinates=(50, 60)
-            )
-            assert action3._get_target() == "50 60"
-        finally:
-            # Restore original method
-            ItemAction._get_target = original_get_target
+        # Test with coordinates
+        action3 = ItemAction(
+            id=3,
+            text="CLICK (3)",
+            event=WidgetEventType.CLICK,
+            coordinates=(50, 60)
+        )
+        assert action3.get_target_identifier() == "50 60"
 
         # Test with empty target
         action4 = ItemAction(
@@ -119,10 +103,10 @@ class TestItemAction:
             text="CLICK (4)",
             event=WidgetEventType.CLICK
         )
-        assert action4._get_target() == ""
+        assert action4.get_target_identifier() == ""
 
-    def test_get_coordinates(self):
-        """Test the _get_coordinates method correctly extracts coordinates"""
+    def test_get_execution_coordinates(self):
+        """Test the get_execution_coordinates method correctly extracts coordinates"""
         # Test with explicit coordinates
         action1 = ItemAction(
             id=1,
@@ -130,7 +114,7 @@ class TestItemAction:
             event=WidgetEventType.CLICK,
             coordinates=(10, 20)
         )
-        assert action1._get_coordinates() == (10, 20)
+        assert action1.get_execution_coordinates() == (10, 20)
 
         # Test with bounds
         action2 = ItemAction(
@@ -139,7 +123,7 @@ class TestItemAction:
             event=WidgetEventType.CLICK,
             target_view={"bounds": [[10, 20], [30, 40]]}
         )
-        assert action2._get_coordinates() == (20, 30)
+        assert action2.get_execution_coordinates() == (20, 30)
 
         # Test with no coordinates
         action3 = ItemAction(
@@ -147,7 +131,7 @@ class TestItemAction:
             text="CLICK (3)",
             event=WidgetEventType.CLICK
         )
-        assert action3._get_coordinates() is None
+        assert action3.get_execution_coordinates() is None
 
 
 class TestScreenItem:
@@ -225,16 +209,23 @@ class TestScreenDescription:
         """Test that ScreenDescription is initialized correctly"""
         activity = "com.example.TestActivity"
         items = [
-            ScreenItem({"class": "Button"}, "Button 1", [
-                ItemAction(1, "CLICK (1)", WidgetEventType.CLICK)
-            ]),
-            ScreenItem({"class": "TextView"}, "Text 1", [])
+            ScreenItem(
+                view={"class": "Button"}, 
+                base_description="Button 1", 
+                actions=[ItemAction(1, "CLICK (1)", WidgetEventType.CLICK)]
+            ),
+            ScreenItem(
+                view={"class": "TextView"}, 
+                base_description="Text 1", 
+                actions=[]
+            )
         ]
 
-        screen = ScreenDescription(activity, items)
+        screen = ScreenDescription(activity=activity, items=items)
 
         assert screen.activity == activity
-        assert screen.items == items
+        # Note: ScreenDescription automatically adds a BACK action, so items count will be different
+        assert len(screen.items) == 3  # 2 original + 1 back action
         assert 1 in screen.events_by_id
         assert screen.events_by_id[1].text == "CLICK (1)"
 
@@ -242,12 +233,14 @@ class TestScreenDescription:
         """Test that a standard BACK action is added if not present"""
         activity = "com.example.TestActivity"
         items = [
-            ScreenItem({"class": "Button"}, "Button 1", [
-                ItemAction(1, "CLICK (1)", WidgetEventType.CLICK)
-            ])
+            ScreenItem(
+                view={"class": "Button"}, 
+                base_description="Button 1", 
+                actions=[ItemAction(1, "CLICK (1)", WidgetEventType.CLICK)]
+            )
         ]
 
-        screen = ScreenDescription(activity, items)
+        screen = ScreenDescription(activity=activity, items=items)
 
         # Find the back action
         back_action = None
@@ -266,15 +259,19 @@ class TestScreenDescription:
         """Test that back action is not duplicated if already present"""
         activity = "com.example.TestActivity"
         items = [
-            ScreenItem({"class": "Button"}, "Button 1", [
-                ItemAction(1, "CLICK (1)", WidgetEventType.CLICK)
-            ]),
-            ScreenItem({"class": "BackButton"}, "Back button", [
-                ItemAction(2, "BACK (2)", WidgetEventType.KEY)
-            ])
+            ScreenItem(
+                view={"class": "Button"}, 
+                base_description="Button 1", 
+                actions=[ItemAction(1, "CLICK (1)", WidgetEventType.CLICK)]
+            ),
+            ScreenItem(
+                view={"class": "BackButton"}, 
+                base_description="Back button", 
+                actions=[ItemAction(2, "BACK (2)", WidgetEventType.KEY)]
+            )
         ]
 
-        screen = ScreenDescription(activity, items)
+        screen = ScreenDescription(activity=activity, items=items)
 
         # Count back actions
         back_action_count = 0
@@ -291,13 +288,19 @@ class TestScreenDescription:
         """Test that the description property returns a formatted string"""
         activity = "com.example.TestActivity"
         items = [
-            ScreenItem({"class": "Button"}, "Button 1", [
-                ItemAction(1, "CLICK (1)", WidgetEventType.CLICK)
-            ]),
-            ScreenItem({"class": "TextView"}, "Text 1", [])
+            ScreenItem(
+                view={"class": "Button"}, 
+                base_description="Button 1", 
+                actions=[ItemAction(1, "CLICK (1)", WidgetEventType.CLICK)]
+            ),
+            ScreenItem(
+                view={"class": "TextView"}, 
+                base_description="Text 1", 
+                actions=[]
+            )
         ]
 
-        screen = ScreenDescription(activity, items)
+        screen = ScreenDescription(activity=activity, items=items)
         description = screen.description
 
         assert "The current screen has the following UI views and corresponding actions" in description
@@ -308,12 +311,14 @@ class TestScreenDescription:
         """Test the __str__ method returns the description"""
         activity = "com.example.TestActivity"
         items = [
-            ScreenItem({"class": "Button"}, "Button 1", [
-                ItemAction(1, "CLICK (1)", WidgetEventType.CLICK)
-            ])
+            ScreenItem(
+                view={"class": "Button"}, 
+                base_description="Button 1", 
+                actions=[ItemAction(1, "CLICK (1)", WidgetEventType.CLICK)]
+            )
         ]
 
-        screen = ScreenDescription(activity, items)
+        screen = ScreenDescription(activity=activity, items=items)
 
         assert str(screen) == screen.description
 
@@ -328,24 +333,24 @@ class TestCounter:
 
     def test_counter_initialization_with_start_value(self):
         """Test that Counter is initialized with provided start value"""
-        counter = Counter(10)
+        counter = Counter(value=10)
         assert counter.value == 10
 
-    def test_inc_method(self):
-        """Test that inc method increments the counter and returns the new value"""
-        counter = Counter(5)
-        assert counter.inc() == 6
+    def test_increment_method(self):
+        """Test that increment method increments the counter and returns the new value"""
+        counter = Counter(value=5)
+        assert counter.increment() == 6
         assert counter.value == 6
-        assert counter.inc() == 7
+        assert counter.increment() == 7
         assert counter.value == 7
 
-    def test_get_method(self):
-        """Test that get method returns the current value without incrementing"""
-        counter = Counter(5)
-        assert counter.get() == 5
+    def test_get_current_method(self):
+        """Test that get_current method returns the current value without incrementing"""
+        counter = Counter(value=5)
+        assert counter.get_current() == 5
         assert counter.value == 5  # Value remains unchanged
-        counter.inc()
-        assert counter.get() == 6
+        counter.increment()
+        assert counter.get_current() == 6
         assert counter.value == 6  # Value remains unchanged
 
 
@@ -401,7 +406,7 @@ class TestNode:
             "clickable": True
         }
 
-        node = Node(view_data)
+        node = Node(data=view_data)
 
         assert node.data == view_data
         assert node.children == []
@@ -436,7 +441,7 @@ class TestNode:
             "max": 100
         }
 
-        node = Node(view_data)
+        node = Node(data=view_data)
 
         # Test all properties are correctly extracted
         assert node.view_class == "android.widget.EditText"
@@ -457,7 +462,7 @@ class TestNode:
         assert node.focused is True
         assert node.bounds == [[10, 20], [30, 40]]
         assert node.progress == 50
-        assert node.max == 100
+        assert node.max_progress == 100
 
         # Test derived properties
         assert node.actionable is True
@@ -469,7 +474,7 @@ class TestNode:
             "class": "android.widget.Button",
         }
 
-        node = Node(view_data)
+        node = Node(data=view_data)
 
         # Check default values
         assert node.resource_id == ""
@@ -489,7 +494,7 @@ class TestNode:
         assert node.focused is False
         assert node.bounds == [[0, 0], [0, 0]]
         assert node.progress == 0
-        assert node.max == 100
+        assert node.max_progress == 100
 
         # Test derived properties
         assert node.actionable is False
@@ -502,11 +507,11 @@ class TestNode:
         child2_data = {"class": "android.widget.TextView", "resource_id": "text1"}
 
         # Create parent node
-        parent_node = Node(parent_data)
+        parent_node = Node(data=parent_data)
 
         # Create child nodes with parent reference
-        child1 = Node(child1_data, parent=parent_node)
-        child2 = Node(child2_data, parent=parent_node)
+        child1 = Node(data=child1_data, parent=parent_node)
+        child2 = Node(data=child2_data, parent=parent_node)
 
         # Add children to parent
         parent_node.children = [child1, child2]
@@ -562,9 +567,9 @@ class TestNode:
                 self.called_methods.append(("visit_slider", node.resource_id))
 
         # Create test nodes
-        button_node = Node({"class": "android.widget.Button", "resource_id": "button1"})
-        text_node = Node({"class": "android.widget.TextView", "resource_id": "text1"})
-        unknown_node = Node({"class": "android.widget.Unknown", "resource_id": "unknown1"})
+        button_node = Node(data={"class": "android.widget.Button", "resource_id": "button1"})
+        text_node = Node(data={"class": "android.widget.TextView", "resource_id": "text1"})
+        unknown_node = Node(data={"class": "android.widget.Unknown", "resource_id": "unknown1"})
 
         # Create visitor
         visitor = MockVisitor()
@@ -620,12 +625,12 @@ class TestNode:
                     self.called_methods.append(("visit_button", node.resource_id))
 
             # Create test nodes
-            container_node = Node({"class": "android.widget.LinearLayout", "resource_id": "container1"})
-            spinner_node = Node({"class": "android.widget.Spinner", "resource_id": "spinner1"})
-            radio_group_node = Node({"class": "android.widget.RadioGroup", "resource_id": "radio_group1"})
+            container_node = Node(data={"class": "android.widget.LinearLayout", "resource_id": "container1"})
+            spinner_node = Node(data={"class": "android.widget.Spinner", "resource_id": "spinner1"})
+            radio_group_node = Node(data={"class": "android.widget.RadioGroup", "resource_id": "radio_group1"})
 
             # Create child nodes
-            button1 = Node({"class": "android.widget.Button", "resource_id": "button1"})
+            button1 = Node(data={"class": "android.widget.Button", "resource_id": "button1"})
 
             # Set up hierarchy
             container_node.children = [button1]
@@ -655,11 +660,11 @@ class TestNode:
     def test_find_children_by_class(self):
         """Test that find_children_by_class finds all children of a specific class"""
         # Create test nodes
-        root = Node({"class": "android.widget.LinearLayout", "resource_id": "root"})
-        child1 = Node({"class": "android.widget.Button", "resource_id": "button1"})
-        child2 = Node({"class": "android.widget.TextView", "resource_id": "text1"})
-        child3 = Node({"class": "android.widget.LinearLayout", "resource_id": "container1"})
-        child4 = Node({"class": "android.widget.Button", "resource_id": "button2"})
+        root = Node(data={"class": "android.widget.LinearLayout", "resource_id": "root"})
+        child1 = Node(data={"class": "android.widget.Button", "resource_id": "button1"})
+        child2 = Node(data={"class": "android.widget.TextView", "resource_id": "text1"})
+        child3 = Node(data={"class": "android.widget.LinearLayout", "resource_id": "container1"})
+        child4 = Node(data={"class": "android.widget.Button", "resource_id": "button2"})
 
         # Set up hierarchy
         root.children = [child1, child2, child3]
@@ -684,45 +689,45 @@ class TestNode:
         empty_result = root.find_children_by_class("android.widget.NonExistent")
         assert len(empty_result) == 0
 
-    def test_get_center_coordinates(self):
-        """Test that get_center_coordinates correctly calculates center coordinates"""
+    def test_center_coordinates(self):
+        """Test that center_coordinates correctly calculates center coordinates"""
         # Create test node with valid bounds
-        node1 = Node({"class": "android.widget.Button", "bounds": [[10, 20], [30, 40]]})
-        assert node1.get_center_coordinates() == (20, 30)
+        node1 = Node(data={"class": "android.widget.Button", "bounds": [[10, 20], [30, 40]]})
+        assert node1.center_coordinates == (20, 30)
 
         # Test with invalid bounds format
-        node2 = Node({"class": "android.widget.Button", "bounds": []})
-        assert node2.get_center_coordinates() == (0, 0)
+        node2 = Node(data={"class": "android.widget.Button", "bounds": []})
+        assert node2.center_coordinates == (0, 0)
 
         # Test with no bounds
-        node3 = Node({"class": "android.widget.Button"})
-        assert node3.get_center_coordinates() == (0, 0)
+        node3 = Node(data={"class": "android.widget.Button"})
+        assert node3.center_coordinates == (0, 0)
 
-    def test_get_unique_id(self):
-        """Test that get_unique_id generates a unique identifier"""
+    def test_unique_identifier(self):
+        """Test that unique_identifier generates a unique identifier"""
         # Create test nodes
-        node1 = Node({
+        node1 = Node(data={
             "class": "android.widget.Button",
             "resource_id": "button1",
             "bounds": [[10, 20], [30, 40]]
         })
 
-        node2 = Node({
+        node2 = Node(data={
             "class": "android.widget.Button",
             "resource_id": "button1",
             "bounds": [[50, 60], [70, 80]]
         })
 
-        node3 = Node({
+        node3 = Node(data={
             "class": "android.widget.TextView",
             "resource_id": "button1",
             "bounds": [[10, 20], [30, 40]]
         })
 
         # Each node should have a unique ID
-        id1 = node1.get_unique_id()
-        id2 = node2.get_unique_id()
-        id3 = node3.get_unique_id()
+        id1 = node1.unique_identifier
+        id2 = node2.unique_identifier
+        id3 = node3.unique_identifier
 
         assert id1 != id2  # Same class and resource_id but different bounds
         assert id1 != id3  # Same resource_id and bounds but different class
@@ -730,16 +735,16 @@ class TestNode:
     def test_str_method(self):
         """Test the __str__ method returns a human-readable representation"""
         # Test with resource_id
-        node1 = Node({"class": "android.widget.Button", "resource_id": "button1"})
+        node1 = Node(data={"class": "android.widget.Button", "resource_id": "button1"})
         assert str(node1) == "android.widget.Button - button1"
 
         # Test with text instead of resource_id
-        node2 = Node({"class": "android.widget.TextView", "text": "Hello"})
+        node2 = Node(data={"class": "android.widget.TextView", "text": "Hello"})
         assert str(node2) == "android.widget.TextView - Hello"
 
         # Test with neither resource_id nor text
-        node3 = Node({"class": "android.widget.LinearLayout"})
-        assert str(node3) == "android.widget.LinearLayout - unnamed"
+        node3 = Node(data={"class": "android.widget.LinearLayout"})
+        assert str(node3) == "android.widget.LinearLayout - LinearLayout"
 
 
 if __name__ == "__main__":

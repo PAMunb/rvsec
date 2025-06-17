@@ -47,10 +47,10 @@ class EnhancedTextVisitor(AbstractScreenVisitor):
         """
         # Compute node depth and update max hierarchy depth
         node_depth = self._compute_node_depth(node)
-        self.node_depth_map[node.get_unique_id()] = node_depth
+        self.node_depth_map[node.unique_identifier] = node_depth
         self.screen_structure["hierarchy_depth"] = max(self.screen_structure["hierarchy_depth"], node_depth)
 
-        node_id = node.get_unique_id()
+        node_id = node.unique_identifier
         if node_id in self.processed_parents:
             return
 
@@ -94,7 +94,7 @@ class EnhancedTextVisitor(AbstractScreenVisitor):
         Args:
             node: The leaf node to visit
         """
-        node_id = node.get_unique_id()
+        node_id = node.unique_identifier
         if node_id in self.processed_parents:
             return
 
@@ -559,13 +559,13 @@ class EnhancedTextVisitor(AbstractScreenVisitor):
 
             for i, rb in enumerate(radio_buttons):
                 # Create a select action for each radio button
-                rb_node_id = rb.get_unique_id()
+                rb_node_id = rb.unique_identifier
                 self.processed_parents.add(rb_node_id)
 
-                action_text = f"SELECT ({self.counter.inc()}) '{rb.view_text}'" if rb.view_text else f"SELECT option {i + 1} ({self.counter.get()})"
+                action_text = f"SELECT ({self.counter.increment()}) '{rb.view_text}'" if rb.view_text else f"SELECT option {i + 1} ({self.counter.get_current()})"
 
                 action = ItemAction(
-                    self.counter.get(),
+                    self.counter.get_current(),
                     action_text,
                     WidgetEventType.CLICK,
                     False,
@@ -622,8 +622,8 @@ class EnhancedTextVisitor(AbstractScreenVisitor):
         # Add click action
         if node.clickable:
             actions.append(ItemAction(
-                self.counter.inc(),
-                f"CLICK ({self.counter.get()})" + (f" on '{node.view_text}'" if node.view_text else ""),
+                self.counter.increment(),
+                f"CLICK ({self.counter.get_current()})" + (f" on '{node.view_text}'" if node.view_text else ""),
                 WidgetEventType.CLICK, False, False,
                 target_view=node.data
             ))
@@ -632,8 +632,8 @@ class EnhancedTextVisitor(AbstractScreenVisitor):
         # if node.scrollable:
         #     for direction in ["UP", "DOWN"]:
         #         actions.append(ItemAction(
-        #             self.counter.inc(),
-        #             f"SCROLL {direction} ({self.counter.get()})",
+        #             self.counter.increment(),
+        #             f"SCROLL {direction} ({self.counter.get_current()})",
         #             WidgetEventType.SCROLL, False, False,
         #             target_view=node.data
         #         ))
@@ -691,8 +691,8 @@ class EnhancedTextVisitor(AbstractScreenVisitor):
         slider_positions = [0, 25, 50, 75, 100]
         for position in slider_positions:
             actions.append(ItemAction(
-                self.counter.inc(),
-                f"SET_SLIDER ({self.counter.get()}) to {position}%",
+                self.counter.increment(),
+                f"SET_SLIDER ({self.counter.get_current()}) to {position}%",
                 WidgetEventType.SCROLL,
                 False,
                 False,
@@ -764,8 +764,8 @@ class EnhancedTextVisitor(AbstractScreenVisitor):
         if prioritize_check and node.checkable:
             if node.checked:
                 action = ItemAction(
-                    id=counter.inc(),
-                    text=f"UNCHECK ({counter.get()})",
+                    id=counter.increment(),
+                    text=f"UNCHECK ({counter.get_current()})",
                     event=WidgetEventType.CLICK,
                     reaches_mop=False,
                     directly_reaches_mop=False,
@@ -777,8 +777,8 @@ class EnhancedTextVisitor(AbstractScreenVisitor):
                 actions.append(action)
             else:
                 action = ItemAction(
-                    id=counter.inc(),
-                    text=f"CHECK ({counter.get()})",
+                    id=counter.increment(),
+                    text=f"CHECK ({counter.get_current()})",
                     event=WidgetEventType.CLICK,
                     reaches_mop=False,
                     directly_reaches_mop=False,
@@ -796,8 +796,8 @@ class EnhancedTextVisitor(AbstractScreenVisitor):
                 text_suffix = f" on '{node.view_text[:30]}'{' (truncated)' if len(node.view_text) > 30 else ''}"
 
             action = ItemAction(
-                id=counter.inc(),
-                text=f"CLICK ({counter.get()}){text_suffix}",
+                id=counter.increment(),
+                text=f"CLICK ({counter.get_current()}){text_suffix}",
                 event=WidgetEventType.CLICK,
                 reaches_mop=False,
                 directly_reaches_mop=False,
@@ -815,8 +815,8 @@ class EnhancedTextVisitor(AbstractScreenVisitor):
                 text_suffix = f" on '{node.view_text[:30]}'{' (truncated)' if len(node.view_text) > 30 else ''}"
 
             action = ItemAction(
-                id=counter.inc(),
-                text=f"LONG_CLICK ({counter.get()}){text_suffix}",
+                id=counter.increment(),
+                text=f"LONG_CLICK ({counter.get_current()}){text_suffix}",
                 event=WidgetEventType.LONG_CLICK,
                 reaches_mop=False,
                 directly_reaches_mop=False,
@@ -831,8 +831,8 @@ class EnhancedTextVisitor(AbstractScreenVisitor):
         if not prioritize_check and node.checkable:
             if node.checked:
                 action = ItemAction(
-                    id=counter.inc(),
-                    text=f"UNCHECK ({counter.get()})",
+                    id=counter.increment(),
+                    text=f"UNCHECK ({counter.get_current()})",
                     event=WidgetEventType.CLICK,
                     reaches_mop=False,
                     directly_reaches_mop=False,
@@ -844,8 +844,8 @@ class EnhancedTextVisitor(AbstractScreenVisitor):
                 actions.append(action)
             else:
                 action = ItemAction(
-                    id=counter.inc(),
-                    text=f"CHECK ({counter.get()})",
+                    id=counter.increment(),
+                    text=f"CHECK ({counter.get_current()})",
                     event=WidgetEventType.CLICK,
                     reaches_mop=False,
                     directly_reaches_mop=False,
@@ -869,8 +869,8 @@ class EnhancedTextVisitor(AbstractScreenVisitor):
 
             for direction in directions:
                 action = ItemAction(
-                    id=counter.inc(),
-                    text=f"SCROLL {direction} ({counter.get()})",
+                    id=counter.increment(),
+                    text=f"SCROLL {direction} ({counter.get_current()})",
                     event=WidgetEventType.SCROLL,
                     reaches_mop=False,
                     directly_reaches_mop=False,
@@ -894,8 +894,8 @@ class EnhancedTextVisitor(AbstractScreenVisitor):
                 hint = f" [{input_type}]"
 
             action = ItemAction(
-                id=counter.inc(),
-                text=f"SET_TEXT ({counter.get()}){hint}",
+                id=counter.increment(),
+                text=f"SET_TEXT ({counter.get_current()}){hint}",
                 event=WidgetEventType.TEXT_CHANGE,
                 reaches_mop=False,
                 directly_reaches_mop=False,
@@ -947,8 +947,8 @@ class EnhancedTextVisitor(AbstractScreenVisitor):
 
         # Add a default BACK action to the screen description
         back_action = ItemAction(
-            self.counter.inc(),
-            f"BACK ({self.counter.get()})",
+            self.counter.increment(),
+            f"BACK ({self.counter.get_current()})",
             WidgetEventType.KEY,
             False,
             False,

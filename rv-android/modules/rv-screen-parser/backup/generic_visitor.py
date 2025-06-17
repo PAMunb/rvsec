@@ -141,7 +141,7 @@ class GenericScreenVisitor:  # (AbstractScreenVisitor):
 
         # Add click action
         if node.clickable:
-            action_id = self.counter.inc()
+            action_id = self.counter.increment()
             actions.append(ItemAction(
                 id=action_id,
                 text=f"CLICK ({action_id})",
@@ -152,7 +152,7 @@ class GenericScreenVisitor:  # (AbstractScreenVisitor):
 
         # Add long-click action
         if node.long_clickable:
-            action_id = self.counter.inc()
+            action_id = self.counter.increment()
             actions.append(ItemAction(
                 id=action_id,
                 text=f"LONG_CLICK ({action_id})",
@@ -180,7 +180,7 @@ class GenericScreenVisitor:  # (AbstractScreenVisitor):
         actions = []
 
         # Add text input action
-        action_id = self.counter.inc()
+        action_id = self.counter.increment()
         actions.append(ItemAction(
             id=action_id,
             text=f"SET_TEXT ({action_id})",
@@ -191,7 +191,7 @@ class GenericScreenVisitor:  # (AbstractScreenVisitor):
 
         # Add click action
         if node.clickable:
-            action_id = self.counter.inc()
+            action_id = self.counter.increment()
             actions.append(ItemAction(
                 id=action_id,
                 text=f"CLICK ({action_id})",
@@ -235,7 +235,7 @@ class GenericScreenVisitor:  # (AbstractScreenVisitor):
 
         # Add check/uncheck action based on current state
         if node.checkable:
-            action_id = self.counter.inc()
+            action_id = self.counter.increment()
             if node.checked:
                 actions.append(ItemAction(
                     id=action_id,
@@ -271,7 +271,7 @@ class GenericScreenVisitor:  # (AbstractScreenVisitor):
         """
         # Radio buttons only need click actions
         if node.clickable and not node.checked:
-            action_id = self.counter.inc()
+            action_id = self.counter.increment()
             action = ItemAction(
                 id=action_id,
                 text=f"SELECT ({action_id})",
@@ -297,7 +297,7 @@ class GenericScreenVisitor:  # (AbstractScreenVisitor):
 
         # Add spinner click action
         if node.clickable:
-            action_id = self.counter.inc()
+            action_id = self.counter.increment()
             actions.append(ItemAction(
                 id=action_id,
                 text=f"CLICK_SPINNER ({action_id})",
@@ -327,7 +327,7 @@ class GenericScreenVisitor:  # (AbstractScreenVisitor):
         # Add scroll actions
         if node.scrollable:
             # Add scroll UP action
-            action_id = self.counter.inc()
+            action_id = self.counter.increment()
             actions.append(ItemAction(
                 id=action_id,
                 text=f"SCROLL UP ({action_id})",
@@ -337,7 +337,7 @@ class GenericScreenVisitor:  # (AbstractScreenVisitor):
             ))
 
             # Add scroll DOWN action
-            action_id = self.counter.inc()
+            action_id = self.counter.increment()
             actions.append(ItemAction(
                 id=action_id,
                 text=f"SCROLL DOWN ({action_id})",

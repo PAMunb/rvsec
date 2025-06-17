@@ -184,7 +184,7 @@ class DroidBotParser(BaseScreenParser[ScreenDescription]):
                     if child_node:
                         children.append(child_node)
 
-            node = Node(data, children)
+            node = Node(data=data, children=children)
 
             # Set parent reference
             for child in node.children:

@@ -198,7 +198,7 @@ class TestDroidBotParserEdgeCases:
         def collect_ids(n):
             """Collect unique IDs from node tree."""
             if n:
-                ids.add(n.get_unique_id())
+                ids.add(n.unique_identifier)
                 for child in n.children:
                     collect_ids(child)
 

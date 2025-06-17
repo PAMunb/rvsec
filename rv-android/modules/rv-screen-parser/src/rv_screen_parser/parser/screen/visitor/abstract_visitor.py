@@ -74,7 +74,7 @@ class AbstractScreenVisitor(ABC):
             node: Node to process
         """
         # Skip already visited nodes
-        node_id = node.get_unique_id()
+        node_id = node.unique_identifier
         if node_id in self.visited_nodes:
             return
 
@@ -299,8 +299,8 @@ class AbstractScreenVisitor(ABC):
         if prioritize_check and node.checkable:
             if node.checked:
                 action = ItemAction(
-                    id=counter.inc(),
-                    text=f"UNCHECK ({counter.get()})",
+                    id=counter.increment(),
+                    text=f"UNCHECK ({counter.get_current()})",
                     event=WidgetEventType.CLICK,
                     reaches_mop=False,
                     directly_reaches_mop=False,
@@ -312,8 +312,8 @@ class AbstractScreenVisitor(ABC):
                 actions.append(action)
             else:
                 action = ItemAction(
-                    id=counter.inc(),
-                    text=f"CHECK ({counter.get()})",
+                    id=counter.increment(),
+                    text=f"CHECK ({counter.get_current()})",
                     event=WidgetEventType.CLICK,
                     reaches_mop=False,
                     directly_reaches_mop=False,
@@ -330,9 +330,9 @@ class AbstractScreenVisitor(ABC):
                 text_suffix = f" on '{node.view_text[:30]}'{' (truncated)' if len(node.view_text) > 30 else ''}"
 
             action = ItemAction(
-                id=counter.inc(),
-                text=f"CLICK ({counter.get()})",
-                # text=f"CLICK ({counter.get()}){text_suffix}",
+                id=counter.increment(),
+                text=f"CLICK ({counter.get_current()})",
+                # text=f"CLICK ({counter.get_current()}){text_suffix}",
                 event=WidgetEventType.CLICK,
                 reaches_mop=False,
                 directly_reaches_mop=False,
@@ -350,8 +350,8 @@ class AbstractScreenVisitor(ABC):
                     text_suffix = f" on '{node.view_text[:30]}'{' (truncated)' if len(node.view_text) > 30 else ''}"
 
                 action = ItemAction(
-                    id=counter.inc(),
-                    text=f"LONG_CLICK ({counter.get()}){text_suffix}",
+                    id=counter.increment(),
+                    text=f"LONG_CLICK ({counter.get_current()}){text_suffix}",
                     event=WidgetEventType.LONG_CLICK,
                     reaches_mop=False,
                     directly_reaches_mop=False,
@@ -365,8 +365,8 @@ class AbstractScreenVisitor(ABC):
         if not prioritize_check and node.checkable:
             if node.checked:
                 action = ItemAction(
-                    id=counter.inc(),
-                    text=f"UNCHECK ({counter.get()})",
+                    id=counter.increment(),
+                    text=f"UNCHECK ({counter.get_current()})",
                     event=WidgetEventType.CLICK,
                     reaches_mop=False,
                     directly_reaches_mop=False,
@@ -377,8 +377,8 @@ class AbstractScreenVisitor(ABC):
                 actions.append(action)
             else:
                 action = ItemAction(
-                    id=counter.inc(),
-                    text=f"CHECK ({counter.get()})",
+                    id=counter.increment(),
+                    text=f"CHECK ({counter.get_current()})",
                     event=WidgetEventType.CLICK,
                     reaches_mop=False,
                     directly_reaches_mop=False,
@@ -401,8 +401,8 @@ class AbstractScreenVisitor(ABC):
 
             for direction in directions:
                 action = ItemAction(
-                    id=counter.inc(),
-                    text=f"SCROLL {direction} ({counter.get()})",
+                    id=counter.increment(),
+                    text=f"SCROLL {direction} ({counter.get_current()})",
                     event=WidgetEventType.SCROLL,
                     reaches_mop=False,
                     directly_reaches_mop=False,
@@ -415,8 +415,8 @@ class AbstractScreenVisitor(ABC):
         # Handle text input actions with better hints
         if node.editable:
             action = ItemAction(
-                id=counter.inc(),
-                text=f"SET_TEXT ({counter.get()})",
+                id=counter.increment(),
+                text=f"SET_TEXT ({counter.get_current()})",
                 event=WidgetEventType.TEXT_CHANGE,
                 reaches_mop=False,
                 directly_reaches_mop=False,

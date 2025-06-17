@@ -30,8 +30,8 @@ class DefaultTextVisitor(AbstractScreenVisitor):
         """
         # Add a default BACK action to the screen description
         back_action = ItemAction(
-            self.counter.inc(),
-            f"BACK ({self.counter.get()})",
+            self.counter.increment(),
+            f"BACK ({self.counter.get_current()})",
             WidgetEventType.KEY,
             False,
             False
@@ -60,7 +60,7 @@ class DefaultTextVisitor(AbstractScreenVisitor):
         self.logger.debug(f"Visiting node: {node.view_class}")
 
         # Generate a unique identifier for the node
-        node_id = node.get_unique_id()
+        node_id = node.unique_identifier
 
         # Skip if already processed
         if node_id in self.processed_parents:
@@ -95,7 +95,7 @@ class DefaultTextVisitor(AbstractScreenVisitor):
         self.logger.debug(f"Visiting leaf node: {leaf_node.view_class}")
 
         # Generate a unique ID for the node
-        node_id = leaf_node.get_unique_id()
+        node_id = leaf_node.unique_identifier
 
         # Check if this node or its parent is actionable
         is_actionable = leaf_node.actionable
@@ -349,8 +349,8 @@ class DefaultTextVisitor(AbstractScreenVisitor):
         # Add click action
         if node.clickable:
             actions.append(ItemAction(
-                self.counter.inc(),
-                f"CLICK ({self.counter.get()})" + (f" on '{node.view_text}'" if node.view_text else ""),
+                self.counter.increment(),
+                f"CLICK ({self.counter.get_current()})" + (f" on '{node.view_text}'" if node.view_text else ""),
                 WidgetEventType.CLICK, False, False
             ))
 
@@ -358,8 +358,8 @@ class DefaultTextVisitor(AbstractScreenVisitor):
         # if node.scrollable:
         #     for direction in ["UP", "DOWN"]:
         #         actions.append(ItemAction(
-        #             self.counter.inc(),
-        #             f"SCROLL {direction} ({self.counter.get()})",
+        #             self.counter.increment(),
+        #             f"SCROLL {direction} ({self.counter.get_current()})",
         #             WidgetEventType.SCROLL, False, False
         #         ))
 
@@ -408,9 +408,9 @@ class DefaultTextVisitor(AbstractScreenVisitor):
 
             for i, rb in enumerate(radio_buttons):
                 # Create a select action for each radio button
-                action_text = f"SELECT ({self.counter.inc()}) '{rb.view_text}'" if rb.view_text else f"SELECT option {i + 1} ({self.counter.get()})"
+                action_text = f"SELECT ({self.counter.increment()}) '{rb.view_text}'" if rb.view_text else f"SELECT option {i + 1} ({self.counter.get_current()})"
                 group_actions.append(ItemAction(
-                    self.counter.get(),
+                    self.counter.get_current(),
                     action_text,
                     WidgetEventType.CLICK,
                     False,
@@ -428,7 +428,7 @@ class DefaultTextVisitor(AbstractScreenVisitor):
 
             # Mark all radio buttons as processed
             for rb in radio_buttons:
-                self.processed_parents.add(rb.get_unique_id())
+                self.processed_parents.add(rb.unique_identifier)
         else:
             # If only one radio button, visit it normally
             for child in node.children:
@@ -449,8 +449,8 @@ class DefaultTextVisitor(AbstractScreenVisitor):
         slider_positions = [0, 25, 50, 75, 100]
         for position in slider_positions:
             actions.append(ItemAction(
-                self.counter.inc(),
-                f"SET_SLIDER ({self.counter.get()}) to {position}%",
+                self.counter.increment(),
+                f"SET_SLIDER ({self.counter.get_current()}) to {position}%",
                 WidgetEventType.SCROLL,
                 False,
                 False

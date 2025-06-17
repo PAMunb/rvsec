@@ -784,7 +784,7 @@ class ScreenshotActionComplementor(BaseAnalyzer[ScreenDescription]):
         actions = []
 
         # Click action
-        action_id = self.counter.inc()
+        action_id = self.counter.increment()
         actions.append(ItemAction(
             id=action_id,
             text=f"CLICK (Visual) ({action_id})",
@@ -858,7 +858,7 @@ class ScreenshotActionComplementor(BaseAnalyzer[ScreenDescription]):
         actions = []
 
         # Click action
-        action_id = self.counter.inc()
+        action_id = self.counter.increment()
         actions.append(ItemAction(
             id=action_id,
             text=f"CLICK (Error Indicator) ({action_id})",

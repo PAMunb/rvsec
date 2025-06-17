@@ -188,5 +188,5 @@ class TestVisitorIntegration:
         assert button.bounds == [[0, 210], [1080, 336]]
 
         # Test center calculation
-        center = button.get_center_coordinates()
+        center = button.center_coordinates
         assert center == (540, 273)  # Center of the button
