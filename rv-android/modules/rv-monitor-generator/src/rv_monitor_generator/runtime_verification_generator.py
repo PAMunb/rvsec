@@ -182,7 +182,7 @@ class RuntimeVerificationGenerator(BaseValidatedModel):
         """
         mop_specs = self._get_mop_specs()
         
-        self._logger.info("Executing JavaMOP for monitored operations generation", extra={
+        self._logger.info("Executing JavaMOP ...", extra={
             'tool': 'JavaMOP',
             'specs_directory': self.config.mop_specs_dir,
             'specs_count': len(mop_specs),
@@ -199,7 +199,7 @@ class RuntimeVerificationGenerator(BaseValidatedModel):
         # It moves generated .aj files but leaves .rvm files in source directory
         utils.move_files_by_extension(constants.EXTENSION_RVM, self.config.mop_specs_dir, output_dir)
         
-        # Integrate custom AspectJ files for enhanced monitoring capabilities
+        # Integrate custom AspectJ files for monitoring capabilities
         utils.copy_files_by_extension(constants.EXTENSION_AJ, self.config.aspects_dir, output_dir, log_info=True)
         
         self._logger.debug("JavaMOP execution completed", extra={
@@ -226,7 +226,7 @@ class RuntimeVerificationGenerator(BaseValidatedModel):
         Raises:
             CommandException: If RV-Monitor execution fails
         """
-        self._logger.info("Executing RV-Monitor for monitor class generation", extra={
+        self._logger.info("Executing rv-monitor ...", extra={
             'tool': 'RV-Monitor',
             'input_directory': output_dir,
             'artifact_type': 'Java monitor classes'

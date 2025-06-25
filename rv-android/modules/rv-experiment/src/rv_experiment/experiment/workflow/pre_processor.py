@@ -8,17 +8,19 @@ from typing import List
 
 from rv_android_core.app import App
 from rv_android_core.constants import (
-    EXTENSION_APK, EXTENSION_REACH, EXTENSION_GATOR,
-    EXTENSION_GESDA, ENV_RVSEC_HOME
+    EXTENSION_APK
 )
+from rv_android_core.event import EventBus, EventType
 from rv_android_core.util.error.error_handler import ErrorHandler
+from rv_android_core.util.exceptions import ConfigurationError
 from rv_android_core.util.logging.constants import LOG_START, CONTEXT_COMPONENT, LOG_COMPLETE
 from rv_android_core.util.logging.manager import LoggingManager
-from rv_monitor_generator.runtime_verification_generator import RuntimeVerificationGenerator
-from rv_monitor_generator.config import RVGeneratorConfig
-from rv_android_core.event import EventBus, EventType
-from rv_instrumentation.rvandroid import RVInstrumentation
 from rv_experiment.config import ExperimentConfig
+from rv_instrumentation import RVInstrumentationConfig
+from rv_instrumentation.rvandroid import RVInstrumentation
+from rv_monitor_generator.config import RVGeneratorConfig
+from rv_monitor_generator.runtime_verification_generator import RuntimeVerificationGenerator
+from rv_static_analysis import RVStaticAnalysisConfig
 
 
 class PreProcessor:
@@ -110,33 +112,33 @@ class PreProcessor:
         """
         with self.logger.with_context(phase="generate_monitors"):
             self.logger.info(LOG_START.format(phase="monitor generation"))
-            
+
             try:
                 # Get RVGeneratorConfig from experiment configuration
                 # This uses the configuration class with custom specs support
-                rv_config = self.config.get_monitored_operations_config()
-                
+                rv_config: RVGeneratorConfig = self.config.get_monitored_operations_config()
+
                 # Log configuration summary for transparency
                 self.logger.info(f"Monitor generation using specs directory: {rv_config.mop_specs_dir}")
-                
+
                 # Instantiate with typed configuration
                 rvsec = RuntimeVerificationGenerator(rv_config)
-                
+
                 # Execute monitor generation with configuration
-                # Use mop_out directory from configuration or default from experiment output
-                monitor_output_dir = rv_config.get_monitor_output_dir() if hasattr(rv_config, 'get_monitor_output_dir') else os.path.join(self.config.output_dir, "mop_out")
+                # Use mop_out directory from experiment output directory
+                monitor_output_dir = os.path.join(self.config.output_dir, "mop_out")
                 rvsec.generate_monitors(monitor_output_dir)
-                
+
                 self.logger.info(LOG_COMPLETE.format(phase="monitor generation"))
-                
+
                 # Publish event for monitor generation completion
-                self.event_bus.publish_experiment_event(
-                    EventType.EXPERIMENT_STARTED,
-                    experiment_id="monitor_generation",
-                    message="Monitor generation completed successfully",
-                    source="PreProcessor"
-                )
-                
+                # self.event_bus.publish_experiment_event(
+                #     EventType.EXPERIMENT_STARTED,
+                #     experiment_id="monitor_generation",
+                #     message="Monitor generation completed successfully",
+                #     source="PreProcessor"
+                # )
+
             except Exception as e:
                 error_context = {
                     "component": "PreProcessor",
@@ -171,38 +173,36 @@ class PreProcessor:
         """
         with self.logger.with_context(phase="instrument_apks"):
             self.logger.info(LOG_START.format(phase="APK instrumentation"))
-            
+
             try:
                 # Get configuration from experiment coordinator
-                instrumentation_config = self.config.get_rv_instrumentation_config()
-                
+                instrumentation_config: RVInstrumentationConfig = self.config.get_rv_instrumentation_config()
+
                 # Log configuration summary for transparency
                 self.logger.info(f"Instrumentation configuration: {instrumentation_config}")
-                
+
                 # Instantiate with configuration
                 rvandroid = RVInstrumentation(instrumentation_config)
-                
+
                 # Get APK sources from experiment configuration
                 apks = self.config.get_apk_list()
                 if not apks:
                     raise ConfigurationError("No APK files available for instrumentation")
-                
-                # Determine APK directory from first APK
-                apks_dir = os.path.dirname(apks[0]) if apks else self.config.apk_dir
-                
+
                 # Execute APK instrumentation with configuration
-                rvandroid.instrument_apks(apks_dir=apks_dir, results_dir=self.config.output_dir)
-                
+                # Use instrumented_dir from configuration as results_dir for instrumented APKs
+                rvandroid.instrument_apks(apks_dir=self.config.apk_dir, results_dir=instrumentation_config.instrumented_dir)
+
                 self.logger.info(LOG_COMPLETE.format(phase="APK instrumentation"))
-                
+
                 # Publish event for instrumentation completion
-                self.event_bus.publish_experiment_event(
-                    EventType.EXPERIMENT_STARTED,
-                    experiment_id="apk_instrumentation",
-                    message="APK instrumentation completed successfully",
-                    source="PreProcessor"
-                )
-                
+                # self.event_bus.publish_experiment_event(
+                #     EventType.EXPERIMENT_STARTED,
+                #     experiment_id="apk_instrumentation",
+                #     message="APK instrumentation completed successfully",
+                #     source="PreProcessor"
+                # )
+
             except Exception as e:
                 error_context = {
                     "component": "PreProcessor",
@@ -243,11 +243,11 @@ class PreProcessor:
 
         with self.logger.with_context(phase="static_analysis"):
             self.logger.info(LOG_START.format(phase="static analysis"))
-            
+
             try:
                 # Get configuration from experiment coordinator
-                static_config = self.config.get_static_analysis_config()
-                
+                static_config: RVStaticAnalysisConfig = self.config.get_static_analysis_config()
+
                 # Log configuration summary for transparency
                 self.logger.info(f"Static analysis configuration: {static_config}")
 
@@ -265,14 +265,16 @@ class PreProcessor:
                 original_apks_to_analyze = self._get_original_apks_for_instrumented(instrumented_apks)
 
                 # Get available tools from static analysis configuration
+                # TODO remover/rever essa abstracao de tools
                 available_tools = static_config.get_static_analysis_tools()
                 tool_names = list(available_tools.keys())
-                self.logger.info(f"Running static analysis on {len(original_apks_to_analyze)} original APKs (corresponding to successfully instrumented APKs) with tools: {tool_names}")
+                self.logger.info(
+                    f"Running static analysis on {len(original_apks_to_analyze)} original APKs (corresponding to successfully instrumented APKs) with tools: {tool_names}")
 
                 # Execute static analysis for each original APK that has a successful instrumentation
                 for original_apk_path in original_apks_to_analyze:
-                    app = App(original_apk_path)
-                    
+                    app = App(app_path=original_apk_path)
+
                     with self.logger.with_context(app_name=app.name):
                         try:
                             self.logger.info(LOG_START.format(
@@ -282,9 +284,9 @@ class PreProcessor:
                             # Create APK-specific output directory
                             apk_output_dir = os.path.join(self.config.output_dir, app.name)
                             os.makedirs(apk_output_dir, exist_ok=True)
-                            
+
                             # Create analyzer instance with APK-specific output directory
-                            analyzer = StaticAnalyzer(app, config=static_config, output_dir=apk_output_dir)
+                            analyzer = StaticAnalyzer(app=app, config=static_config, output_dir=apk_output_dir)
 
                             # Execute analysis with coordinated configuration
                             result = analyzer.analyze()
@@ -308,7 +310,7 @@ class PreProcessor:
                             self.logger.info(LOG_COMPLETE.format(
                                 phase=f"static analysis for {app.name}"
                             ))
-                            
+
                         except Exception as e:
                             error_context = {
                                 "component": "PreProcessor",
@@ -321,7 +323,7 @@ class PreProcessor:
                             # Continue with next APK rather than failing entire analysis
 
                 self.logger.info(LOG_COMPLETE.format(phase="static analysis"))
-                
+
             except Exception as e:
                 error_context = {
                     "component": "PreProcessor",
@@ -344,7 +346,7 @@ class PreProcessor:
             for file in os.listdir(self.config.get_instrumented_dir()):
                 if file.casefold().endswith(EXTENSION_APK):
                     try:
-                        app = App(os.path.join(self.config.get_instrumented_dir(), file))
+                        app = App(app_path=os.path.join(self.config.get_instrumented_dir(), file))
                         apks.append(app)
                         self.logger.debug(f"Found instrumented APK: {app.name}")
                     except Exception as e:
@@ -357,7 +359,7 @@ class PreProcessor:
                         self.error_handler.handle_error(e, error_context)
 
             return apks
-    
+
     def _get_successfully_instrumented_apks(self) -> List[str]:
         """
         Get list of successfully instrumented APK filenames from the instrumented directory.
@@ -370,22 +372,22 @@ class PreProcessor:
         Returns:
             List of instrumented APK filenames (not full paths)
         """
-        with self.logger.with_context(phase="find_successfully_instrumented_apks"):
+        with self.logger.with_context(phase="find_instrumented_apks"):
             instrumented_apks = []
             instrumented_dir = self.config.get_instrumented_dir()
-            
+
             if not os.path.exists(instrumented_dir):
                 self.logger.warning(f"Instrumented directory not found: {instrumented_dir}")
                 return instrumented_apks
-            
+
             for file in os.listdir(instrumented_dir):
                 if file.casefold().endswith(EXTENSION_APK):
                     instrumented_apks.append(file)
-                    self.logger.debug(f"Found successfully instrumented APK: {file}")
-            
-            self.logger.info(f"Found {len(instrumented_apks)} successfully instrumented APKs")
+                    self.logger.debug(f"Found instrumented APK: {file}")
+
+            self.logger.info(f"Found {len(instrumented_apks)} instrumented APKs")
             return instrumented_apks
-    
+
     def _get_original_apks_for_instrumented(self, instrumented_apk_filenames: List[str]) -> List[str]:
         """
         Get original APK paths corresponding to successfully instrumented APKs.
@@ -410,24 +412,26 @@ class PreProcessor:
         with self.logger.with_context(phase="map_original_apks_for_instrumented"):
             original_apks_to_analyze = []
             all_original_apks = self.config.get_apk_list()
-            
+
             for instrumented_filename in instrumented_apk_filenames:
                 # Find corresponding original APK
                 corresponding_original = None
-                
+
                 for original_apk_path in all_original_apks:
                     original_filename = os.path.basename(original_apk_path)
-                    
+
                     # Match by filename (instrumented APKs typically keep original name)
                     if original_filename == instrumented_filename:
                         corresponding_original = original_apk_path
                         break
-                
+
                 if corresponding_original:
                     original_apks_to_analyze.append(corresponding_original)
-                    self.logger.debug(f"Mapped instrumented APK '{instrumented_filename}' to original: {corresponding_original}")
+                    self.logger.debug(
+                        f"Mapped instrumented APK '{instrumented_filename}' to original: {corresponding_original}")
                 else:
-                    self.logger.warning(f"No corresponding original APK found for instrumented: {instrumented_filename}")
-            
+                    self.logger.warning(
+                        f"No corresponding original APK found for instrumented: {instrumented_filename}")
+
             self.logger.info(f"Mapped {len(original_apks_to_analyze)} original APKs for static analysis")
             return original_apks_to_analyze

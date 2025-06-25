@@ -15,7 +15,7 @@ from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
 from rv_android_core.util.logging.manager import LoggingManager
 from rv_llm.llm.data_structures import LLMMessage, LLMResponse
 from rv_llm.llm.language_model import LanguageModel
-from rv_llm.llm.llm_config import LLMConfiguration
+from rv_llm.config.llm_config import LLMConfig
 
 
 class OllamaLLM(LanguageModel):
@@ -109,13 +109,13 @@ class OllamaLLM(LanguageModel):
 
     def generate(self,
                  messages: List[LLMMessage],
-                 config: Optional[LLMConfiguration] = None) -> LLMResponse:
+                 config: Optional[LLMConfig] = None) -> LLMResponse:
         """
         Generate text based on the input messages.
         
         Args:
             messages: List of LLMMessage objects
-            config: Optional LLMConfiguration for generation parameters
+            config: Optional LLMConfig for generation parameters
             
         Returns:
             LLMResponse with generated text and performance metrics

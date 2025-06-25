@@ -61,7 +61,7 @@ class EventType(Enum):
     COVERAGE_UPDATED = auto()
     COVERAGE_TRACKING_STARTED = auto()
     COVERAGE_TRACKING_STOPPED = auto()
-    ERROR_DETECTED = auto()
+    ERROR_DETECTED = auto() # MOP error detection
     STATIC_ANALYSIS_COMPLETED = auto()
     ANALYSIS_COMPLETED = auto()
     NEW_METHOD_DISCOVERED = auto()

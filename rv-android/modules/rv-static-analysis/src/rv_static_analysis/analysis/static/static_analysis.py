@@ -399,7 +399,7 @@ class StaticAnalyzer(BaseValidatedModel, BaseAnalyzer[StaticAnalysisResult]):
                 })
                 raise StaticAnalysisException(error_msg)
 
-            self.logger.info("Static analysis tool execution completed successfully", extra={
+            self.logger.info(f"Static analysis tool '{name}' execution completed successfully", extra={
                 'tool_name': name,
                 'execution_time': execution_time,
                 'execution_status': 'completed'

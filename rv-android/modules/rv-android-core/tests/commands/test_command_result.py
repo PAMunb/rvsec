@@ -124,7 +124,7 @@ class TestCommandResultValidation:
     def test_valid_exit_codes(self):
         """Test valid exit codes within allowed range."""
         # Test boundary values
-        valid_codes = [-128, -1, 0, 1, 127]
+        valid_codes = [-255, -1, 0, 1, 255]
 
         for code in valid_codes:
             # Act
@@ -134,22 +134,22 @@ class TestCommandResultValidation:
             assert result.code == code
 
     def test_invalid_exit_code_too_low(self):
-        """Test validation fails for exit codes below -128."""
+        """Test validation fails for exit codes below -255."""
         # Act & Assert
         with pytest.raises(ValidationError) as exc_info:
-            CommandResult(code=-129)
+            CommandResult(code=-256)
 
         # Verify the validation error mentions the constraint
-        assert "greater than or equal to -128" in str(exc_info.value)
+        assert "greater than or equal to -255" in str(exc_info.value)
 
     def test_invalid_exit_code_too_high(self):
-        """Test validation fails for exit codes above 127."""
+        """Test validation fails for exit codes above 255."""
         # Act & Assert
         with pytest.raises(ValidationError) as exc_info:
-            CommandResult(code=128)
+            CommandResult(code=256)
 
         # Verify the validation error mentions the constraint
-        assert "less than or equal to 127" in str(exc_info.value)
+        assert "less than or equal to 255" in str(exc_info.value)
 
     def test_invalid_exit_code_non_integer(self):
         """Test validation fails for non-integer exit codes."""

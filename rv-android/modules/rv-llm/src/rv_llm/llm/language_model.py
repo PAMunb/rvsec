@@ -13,7 +13,7 @@ from rv_android_core.util.error.error_handler import ErrorHandler
 from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
 from rv_android_core.util.logging.manager import LoggingManager
 from .data_structures import LLMMessage, LLMResponse
-from .llm_config import LLMConfiguration
+from rv_llm.config.llm_config import LLMConfig
 
 
 class LanguageModel(ABC):
@@ -28,7 +28,7 @@ class LanguageModel(ABC):
     - **Standardized Interface**: Defines a unified API for all language model interactions,
       enabling seamless switching between different model implementations
     - **Configuration Management**: Provides consistent configuration patterns using
-      LLMConfiguration for all model-specific parameters
+      LLMConfig for all model-specific parameters
     - **Error Handling Integration**: Implements centralized error handling through
       ErrorHandler for robust failure management and recovery
     - **Performance Monitoring**: Standardizes metrics collection for model performance
@@ -49,7 +49,7 @@ class LanguageModel(ABC):
     ### Integration Points:
     - **ErrorHandler**: Centralized error handling and recovery strategies
     - **LoggingManager**: Standardized logging with contextual information
-    - **LLMConfiguration**: Type-safe configuration management
+    - **LLMConfig**: Type-safe configuration management
     - **EventBus**: Performance metrics and status event publishing
     - **PromptFramework**: Integration with structured prompt generation
 
@@ -67,7 +67,7 @@ class LanguageModel(ABC):
     response = model.generate(messages, config)
     
     # With custom configuration
-    config = LLMConfiguration(temperature=0.1, max_tokens=500)
+    config = LLMConfig(temperature=0.1, max_tokens=500)
     response = model.generate(messages, config)
     
     # Resource cleanup
@@ -106,7 +106,7 @@ class LanguageModel(ABC):
     @abstractmethod
     def generate(self,
                  messages: List[LLMMessage],
-                 config: Optional[LLMConfiguration] = None) -> LLMResponse:
+                 config: Optional[LLMConfig] = None) -> LLMResponse:
         """
         Generate a response synchronously.
         
@@ -168,16 +168,16 @@ class LanguageModel(ABC):
         )(func)
 
     @property
-    def default_config(self) -> LLMConfiguration:
+    def default_config(self) -> LLMConfig:
         """
         Returns the default configuration for this model.
         
         Returns:
-            LLMConfiguration with default settings
+            LLMConfig with default settings
         """
-        return LLMConfiguration(
-            model_type=self.__class__.NAME,
-            model_name=self.model_name,
+        return LLMConfig(
+            llm_type=self.__class__.NAME,
+            model=self.model_name,
             max_tokens=800,
             temperature=0.2
         )

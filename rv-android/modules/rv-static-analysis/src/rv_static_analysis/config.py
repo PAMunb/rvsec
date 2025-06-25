@@ -121,7 +121,7 @@ class RVStaticAnalysisConfig(BaseValidatedModel):
         if not self.rvsec_root:
             self.rvsec_root = os.environ.get(ENV_RVSEC_HOME)
             if not self.rvsec_root:
-                self.rvsec_root = os.getcwd()
+                self.rvsec_root = os.path.dirname(os.getcwd())
 
         # Apply default paths based on resolved RVSEC root
         self._apply_default_paths()
@@ -172,6 +172,7 @@ class RVStaticAnalysisConfig(BaseValidatedModel):
         if not self.output_dir:
             self.output_dir = str(rvsec_path / "out")
 
+        # TODO rever working_dir
         if not self.working_dir:
             self.working_dir = str(rvsec_path / "working")
 

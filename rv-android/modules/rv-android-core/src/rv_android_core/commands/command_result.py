@@ -55,8 +55,8 @@ class CommandResult(BaseValidatedModel):
     code: int = Field(
         ...,
         description="Exit code from command execution",
-        ge=-128,
-        le=127
+        ge=-255,
+        le=255
     )
     
     stdout: Optional[bytes] = Field(

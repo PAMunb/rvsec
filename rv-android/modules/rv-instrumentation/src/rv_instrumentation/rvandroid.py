@@ -383,7 +383,7 @@ class RVInstrumentation:
         validation through final signing. It implements comprehensive error handling
         and resource management to ensure reliable instrumentation across different
         APK types and complexity levels.
-        
+
         ### Instrumentation Pipeline Phases:
         1. **Pre-validation:** Check for existing instrumented APK and handle force flag
         2. **Decompilation:** Convert DEX bytecode to Java classes using dex2jar
@@ -433,12 +433,7 @@ class RVInstrumentation:
 
         # Execute instrumentation pipeline with comprehensive error handling
         try:
-            # Ensure temporary directories exist for processing
-            temp_directories = [self.config.tmp_dir, self.config.rvm_tmp_dir]
-            for directory in temp_directories:
-                if not os.path.exists(directory):
-                    os.makedirs(directory)
-                    self._logger.debug(f"Created temporary directory: {directory}")
+            self.create_temp_directories()
 
             # Execute instrumentation pipeline phases
             self.__decompile_apk(app)
@@ -476,6 +471,14 @@ class RVInstrumentation:
             # Clean up temporary directories regardless of success/failure
             temp_cleanup = [self.config.tmp_dir, self.config.rvm_tmp_dir]
             self.clear(temp_cleanup)
+
+    def create_temp_directories(self):
+        # Ensure temporary directories exist for processing
+        temp_directories = [self.config.tmp_dir, self.config.rvm_tmp_dir]
+        for directory in temp_directories:
+            if not os.path.exists(directory):
+                os.makedirs(directory)
+                self._logger.debug(f"Created temporary directory: {directory}")
 
     def __decompile_apk(self, app: App) -> None:
         """

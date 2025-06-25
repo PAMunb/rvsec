@@ -253,10 +253,10 @@ class ExperimentController:
                 if instrument:
                     apks = self.pre_processor.get_instrumented_apks()
                 else:
-                    # Use original APKs from application configuration
+                    # Use original APKs from configuration
                     from rv_android_core.app import App
-                    application_paths = self.config.applications.get_applications()
-                    apks = [App(app_path) for app_path in application_paths]
+                    application_paths = self.config.get_apk_list()
+                    apks = [App(app_path=app_path) for app_path in application_paths]
 
                 # Set up experiment execution
                 self.execution_controller.setup(

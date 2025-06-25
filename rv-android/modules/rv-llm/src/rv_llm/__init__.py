@@ -24,7 +24,7 @@ This module provides comprehensive LLM integration capabilities including:
 - **TemplateRepository**: Jinja2-based template management
 
 #### Configuration:
-- **LLMConfiguration**: Type-safe LLM configuration management
+- **LLMConfig**: Type-safe LLM configuration management
 - **ConfigurationManager**: Comprehensive configuration facade
 - **PromptStrategyConfig**: Typed configuration for prompt strategies
 
@@ -47,7 +47,6 @@ This module provides comprehensive LLM integration capabilities including:
 # Core LLM components
 from .llm.language_model import LanguageModel
 from .llm.data_structures import LLMMessage, LLMRole, LLMResponse, LLMTextContent, LLMImageContent
-from .llm.llm_config import LLMConfiguration
 from .llm.constants import PromptStrategyType
 
 # Model implementations
@@ -71,7 +70,6 @@ __all__ = [
     "LLMResponse",
     "LLMTextContent",
     "LLMImageContent",
-    "LLMConfiguration",
     "PromptStrategyType",
     
     # Model implementations

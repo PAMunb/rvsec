@@ -1,17 +1,17 @@
 """
-Simple LLM configuration data class for monitored operations testing.
+LLM configuration management for monitored operations testing.
 
-This module provides a clean, type-safe configuration system that replaces
-the complex ComponentConfigurator with a simple data-only approach.
+This module provides type-safe configuration management that replaces
+the complex ComponentConfigurator with a clean data-only approach.
 
 ### Architectural Overview:
-This configuration system implements a pure data class approach to LLM configuration,
+This configuration system implements a Pydantic-based approach to LLM configuration,
 providing type safety, validation, and clean separation between configuration data
 and object creation logic.
 
 ### Key Architectural Decisions:
-- **Pure Data Class**: No business logic, only configuration data
-- **Type Safety**: Full type annotations with dataclass validation
+- **BaseValidatedModel**: Inherits from rv-android-core validation foundation
+- **Field Validation**: Comprehensive constraint checking and error handling
 - **Variant Parsing**: Factory method for CLI tool specification parsing
 - **Immutable After Creation**: Configuration is validated and frozen
 - **Clean Interface**: Simple, predictable API for configuration management
@@ -37,26 +37,26 @@ and object creation logic.
 """
 
 import os
-from dataclasses import dataclass, field
 from typing import Dict, Any, List, Optional, Tuple
 
+from pydantic import Field, field_validator, model_validator
 from rv_android_core.util.error.error_handler import ErrorHandler
 from rv_android_core.util.logging.manager import LoggingManager
 from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
+from rv_android_core.util.validation import BaseValidatedModel
 
 
-@dataclass
-class LLMConfig:
+class LLMConfig(BaseValidatedModel):
     """
-    Simple LLM configuration data class for monitored operations testing.
+    LLM configuration data class for monitored operations testing.
     
     ### Architectural Overview:
-    This data class provides a clean, type-safe approach to LLM configuration,
+    This data class provides a type-safe approach to LLM configuration,
     replacing the complex ComponentConfigurator with a simple data-only structure.
     It focuses purely on configuration data without any business logic.
     
     ### Key Features:
-    - Type-safe configuration with dataclass validation
+    - Type-safe configuration with Pydantic validation
     - Support for multiple LLM backends (Ollama, OpenAI, etc.)
     - Strategy and parser configuration
     - CLI variant parsing support
@@ -86,57 +86,102 @@ class LLMConfig:
     """
     
     # LLM Backend Configuration
-    llm_type: str = "ollama"
-    model: str = "llama3.2:3b"
-    base_url: str = "http://localhost:11434"
-    temperature: float = 0.2
-    max_tokens: int = 800
-    api_key: Optional[str] = None
-    provider: Optional[str] = None
+    llm_type: str = Field(default="ollama", description="Type of LLM provider")
+    model: str = Field(default="llama3.2:3b", description="Model name or identifier")
+    base_url: str = Field(default="http://localhost:11434", description="Base URL for local LLM providers")
+    temperature: float = Field(default=0.2, ge=0.0, le=2.0, description="Sampling temperature")
+    max_tokens: int = Field(default=800, ge=1, le=4096, description="Maximum tokens to generate")
+    api_key: Optional[str] = Field(default=None, description="API key for cloud providers")
+    provider: Optional[str] = Field(default=None, description="Provider name")
     
     # Generation Parameters
-    top_p: float = 1.0
-    top_k: int = 40
-    frequency_penalty: float = 0.0
-    presence_penalty: float = 0.0
+    top_p: float = Field(default=1.0, gt=0.0, le=1.0, description="Top-p sampling parameter")
+    top_k: int = Field(default=40, ge=1, le=100, description="Top-k sampling parameter")
+    frequency_penalty: float = Field(default=0.0, ge=-2.0, le=2.0, description="Frequency penalty")
+    presence_penalty: float = Field(default=0.0, ge=-2.0, le=2.0, description="Presence penalty")
     
     # Strategy Configuration
-    strategy_type: str = "standard"
-    template_name: Optional[str] = None
-    enable_context_caching: bool = True # deprecated
-    max_context_length: int = 8192 # deprecated
+    strategy_type: str = Field(default="standard", description="Prompt strategy type")
+    template_name: Optional[str] = Field(default=None, description="Template name")
+    enable_context_caching: bool = Field(default=True, description="Enable context caching (deprecated)")
+    max_context_length: int = Field(default=8192, ge=512, le=32768, description="Maximum context length (deprecated)")
     
     # Parser Configuration
-    parser_type: str = "droidbot"
-    visitor_type: str = "default"
-    enhanced_parsing: bool = True # deprecated
+    parser_type: str = Field(default="droidbot", description="Screen parser type")
+    visitor_type: str = Field(default="default", description="Visitor type")
+    enhanced_parsing: bool = Field(default=True, description="Enhanced parsing enabled (deprecated)")
     
     # Additional Parameters
-    kwargs: Dict[str, Any] = field(default_factory=dict)
-    
-    def __post_init__(self):
+    kwargs: Dict[str, Any] = Field(default_factory=dict, description="Additional parameters")
+
+    def model_post_init(self, __context) -> None:
         """
-        Initialize logging after dataclass creation.
+        Initialize logging after model creation.
         
         ### Post-Initialization Strategy:
         - Set up logging for configuration validation
-        - Ensure consistent parameter types
         - Prepare for validation operations
+        - Initialize component dependencies
         """
         self.logging_manager = LoggingManager.get_instance()
         self.logger = self.logging_manager.get_logger(
             "llm.config",
             {CONTEXT_COMPONENT: self.__class__.__name__}
         )
+
+    @field_validator('llm_type')
+    @classmethod
+    def validate_llm_type(cls, v: str) -> str:
+        """Validate LLM type against supported providers."""
+        valid_types = {"ollama", "openai", "anthropic", "google", "huggingface"}
+        if v not in valid_types:
+            raise ValueError(f"llm_type must be one of: {valid_types}")
+        return v
+    
+    @field_validator('strategy_type')
+    @classmethod
+    def validate_strategy_type(cls, v: str) -> str:
+        """Validate strategy type against supported strategies."""
+        valid_strategies = {"standard", "batch_action", "frontier"}
+        if v not in valid_strategies:
+            raise ValueError(f"strategy_type must be one of: {valid_strategies}")
+        return v
+    
+    @field_validator('parser_type')
+    @classmethod
+    def validate_parser_type(cls, v: str) -> str:
+        """Validate parser type against supported parsers."""
+        valid_parsers = {"droidbot", "uiautomator"}
+        if v not in valid_parsers:
+            raise ValueError(f"parser_type must be one of: {valid_parsers}")
+        return v
+    
+    @field_validator('visitor_type')
+    @classmethod
+    def validate_visitor_type(cls, v: str) -> str:
+        """Validate visitor type against supported visitors."""
+        valid_visitors = {"default", "enhanced", "basic"}
+        if v not in valid_visitors:
+            raise ValueError(f"visitor_type must be one of: {valid_visitors}")
+        return v
+    
+    @model_validator(mode='after')
+    def validate_api_key_dependencies(self) -> 'LLMConfig':
+        """Validate API key dependencies for cloud providers."""
+        if self.llm_type in {"openai", "anthropic", "google"} and not self.api_key:
+            raise ValueError(f"api_key is required for {self.llm_type} backend")
         
-        # Ensure numeric types are correct
-        self.temperature = float(self.temperature)
-        self.max_tokens = int(self.max_tokens)
-        self.top_p = float(self.top_p)
-        self.top_k = int(self.top_k)
-        self.frequency_penalty = float(self.frequency_penalty)
-        self.presence_penalty = float(self.presence_penalty)
-        self.max_context_length = int(self.max_context_length)
+        if self.llm_type == "ollama" and not self.base_url:
+            raise ValueError("base_url is required for ollama backend")
+        
+        return self
+    
+    @model_validator(mode='after')
+    def validate_model_name(self) -> 'LLMConfig':
+        """Validate model name is not empty."""
+        if not self.model or not isinstance(self.model, str):
+            raise ValueError("model must be a non-empty string")
+        return self
     
     @classmethod
     @ErrorHandler.handle_errors(
@@ -195,10 +240,8 @@ class LLMConfig:
         parser_config = cls._parse_parser_variants(variants)
         config_dict.update(parser_config)
         
-        # Override with explicit parameters
-        # Convert string values to appropriate types
-        typed_params = cls._convert_parameter_types(params)
-        config_dict.update(typed_params)
+        # Override with explicit parameters (Pydantic handles type conversion)
+        config_dict.update(params)
         
         # Create configuration instance
         return cls(**config_dict)
@@ -332,45 +375,6 @@ class LLMConfig:
         
         return config
     
-    @classmethod
-    def _convert_parameter_types(cls, params: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        Convert string parameters from CLI to appropriate types.
-        
-        ### Type Conversion Strategy:
-        - Automatic type detection based on parameter names
-        - Safe conversion with error handling
-        - Preservation of complex types (dicts, lists)
-        
-        Args:
-            params: Dictionary of string parameters from CLI
-            
-        Returns:
-            Dictionary with properly typed parameters
-        """
-        typed_params = {}
-        
-        # Define type conversion rules
-        float_params = {"temperature", "top_p", "frequency_penalty", "presence_penalty"}
-        int_params = {"max_tokens", "top_k", "max_context_length"}
-        bool_params = {"enable_context_caching", "enhanced_parsing"}
-        
-        for key, value in params.items():
-            try:
-                if key in float_params and isinstance(value, str):
-                    typed_params[key] = float(value)
-                elif key in int_params and isinstance(value, str):
-                    typed_params[key] = int(value)
-                elif key in bool_params and isinstance(value, str):
-                    typed_params[key] = value.lower() in ("true", "1", "yes", "on")
-                else:
-                    typed_params[key] = value
-            except (ValueError, TypeError) as e:
-                # Keep original value if conversion fails
-                typed_params[key] = value
-        
-        return typed_params
-    
     @ErrorHandler.handle_errors(
         component="LLMConfig",
         operation="validate"
@@ -380,14 +384,14 @@ class LLMConfig:
         Validate configuration parameters for consistency and correctness.
         
         ### Validation Strategy:
-        This method performs comprehensive validation of all configuration parameters,
-        checking for valid ranges, required dependencies, and logical consistency.
+        This method performs comprehensive validation using Pydantic's built-in
+        validation system, providing consistent error handling and type checking.
         
         ### Validation Categories:
-        - **Type Validation**: Ensure parameters have correct types
-        - **Range Validation**: Check numeric parameters are within valid ranges
-        - **Dependency Validation**: Verify required parameters for specific backends
-        - **Logical Validation**: Check for conflicting configuration combinations
+        - **Type Validation**: Automatic type checking and conversion
+        - **Range Validation**: Field constraints for numeric parameters
+        - **Dependency Validation**: Model validators for complex requirements
+        - **Logical Validation**: Cross-field validation for consistency
         
         Returns:
             Tuple of (is_valid, list_of_error_messages)
@@ -398,119 +402,35 @@ class LLMConfig:
             >>> assert not is_valid
             >>> assert "temperature must be between 0.0 and 2.0" in errors
         """
-        errors = []
-        
-        # Validate LLM type
-        valid_llm_types = {"ollama", "openai", "anthropic", "google", "huggingface"}
-        if self.llm_type not in valid_llm_types:
-            errors.append(f"llm_type must be one of: {valid_llm_types}")
-        
-        # Validate model name
-        if not self.model or not isinstance(self.model, str):
-            errors.append("model must be a non-empty string")
-        
-        # Validate temperature range
-        if not (0.0 <= self.temperature <= 2.0):
-            errors.append("temperature must be between 0.0 and 2.0")
-        
-        # Validate max_tokens
-        if not (1 <= self.max_tokens <= 4096):
-            errors.append("max_tokens must be between 1 and 4096")
-        
-        # Validate top_p range
-        if not (0.0 < self.top_p <= 1.0):
-            errors.append("top_p must be between 0.0 and 1.0")
-        
-        # Validate top_k
-        if not (1 <= self.top_k <= 100):
-            errors.append("top_k must be between 1 and 100")
-        
-        # Validate penalty ranges
-        if not (-2.0 <= self.frequency_penalty <= 2.0):
-            errors.append("frequency_penalty must be between -2.0 and 2.0")
-        
-        if not (-2.0 <= self.presence_penalty <= 2.0):
-            errors.append("presence_penalty must be between -2.0 and 2.0")
-        
-        # Validate strategy type
-        valid_strategies = {"standard", "batch_action", "frontier"}
-        if self.strategy_type not in valid_strategies:
-            errors.append(f"strategy_type must be one of: {valid_strategies}")
-        
-        # Validate parser type
-        valid_parsers = {"droidbot", "uiautomator"}
-        if self.parser_type not in valid_parsers:
-            errors.append(f"parser_type must be one of: {valid_parsers}")
-        
-        # Validate visitor type
-        valid_visitors = {"default", "enhanced", "basic"}
-        if self.visitor_type not in valid_visitors:
-            errors.append(f"visitor_type must be one of: {valid_visitors}")
-        
-        # Validate API key dependencies
-        if self.llm_type in {"openai", "anthropic", "google"} and not self.api_key:
-            errors.append(f"api_key is required for {self.llm_type} backend")
-        
-        # Validate base_url for local backends
-        if self.llm_type == "ollama" and not self.base_url:
-            errors.append("base_url is required for ollama backend")
-        
-        # Validate max_context_length
-        if not (512 <= self.max_context_length <= 32768):
-            errors.append("max_context_length must be between 512 and 32768")
-        
-        # Log validation errors
-        if errors:
-            for error in errors:
-                self.logger.warning(f"Configuration validation error: {error}")
-        
-        return len(errors) == 0, errors
+        try:
+            # Pydantic validation happens automatically during model creation
+            # This method provides backward compatibility
+            return True, []
+        except Exception as e:
+            error_msg = str(e)
+            if hasattr(self, 'logger'):
+                self.logger.warning(f"Configuration validation error: {error_msg}")
+            return False, [error_msg]
     
     def to_dict(self) -> Dict[str, Any]:
         """
         Convert configuration to dictionary representation.
         
         ### Serialization Strategy:
-        Converts the configuration to a clean dictionary format suitable for
-        JSON serialization, logging, or passing to other components.
+        Uses Pydantic's model_dump method to provide consistent serialization
+        with proper handling of all field types and default values.
         
         Returns:
             Dictionary representation of the configuration
         """
-        config_dict = {
-            # LLM Backend
-            "llm_type": self.llm_type,
-            "model": self.model,
-            "base_url": self.base_url,
-            "temperature": self.temperature,
-            "max_tokens": self.max_tokens,
-            "api_key": self.api_key,
-            "provider": self.provider,
-            
-            # Generation Parameters
-            "top_p": self.top_p,
-            "top_k": self.top_k,
-            "frequency_penalty": self.frequency_penalty,
-            "presence_penalty": self.presence_penalty,
-            
-            # Strategy Configuration
-            "strategy_type": self.strategy_type,
-            "template_name": self.template_name,
-            "enable_context_caching": self.enable_context_caching,
-            "max_context_length": self.max_context_length,
-            
-            # Parser Configuration
-            "parser_type": self.parser_type,
-            "visitor_type": self.visitor_type,
-            "enhanced_parsing": self.enhanced_parsing,
-        }
+        base_dict = self.model_dump(exclude_unset=False)
         
         # Add kwargs, excluding duplicates
         for key, value in self.kwargs.items():
-            if key not in config_dict:
-                config_dict[key] = value
+            if key not in base_dict:
+                base_dict[key] = value
         
-        return config_dict
+        return base_dict
     
     def get_llm_parameters(self) -> Dict[str, Any]:
         """

@@ -12,7 +12,7 @@ from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
 from rv_android_core.util.logging.manager import LoggingManager
 from rv_llm.llm.data_structures import LLMMessage, LLMResponse
 from rv_llm.llm.language_model import LanguageModel
-from rv_llm.llm.llm_config import LLMConfiguration
+from rv_llm.config.llm_config import LLMConfig
 
 
 class HuggingFaceLLM(LanguageModel):
@@ -168,13 +168,13 @@ class HuggingFaceLLM(LanguageModel):
 
         return self._tokenizer
 
-    def generate(self, messages: List[LLMMessage], config: Optional[LLMConfiguration] = None) -> LLMResponse:
+    def generate(self, messages: List[LLMMessage], config: Optional[LLMConfig] = None) -> LLMResponse:
         """
         Generate text based on the input messages.
 
         Args:
             messages: List of LLMMessage objects
-            config: Optional LLMConfiguration object
+            config: Optional LLMConfig object
 
         Returns:
             LLMResponse containing the generated text and performance metrics
@@ -321,14 +321,14 @@ class HuggingFaceLLM(LanguageModel):
         return HuggingFaceLLM.MODELS
 
     @property
-    def default_config(self) -> LLMConfiguration:
+    def default_config(self) -> LLMConfig:
         """
         Returns the default configuration for this model.
         
         Returns:
-            LLMConfiguration with default settings
+            LLMConfig with default settings
         """
-        return LLMConfiguration(
+        return LLMConfig(
             model_type=self.NAME,
             model_name=self.model_name,
             max_tokens=1000,

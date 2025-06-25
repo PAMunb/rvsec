@@ -71,9 +71,7 @@ class StateEnricher:
 
         # Try to initialize analyzers if they exist
         try:
-            # from rv_android_core.analysis.screenshot_action_complementor import ScreenshotAnalyzer
-            # self.screenshot_analyzer = ScreenshotAnalyzer()
-            from rv_android_core.analysis.screenshot.screenshot_action_complementor import ScreenshotActionComplementor
+            from rvandroid_tool.analysis.screenshot.screenshot_action_complementor import ScreenshotActionComplementor
             self.screenshot_action_complementor = ScreenshotActionComplementor(static_data=self.static_data)
         except ImportError:
             self.logger.warning("Screenshot Action Complementor not available")

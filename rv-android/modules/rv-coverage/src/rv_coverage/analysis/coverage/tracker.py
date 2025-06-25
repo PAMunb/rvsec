@@ -352,7 +352,7 @@ class CoverageTracker:
                 
                 # Publish MOP error event for real-time monitoring
                 self.event_bus.publish_analysis_event(
-                    EventType.COVERAGE_ERROR_DETECTED,
+                    EventType.ERROR_DETECTED,
                     data={
                         "spec": error_log.spec,
                         "error_type": error_log.error_type,

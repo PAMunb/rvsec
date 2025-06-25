@@ -18,6 +18,10 @@ def setup_logging(debug: bool = True):
         stream=sys.stdout
     )
 
+    # Silence noisy third-party loggers for clean CLI output
+    for noisy_logger in ["androguard", "matplotlib", "PIL", "requests", "urllib3"]:
+        logging.getLogger(noisy_logger).setLevel(logging.ERROR)
+
     # Get the logging manager
     logging_manager = LoggingManager.get_instance()
 
@@ -52,9 +56,9 @@ def tmp_001():
         apk_patterns=["*.apk"]
     )
     config.custom_specs_dir = "./specs_mini"
-    config.generate_monitors = False
-    config.instrument_apks = False
-    config.run_static_analysis = False
+    config.generate_monitors = True
+    config.instrument_apks = True
+    config.run_static_analysis = True
     config.no_window = True
 
     # Validate configuration

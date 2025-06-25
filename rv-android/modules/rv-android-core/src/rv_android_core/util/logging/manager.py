@@ -192,7 +192,7 @@ class LoggingManager:
             return self.logger_cache[cache_key]
 
         # Create new logger
-        logger = constants.logging.getLogger(f'rv_android_core.{name}')
+        logger = constants.logging.getLogger(name)
 
         # Create adapter with context
         adapter = ContextAdapter(logger, context or {})

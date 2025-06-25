@@ -31,10 +31,12 @@ and dependency injection ready design.
 import json
 import os
 import uuid
-from dataclasses import dataclass, field, asdict
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, Any, List, Optional, Union, TYPE_CHECKING
+
+from pydantic import Field, field_validator, model_validator
+from rv_android_core.util.validation import BaseValidatedModel
 
 from rv_android_core.constants import ENV_RVSEC_HOME
 from rv_android_core.util.error.error_handler import ErrorHandler
@@ -58,8 +60,7 @@ if TYPE_CHECKING:
     pass
 
 
-@dataclass
-class ToolConfiguration:
+class ToolConfiguration(BaseValidatedModel):
     """
     Configuration for individual testing tools.
     
@@ -80,22 +81,19 @@ class ToolConfiguration:
     - Enables tool variant selection and parameter customization
     - Supports factory-based tool creation with configuration injection
     """
-    name: str
-    variants: List[str] = field(default_factory=list)
-    parameters: Dict[str, Any] = field(default_factory=dict)
-    timeout_override: Optional[int] = None
-    enabled: bool = True
+    name: str = Field(description="Tool name")
+    variants: List[str] = Field(default_factory=list, description="Tool variants")
+    parameters: Dict[str, Any] = Field(default_factory=dict, description="Tool parameters")
+    timeout_override: Optional[int] = Field(default=None, description="Tool-specific timeout override")
+    enabled: bool = Field(default=True, description="Whether tool is enabled")
 
-    def __post_init__(self):
-        """Validate tool configuration after initialization."""
-        if not self.name:
+    @field_validator('name')
+    @classmethod
+    def validate_name_not_empty(cls, v: str) -> str:
+        """Validate tool name is not empty."""
+        if not v:
             raise ValueError("Tool name cannot be empty")
-
-        if not isinstance(self.variants, list):
-            self.variants = [self.variants] if self.variants else []
-
-        if not isinstance(self.parameters, dict):
-            self.parameters = {}
+        return v
 
     def to_spec_string(self) -> str:
         """
@@ -147,8 +145,7 @@ class ToolConfiguration:
         return cls(name=name, variants=variants, parameters=parameters)
 
 
-@dataclass
-class CLIExperimentConfig:
+class CLIExperimentConfig(BaseValidatedModel):
     """
     CLI-focused experiment configuration for Android testing orchestration.
     
@@ -179,31 +176,31 @@ class CLIExperimentConfig:
     """
 
     # Core experiment identification
-    experiment_dir: str = f"./{RESULTS_DIR}/"
-    experiment_id: Optional[str] = None
+    experiment_dir: str = Field(default=f"./{RESULTS_DIR}/", description="Experiment output directory")
+    experiment_id: Optional[str] = Field(default=None, description="Unique experiment identifier")
 
-    # Tool configuration with modern specification format
-    tools: List[Dict[str, Any]] = field(default_factory=list)
-    timeout: int = DEFAULT_TIMEOUT
-    repetitions: int = DEFAULT_REPETITIONS
+    # Tool configuration with specification format
+    tools: List[Dict[str, Any]] = Field(default_factory=list, description="Tool configurations")
+    timeout: int = Field(default=DEFAULT_TIMEOUT, gt=0, description="Execution timeout in seconds")
+    repetitions: int = Field(default=DEFAULT_REPETITIONS, gt=0, description="Number of repetitions")
 
     # APK configuration
-    apk_path: Optional[str] = None
-    apk_dir: str = f"./{DEFAULT_APKS_DIR}/"
-    apk_patterns: List[str] = field(default_factory=lambda: DEFAULT_APK_PATTERNS.copy())
+    apk_path: Optional[str] = Field(default=None, description="Single APK file path")
+    apk_dir: str = Field(default=f"./{DEFAULT_APKS_DIR}/", description="APK directory path")
+    apk_patterns: List[str] = Field(default_factory=lambda: DEFAULT_APK_PATTERNS.copy(), description="APK file patterns")
 
     # Processing configuration
-    generate_monitors: bool = True
-    instrument_apks: bool = True
-    run_static_analysis: bool = True
+    generate_monitors: bool = Field(default=True, description="Generate monitors")
+    instrument_apks: bool = Field(default=True, description="Instrument APKs")
+    run_static_analysis: bool = Field(default=True, description="Run static analysis")
 
     # Monitored operations specification set selection
-    specification_set: str = DEFAULT_SPEC_SET  # Options: "jca", "generic", "custom"
+    specification_set: str = Field(default=DEFAULT_SPEC_SET, description="Specification set type")
 
     # Additional metadata
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: Dict[str, Any] = Field(default_factory=dict, description="Additional metadata")
 
-    def __post_init__(self):
+    def model_post_init(self, __context) -> None:
         """Initialize configuration after creation with validation and defaults."""
         if not self.experiment_id:
             self.experiment_id = f"exp_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:8]}"
@@ -335,12 +332,17 @@ class CLIExperimentConfig:
 
     def to_dict(self) -> Dict[str, Any]:
         """
-        Convert configuration to dictionary format for serialization.
+        Convert CLI configuration to dictionary format for serialization and storage.
+        
+        ### CLI Serialization:
+        This method provides configuration serialization for CLI-focused
+        configuration, ensuring tool specifications and parameters are
+        properly represented for storage and transmission.
         
         Returns:
-            Configuration as dictionary
+            Configuration as dictionary with all CLI fields serialized
         """
-        return asdict(self)
+        return self.model_dump()
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> 'CLIExperimentConfig':
@@ -518,8 +520,7 @@ class CLIExperimentConfig:
         )
 
 
-@dataclass
-class ExperimentConfig:
+class ExperimentConfig(BaseValidatedModel):
     """
     Primary experiment configuration for Android testing experiments.
     
@@ -551,33 +552,34 @@ class ExperimentConfig:
     experiment_id: Optional[str] = None
 
     # Tool configuration
-    tool_configs: List[ToolConfiguration] = field(default_factory=list)
+    tool_configs: List[ToolConfiguration] = Field(default_factory=list, description="List of tool configurations")
 
     # Execution parameters
-    repetitions: int = 1
-    timeouts: List[int] = field(default_factory=lambda: [300])
-    no_window: bool = True
+    repetitions: int = Field(default=1, gt=0, description="Number of repetitions")
+    timeouts: List[int] = Field(default_factory=lambda: [300], description="List of timeout values in seconds")
+    no_window: bool = Field(default=True, description="Run without GUI window")
 
     # Processing phases
-    generate_monitors: bool = True
-    instrument_apks: bool = True
-    run_static_analysis: bool = True
+    generate_monitors: bool = Field(default=True, description="Generate monitors")
+    instrument_apks: bool = Field(default=True, description="Instrument APKs")
+    run_static_analysis: bool = Field(default=True, description="Run static analysis")
 
     # Monitored operations specification set
-    specification_set: str = DEFAULT_SPEC_SET  # "jca", "generic", "custom"
-    custom_specs_dir: Optional[str] = None  # Custom specification directory for "custom" specification set
-    custom_aspects_dir: Optional[str] = None  # Custom AspectJ aspects directory (optional)
+    specification_set: str = Field(default=DEFAULT_SPEC_SET, description="Specification set type")
+    custom_specs_dir: Optional[str] = Field(default=None, description="Custom specification directory")
+    custom_aspects_dir: Optional[str] = Field(default=None, description="Custom AspectJ aspects directory")
 
     # APK sources
-    apk_path: Optional[str] = None
-    apk_dir: str = f"./{DEFAULT_APKS_DIR}/"
-    apk_patterns: List[str] = field(default_factory=lambda: DEFAULT_APK_PATTERNS.copy())
+    # TODO remover apk_path e apk_patterns. renomear apk_dir para apks_dir
+    apk_path: Optional[str] = Field(default=None, description="Single APK file path")
+    apk_dir: str = Field(default=f"./{DEFAULT_APKS_DIR}/", description="APK directory path")
+    apk_patterns: List[str] = Field(default_factory=lambda: DEFAULT_APK_PATTERNS.copy(), description="APK file patterns")
 
     # Additional metadata
-    metadata: Dict[str, Any] = field(default_factory=dict)
-    created_at: Optional[str] = None
+    metadata: Dict[str, Any] = Field(default_factory=dict, description="Additional metadata")
+    created_at: Optional[str] = Field(default=None, description="Creation timestamp")
 
-    def __post_init__(self):
+    def model_post_init(self, __context) -> None:
         """Initialize configuration after creation with defaults and validation."""
         if not self.name:
             self.name = f"experiment_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
@@ -591,12 +593,13 @@ class ExperimentConfig:
         if not self.created_at:
             self.created_at = datetime.now().isoformat()
 
-        # Initialize logging
-        self.logging_manager = LoggingManager.get_instance()
-        self.logger = self.logging_manager.get_logger(
+        # Initialize logging (not stored as instance attributes to avoid Pydantic validation issues)
+        logging_manager = LoggingManager.get_instance()
+        logger = logging_manager.get_logger(
             "rv_experiment.config",
             {CONTEXT_COMPONENT: "ExperimentConfig"}
         )
+        logger.debug("ExperimentConfig initialized")
 
     @ErrorHandler.handle_errors(
         component="ExperimentConfig",
@@ -656,7 +659,13 @@ class ExperimentConfig:
             if not output_path.parent.exists():
                 raise ValueError(f"Parent directory for output does not exist: {output_path.parent}")
 
-        self.logger.info("Configuration validation completed successfully")
+        # Get logger for validation message
+        logging_manager = LoggingManager.get_instance()
+        logger = logging_manager.get_logger(
+            "rv_experiment.config",
+            {CONTEXT_COMPONENT: "ExperimentConfig"}
+        )
+        logger.info("Configuration validation completed successfully")
 
     def _validate_apk_sources(self) -> bool:
         """
@@ -717,15 +726,29 @@ class ExperimentConfig:
 
     def validate_specs_dir(self, directory_path_str: str) -> bool:
         """
-        Validates if the given directory_path_str is an existing directory
-        and contains at least one file with the .mop extension.
-
+        Validate monitored operations specification directory structure.
+        
+        ### Architectural Overview:
+        This method implements specification set validation by verifying directory
+        existence and required .mop file presence for monitor generation compatibility.
+        
+        ### Validation Strategy:
+        - Directory existence validation with proper error handling
+        - Monitor Operation Pattern (.mop) file detection
+        - Case-insensitive extension matching for cross-platform compatibility
+        - Early termination optimization on first valid file detection
+        
+        ### Role in the System:
+        - Validates custom specification directory structure for monitor generation
+        - Ensures monitored operations specification availability before execution
+        - Provides early failure detection for invalid specification configurations
+        - Integrates with configuration validation workflow for consistent error handling
+        
         Args:
-            directory_path_str (str): The path to the directory to be checked.
+            directory_path_str: Path to specification directory to validate
 
         Returns:
-            bool: True if it's a valid directory containing at least one .mop file,
-                  False otherwise.
+            True if directory contains valid .mop specification files, False otherwise
         """
         # Convert the string path to a Path object
         path = Path(directory_path_str)
@@ -837,10 +860,10 @@ class ExperimentConfig:
             InstrumentationConfigError: If RVInstrumentationConfig validation fails
         """
         # Get RVSEC root directory for proper path resolution
-        rvsec_root = os.getenv("RVSEC_HOME")
+        rvsec_root = os.getenv(ENV_RVSEC_HOME)
         if not rvsec_root:
             raise ConfigurationError(
-                "RVSEC_HOME environment variable not set. "
+                f"{ENV_RVSEC_HOME} environment variable not set. "
                 "This is required for instrumentation configuration."
             )
 
@@ -862,18 +885,54 @@ class ExperimentConfig:
         except InstrumentationConfigError as e:
             raise ConfigurationError(f"Instrumentation configuration failed: {e}") from e
 
+    def get_rv_instrumentation_config(self) -> RVInstrumentationConfig:
+        """
+        Get configuration for rv-instrumentation module.
+        
+        ### Architectural Overview:
+        This method provides the rv-instrumentation module configuration by delegating
+        to the primary instrumentation configuration method. It ensures consistent
+        configuration access patterns across experiment workflow components.
+        
+        ### Configuration Integration:
+        The method returns a validated RVInstrumentationConfig instance that includes
+        all necessary paths, tools, and validation parameters required for APK 
+        instrumentation operations within the experiment context.
+        
+        ### Role in the System:
+        - Provides configuration access point for pre-processor components
+        - Ensures instrumentation configuration consistency across workflow phases
+        - Integrates with experiment output directory structure
+        - Validates instrumentation tool availability and accessibility
+        
+        Returns:
+            RVInstrumentationConfig instance with instrumentation configuration
+            
+        Raises:
+            ConfigurationError: If APK configuration is invalid
+            InstrumentationConfigError: If RVInstrumentationConfig validation fails
+        """
+        return self.get_instrumentation_config()
+
     def get_static_analysis_config(self) -> RVStaticAnalysisConfig:
         """
-        Just-in-time configuration for static analysis.
+        Just-in-time configuration for static analysis component.
         
         ### Configuration Pattern:
         This method creates static analysis configuration only when needed,
-        providing defaults while allowing experiment-specific customization
-        through parameter specification.
+        providing type safety and validation while maintaining module independence
+        through clean parameter passing.
         
         ### Implementation:
-        Returns a typed RVStaticAnalysisConfig instance that provides type safety,
-        validation, and integration with the configuration architecture.
+        Returns a typed RVStaticAnalysisConfig instance that provides validation,
+        tool coordination, and integration with the experiment output structure.
+        
+        ### Role in the System:
+        - Coordinates static analysis tool configuration with experiment parameters
+        - Provides output directory integration for analysis result storage
+        - Enables tool selection and parameter coordination
+        - Integrates with experiment workflow for consistent error handling
+        
         
         Returns:
             RVStaticAnalysisConfig instance with static analysis configuration
@@ -881,10 +940,10 @@ class ExperimentConfig:
         Raises:
             ConfigurationError: If static analysis configuration fails
         """
-        rvsec_root = os.getenv("RVSEC_HOME")
+        rvsec_root = os.getenv(ENV_RVSEC_HOME)
         if not rvsec_root:
             raise ConfigurationError(
-                "RVSEC_HOME environment variable not set. "
+                f"{ENV_RVSEC_HOME} environment variable not set. "
                 "This is required for static analysis configuration."
             )
 
@@ -906,22 +965,30 @@ class ExperimentConfig:
 
     def get_llm_config(self) -> LLMConfig:
         """
-        Just-in-time configuration for LLM integration.
+        Just-in-time configuration for LLM integration in AI-driven testing tools.
         
         ### Configuration Pattern:
         This method creates LLM configuration only when needed for tools that
-        require AI integration, providing defaults while supporting
-        experiment-specific model and parameter selection.
+        require AI integration, providing sensible defaults while supporting
+        experiment-specific model and parameter customization.
         
-        ### Implementation:
-        Returns a typed LLMConfig instance that provides type safety,
-        validation, and integration with the configuration architecture.
+        ### LLM Integration Architecture:
+        - **Model Selection**: Configures LLM model type and parameters for tool execution
+        - **Provider Configuration**: Sets up LLM provider (Ollama, OpenAI, etc.) integration
+        - **Strategy Coordination**: Aligns LLM strategy with experiment objectives
+        - **Parser Integration**: Coordinates screen parsing with LLM-driven analysis
+        
+        ### Role in the System:
+        - Provides LLM configuration for RVAndroid and other AI-enhanced testing tools
+        - Coordinates model parameters with experiment requirements
+        - Enables consistent LLM behavior across experiment repetitions
+        - Integrates with experiment configuration validation pipeline
         
         Returns:
-            LLMConfig instance with LLM configuration
+            LLMConfig instance with validated LLM configuration
             
         Raises:
-            ConfigurationError: If LLM configuration fails validation
+            ConfigurationError: If LLM configuration validation fails
         """
         try:
             # Create LLMConfig instance with default settings
@@ -948,35 +1015,49 @@ class ExperimentConfig:
 
     def to_dict(self) -> Dict[str, Any]:
         """
-        Convert configuration to dictionary format for serialization.
+        Convert configuration to dictionary format for serialization and storage.
+        
+        ### Serialization Architecture:
+        This method provides configuration serialization using Pydantic's model_dump
+        functionality, ensuring consistent data structure representation across
+        different storage and transmission contexts.
         
         Returns:
-            Configuration as dictionary
+            Configuration as dictionary with all fields serialized
         """
-        return asdict(self)
+        return self.model_dump()
 
     def to_json(self, indent: int = 2) -> str:
         """
-        Convert configuration to JSON format.
+        Convert configuration to JSON format for storage and exchange.
+        
+        ### JSON Serialization:
+        This method provides JSON serialization with configurable indentation
+        for human-readable configuration files and API responses.
         
         Args:
-            indent: JSON indentation level
+            indent: JSON indentation level for formatting
             
         Returns:
-            Configuration as JSON string
+            Configuration as formatted JSON string
         """
         return json.dumps(self.to_dict(), indent=indent, default=str)
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> 'ExperimentConfig':
         """
-        Create configuration from dictionary.
+        Create configuration from dictionary with validation and type conversion.
+        
+        ### Deserialization Architecture:
+        This method implements configuration deserialization with automatic
+        type conversion for tool configurations and proper validation
+        of all configuration parameters.
         
         Args:
-            data: Configuration dictionary
+            data: Configuration dictionary from storage or API
             
         Returns:
-            ExperimentConfig instance
+            Validated ExperimentConfig instance
         """
         # Handle tool configurations
         if 'tool_configs' in data and isinstance(data['tool_configs'], list):
@@ -990,13 +1071,17 @@ class ExperimentConfig:
     @classmethod
     def from_json(cls, json_str: str) -> 'ExperimentConfig':
         """
-        Create configuration from JSON string.
+        Create configuration from JSON string with parsing and validation.
+        
+        ### JSON Deserialization:
+        This method provides JSON parsing with automatic conversion to
+        typed configuration instance, including validation of all parameters.
         
         Args:
-            json_str: JSON configuration string
+            json_str: JSON configuration string from file or API
             
         Returns:
-            ExperimentConfig instance
+            Validated ExperimentConfig instance
         """
         data = json.loads(json_str)
         return cls.from_dict(data)
@@ -1004,13 +1089,21 @@ class ExperimentConfig:
     @classmethod
     def from_file(cls, file_path: str) -> 'ExperimentConfig':
         """
-        Load configuration from file.
+        Load configuration from file with format detection and validation.
+        
+        ### File Loading Architecture:
+        This method implements configuration file loading with automatic
+        format detection (JSON) and comprehensive validation of loaded data.
         
         Args:
-            file_path: Path to configuration file
+            file_path: Path to configuration file (JSON format)
             
         Returns:
-            ExperimentConfig instance
+            Validated ExperimentConfig instance
+            
+        Raises:
+            FileNotFoundError: If configuration file doesn't exist
+            ConfigurationError: If file format or content is invalid
         """
         path = Path(file_path)
         if not path.exists():
@@ -1027,10 +1120,14 @@ class ExperimentConfig:
 
     def save_to_file(self, file_path: str) -> None:
         """
-        Save configuration to file.
+        Save configuration to file with directory creation and logging.
+        
+        ### File Saving Architecture:
+        This method implements configuration persistence with automatic
+        directory creation and comprehensive logging for audit trails.
         
         Args:
-            file_path: Path to save configuration
+            file_path: Path to save configuration file (JSON format)
         """
         path = Path(file_path)
 
@@ -1041,22 +1138,35 @@ class ExperimentConfig:
         with open(path, 'w') as f:
             f.write(self.to_json())
 
-        self.logger.info(f"Configuration saved to: {file_path}")
+        # Get logger for save message
+        logging_manager = LoggingManager.get_instance()
+        logger = logging_manager.get_logger(
+            "rv_experiment.config",
+            {CONTEXT_COMPONENT: "ExperimentConfig"}
+        )
+        logger.info(f"Configuration saved to: {file_path}")
 
     def get_module_config(self, module_name: str) -> Union[
         RVGeneratorConfig, RVInstrumentationConfig, RVStaticAnalysisConfig, LLMConfig, Dict[str, Any]]:
         """
-        Get module-specific configuration based on the module name.
+        Get module-specific configuration with type safety and just-in-time creation.
         
-        ### Configuration Class Integration:
-        This method now returns properly typed configuration class instances
-        instead of dictionaries, providing better type safety and validation.
+        ### Module Configuration Pattern:
+        This method provides module-specific configuration instances using
+        just-in-time creation pattern, ensuring each module receives properly
+        typed and validated configuration objects.
+        
+        ### Supported Modules:
+        - **rv-monitor-generator**: Monitor generation configuration
+        - **rv-instrumentation**: APK instrumentation configuration
+        - **rv-static-analysis**: Static analysis tool configuration
+        - **rv-llm**: LLM integration configuration for AI-driven tools
         
         Args:
-            module_name: Name of the module to get configuration for
+            module_name: Name of the module requiring configuration
             
         Returns:
-            Configuration class instance specific to the requested module
+            Typed configuration instance specific to the requested module
         """
         if module_name == "rv-monitor-generator":
             return self.get_monitored_operations_config()
@@ -1084,7 +1194,12 @@ class ExperimentConfig:
 
     def get_instrumented_dir(self) -> str:
         """
-        Get the instrumented APKs directory path.
+        Get the instrumented APKs directory path for experiment workflow.
+        
+        ### Directory Structure:
+        This method provides the standard directory path where instrumented
+        APKs are stored, maintaining consistent directory structure across
+        experiment execution phases.
         
         Returns:
             Path to instrumented APKs directory
@@ -1093,7 +1208,11 @@ class ExperimentConfig:
 
     def get_timestamp_string(self) -> str:
         """
-        Get timestamp string for experiment identification.
+        Get timestamp string for experiment identification and result organization.
+        
+        ### Timestamp Format:
+        This method provides consistent timestamp formatting for experiment
+        identification, result directory naming, and audit trail maintenance.
         
         Returns:
             Timestamp string in format YYYYMMDD_HHMMSS

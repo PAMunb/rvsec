@@ -25,10 +25,8 @@ component creation with just-in-time configuration and DI-ready design.
 - Maintains module independence through factory-based component creation
 """
 
-from .experiment_factory import ExperimentFactory
 from .configuration_factory import ConfigurationFactory
 
 __all__ = [
-    'ExperimentFactory',
     'ConfigurationFactory'
 ]

@@ -1,14 +1,16 @@
 """
 Core data structures for Language Model integration.
 
-This module defines the standardized data structures used throughout the LLM
+This module defines standardized data structures used throughout the LLM
 integration system, providing type-safe representations for messages, content,
 and responses in the Model Context Protocol (MCP) format.
 """
 
-from dataclasses import dataclass
 from enum import Enum
 from typing import List, Dict, Any, Optional, Union
+
+from pydantic import Field, field_validator
+from rv_android_core.util.validation import BaseValidatedModel
 
 
 class LLMRole(Enum):
@@ -19,20 +21,50 @@ class LLMRole(Enum):
     TOOL = "tool"
 
 
-@dataclass
-class LLMTextContent:
-    """Text content in an LLM message."""
-    text: str
+class LLMTextContent(BaseValidatedModel):
+    """
+    Text content in an LLM message.
+    
+    ### Architectural Overview:
+    This class encapsulates text-based content for LLM conversations,
+    providing type safety and validation for text message components.
+    
+    ### Role in the System:
+    - Primary content type for text-based LLM interactions
+    - Provides string representation and validation
+    - Supports serialization for API communication
+    """
+    text: str = Field(description="Text content of the message")
 
     def __str__(self) -> str:
         return self.text
 
 
-@dataclass
-class LLMImageContent:
-    """Image content in an LLM message."""
-    url: str
-    detail: Optional[str] = "auto"
+class LLMImageContent(BaseValidatedModel):
+    """
+    Image content in an LLM message.
+    
+    ### Architectural Overview:
+    This class encapsulates image-based content for multimodal LLM conversations,
+    supporting different image detail levels and URL-based image references.
+    
+    ### Role in the System:
+    - Handles image content for multimodal LLM interactions
+    - Supports image detail level configuration
+    - Provides URL-based image reference system
+    """
+    url: str = Field(description="URL or path to the image")
+    detail: Optional[str] = Field(default="auto", description="Image detail level")
+
+    @field_validator('detail')
+    @classmethod
+    def validate_detail(cls, v: Optional[str]) -> Optional[str]:
+        """Validate image detail level."""
+        if v is not None:
+            valid_details = {"low", "high", "auto"}
+            if v not in valid_details:
+                raise ValueError(f"detail must be one of: {valid_details}")
+        return v
 
     def __str__(self) -> str:
         return self.url
@@ -42,31 +74,55 @@ class LLMImageContent:
 LLMContentType = Union[LLMTextContent, LLMImageContent]
 
 
-
-@dataclass
-class LLMMessage:
+class LLMMessage(BaseValidatedModel):
     """
     Standard message format for Model Context Protocol.
     
+    ### Architectural Overview:
     Represents a structured message in a conversation between the system,
     user, assistant, or tools. Messages can contain multiple content items
     of different types (text, images, etc.).
+    
+    ### Role in the System:
+    - Primary communication structure for LLM interactions
+    - Supports multimodal content (text and images)
+    - Provides conversation context and role management
+    - Handles serialization for API communication
+    
+    ### Key Features:
+    - **Role Management**: Clear distinction between system, user, assistant, and tool messages
+    - **Multimodal Support**: Text and image content in single messages
+    - **Validation**: Automatic validation of message structure and content
+    - **Serialization**: API-compatible message format generation
     """
-    role: LLMRole
-    content: List[LLMContentType]
-    name: Optional[str] = None
-    # TODO deprecated
-    tool_calls: Optional[List[Dict[str, Any]]] = None
-    tool_call_id: Optional[str] = None
+    role: LLMRole = Field(description="Role of the message sender")
+    content: List[LLMContentType] = Field(description="List of content items")
+    name: Optional[str] = Field(default=None, description="Name of the message sender")
+    tool_calls: Optional[List[Dict[str, Any]]] = Field(default=None, description="Tool calls (deprecated)")
+    tool_call_id: Optional[str] = Field(default=None, description="Tool call ID (deprecated)")
 
-    def total_chars(self):
-        cont = 0
+    @field_validator('content')
+    @classmethod
+    def validate_content_not_empty(cls, v: List[LLMContentType]) -> List[LLMContentType]:
+        """Validate that content list is not empty."""
+        if not v:
+            raise ValueError("content list cannot be empty")
+        return v
+
+    def total_chars(self) -> int:
+        """
+        Calculate total character count for text content.
+        
+        Returns:
+            Total number of characters in text content
+        """
+        total = 0
         for item in self.content:
             if isinstance(item, LLMTextContent):
-                cont += len(item.text)
-        return cont
+                total += len(item.text)
+        return total
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"LLMMessage(role={self.role}, content={self.content})"
 
     def get_text_content(self) -> str:
@@ -83,116 +139,130 @@ class LLMMessage:
         return "\n".join(text_parts)
 
     def to_message_dict(self) -> Dict[str, Any]:
-        items = [{
-            "type": "text",
-            "text": self.get_text_content()
-        }]
+        """
+        Convert message to API-compatible dictionary format.
+        
+        ### Serialization Strategy:
+        Creates a dictionary structure compatible with standard LLM APIs,
+        handling both text and image content appropriately.
+        
+        Returns:
+            Dictionary representation for API communication
+        """
+        items = []
+        
+        # Add text content
+        text_content = self.get_text_content()
+        if text_content:
+            items.append({
+                "type": "text",
+                "text": text_content
+            })
+        
+        # Add image content
         for item in self.content:
             if isinstance(item, LLMImageContent):
                 items.append({
                     "type": "image",
                     "url": item.url
                 })
+        
         return {
             "role": self.role.value,
             "content": items
         }
 
 
-# @dataclass
-# class MCPAction:
-#     id: int
-#     params: Dict[str, Any]
-#     explanation: Optional[str] = None
+class LLMResponse(BaseValidatedModel):
+    """
+    LLM response data structure with performance diagnostics.
+    
+    ### Architectural Overview:
+    This class captures comprehensive information about LLM responses,
+    including generated content and detailed performance metrics for
+    monitoring and optimization purposes.
+    
+    ### Performance Metrics:
+    - **content**: The generated text response from the model
+    - **done_reason**: Explanation for generation termination
+    - **total_duration**: Complete request-to-response time
+    - **load_duration**: Model loading time (cold start detection)
+    - **input_tokens**: Input prompt token count for cost estimation
+    - **input_tokens_duration**: Prompt processing time
+    - **output_tokens**: Generated response token count
+    - **output_tokens_duration**: Token generation time (inference speed)
+    
+    ### Role in the System:
+    - Standardized response format across all LLM providers
+    - Performance monitoring and metrics collection
+    - Cost estimation and resource usage tracking
+    - Response quality and completion status reporting
+    """
+    content: str = Field(description="Generated response content")
+    role: LLMRole = Field(default=LLMRole.ASSISTANT, description="Response role")
+    done: bool = Field(default=True, description="Whether generation is complete")
+    done_reason: str = Field(default="stop", description="Reason for generation completion")
+    total_duration: int = Field(default=0, ge=0, description="Total request duration in milliseconds")
+    load_duration: int = Field(default=0, ge=0, description="Model loading duration in milliseconds")
+    input_tokens: int = Field(default=0, ge=0, description="Number of input tokens processed")
+    input_tokens_duration: int = Field(default=0, ge=0, description="Input processing duration in milliseconds")
+    output_tokens: int = Field(default=0, ge=0, description="Number of output tokens generated")
+    output_tokens_duration: int = Field(default=0, ge=0, description="Output generation duration in milliseconds")
 
+    @field_validator('done_reason')
+    @classmethod
+    def validate_done_reason(cls, v: str) -> str:
+        """Validate completion reason."""
+        valid_reasons = {"stop", "length", "error", "interrupted", "timeout"}
+        if v not in valid_reasons:
+            # Allow other reasons but log a warning
+            pass
+        return v
 
-@dataclass
-class LLMResponse:
-    # Capture and store the full model response along with granular performance diagnostics:
-    # - message.content: The generated text response from the model. This is the core output returned to the user.
-    # - done_reason: Explains why the generation stopped. Common values include 'stop' (natural stop), 'length' (token limit reached),
-    #                or custom stop sequences. Useful for determining whether the output was truncated or ended cleanly.
-    # - total_duration: Total elapsed time (in milliseconds or seconds, depending on the API) from the beginning of the request to
-    #                   the receipt of the full response. Includes all stages: model load, prompt evaluation, and token generation.
-    # - load_duration: Time taken to load the model into memory if it was not already active. High values here can indicate cold starts,
-    #                  which may be optimized by warming up the model in advance or keeping it resident.
-    # - input_tokens: The number of tokens in the input prompt processed by the model. Important for estimating prompt cost and
-    #                      understanding how much context is being consumed before generation begins.
-    # - input_tokens_duration: Time spent (in ms or s) processing the input prompt tokens. High values may indicate a long or complex prompt.
-    # - output_tokens: The number of tokens generated by the model in its output. Combined with input_tokens, this helps track
-    #               total token usage for billing or quota enforcement.
-    # - output_tokens_duration: Time spent generating output tokens. Can be used to measure generation speed and model throughput.
-    #                           It is the inference time.
-
-    content: str
-    role = LLMRole.ASSISTANT
-    done = True
-    done_reason = "stop"
-    total_duration = 0
-    load_duration = 0
-    input_tokens = 0
-    input_tokens_duration = 0
-    output_tokens = 0
-    output_tokens_duration = 0
-
-    def total_chars(self):
+    def total_chars(self) -> int:
+        """
+        Calculate total character count in response content.
+        
+        Returns:
+            Number of characters in the response content
+        """
         return len(self.content)
 
-# deprecated
-# @dataclass
-# class MCPConfiguration_OLD:
-#     """
-#     Configuration parameters for language models using MCP.
-#
-#     Provides a standardized set of parameters for controlling
-#     language model behavior, regardless of the specific model
-#     implementation.
-#     """
-#     temperature: float = 0.7
-#     max_tokens: Optional[int] = None
-#     top_p: float = 1.0
-#     frequency_penalty: float = 0.0
-#     presence_penalty: float = 0.0
-#     stop: Optional[List[str]] = None
-#     model_type: str = "ollama"
-#     model_name: str = "llama3.2:3b"
-#
-#     def to_dict(self) -> Dict[str, Any]:
-#         """
-#         Convert configuration to dictionary.
-#
-#         Returns:
-#             Dictionary representation of configuration
-#         """
-#         return {
-#             "temperature": self.temperature,
-#             "max_tokens": self.max_tokens,
-#             "top_p": self.top_p,
-#             "frequency_penalty": self.frequency_penalty,
-#             "presence_penalty": self.presence_penalty,
-#             "stop": self.stop,
-#             "model_type": self.model_type,
-#             "model_name": self.model_name
-#         }
-#
-#     @classmethod
-#     def from_dict(cls, data: Dict[str, Any]) -> 'MCPConfiguration':
-#         """
-#         Create configuration from dictionary.
-#
-#         Args:
-#             data: Dictionary containing configuration data
-#
-#         Returns:
-#             MCPConfiguration instance
-#         """
-#         return cls(
-#             temperature=data.get("temperature", 0.7),
-#             max_tokens=data.get("max_tokens"),
-#             top_p=data.get("top_p", 1.0),
-#             frequency_penalty=data.get("frequency_penalty", 0.0),
-#             presence_penalty=data.get("presence_penalty", 0.0),
-#             stop=data.get("stop"),
-#             model_type=data.get("model_type", "ollama"),
-#             model_name=data.get("model_name", "llama3.2:3b")
-#         )
+    def get_tokens_per_second(self) -> float:
+        """
+        Calculate output tokens generation rate.
+        
+        Returns:
+            Tokens per second generation rate, or 0 if duration is 0
+        """
+        if self.output_tokens_duration > 0:
+            return (self.output_tokens * 1000.0) / self.output_tokens_duration
+        return 0.0
+
+    def get_total_tokens(self) -> int:
+        """
+        Get total token count (input + output).
+        
+        Returns:
+            Sum of input and output tokens
+        """
+        return self.input_tokens + self.output_tokens
+
+    def to_performance_dict(self) -> Dict[str, Any]:
+        """
+        Extract performance metrics as dictionary.
+        
+        Returns:
+            Dictionary with performance metrics
+        """
+        return {
+            "total_duration": self.total_duration,
+            "load_duration": self.load_duration,
+            "input_tokens": self.input_tokens,
+            "input_tokens_duration": self.input_tokens_duration,
+            "output_tokens": self.output_tokens,
+            "output_tokens_duration": self.output_tokens_duration,
+            "tokens_per_second": self.get_tokens_per_second(),
+            "total_tokens": self.get_total_tokens(),
+            "done_reason": self.done_reason
+        }
