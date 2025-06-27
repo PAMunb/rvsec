@@ -30,6 +30,34 @@ poetry run rv-platform validate-config config.json
 
 ---
 
+## ⚠️ **CRITICAL LESSONS LEARNED: Functionality Preservation**
+
+**MAJOR ISSUE IDENTIFIED**: During Phase 2 migration, significant functionality was lost by generating new components instead of preserving original implementation logic.
+
+### Migration Failures and Corrections:
+1. **ConfigurableTool Configuration Logic**: 
+   - **Problem**: New implementation overwrote tool defaults instead of merging with existing configuration
+   - **Impact**: Tool execution failed because default parameters like 'throttle' were lost
+   - **Solution**: Modified configure() method to use `self.config.update(config)` instead of `self.config = config.copy()`
+
+2. **StaticAnalysisComponent File Operations**:
+   - **Problem**: copy_static_analysis_files method was completely omitted in new implementation  
+   - **Impact**: Static analysis files weren't being copied to results directory
+   - **Solution**: Restored complete method from original ExecutionManager implementation
+
+3. **Multiple Revision Cycles**:
+   - **Problem**: Had to consult original files 3+ times to identify and restore missing functionality
+   - **Impact**: Significant development time waste and risk of silent functionality degradation
+   - **Solution**: Established mandatory protocol for complete functionality preservation
+
+### Mandatory Protocol for Future Migrations:
+- **NEVER generate new classes from scratch** - Always start with complete original implementation
+- **Copy ENTIRE original functionality first** - Refactor incrementally while preserving all business logic
+- **Reference original files throughout migration** - Keep original implementation open during entire process
+- **Test ALL original methods and edge cases** - Verify complete functionality parity before completion
+
+---
+
 ## Technical Requirements and Considerations
 
 ### Code Standards
@@ -37,6 +65,63 @@ poetry run rv-platform validate-config config.json
 - **Comments**: Include detailed comments at critical architectural points, following existing templates (EventBus, ExecutionManager, TaskExecutor)
 - **Comment Style**: Reflect current state only, no migration/legacy references, no promotional language or bias terms
 - **Target Audience**: Developers and researchers
+
+### ⚠️ **CRITICAL: Functionality Preservation During Migration**
+
+**ESSENTIAL REQUIREMENT**: All existing business logic and functionality must be preserved completely during component migration.
+
+**Common Migration Errors to Avoid**:
+- ❌ **Generating new classes from scratch** - This leads to functionality loss
+- ❌ **Copying only "obvious" functionality** - Complex business logic gets lost
+- ❌ **Assuming simple refactoring** - Original implementations contain critical edge cases
+- ❌ **Not testing all original methods** - Silent functionality degradation occurs
+
+**Migration Examples from Our Experience**:
+- **ConfigurableTool Configuration**: Original implementation merged parameters with defaults, new implementation overwrote defaults completely
+- **StaticAnalysisComponent File Copying**: Original had copy_static_analysis_files method that was omitted in migration
+- **Multiple Consultation Cycles**: Had to revisit original files 3+ times to restore lost functionality
+
+---
+
+## 🚨 **URGENT: Type Safety Issues Identified (TODO for Tomorrow)**
+
+**CRITICAL ARCHITECTURE VIOLATION**: Platform is using untyped dictionaries instead of Pydantic models
+
+### Current Type Safety Problems:
+1. **Platform.run() returns `Dict[str, Any]`** - Violates established Pydantic architecture
+2. **ExecutionController expects dictionary operations** - Uses `results.get('failed_tasks', 0)` 
+3. **Test mocks use raw dictionaries** - Instead of proper typed objects
+4. **Missing type validation** - No compile-time or runtime type checking for execution results
+
+### Required Changes for Tomorrow:
+- **Create Pydantic models**: ExecutionResult, TaskSummary, ExecutionStatistics
+- **Update Platform.run()**: Return properly typed ExecutionResult instead of Dict[str, Any]
+- **Update ExecutionController**: Work with typed models instead of dictionary operations
+- **Update all tests**: Use proper typed objects in mocks instead of raw dictionaries
+- **Verify type safety**: Ensure all platform integration points use Pydantic models
+
+### Files Requiring Updates:
+- `rv-platform/src/rv_platform/platform.py` - Platform.run(), _generate_summary()
+- `rv-platform/src/rv_platform/models/` - Create new result models
+- `rv-experiment/src/rv_experiment/experiment/workflow/execution_controller.py` - Update result handling
+- `rv-experiment/tests/experiment/workflow/test_execution_controller.py` - Update test mocks
+
+**Priority**: HIGH - This violates core architectural principles and reduces type safety
+
+---
+
+**Mandatory Migration Protocol**:
+1. **Start with Original Implementation**: Copy the ENTIRE original class first, then refactor incrementally
+2. **Preserve ALL Methods**: Every public and private method must be migrated with full business logic
+3. **Verify Complex Logic**: Test edge cases, error handling, and integration points thoroughly  
+4. **Reference Original Throughout**: Keep original file open during entire migration process
+5. **Test Functionality Parity**: Ensure migrated component has identical behavior to original
+
+**Red Flags During Migration**:
+- "This seems simpler than expected" - Likely missing functionality
+- "I'll implement this differently" - High risk of logic loss
+- "This method seems unnecessary" - Probably critical business logic
+- Multiple failures during testing - Indicates missing functionality
 
 ### Framework Integration
 - **Error Handling**: Use existing `error_handler.py` (preferably `@ErrorHandler.handle_errors` decorator pattern)
@@ -510,6 +595,12 @@ build-backend = "poetry.core.masonry.api"
 **Status**: rv-platform MVP is fully functional and tested. Ready for Phase 2 or immediate use.
 
 **Phase 2: Gradual Component Migration** ✅ **COMPLETED**
+- **⚠️ CRITICAL LESSON LEARNED**: Functionality was lost during migration by generating new components instead of preserving original logic
+- **Functionality Loss Examples**: 
+  - ConfigurableTool defaults were overwritten instead of merged (required 2 revisions)
+  - StaticAnalysisComponent copy_static_analysis_files method was omitted (required restoration)
+  - Multiple consultation cycles with original files to restore business logic
+- **Corrective Actions Taken**: All components now preserve complete original functionality
 - Add components one by one with validation each step:
   1. ✅ EmulatorComponent (reuse existing EmulatorManager) + migrate `test_emulator.py`
   2. ✅ LogcatComponent (log collection) + migrate `test_logcat.py`

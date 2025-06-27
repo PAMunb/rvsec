@@ -23,8 +23,10 @@ from rv_android_core.util.logging.constants import (
 )
 from rv_android_core.util.logging.manager import LoggingManager
 from rv_android_core.event import EventBus, EventType
-from rv_experiment.experiment.task.interfaces import TaskState
-from rv_experiment.experiment.task.storage import TaskStorage
+# Import TaskState from rv-experiment (interfaces remain for backward compatibility)
+# Import TaskStorage from rv-platform where it now resides
+from rv_platform.interfaces.task_interfaces import TaskState
+from rv_platform.storage.task_storage import TaskStorage
 
 
 class ResultManager:

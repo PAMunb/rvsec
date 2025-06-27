@@ -37,8 +37,6 @@ from typing import Dict, Any, List, Optional, Union, TYPE_CHECKING
 
 from pydantic import Field, field_validator, model_validator
 from rv_android_core.util.validation import BaseValidatedModel
-# Import ToolConfig from rv-platform for unified tool configuration
-from rv_platform.config.platform_config import ToolConfig
 
 from rv_android_core.constants import ENV_RVSEC_HOME
 from rv_android_core.util.error.error_handler import ErrorHandler
@@ -62,7 +60,89 @@ if TYPE_CHECKING:
     pass
 
 
-# ToolConfig is imported from rv-platform for unified tool configuration
+class ToolConfiguration(BaseValidatedModel):
+    """
+    Configuration for individual testing tools.
+    
+    ### Architectural Overview:
+    This class encapsulates tool-specific configuration with support for variants
+    and parameters using the modern tool specification DSL format. It provides
+    clean serialization and factory-ready structure for DI containers.
+    
+    ### Key Features:
+    - **Tool Specification DSL**: Support for tool:variant:variant@param=value format
+    - **Parameter Management**: Type-safe parameter handling with validation
+    - **Variant Support**: Multiple tool variants (e.g., llama:batch, droidbot:dfs_greedy)
+    - **Factory Ready**: Designed for factory pattern instantiation
+    
+    ### Role in the System:
+    - Encapsulates individual tool configuration and parameters
+    - Provides serialization/deserialization for tool specifications
+    - Enables tool variant selection and parameter customization
+    - Supports factory-based tool creation with configuration injection
+    """
+    name: str = Field(description="Tool name")
+    variants: List[str] = Field(default_factory=list, description="Tool variants")
+    parameters: Dict[str, Any] = Field(default_factory=dict, description="Tool parameters")
+    timeout_override: Optional[int] = Field(default=None, description="Tool-specific timeout override")
+    enabled: bool = Field(default=True, description="Whether tool is enabled")
+
+    @field_validator('name')
+    @classmethod
+    def validate_name_not_empty(cls, v: str) -> str:
+        """Validate tool name is not empty."""
+        if not v:
+            raise ValueError("Tool name cannot be empty")
+        return v
+
+    def to_spec_string(self) -> str:
+        """
+        Convert tool configuration to specification string format.
+        
+        Returns:
+            Tool specification string (e.g., "tool:variant1:variant2@param1=value1,param2=value2")
+        """
+        spec = self.name
+
+        if self.variants:
+            spec += ":" + ":".join(self.variants)
+
+        if self.parameters:
+            params = ",".join([f"{k}={v}" for k, v in self.parameters.items()])
+            spec += f"@{params}"
+
+        return spec
+
+    @classmethod
+    def from_spec_string(cls, spec: str) -> 'ToolConfiguration':
+        """
+        Create tool configuration from specification string.
+        
+        Args:
+            spec: Tool specification string
+            
+        Returns:
+            ToolConfiguration instance
+        """
+        # Parse tool specification string
+        parts = spec.split('@')
+        tool_part = parts[0]
+        params_part = parts[1] if len(parts) > 1 else ""
+
+        # Parse tool name and variants
+        tool_parts = tool_part.split(':')
+        name = tool_parts[0]
+        variants = tool_parts[1:] if len(tool_parts) > 1 else []
+
+        # Parse parameters
+        parameters = {}
+        if params_part:
+            for param in params_part.split(','):
+                if '=' in param:
+                    key, value = param.split('=', 1)
+                    parameters[key.strip()] = value.strip()
+
+        return cls(name=name, variants=variants, parameters=parameters)
 
 
 
@@ -101,7 +181,7 @@ class ExperimentConfig(BaseValidatedModel):
     experiment_dir: str = ""
 
     # Tool configuration
-    tool_configs: List[ToolConfig] = Field(default_factory=list, description="List of tool configurations")
+    tool_configs: List[ToolConfiguration] = Field(default_factory=list, description="List of tool configurations")
 
     # Execution parameters
     repetitions: int = Field(default=1, gt=0, description="Number of repetitions")
@@ -620,7 +700,7 @@ class ExperimentConfig(BaseValidatedModel):
         # Handle tool configurations
         if 'tool_configs' in data and isinstance(data['tool_configs'], list):
             data['tool_configs'] = [
-                ToolConfig(**tc) if isinstance(tc, dict) else tc
+                ToolConfiguration(**tc) if isinstance(tc, dict) else tc
                 for tc in data['tool_configs']
             ]
 

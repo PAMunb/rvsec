@@ -20,6 +20,7 @@ declare -ra MODULES=(
     "rv-screen-parser"          # Screen parsing utilities
     "rv-llm"                    # Language Model integration infrastructure
     "rv-tools"                  # Tool registry and plugin system
+    "rv-platform"               # Central execution platform for Android experiments
     "rvandroid-tool"            # RVAndroid tool implementation with LLM integration
     "rv-experiment"             # Experiment orchestration and coordination
 #    "rvandroid"                 # Main framework module
@@ -342,6 +343,7 @@ MODULES:
         rv-screen-parser         Screen parsing utilities
         rv-llm                   Language Model integration infrastructure
         rv-tools                 Tool registry and plugin system
+        rv-platform              Central execution platform for Android experiments
         rvandroid-tool           RVAndroid tool implementation with LLM integration
         rv-experiment            Experiment orchestration and coordination
         rvandroid               Main framework module

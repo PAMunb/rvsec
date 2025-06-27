@@ -28,7 +28,8 @@ from rv_android_core.util.error.error_handler import ErrorHandler
 from rv_android_core.util.logging.manager import LoggingManager
 from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
 
-from rv_experiment.config import ExperimentConfig, ToolConfiguration
+from rv_experiment.config import ExperimentConfig
+from rv_platform.config.platform_config import ToolConfig
 
 
 class ConfigurationFactory:
@@ -128,7 +129,7 @@ class ConfigurationFactory:
     )
     def create_full_config(self,
                           name: str,
-                          tool_configs: List[ToolConfiguration],
+                          tool_configs: List[ToolConfig],
                           output_dir: str = "",
                           specification_set: str = "jca",
                           **kwargs) -> ExperimentConfig:
@@ -192,7 +193,7 @@ class ConfigurationFactory:
         return ExperimentConfig(
             name="basic_experiment",
             description="Basic experiment template",
-            tool_configs=[ToolConfiguration(name="monkey")],
+            tool_configs=[ToolConfig(name="monkey")],
             specification_set="jca"
         )
     
@@ -215,8 +216,8 @@ class ConfigurationFactory:
             name="advanced_experiment", 
             description="Advanced experiment template",
             tool_configs=[
-                ToolConfiguration(name="monkey"),
-                ToolConfiguration(name="droidbot", variants=["dfs_greedy"])
+                ToolConfig(name="monkey"),
+                ToolConfig(name="droidbot", variants=["dfs_greedy"])
             ],
             repetitions=3,
             specification_set="jca"
@@ -240,7 +241,7 @@ class ConfigurationFactory:
         return ExperimentConfig(
             name="llm_experiment",
             description="LLM-driven testing experiment", 
-            tool_configs=[ToolConfiguration(name="rvandroid", variants=["llama", "batch"])],
+            tool_configs=[ToolConfig(name="rvandroid", variants=["llama", "batch"])],
             timeouts=[1800],  # 30 minutes for LLM
             specification_set="jca"
         )

@@ -64,19 +64,20 @@ class ConfigurableTool(AbstractTool):
         """
         Configure the tool with provided configuration dictionary.
         
-        This method applies the configuration and delegates to tool-specific
-        configuration handling for custom parameter processing.
+        This method merges the configuration with existing defaults and delegates 
+        to tool-specific configuration handling for custom parameter processing.
 
         Args:
             config: Configuration dictionary with tool parameters
         """
-        # Store the configuration
-        self.config = config.copy() if config else {}
+        # Merge with existing configuration (preserving defaults) instead of overwriting
+        if config:
+            self.config.update(config)
         
         self.logger.debug(f"Tool {self.name} configured with: {self.config}")
         
         # Call tool-specific configuration hook
-        self.configure_tool_specific(config)
+        self.configure_tool_specific(config or {})
 
     def configure_tool_specific(self, config: Dict[str, Any]) -> None:
         """

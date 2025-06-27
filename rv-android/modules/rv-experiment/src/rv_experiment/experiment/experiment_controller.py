@@ -13,7 +13,7 @@ from rv_android_core.util.logging.constants import CONTEXT_COMPONENT, LOG_START,
 from rv_android_core.util.logging.manager import LoggingManager
 from rv_android_core.event import EventBus, EventType
 from rv_android_core.tools.abstract_tool import AbstractTool
-from rv_experiment.experiment.task.storage import TaskStorage
+from rv_platform.storage.task_storage import TaskStorage
 from rv_experiment.experiment.workflow.execution_controller import ExecutionController
 from rv_experiment.experiment.workflow.post_processor import PostProcessor
 from rv_experiment.experiment.workflow.pre_processor import PreProcessor
@@ -186,18 +186,38 @@ class ExperimentController:
                     self.logger.error("No APKs available for execution after pre-processing")
                     return False
 
-                # Phase 3: Execute experiments for each tool
+                # Phase 3: Execute experiments using rv-platform integration
+                self.logger.info(f"Starting execution phase with tools: {tools}")
+                
+                # Convert tool names to tool objects (simplified approach for now)
+                from rv_tools.registry.registry import ToolRegistry
+                tool_registry = ToolRegistry.get_instance()
+                tool_objects = []
                 for tool_name in tools:
-                    self.logger.info(f"Starting execution phase with tool: {tool_name}")
-                    success = self.execution_controller.execute_experiments(
-                        tool_name=tool_name,
-                        apps=instrumented_apks,
+                    tool = tool_registry.get_tool(tool_name)
+                    if tool:
+                        tool_objects.append(tool)
+                    else:
+                        self.logger.warning(f"Tool {tool_name} not found in registry")
+                
+                if tool_objects:
+                    # Setup execution controller with all parameters
+                    self.execution_controller.setup(
+                        apks=instrumented_apks,
                         repetitions=self.config.repetitions,
-                        timeout=self.config.timeout
+                        timeouts=self.config.timeouts,
+                        tools=tool_objects,
+                        no_window=getattr(self.config, 'no_window', True)
                     )
                     
+                    # Execute experiments
+                    success = self.execution_controller.run()
+                    
                     if not success:
-                        self.logger.warning(f"Execution failed for tool: {tool_name}")
+                        self.logger.warning("Execution phase completed with issues")
+                else:
+                    self.logger.error("No valid tools found for execution")
+                    success = False
 
                 # Phase 4: Post-processing
                 self.logger.info("Starting post-processing phase")

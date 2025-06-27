@@ -47,7 +47,8 @@ from rv_android_core.util.logging.manager import LoggingManager
 from rv_android_core.util.logging.constants import CONTEXT_COMPONENT, LOG_START, LOG_COMPLETE
 from rv_android_core.util.exceptions import ConfigurationError
 from rv_tools.registry.registry import ToolRegistry
-from rv_experiment.config import ExperimentConfig, ToolConfiguration
+from rv_experiment.config import ExperimentConfig
+from rv_platform.config.platform_config import ToolConfig
 from rv_experiment.experiment.experiment_controller import execute_with_config
 from rv_experiment.constants import (
     DEFAULT_APKS_DIR, DEFAULT_TIMEOUT, DEFAULT_REPETITIONS,
@@ -728,7 +729,7 @@ def _create_experiment_config_from_cli(ctx: CLIContext, tools: str, timeout: int
     
     ### Configuration Creation Strategy:
     - Parses tool specifications using DSL format
-    - Creates ToolConfiguration instances for each parsed tool
+    - Creates ToolConfig instances for each parsed tool
     - Generates unique experiment identifier with timestamp
     - Applies intelligent defaults for unspecified parameters
     - Validates configuration integrity before returning
@@ -762,7 +763,7 @@ def _create_experiment_config_from_cli(ctx: CLIContext, tools: str, timeout: int
         
         for tool_spec in tool_specs:
             parsed_tool = ctx.parse_tool_specification(tool_spec)
-            tool_config = ToolConfiguration(
+            tool_config = ToolConfig(
                 name=parsed_tool["name"],
                 variants=parsed_tool["variants"],
                 parameters=parsed_tool["parameters"]
@@ -834,8 +835,8 @@ def _create_template_configuration(template_type: str) -> ExperimentConfig:
             name="basic_experiment_template",
             description="Basic experiment template with standard tools and JCA monitored operations",
             tool_configs=[
-                ToolConfiguration(name="monkey"),
-                ToolConfiguration(name="droidbot", variants=["dfs_greedy"])
+                ToolConfig(name="monkey"),
+                ToolConfig(name="droidbot", variants=["dfs_greedy"])
             ],
             repetitions=DEFAULT_REPETITIONS,
             timeouts=[DEFAULT_TIMEOUT],
@@ -855,9 +856,9 @@ def _create_template_configuration(template_type: str) -> ExperimentConfig:
             name="advanced_experiment_template",
             description="Advanced experiment template with multiple tools and comprehensive configuration",
             tool_configs=[
-                ToolConfiguration(name="monkey", parameters={"seed": 42, "throttle": 100}),
-                ToolConfiguration(name="droidbot", variants=["dfs_greedy"], parameters={"count": 2000}),
-                ToolConfiguration(name="ape", parameters={"running_minutes": 10})
+                ToolConfig(name="monkey", parameters={"seed": 42, "throttle": 100}),
+                ToolConfig(name="droidbot", variants=["dfs_greedy"], parameters={"count": 2000}),
+                ToolConfig(name="ape", parameters={"running_minutes": 10})
                 # Note: RVAndroid configuration will be added when LLM integration is complete
             ],
             repetitions=3,
@@ -880,9 +881,9 @@ def _create_template_configuration(template_type: str) -> ExperimentConfig:
             name="research_experiment_template",
             description="Research-focused template for academic studies with statistical rigor",
             tool_configs=[
-                ToolConfiguration(name="monkey", variants=["fixed_seed"], parameters={"seed": 42}),
-                ToolConfiguration(name="droidbot", variants=["dfs_greedy"], parameters={"count": 3000}),
-                ToolConfiguration(name="ape", parameters={"running_minutes": 15})
+                ToolConfig(name="monkey", variants=["fixed_seed"], parameters={"seed": 42}),
+                ToolConfig(name="droidbot", variants=["dfs_greedy"], parameters={"count": 3000}),
+                ToolConfig(name="ape", parameters={"running_minutes": 15})
             ],
             repetitions=5,  # Higher repetitions for statistical validity
             timeouts=[600, 1200],  # Longer timeouts for thorough exploration

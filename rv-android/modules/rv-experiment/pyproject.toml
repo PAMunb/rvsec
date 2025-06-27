@@ -9,6 +9,7 @@ packages = [{include = "rv_experiment", from = "src"}]
 [tool.poetry.dependencies]
 python = ">=3.12,<4.0"
 # Dependências de todos os módulos (orquestrador final)
+rv-platform = {path = "../rv-platform", develop = true}
 rv-android-core = {path = "../rv-android-core", develop = true}
 rv-monitor-generator = {path = "../rv-monitor-generator", develop = true}
 rv-instrumentation = {path = "../rv-instrumentation", develop = true}

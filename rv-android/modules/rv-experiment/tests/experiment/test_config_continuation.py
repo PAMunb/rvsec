@@ -8,7 +8,8 @@ from datetime import datetime
 import pytest
 
 from rv_android_core.util.exceptions import ConfigurationError
-from rv_experiment.config import ExperimentConfig, ToolConfiguration
+from rv_experiment.config import ExperimentConfig
+from rv_platform.config.platform_config import ToolConfig
 
 
 class TestExperimentConfigContinuation:
@@ -19,7 +20,7 @@ class TestExperimentConfigContinuation:
         """Fixture providing a basic experiment configuration"""
         return ExperimentConfig(
             name="test_experiment",
-            tool_configs=[ToolConfiguration(name="monkey")],
+            tool_configs=[ToolConfig(name="monkey")],
             specification_set="jca"
         )
 
@@ -162,7 +163,7 @@ class TestExperimentConfigContinuation:
         """Test that continuation fields can be set during initialization"""
         config = ExperimentConfig(
             name="test_continuation",
-            tool_configs=[ToolConfiguration(name="monkey")],
+            tool_configs=[ToolConfig(name="monkey")],
             specification_set="jca",
             resume_mode=True,
             rvsec_root="/custom/rvsec/path",

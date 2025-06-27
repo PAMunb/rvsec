@@ -4,7 +4,7 @@ Factory for creating experiment workflow components.
 Enables centralized component creation and configuration.
 """
 from rv_android_core.event import EventBus
-from rv_experiment.experiment.task.storage import TaskStorage
+from rv_platform.storage.task_storage import TaskStorage
 from rv_experiment.experiment.workflow.execution_controller import ExecutionController
 from rv_experiment.experiment.workflow.post_processor import PostProcessor
 from rv_experiment.experiment.workflow.pre_processor import PreProcessor

@@ -3901,6 +3901,7 @@ files = []
 develop = true
 
 [package.dependencies]
+pydantic = "^2.8.0"
 python-dateutil = "*"
 regex = "*"
 rv-android-core = {path = "../rv-android-core", develop = true}
@@ -3923,12 +3924,14 @@ develop = true
 celery = "*"
 matplotlib = "*"
 pandas = "*"
+pydantic = "^2.8.0"
 redis = "*"
 rv-android-core = {path = "../rv-android-core", develop = true}
 rv-coverage = {path = "../rv-coverage", develop = true}
 rv-instrumentation = {path = "../rv-instrumentation", develop = true}
 rv-llm = {path = "../rv-llm", develop = true}
 rv-monitor-generator = {path = "../rv-monitor-generator", develop = true}
+rv-platform = {path = "../rv-platform", develop = true}
 rv-screen-parser = {path = "../rv-screen-parser", develop = true}
 rv-static-analysis = {path = "../rv-static-analysis", develop = true}
 rv-tools = {path = "../rv-tools", develop = true}
@@ -3949,6 +3952,7 @@ files = []
 develop = true
 
 [package.dependencies]
+pydantic = "^2.8.0"
 rv-android-core = {path = "../rv-android-core", develop = true}
 
 [package.source]
@@ -3975,7 +3979,7 @@ httpx = "*"
 jinja2 = "*"
 ollama = "*"
 openai = "*"
-pydantic = "*"
+pydantic = "^2.8.0"
 requests = "*"
 rv-android-core = {path = "../rv-android-core", develop = true}
 rv-screen-parser = {path = "../rv-screen-parser", develop = true}
@@ -3997,11 +4001,33 @@ files = []
 develop = true
 
 [package.dependencies]
+pydantic = "^2.8.0"
 rv-android-core = {path = "../rv-android-core", develop = true}
 
 [package.source]
 type = "directory"
 url = "modules/rv-monitor-generator"
+
+[[package]]
+name = "rv-platform"
+version = "0.1.0"
+description = "Independent and central executor for Android experiments"
+optional = false
+python-versions = ">=3.12,<4.0"
+groups = ["main"]
+files = []
+develop = true
+
+[package.dependencies]
+pydantic = "^2.8.0"
+rv-android-core = {path = "../rv-android-core", develop = true}
+rv-coverage = {path = "../rv-coverage", develop = true}
+rv-static-analysis = {path = "../rv-static-analysis", develop = true}
+rv-tools = {path = "../rv-tools", develop = true}
+
+[package.source]
+type = "directory"
+url = "modules/rv-platform"
 
 [[package]]
 name = "rv-screen-parser"
@@ -4019,6 +4045,7 @@ lxml = "*"
 numpy = "*"
 opencv-python = "*"
 pillow = "*"
+pydantic = "^2.8.0"
 pytesseract = "*"
 rv-android-core = {path = "../rv-android-core", develop = true}
 uiautomator2 = "^3.3.1"
@@ -4038,6 +4065,7 @@ files = []
 develop = true
 
 [package.dependencies]
+pydantic = "^2.8.0"
 rv-android-core = {path = "../rv-android-core", develop = true}
 
 [package.source]
@@ -4055,6 +4083,7 @@ files = []
 develop = true
 
 [package.dependencies]
+pydantic = "^2.8.0"
 rv-android-core = {path = "../rv-android-core", develop = true}
 
 [package.source]
@@ -4074,6 +4103,7 @@ develop = true
 [package.dependencies]
 flask = "*"
 flask-cors = "*"
+pydantic = "^2.8.0"
 rv-android-core = {path = "../rv-android-core", develop = true}
 rv-llm = {path = "../rv-llm", develop = true}
 rv-screen-parser = {path = "../rv-screen-parser", develop = true}
@@ -4742,4 +4772,4 @@ watchdog = ["watchdog (>=2.3)"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.12,<4.0"
-content-hash = "470f882a5b5c0213137fd85d9d14fb1403853576d67c2269fc0ae2d9c2369f7c"
+content-hash = "cb8f193a2c116f13785b43f311f86cc33a9ae39e8e87c4f516ebdaa32197a530"
