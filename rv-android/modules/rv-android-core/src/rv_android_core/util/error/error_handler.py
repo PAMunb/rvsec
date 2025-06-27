@@ -12,7 +12,8 @@ from rv_android_core.util.exceptions import (
     RVToolError, RVToolExecutionError, RVToolConfigurationError,
     RVExperimentError, RVExperimentSetupError, RVExperimentExecutionError,
     RVParsingError, RVLLMError, RVPromptError,
-    RVValidationError, CommandValidationError, LogcatValidationError
+    RVValidationError, CommandValidationError, LogcatValidationError,
+    EventProcessingError
 )
 from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
 from rv_android_core.util.logging.manager import LoggingManager
@@ -84,6 +85,7 @@ class ErrorHandler:
         # Order matters: register most specific handlers first
         self.register_handler(CommandValidationError, self._handle_command_validation_error)
         self.register_handler(LogcatValidationError, self._handle_logcat_validation_error)
+        self.register_handler(EventProcessingError, self._handle_event_processing_error)
         self.register_handler(RVValidationError, self._handle_validation_error)
         self.register_handler(RVTaskError, self._handle_task_error)
         self.register_handler(RVToolError, self._handle_tool_error)
@@ -492,6 +494,21 @@ class ErrorHandler:
                 self._logger.error(f"Failed tags: {context['tags']}")
             if 'output_file' in context:
                 self._logger.error(f"Failed output file: {context['output_file']}")
+        return True  # Successfully handled
+
+    def _handle_event_processing_error(self, error: EventProcessingError, context: Optional[Dict[str, Any]] = None) -> bool:
+        """Handle event processing errors with specific context."""
+        self._logger.error(f"Event processing error: {error.message}")
+        if hasattr(error, 'event_type') and error.event_type:
+            self._logger.error(f"Failed event type: {error.event_type}")
+        # Check for common event processing issues
+        if context:
+            if 'channel' in context:
+                self._logger.error(f"Event channel: {context['channel']}")
+            if 'handler_count' in context:
+                self._logger.error(f"Available handlers: {context['handler_count']}")
+            if 'queue_size' in context:
+                self._logger.error(f"Queue size: {context['queue_size']}")
         return True  # Successfully handled
 
 

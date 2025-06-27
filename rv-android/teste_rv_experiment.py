@@ -46,7 +46,7 @@ def tmp_001():
 
     # Create experiment configuration
     config = ExperimentConfig(
-        name="basic_experiment",
+        # name="basic_experiment",
         description="Basic experiment",
         tool_configs=tools,
         repetitions=1,
@@ -55,11 +55,12 @@ def tmp_001():
         apk_dir="./apks_examples/",
         apk_patterns=["*.apk"]
     )
+    config.output_dir = "./results"
     config.custom_specs_dir = "./specs_mini"
     config.generate_monitors = True
     config.instrument_apks = True
     config.run_static_analysis = True
-    config.no_window = True
+    config.no_window = False
 
     # Validate configuration
     config.validate()

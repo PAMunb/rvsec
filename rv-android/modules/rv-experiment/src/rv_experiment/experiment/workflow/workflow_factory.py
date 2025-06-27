@@ -54,6 +54,7 @@ class WorkflowFactory:
         Returns:
             Configured PreProcessor instance
         """
+        # Create PreProcessor with direct implementation
         return PreProcessor(self.config, self.event_bus)
 
     def create_execution_controller(self) -> ExecutionController:

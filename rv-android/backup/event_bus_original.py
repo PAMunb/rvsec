@@ -9,11 +9,7 @@ from rv_android_core.util.error.error_handler import ErrorHandler
 from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
 from rv_android_core.util.logging.manager import LoggingManager
 from rv_android_core.event.handler import EventHandler, HandlerPriority
-from rv_android_core.event.models import (
-    Event, EventType, CoreEventType, TaskEvent, ExperimentEvent, AnalysisEvent,
-    TaskToolExecutionEvent, PhaseExecutionModeEvent
-)
-from rv_android_core.util.exceptions import EventProcessingError
+from rv_android_core.event.models import Event, EventType, TaskEvent, ExperimentEvent, AnalysisEvent
 
 
 class EventBus:
@@ -78,7 +74,7 @@ class EventBus:
         """
         return EventBus(is_singleton=False)
 
-    def __init__(self, is_singleton=True, worker_threads=4, max_queue_size=1000, core_events_only=False):
+    def __init__(self, is_singleton=True, worker_threads=4, max_queue_size=1000):
         """
         Initialize the event bus.
         
@@ -86,7 +82,6 @@ class EventBus:
             is_singleton: Whether this instance is a singleton
             worker_threads: Number of worker threads for async processing
             max_queue_size: Maximum size of the event queue
-            core_events_only: Whether to process only core events (performance mode)
         """
         # Configure logging and error handling
         logging_manager = LoggingManager.get_instance()
@@ -102,10 +97,6 @@ class EventBus:
         self.max_history_size = 1000
         self._lock = threading.Lock()
         self._active = True
-        
-        # Core events filtering configuration
-        self.core_events_only = core_events_only
-        self.deprecated_event_warnings = True
 
         # Create channel map
         for channel in [self.SYSTEM_CHANNEL, self.LIFECYCLE_CHANNEL, self.ANALYSIS_CHANNEL,
@@ -345,16 +336,6 @@ class EventBus:
             self.logger.error(f"Invalid event object: {event}")
             return 0
 
-        # Check for core events only mode
-        if self.core_events_only and not self.is_core_event(event.type):
-            if self.deprecated_event_warnings:
-                self._warn_deprecated_event(event.type)
-            return 0
-
-        # Warn about deprecated events even in normal mode
-        if not self.is_core_event(event.type) and self.deprecated_event_warnings:
-            self._warn_deprecated_event(event.type)
-
         self.logger.debug(f"Publishing event: {event} in channel {channel}")
 
         # Add to history
@@ -384,16 +365,6 @@ class EventBus:
             self.logger.error(f"Invalid event object for async publishing: {event}")
             return
 
-        # Check for core events only mode
-        if self.core_events_only and not self.is_core_event(event.type):
-            if self.deprecated_event_warnings:
-                self._warn_deprecated_event(event.type)
-            return
-
-        # Warn about deprecated events even in normal mode
-        if not self.is_core_event(event.type) and self.deprecated_event_warnings:
-            self._warn_deprecated_event(event.type)
-
         self.logger.debug(f"Queuing async event: {event} in channel {channel}")
 
         # Add to history
@@ -407,9 +378,10 @@ class EventBus:
         try:
             self._event_queue.put((priority, event, channel))
         except queue.Full:
-            # Using error handler for queue overflow handling
+            # Example: Using auto-introspection for cleaner error handling
             self.error_handler.handle_error_with_introspection(
-                EventProcessingError("Event queue is full, discarding event", event_type=event.type.name),
+                RuntimeError("Event queue is full, discarding event"),
+                event_type=type(event).__name__,
                 channel=channel,
                 priority=priority,
                 queue_size=self._event_queue.qsize()
@@ -674,182 +646,3 @@ class EventBus:
             self._processing_thread.join(timeout=2.0)
 
         self.logger.info("EventBus shutdown complete")
-
-    # Core events filtering methods
-
-    @ErrorHandler.handle_errors(component="EventBus", phase="core_event_filtering")
-    def is_core_event(self, event_type: EventType) -> bool:
-        """
-        Check if an event type is considered core.
-        
-        Args:
-            event_type: Event type to check
-            
-        Returns:
-            True if the event type is core
-        """
-        return EventType.is_core(event_type)
-
-    @ErrorHandler.handle_errors(component="EventBus", phase="core_event_filtering")
-    def filter_core_events(self, events: List[Event]) -> List[Event]:
-        """
-        Filter a list of events to include only core events.
-        
-        Args:
-            events: List of events to filter
-            
-        Returns:
-            List containing only core events
-        """
-        core_events = []
-        for event in events:
-            if self.is_core_event(event.type):
-                core_events.append(event)
-            elif self.deprecated_event_warnings:
-                self.logger.warning(f"Non-core event filtered: {event.type.name}")
-        
-        return core_events
-
-    @ErrorHandler.handle_errors(component="EventBus", phase="core_event_publishing")
-    def publish_core_only(self, event: Event, channel: str = DEFAULT_CHANNEL) -> int:
-        """
-        Publish an event only if it's a core event.
-        
-        Args:
-            event: Event to publish
-            channel: Channel to publish to
-            
-        Returns:
-            Number of handlers that processed the event, or 0 if not core
-        """
-        if not self.is_core_event(event.type):
-            if self.deprecated_event_warnings:
-                self.logger.warning(f"Non-core event rejected: {event.type.name}")
-            return 0
-        
-        return self.publish(event, channel)
-
-    @ErrorHandler.handle_errors(component="EventBus", phase="deprecation_warning")
-    def _warn_deprecated_event(self, event_type: EventType) -> None:
-        """
-        Log a deprecation warning for non-core events.
-        
-        Args:
-            event_type: The deprecated event type
-        """
-        if not self.deprecated_event_warnings:
-            return
-            
-        core_event = EventType.to_core(event_type)
-        if core_event:
-            self.logger.warning(
-                f"Event {event_type.name} is deprecated. "
-                f"Consider using core event equivalent: {core_event.name}"
-            )
-        else:
-            self.logger.warning(
-                f"Event {event_type.name} is deprecated and has no core equivalent. "
-                f"This event will be filtered in core-only mode."
-            )
-
-    def set_core_events_only(self, enabled: bool) -> None:
-        """
-        Enable or disable core events only mode.
-        
-        Args:
-            enabled: Whether to enable core events only mode
-        """
-        self.core_events_only = enabled
-        mode = "enabled" if enabled else "disabled"
-        self.logger.info(f"Core events only mode {mode}")
-
-    def set_deprecated_warnings(self, enabled: bool) -> None:
-        """
-        Enable or disable deprecation warnings for non-core events.
-        
-        Args:
-            enabled: Whether to enable deprecation warnings
-        """
-        self.deprecated_event_warnings = enabled
-        mode = "enabled" if enabled else "disabled"
-        self.logger.info(f"Deprecation warnings {mode}")
-
-    # Convenience methods for new core event types
-
-    @ErrorHandler.handle_errors(component="EventBus", phase="task_tool_execution_event")
-    def publish_task_tool_execution_event(self,
-                                          task_id: str,
-                                          tool_execution_start: datetime,
-                                          task_config: Dict[str, Any] = None,
-                                          details: Dict[str, Any] = None,
-                                          source: str = None,
-                                          async_mode: bool = False,
-                                          channel: Optional[str] = LIFECYCLE_CHANNEL) -> Union[int, None]:
-        """
-        Create and publish a task tool execution event.
-
-        Args:
-            task_id: Task ID (UUID as string)
-            tool_execution_start: Timestamp when tool execution started
-            task_config: Optional task configuration
-            details: Optional additional details
-            source: Optional event source
-            async_mode: Whether to publish asynchronously
-            channel: Optional channel to publish to
-
-        Returns:
-            Number of handlers that processed the event, or None if async
-        """
-        event = TaskToolExecutionEvent(
-            type=EventType.TOOL_STARTED,  # Maps to core TOOL_EXECUTION_STARTED
-            task_id=task_id,
-            tool_execution_start=tool_execution_start,
-            task_config=task_config or {},
-            details=details or {},
-            source=source
-        )
-
-        if async_mode:
-            self.publish_async(event, channel)
-            return None
-        else:
-            return self.publish(event, channel)
-
-    @ErrorHandler.handle_errors(component="EventBus", phase="phase_execution_mode_event")  
-    def publish_phase_execution_mode_event(self,
-                                           phase_name: str,
-                                           execution_mode: str,
-                                           fallback_reason: Optional[str] = None,
-                                           artifacts_available: Dict[str, bool] = None,
-                                           source: str = None,
-                                           async_mode: bool = False,
-                                           channel: Optional[str] = LIFECYCLE_CHANNEL) -> Union[int, None]:
-        """
-        Create and publish a phase execution mode event.
-
-        Args:
-            phase_name: Name of the workflow phase
-            execution_mode: Execution mode (full, fallback, skipped, failed)
-            fallback_reason: Optional reason for fallback
-            artifacts_available: Optional artifacts availability
-            source: Optional event source
-            async_mode: Whether to publish asynchronously
-            channel: Optional channel to publish to
-
-        Returns:
-            Number of handlers that processed the event, or None if async
-        """
-        event = PhaseExecutionModeEvent(
-            type=EventType.WORKFLOW_STARTED,  # Use appropriate workflow event
-            phase_name=phase_name,
-            execution_mode=execution_mode,
-            fallback_reason=fallback_reason,
-            artifacts_available=artifacts_available or {},
-            source=source
-        )
-
-        if async_mode:
-            self.publish_async(event, channel)
-            return None
-        else:
-            return self.publish(event, channel)

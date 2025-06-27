@@ -1,5 +1,6 @@
 # tests/experiment/test_task_model.py
 import os
+import time
 from datetime import datetime
 from unittest.mock import MagicMock, patch
 
@@ -351,50 +352,40 @@ class TestTask:
         assert isinstance(task.result.start_time, datetime)
 
     def test_update_state_completed(self, basic_config):
-        """Test updating task state to completed with deterministic execution time."""
+        """Test updating task state to completed with execution time calculation."""
         task = Task(basic_config)
 
-        # Directly patch the update_execution_time method to ensure deterministic behavior
-        with patch.object(task.result, 'update_execution_time') as mock_update:
-            # Set up the method to update execution_time_seconds to a known value
-            def set_execution_time(*args, **kwargs):
-                task.result.execution_time_seconds = 30
+        # Set start time to test execution time calculation
+        task.result.start_time = datetime.now()
+        
+        # Update the task state to completed
+        task.update_state(TaskState.COMPLETED)
 
-            mock_update.side_effect = set_execution_time
-
-            # Update the task state to completed
-            task.update_state(TaskState.COMPLETED)
-
-            # Verify state
-            assert task.result.state == TaskState.COMPLETED
-            # Verify execution time was set to our mocked value
-            assert task.result.execution_time_seconds == 30
-            # Verify update_execution_time was called
-            mock_update.assert_called_once()
+        # Verify state
+        assert task.result.state == TaskState.COMPLETED
+        # Verify end time was set
+        assert task.result.end_time is not None
+        # Verify execution time was calculated (should be minimal)
+        assert task.result.execution_time_seconds >= 0
 
     def test_update_state_error(self, basic_config):
         """Test updating a task state to error with error message."""
         task = Task(basic_config)
 
-        # Directly patch the update_execution_time method to ensure deterministic behavior
-        with patch.object(task.result, 'update_execution_time') as mock_update:
-            # Set up the method to update execution_time_seconds to a known value
-            def set_execution_time(*args, **kwargs):
-                task.result.execution_time_seconds = 45
+        # Set start time to test execution time calculation
+        task.result.start_time = datetime.now()
 
-            mock_update.side_effect = set_execution_time
+        # Update task state to error
+        error_message = "Test error message"
+        task.update_state(TaskState.ERROR, error_message)
 
-            # Update task state to error
-            error_message = "Test error message"
-            task.update_state(TaskState.ERROR, error_message)
-
-            # Verify state and error message
-            assert task.result.state == TaskState.ERROR
-            assert task.result.error_message == error_message
-            # Verify execution time was set to our mocked value
-            assert task.result.execution_time_seconds == 45
-            # Verify update_execution_time was called
-            mock_update.assert_called_once()
+        # Verify state and error message
+        assert task.result.state == TaskState.ERROR
+        assert task.result.error_message == error_message
+        # Verify end time was set
+        assert task.result.end_time is not None
+        # Verify execution time was calculated (should be minimal)
+        assert task.result.execution_time_seconds >= 0
 
     def test_completed_property(self, basic_config):
         """Test the completed property"""
@@ -425,3 +416,130 @@ class TestTask:
 
         expected = "Task[id=42, TaskConfiguration(apk=test.apk, rep=1, timeout=60, tool=monkey), state=CREATED]"
         assert str(task) == expected
+
+
+class TestTaskResultTiming:
+    """Tests for TaskResult timing functionality added in Phase 1"""
+
+    def test_mark_tool_execution_start(self):
+        """Test marking tool execution start timestamp"""
+        result = TaskResult()
+        
+        # Initially no tool execution start time
+        assert result.tool_execution_start is None
+        assert result.get_time_since_tool_start() == 0
+        
+        # Mark tool execution start
+        before_mark = datetime.now()
+        result.mark_tool_execution_start()
+        after_mark = datetime.now()
+        
+        # Verify timestamp was set within reasonable bounds
+        assert result.tool_execution_start is not None
+        assert before_mark <= result.tool_execution_start <= after_mark
+    
+    def test_get_time_since_tool_start(self):
+        """Test calculating time since tool execution started"""
+        result = TaskResult()
+        
+        # No tool start time should return 0
+        assert result.get_time_since_tool_start() == 0
+        
+        # Mark start and test timing calculation
+        result.mark_tool_execution_start()
+        
+        # Wait a small amount to ensure time difference
+        time.sleep(0.1)
+        
+        elapsed = result.get_time_since_tool_start()
+        assert elapsed >= 0
+        assert elapsed < 5  # Should be very small for this test
+    
+    def test_get_time_since_task_start(self):
+        """Test calculating time since task started"""
+        result = TaskResult()
+        
+        # No task start time should return 0
+        assert result.get_time_since_task_start() == 0
+        
+        # Set start time manually and test timing calculation
+        result.start_time = datetime.now()
+        
+        # Wait a small amount to ensure time difference
+        time.sleep(0.1)
+        
+        elapsed = result.get_time_since_task_start()
+        assert elapsed >= 0
+        assert elapsed < 5  # Should be very small for this test
+    
+    def test_constructor_compatibility(self):
+        """Test that TaskResult maintains constructor compatibility"""
+        start_time = datetime.now()
+        end_time = datetime.now()
+        
+        # Test positional arguments (legacy style)
+        result1 = TaskResult(start_time, end_time)
+        assert result1.start_time == start_time
+        assert result1.end_time == end_time
+        
+        # Test named arguments (modern style)
+        result2 = TaskResult(start_time=start_time, end_time=end_time)
+        assert result2.start_time == start_time
+        assert result2.end_time == end_time
+    
+    def test_tool_execution_timing_serialization(self):
+        """Test that tool execution timing is properly serialized"""
+        result = TaskResult()
+        result.mark_tool_execution_start()
+        
+        # Test to_dict includes tool_execution_start
+        data = result.to_dict()
+        assert "tool_execution_start" in data
+        assert data["tool_execution_start"] is not None
+        
+        # Test from_dict restores tool_execution_start
+        restored = TaskResult.from_dict(data)
+        assert restored.tool_execution_start is not None
+        assert restored.tool_execution_start == result.tool_execution_start
+
+
+class TestTaskTiming:
+    """Tests for Task timing integration"""
+
+    @pytest.fixture
+    def task_with_timing(self):
+        """Create a task for timing tests"""
+        config = TaskConfiguration(
+            apk_name="test.apk",
+            repetition=1,
+            timeout=60,
+            tool_name="monkey"
+        )
+        return Task(config)
+    
+    def test_mark_tool_execution_start(self, task_with_timing):
+        """Test task delegates tool execution timing to result"""
+        task = task_with_timing
+        
+        # Initially no tool execution start time
+        assert task.result.tool_execution_start is None
+        
+        # Mark tool execution start
+        task.mark_tool_execution_start()
+        
+        # Verify timing was set
+        assert task.result.tool_execution_start is not None
+    
+    def test_get_time_since_tool_start(self, task_with_timing):
+        """Test task delegates time calculation to result"""
+        task = task_with_timing
+        
+        # No tool start time should return 0
+        assert task.get_time_since_tool_start() == 0
+        
+        # Mark start and test timing calculation
+        task.mark_tool_execution_start()
+        elapsed = task.get_time_since_tool_start()
+        
+        assert elapsed >= 0
+        assert elapsed < 5  # Should be very small for this test

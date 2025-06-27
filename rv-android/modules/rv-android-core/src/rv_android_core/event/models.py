@@ -14,6 +14,45 @@ from rv_android_core.util.validation.base import BaseValidatedModel
 from rv_android_core.util.validation.decorators import validated_model
 
 
+class CoreEventType(Enum):
+    """
+    Enumeration of core event types for optimized event processing.
+    
+    ### Architectural Decisions:
+    - Limited to 10 core events for performance optimization
+    - Focuses on critical experiment lifecycle and error tracking
+    - Enables high-performance event filtering in production
+    - Maintains backwards compatibility through EventType mapping
+    
+    ### Core Event Categories:
+    - Experiment lifecycle: Core experiment tracking (3 events)
+    - Task lifecycle: Basic task execution tracking (3 events)
+    - Tool execution: Critical tool operation tracking (1 event)
+    - Analysis results: Coverage and error detection (2 events)
+    - System errors: Error detection and handling (1 event)
+    """
+    
+    # Experiment lifecycle (3 events)
+    EXPERIMENT_STARTED = auto()
+    EXPERIMENT_COMPLETED = auto()
+    EXPERIMENT_FAILED = auto()
+    
+    # Task lifecycle (3 events)
+    TASK_STARTED = auto()
+    TASK_COMPLETED = auto()
+    TASK_FAILED = auto()
+    
+    # Tool execution (1 event)
+    TOOL_EXECUTION_STARTED = auto()
+    
+    # Analysis results (2 events)
+    COVERAGE_UPDATED = auto()
+    STATIC_ANALYSIS_COMPLETED = auto()
+    
+    # System errors (1 event)
+    ERROR_DETECTED = auto()
+
+
 class EventType(Enum):
     """
     Enumeration of all event types supported by the RV-Android system.
@@ -76,6 +115,56 @@ class EventType(Enum):
     # Configuration events
     CONFIG_LOADED = auto()
     CONFIG_SAVED = auto()
+    
+    @classmethod
+    def is_core(cls, event_type) -> bool:
+        """
+        Check if an event type is considered core.
+        
+        Args:
+            event_type: EventType to check
+            
+        Returns:
+            True if the event type is core for functionality
+        """
+        core_mapping = {
+            cls.EXPERIMENT_STARTED: CoreEventType.EXPERIMENT_STARTED,
+            cls.EXPERIMENT_COMPLETED: CoreEventType.EXPERIMENT_COMPLETED,
+            cls.EXPERIMENT_FAILED: CoreEventType.EXPERIMENT_FAILED,
+            cls.TASK_STARTED: CoreEventType.TASK_STARTED,
+            cls.TASK_COMPLETED: CoreEventType.TASK_COMPLETED,
+            cls.TASK_FAILED: CoreEventType.TASK_FAILED,
+            cls.TOOL_STARTED: CoreEventType.TOOL_EXECUTION_STARTED,
+            cls.COVERAGE_UPDATED: CoreEventType.COVERAGE_UPDATED,
+            cls.STATIC_ANALYSIS_COMPLETED: CoreEventType.STATIC_ANALYSIS_COMPLETED,
+            cls.ERROR_DETECTED: CoreEventType.ERROR_DETECTED,
+        }
+        return event_type in core_mapping
+    
+    @classmethod
+    def to_core(cls, event_type):
+        """
+        Convert an EventType to its corresponding CoreEventType.
+        
+        Args:
+            event_type: EventType to convert
+            
+        Returns:
+            Corresponding CoreEventType or None if not core
+        """
+        core_mapping = {
+            cls.EXPERIMENT_STARTED: CoreEventType.EXPERIMENT_STARTED,
+            cls.EXPERIMENT_COMPLETED: CoreEventType.EXPERIMENT_COMPLETED,
+            cls.EXPERIMENT_FAILED: CoreEventType.EXPERIMENT_FAILED,
+            cls.TASK_STARTED: CoreEventType.TASK_STARTED,
+            cls.TASK_COMPLETED: CoreEventType.TASK_COMPLETED,
+            cls.TASK_FAILED: CoreEventType.TASK_FAILED,
+            cls.TOOL_STARTED: CoreEventType.TOOL_EXECUTION_STARTED,
+            cls.COVERAGE_UPDATED: CoreEventType.COVERAGE_UPDATED,
+            cls.STATIC_ANALYSIS_COMPLETED: CoreEventType.STATIC_ANALYSIS_COMPLETED,
+            cls.ERROR_DETECTED: CoreEventType.ERROR_DETECTED,
+        }
+        return core_mapping.get(event_type)
 
 
 @validated_model(['type', 'timestamp', 'source'])
@@ -433,3 +522,136 @@ class AnalysisEvent(Event):
         """
         task_str = f" for Task {self.related_task_id}" if self.related_task_id else ""
         return f"{self.type.name}{task_str} at {self.timestamp.isoformat()}"
+
+
+@validated_model(['type', 'timestamp', 'source', 'task_id', 'tool_execution_start'])
+class TaskToolExecutionEvent(TaskEvent):
+    """
+    Event for task tool execution timing correlation.
+    
+    ### Architectural Decisions:
+    - Inherits from TaskEvent for consistent task context
+    - Provides precise timing correlation between task and tool execution
+    - Supports accurate coverage timing measurement
+    - Enables correlation of tool execution with analysis data
+    
+    ### Role in the System:
+    - Tracks the exact moment when tool execution begins within a task
+    - Enables accurate timing correlation for coverage analysis
+    - Provides timing reference for experiment result processing
+    - Supports debugging of task execution timing issues
+    
+    ### Timing Context:
+    - tool_execution_start: Timestamp when tool execution actually began
+    - Used for time_since_task_start calculations in coverage logs
+    - Provides timing accuracy for experiment analysis
+    """
+    
+    tool_execution_start: datetime = Field(
+        ...,
+        description="Timestamp when tool execution actually started"
+    )
+    
+    def get_tool_execution_summary(self) -> Dict[str, Any]:
+        """
+        Get summary information about tool execution timing.
+        
+        Returns:
+            Dictionary with tool execution timing information
+        """
+        return {
+            'task_id': self.task_id,
+            'tool_execution_start': self.tool_execution_start.isoformat(),
+            'event_timestamp': self.timestamp.isoformat(),
+            'source': self.source,
+            'execution_delay': (self.tool_execution_start - self.timestamp).total_seconds()
+        }
+    
+    def __str__(self) -> str:
+        """
+        Get string representation of the tool execution event.
+        
+        Returns:
+            Formatted string with event type, task ID, and tool execution timing
+        """
+        return f"{self.type.name} for Task {self.task_id} at {self.tool_execution_start.isoformat()}"
+
+
+@validated_model(['type', 'timestamp', 'source', 'phase_name', 'execution_mode'])
+class PhaseExecutionModeEvent(Event):
+    """
+    Event for workflow phase execution mode tracking.
+    
+    ### Architectural Decisions:
+    - Inherits from Event for general event functionality
+    - Tracks phase execution modes (full, fallback, skipped)
+    - Provides context for experiment degradation scenarios
+    - Supports workflow debugging and optimization
+    
+    ### Role in the System:
+    - Tracks how each phase was executed in the workflow
+    - Enables detection of fallback scenarios and degraded execution
+    - Provides data for workflow optimization and reliability analysis
+    - Supports experiment result interpretation with execution context
+    
+    ### Phase Context:
+    - phase_name: Name of the workflow phase being executed
+    - execution_mode: Mode used for execution (full/fallback/skipped)
+    - fallback_reason: Optional reason for degraded execution
+    """
+    
+    phase_name: str = Field(
+        ...,
+        description="Name of the workflow phase"
+    )
+    
+    execution_mode: str = Field(
+        ...,
+        description="Execution mode used (full, fallback, skipped, failed)"
+    )
+    
+    fallback_reason: Optional[str] = Field(
+        default=None,
+        description="Reason for fallback execution if applicable"
+    )
+    
+    artifacts_available: Dict[str, bool] = Field(
+        default_factory=dict,
+        description="Availability of artifacts for this phase"
+    )
+    
+    def get_phase_summary(self) -> Dict[str, Any]:
+        """
+        Get summary information about phase execution.
+        
+        Returns:
+            Dictionary with phase execution information
+        """
+        return {
+            'phase_name': self.phase_name,
+            'execution_mode': self.execution_mode,
+            'fallback_reason': self.fallback_reason,
+            'timestamp': self.timestamp.isoformat(),
+            'source': self.source,
+            'artifacts_available': self.artifacts_available,
+            'is_degraded': self.execution_mode in ['fallback', 'skipped', 'failed']
+        }
+    
+    def is_fallback_execution(self) -> bool:
+        """
+        Check if this phase was executed in fallback mode.
+        
+        Returns:
+            True if phase was executed with fallback
+        """
+        return self.execution_mode == 'fallback'
+    
+    def __str__(self) -> str:
+        """
+        Get string representation of the phase execution event.
+        
+        Returns:
+            Formatted string with phase name, execution mode, and timestamp
+        """
+        fallback_info = f" ({self.fallback_reason})" if self.fallback_reason else ""
+        return f"Phase {self.phase_name} executed in {self.execution_mode} mode{fallback_info}"

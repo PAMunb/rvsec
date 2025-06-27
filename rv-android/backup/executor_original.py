@@ -31,9 +31,9 @@ from rv_experiment.experiment.task.component import ComponentRegistry
 from rv_experiment.experiment.task.interfaces import (
     ITaskExecutor,
     ITaskComponent,
+    ITask,
     TaskState
 )
-from rv_experiment.experiment.task.task_model import Task
 from rv_android_core.tools.abstract_tool import AbstractTool
 
 
@@ -57,7 +57,7 @@ class TaskExecutor(ITaskExecutor):
     """
 
     def __init__(self,
-                 task: Task,
+                 task: ITask,
                  tool: AbstractTool,
                  event_bus: Optional[EventBus] = None,
                  error_handler: Optional[ErrorHandler] = None):
@@ -94,8 +94,8 @@ class TaskExecutor(ITaskExecutor):
         self.performance_monitor = PerformanceMonitor.get_instance()
 
         # Execution hooks
-        self.pre_execution_hooks: List[Callable[[Task], None]] = []
-        self.post_execution_hooks: List[Callable[[Task, bool], None]] = []
+        self.pre_execution_hooks: List[Callable[[ITask], None]] = []
+        self.post_execution_hooks: List[Callable[[ITask, bool], None]] = []
 
     def get_task_context(self) -> Dict[str, Any]:
         """
@@ -141,7 +141,7 @@ class TaskExecutor(ITaskExecutor):
         """
         self.error_handler = handler
 
-    def add_pre_execution_hook(self, hook: Callable[[Task], None]) -> None:
+    def add_pre_execution_hook(self, hook: Callable[[ITask], None]) -> None:
         """
         Add a hook to be called before task execution.
         
@@ -151,7 +151,7 @@ class TaskExecutor(ITaskExecutor):
         self.pre_execution_hooks.append(hook)
         self.logger.debug(f"Added pre-execution hook: {hook.__name__}")
 
-    def add_post_execution_hook(self, hook: Callable[[Task, bool], None]) -> None:
+    def add_post_execution_hook(self, hook: Callable[[ITask, bool], None]) -> None:
         """
         Add a hook to be called after task execution.
         
@@ -333,10 +333,6 @@ class TaskExecutor(ITaskExecutor):
                     self.logger.info("Starting coverage tracking")
                     coverage_component.start_tracking()
 
-                # Mark precise tool execution start for accurate timing measurement
-                self.task.mark_tool_execution_start()
-                self._publish_tool_execution_started_event()
-                
                 # Execute the tool
                 with self.performance_monitor.measure_time(f"component_{tool_component.name.lower()}", context):
                     self.logger.info(f"Executing component: {tool_component.name}")
@@ -429,26 +425,4 @@ class TaskExecutor(ITaskExecutor):
             },
             source="TaskExecutor",
             channel=EventBus.ERROR_CHANNEL
-        )
-    
-    def _publish_tool_execution_started_event(self) -> None:
-        """
-        Publish tool execution started event for timing coordination.
-        
-        This event provides accurate timing information for coverage analysis
-        where time_since_task_start should reflect tool execution duration.
-        """
-        self.event_bus.publish_task_event(
-            event_type=EventType.TOOL_STARTED,
-            task_id=self.task.id,
-            task_config={
-                "apk_name": self.task.config.apk_name,
-                "tool_name": self.task.config.tool_name
-            },
-            details={
-                "tool_execution_start": self.task.result.tool_execution_start.isoformat() if self.task.result.tool_execution_start else None,
-                "timing_context": "precise_tool_execution"
-            },
-            source="TaskExecutor",
-            channel=EventBus.LIFECYCLE_CHANNEL
         )

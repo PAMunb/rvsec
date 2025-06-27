@@ -12,7 +12,6 @@ from typing import Dict, Any, Optional, Type, TypeVar, Generic
 
 from rv_android_core.event import EventBus
 from rv_experiment.experiment.task.component import BaseTaskComponent
-from rv_experiment.experiment.task.interfaces import ITask
 from rv_experiment.experiment.task.task_model import Task
 from rv_android_core.util.error.error_handler import ErrorHandler
 
@@ -34,7 +33,7 @@ class LegacyCoverageComponentAdapter(BaseTaskComponent):
     - Simplifies migration by eliminating the need to rewrite all components
     """
     
-    def __init__(self, task: ITask, event_bus: Optional[EventBus] = None):
+    def __init__(self, task: Task, event_bus: Optional[EventBus] = None):
         """
         Initialize the adapter with a task and event bus.
         
@@ -111,7 +110,7 @@ class LegacyEmulatorComponentAdapter(BaseTaskComponent):
     the emulator lifecycle appropriately.
     """
     
-    def __init__(self, task: ITask, event_bus: Optional[EventBus] = None):
+    def __init__(self, task: Task, event_bus: Optional[EventBus] = None):
         """
         Initialize the adapter with a task and event bus.
         
@@ -194,7 +193,7 @@ class LegacyLogcatComponentAdapter(BaseTaskComponent):
     logcat capture appropriately.
     """
     
-    def __init__(self, task: ITask, event_bus: Optional[EventBus] = None):
+    def __init__(self, task: Task, event_bus: Optional[EventBus] = None):
         """
         Initialize the adapter with a task and event bus.
         
@@ -270,7 +269,7 @@ class LegacyStaticAnalysisComponentAdapter(BaseTaskComponent):
     static analysis data.
     """
     
-    def __init__(self, task: ITask, event_bus: Optional[EventBus] = None):
+    def __init__(self, task: Task, event_bus: Optional[EventBus] = None):
         """
         Initialize the adapter with a task and event bus.
         
@@ -333,7 +332,7 @@ class LegacyToolExecutionComponentAdapter(BaseTaskComponent):
     testing tools.
     """
     
-    def __init__(self, task: ITask, tool: Any, event_bus: Optional[EventBus] = None):
+    def __init__(self, task: Task, tool: Any, event_bus: Optional[EventBus] = None):
         """
         Initialize the adapter with a task, tool, and event bus.
         

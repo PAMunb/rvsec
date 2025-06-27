@@ -7,23 +7,20 @@ tracking experiment tasks. It supports component-based task execution, state
 machine-based lifecycle management, and robust error handling.
 """
 
-# Export interfaces
+# Export interfaces (only remaining component and executor interfaces)
 from rv_experiment.experiment.task.interfaces import (
     TaskState,
-    ITaskConfiguration,
-    ITaskResult,
-    ITask,
     ITaskComponent,
     ITaskExecutor,
-    ITaskStorage,
-    ITaskFactory
+    ITaskStorage
 )
 
-# Export model implementations
+# Export model implementations (now the primary task types)
 from rv_experiment.experiment.task.task_model import (
     TaskConfiguration,
     TaskResult,
-    Task
+    Task,
+    TaskFactory
 )
 
 # Export storage implementation
@@ -39,8 +36,8 @@ from rv_experiment.experiment.task.component import (
     ComponentFactory
 )
 
-# Export task manager
-from rv_experiment.experiment.task.manager import TaskManager
+# Export task manager - moved to backup
+# from rv_experiment.experiment.task.manager import TaskManager
 
 # Export component adapters
 from rv_experiment.experiment.task.components.adapter import (
@@ -63,21 +60,17 @@ from rv_experiment.experiment.task.components import (
 
 # Define the public API
 __all__ = [
-    # Interfaces
+    # Interfaces (only remaining component and executor interfaces)
     'TaskState',
-    'ITaskConfiguration',
-    'ITaskResult',
-    'ITask',
-    'ITaskComponent',
+    'ITaskComponent', 
     'ITaskExecutor',
     'ITaskStorage',
-    'ITaskFactory',
     
-    # Models
+    # Models (now the primary task types)
     'TaskConfiguration',
     'TaskResult',
     'Task',
-    # 'TaskFactory',
+    'TaskFactory',
     
     # Storage
     'TaskStorage',
@@ -87,11 +80,8 @@ __all__ = [
     
     # Component system
     'BaseTaskComponent',
-    'ComponentRegistry',
+    'ComponentRegistry', 
     'ComponentFactory',
-    
-    # Task manager
-    'TaskManager',
     
     # Component adapters
     # TODO deprecated

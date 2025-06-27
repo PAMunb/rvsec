@@ -11,43 +11,33 @@ from typing import List, Optional
 from rv_android_core.util.error.error_handler import ErrorHandler
 from rv_android_core.util.logging.constants import CONTEXT_COMPONENT, LOG_START, LOG_COMPLETE, LOG_ERROR
 from rv_android_core.util.logging.manager import LoggingManager
-from rv_android_core.event import (
-    EventBus,
-    EventType
-)
+from rv_android_core.event import EventBus, EventType
+from rv_android_core.tools.abstract_tool import AbstractTool
 from rv_experiment.experiment.task.storage import TaskStorage
 from rv_experiment.experiment.workflow.execution_controller import ExecutionController
 from rv_experiment.experiment.workflow.post_processor import PostProcessor
 from rv_experiment.experiment.workflow.pre_processor import PreProcessor
 from rv_experiment.experiment.workflow.result_manager import ResultManager
-from rv_experiment.experiment.workflow.workflow_factory import WorkflowFactory
-from rv_android_core.tools.abstract_tool import AbstractTool
 from rv_experiment.config import ExperimentConfig
 from rv_experiment.constants import EXPERIMENT_LOGS_DIR, EXPERIMENT_TASKS_FILE
-
+import rv_android_core.util.utils as utils
 
 class ExperimentController:
     """
-    Experiment controller that manages the lifecycle of Android testing experiments.
+    A comprehensive experiment controller that manages the lifecycle of Android testing experiments.
 
     ### Architectural Decisions:
     - Implements a modular, component-based approach to experiment management
-    - Delegates specific responsibilities to specialized workflow components
+    - Delegates specific responsibilities to specialized components
     - Provides a unified interface for experiment configuration and execution
-    - Ensures proper coordination between pre-processing, execution, and post-processing phases
+    - Ensures proper coordination between workflow phases
 
     ### Role in the System:
     - Acts as the primary entry point for running experiments
     - Orchestrates the entire experiment workflow from setup to completion
-    - Manages component lifecycle and configuration coordination
-    - Provides consistent interface for experiment execution across different tool types
-    - Facilitates proper resource management and experiment state tracking
-
-    ### Component Integration:
-    - Pre-processor: Handles monitor generation, APK instrumentation, and static analysis
-    - Execution Controller: Manages task execution and tool coordination
-    - Post-processor: Handles results analysis and report generation
-    - Result Manager: Coordinates comprehensive result collection and storage
+    - Manages component lifecycle and configuration
+    - Provides a consistent interface for experiment execution
+    - Facilitates proper resource management and experiment tracking
     """
 
     def __init__(self, config: ExperimentConfig, event_bus: Optional[EventBus] = None):
@@ -62,15 +52,15 @@ class ExperimentController:
         # Store configuration
         self.config = config
         
-        # Set up event bus (using dependency injection)
+        # Set up event bus
         self.event_bus = event_bus or EventBus.get_instance()
 
         # Set up experiment identifier
-        self.experiment_id = self.config.experiment_id or f"experiment_{self.config.get_timestamp_string()}"
+        self.experiment_id = config.name
 
         # Configure logging and error handling
-        self.logging_manager = LoggingManager.get_instance()
         self.error_handler = ErrorHandler.get_instance()
+        self.logging_manager = LoggingManager.get_instance()
         self.logger = self.logging_manager.get_logger(
             'experiment_workflow.controller',
             {
@@ -79,9 +69,11 @@ class ExperimentController:
             }
         )
 
-        # Create experiment directory
-        self.results_dir = self.config.output_dir
-        os.makedirs(self.results_dir, exist_ok=True)
+        # Create experiment directory inside output directory
+        self.results_dir = config.output_dir # os.path.join(config.output_dir, self.experiment_id)
+        print(f"*** results_dir={self.results_dir}")
+        utils.create_folder_if_not_exists(self.results_dir)
+        # os.makedirs(self.results_dir, exist_ok=True)
 
         # Set up file logging for this experiment
         self.logging_manager.setup_file_logging(
@@ -91,322 +83,258 @@ class ExperimentController:
 
         # Create task storage
         storage_file = os.path.join(self.results_dir, EXPERIMENT_TASKS_FILE)
+        print(f"storage_file={storage_file}")
         self.task_storage = TaskStorage(storage_file)
 
-        # Create workflow factory
-        self.factory = WorkflowFactory(self.task_storage, self.event_bus, self.config)
+        # exit(1)
 
-        # Initialize workflow components
-        self.pre_processor: PreProcessor = self.factory.create_pre_processor(self.results_dir)
-        self.execution_controller: ExecutionController = self.factory.create_execution_controller()
-        self.post_processor: PostProcessor = self.factory.create_post_processor(self.results_dir)
-        self.result_manager: ResultManager = self.factory.create_result_manager(self.results_dir)
+        # Initialize workflow components directly (simplified approach)
+        self.pre_processor = PreProcessor(config, self.event_bus)
+        self.execution_controller = ExecutionController(self.task_storage, self.config, self.event_bus)
+        self.post_processor = PostProcessor(self.results_dir, self.event_bus)
+        self.result_manager = ResultManager(self.results_dir, self.task_storage, self.event_bus)
 
         # Register event handlers
         self._setup_event_handlers()
 
         # Log experiment initialization
-        self.logger.experiment_start(f"Experiment {self.experiment_id} initialized")
+        self.logger.info(f"Experiment {self.experiment_id} initialized")
 
     def _setup_event_handlers(self):
         """
-        Set up event handlers for the experiment.
-
-        Registers callback functions for various event types that may occur during
-        experiment execution, ensuring proper logging and coordination.
+        Set up event handlers for experiment coordination.
+        
+        ### Event Handling Strategy:
+        - Registers handlers for key experiment events
+        - Enables cross-component communication and coordination
+        - Supports experiment state tracking and error handling
         """
-
-        def on_experiment_started(event):
-            """Handle experiment start events"""
-            # Extract experiment_id from ExperimentEvent
-            experiment_id = event.experiment_id if hasattr(event, 'experiment_id') else self.experiment_id
-
-            with self.logger.with_context(phase="experiment_start"):
-                self.logger.info(LOG_START.format(
-                    phase=f"Experiment {experiment_id}"
-                ))
-
-        def on_experiment_completed(event):
-            """Handle experiment completion events"""
-            # Extract experiment_id from ExperimentEvent
-            experiment_id = event.experiment_id if hasattr(event, 'experiment_id') else self.experiment_id
-
-            with self.logger.with_context(phase="experiment_completion"):
-                self.logger.info(LOG_COMPLETE.format(
-                    phase=f"Experiment {experiment_id}"
-                ))
-
-        def on_task_started(event):
-            """Handle task start events"""
-            # Extract data from TaskEvent
-            task_id = event.task_id if hasattr(event, 'task_id') else "unknown"
-            task_config = event.task_config if hasattr(event, 'task_config') else {}
-
-            with self.logger.with_context(
-                    task_id=task_id,
-                    phase="task_start",
-                    **task_config
-            ):
-                self.logger.info(LOG_START.format(
-                    phase=f"Task {task_id} ({task_config.get('apk_name', 'unknown')}, "
-                              f"{task_config.get('tool_name', 'unknown')})"
-                ))
-
-        def on_task_failed(event):
-            """Handle task failure events"""
-            # Extract data from TaskEvent
-            task_id = event.task_id if hasattr(event, 'task_id') else "unknown"
-            details = event.details if hasattr(event, 'details') else {}
-            error = details.get('error', 'Unknown error')
-
-            with self.logger.with_context(
-                    task_id=task_id,
-                    phase="task_failure",
-                    error=error
-            ):
-                self.logger.error(LOG_ERROR.format(
-                    phase=f"Task {task_id}",
-                    error=error
-                ))
-
-        # Register handlers using new API with appropriate channels
+        # Register handler for experiment lifecycle events
         self.event_bus.subscribe(
-            event_type=EventType.EXPERIMENT_STARTED,
-            callback=on_experiment_started,
-            channel=EventBus.LIFECYCLE_CHANNEL
+            EventType.EXPERIMENT_STARTED,
+            self._handle_experiment_started
+        )
+        
+        self.event_bus.subscribe(
+            EventType.EXPERIMENT_COMPLETED,
+            self._handle_experiment_completed
+        )
+        
+        # Register handler for task lifecycle events
+        self.event_bus.subscribe(
+            EventType.TASK_STARTED,
+            self._handle_task_started
+        )
+        
+        self.event_bus.subscribe(
+            EventType.TASK_COMPLETED,
+            self._handle_task_completed
         )
 
-        self.event_bus.subscribe(
-            event_type=EventType.EXPERIMENT_COMPLETED,
-            callback=on_experiment_completed,
-            channel=EventBus.LIFECYCLE_CHANNEL
-        )
+    def _handle_experiment_started(self, event_data):
+        """Handle experiment started events."""
+        self.logger.debug(f"Experiment started event: {event_data}")
 
-        self.event_bus.subscribe(
-            event_type=EventType.TASK_STARTED,
-            callback=on_task_started,
-            channel=EventBus.LIFECYCLE_CHANNEL
-        )
+    def _handle_experiment_completed(self, event_data):
+        """Handle experiment completed events."""
+        self.logger.debug(f"Experiment completed event: {event_data}")
 
-        self.event_bus.subscribe(
-            event_type=EventType.TASK_FAILED,
-            callback=on_task_failed,
-            channel=EventBus.LIFECYCLE_CHANNEL
-        )
+    def _handle_task_started(self, event_data):
+        """Handle task started events."""
+        self.logger.debug(f"Task started event: {event_data}")
 
-    def execute(self, repetitions: int, timeouts: List[int], tools: List[AbstractTool],
-                memory_file: str = "", generate_monitors: bool = True, instrument: bool = True,
-                static_analysis: bool = True, skip_experiment: bool = False, no_window: bool = False):
+    def _handle_task_completed(self, event_data):
+        """Handle task completed events."""
+        self.logger.debug(f"Task completed event: {event_data}")
+
+    def run_experiment(self, tools: List[str], apks: List[str], 
+                      generate_monitors: bool = True, 
+                      instrument: bool = True, 
+                      static_analysis: bool = True) -> bool:
         """
-        Execute the entire experiment workflow with configurable phases.
-
-        Manages the full experiment lifecycle including optional monitor generation, APK instrumentation,
-        static analysis, experiment execution, and result processing.
+        Execute a complete experiment workflow.
 
         Args:
-            repetitions: Number of times each task should be repeated
-            timeouts: List of timeout durations to apply during experiment
-            tools: Collection of testing tools to be used in the experiment
-            memory_file: Path to a previous execution state file for resuming an experiment
-            generate_monitors: Flag to enable automatic monitor generation
-            instrument: Flag to enable APK instrumentation
-            static_analysis: Flag to enable static code analysis
-            skip_experiment: Flag to bypass experiment execution
-            no_window: Flag to run emulator in headless mode without visual display
+            tools: List of tool names to use for testing
+            apks: List of APK file paths to test
+            generate_monitors: Whether to generate runtime verification monitors
+            instrument: Whether to instrument APKs with monitors
+            static_analysis: Whether to perform static analysis
+
+        Returns:
+            bool: True if experiment completed successfully, False otherwise
         """
-        with self.logger.with_context(
-                repetitions=repetitions,
-                timeouts=timeouts,
-                tools=[tool.name for tool in tools],
-                memory_file=memory_file,
-                generate_monitors=generate_monitors,
-                instrument=instrument,
-                static_analysis=static_analysis,
-                skip_experiment=skip_experiment,
-                no_window=no_window,
-                phase="execute"
-        ):
-            self.logger.info(LOG_START.format(phase="Experiment"))
-
-            # Publish experiment started event
-            self.event_bus.publish_experiment_event(
-                event_type=EventType.EXPERIMENT_STARTED,
-                experiment_id=self.experiment_id,
-                message="Starting experiment execution",
-                source="ExperimentController",
-                channel=EventBus.LIFECYCLE_CHANNEL
-            )
-
-            # Handle memory file for experiment resumption
-            if memory_file:
-                # TODO verificar se esta funcionando
-                self._resume_from_memory(memory_file)
-            else:
-                # Pre-process APKs if not resuming
-                if generate_monitors or instrument or static_analysis:
-                    self.pre_processor.process(generate_monitors, instrument, static_analysis)
-
-            # Run experiment if not skipped
-            if not skip_experiment:
-                # Configure execution parameters - use instrumented APKs if instrumentation was performed,
-                # otherwise use original APKs from application configuration
-                if instrument:
-                    apks = self.pre_processor.get_instrumented_apks()
-                else:
-                    # Use original APKs from configuration
-                    from rv_android_core.app import App
-                    application_paths = self.config.get_apk_list()
-                    apks = [App(app_path=app_path) for app_path in application_paths]
-
-                # Set up experiment execution
-                self.execution_controller.setup(
-                    apks=apks,
-                    repetitions=repetitions,
-                    timeouts=timeouts,
-                    tools=tools,
-                    no_window=no_window
-                )
-
-                # Run the experiment tasks
-                self.execution_controller.run()
-
-                # Process results (includes report generation through integrated ResultManager)
-                self.post_processor.process()
-
-            # Publish experiment completed event
-            self.event_bus.publish_experiment_event(
-                event_type=EventType.EXPERIMENT_COMPLETED,
-                experiment_id=self.experiment_id,
-                message="Experiment execution completed",
-                source="ExperimentController",
-                channel=EventBus.LIFECYCLE_CHANNEL
-            )
-
-            self.logger.info(LOG_COMPLETE.format(phase="Experiment"))
-
-    def _resume_from_memory(self, memory_file: str):
-        """
-        Resume an experiment from a memory file with enhanced error handling.
-
-        Args:
-            memory_file: Path to the memory file
-        """
-        with self.logger.with_context(phase="resume_from_memory"):
-            if not os.path.exists(memory_file):
-                self.logger.error(LOG_ERROR.format(
-                    phase="finding memory file",
-                    error=f"Memory file not found: {memory_file}"
-                ))
-                return
-
-            # Copy task storage to our results directory
-            self.logger.info(f"Resuming experiment from memory file: {memory_file}")
+        with self.logger.with_context(phase="experiment_execution"):
+            self.logger.info(LOG_START.format(phase=f"experiment {self.experiment_id}"))
 
             try:
-                # Create a new task storage instance with the memory file
-                self.task_storage = TaskStorage(memory_file)
+                # Publish experiment started event
+                self.event_bus.publish_experiment_event(
+                    EventType.EXPERIMENT_STARTED,
+                    experiment_id=self.experiment_id,
+                    message="Experiment execution started",
+                    source="ExperimentController"
+                )
 
-                # Attempt to load tasks, handling potential errors
-                load_success = self.task_storage.load()
+                # Phase 1: Pre-processing
+                self.logger.info("Starting pre-processing phase")
+                self.pre_processor.process(generate_monitors, instrument, static_analysis)
 
-                if not load_success:
-                    self.logger.error(LOG_ERROR.format(
-                        phase="loading memory file",
-                        error=f"Failed to load tasks from {memory_file}"
-                    ))
-                    return
+                # Phase 2: Get instrumented APKs for execution
+                instrumented_apks = self.pre_processor.get_instrumented_apks()
+                if not instrumented_apks:
+                    self.logger.error("No APKs available for execution after pre-processing")
+                    return False
 
-                # Update components with new task storage
-                self.execution_controller.update_storage(self.task_storage)
+                # Phase 3: Execute experiments for each tool
+                for tool_name in tools:
+                    self.logger.info(f"Starting execution phase with tool: {tool_name}")
+                    success = self.execution_controller.execute_experiments(
+                        tool_name=tool_name,
+                        apps=instrumented_apks,
+                        repetitions=self.config.repetitions,
+                        timeout=self.config.timeout
+                    )
+                    
+                    if not success:
+                        self.logger.warning(f"Execution failed for tool: {tool_name}")
 
-                self.logger.info(f"Successfully resumed experiment with {len(self.task_storage.get_tasks())} tasks")
+                # Phase 4: Post-processing
+                self.logger.info("Starting post-processing phase")
+                self.post_processor.process()
 
-            except json.JSONDecodeError as e:
-                self.logger.error(LOG_ERROR.format(
-                    phase="parsing memory file",
-                    error=f"Memory file contains invalid JSON: {e}"
-                ))
+                # Phase 5: Results management
+                self.logger.info("Starting results management phase")
+                self.result_manager.process()
+
+                # Publish experiment completed event
+                self.event_bus.publish_experiment_event(
+                    EventType.EXPERIMENT_COMPLETED,
+                    experiment_id=self.experiment_id,
+                    message="Experiment execution completed successfully",
+                    source="ExperimentController"
+                )
+
+                self.logger.info(LOG_COMPLETE.format(phase=f"experiment {self.experiment_id}"))
+                return True
+
             except Exception as e:
-                # Create error context for the error handler
                 error_context = {
                     "component": "ExperimentController",
-                    "phase": "resume_from_memory",
-                    "memory_file": memory_file,
+                    "operation": "experiment_execution",
                     "experiment_id": self.experiment_id,
-                    "results_dir": self.results_dir
+                    "tools": tools,
+                    "apks_count": len(apks)
                 }
-
-                # Use ErrorHandler for proper exception handling
                 self.error_handler.handle_error(e, error_context)
-
-                # Log additional information
+                
                 self.logger.error(LOG_ERROR.format(
-                    phase="resuming from memory file",
+                    phase=f"experiment {self.experiment_id}",
                     error=str(e)
                 ))
+                
+                # Publish experiment failed event
+                self.event_bus.publish_experiment_event(
+                    EventType.EXPERIMENT_FAILED,
+                    experiment_id=self.experiment_id,
+                    message=f"Experiment execution failed: {str(e)}",
+                    source="ExperimentController"
+                )
+                
+                return False
+
+    def get_experiment_status(self) -> dict:
+        """
+        Get the current status of the experiment.
+
+        Returns:
+            dict: Dictionary containing experiment status information
+        """
+        completed_tasks = self.task_storage.get_completed_tasks()
+        pending_tasks = self.task_storage.get_pending_tasks()
+        
+        return {
+            "experiment_id": self.experiment_id,
+            "results_dir": self.results_dir,
+            "completed_tasks": len(completed_tasks),
+            "pending_tasks": len(pending_tasks),
+            "total_tasks": len(completed_tasks) + len(pending_tasks)
+        }
+
+    def save_experiment_config(self) -> None:
+        """Save the experiment configuration to the results directory."""
+        config_file = os.path.join(self.results_dir, "experiment_config.json")
+        
+        config_data = {
+            "experiment_id": self.experiment_id,
+            "timestamp": self.config.get_timestamp_string(),
+            "configuration": self.config.to_dict()
+        }
+        
+        with open(config_file, 'w') as f:
+            json.dump(config_data, f, indent=2, default=str)
+            
+        self.logger.debug(f"Experiment configuration saved to: {config_file}")
+
+    def cleanup(self) -> None:
+        """
+        Clean up experiment resources.
+        
+        Performs cleanup operations for the experiment, including:
+        - Finalizing task storage
+        - Cleaning up temporary files
+        - Closing logging handlers
+        """
+        try:
+            # Save final task state
+            self.task_storage.save()
+            
+            # Save experiment configuration
+            self.save_experiment_config()
+            
+            self.logger.info(f"Experiment {self.experiment_id} cleanup completed")
+            
+        except Exception as e:
+            error_context = {
+                "component": "ExperimentController",
+                "operation": "cleanup",
+                "experiment_id": self.experiment_id
+            }
+            self.error_handler.handle_error(e, error_context)
 
 
-def execute_with_config(config: ExperimentConfig, tools: Optional[List[AbstractTool]] = None):
+def execute_with_config(config: ExperimentConfig) -> bool:
     """
-    Execute experiment with provided configuration.
+    Execute experiment with given configuration.
     
-    This function configures and executes an experiment using the ExperimentController
-    with the provided ExperimentConfig instance.
-
+    This function provides a simple interface for executing experiments
+    compatible with the CLI and other external interfaces.
+    
     Args:
-        config: Experiment configuration instance
-        tools: Optional list of tool objects to use
+        config: Experiment configuration
+        
+    Returns:
+        bool: True if experiment completed successfully, False otherwise
     """
-    # Set up logging for this function
-    logging_manager = LoggingManager.get_instance()
-    logger = logging_manager.get_logger('experiment_controller.execute', {'function': 'execute_with_config'})
-
-    from rv_tools.registry.registry import ToolRegistry
-
-    with logger.with_context(phase="configuration"):
-        # Get experiment parameters from config
-        repetitions = config.repetitions
-        timeouts = config.timeouts
-        generate_monitors = config.generate_monitors
-        instrument = config.instrument_apks
-        static_analysis = config.run_static_analysis
-        no_window = config.no_window
-
-        # Log configuration values
-        logger.info(f"Configuration values:")
-        logger.info(f"  - repetitions: {repetitions}")
-        logger.info(f"  - timeouts: {timeouts}")
-        logger.info(f"  - generate_monitors: {generate_monitors}")
-        logger.info(f"  - instrument: {instrument}")
-        logger.info(f"  - static_analysis: {static_analysis}")
-        logger.info(f"  - no_window: {no_window}")
-
-        # Handle tools configuration
-        if tools is not None:
-            logger.info(f"Using explicitly provided tools: {[tool.name for tool in tools]}")
-        else:
-            # Get tools from configuration
-            tool_names = [tc.name for tc in config.tool_configs]
-            logger.info(f"Using tools from configuration: {tool_names}")
-
-            # Get the tool registry
-            registry = ToolRegistry.get_instance()
-
-            # Get tools by name
-            tools = registry.get_tools(tool_names)
-            logger.info(f"Loaded {len(tools)} tools from registry: {[tool.name for tool in tools]}")
-
-    # Create experiment controller and execute
-    with logger.with_context(phase="experiment_execution"):
-        logger.info(LOG_START.format(phase="experiment execution"))
-        experiment = ExperimentController(config)
-        experiment.execute(
-            repetitions=repetitions,
-            timeouts=timeouts,
+    # Create controller
+    controller = ExperimentController(config)
+    
+    try:
+        # Extract tools and APKs from config
+        tools = [c.name for c in config.tool_configs]
+        apks = config.get_apk_list()
+        
+        # Run experiment
+        success = controller.run_experiment(
             tools=tools,
-            generate_monitors=generate_monitors,
-            instrument=instrument,
-            static_analysis=static_analysis,
-            no_window=no_window
+            apks=apks,
+            generate_monitors=True,
+            instrument=True, 
+            static_analysis=True
         )
-        logger.info(LOG_COMPLETE.format(phase="experiment execution"))
+        
+        return success
+        
+    finally:
+        # Always cleanup
+        controller.cleanup()

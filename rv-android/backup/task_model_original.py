@@ -14,12 +14,6 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Dict, List, Any, Optional, Type, TypeVar, Generic
 
-from pydantic import Field
-from rv_android_core.util.validation.base import BaseValidatedModel
-from rv_android_core.util.validation.decorators import validated_model
-from rv_android_core.util.error.error_handler import ErrorHandler
-from rv_android_core.util.exceptions import RVTaskError
-
 # TYPE_CHECKING import to avoid missing dependencies during tests
 from typing import TYPE_CHECKING
 
@@ -132,82 +126,41 @@ class TaskConfiguration:
         )
 
 
-@validated_model(['start_time', 'end_time'])
-class TaskResult(BaseValidatedModel):
+@dataclass
+class TaskResult:
     """
-    Task execution result with accurate timing measurement capabilities.
+    Result of a task execution.
     
     ### Architectural Decisions:
-    - Inherits from BaseValidatedModel for comprehensive validation and serialization
-    - Implements constructor compatibility for existing code through @validated_model
-    - Separates task lifecycle timing from tool execution timing for accurate measurement
-    - Provides comprehensive error handling through ErrorHandler integration
+    - Uses dataclass for concise definition and automatic implementation of common methods
+    - Separates execution metadata from analysis results
+    - Uses explicit types for all fields for better code comprehension
+    - Implements utility methods for common operations
     
     ### Role in the System:
-    - Stores the complete outcome of a task execution with precise timing data
-    - Tracks both task lifecycle and tool execution phases separately
-    - Provides coverage and error metrics with accurate timing context
+    - Stores the complete outcome of a task execution
+    - Tracks execution time and resource usage
+    - Provides coverage and error metrics
     - Enables serialization and deserialization of task results
-    - Supports analysis and reporting of task outcomes with timing precision
-    
-    ### Timing Architecture:
-    - start_time: When task state changes to RUNNING (task lifecycle start)
-    - tool_execution_start: When actual tool execution begins (accurate for coverage logs)
-    - end_time: When task completes, fails, or is canceled
-    - execution_time_seconds: Total task duration from start_time to end_time
+    - Supports analysis and reporting of task outcomes
     """
-    state: TaskState = Field(default=TaskState.CREATED, description="Current task execution state")
-    start_time: Optional[datetime] = Field(default=None, description="Task lifecycle start timestamp")
-    end_time: Optional[datetime] = Field(default=None, description="Task completion timestamp")
-    tool_execution_start: Optional[datetime] = Field(default=None, description="Tool execution start timestamp for accurate timing")
-    execution_time_seconds: int = Field(default=0, description="Total task execution duration")
-    error_message: Optional[str] = Field(default=None, description="Error message if task failed")
+    state: TaskState = TaskState.CREATED
+    start_time: Optional[datetime] = None
+    end_time: Optional[datetime] = None
+    execution_time_seconds: int = 0
+    error_message: Optional[str] = None
 
     # Output files
-    logcat_file: str = Field(default="", description="Path to logcat output file")
-    trace_file: str = Field(default="", description="Path to trace output file")
+    logcat_file: str = ""
+    trace_file: str = ""
 
     # Analysis results
-    coverage_metrics: Dict[str, float] = Field(default_factory=dict, description="Coverage analysis metrics")
-    detected_errors: List[Dict[str, Any]] = Field(default_factory=list, description="List of detected errors")
+    coverage_metrics: Dict[str, float] = field(default_factory=dict)
+    detected_errors: List[Dict[str, Any]] = field(default_factory=list)
 
     # State transition history
-    state_transitions: List[Dict[str, Any]] = Field(default_factory=list, description="Task state change history")
+    state_transitions: List[Dict[str, Any]] = field(default_factory=list)
 
-    @ErrorHandler.handle_errors(component="TaskResult", phase="timing")
-    def mark_tool_execution_start(self) -> None:
-        """
-        Mark the precise moment when tool execution begins.
-        
-        This provides accurate timing for coverage analysis where time_since_task_start
-        should reflect tool execution duration rather than task lifecycle duration.
-        """
-        self.tool_execution_start = datetime.now()
-    
-    @ErrorHandler.handle_errors(component="TaskResult", phase="timing")
-    def get_time_since_tool_start(self) -> int:
-        """
-        Calculate seconds elapsed since tool execution started.
-        
-        Returns:
-            Seconds since tool execution started, or 0 if tool hasn't started
-        """
-        if self.tool_execution_start:
-            return int((datetime.now() - self.tool_execution_start).total_seconds())
-        return 0
-    
-    @ErrorHandler.handle_errors(component="TaskResult", phase="timing")
-    def get_time_since_task_start(self) -> int:
-        """
-        Calculate seconds elapsed since task started.
-        
-        Returns:
-            Seconds since task started, or 0 if task hasn't started
-        """
-        if self.start_time:
-            return int((datetime.now() - self.start_time).total_seconds())
-        return 0
-    
     def update_execution_time(self) -> None:
         """
         Update execution time if start and end times are available.
@@ -246,7 +199,6 @@ class TaskResult(BaseValidatedModel):
             "state": self.state.name,
             "start_time": self.start_time.isoformat() if self.start_time else None,
             "end_time": self.end_time.isoformat() if self.end_time else None,
-            "tool_execution_start": self.tool_execution_start.isoformat() if self.tool_execution_start else None,
             "execution_time_seconds": self.execution_time_seconds,
             "error_message": self.error_message,
             "logcat_file": self.logcat_file,
@@ -267,47 +219,32 @@ class TaskResult(BaseValidatedModel):
         Returns:
             TaskResult instance
         """
+        result = cls()
+
         try:
-            # Parse datetime fields
-            start_time = None
+            # Set basic fields
+            result.state = TaskState[data.get("state", "CREATED")]
+
+            # Parse dates if present
             if data.get("start_time"):
-                start_time = datetime.fromisoformat(data["start_time"])
-            
-            end_time = None
+                result.start_time = datetime.fromisoformat(data["start_time"])
             if data.get("end_time"):
-                end_time = datetime.fromisoformat(data["end_time"])
-            
-            tool_execution_start = None
-            if data.get("tool_execution_start"):
-                tool_execution_start = datetime.fromisoformat(data["tool_execution_start"])
-            
-            # Create instance with parsed data
-            result = cls(
-                state=TaskState[data.get("state", "CREATED")],
-                start_time=start_time,
-                end_time=end_time,
-                tool_execution_start=tool_execution_start,
-                execution_time_seconds=data.get("execution_time_seconds", 0),
-                error_message=data.get("error_message"),
-                logcat_file=data.get("logcat_file", ""),
-                trace_file=data.get("trace_file", ""),
-                coverage_metrics=data.get("coverage_metrics", {}),
-                detected_errors=data.get("detected_errors", []),
-                state_transitions=data.get("state_transitions", [])
-            )
-            
-            return result
+                result.end_time = datetime.fromisoformat(data["end_time"])
+
+            result.execution_time_seconds = data.get("execution_time_seconds", 0)
+            result.error_message = data.get("error_message")
+            result.logcat_file = data.get("logcat_file", "")
+            result.trace_file = data.get("trace_file", "")
+
+            # Set complex fields
+            result.coverage_metrics = data.get("coverage_metrics", {})
+            result.detected_errors = data.get("detected_errors", [])
+            result.state_transitions = data.get("state_transitions", [])
 
         except Exception as e:
-            # Use LoggingManager for consistent logging
-            if LoggingManager:
-                logging_manager = LoggingManager.get_instance()
-                logger = logging_manager.get_logger('experiment.task.task_result')
-                logger.error(f"Error deserializing TaskResult: {e}")
-            else:
-                logging.getLogger(__name__).error(f"Error deserializing TaskResult: {e}")
-            # Return default instance on error
-            return cls()
+            logging.getLogger(__name__).error(f"Error deserializing TaskResult: {e}")
+
+        return result
 
 
 class Task:
@@ -534,25 +471,6 @@ class Task:
             self.logger.info(f"Execution time: {self.result.execution_time_seconds} seconds")
 
         self.logger.debug(f"Task state updated: {state.name}")
-    
-    def mark_tool_execution_start(self) -> None:
-        """
-        Mark the precise moment when tool execution begins.
-        
-        This method delegates to TaskResult for accurate timing measurement
-        and ensures timing data is available for coverage analysis.
-        """
-        self.result.mark_tool_execution_start()
-        self.logger.debug(f"Tool execution started at {self.result.tool_execution_start}")
-    
-    def get_time_since_tool_start(self) -> int:
-        """
-        Get seconds elapsed since tool execution started.
-        
-        Returns:
-            Seconds since tool execution started
-        """
-        return self.result.get_time_since_tool_start()
 
     @property
     def completed(self) -> bool:
@@ -634,13 +552,7 @@ class Task:
             return task
 
         except Exception as e:
-            # Use LoggingManager for consistent logging
-            if LoggingManager:
-                logging_manager = LoggingManager.get_instance()
-                logger = logging_manager.get_logger('experiment.task.task_factory')
-                logger.error(f"Error creating task from dictionary: {e}")
-            else:
-                logging.getLogger(__name__).error(f"Error creating task from dictionary: {e}")
+            logging.getLogger(__name__).error(f"Error creating task from dictionary: {e}")
             return None
 
     def __str__(self) -> str:

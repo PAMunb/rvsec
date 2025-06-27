@@ -1,11 +1,12 @@
 # tests/experiment/test_task_storage.py
 import os
+from datetime import datetime
 from unittest.mock import patch, MagicMock
 
 import pytest
 
 from rv_experiment.experiment.task.interfaces import TaskState
-from rv_experiment.experiment.task.storage import TaskStorage
+from rv_experiment.experiment.task.storage import TaskStorage, ExperimentMetadata, StorageConfig, ExperimentStatistics
 from rv_experiment.experiment.task.task_model import Task, TaskConfiguration
 
 
@@ -274,3 +275,202 @@ class TestTaskStorage:
 
         assert result is True
         assert len(storage2.get_tasks()) >= 0  # Allow for empty if serialization format differs
+
+
+class TestExperimentMetadata:
+    """Tests for ExperimentMetadata Pydantic class"""
+    
+    def test_create_from_config(self):
+        """Test creating metadata from configuration dictionary"""
+        config_dict = {
+            "name": "test_experiment",
+            "timeout": 300,
+            "tools": ["monkey"]
+        }
+        
+        metadata = ExperimentMetadata.create_from_config("exp_001", config_dict)
+        
+        assert metadata.experiment_id == "exp_001"
+        assert metadata.start_time is not None
+        assert isinstance(metadata.start_time, datetime)
+        assert metadata.config_checksum is not None
+        assert len(metadata.config_checksum) == 64  # SHA-256 hex length
+        assert metadata.current_status == "running"
+    
+    def test_checksum_consistency(self):
+        """Test that same config produces same checksum"""
+        config_dict = {"name": "test", "timeout": 300}
+        
+        metadata1 = ExperimentMetadata.create_from_config("exp_001", config_dict)
+        metadata2 = ExperimentMetadata.create_from_config("exp_002", config_dict)
+        
+        # Same config should produce same checksum
+        assert metadata1.config_checksum == metadata2.config_checksum
+        
+        # Different config should produce different checksum
+        different_config = {"name": "test", "timeout": 600}
+        metadata3 = ExperimentMetadata.create_from_config("exp_003", different_config)
+        assert metadata1.config_checksum != metadata3.config_checksum
+
+
+class TestStorageConfig:
+    """Tests for StorageConfig Pydantic class"""
+    
+    def test_default_values(self):
+        """Test StorageConfig default values"""
+        config = StorageConfig()
+        
+        assert config.enable_metadata is True
+        assert config.enable_statistics is True
+        assert config.auto_save is True
+        assert config.compression is False
+        assert config.backup_count == 3
+    
+    def test_custom_values(self):
+        """Test StorageConfig with custom values"""
+        config = StorageConfig(
+            enable_metadata=False,
+            auto_save=False,
+            backup_count=5
+        )
+        
+        assert config.enable_metadata is False
+        assert config.auto_save is False
+        assert config.backup_count == 5
+
+
+class TestExperimentStatistics:
+    """Tests for ExperimentStatistics Pydantic class"""
+    
+    def test_default_values(self):
+        """Test ExperimentStatistics default values"""
+        stats = ExperimentStatistics()
+        
+        assert stats.total_tasks == 0
+        assert stats.completed_tasks == 0
+        assert stats.failed_tasks == 0
+        assert stats.pending_tasks == 0
+        assert stats.completion_percentage == 0.0
+        assert stats.average_execution_time == 0.0
+        assert stats.total_execution_time == 0.0
+        assert stats.last_updated is not None
+    
+    def test_custom_statistics(self):
+        """Test ExperimentStatistics with custom values"""
+        stats = ExperimentStatistics(
+            total_tasks=10,
+            completed_tasks=7,
+            failed_tasks=1,
+            pending_tasks=2,
+            completion_percentage=70.0
+        )
+        
+        assert stats.total_tasks == 10
+        assert stats.completed_tasks == 7
+        assert stats.completion_percentage == 70.0
+
+
+class TestEnhancedTaskStorage:
+    """Tests for enhanced TaskStorage with metadata support"""
+    
+    @pytest.fixture
+    def enhanced_storage(self, tmp_path):
+        """Fixture providing enhanced TaskStorage with metadata"""
+        storage_file = str(tmp_path / "enhanced_tasks.json")
+        storage_config = StorageConfig()
+        experiment_metadata = ExperimentMetadata.create_from_config(
+            "test_experiment", 
+            {"name": "test", "timeout": 300}
+        )
+        
+        return TaskStorage(
+            storage_file=storage_file,
+            storage_config=storage_config,
+            experiment_metadata=experiment_metadata
+        )
+    
+    @pytest.fixture
+    def sample_task(self):
+        """Fixture providing a sample task for testing"""
+        config = TaskConfiguration(
+            apk_name="test.apk",
+            repetition=1,
+            timeout=60,
+            tool_name="monkey"
+        )
+        with patch('rv_experiment.experiment.task.task_model.LoggingManager', None):
+            task = Task(config)
+            return task
+
+    @pytest.fixture
+    def sample_tasks(self):
+        """Fixture providing multiple sample tasks"""
+        tasks = []
+        for i in range(3):
+            config = TaskConfiguration(
+                apk_name=f"test{i}.apk",
+                repetition=1,
+                timeout=60,
+                tool_name="monkey"
+            )
+            with patch('rv_experiment.experiment.task.task_model.LoggingManager', None):
+                task = Task(config)
+                tasks.append(task)
+        return tasks
+    
+    def test_metadata_integration(self, enhanced_storage, sample_task):
+        """Test metadata integration in enhanced storage"""
+        # Add task and save
+        enhanced_storage.add_task(sample_task)
+        result = enhanced_storage.save()
+        
+        assert result is True
+        
+        # Verify metadata is accessible
+        metadata = enhanced_storage.get_experiment_metadata()
+        assert metadata is not None
+        assert metadata.experiment_id == "test_experiment"
+    
+    def test_statistics_calculation(self, enhanced_storage, sample_tasks):
+        """Test statistics calculation with real tasks"""
+        # Add multiple tasks with different states
+        for i, task in enumerate(sample_tasks):
+            if i == 0:
+                task.result.state = TaskState.COMPLETED
+                task.result.execution_time_seconds = 30
+            elif i == 1:
+                task.result.state = TaskState.ERROR
+            else:
+                task.result.state = TaskState.RUNNING
+            
+            enhanced_storage.add_task(task)
+        
+        # Get statistics
+        stats = enhanced_storage.get_statistics()
+        
+        assert stats.total_tasks == 3
+        assert stats.completed_tasks == 1
+        assert stats.failed_tasks == 1
+        assert stats.pending_tasks == 1
+        assert stats.completion_percentage == pytest.approx(33.33, rel=1e-2)
+        assert stats.average_execution_time == 30.0
+    
+    def test_continuation_compatibility(self, enhanced_storage):
+        """Test experiment continuation compatibility checking"""
+        original_config = {"name": "test", "timeout": 300}
+        
+        # Same config should be compatible
+        compatible = enhanced_storage.check_continuation_compatibility(original_config)
+        assert compatible is True
+        
+        # Different config should not be compatible
+        different_config = {"name": "test", "timeout": 600}
+        compatible = enhanced_storage.check_continuation_compatibility(different_config)
+        assert compatible is False
+    
+    def test_experiment_status_updates(self, enhanced_storage):
+        """Test experiment status updates"""
+        enhanced_storage.update_experiment_status("paused")
+        
+        metadata = enhanced_storage.get_experiment_metadata()
+        assert metadata.current_status == "paused"

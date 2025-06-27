@@ -28,7 +28,7 @@ from rv_android_core.util.error.error_handler import ErrorHandler
 from rv_android_core.util.logging.manager import LoggingManager
 from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
 
-from rv_experiment.config import CLIExperimentConfig, ExperimentConfig, ToolConfiguration
+from rv_experiment.config import ExperimentConfig, ToolConfiguration
 
 
 class ConfigurationFactory:
@@ -75,7 +75,7 @@ class ConfigurationFactory:
                          repetitions: int = 1,
                          apk_dir: str = "./apks_examples/",
                          specification_set: str = "jca",
-                         **kwargs) -> CLIExperimentConfig:
+                         **kwargs) -> ExperimentConfig:
         """
         Create CLI experiment configuration using factory pattern.
         
@@ -94,14 +94,14 @@ class ConfigurationFactory:
             **kwargs: Additional configuration parameters
             
         Returns:
-            Configured CLIExperimentConfig instance
+            Configured ExperimentConfig instance
         """
         try:
             # Generate unique experiment ID
             experiment_id = f"exp_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:8]}"
             
             # Create configuration with factory pattern
-            config = CLIExperimentConfig(
+            config = ExperimentConfig(
                 experiment_dir=experiment_dir,
                 experiment_id=experiment_id,
                 tools=tools,
@@ -178,7 +178,7 @@ class ConfigurationFactory:
         component="ConfigurationFactory",
         phase="create_basic_template",
     )
-    def create_basic_template(self) -> CLIExperimentConfig:
+    def create_basic_template(self) -> ExperimentConfig:
         """
         Create basic configuration template using factory pattern.
         
@@ -187,15 +187,20 @@ class ConfigurationFactory:
         experiment configurations with sensible defaults for typical scenarios.
         
         Returns:
-            Basic CLIExperimentConfig template
+            Basic ExperimentConfig template
         """
-        return CLIExperimentConfig.create_basic_template()
+        return ExperimentConfig(
+            name="basic_experiment",
+            description="Basic experiment template",
+            tool_configs=[ToolConfiguration(name="monkey")],
+            specification_set="jca"
+        )
     
     @ErrorHandler.handle_errors(
         component="ConfigurationFactory",
         phase="create_advanced_template",
     )
-    def create_advanced_template(self) -> CLIExperimentConfig:
+    def create_advanced_template(self) -> ExperimentConfig:
         """
         Create advanced configuration template using factory pattern.
         
@@ -204,15 +209,24 @@ class ConfigurationFactory:
         available options and complex experiment scenarios.
         
         Returns:
-            Advanced CLIExperimentConfig template
+            Advanced ExperimentConfig template
         """
-        return CLIExperimentConfig.create_advanced_template()
+        return ExperimentConfig(
+            name="advanced_experiment", 
+            description="Advanced experiment template",
+            tool_configs=[
+                ToolConfiguration(name="monkey"),
+                ToolConfiguration(name="droidbot", variants=["dfs_greedy"])
+            ],
+            repetitions=3,
+            specification_set="jca"
+        )
     
     @ErrorHandler.handle_errors(
         component="ConfigurationFactory",
         phase="create_llm_template",
     )
-    def create_llm_template(self) -> CLIExperimentConfig:
+    def create_llm_template(self) -> ExperimentConfig:
         """
         Create LLM-focused configuration template using factory pattern.
         
@@ -221,9 +235,15 @@ class ConfigurationFactory:
         AI-driven testing scenarios with RVAndroid and monitored operations.
         
         Returns:
-            LLM-focused CLIExperimentConfig template
+            LLM-focused ExperimentConfig template
         """
-        return CLIExperimentConfig.create_llm_template()
+        return ExperimentConfig(
+            name="llm_experiment",
+            description="LLM-driven testing experiment", 
+            tool_configs=[ToolConfiguration(name="rvandroid", variants=["llama", "batch"])],
+            timeouts=[1800],  # 30 minutes for LLM
+            specification_set="jca"
+        )
     
     @ErrorHandler.handle_errors(
         component="ConfigurationFactory",
@@ -311,7 +331,7 @@ class ConfigurationFactory:
         phase="create_from_dict",
     )
     def create_from_dict(self, config_data: Dict[str, Any], 
-                        config_type: str = "cli") -> CLIExperimentConfig:
+                        config_type: str = "cli") -> ExperimentConfig:
         """
         Create configuration from dictionary using factory pattern.
         
@@ -329,7 +349,7 @@ class ConfigurationFactory:
         """
         try:
             if config_type == "cli":
-                config = CLIExperimentConfig.from_dict(config_data)
+                config = ExperimentConfig.from_dict(config_data)
             elif config_type == "full":
                 config = ExperimentConfig.from_dict(config_data)
             else:

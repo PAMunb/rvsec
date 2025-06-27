@@ -236,3 +236,15 @@ class CommandValidationError(RVValidationError):
 class LogcatValidationError(RVValidationError):
     """Exception for logcat configuration validation errors."""
     pass
+
+
+class EventProcessingError(RVAndroidError):
+    """Exception for event processing failures in the event system."""
+    
+    def __init__(self, message: str, event_type: Optional[str] = None, cause: Optional[Exception] = None):
+        super().__init__(message, cause)
+        self.event_type = event_type
+    
+    def __str__(self):
+        event_info = f" (Event: {self.event_type})" if self.event_type else ""
+        return f"{super().__str__()}{event_info}"
