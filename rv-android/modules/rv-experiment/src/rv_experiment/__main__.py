@@ -313,11 +313,9 @@ def cli(ctx: CLIContext, debug: bool):
               help=f'Execution timeout in seconds (default: {DEFAULT_TIMEOUT})')
 @click.option('--repetitions', '-r', default=DEFAULT_REPETITIONS,
               help=f'Number of repetitions (default: {DEFAULT_REPETITIONS})')
-@click.option('--apk-dir', '-a', default=f'./{DEFAULT_APKS_DIR}/',
+@click.option('--apks-dir', '-a', default=f'./{DEFAULT_APKS_DIR}/',
               type=click.Path(),
               help=f'Directory containing APK files (default: ./{DEFAULT_APKS_DIR}/)')
-@click.option('--apk-patterns', default='*.apk',
-              help='Comma-separated APK file patterns (default: *.apk)')
 @click.option('--specification-set', default=DEFAULT_SPEC_SET,
               type=click.Choice(['jca', 'generic', 'custom']),
               help=f'Monitored operations specification set (default: {DEFAULT_SPEC_SET})')
@@ -339,7 +337,7 @@ def cli(ctx: CLIContext, debug: bool):
     phase="run_experiment"
 )
 def run(ctx: CLIContext, tools: str, config: Optional[str], timeout: int, repetitions: int,
-        apk_dir: str, apk_patterns: str, specification_set: str, custom_specs_dir: Optional[str],
+        apks_dir: str, specification_set: str, custom_specs_dir: Optional[str],
         custom_aspects_dir: Optional[str], generate_monitors: bool, instrument_apks: bool, 
         static_analysis: bool, output_dir: Optional[str]):
     """
@@ -402,7 +400,7 @@ def run(ctx: CLIContext, tools: str, config: Optional[str], timeout: int, repeti
             else:
                 # CLI mode - create experiment configuration from command line arguments
                 experiment_config = _create_experiment_config_from_cli(
-                    ctx, tools, timeout, repetitions, apk_dir, apk_patterns,
+                    ctx, tools, timeout, repetitions, apks_dir,
                     specification_set, custom_specs_dir, custom_aspects_dir, 
                     generate_monitors, instrument_apks, static_analysis, output_dir
                 )
@@ -417,7 +415,7 @@ def run(ctx: CLIContext, tools: str, config: Optional[str], timeout: int, repeti
             click.echo(f"📊 Monitored operations: {experiment_config.specification_set}")
             click.echo(f"⏱️  Timeout: {timeout}s, Repetitions: {repetitions}")
             click.echo(f"📁 Output directory: {experiment_config.output_dir}")
-            click.echo(f"📱 APK directory: {apk_dir}")
+            click.echo(f"📱 APK directory: {apks_dir}")
             
             # Execute experiment using existing infrastructure
             ctx.logger.info("Executing experiment via experiment controller")
@@ -719,7 +717,7 @@ def validate(ctx: CLIContext, config_file: str):
 
 
 def _create_experiment_config_from_cli(ctx: CLIContext, tools: str, timeout: int, 
-                                     repetitions: int, apk_dir: str, apk_patterns: str,
+                                     repetitions: int, apks_dir: str,
                                      specification_set: str, custom_specs_dir: Optional[str],
                                      custom_aspects_dir: Optional[str], generate_monitors: bool, 
                                      instrument_apks: bool, static_analysis: bool, 
@@ -739,8 +737,7 @@ def _create_experiment_config_from_cli(ctx: CLIContext, tools: str, timeout: int
         tools: Comma-separated tool specifications string
         timeout: Execution timeout in seconds
         repetitions: Number of experiment repetitions
-        apk_dir: Directory containing APK files
-        apk_patterns: Comma-separated APK file patterns
+        apks_dir: Directory containing APK files
         specification_set: Monitored operations specification set (jca, generic, custom)
         custom_specs_dir: Custom specification directory (required for custom specification set)
         custom_aspects_dir: Custom AspectJ aspects directory (optional, defaults to standard RVSEC)
@@ -770,8 +767,7 @@ def _create_experiment_config_from_cli(ctx: CLIContext, tools: str, timeout: int
             )
             tool_configs.append(tool_config)
         
-        # Parse APK patterns
-        apk_pattern_list = [pattern.strip() for pattern in apk_patterns.split(',')]
+        # APK directory is used directly - no patterns needed
         
         # Generate experiment identifier
         experiment_id = f"cli_experiment_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:8]}"
@@ -796,8 +792,7 @@ def _create_experiment_config_from_cli(ctx: CLIContext, tools: str, timeout: int
             specification_set=specification_set,
             custom_specs_dir=custom_specs_dir,
             custom_aspects_dir=custom_aspects_dir,
-            apk_dir=apk_dir,
-            apk_patterns=apk_pattern_list,
+            apks_dir=apks_dir,
             metadata={
                 "created_via": "cli",
                 "tool_specifications": tools,

@@ -47,8 +47,8 @@ from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
 from rv_android_core.util.logging.manager import LoggingManager
 from rv_experiment.constants import (
     RESULTS_DIR, INSTRUMENTED_DIR, DEFAULT_APKS_DIR,
-    DEFAULT_TIMEOUT, DEFAULT_REPETITIONS,
-    DEFAULT_SPEC_SET, get_experiment_dir, MONITORS_DIR, INSTRUMENTED_APKS_DIR
+    DEFAULT_APK_PATTERNS, DEFAULT_TIMEOUT, DEFAULT_REPETITIONS,
+    DEFAULT_SPEC_SET, get_experiment_dir
 )
 from rv_instrumentation.config import RVInstrumentationConfig, ConfigurationError as InstrumentationConfigError
 from rv_llm.config.llm_config import LLMConfig
@@ -96,6 +96,8 @@ class ExperimentConfig(BaseValidatedModel):
     name: str = ""
     description: str = ""
     output_dir: str = ""
+    # experiment_id: Optional[str] = None
+    # results_dir: str = ""
     experiment_dir: str = ""
 
     # Tool configuration
@@ -118,11 +120,11 @@ class ExperimentConfig(BaseValidatedModel):
     custom_specs_dir: Optional[str] = Field(default=None, description="Custom specification directory")
     custom_aspects_dir: Optional[str] = Field(default=None, description="Custom AspectJ aspects directory")
 
-    # APK sources - Updated structure
-    apks_dir: str = Field(default=f"./{DEFAULT_APKS_DIR}/", description="Source APK directory path (contains APKs to be instrumented)")
-    
-    # Results configuration
-    results_dir: Optional[str] = Field(default=None, description="Results directory path (defaults to same level as output_dir)")
+    # APK sources
+    # TODO remover apk_path e apk_patterns. renomear apk_dir para apks_dir
+    apk_path: Optional[str] = Field(default=None, description="Single APK file path")
+    apk_dir: str = Field(default=f"./{DEFAULT_APKS_DIR}/", description="APK directory path")
+    apk_patterns: List[str] = Field(default_factory=lambda: DEFAULT_APK_PATTERNS.copy(), description="APK file patterns")
 
     # Additional metadata
     metadata: Dict[str, Any] = Field(default_factory=dict, description="Additional metadata")
@@ -154,16 +156,9 @@ class ExperimentConfig(BaseValidatedModel):
             self.name = f"experiment_{date_now.strftime('%Y%m%d_%H%M%S')}"
 
         if not self.output_dir:
-            self.output_dir = constants.INSTRUMENTED_DIR
+            self.output_dir = constants.RESULTS_DIR
 
-        # Set results_dir to same level as output_dir if not specified
-        if not self.results_dir:
-            if os.path.isabs(self.output_dir):
-                self.results_dir = os.path.join(os.path.dirname(self.output_dir), RESULTS_DIR)
-            else:
-                self.results_dir = RESULTS_DIR
-        
-        self.experiment_dir = get_experiment_dir(self.results_dir, self.name)
+        self.experiment_dir = get_experiment_dir(self.name)
 
         if not self.created_at:
             self.created_at = date_now.isoformat()
@@ -216,7 +211,8 @@ class ExperimentConfig(BaseValidatedModel):
         # Validate APK sources
         if not self._validate_apk_sources():
             raise ConfigurationError(
-                "No valid APK source directory configured. Ensure apks_dir exists and contains APK files."
+                "No valid APK sources configured. Specify apk_path, ensure apk_dir exists, "
+                "or provide valid apk_patterns."
             )
 
         # Validate specification set
@@ -243,15 +239,23 @@ class ExperimentConfig(BaseValidatedModel):
 
     def _validate_apk_sources(self) -> bool:
         """
-        Validate that APK source directory is available and contains APK files.
+        Validate that at least one APK source is available.
         
         Returns:
             True if valid APK sources are configured, False otherwise
         """
-        # Check APK directory
-        if self.apks_dir and Path(self.apks_dir).exists():
-            apk_files = list(Path(self.apks_dir).glob("*.apk"))
-            return len(apk_files) > 0
+        # Check specific APK path
+        if self.apk_path and Path(self.apk_path).exists():
+            return True
+
+        # Check APK directory with patterns
+        if self.apk_dir:
+            apk_dir = Path(self.apk_dir)
+            if apk_dir.exists():
+                # Check if any files match the patterns
+                for pattern in self.apk_patterns:
+                    if list(apk_dir.glob(pattern)):
+                        return True
 
         return False
 
@@ -267,15 +271,25 @@ class ExperimentConfig(BaseValidatedModel):
         """
         apks = []
 
-        # APK directory - all APK files
-        if self.apks_dir:
-            apks_dir_path = Path(self.apks_dir)
-            if apks_dir_path.exists():
-                apks.extend([str(p) for p in apks_dir_path.glob("*.apk")])
+        # Single APK file
+        if self.apk_path:
+            apk_path = Path(self.apk_path)
+            if apk_path.exists():
+                apks.append(str(apk_path))
+            else:
+                raise ConfigurationError(f"APK file not found: {self.apk_path}")
+
+        # APK directory with patterns
+        if self.apk_dir:
+            apk_dir = Path(self.apk_dir)
+            if apk_dir.exists():
+                for pattern in self.apk_patterns:
+                    apks.extend([str(p) for p in apk_dir.glob(pattern)])
 
         if not apks:
             raise ConfigurationError(
-                f"No APK files found in directory: {self.apks_dir}"
+                f"No APK files found. Check apk_path='{self.apk_path}' or "
+                f"apk_dir='{self.apk_dir}' with patterns={self.apk_patterns}"
             )
 
         return apks
@@ -418,7 +432,8 @@ class ExperimentConfig(BaseValidatedModel):
         rv_android_dir = os.path.join(rvsec_root, "rv-android")
 
         # Determine monitor output directory from experiment
-        monitor_output_dir = os.path.join(self.output_dir, MONITORS_DIR) if self.output_dir else None
+        # monitor_output_dir = os.path.join(rv_android_dir, "mop_out") if self.output_dir else None
+        monitor_output_dir = os.path.join(self.output_dir, "mop_out") if self.output_dir else None
 
         try:
             # Create RVInstrumentationConfig instance with tool paths
@@ -426,7 +441,7 @@ class ExperimentConfig(BaseValidatedModel):
                 rvsec_root=rvsec_root,
                 monitor_output_dir=monitor_output_dir,
                 working_dir=rv_android_dir,  # Use rv-android dir where lib/ exists
-                instrumented_dir=os.path.join(self.output_dir, INSTRUMENTED_APKS_DIR),
+                instrumented_dir=os.path.join(rv_android_dir, INSTRUMENTED_DIR),
                 keystore_password="password"
             )
         except InstrumentationConfigError as e:
@@ -933,7 +948,28 @@ class ExperimentConfig(BaseValidatedModel):
             
         return ExperimentDirectoryManager(base_dir=base_dir)
     
-    # Removed duplicate get_apk_list method - using the updated version at line 258
+    @ErrorHandler.handle_errors(component="ExperimentConfig", phase="apk_list")
+    def get_apk_list(self) -> List[str]:
+        """
+        Get list of APK files based on configuration.
+        
+        Returns:
+            List of APK file paths
+        """
+        apk_files = []
+        
+        # Single APK file
+        if self.apk_path and os.path.exists(self.apk_path):
+            apk_files.append(self.apk_path)
+        
+        # APK directory with patterns
+        if self.apk_dir and os.path.exists(self.apk_dir):
+            for pattern in self.apk_patterns:
+                import glob
+                pattern_path = os.path.join(self.apk_dir, pattern)
+                apk_files.extend(glob.glob(pattern_path))
+        
+        return sorted(list(set(apk_files)))  # Remove duplicates and sort
     
     @ErrorHandler.handle_errors(component="ExperimentConfig", phase="artifact_reuse_analysis")
     def analyze_artifact_reuse(self) -> Dict[str, Any]:

@@ -42,10 +42,11 @@ class StaticAnalysisComponent:
     - Provides a clean interface for static data operations
     """
 
-    def __init__(self, task: Task, event_bus: Optional[EventBus] = None):
-        """Initialize with task and optional event bus."""
+    def __init__(self, task: Task, apks_dir: str, event_bus: Optional[EventBus] = None):
+        """Initialize with task, APKs directory, and optional event bus."""
         self.name = "StaticAnalysisComponent"
         self.task = task
+        self.apks_dir = apks_dir
         self.event_bus = event_bus or EventBus.get_instance()
         self.error_handler = ErrorHandler.get_instance()
 
@@ -165,16 +166,17 @@ class StaticAnalysisComponent:
 
     def copy_static_analysis_files(self) -> bool:
         """
-        Copies static analysis files for current APK from instrumented directory to results directory.
+        Copies static analysis files for current APK from APKs directory to results directory.
         
         Based on the original ExecutionManager.copy_static_analysis_files method.
-        Copies files from ./out/ (INSTRUMENTED_DIR) to the task's results directory.
+        Copies files from the same directory where APKs are located to the task's results directory.
+        This ensures APKs and their static analysis files are kept together.
         
         Returns:
             True if at least one file was copied, False otherwise
         """
-        # Get the instrumented directory (source) - equivalent to INSTRUMENTED_DIR from settings.py
-        instrumented_dir = os.path.join(os.getcwd(), "out")
+        # Get the APKs directory (source) - where APKs and their static analysis files are located
+        instrumented_dir = self.apks_dir
         apk_name = self.task.config.apk_name
         target_dir = self.task.results_dir
         

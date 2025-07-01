@@ -70,7 +70,7 @@ class PostProcessor:
 
             # Notify that post-processing is complete
             self.event_bus.publish_experiment_event(
-                EventType.EXPERIMENT_STARTED,
+                EventType.EXPERIMENT_COMPLETED,
                 experiment_id="post_processing",
                 message="Post-processing completed",
                 source="PostProcessor"

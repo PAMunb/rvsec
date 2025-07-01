@@ -93,8 +93,12 @@ class ErrorHandler:
         self.register_handler(RVParsingError, self._handle_parsing_error)
         self.register_handler(RVPromptError, self._handle_prompt_error)
         self.register_handler(RVLLMError, self._handle_llm_error)
-        # Register generic handler last as fallback
+        # Register common system error handlers
+        self.register_handler(FileNotFoundError, self._handle_file_not_found_error)
+        # Register generic handlers - order matters: specific before generic
         self.register_handler(RVAndroidError, self._handle_generic_error)
+        # Register catch-all handler last as ultimate fallback
+        self.register_handler(Exception, self._handle_generic_exception)
         
         self._logger.debug(f"Registered built-in error handlers, total callbacks: {len(self._error_callbacks)}")
 
@@ -142,7 +146,7 @@ class ErrorHandler:
         callback_id = str(uuid.uuid4())[:8]
         
         def handler_wrapper(e, c):
-            if type(e) == error_type:
+            if isinstance(e, error_type):
                 return handler(e, c)
             return None
         
@@ -510,6 +514,92 @@ class ErrorHandler:
             if 'queue_size' in context:
                 self._logger.error(f"Queue size: {context['queue_size']}")
         return True  # Successfully handled
+
+    def _handle_file_not_found_error(self, error: FileNotFoundError, context: Optional[Dict[str, Any]] = None) -> bool:
+        """
+        Handle FileNotFoundError with context-aware response.
+        
+        ### Handling Strategy:
+        - For file verification operations (e.g., check_if_instrumented): treat as expected behavior
+        - For critical file operations: log as warning and let caller handle
+        - Provides consistent behavior across all modules
+        
+        Args:
+            error: The FileNotFoundError
+            context: Optional context information
+            
+        Returns:
+            True if handled gracefully, False if should propagate
+        """
+        if context:
+            operation = context.get('operation', '')
+            component = context.get('component', 'unknown')
+            
+            # Handle expected cases where file absence is normal
+            expected_operations = [
+                'check_if_instrumented',  # APK may not exist yet
+                'check_if_exists',        # General existence checks
+                'verify_file',            # File verification operations
+                'get_file_hash',          # Hash calculation for optional files
+            ]
+            
+            if any(op in operation.lower() for op in expected_operations):
+                self._logger.debug(f"File not found during {operation} in {component} (expected): {error.filename}")
+                return True  # Handle gracefully - this is expected behavior
+            
+            # For other operations, log as warning but don't handle
+            self._logger.warning(f"File not found during {operation} in {component}: {error.filename}")
+            
+        else:
+            # No context - log as warning
+            self._logger.warning(f"File not found: {error.filename or str(error)}")
+        
+        return False  # Don't handle - let caller decide
+
+    def _handle_generic_exception(self, error: Exception, context: Optional[Dict[str, Any]] = None) -> bool:
+        """
+        Handle any unhandled exception as a catch-all fallback.
+        
+        ### Handling Strategy:
+        - Provides graceful degradation for any unhandled exception type
+        - Logs error details with context for debugging
+        - Allows system to continue operation instead of crashing
+        - Should be registered last to catch exceptions not handled by specific handlers
+        
+        Args:
+            error: Any exception that wasn't handled by specific handlers
+            context: Optional context information
+            
+        Returns:
+            True if handled gracefully (allows continuation), False if should propagate
+        """
+        error_type = type(error).__name__
+        
+        if context:
+            component = context.get('component', 'unknown')
+            operation = context.get('operation', 'unknown')
+            
+            # Check if this is a non-critical operation that can continue
+            non_critical_operations = [
+                'static_analysis',
+                'file_copy',
+                'artifact_validation',
+                'optional_processing'
+            ]
+            
+            if any(op in operation.lower() for op in non_critical_operations):
+                self._logger.warning(f"Non-critical {error_type} in {component} during {operation}: {error}")
+                return True  # Handle gracefully - allow continuation
+            
+            # For other operations, log as error but still handle to prevent crashes
+            self._logger.error(f"Unhandled {error_type} in {component} during {operation}: {error}")
+            
+        else:
+            # No context - log as generic error
+            self._logger.error(f"Unhandled {error_type}: {error}")
+        
+        # Always handle to prevent system crashes - let caller decide if critical
+        return True
 
 
 # Global convenience functions for easy access to enhanced features

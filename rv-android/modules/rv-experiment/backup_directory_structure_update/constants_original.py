@@ -20,12 +20,11 @@ from pathlib import Path
 # Base directories following original structure
 WORKING_DIR = os.getcwd()
 
-# Core directory structure - Updated for new architecture
-RESULTS_DIR = "results"                    # Individual experiment results (persistent)
-INSTRUMENTED_DIR = "out"                   # Temporary artifacts directory (output_dir default)
-MONITORS_DIR = "monitors"                  # Generated monitors (within output_dir)
-INSTRUMENTED_APKS_DIR = "instrumented_apks" # Instrumented APK files (within output_dir)
-STATIC_ANALYSIS_DIR = "static_analysis"   # Static analysis results (within output_dir)
+# Core directory structure (matches original settings.py)
+RESULTS_DIR = "results"                    # Individual experiment results
+INSTRUMENTED_DIR = "out"                   # Pre-processing artifacts (APKs, static analysis)
+MONITORS_DIR = "mop_out"                   # Generated monitors
+STATIC_ANALYSIS_DIR = "static_analysis"   # Static analysis results within experiments
 
 # Default source directories
 DEFAULT_APKS_DIR = "apks_examples"
@@ -72,56 +71,52 @@ def get_absolute_path(relative_path: str) -> str:
     """
     return os.path.join(WORKING_DIR, relative_path)
 
-def get_experiment_dir(results_dir: str, experiment_id: str) -> str:
+def get_experiment_dir(experiment_id: str) -> str:
     """
-    Get experiment directory path within results directory.
+    Get experiment directory path.
     
     Args:
-        results_dir: Results directory path
         experiment_id: Unique experiment identifier
         
     Returns:
         Experiment directory path
     """
-    return os.path.join(results_dir, experiment_id)
+    return os.path.join(RESULTS_DIR, experiment_id)
 
-def get_apk_results_dir(results_dir: str, experiment_id: str, apk_name: str) -> str:
+def get_apk_results_dir(experiment_id: str, apk_name: str) -> str:
     """
     Get APK-specific results directory within experiment.
     
     Args:
-        results_dir: Results directory path
         experiment_id: Unique experiment identifier
         apk_name: APK filename
         
     Returns:
         APK results directory path
     """
-    return os.path.join(get_experiment_dir(results_dir, experiment_id), apk_name)
+    return os.path.join(get_experiment_dir(experiment_id), apk_name)
 
-def get_static_analysis_source_path(output_dir: str, apk_name: str, extension: str) -> str:
+def get_static_analysis_source_path(apk_name: str, extension: str) -> str:
     """
-    Get source path for static analysis file within output directory.
+    Get source path for static analysis file.
     
     Args:
-        output_dir: Output directory path
         apk_name: APK filename
         extension: File extension (e.g., .gesda, .gator, .reach)
         
     Returns:
-        Source file path in static analysis directory
+        Source file path in INSTRUMENTED_DIR
     """
-    return os.path.join(output_dir, STATIC_ANALYSIS_DIR, f"{apk_name}{extension}")
+    return os.path.join(INSTRUMENTED_DIR, f"{apk_name}{extension}")
 
-def get_instrumented_apk_path(output_dir: str, apk_name: str) -> str:
+def get_instrumented_apk_path(apk_name: str) -> str:
     """
-    Get path to instrumented APK within output directory.
+    Get path to instrumented APK.
     
     Args:
-        output_dir: Output directory path
         apk_name: Original APK filename
         
     Returns:
         Instrumented APK path
     """
-    return os.path.join(output_dir, INSTRUMENTED_APKS_DIR, apk_name)
+    return os.path.join(INSTRUMENTED_DIR, apk_name)

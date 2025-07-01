@@ -24,6 +24,7 @@ from rv_platform.config.platform_config import PlatformConfig, ToolConfig
 
 from rv_platform.storage.task_storage import TaskStorage
 from rv_experiment.config import ExperimentConfig
+from rv_experiment.constants import INSTRUMENTED_APKS_DIR
 
 
 class ExecutionController:
@@ -183,6 +184,9 @@ class ExecutionController:
                 # Execute through rv-platform
                 results = self.platform.run()
                 
+                # Transfer tasks from rv-platform to rv-experiment TaskStorage
+                self._transfer_platform_tasks_to_experiment()
+                
                 # Track execution results
                 self.has_errors = results.get('failed_tasks', 0) > 0
                 
@@ -228,16 +232,15 @@ class ExecutionController:
         Returns:
             PlatformConfig configured for experiment execution
         """
-        # Create temporary directory for platform execution within experiment results
-        platform_results_dir = os.path.join(self.base_results_dir, "platform_execution")
-        os.makedirs(platform_results_dir, exist_ok=True)
+        # Use experiment results directory directly (no subdirectory)
+        platform_results_dir = self.base_results_dir
 
-        # Determine APKs directory from experiment configuration
-        if hasattr(self.config, 'get_instrumented_dir'):
-            apks_dir = self.config.get_instrumented_dir()
-        else:
-            # Fallback to current working directory if instrumented dir not available
-            apks_dir = os.getcwd()
+        # Use instrumented APKs directory from experiment output_dir
+        apks_dir = os.path.join(self.config.output_dir, INSTRUMENTED_APKS_DIR)
+        
+        # Fallback to original APKs if instrumented directory doesn't exist
+        if not os.path.exists(apks_dir) or not os.listdir(apks_dir):
+            apks_dir = self.config.apks_dir
 
         # Convert experiment tools to platform tool configurations
         platform_tools = []
@@ -264,6 +267,37 @@ class ExecutionController:
                         f"{repetitions} repetitions, {len(timeouts)} timeouts")
 
         return platform_config
+
+    def _transfer_platform_tasks_to_experiment(self) -> None:
+        """
+        Transfer completed tasks from rv-platform to rv-experiment TaskStorage.
+        
+        ### Integration Strategy:
+        - Retrieves tasks from rv-platform after execution
+        - Converts platform task format to experiment task format
+        - Stores tasks in experiment TaskStorage for result processing
+        - Enables ResultManager to access completed tasks for reporting
+        """
+        try:
+            # Get tasks from rv-platform
+            platform_tasks = self.platform.get_tasks_summary()
+            self.logger.info(f"Transferring {len(platform_tasks)} tasks from rv-platform to experiment storage")
+            
+            # Import Task model from rv-platform to convert tasks
+            from rv_platform.execution.task_model import Task as PlatformTask
+            
+            for task_data in platform_tasks:
+                # Create Task object from dictionary data using from_dict method
+                task = PlatformTask.from_dict(task_data)
+                if task:
+                    # Add task to experiment storage
+                    self.task_storage.add_task(task)
+                    
+            self.logger.info(f"Successfully transferred {len(platform_tasks)} tasks to experiment storage")
+            
+        except Exception as e:
+            self.logger.error(f"Failed to transfer platform tasks: {e}")
+            # Continue execution - this is not critical for basic functionality
 
     @ErrorHandler.handle_errors(
         component="ExecutionController",

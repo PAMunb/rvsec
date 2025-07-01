@@ -3,14 +3,17 @@
 # RV-Android Cleanup Script
 # WARNING: This script removes directories with experiment artifacts and temporary files
 
-OUT_DIR="out"                    # Instrumented APKs directory  
-OUTPUT_DIR="output"              # Output directory for monitors and instrumented APKs
+# New directory structure
+OUT_DIR="out"                    # Default output directory (temporary artifacts)
 LIB_TMP="lib_tmp"                # Maven dependencies
-MOP_OUT="mop_out"                # Generated monitors (legacy)
 TMP_DIR="tmp"                    # Temporary files
 RVM_TMP_DIR="rvm_tmp"            # RVM temporary files
-RESULTS_DIR="results"            # Experiment results
+RESULTS_DIR="results"            # Experiment results (persistent)
 SOOT_OUTPUT="sootOutput"         # Soot compiler output
+
+# Legacy directories (for compatibility)
+OUTPUT_DIR="output"              # Legacy output directory
+MOP_OUT="mop_out"                # Legacy generated monitors directory
 
 # Parse command line arguments
 CLEAN_RESULTS=false
@@ -30,9 +33,9 @@ for arg in "$@"; do
             echo "  --help, -h         Show this help message"
             echo ""
             echo "Directories cleaned:"
-            echo "  - $OUT_DIR (instrumented APKs)"
-            echo "  - $OUTPUT_DIR (output directory for monitors and instrumented APKs)"
-            echo "  - $MOP_OUT (generated monitors - legacy)"
+            echo "  - $OUT_DIR/ (default output directory with monitors/, instrumented_apks/, static_analysis/)"
+            echo "  - */monitors/, */instrumented_apks/, */static_analysis/ (experiment artifacts in any output directory)"
+            echo "  - $OUTPUT_DIR, $MOP_OUT (legacy directories for compatibility)"
             echo "  - $TMP_DIR, $RVM_TMP_DIR (temporary files)"
             echo "  - $LIB_TMP (maven dependencies)"
             echo "  - __pycache__, $SOOT_OUTPUT (build artifacts)"
@@ -51,7 +54,19 @@ echo "[+] Cleaning RV-Android artifacts..."
 
 # Standard cleanup (always performed)
 echo "    Removing temporary and build directories..."
-rm -rf __pycache__ $TMP_DIR $RVM_TMP_DIR $LIB_TMP $OUT_DIR $OUTPUT_DIR $MOP_OUT $SOOT_OUTPUT
+rm -rvf __pycache__ $TMP_DIR $RVM_TMP_DIR $LIB_TMP $SOOT_OUTPUT
+
+# Remove default output directory and its subdirectories
+echo "    Removing default output directory and experiment artifacts..."
+rm -rvf $OUT_DIR
+
+# Remove legacy directories for compatibility
+echo "    Removing legacy directories..."
+rm -rvf $OUTPUT_DIR $MOP_OUT
+
+# Remove experiment artifacts from any custom output directories
+echo "    Removing experiment artifacts from custom directories..."
+find . -maxdepth 2 -type d \( -name "monitors" -o -name "instrumented_apks" -o -name "static_analysis" \) -exec rm -rvf {} + 2>/dev/null || true
 
 echo "    Removing compilation artifacts..."
 rm -f *.dex ajcore*.txt 2>/dev/null
@@ -63,5 +78,7 @@ if [ "$CLEAN_RESULTS" = true ]; then
 fi
 
 echo "[+] Cleanup completed successfully"
-echo "    Use './clear.sh --clean-results' to also remove experiment results"
+echo "    Cleaned: default output directory ($OUT_DIR/), legacy directories, and experiment artifacts"
+echo "    Use './clear.sh --clean-results' to also remove persistent experiment results ($RESULTS_DIR/)"
 echo "    Use 'modules/clean.sh' to clean module build artifacts"
+echo "    Note: Custom output directories are also cleaned of experiment artifacts"

@@ -179,7 +179,7 @@ class Platform:
                 
                 # Register all essential components in execution order
                 components = [
-                    StaticAnalysisComponent(task, self.event_bus),
+                    StaticAnalysisComponent(task, self.config.apks_dir, self.event_bus),
                     EmulatorComponent(task, self.event_bus),
                     LogcatComponent(task, self.event_bus),
                     CoverageComponent(task, self.event_bus),

@@ -13,6 +13,7 @@ from rv_android_core.util.error.error_handler import ErrorHandler
 from rv_android_core.util.logging.constants import LOG_START, CONTEXT_COMPONENT, LOG_COMPLETE, LOG_ERROR
 from rv_android_core.util.logging.manager import LoggingManager
 from rv_experiment.config import ExperimentConfig
+from rv_experiment.constants import MONITORS_DIR, INSTRUMENTED_APKS_DIR, STATIC_ANALYSIS_DIR
 
 
 class PreProcessor:
@@ -86,6 +87,10 @@ class PreProcessor:
             self.logger.info(LOG_START.format(phase="monitor generation"))
             
             try:
+                # Ensure monitor output directory exists
+                monitor_output_dir = os.path.join(self.config.output_dir, MONITORS_DIR)
+                os.makedirs(monitor_output_dir, exist_ok=True)
+                
                 # Get monitored operations configuration
                 rv_config = self.config.get_monitored_operations_config()
                 
@@ -93,7 +98,6 @@ class PreProcessor:
                 from rv_monitor_generator.runtime_verification_generator import RuntimeVerificationGenerator
                 
                 generator = RuntimeVerificationGenerator(rv_config)
-                monitor_output_dir = os.path.join(self.config.output_dir, "mop_out")
                 
                 success = generator.generate_monitors(monitor_output_dir)
                 if not success:
@@ -124,7 +128,11 @@ class PreProcessor:
             self.logger.info(LOG_START.format(phase="APK instrumentation"))
             
             try:
-                # Get instrumentation configuration
+                # Ensure required directories exist
+                instrumented_dir = os.path.join(self.config.output_dir, INSTRUMENTED_APKS_DIR)
+                os.makedirs(instrumented_dir, exist_ok=True)
+                
+                # Get instrumentation configuration (monitors should already be generated)
                 instrumentation_config = self.config.get_rv_instrumentation_config()
                 
                 # Import and use instrumentation module
@@ -138,9 +146,9 @@ class PreProcessor:
                     return
                 
                 # Execute instrumentation
-                instrumented_dir = os.path.join(self.config.output_dir, "out")
+                instrumented_dir = os.path.join(self.config.output_dir, INSTRUMENTED_APKS_DIR)
                 success = instrumenter.instrument_apks(
-                    apks_dir=self.config.apk_dir,
+                    apks_dir=self.config.apks_dir,
                     results_dir=instrumented_dir
                 )
                 
@@ -154,7 +162,7 @@ class PreProcessor:
                 error_context = {
                     "component": "PreProcessor", 
                     "operation": "apk_instrumentation",
-                    "apk_dir": self.config.apk_dir,
+                    "apks_dir": self.config.apks_dir,
                     "output_dir": self.config.output_dir
                 }
                 self.error_handler.handle_error(e, error_context)
@@ -171,7 +179,7 @@ class PreProcessor:
 
     def _copy_original_apks(self):
         """Copy original APKs to output directory as fallback."""
-        instrumented_dir = os.path.join(self.config.output_dir, "out")
+        instrumented_dir = os.path.join(self.config.output_dir, INSTRUMENTED_APKS_DIR)
         os.makedirs(instrumented_dir, exist_ok=True)
         
         import shutil
@@ -214,9 +222,13 @@ class PreProcessor:
                         try:
                             self.logger.info(LOG_START.format(phase=f"static analysis for {apk_name}"))
                             
+                            # Use instrumented APKs directory for static analysis output
+                            # This keeps APKs and their static analysis files together
+                            apk_output_dir = os.path.join(self.config.output_dir, INSTRUMENTED_APKS_DIR)
+                            os.makedirs(apk_output_dir, exist_ok=True)
+                            
                             # Create App instance and analyzer
                             app = App(app_path=apk_path)
-                            apk_output_dir = os.path.join(self.config.output_dir, apk_name)
                             
                             analyzer = StaticAnalyzer(
                                 app=app,
@@ -265,7 +277,7 @@ class PreProcessor:
         target_apks = []
         
         # Try instrumented APKs first
-        instrumented_dir = os.path.join(self.config.output_dir, "out")
+        instrumented_dir = os.path.join(self.config.output_dir, INSTRUMENTED_APKS_DIR)
         if os.path.exists(instrumented_dir):
             for file in os.listdir(instrumented_dir):
                 if file.endswith(EXTENSION_APK):
@@ -286,7 +298,7 @@ class PreProcessor:
         """
         with self.logger.with_context(phase="find_instrumented_apks"):
             apks = []
-            instrumented_dir = os.path.join(self.config.output_dir, "out")
+            instrumented_dir = os.path.join(self.config.output_dir, INSTRUMENTED_APKS_DIR)
             
             if os.path.exists(instrumented_dir):
                 for file in os.listdir(instrumented_dir):

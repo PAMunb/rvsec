@@ -106,8 +106,7 @@ def tmp_experiment_config_creation():
             repetitions=1,
             timeouts=[300],
             specification_set="jca",
-            apk_dir="./apks_examples/",
-            apk_patterns=["*.apk"]
+            apks_dir="./apks_examples/"
         )
         
         print(f"✅ ExperimentConfig created: {config.name}")
@@ -148,7 +147,7 @@ def tmp_platform_integration():
                 tool_configs=[ToolConfig(name="monkey")],
                 repetitions=1,
                 timeouts=[60],
-                apk_dir="./apks_examples/"
+                apks_dir="./apks_examples/"
             )
             
             execution_controller = ExecutionController(task_storage, config, event_bus)
@@ -207,15 +206,16 @@ def tmp_experiment_controller():
         
         # Create configuration for actual execution
         config = ExperimentConfig(
-            name="integration_test",
-            description="Integration test with actual execution",
+            name="aaaa",
+            # description="Integration test with actual execution",
             tool_configs=[ToolConfig(name="monkey", parameters={"count": 10})],  # Short monkey test
             repetitions=1,
             timeouts=[30],  # Short timeout for quick test
             specification_set="custom",  # Use custom specs from specs_mini
-            apk_dir="./apks_examples/"
+            apks_dir="./apks_examples/"
         )
-        config.output_dir = "./results"
+        config.output_dir = "./out"  # Temporary artifacts directory
+        config.results_dir = "./results"     # Persistent results directory
         config.custom_specs_dir = "./specs_mini"
         config.generate_monitors = True
         config.instrument_apks = True
@@ -246,7 +246,7 @@ def tmp_experiment_controller():
         try:
             apks = config.get_apk_list()
             if not apks:
-                print(f"⚠️ No APKs found in {config.apk_dir}, creating a dummy test")
+                print(f"⚠️ No APKs found in {config.apks_dir}, creating a dummy test")
                 print("✅ Integration validated (no APKs available for testing)")
                 return True
         except Exception as e:
@@ -333,5 +333,9 @@ def run_manual_test():
     return passed == total
 
 if __name__ == "__main__":
+    current_directory = os.getcwd()
+    parent_directory = os.path.dirname(current_directory)
+    os.environ[constants.ENV_RVSEC_HOME] = parent_directory
+
     success = run_manual_test()
     sys.exit(0 if success else 1)

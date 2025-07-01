@@ -108,7 +108,7 @@ class ConfigurationFactory:
                 tools=tools,
                 timeout=timeout,
                 repetitions=repetitions,
-                apk_dir=apk_dir,
+                apks_dir=apk_dir,
                 specification_set=specification_set,
                 **kwargs
             )

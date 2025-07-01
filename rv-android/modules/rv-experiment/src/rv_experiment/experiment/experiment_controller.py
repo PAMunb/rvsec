@@ -19,7 +19,10 @@ from rv_experiment.experiment.workflow.post_processor import PostProcessor
 from rv_experiment.experiment.workflow.pre_processor import PreProcessor
 from rv_experiment.experiment.workflow.result_manager import ResultManager
 from rv_experiment.config import ExperimentConfig
-from rv_experiment.constants import EXPERIMENT_LOGS_DIR, EXPERIMENT_TASKS_FILE
+from rv_experiment.constants import (
+    EXPERIMENT_LOGS_DIR, EXPERIMENT_TASKS_FILE, MONITORS_DIR, 
+    INSTRUMENTED_APKS_DIR, STATIC_ANALYSIS_DIR
+)
 import rv_android_core.util.utils as utils
 
 class ExperimentController:
@@ -69,11 +72,15 @@ class ExperimentController:
             }
         )
 
-        # Create experiment directory inside output directory
-        self.results_dir = config.output_dir # os.path.join(config.output_dir, self.experiment_id)
-        print(f"*** results_dir={self.results_dir}")
+        # Use experiment directory from config (inside results_dir)
+        self.results_dir = config.experiment_dir
         utils.create_folder_if_not_exists(self.results_dir)
-        # os.makedirs(self.results_dir, exist_ok=True)
+        
+        # Create output directory structure for temporary artifacts
+        utils.create_folder_if_not_exists(config.output_dir)
+        utils.create_folder_if_not_exists(os.path.join(config.output_dir, MONITORS_DIR))
+        utils.create_folder_if_not_exists(os.path.join(config.output_dir, INSTRUMENTED_APKS_DIR))
+        # Note: static analysis files are now generated directly in instrumented_apks directory
 
         # Set up file logging for this experiment
         self.logging_manager.setup_file_logging(
@@ -83,10 +90,7 @@ class ExperimentController:
 
         # Create task storage
         storage_file = os.path.join(self.results_dir, EXPERIMENT_TASKS_FILE)
-        print(f"storage_file={storage_file}")
         self.task_storage = TaskStorage(storage_file)
-
-        # exit(1)
 
         # Initialize workflow components directly (simplified approach)
         self.pre_processor = PreProcessor(config, self.event_bus)
@@ -168,6 +172,9 @@ class ExperimentController:
             self.logger.info(LOG_START.format(phase=f"experiment {self.experiment_id}"))
 
             try:
+                # Save experiment configuration early
+                self.save_experiment_config()
+
                 # Publish experiment started event
                 self.event_bus.publish_experiment_event(
                     EventType.EXPERIMENT_STARTED,
@@ -225,7 +232,7 @@ class ExperimentController:
 
                 # Phase 5: Results management
                 self.logger.info("Starting results management phase")
-                self.result_manager.process()
+                self.result_manager.generate_reports()
 
                 # Publish experiment completed event
                 self.event_bus.publish_experiment_event(
@@ -309,8 +316,7 @@ class ExperimentController:
             # Save final task state
             self.task_storage.save()
             
-            # Save experiment configuration
-            self.save_experiment_config()
+            # Configuration already saved at experiment start
             
             self.logger.info(f"Experiment {self.experiment_id} cleanup completed")
             
