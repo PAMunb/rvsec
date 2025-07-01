@@ -7,38 +7,12 @@ separation of concerns and enabling dependency injection.
 """
 
 from abc import ABC, abstractmethod
-from enum import Enum, auto
-from typing import Dict, List, Any, Optional, TypeVar
+from typing import Dict, List, Any, Optional, TypeVar, TYPE_CHECKING
 
-
-class TaskState(Enum):
-    """
-    Enum representing possible states in the task lifecycle.
-    
-    ### Architectural Decisions:
-    - Uses auto() for value assignment to focus on state names rather than values
-    - Organizes states in a logical flow sequence
-    - Represents a complete task lifecycle from creation to completion
-    - Supports error and cancellation states for robust lifecycle management
-    
-    ### Role in the System:
-    - Defines the possible states in a task's lifecycle
-    - Enables clear tracking of task progress
-    - Supports state-based flow control and decision making
-    - Facilitates reporting and visualization of task status
-    """
-    CREATED = auto()  # Task has been created but not yet configured
-    CONFIGURED = auto()  # Task has been configured with all required settings
-    INITIALIZING = auto()  # Task is preparing for execution (setting up directories, etc.)
-    READY = auto()  # Task is fully initialized and ready for execution
-    RUNNING = auto()  # Task is currently executing
-    PAUSED = auto()  # Task execution has been temporarily paused
-    COMPLETED = auto()  # Task has completed successfully
-    ERROR = auto()  # Task encountered an error during execution
-    CANCELED = auto()  # Task was explicitly canceled
-    CLEANUP = auto()  # Task is cleaning up resources
-    ARCHIVED = auto()  # Task has been archived for long-term storage
-
+# TaskState is now located in rv_platform.execution.task_model to avoid duplication
+# and ensure compatibility with serialization/deserialization
+if TYPE_CHECKING:
+    from rv_platform.execution.task_model import TaskState
 
 T = TypeVar('T')
 
@@ -271,7 +245,7 @@ class ITaskStorage(ABC):
         pass
 
     @abstractmethod
-    def get_tasks_by_state(self, state: TaskState) -> List[Any]:
+    def get_tasks_by_state(self, state: 'TaskState') -> List[Any]:
         """
         Get tasks with specified state.
         

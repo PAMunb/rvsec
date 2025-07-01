@@ -85,6 +85,10 @@ class CoverageComponent:
         """
         self.logger.debug("Initializing CoverageComponent")
 
+    @ErrorHandler.handle_errors(
+        component="CoverageComponent",
+        phase="execution"
+    )
     def execute(self, context: Dict[str, Any]) -> bool:
         """
         Execute coverage initialization for the task.
@@ -138,6 +142,10 @@ class CoverageComponent:
                 self.logger.error(f"Error parsing logcat file: {e}")
                 self.error_handler.handle_error(e, {"task_id": self.task.id, "phase": "parse_logcat"})
 
+    @ErrorHandler.handle_errors(
+        component="CoverageComponent",
+        phase="tracker_initialization"
+    )
     def initialize_tracker(self) -> bool:
         """
         Initialize the coverage tracker.
@@ -148,10 +156,16 @@ class CoverageComponent:
         with self.logger.with_context(phase="initialize_tracker"):
             try:
                 self.logger.info(LOG_START.format(phase="initializing coverage tracker"))
+                
+                # CRITICAL: Use tool_execution_start for accurate timing in CSV generation
+                # tool_execution_start reflects when the actual tool began execution (after emulator setup)
+                # This ensures coverage.csv and errors.csv have accurate timing that excludes setup overhead
+                timing_reference = self.task.result.tool_execution_start or self.task.result.start_time
+                
                 self.coverage_tracker = CoverageTracker(
                     logcat_file=self.task.result.logcat_file,
                     static_data=getattr(self.task, 'static_data', None),
-                    task_start_time=self.task.result.start_time
+                    task_start_time=timing_reference
                 )
 
                 self.logger.info(LOG_COMPLETE.format(phase="initializing coverage tracker"))
@@ -167,6 +181,10 @@ class CoverageComponent:
                 )
                 return False
 
+    @ErrorHandler.handle_errors(
+        component="CoverageComponent",
+        phase="start_tracking"
+    )
     def start_tracking(self) -> bool:
         """
         Start coverage tracking.
@@ -203,6 +221,10 @@ class CoverageComponent:
                 )
                 return False
 
+    @ErrorHandler.handle_errors(
+        component="CoverageComponent",
+        phase="stop_tracking"
+    )
     def stop_tracking(self) -> bool:
         """
         Stop coverage tracking.
@@ -238,6 +260,10 @@ class CoverageComponent:
                 )
                 return False
 
+    @ErrorHandler.handle_errors(
+        component="CoverageComponent",
+        phase="process_results"
+    )
     def process_results(self) -> bool:
         """
         Process coverage results and update task metrics.

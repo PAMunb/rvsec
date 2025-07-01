@@ -49,8 +49,13 @@ def mock_config(tmp_path):
     instrumented_dir = tmp_path / "instrumented"
     instrumented_dir.mkdir(exist_ok=True)
     
+    # Create apks directory for validation
+    apks_dir = tmp_path / "apks"
+    apks_dir.mkdir(exist_ok=True)
+    
     mock_config = MagicMock(spec=ExperimentConfig)
     mock_config.output_dir = str(tmp_path)
+    mock_config.apks_dir = str(apks_dir)  # Add missing apks_dir attribute
     mock_config.get_instrumented_dir.return_value = str(instrumented_dir)
     mock_config.get_timestamp_string.return_value = "20230101_120000"
     return mock_config

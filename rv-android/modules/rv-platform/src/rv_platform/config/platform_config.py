@@ -10,7 +10,7 @@ from typing import List, Optional, Dict, Any
 from pathlib import Path
 import json
 
-from pydantic import Field, validator
+from pydantic import Field, field_validator
 from rv_android_core.util.validation.base import BaseValidatedModel
 
 
@@ -20,7 +20,8 @@ class ToolConfig(BaseValidatedModel):
     variants: List[str] = Field(default_factory=list, description="Tool variants to execute")
     parameters: Dict[str, Any] = Field(default_factory=dict, description="Tool-specific parameters")
 
-    @validator('name')
+    @field_validator('name')
+    @classmethod
     def validate_name(cls, v):
         if not v or not v.strip():
             raise ValueError("Tool name cannot be empty")
@@ -57,7 +58,8 @@ class PlatformConfig(BaseValidatedModel):
     task_storage_file: str = Field(default="tasks.json", description="Task persistence file")
     log_level: str = Field(default="INFO", description="Logging level")
 
-    @validator('apks_dir')
+    @field_validator('apks_dir')
+    @classmethod
     def validate_apks_dir(cls, v):
         if not v or not v.strip():
             raise ValueError("APKs directory cannot be empty")
@@ -68,19 +70,22 @@ class PlatformConfig(BaseValidatedModel):
             raise ValueError(f"APKs directory is not a directory: {path}")
         return str(path)
 
-    @validator('tools')
+    @field_validator('tools')
+    @classmethod
     def validate_tools(cls, v):
         if not v:
             raise ValueError("At least one tool must be specified")
         return v
 
-    @validator('repetitions')
+    @field_validator('repetitions')
+    @classmethod
     def validate_repetitions(cls, v):
         if v < 1:
             raise ValueError("Repetitions must be at least 1")
         return v
 
-    @validator('timeouts')
+    @field_validator('timeouts')
+    @classmethod
     def validate_timeouts(cls, v):
         if not v:
             raise ValueError("At least one timeout must be specified")
@@ -89,13 +94,15 @@ class PlatformConfig(BaseValidatedModel):
                 raise ValueError(f"Timeout must be at least 1 second: {timeout}")
         return v
 
-    @validator('max_parallel_tasks')
+    @field_validator('max_parallel_tasks')
+    @classmethod
     def validate_max_parallel_tasks(cls, v):
         if v < 1:
             raise ValueError("Max parallel tasks must be at least 1")
         return v
 
-    @validator('log_level')
+    @field_validator('log_level')
+    @classmethod
     def validate_log_level(cls, v):
         valid_levels = ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL']
         if v.upper() not in valid_levels:

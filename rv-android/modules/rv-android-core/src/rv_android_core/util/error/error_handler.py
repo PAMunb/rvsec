@@ -13,7 +13,7 @@ from rv_android_core.util.exceptions import (
     RVExperimentError, RVExperimentSetupError, RVExperimentExecutionError,
     RVParsingError, RVLLMError, RVPromptError,
     RVValidationError, CommandValidationError, LogcatValidationError,
-    EventProcessingError
+    EventProcessingError, ConfigurationError
 )
 from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
 from rv_android_core.util.logging.manager import LoggingManager
@@ -146,7 +146,7 @@ class ErrorHandler:
         callback_id = str(uuid.uuid4())[:8]
         
         def handler_wrapper(e, c):
-            if isinstance(e, error_type):
+            if type(e) == error_type:  # Exact type matching
                 return handler(e, c)
             return None
         
@@ -563,7 +563,8 @@ class ErrorHandler:
         ### Handling Strategy:
         - Provides graceful degradation for any unhandled exception type
         - Logs error details with context for debugging
-        - Allows system to continue operation instead of crashing
+        - Does NOT handle validation errors, configuration errors, or ValueError (let them propagate)
+        - Does NOT handle exceptions in decorator context with reraise=True (let them propagate)
         - Should be registered last to catch exceptions not handled by specific handlers
         
         Args:
@@ -575,9 +576,32 @@ class ErrorHandler:
         """
         error_type = type(error).__name__
         
+        # Don't handle validation errors - let them propagate to tests/callers
+        from pydantic_core import ValidationError as PydanticValidationError
+        critical_error_types = (
+            ValueError,
+            PydanticValidationError,
+            ConfigurationError,
+            RVValidationError,
+            CommandValidationError,
+            LogcatValidationError
+        )
+        
+        if isinstance(error, critical_error_types):
+            self._logger.debug(f"Not handling {error_type} - allowing propagation")
+            return False  # Don't handle - let it propagate
+        
         if context:
             component = context.get('component', 'unknown')
             operation = context.get('operation', 'unknown')
+            phase = context.get('phase', 'unknown')
+            
+            # If this is from a decorator context (ToolFactory decorators should propagate)
+            # Don't handle exceptions in decorator context - let them be re-raised
+            decorator_phases = ['tool_copy', 'tool_creation', 'tool_instantiation']
+            if phase in decorator_phases:
+                self._logger.debug(f"Not handling {error_type} in decorator phase '{phase}' - allowing propagation")
+                return False  # Let decorator handle reraise logic
             
             # Check if this is a non-critical operation that can continue
             non_critical_operations = [
@@ -591,14 +615,14 @@ class ErrorHandler:
                 self._logger.warning(f"Non-critical {error_type} in {component} during {operation}: {error}")
                 return True  # Handle gracefully - allow continuation
             
-            # For other operations, log as error but still handle to prevent crashes
+            # For other operations, log as error but don't handle critical errors
             self._logger.error(f"Unhandled {error_type} in {component} during {operation}: {error}")
             
         else:
             # No context - log as generic error
             self._logger.error(f"Unhandled {error_type}: {error}")
         
-        # Always handle to prevent system crashes - let caller decide if critical
+        # For non-critical errors, handle to prevent system crashes
         return True
 
 

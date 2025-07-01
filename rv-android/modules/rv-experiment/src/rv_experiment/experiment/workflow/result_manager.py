@@ -23,9 +23,9 @@ from rv_android_core.util.logging.constants import (
 )
 from rv_android_core.util.logging.manager import LoggingManager
 from rv_android_core.event import EventBus, EventType
-# Import TaskState from rv-experiment (interfaces remain for backward compatibility)
+# Import TaskState from rv-platform execution model (the one actually used in task serialization)
 # Import TaskStorage from rv-platform where it now resides
-from rv_platform.interfaces.task_interfaces import TaskState
+from rv_platform.execution.task_model import TaskState
 from rv_platform.storage.task_storage import TaskStorage
 
 
@@ -146,6 +146,13 @@ class ResultManager:
         try:
             # Get all tasks and filter for completed ones
             all_tasks = self.task_storage.get_tasks()
+            
+            # Debug: log task states for investigation
+            for task in all_tasks:
+                if hasattr(task, 'result'):
+                    state = getattr(task.result, 'state', None)
+                    self.logger.debug(f"Task {task.id}: state={state}, type={type(state)}, expected={TaskState.COMPLETED}")
+            
             completed_tasks = [
                 task for task in all_tasks
                 if hasattr(task, 'result') and

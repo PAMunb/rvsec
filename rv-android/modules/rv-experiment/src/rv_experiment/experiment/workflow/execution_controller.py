@@ -268,32 +268,51 @@ class ExecutionController:
 
         return platform_config
 
+    @ErrorHandler.handle_errors(
+        component="ExecutionController",
+        phase="task_transfer"
+    )
     def _transfer_platform_tasks_to_experiment(self) -> None:
         """
         Transfer completed tasks from rv-platform to rv-experiment TaskStorage.
         
         ### Integration Strategy:
-        - Retrieves tasks from rv-platform after execution
-        - Converts platform task format to experiment task format
+        - Retrieves task objects directly from rv-platform (no serialization)
+        - Preserves static_data required for proper repository population
+        - Triggers logcat parsing to populate task repositories for CSV generation
         - Stores tasks in experiment TaskStorage for result processing
-        - Enables ResultManager to access completed tasks for reporting
+        - Enables ResultManager to access completed tasks with coverage data
+        
+        ### Critical Implementation Detail:
+        This method calls task.get_repository() to trigger logcat parsing which populates
+        the repository with method calls and errors from the logcat files. Since static_data
+        is preserved, method calls are properly recognized and CSV files are populated.
         """
         try:
-            # Get tasks from rv-platform
-            platform_tasks = self.platform.get_tasks_summary()
+            # Get tasks directly from rv-platform (no serialization - preserves static_data)
+            platform_tasks = self.platform.get_tasks()
             self.logger.info(f"Transferring {len(platform_tasks)} tasks from rv-platform to experiment storage")
             
-            # Import Task model from rv-platform to convert tasks
-            from rv_platform.execution.task_model import Task as PlatformTask
-            
-            for task_data in platform_tasks:
-                # Create Task object from dictionary data using from_dict method
-                task = PlatformTask.from_dict(task_data)
-                if task:
-                    # Add task to experiment storage
-                    self.task_storage.add_task(task)
+            transferred_count = 0
+            for task in platform_tasks:
+                # CRITICAL: Trigger logcat parsing to populate repository
+                # static_data is preserved, so method calls will be recognized
+                try:
+                    repository = task.get_repository()
+                    if repository:
+                        method_calls = repository.get_method_calls()
+                        errors = repository.get_errors()
+                        self.logger.debug(f"Task {task.id}: populated repository with {len(method_calls)} method calls, {len(errors)} errors")
+                    else:
+                        self.logger.warning(f"Task {task.id}: repository is empty after parsing")
+                except Exception as repo_error:
+                    self.logger.warning(f"Task {task.id}: failed to populate repository: {repo_error}")
+                
+                # Add task to experiment storage
+                self.task_storage.add_task(task)
+                transferred_count += 1
                     
-            self.logger.info(f"Successfully transferred {len(platform_tasks)} tasks to experiment storage")
+            self.logger.info(f"Successfully transferred {transferred_count} tasks to experiment storage with repository data")
             
         except Exception as e:
             self.logger.error(f"Failed to transfer platform tasks: {e}")

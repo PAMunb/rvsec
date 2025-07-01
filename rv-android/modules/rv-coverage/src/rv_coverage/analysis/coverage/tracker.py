@@ -98,11 +98,13 @@ class CoverageTracker:
         Args:
             logcat_file: Path to the logcat file to monitor
             static_data: Optional static analysis data
-            task_start_time: When the task started (for calculating relative timing)
+            task_start_time: When tool execution started (for calculating accurate relative timing)
+                            Note: This should be tool_execution_start, not task creation time
         """
         self.logcat_file = logcat_file
         self.static_data = static_data
-        self.task_start_time = task_start_time
+        # Using task_start_time parameter name for compatibility, but this should contain tool_execution_start time
+        self.tool_execution_start_time = task_start_time
 
         # Set up logging
         logging_manager = LoggingManager.get_instance()
@@ -334,16 +336,15 @@ class CoverageTracker:
             # Parse line for coverage or error info
             error_log, coverage_log = parse_logcat_line(line)
 
-            # Calculate time since task start for timing accuracy
-            if self.task_start_time:
-                current_time = datetime.now()
-                time_since_start = int((current_time - self.task_start_time).total_seconds())
-                time_since_start = max(0, time_since_start)  # Ensure non-negative
-            else:
-                time_since_start = 0
-
             # Update repository
             if error_log:
+                # Calculate time since tool execution start using logcat timestamp
+                if self.tool_execution_start_time and error_log.time_occurred:
+                    time_since_start = int((error_log.time_occurred - self.tool_execution_start_time).total_seconds())
+                    time_since_start = max(0, time_since_start)  # Ensure non-negative
+                else:
+                    time_since_start = 0
+                
                 # Set timing info for error
                 error_log.time_since_task_start = time_since_start
                 self.repository.register_rv_error(error_log)
@@ -369,6 +370,13 @@ class CoverageTracker:
                 )
 
             elif coverage_log:
+                # Calculate time since tool execution start using logcat timestamp
+                if self.tool_execution_start_time and coverage_log.time_occurred:
+                    time_since_start = int((coverage_log.time_occurred - self.tool_execution_start_time).total_seconds())
+                    time_since_start = max(0, time_since_start)  # Ensure non-negative
+                else:
+                    time_since_start = 0
+                    
                 # Set timing info for coverage
                 coverage_log.time_since_task_start = time_since_start
                 self.repository.register_method_call(coverage_log)

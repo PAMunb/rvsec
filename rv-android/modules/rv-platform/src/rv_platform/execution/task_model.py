@@ -10,7 +10,6 @@ the foundation of the task execution system.
 import logging
 import os
 import uuid
-from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Dict, List, Any, Optional, Type, TypeVar, Generic
 from enum import Enum
@@ -59,8 +58,8 @@ class TaskState(Enum):
     CANCELED = "canceled"
 
 
-@dataclass
-class TaskConfiguration:
+@validated_model(['apk_name', 'repetition', 'timeout', 'tool_name'])
+class TaskConfiguration(BaseValidatedModel):
     """
     Configuration parameters for a task.
     
@@ -76,17 +75,17 @@ class TaskConfiguration:
     - Enables serialization and deserialization of task configuration
     - Supports reproducible task execution
     """
-    apk_name: str
-    repetition: int
-    timeout: int
-    tool_name: str
+    apk_name: str = Field(..., description="Name of the APK to be processed")
+    repetition: int = Field(..., description="Repetition number for this task")
+    timeout: int = Field(..., description="Timeout in seconds for task execution")
+    tool_name: str = Field(..., description="Name of the testing tool to use")
 
     # Optional configuration with defaults
-    no_window: bool = False
-    clean_logcat: bool = True
-    skip_installation: bool = False
-    device_id: str = "emulator-5554"
-    export_to_csv: bool = True
+    no_window: bool = Field(default=False, description="Run in headless mode")
+    clean_logcat: bool = Field(default=True, description="Clean logcat before execution")
+    skip_installation: bool = Field(default=False, description="Skip APK installation")
+    device_id: str = Field(default="emulator-5554", description="Target device ID")
+    export_to_csv: bool = Field(default=True, description="Export results to CSV")
 
     def __str__(self) -> str:
         """
@@ -468,10 +467,18 @@ class Task:
             if hasattr(self, 'result') and self.result.logcat_file and os.path.exists(self.result.logcat_file):
                 from rv_coverage.parser.log.logcat_parser import parse_logcat_file
                 try:
-                    self.repository = parse_logcat_file(self.result.logcat_file)
-                    self.logger.info(f"Parsed logcat file: {self.result.logcat_file}")
+                    # CRITICAL: Pass static_data to preserve class/method information during parsing
+                    # Without static_data, all method calls are ignored as "unknown classes"
+                    self.repository = parse_logcat_file(self.result.logcat_file, self.static_data)
+                    self.logger.info(f"Parsed logcat file: {self.result.logcat_file} with static data")
                 except Exception as e:
                     self.logger.error(f"Error parsing logcat file: {e}")
+                    # Fallback: try without static data
+                    try:
+                        self.repository = parse_logcat_file(self.result.logcat_file)
+                        self.logger.warning(f"Parsed logcat file without static data - method calls may be ignored")
+                    except Exception as fallback_error:
+                        self.logger.error(f"Failed to parse logcat file even without static data: {fallback_error}")
 
         return self.repository
 

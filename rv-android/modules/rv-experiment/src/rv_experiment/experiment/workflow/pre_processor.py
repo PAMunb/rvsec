@@ -135,8 +135,8 @@ class PreProcessor:
                 # Get instrumentation configuration (monitors should already be generated)
                 instrumentation_config = self.config.get_rv_instrumentation_config()
                 
-                # Import and use instrumentation module
-                from rv_instrumentation.rvandroid import RVInstrumentation
+                # Import instrumentation module
+                from rv_instrumentation import RVInstrumentation
                 
                 instrumenter = RVInstrumentation(instrumentation_config)
                 apk_list = self.config.get_apk_list()

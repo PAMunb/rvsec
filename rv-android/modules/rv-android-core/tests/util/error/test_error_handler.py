@@ -91,12 +91,12 @@ class TestErrorHandlerRefactored:
 
     def test_builtin_handlers_registered(self, error_handler):
         """Test that built-in handlers are automatically registered."""
-        # Should have 11 built-in handlers registered
-        assert len(error_handler._error_callbacks) == 11
+        # Should have 13 built-in handlers registered
+        assert len(error_handler._error_callbacks) == 13
         
         # Check that handler signatures are tracked
         assert hasattr(error_handler, '_registered_handlers')
-        assert len(error_handler._registered_handlers) == 11
+        assert len(error_handler._registered_handlers) == 13
 
     def test_register_handler_success(self, error_handler):
         """Test successful handler registration."""

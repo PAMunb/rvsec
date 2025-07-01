@@ -206,11 +206,11 @@ def tmp_experiment_controller():
         
         # Create configuration for actual execution
         config = ExperimentConfig(
-            name="aaaa",
+            name="bbb",
             # description="Integration test with actual execution",
             tool_configs=[ToolConfig(name="monkey", parameters={"count": 10})],  # Short monkey test
             repetitions=1,
-            timeouts=[30],  # Short timeout for quick test
+            timeouts=[60],  # Short timeout for quick test
             specification_set="custom",  # Use custom specs from specs_mini
             apks_dir="./apks_examples/"
         )
@@ -259,7 +259,7 @@ def tmp_experiment_controller():
         
         if result:
             print("✅ Experiment executed successfully!")
-            print(f"   Results should be available in: {config.output_dir}")
+            print(f"   Results should be available in: {config.experiment_dir}")
         else:
             print("⚠️ Experiment completed but encountered some issues")
             

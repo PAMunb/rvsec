@@ -288,9 +288,18 @@ class Platform:
         self.logger.info(f"Execution summary: {successful_tasks}/{total_tasks} tasks successful")
         return summary
 
+    def get_tasks(self) -> List:
+        """
+        Get all task objects directly (no serialization).
+        
+        Returns:
+            List of Task objects with static_data preserved
+        """
+        return self.tasks
+    
     def get_tasks_summary(self) -> List[Dict[str, Any]]:
         """
-        Get summary of all tasks.
+        Get summary of all tasks (serialized format).
         
         Returns:
             List of task summaries

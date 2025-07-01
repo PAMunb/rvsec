@@ -161,14 +161,7 @@ class CLIContext:
             # Builtin tools are auto-registered through rv-tools import
             # This includes: monkey, droidbot, ape, fastbot, etc.
             
-            # TODO: RVAndroid tool registration - requires LLM configuration integration
-            # The RVAndroid tool needs specific LLM configuration that depends on the
-            # modernized LLM configuration system. Once the LLM config modernization
-            # is complete, uncomment and adapt the following registration:
-            #
-            # from rvandroid_tool.tools.rvandroid.tool import RVAndroidTool
-            # rvandroid = RVAndroidTool()
-            # self.tool_registry.register_tool(rvandroid)
+            # Note: RVAndroid tool registration available when LLM configuration is needed
             
             # Log successful tool registration
             registered_tools = self.tool_registry.get_all_tools()
