@@ -28,8 +28,7 @@ from rv_tools.registry.registry import ToolRegistry
 from rv_tools.registry.factory import ToolFactory
 from rv_tools.registry.plugin_loader import PluginLoader
 from rv_android_core.tools.abstract_tool import AbstractTool
-from rv_android_core.tools.configurable_tool import ConfigurableTool
-from rv_android_core.tools.tool_spec import ToolSpec, ToolType, ToolCategory
+from rv_android_core.tools.tool_spec import ToolSpec
 
 
 @pytest.fixture(autouse=True)
@@ -134,29 +133,20 @@ def sample_tool_specs():
         "basic_tool": ToolSpec(
             name="basic_tool",
             description="Basic monitored operations testing tool",
-            version="1.0.0",
-            tool_type=ToolType.BUILTIN,
-            category=ToolCategory.RANDOM_TESTING,
-            capabilities=["test_execution", "process_management"],
-            dependencies=["android>=7.0"]
+            url="https://example.com/basic",
+            version="1.0.0"
         ),
         "advanced_tool": ToolSpec(
             name="advanced_tool",
             description="Advanced AI-driven monitored operations tool",
-            version="2.1.0",
-            tool_type=ToolType.EXTERNAL,
-            category=ToolCategory.AI_GUIDED,
-            capabilities=["test_execution", "ai_guidance", "pattern_recognition"],
-            dependencies=["android>=8.0", "memory>=2GB"]
+            url="https://example.com/advanced",
+            version="2.1.0"
         ),
         "plugin_tool": ToolSpec(
             name="plugin_tool",
             description="External plugin monitored operations tool",
-            version="0.5.0",
-            tool_type=ToolType.PLUGIN,
-            category=ToolCategory.SYSTEMATIC,
-            capabilities=["custom_analysis", "data_export"],
-            dependencies=["python>=3.12"]
+            url="https://example.com/plugin",
+            version="0.5.0"
         )
     }
 
@@ -200,7 +190,7 @@ def mock_configurable_tool(sample_tool_specs):
     Provide a mock configurable tool for configuration testing.
     
     ### Configuration Testing Strategy:
-    - Implements ConfigurableTool interface for configuration validation
+    - Implements AbstractTool interface with configuration capabilities
     - Provides realistic configuration handling behavior
     - Enables testing of configuration merging and parameter processing
     - Supports variant configuration testing scenarios
@@ -208,7 +198,7 @@ def mock_configurable_tool(sample_tool_specs):
     Returns:
         Mock: Configured tool mock with configuration capabilities
     """
-    mock_tool = Mock(spec=ConfigurableTool)
+    mock_tool = Mock(spec=AbstractTool)
     mock_tool.name = "configurable_tool"
     mock_tool.description = "Mock configurable monitored operations tool"
     mock_tool.process_pattern = "configurable_tool.*"
@@ -217,12 +207,6 @@ def mock_configurable_tool(sample_tool_specs):
     
     # Configure configuration methods
     mock_tool.configure = Mock()
-    mock_tool.configure_tool_specific = Mock()
-    mock_tool.get_config_value = Mock(return_value=None)
-    mock_tool.set_config_value = Mock()
-    mock_tool.has_config = Mock(return_value=False)
-    mock_tool.get_config_dict = Mock(return_value={})
-    mock_tool.clear_config = Mock()
     
     # Configure inherited methods
     mock_tool.execute_tool_specific_logic = Mock()
@@ -341,11 +325,8 @@ def mock_plugin():
     mock_plugin.get_tool_spec.return_value = ToolSpec(
         name="plugin_tool_1",
         description="Mock plugin tool for testing",
-        version="1.0.0",
-        tool_type=ToolType.PLUGIN,
-        category=ToolCategory.SYSTEMATIC,
-        capabilities=["custom_analysis"],
-        dependencies=["python>=3.12"]
+        url="https://example.com/plugin1",
+        version="1.0.0"
     )
     
     mock_plugin.get_tool_class.return_value = Mock(spec=AbstractTool)

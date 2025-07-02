@@ -1,52 +1,33 @@
 """
 Tool specification and metadata management.
 
-This module provides utilities for tool specification parsing and metadata
-handling in the monitored operations testing framework.
+This module provides simplified tool specification handling for monitored 
+operations testing framework, focusing on essential metadata only.
 """
 
-from typing import Dict, List, Any, Optional
-from enum import Enum
+from typing import Dict, Any, Optional
 from pydantic import Field
 
 from rv_android_core.util.validation import BaseValidatedModel
 from rv_android_core.util.validation.decorators import validated_model
 
 
-class ToolType(Enum):
-    """Enumeration of supported tool types."""
-    BUILTIN = "builtin"
-    EXTERNAL = "external"
-    PLUGIN = "plugin"
-    GUI_TESTING = "gui_testing"
-    MACHINE_LEARNING = "machine_learning"
-
-
-class ToolCategory(Enum):
-    """Enumeration of tool categories for monitored operations testing."""
-    RANDOM_TESTING = "random_testing"
-    MODEL_BASED = "model_based"
-    AI_GUIDED = "ai_guided"
-    SYSTEMATIC = "systematic"
-    HYBRID = "hybrid"
-
-
-@validated_model(['name', 'description', 'version', 'tool_type', 'category'])
+@validated_model(['name', 'description', 'url', 'version'])
 class ToolSpec(BaseValidatedModel):
     """
-    Specification and metadata for monitored operations testing tools.
+    Simplified specification for monitored operations testing tools.
     
     ### Architectural Decisions:
-    - Provides structured metadata for tool discovery and management
-    - Supports tool categorization and capability description
-    - Enables version management and compatibility checking
-    - Facilitates tool selection based on requirements
+    - Focuses on essential metadata only (name, description, url, version, process_pattern)
+    - Removed complex categorization and capability systems
+    - Maintains compatibility with existing tool registration systems
+    - Supports tool discovery and basic configuration
     
     ### Role in the System:
-    - Describes tool capabilities and characteristics
+    - Describes basic tool identification and metadata
     - Supports tool registry and discovery systems
-    - Enables automated tool selection for experiments
-    - Provides metadata for tool configuration and validation
+    - Provides information for tool execution and cleanup
+    - Maintains version tracking for compatibility
     """
     
     name: str = Field(
@@ -55,34 +36,15 @@ class ToolSpec(BaseValidatedModel):
     description: str = Field(
         description="Detailed description of tool capabilities and purpose"
     )
+    url: str = Field(
+        description="Tool repository, documentation, or download URL"
+    )
     version: str = Field(
         description="Tool version string for compatibility tracking"
-    )
-    tool_type: ToolType = Field(
-        description="Classification of tool type (builtin, external, plugin, etc.)"
-    )
-    category: ToolCategory = Field(
-        description="Tool category for monitored operations testing workflows"
     )
     process_pattern: Optional[str] = Field(
         default=None,
         description="Process pattern for tool cleanup and management"
-    )
-    dependencies: List[str] = Field(
-        default_factory=list,
-        description="List of required dependencies for tool execution"
-    )
-    capabilities: List[str] = Field(
-        default_factory=list,
-        description="List of tool capabilities for requirement matching"
-    )
-    configuration_schema: Dict[str, Any] = Field(
-        default_factory=dict,
-        description="Schema definition for tool configuration validation"
-    )
-    author: Optional[str] = Field(
-        default=None,
-        description="Tool author or maintainer information"
     )
     
     @classmethod
@@ -90,10 +52,9 @@ class ToolSpec(BaseValidatedModel):
         cls,
         name: str,
         description: str,
-        category: ToolCategory,
+        url: str,
         version: str = "1.0.0",
-        process_pattern: Optional[str] = None,
-        capabilities: List[str] = None
+        process_pattern: Optional[str] = None
     ) -> "ToolSpec":
         """
         Create a specification for a built-in tool.
@@ -101,10 +62,9 @@ class ToolSpec(BaseValidatedModel):
         Args:
             name: Tool name
             description: Tool description
-            category: Tool category
+            url: Tool URL (repository, documentation, etc.)
             version: Tool version
             process_pattern: Process pattern for cleanup
-            capabilities: List of tool capabilities
             
         Returns:
             ToolSpec instance for built-in tool
@@ -112,11 +72,9 @@ class ToolSpec(BaseValidatedModel):
         return cls(
             name=name,
             description=description,
+            url=url,
             version=version,
-            tool_type=ToolType.BUILTIN,
-            category=category,
-            process_pattern=process_pattern,
-            capabilities=capabilities or []
+            process_pattern=process_pattern
         )
     
     @classmethod
@@ -124,12 +82,9 @@ class ToolSpec(BaseValidatedModel):
         cls,
         name: str,
         description: str,
-        category: ToolCategory,
-        dependencies: List[str],
+        url: str,
         version: str = "1.0.0",
-        process_pattern: Optional[str] = None,
-        capabilities: List[str] = None,
-        author: Optional[str] = None
+        process_pattern: Optional[str] = None
     ) -> "ToolSpec":
         """
         Create a specification for an external tool.
@@ -137,12 +92,9 @@ class ToolSpec(BaseValidatedModel):
         Args:
             name: Tool name
             description: Tool description
-            category: Tool category
-            dependencies: List of required dependencies
+            url: Tool URL (repository, documentation, etc.)
             version: Tool version
             process_pattern: Process pattern for cleanup
-            capabilities: List of tool capabilities
-            author: Tool author
             
         Returns:
             ToolSpec instance for external tool
@@ -150,38 +102,10 @@ class ToolSpec(BaseValidatedModel):
         return cls(
             name=name,
             description=description,
+            url=url,
             version=version,
-            tool_type=ToolType.EXTERNAL,
-            category=category,
-            process_pattern=process_pattern,
-            dependencies=dependencies,
-            capabilities=capabilities or [],
-            author=author
+            process_pattern=process_pattern
         )
-    
-    def has_capability(self, capability: str) -> bool:
-        """
-        Check if tool has specific capability.
-        
-        Args:
-            capability: Capability to check
-            
-        Returns:
-            True if tool has the capability
-        """
-        return capability in self.capabilities
-    
-    def is_compatible_with(self, requirements: List[str]) -> bool:
-        """
-        Check if tool is compatible with given requirements.
-        
-        Args:
-            requirements: List of required capabilities
-            
-        Returns:
-            True if tool meets all requirements
-        """
-        return all(self.has_capability(req) for req in requirements)
     
     def to_dict(self) -> Dict[str, Any]:
         """
@@ -193,14 +117,9 @@ class ToolSpec(BaseValidatedModel):
         return {
             "name": self.name,
             "description": self.description,
+            "url": self.url,
             "version": self.version,
-            "tool_type": self.tool_type.value,
-            "category": self.category.value,
-            "process_pattern": self.process_pattern,
-            "dependencies": self.dependencies,
-            "capabilities": self.capabilities,
-            "configuration_schema": self.configuration_schema,
-            "author": self.author
+            "process_pattern": self.process_pattern
         }
     
     @classmethod
@@ -217,12 +136,7 @@ class ToolSpec(BaseValidatedModel):
         return cls(
             name=data["name"],
             description=data["description"],
+            url=data["url"],
             version=data["version"],
-            tool_type=ToolType(data["tool_type"]),
-            category=ToolCategory(data["category"]),
-            process_pattern=data.get("process_pattern"),
-            dependencies=data.get("dependencies", []),
-            capabilities=data.get("capabilities", []),
-            configuration_schema=data.get("configuration_schema", {}),
-            author=data.get("author")
+            process_pattern=data.get("process_pattern")
         )

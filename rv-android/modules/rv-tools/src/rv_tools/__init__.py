@@ -43,16 +43,14 @@ This module provides comprehensive tool management capabilities including:
 
 # Core base classes
 from rv_android_core.tools.abstract_tool import AbstractTool
-from rv_android_core.tools.configurable_tool import ConfigurableTool
 from rv_android_core.tools.tool_spec import ToolSpec
-
-# Registry system
-from .registry.registry import ToolRegistry
-from .registry.factory import ToolFactory
-from .registry.plugin_loader import PluginLoader
-
 # Plugin interfaces
 from .interfaces.plugin_interface import ToolPlugin
+from .registry.factory import ToolFactory
+from .registry.plugin_loader import PluginLoader
+# Registry system
+from .registry.registry import ToolRegistry
+
 
 # Auto-register built-in tools
 def _register_builtin_tools():
@@ -60,28 +58,23 @@ def _register_builtin_tools():
     try:
         from .builtin import BUILTIN_TOOLS
         from .registry.registry import ToolRegistry
-        
+
         registry = ToolRegistry.get_instance()
-        
+
         for tool_class in BUILTIN_TOOLS:
             try:
-                # Create tool instance
-                tool_instance = tool_class()
-                
-                # Register tool with its specification
-                registry.register_tool(tool_instance, tool_instance.TOOL_SPEC)
-                
-                # Also register tool class for factory creation
-                registry.register_tool_class(tool_class, tool_instance.TOOL_SPEC)
-                
+                # Register tool class (this will also register the tool spec)
+                registry.register_tool_class(tool_class)
+
             except Exception as e:
                 # Log error but don't fail module import
                 import logging
                 logging.getLogger(__name__).warning(f"Failed to register builtin tool {tool_class.__name__}: {e}")
-                
+
     except Exception:
         # Fail silently if builtin tools can't be imported
         pass
+
 
 # Auto-register when module is imported
 _register_builtin_tools()
@@ -90,14 +83,13 @@ __version__ = "0.1.0"
 __all__ = [
     # Base classes
     "AbstractTool",
-    "ConfigurableTool", 
     "ToolSpec",
-    
+
     # Registry system
     "ToolRegistry",
     "ToolFactory",
     "PluginLoader",
-    
+
     # Plugin interfaces
     "ToolPlugin"
 ]

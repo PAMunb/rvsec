@@ -1,503 +1,333 @@
 """
-Ares tool implementation for monitored operations testing.
+Ares Docker-based testing tool implementation.
 
-This module provides integration with the ARES Android testing framework,
-enabling systematic UI exploration and testing of monitored operations.
+This module provides integration with the Ares Android testing framework,
+enabling systematic UI exploration through Docker containerization.
 """
 
 import os
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, List
 
 from rv_android_core.app import App
 from rv_android_core.commands.command import Command
-from rv_android_core.tools.configurable_tool import ConfigurableTool
-from rv_android_core.tools.tool_spec import ToolSpec, ToolType, ToolCategory
+from rv_android_core.domain.task import Task
+from rv_android_core.tools.abstract_tool import AbstractTool
+from rv_android_core.tools.tool_spec import ToolSpec
 from rv_android_core.util.error.error_handler import ErrorHandler
 from rv_android_core.util.logging.manager import LoggingManager
 from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
 
 
-class AresTool(ConfigurableTool):
+class AresTool(AbstractTool):
     """
-    ARES (Android Reverse Engineering Suite) tool for systematic UI exploration.
+    Ares Docker-based systematic UI exploration tool for monitored operations testing.
 
     ### Architectural Decisions:
-    - Extends ConfigurableTool to leverage standardized configuration management
-    - Implements Docker-based execution model for isolated and reproducible testing
-    - Provides comprehensive timeout and resource management capabilities
-    - Uses shell script execution pattern for external tool integration
-    - Supports both instrumented and non-instrumented APK testing scenarios
+    - Inherits directly from AbstractTool for simplified architecture
+    - Implements Docker-based execution model for isolated testing environment
+    - Provides systematic UI exploration with configurable parameters
+    - Uses containerized execution for reproducible testing conditions
+    - Supports timeout management and execution control
     - Integrates with rv-android-core infrastructure for error handling and logging
 
     ### Role in the System:
-    - Serves as a systematic UI exploration tool for monitored operations testing
-    - Provides Docker-based isolated execution environment for consistent results
-    - Enables automatic GUI testing with configurable exploration strategies
-    - Supports both JCA cryptography detection and generic monitored operations
-    - Facilitates comparative analysis with other testing tools in the framework
-    - Generates structured trace files for comprehensive result analysis
+    - Serves as a Docker-based testing tool for systematic Android app exploration
+    - Provides isolated execution environment through containerization
+    - Enables systematic UI exploration with configurable strategies
+    - Supports both JCA cryptography detection and generic monitored operations testing
+    - Facilitates reproducible testing through standardized container environments
 
-    ### Key Considerations:
-    - Requires Docker environment for proper execution isolation
-    - Uses external shell scripts for tool invocation and parameter management
-    - Supports configurable timeout mechanisms for long-running exploration sessions
-    - Provides comprehensive logging for debugging and analysis purposes
-    - Handles both successful execution and error scenarios gracefully
-    - Integrates with experiment framework for batch execution and result collection
+    ### Key Features:
+    - Docker-based execution for environment isolation
+    - Systematic UI exploration and interaction
+    - Configurable execution timeouts and parameters
+    - APK deployment and testing automation
+    - Integration with Android emulator through Docker
 
-    ### Integration Strategy:
-    - Compatible with experiment task execution system for automated workflows
-    - Supports configuration inheritance from experiment and variant specifications
-    - Enables result collection and analysis through standardized trace file format
-    - Provides clear extension points for custom exploration strategies
-    - Facilitates integration with coverage analysis and result processing systems
-    - Supports plugin-based architecture for external tool ecosystem integration
-
-    ### Performance and Scalability:
-    - Optimized for efficient resource utilization through Docker containerization
-    - Supports configurable timeout mechanisms to prevent resource exhaustion
-    - Enables parallel execution across multiple device instances
-    - Provides memory and CPU usage monitoring capabilities
-    - Scales effectively for large-scale experiment execution scenarios
-    - Adaptable to different APK complexity and exploration requirements
+    ### Tool Variants:
+    Ares supports different execution modes as variants:
+    - standard: Standard systematic exploration
+    - debug: Debug mode with verbose logging
+    - fast: Fast exploration with reduced timeouts
     """
 
-    # Tool specification with comprehensive metadata
+    # Simplified tool specification
     TOOL_SPEC = ToolSpec.create_builtin_spec(
         name="ares",
-        description="ARES Android testing framework for systematic UI exploration",
-        category=ToolCategory.SYSTEMATIC,
-        capabilities=[
-            "ui_exploration",
-            "systematic_testing", 
-            "docker_execution",
-            "trace_generation",
-            "monitored_operations_testing"
-        ]
+        description="Ares Docker-based systematic UI exploration tool for Android applications",
+        url="https://github.com/functional-fuzzing-android-apps/ares",
+        version="1.0.0",
+        process_pattern="ares"
     )
 
-    def __init__(self):
+    def __init__(self, name: str = None, description: str = None, process_pattern: str = None):
         """
-        Initialize the ARES tool with default configuration and rv-android-core infrastructure.
-        
-        ### Infrastructure Integration:
-        - Sets up standardized logging with ARES-specific context
-        - Initializes error handler for comprehensive error management
-        - Configures ARES-specific parameters and Docker execution settings
-        - Establishes integration with monitored operations framework
+        Initialize the Ares tool with rv-android-core infrastructure.
         """
         super().__init__(
-            name="ares",
-            description="ARES Android testing framework for systematic UI exploration",
-            process_pattern="run_ares.sh"
+            name=name or self.TOOL_SPEC.name,
+            description=description or self.TOOL_SPEC.description,
+            process_pattern=process_pattern or self.TOOL_SPEC.process_pattern
         )
 
         # Initialize rv-android-core infrastructure components
-        self._logging_manager = LoggingManager.get_instance()
-        self.logger = self._logging_manager.get_logger(
+        logging_manager = LoggingManager.get_instance()
+        self.logger = logging_manager.get_logger(
             "rv_tools.builtin.ares",
             {CONTEXT_COMPONENT: "AresTool"}
         )
         self.error_handler = ErrorHandler.get_instance()
 
-        # Default tool configuration
-        self.default_config = {
-            "timeout_minutes": 10,
-            "device_id": "emulator-5554",
-            "docker_image": "ares-testing",
-            "exploration_strategy": "systematic",
-            "max_depth": 10,
-            "enable_screenshots": True,
-            "output_format": "trace",
-            "debug_mode": False,
-            "resource_monitoring": True
+        # Default Ares configuration
+        self.config = {
+            "timeout": 600,                  # Execution timeout in seconds
+            "emulator_name": "emulator-5554", # Target emulator name
+            "docker_image": "ares:latest",   # Docker image to use
+            "container_name": None,          # Container name (auto-generated)
+            "debug_mode": False,             # Enable debug mode
+            "cleanup_container": True,       # Clean up container after execution
+            "volume_mapping": None,          # Volume mapping for results
+            "environment_vars": {}           # Environment variables for container
         }
 
-        self.logger.info("ARES tool initialized successfully")
+        self.logger.info("Initialized Ares tool for Docker-based exploration")
 
-    def configure_tool_specific(self, config: Dict[str, Any]) -> None:
+    def configure(self, config: Dict[str, Any]) -> None:
         """
-        Configure ARES-specific parameters and validate settings.
+        Configure Ares-specific parameters.
+
+        Supported configuration options:
+        - timeout: Execution timeout in seconds
+        - emulator_name: Target emulator name
+        - docker_image: Docker image to use
+        - container_name: Container name
+        - debug_mode: Enable debug mode
+        - cleanup_container: Clean up container after execution
+        - volume_mapping: Volume mapping for results
+        - environment_vars: Environment variables for container
 
         Args:
-            config: Configuration dictionary with tool-specific parameters
-
-        Raises:
-            ValueError: If configuration parameters are invalid
+            config: Configuration dictionary with Ares parameters
         """
-        self.logger.debug("Configuring ARES-specific parameters")
+        if not config:
+            return
 
-        # Timeout configuration
-        if 'timeout_minutes' in config:
-            timeout = config['timeout_minutes']
-            if not isinstance(timeout, int) or timeout < 1:
-                raise ValueError("timeout_minutes must be a positive integer")
-            self.tool_config['timeout_minutes'] = timeout
-
-        # Device configuration
-        if 'device_id' in config:
-            self.tool_config['device_id'] = str(config['device_id'])
-
-        # Docker configuration
-        if 'docker_image' in config:
-            self.tool_config['docker_image'] = str(config['docker_image'])
-
-        # Exploration strategy
-        if 'exploration_strategy' in config:
-            strategy = config['exploration_strategy']
-            valid_strategies = ['systematic', 'random', 'hybrid']
-            if strategy not in valid_strategies:
-                raise ValueError(f"exploration_strategy must be one of: {valid_strategies}")
-            self.tool_config['exploration_strategy'] = strategy
-
-        # Maximum exploration depth
-        if 'max_depth' in config:
-            depth = config['max_depth']
-            if not isinstance(depth, int) or depth < 1:
-                raise ValueError("max_depth must be a positive integer")
-            self.tool_config['max_depth'] = depth
-
-        # Boolean flags
-        for flag in ['enable_screenshots', 'debug_mode', 'resource_monitoring']:
-            if flag in config:
-                self.tool_config[flag] = bool(config[flag])
-
-        # Output format validation
-        if 'output_format' in config:
-            format_type = config['output_format']
-            valid_formats = ['trace', 'json', 'xml']
-            if format_type not in valid_formats:
-                raise ValueError(f"output_format must be one of: {valid_formats}")
-            self.tool_config['output_format'] = format_type
-
-        self.logger.info("ARES tool configuration completed successfully")
-
-    def build_command_args(self, app: App, output_file: str, task_config: Dict[str, Any]) -> List[str]:
-        """
-        Build command arguments for ARES execution.
-
-        Args:
-            app: Application instance containing APK information
-            output_file: Path to output trace file
-            task_config: Task-specific configuration parameters
-
-        Returns:
-            List of command arguments for tool execution
-        """
-        try:
-            self.logger.debug(f"Building ARES command arguments for app: {app.name}")
-
-            # Extract timeout from task configuration
-            timeout_seconds = task_config.get('timeout', 600)  # Default 10 minutes
-            timeout_minutes = max(1, int(timeout_seconds / 60))
-
-            # Get tool directory for execution context
-            tools_dir = os.environ.get('TOOLS_DIR', '/tools')
-            ares_dir = os.path.join(tools_dir, 'ares')
-
-            # Build comprehensive argument list
-            args = [
-                app.path,                                    # APK file path
-                self.tool_config['device_id'],              # Target device
-                str(timeout_minutes),                        # Execution timeout
-                ares_dir,                                   # Tool directory
-                self.tool_config['exploration_strategy'],    # Exploration strategy
-                str(self.tool_config['max_depth']),         # Maximum depth
-                self.tool_config['output_format']           # Output format
-            ]
-
-            # Add optional flags
-            if self.tool_config['enable_screenshots']:
-                args.append('--screenshots')
-
-            if self.tool_config['debug_mode']:
-                args.append('--debug')
-
-            if self.tool_config['resource_monitoring']:
-                args.append('--monitor-resources')
-
-            self.logger.debug(f"ARES command arguments: {args}")
-            return args
-
-        except Exception as e:
-            self.error_handler.handle_error(
-                e,
-                context={
-                    "operation": "build_command_args",
-                    "app_name": app.name,
-                    "tool": "ares",
-                    "component": "AresTool"
-                }
-            )
-            raise
-
-    def validate_execution_environment(self, app: App) -> bool:
-        """
-        Validate that the execution environment is properly configured for ARES.
-
-        Args:
-            app: Application instance to validate against
-
-        Returns:
-            True if environment is valid, False otherwise
-        """
-        try:
-            self.logger.debug("Validating ARES execution environment")
-
-            # Check if Docker is available
+        # Update timeout
+        if 'timeout' in config:
             try:
-                docker_check = Command("docker", ["--version"], timeout=10)
-                result = docker_check.invoke()
-                if result.returncode != 0:
-                    self.logger.error("Docker is not available or not responding")
-                    return False
-            except Exception as e:
-                self.logger.error(f"Docker validation failed: {str(e)}")
-                return False
+                timeout = int(config['timeout'])
+                if timeout > 0:
+                    self.config['timeout'] = timeout
+                    self.logger.debug(f"Set Ares timeout to: {timeout}s")
+                else:
+                    self.logger.warning("Timeout must be positive")
+            except (ValueError, TypeError):
+                self.logger.warning(f"Invalid timeout value: {config['timeout']}")
 
-            # Validate ARES directory structure
-            tools_dir = os.environ.get('TOOLS_DIR', '/tools')
-            ares_dir = os.path.join(tools_dir, 'ares')
-            ares_script = os.path.join(ares_dir, 'run_ares.sh')
+        # Update emulator name
+        if 'emulator_name' in config:
+            self.config['emulator_name'] = str(config['emulator_name'])
+            self.logger.debug(f"Set Ares emulator name to: {config['emulator_name']}")
 
-            if not os.path.exists(ares_dir):
-                self.logger.error(f"ARES directory not found: {ares_dir}")
-                return False
+        # Update Docker image
+        if 'docker_image' in config:
+            self.config['docker_image'] = str(config['docker_image'])
+            self.logger.debug(f"Set Ares Docker image to: {config['docker_image']}")
 
-            if not os.path.exists(ares_script):
-                self.logger.error(f"ARES execution script not found: {ares_script}")
-                return False
+        # Update container name
+        if 'container_name' in config:
+            self.config['container_name'] = str(config['container_name'])
+            self.logger.debug(f"Set Ares container name to: {config['container_name']}")
 
-            if not os.access(ares_script, os.X_OK):
-                self.logger.error(f"ARES script is not executable: {ares_script}")
-                return False
+        # Update boolean flags
+        boolean_flags = ['debug_mode', 'cleanup_container']
+        for flag in boolean_flags:
+            if flag in config:
+                self.config[flag] = bool(config[flag])
+                self.logger.debug(f"Set Ares {flag} to: {self.config[flag]}")
 
-            # Validate APK file
-            if not os.path.exists(app.path):
-                self.logger.error(f"APK file not found: {app.path}")
-                return False
+        # Update volume mapping
+        if 'volume_mapping' in config:
+            self.config['volume_mapping'] = config['volume_mapping']
+            self.logger.debug(f"Set Ares volume mapping to: {config['volume_mapping']}")
 
-            self.logger.info("ARES execution environment validation successful")
-            return True
+        # Update environment variables
+        if 'environment_vars' in config and isinstance(config['environment_vars'], dict):
+            self.config['environment_vars'].update(config['environment_vars'])
+            self.logger.debug(f"Updated Ares environment variables: {config['environment_vars']}")
 
-        except Exception as e:
-            self.error_handler.handle_error(
-                e,
-                context={
-                    "operation": "validate_execution_environment",
-                    "app_name": app.name,
-                    "tool": "ares",
-                    "component": "AresTool"
-                }
-            )
-            return False
-
-    def get_execution_command(self, app: App, output_file: str, task_config: Dict[str, Any]) -> Command:
+    @ErrorHandler.handle_errors(
+        component="AresTool",
+        phase="execute_tool_specific_logic"
+    )
+    def execute_tool_specific_logic(self, task: Task, app: App) -> None:
         """
-        Create the execution command for ARES tool.
+        Execute Ares testing with configured parameters.
+
+        ### Execution Workflow:
+        1. Prepare Docker environment and container configuration
+        2. Mount necessary volumes for APK and results
+        3. Execute Ares in Docker container with specified parameters
+        4. Capture execution output and results
+        5. Clean up container resources (if enabled)
 
         Args:
-            app: Application instance
-            output_file: Path to output trace file
-            task_config: Task-specific configuration
-
-        Returns:
-            Configured Command instance for execution
+            task: Task configuration containing timeout and other parameters
+            app: Application under test with package name and metadata
         """
+        self.logger.info(f"Executing Ares tool for {app.package_name}")
+        self.logger.debug(f"Docker image: {self.config['docker_image']}, Timeout: {self.config['timeout']}s")
+
+        # Get timeout from task configuration
+        timeout_in_seconds = getattr(task.config, 'timeout', self.config['timeout'])
+        
+        self.logger.info(f"Ares execution timeout: {timeout_in_seconds} seconds")
+
+        # Create output directory for Ares results
+        output_dir = os.path.join(os.path.dirname(task.result.trace_file), "ares_output")
+        os.makedirs(output_dir, exist_ok=True)
+
+        # Generate container name if not provided
+        if not self.config['container_name']:
+            container_name = f"ares_{app.package_name.replace('.', '_')}"
+        else:
+            container_name = self.config['container_name']
+
+        # Build Ares Docker command
+        ares_cmd = self._build_ares_command(app, output_dir, container_name, timeout_in_seconds)
+        
+        # Build command string for logging
+        cmd_str = f"{ares_cmd.command} {' '.join(ares_cmd.args)}"
+        self.logger.debug(f"Ares command: {cmd_str}")
+
+        # Execute Ares testing
         try:
-            # Build command arguments
-            args = self.build_command_args(app, output_file, task_config)
+            self.logger.info(f"Starting Ares execution for {app.package_name}")
+            result = ares_cmd.invoke()
             
-            # Calculate timeout with buffer
-            timeout_seconds = task_config.get('timeout', 600)
-            execution_timeout = timeout_seconds + 60  # Add 60 second buffer
-
-            # Get ARES script path
-            tools_dir = os.environ.get('TOOLS_DIR', '/tools')
-            ares_script = os.path.join(tools_dir, 'ares', 'run_ares.sh')
-
-            # Create command with comprehensive configuration
-            command = Command(
-                executable=ares_script,
-                args=args,
-                timeout=execution_timeout,
-                working_directory=os.path.dirname(ares_script)
-            )
-
-            self.logger.info(f"ARES execution command created for app: {app.name}")
-            return command
-
+            # Write result to trace file
+            with open(task.result.trace_file, 'w') as trace_file:
+                trace_file.write(f"Ares execution completed\n")
+                trace_file.write(f"Docker image: {self.config['docker_image']}\n")
+                trace_file.write(f"Container name: {container_name}\n")
+                trace_file.write(f"Output directory: {output_dir}\n")
+                trace_file.write(f"Command: {cmd_str}\n")
+                if result.stdout:
+                    trace_file.write(f"STDOUT:\n{result.stdout}\n")
+                if result.stderr:
+                    trace_file.write(f"STDERR:\n{result.stderr}\n")
+            
+            self.logger.info("Ares execution completed successfully")
+            
         except Exception as e:
-            self.error_handler.handle_error(
-                e,
-                context={
-                    "operation": "get_execution_command",
-                    "app_name": app.name,
-                    "tool": "ares",
-                    "component": "AresTool"
-                }
-            )
+            self.logger.error(f"Ares execution failed: {str(e)}")
+            # Write error information to trace file
+            with open(task.result.trace_file, 'w') as trace_file:
+                trace_file.write(f"Ares execution error: {str(e)}\n")
+                trace_file.write(f"Command: {cmd_str}\n")
             raise
+        finally:
+            # Clean up container if enabled
+            if self.config['cleanup_container']:
+                self._cleanup_container(container_name)
 
-    def process_execution_result(self, result, app: App, output_file: str) -> Dict[str, Any]:
+    def _build_ares_command(self, app: App, output_dir: str, container_name: str, timeout_seconds: int) -> Command:
         """
-        Process the execution result and extract relevant metrics.
+        Build the Ares Docker command with configured parameters.
 
         Args:
-            result: Command execution result
-            app: Application instance
-            output_file: Path to output trace file
+            app: Application under test
+            output_dir: Output directory for Ares results
+            container_name: Docker container name
+            timeout_seconds: Command execution timeout
 
         Returns:
-            Dictionary containing execution metrics and status information
+            Configured Command object for Ares execution
         """
-        try:
-            self.logger.debug(f"Processing ARES execution result for app: {app.name}")
+        # Start building Docker command arguments
+        cmd_args = [
+            "run",
+            "--name", container_name,
+            "--rm" if self.config['cleanup_container'] else "",
+            "-v", f"{app.apk_path}:/app/target.apk:ro",
+            "-v", f"{output_dir}:/app/output"
+        ]
 
-            # Base result information
-            execution_result = {
-                "tool": "ares",
-                "app_name": app.name,
-                "execution_time": getattr(result, 'execution_time', 0),
-                "return_code": result.returncode,
-                "success": result.returncode == 0,
-                "output_file": output_file,
-                "trace_generated": os.path.exists(output_file) if output_file else False
-            }
+        # Remove empty strings from args
+        cmd_args = [arg for arg in cmd_args if arg]
 
-            # Add tool-specific metrics
-            if result.returncode == 0:
-                execution_result.update({
-                    "exploration_completed": True,
-                    "timeout_occurred": False,
-                    "docker_execution": True,
-                    "monitored_operations_detected": self._analyze_trace_for_monitored_operations(output_file)
-                })
-            else:
-                execution_result.update({
-                    "exploration_completed": False,
-                    "timeout_occurred": result.returncode == 124,  # Standard timeout return code
-                    "error_details": getattr(result, 'stderr', ''),
-                    "monitored_operations_detected": 0
-                })
+        # Add environment variables
+        for key, value in self.config['environment_vars'].items():
+            cmd_args.extend(["-e", f"{key}={value}"])
 
-            # Extract additional metrics from trace file
-            if output_file and os.path.exists(output_file):
-                execution_result.update(self._extract_trace_metrics(output_file))
+        # Add volume mapping if specified
+        if self.config['volume_mapping']:
+            cmd_args.extend(["-v", self.config['volume_mapping']])
 
-            self.logger.info(f"ARES execution result processed for app: {app.name}")
-            return execution_result
+        # Add Docker image
+        cmd_args.append(self.config['docker_image'])
 
-        except Exception as e:
-            self.error_handler.handle_error(
-                e,
-                context={
-                    "operation": "process_execution_result",
-                    "app_name": app.name,
-                    "tool": "ares",
-                    "component": "AresTool"
-                }
-            )
-            
-            # Return basic error result
-            return {
-                "tool": "ares",
-                "app_name": app.name,
-                "success": False,
-                "error": f"Result processing failed: {str(e)}"
-            }
+        # Add Ares-specific arguments
+        cmd_args.extend([
+            "--apk", "/app/target.apk",
+            "--output", "/app/output",
+            "--emulator", self.config['emulator_name'],
+            "--timeout", str(self.config['timeout'])
+        ])
 
-    def _analyze_trace_for_monitored_operations(self, trace_file: str) -> int:
+        # Add debug mode if enabled
+        if self.config['debug_mode']:
+            cmd_args.append("--debug")
+
+        return Command("docker", cmd_args, timeout_seconds)
+
+    def _cleanup_container(self, container_name: str) -> None:
         """
-        Analyze trace file for monitored operations occurrences.
+        Clean up Docker container after execution.
 
         Args:
-            trace_file: Path to the trace file
-
-        Returns:
-            Number of monitored operations detected
+            container_name: Name of container to clean up
         """
         try:
-            if not os.path.exists(trace_file):
-                return 0
-
-            # Simple analysis - count lines that might indicate monitored operations
-            # This is a basic implementation that should be enhanced based on actual trace format
-            monitored_count = 0
-            with open(trace_file, 'r', encoding='utf-8', errors='ignore') as f:
-                for line in f:
-                    # Look for patterns that indicate monitored operations
-                    if any(keyword in line.lower() for keyword in [
-                        'cipher', 'encrypt', 'decrypt', 'hash', 'signature',
-                        'monitored', 'violation', 'specification'
-                    ]):
-                        monitored_count += 1
-
-            return monitored_count
-
+            cleanup_cmd = Command("docker", ["rm", "-f", container_name], 30)
+            cleanup_cmd.invoke()
+            self.logger.debug(f"Cleaned up container: {container_name}")
         except Exception as e:
-            self.logger.warning(f"Failed to analyze trace file for monitored operations: {str(e)}")
-            return 0
+            self.logger.warning(f"Failed to clean up container {container_name}: {e}")
 
-    def _extract_trace_metrics(self, trace_file: str) -> Dict[str, Any]:
+    def get_tool_info(self) -> dict:
         """
-        Extract additional metrics from the trace file.
-
-        Args:
-            trace_file: Path to the trace file
+        Get comprehensive Ares tool information.
 
         Returns:
-            Dictionary containing trace-based metrics
+            Dictionary with tool information and current configuration
         """
-        try:
-            if not os.path.exists(trace_file):
-                return {}
+        info = super().get_tool_info()
+        info.update({
+            "tool_spec": self.TOOL_SPEC.to_dict(),
+            "docker_image": self.config["docker_image"],
+            "current_timeout": self.config["timeout"],
+            "debug_mode": self.config["debug_mode"],
+            "version": self.TOOL_SPEC.version,
+            "url": self.TOOL_SPEC.url
+        })
+        return info
 
-            # Get basic file information
-            file_size = os.path.getsize(trace_file)
-            
-            # Count lines in trace file
-            line_count = 0
-            with open(trace_file, 'r', encoding='utf-8', errors='ignore') as f:
-                line_count = sum(1 for _ in f)
 
-            return {
-                "trace_file_size": file_size,
-                "trace_line_count": line_count,
-                "trace_file_exists": True
-            }
-
-        except Exception as e:
-            self.logger.warning(f"Failed to extract trace metrics: {str(e)}")
-            return {"trace_file_exists": False}
-
-    def get_tool_info(self) -> Dict[str, Any]:
-        """
-        Get comprehensive information about the ARES tool.
-
-        Returns:
-            Dictionary containing tool metadata and configuration
-        """
-        return {
-            "name": self.name,
-            "description": self.description,
-            "type": "gui_testing",
-            "category": "testing",
-            "version": "1.0.0",
-            "capabilities": self.TOOL_SPEC.capabilities,
-            "supported_platforms": self.TOOL_SPEC.supported_platforms,
-            "resource_requirements": self.TOOL_SPEC.resource_requirements,
-            "configuration": dict(self.tool_config),
-            "execution_pattern": self.process_pattern,
-            "requires_docker": True,
-            "monitored_operations_support": True
-        }
-
-    def __str__(self) -> str:
-        """String representation of the ARES tool."""
-        return f"AresTool(name='{self.name}', configured={bool(self.tool_config)})"
-
-    def __repr__(self) -> str:
-        """Detailed string representation of the ARES tool."""
-        return (f"AresTool(name='{self.name}', description='{self.description}', "
-                f"config_keys={list(self.tool_config.keys())})")
+# Function to register Ares variants
+def register_ares_variants(registry):
+    """
+    Register Ares variants in the tool registry.
+    
+    Args:
+        registry: ToolRegistry instance
+    """
+    # Register execution mode variants
+    variants = {
+        "standard": {"debug_mode": False, "timeout": 600},
+        "debug": {"debug_mode": True, "timeout": 900},
+        "fast": {"debug_mode": False, "timeout": 300}
+    }
+    
+    for variant_name, config in variants.items():
+        registry.register_variant("ares", variant_name, config)

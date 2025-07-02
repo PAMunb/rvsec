@@ -10,6 +10,7 @@ from rv_android_core.util.exceptions import (
     RVAndroidError, ADBError, EmulatorError, RvTimeoutError,
     RVTaskError, RVTaskExecutionError, RVTaskConfigurationError, RVTaskTimeoutError,
     RVToolError, RVToolExecutionError, RVToolConfigurationError,
+    ToolNotFoundError, ToolRegistrationError, ToolVariantError, PluginError,
     RVExperimentError, RVExperimentSetupError, RVExperimentExecutionError,
     RVParsingError, RVLLMError, RVPromptError,
     RVValidationError, CommandValidationError, LogcatValidationError,
@@ -88,6 +89,10 @@ class ErrorHandler:
         self.register_handler(EventProcessingError, self._handle_event_processing_error)
         self.register_handler(RVValidationError, self._handle_validation_error)
         self.register_handler(RVTaskError, self._handle_task_error)
+        self.register_handler(ToolNotFoundError, self._handle_tool_not_found_error)
+        self.register_handler(ToolRegistrationError, self._handle_tool_registration_error)
+        self.register_handler(ToolVariantError, self._handle_tool_variant_error)
+        self.register_handler(PluginError, self._handle_plugin_error)
         self.register_handler(RVToolError, self._handle_tool_error)
         self.register_handler(RVExperimentError, self._handle_experiment_error)
         self.register_handler(RVParsingError, self._handle_parsing_error)
@@ -434,6 +439,36 @@ class ErrorHandler:
         if hasattr(error, 'task_id') and error.task_id:
             self._logger.info(f"Task ID: {error.task_id}")
         return False  # Allow further handling
+    
+    def _handle_tool_not_found_error(self, error: ToolNotFoundError, context: Optional[Dict[str, Any]] = None) -> bool:
+        """Handle tool not found errors with enhanced context."""
+        self._logger.error(f"Tool not found: {error.message}")
+        if hasattr(error, 'tool_name') and error.tool_name:
+            self._logger.error(f"Requested tool: {error.tool_name}")
+        return True  # Error fully handled - don't propagate further
+    
+    def _handle_tool_registration_error(self, error: ToolRegistrationError, context: Optional[Dict[str, Any]] = None) -> bool:
+        """Handle tool registration errors with enhanced context."""
+        self._logger.error(f"Tool registration failed: {error.message}")
+        if hasattr(error, 'tool_name') and error.tool_name:
+            self._logger.error(f"Tool: {error.tool_name}")
+        return True  # Error fully handled - don't propagate further
+    
+    def _handle_tool_variant_error(self, error: ToolVariantError, context: Optional[Dict[str, Any]] = None) -> bool:
+        """Handle tool variant errors with enhanced context."""
+        self._logger.error(f"Tool variant error: {error.message}")
+        if hasattr(error, 'tool_name') and error.tool_name:
+            self._logger.error(f"Tool: {error.tool_name}")
+        if hasattr(error, 'variant_name') and error.variant_name:
+            self._logger.error(f"Variant: {error.variant_name}")
+        return True  # Error fully handled - don't propagate further
+    
+    def _handle_plugin_error(self, error: PluginError, context: Optional[Dict[str, Any]] = None) -> bool:
+        """Handle plugin system errors with enhanced context."""
+        self._logger.error(f"Plugin error: {error.message}")
+        if hasattr(error, 'plugin_name') and error.plugin_name:
+            self._logger.error(f"Plugin: {error.plugin_name}")
+        return True  # Error fully handled - don't propagate further
     
     def _handle_tool_error(self, error: RVToolError, context: Optional[Dict[str, Any]] = None) -> bool:
         """Handle tool-related errors with enhanced context."""

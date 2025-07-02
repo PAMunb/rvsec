@@ -206,7 +206,7 @@ def tmp_experiment_controller():
         
         # Create configuration for actual execution
         config = ExperimentConfig(
-            name="bbb",
+            name="ccc",
             # description="Integration test with actual execution",
             tool_configs=[ToolConfig(name="monkey", parameters={"count": 10})],  # Short monkey test
             repetitions=1,
@@ -333,9 +333,5 @@ def run_manual_test():
     return passed == total
 
 if __name__ == "__main__":
-    current_directory = os.getcwd()
-    parent_directory = os.path.dirname(current_directory)
-    os.environ[constants.ENV_RVSEC_HOME] = parent_directory
-
     success = run_manual_test()
     sys.exit(0 if success else 1)

@@ -160,6 +160,40 @@ class RVToolConfigurationError(RVToolError):
     pass
 
 
+class ToolNotFoundError(RVToolError):
+    """Exception raised when a requested tool is not found in the registry."""
+    pass
+
+
+class ToolRegistrationError(RVToolError):
+    """Exception raised when tool registration fails due to invalid data or conflicts."""
+    pass
+
+
+class ToolVariantError(RVToolError):
+    """Exception for tool variant related errors."""
+    
+    def __init__(self, message: str, tool_name: Optional[str] = None, variant_name: Optional[str] = None, cause: Optional[Exception] = None):
+        super().__init__(message, tool_name, cause)
+        self.variant_name = variant_name
+    
+    def __str__(self):
+        variant_info = f" (Variant: {self.variant_name})" if self.variant_name else ""
+        return f"{super().__str__()}{variant_info}"
+
+
+class PluginError(RVToolError):
+    """Exception for plugin system related errors."""
+    
+    def __init__(self, message: str, plugin_name: Optional[str] = None, cause: Optional[Exception] = None):
+        super().__init__(message, plugin_name, cause)
+        self.plugin_name = plugin_name
+    
+    def __str__(self):
+        plugin_info = f" (Plugin: {self.plugin_name})" if self.plugin_name else ""
+        return f"{super().__str__()}{plugin_info}"
+
+
 class RVExperimentError(RVAndroidError):
     """Base exception for experiment-related errors in the research framework."""
     

@@ -62,7 +62,8 @@ def tmp_rv_platform_execution():
     
     try:
         # Setup paths using existing project structure
-        apks_dir = "./apks_examples"
+        # apks_dir = "./apks_examples"
+        apks_dir = "./out/instrumented_apks"
         specs_dir = "./specs_mini"
         
         # Create experiment-specific results directory
@@ -91,16 +92,14 @@ def tmp_rv_platform_execution():
         # Create platform configuration identical to teste_rv_experiment_old.py
         # Test with no parameters at all to verify complete default preservation
         tool_config = ToolConfig(
-            name="monkey",
-            variants=[],    # Empty list instead of None
-            parameters={}   # No parameters - pure defaults
+            name="monkey"
         )
         
         platform_config = PlatformConfig(
             apks_dir=apks_dir,
             tools=[tool_config],
             repetitions=1,
-            timeouts=[30],  # 30 seconds timeout for testing
+            timeouts=[60],  # 30 seconds timeout for testing
             results_dir=results_dir,
             log_level="INFO",
             no_window=True  # Headless mode for testing

@@ -15,6 +15,20 @@ pydantic = "^2.8.0"
 pytest = "^7.4.0"
 pytest-cov = "^4.1.0"
 
+[tool.pytest.ini_options]
+addopts = "--cov=src" # This ensures pytest-cov is always active for 'pytest' runs
+
+[tool.coverage.run]
+source = ["src"] # Specify the source directories for coverage
+omit = [
+    "src/rv_tools/builtin/qtesting/src/*", # Your exclusion pattern
+    # Add other patterns here if needed
+]
+
+[tool.coverage.report]
+# show_missing = true
+# fail_under = 80 # Uncomment if you want tests to fail below a certain coverage percentage
+
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"

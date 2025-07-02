@@ -1,61 +1,61 @@
 """
-Plugin interface for external tool integration.
+Simplified plugin interface for external tool integration.
 
-This module defines the contract that external tool plugins must implement
+This module defines the essential contract that external tool plugins must implement
 to integrate with the RV-Android monitored operations framework.
 """
 
 from abc import ABC, abstractmethod
 from typing import List, Dict, Any, Type, Optional
 
+from rv_android_core.util.error.error_handler import ErrorHandler
+from rv_android_core.util.logging.manager import LoggingManager
+from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
+from rv_android_core.util.exceptions import PluginError, ToolRegistrationError
 from rv_android_core.tools.abstract_tool import AbstractTool
 from rv_android_core.tools.tool_spec import ToolSpec
 
 
 class ToolPlugin(ABC):
     """
-    Abstract interface for external tool plugins in the monitored operations framework.
+    Simplified interface for external tool plugins in the monitored operations framework.
 
     ### Architectural Decisions:
-    - Defines clear contract for external tool integration
-    - Supports plugin metadata and dependency management
-    - Enables dynamic tool registration and discovery
-    - Provides validation and compatibility checking capabilities
-    - Facilitates plugin lifecycle management and error handling
-    - Supports both single and multiple tool registration per plugin
+    - Focuses on essential plugin functionality only
+    - Maintains tool variant support for complex tools (e.g., droidbot, rvandroid)
+    - Uses rv-android-core infrastructure for error handling and logging
+    - Removes complex capability and dependency management
+    - Supports clean tool registration and discovery patterns
 
     ### Role in the System:
     - Serves as the primary interface for external tool integration
     - Enables modular tool ecosystem with clean separation of concerns
     - Provides standardized mechanism for tool discovery and registration
-    - Facilitates plugin validation and dependency resolution
-    - Enables experiment framework integration with external tools
-    - Supports configuration and variant management for external tools
+    - Supports tool variant management for flexible tool configuration
+    - Integrates with simplified registry and factory systems
 
-    ### Key Considerations:
-    - Must be implemented by all external tool plugins
-    - Provides metadata for plugin discovery and validation
-    - Supports dependency checking and compatibility verification
-    - Enables flexible tool registration patterns (single or multiple tools)
-    - Facilitates error handling and graceful degradation
-    - Supports plugin versioning and compatibility management
-
-    ### Integration Strategy:
-    - Compatible with PluginLoader for automatic discovery
-    - Integrates with ToolRegistry for tool registration
-    - Supports experiment framework tool selection and filtering
-    - Enables configuration management through ToolFactory
-    - Provides clear extension points for custom plugin behavior
-    - Facilitates testing and validation of plugin implementations
+    ### Key Features:
+    - Essential metadata methods (name, version, description)
+    - Tool class and specification provision
+    - Tool variant support for complex tools
+    - Simplified registration workflow
+    - Standardized error handling and logging
     """
+
+    def __init__(self):
+        """Initialize plugin with standardized logging and error handling."""
+        # Set up rv-android-core infrastructure
+        logging_manager = LoggingManager.get_instance()
+        self.logger = logging_manager.get_logger(
+            f"rv_tools.plugin.{self.get_plugin_name()}",
+            {CONTEXT_COMPONENT: "ToolPlugin"}
+        )
+        self.error_handler = ErrorHandler.get_instance()
 
     @abstractmethod
     def get_plugin_name(self) -> str:
         """
         Get the unique identifier for this plugin.
-        
-        This name should be unique across all plugins and will be used
-        for plugin discovery and management.
         
         Returns:
             Unique plugin name
@@ -67,10 +67,8 @@ class ToolPlugin(ABC):
         """
         Get the version of this plugin.
         
-        Version should follow semantic versioning (e.g., "1.0.0").
-        
         Returns:
-            Plugin version string
+            Plugin version string (should follow semantic versioning)
         """
         pass
 
@@ -106,7 +104,7 @@ class ToolPlugin(ABC):
             Tool class type
             
         Raises:
-            ValueError: If tool name is not provided by this plugin
+            ToolRegistrationError: If tool name is not provided by this plugin
         """
         pass
 
@@ -122,118 +120,85 @@ class ToolPlugin(ABC):
             ToolSpec instance with tool metadata
             
         Raises:
-            ValueError: If tool name is not provided by this plugin
+            ToolRegistrationError: If tool name is not provided by this plugin
         """
         pass
 
-    @abstractmethod
-    def get_dependencies(self) -> List[str]:
+    def get_tool_variants(self, tool_name: str) -> List[str]:
         """
-        Get the list of required dependencies for this plugin.
+        Get available variants for a specific tool.
         
-        Dependencies should be specified as module names that can be
-        imported or package names that should be available.
+        This method supports tools that have multiple configuration variants
+        (e.g., droidbot with bfs_greedy, dfs_greedy; rvandroid with different models).
         
+        Args:
+            tool_name: Name of the tool
+            
         Returns:
-            List of required dependency names
+            List of variant names for the tool (empty if no variants)
         """
-        pass
+        # Default implementation returns no variants
+        # Tools with variants should override this method
+        return []
 
-    @abstractmethod
+    def get_variant_config(self, tool_name: str, variant_name: str) -> Dict[str, Any]:
+        """
+        Get configuration for a specific tool variant.
+        
+        Args:
+            tool_name: Name of the tool
+            variant_name: Name of the variant
+            
+        Returns:
+            Configuration dictionary for the variant
+            
+        Raises:
+            ToolRegistrationError: If tool or variant is not available
+        """
+        # Default implementation returns empty config
+        # Tools with variants should override this method
+        return {}
+
+    @ErrorHandler.handle_errors(
+        component="ToolPlugin",
+        phase="register_tools"
+    )
     def register_tools(self, registry) -> None:
         """
         Register all tools provided by this plugin with the registry.
         
-        This method should create tool instances and register them
-        with the provided registry along with any configurations or variants.
+        This method registers tools and their variants with the provided registry.
         
         Args:
             registry: ToolRegistry instance to register tools with
             
         Raises:
-            RuntimeError: If tool registration fails
-        """
-        pass
-
-    def get_plugin_metadata(self) -> Dict[str, Any]:
-        """
-        Get comprehensive plugin metadata.
-        
-        This method provides a default implementation that collects
-        metadata from other interface methods. Plugins can override
-        this to provide additional metadata.
-        
-        Returns:
-            Dictionary with plugin metadata
-        """
-        return {
-            "name": self.get_plugin_name(),
-            "version": self.get_plugin_version(),
-            "description": self.get_plugin_description(),
-            "tool_names": self.get_tool_names(),
-            "dependencies": self.get_dependencies(),
-            "plugin_type": "external_tool"
-        }
-
-    def validate_dependencies(self) -> bool:
-        """
-        Validate that all plugin dependencies are available.
-        
-        This method provides a default implementation that attempts
-        to import all dependencies. Plugins can override this for
-        custom dependency validation logic.
-        
-        Returns:
-            True if all dependencies are available, False otherwise
+            ToolRegistrationError: If tool registration fails
         """
         try:
-            for dependency in self.get_dependencies():
-                __import__(dependency)
-            return True
-        except ImportError:
-            return False
-
-    def is_compatible_with_framework(self, framework_version: str) -> bool:
-        """
-        Check if this plugin is compatible with a specific framework version.
-        
-        This method provides a default implementation that returns True.
-        Plugins can override this to provide version compatibility checking.
-        
-        Args:
-            framework_version: Framework version string
-            
-        Returns:
-            True if compatible, False otherwise
-        """
-        return True
-
-    def get_supported_capabilities(self) -> List[str]:
-        """
-        Get all capabilities supported by tools in this plugin.
-        
-        This method aggregates capabilities from all tool specifications
-        provided by this plugin.
-        
-        Returns:
-            List of unique capabilities across all tools
-        """
-        capabilities = set()
-        for tool_name in self.get_tool_names():
-            try:
+            for tool_name in self.get_tool_names():
+                # Register the tool class and spec
+                tool_class = self.get_tool_class(tool_name)
                 tool_spec = self.get_tool_spec(tool_name)
-                capabilities.update(tool_spec.capabilities)
-            except Exception:
-                # Skip tools that fail to provide specs
-                continue
-        return list(capabilities)
+                
+                registry.register_tool(tool_name, tool_class, tool_spec)
+                self.logger.info(f"Registered tool: {tool_name}")
+                
+                # Register variants if available
+                variants = self.get_tool_variants(tool_name)
+                for variant_name in variants:
+                    variant_config = self.get_variant_config(tool_name, variant_name)
+                    registry.register_variant(tool_name, variant_name, variant_config)
+                    self.logger.debug(f"Registered variant '{variant_name}' for tool: {tool_name}")
+                
+        except Exception as e:
+            raise ToolRegistrationError(
+                f"Failed to register tools from plugin '{self.get_plugin_name()}': {e}"
+            ) from e
 
     def create_tool_instance(self, tool_name: str, config: Optional[Dict[str, Any]] = None) -> AbstractTool:
         """
         Create a configured instance of a specific tool.
-        
-        This method provides a default implementation for tool creation.
-        Plugins can override this for custom tool creation logic.
         
         Args:
             tool_name: Name of the tool to create
@@ -243,75 +208,50 @@ class ToolPlugin(ABC):
             Configured tool instance
             
         Raises:
-            ValueError: If tool name is not provided by this plugin
+            ToolRegistrationError: If tool name is not provided by this plugin
         """
         if tool_name not in self.get_tool_names():
-            raise ValueError(f"Tool '{tool_name}' is not provided by plugin '{self.get_plugin_name()}'")
+            raise ToolRegistrationError(
+                f"Tool '{tool_name}' is not provided by plugin '{self.get_plugin_name()}'"
+            )
 
-        # Get tool class and create instance
-        tool_class = self.get_tool_class(tool_name)
-        tool_instance = tool_class()
-
-        # Apply configuration if provided and tool supports it
-        if config and hasattr(tool_instance, 'configure') and callable(tool_instance.configure):
-            tool_instance.configure(config)
-
-        return tool_instance
-
-    def validate_tool_configuration(self, tool_name: str, config: Dict[str, Any]) -> bool:
-        """
-        Validate a configuration for a specific tool.
-        
-        This method provides a default implementation that returns True.
-        Plugins can override this to provide custom configuration validation.
-        
-        Args:
-            tool_name: Name of the tool
-            config: Configuration to validate
+        try:
+            # Get tool class and create instance
+            tool_class = self.get_tool_class(tool_name)
+            tool_spec = self.get_tool_spec(tool_name)
             
-        Returns:
-            True if configuration is valid, False otherwise
-        """
-        return True
+            # Create instance using spec data
+            tool_instance = tool_class(
+                name=tool_spec.name,
+                description=tool_spec.description,
+                process_pattern=tool_spec.process_pattern
+            )
 
-    def get_default_configuration(self, tool_name: str) -> Dict[str, Any]:
-        """
-        Get the default configuration for a specific tool.
-        
-        This method provides a default implementation that returns an empty
-        configuration. Plugins can override this to provide tool-specific defaults.
-        
-        Args:
-            tool_name: Name of the tool
+            # Apply configuration if provided and tool supports it
+            if config and hasattr(tool_instance, 'configure') and callable(tool_instance.configure):
+                tool_instance.configure(config)
+
+            return tool_instance
             
-        Returns:
-            Default configuration dictionary
-        """
-        return {}
+        except Exception as e:
+            raise ToolRegistrationError(
+                f"Failed to create tool instance '{tool_name}': {e}"
+            ) from e
 
-    def get_configuration_schema(self, tool_name: str) -> Dict[str, Any]:
+    def get_plugin_metadata(self) -> Dict[str, Any]:
         """
-        Get the configuration schema for a specific tool.
+        Get comprehensive plugin metadata.
         
-        This method provides a default implementation that returns an empty
-        schema. Plugins can override this to provide configuration validation schemas.
-        
-        Args:
-            tool_name: Name of the tool
-            
         Returns:
-            Configuration schema dictionary (e.g., JSON Schema format)
+            Dictionary with plugin metadata
         """
-        return {}
-
-    def cleanup(self) -> None:
-        """
-        Perform cleanup operations when the plugin is unloaded.
-        
-        This method provides a default implementation that does nothing.
-        Plugins can override this to perform custom cleanup operations.
-        """
-        pass
+        return {
+            "name": self.get_plugin_name(),
+            "version": self.get_plugin_version(),
+            "description": self.get_plugin_description(),
+            "tool_names": self.get_tool_names(),
+            "plugin_type": "external_tool"
+        }
 
     def __str__(self) -> str:
         """String representation of the plugin."""

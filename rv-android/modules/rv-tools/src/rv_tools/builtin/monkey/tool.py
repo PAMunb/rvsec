@@ -5,25 +5,26 @@ Monkey generates pseudo-random streams of user events for stress testing
 and monitored operations validation in Android applications.
 """
 
-from typing import Any
+from typing import Any, Dict
 
 from rv_android_core.app import App
 from rv_android_core.commands.command import Command
-from rv_android_core.tools.configurable_tool import ConfigurableTool
-from rv_android_core.tools.tool_spec import ToolSpec, ToolType, ToolCategory
+from rv_android_core.domain.task import Task
+from rv_android_core.tools.abstract_tool import AbstractTool
+from rv_android_core.tools.tool_spec import ToolSpec
 from rv_android_core.util.error.error_handler import ErrorHandler
 from rv_android_core.util.logging.manager import LoggingManager
 from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
 
 
-class MonkeyTool(ConfigurableTool):
+class MonkeyTool(AbstractTool):
     """
     Android Monkey tool for random event generation and monitored operations testing.
 
     ### Architectural Decisions:
-    - Extends ConfigurableTool for standardized configuration handling
+    - Inherits directly from AbstractTool for simplified architecture
     - Provides clean interface to Android Monkey testing framework
-    - Supports extensive customization of Monkey parameters
+    - Supports configuration through simple parameter dictionary
     - Implements random event generation for stress testing
     - Integrates with RV-Android monitored operations infrastructure
 
@@ -34,64 +35,36 @@ class MonkeyTool(ConfigurableTool):
     - Supports configurable event generation patterns and constraints
     - Facilitates discovery of crashes and performance issues
 
-    ### Key Considerations:
-    - Supports multiple event types (touch, gesture, navigation, system)
-    - Provides configurable event generation parameters and constraints
-    - Manages execution timeout and event count limits
-    - Integrates with monitored operations instrumentation for coverage
-    - Handles device communication and command execution
-
-    ### Integration Strategy:
-    - Compatible with experiment framework and task management
-    - Supports configuration through ToolRegistry and ToolFactory
-    - Enables dynamic parameter customization per experiment
-    - Provides standardized logging and error handling
-    - Facilitates result collection and analysis integration
-
-    ### Performance and Scalability:
-    - Optimized for high-volume event generation
-    - Supports configurable event generation rates and patterns
-    - Enables efficient exploration of application state spaces
-    - Adaptable to different application complexity and performance levels
-    - Minimizes overhead through targeted event generation strategies
+    ### Key Features:
+    - Multiple event types (touch, gesture, navigation, system)
+    - Configurable event generation parameters and constraints
+    - Execution timeout and event count limits
+    - Integration with monitored operations instrumentation
+    - Device communication and command execution
     """
 
-    # Monkey tool specification
+    # Simplified tool specification
     TOOL_SPEC = ToolSpec.create_builtin_spec(
         name="monkey",
         description="Android UI/Application exerciser generating pseudo-random user events",
-        category=ToolCategory.RANDOM_TESTING,
+        url="https://developer.android.com/studio/test/monkey",
         version="1.0.0",
-        process_pattern="com.android.commands.monkey",
-        capabilities=[
-            "random_testing",
-            "stress_testing",
-            "event_generation",
-            "crash_detection",
-            "performance_testing",
-            "state_exploration"
-        ]
+        process_pattern="com.android.commands.monkey"
     )
 
-    def __init__(self):
+    def __init__(self, name: str = None, description: str = None, process_pattern: str = None):
         """
-        Initialize Monkey tool with default configuration and rv-android-core infrastructure.
-        
-        ### Infrastructure Integration:
-        - Sets up standardized logging with Monkey-specific context
-        - Initializes error handler for comprehensive error management
-        - Configures Monkey-specific parameters and event generation settings
-        - Establishes integration with monitored operations framework
+        Initialize Monkey tool with rv-android-core infrastructure.
         """
         super().__init__(
-            name=self.TOOL_SPEC.name,
-            description=self.TOOL_SPEC.description,
-            process_pattern=self.TOOL_SPEC.process_pattern
+            name=name or self.TOOL_SPEC.name,
+            description=description or self.TOOL_SPEC.description,
+            process_pattern=process_pattern or self.TOOL_SPEC.process_pattern
         )
 
         # Initialize rv-android-core infrastructure components
-        self._logging_manager = LoggingManager.get_instance()
-        self.logger = self._logging_manager.get_logger(
+        logging_manager = LoggingManager.get_instance()
+        self.logger = logging_manager.get_logger(
             "rv_tools.builtin.monkey",
             {CONTEXT_COMPONENT: "MonkeyTool"}
         )
@@ -122,9 +95,9 @@ class MonkeyTool(ConfigurableTool):
             }
         }
 
-        self.logger.info(f"Initialized Monkey tool with capabilities: {self.TOOL_SPEC.capabilities}")
+        self.logger.info("Initialized Monkey tool for random event generation")
 
-    def configure_tool_specific(self, config: dict) -> None:
+    def configure(self, config: Dict[str, Any]) -> None:
         """
         Configure Monkey-specific parameters.
         
@@ -142,6 +115,9 @@ class MonkeyTool(ConfigurableTool):
         Args:
             config: Configuration dictionary with Monkey parameters
         """
+        if not config:
+            return
+
         # Update event count
         if "event_count" in config:
             try:
@@ -220,7 +196,11 @@ class MonkeyTool(ConfigurableTool):
                     except (ValueError, TypeError):
                         self.logger.warning(f"Invalid percentage for {event_type}: {percentage}")
 
-    def execute_tool_specific_logic(self, task: Any, app: App) -> None:
+    @ErrorHandler.handle_errors(
+        component="MonkeyTool",
+        phase="execute_tool_specific_logic"
+    )
+    def execute_tool_specific_logic(self, task: Task, app: App) -> None:
         """
         Execute Monkey testing with configured parameters.
         
@@ -340,7 +320,7 @@ class MonkeyTool(ConfigurableTool):
         Get comprehensive Monkey tool information.
         
         Returns:
-            Dictionary with tool information, capabilities, and current configuration
+            Dictionary with tool information and current configuration
         """
         info = super().get_tool_info()
         info.update({
@@ -349,6 +329,6 @@ class MonkeyTool(ConfigurableTool):
             "current_event_count": self.config["event_count"],
             "current_seed": self.config["seed"],
             "version": self.TOOL_SPEC.version,
-            "category": self.TOOL_SPEC.category.value
+            "url": self.TOOL_SPEC.url
         })
         return info

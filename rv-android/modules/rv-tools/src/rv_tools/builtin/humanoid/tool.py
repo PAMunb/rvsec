@@ -1,8 +1,8 @@
 """
-Humanoid tool implementation for human-like monitored operations testing.
+Humanoid human-like testing tool implementation.
 
 This module provides integration with the Humanoid Android testing framework,
-enabling human-like test input generation through computer vision and natural language processing.
+enabling human-like testing with computer vision and natural language processing.
 """
 
 import os
@@ -10,662 +10,437 @@ from typing import Dict, Any, List
 
 from rv_android_core.app import App
 from rv_android_core.commands.command import Command
+from rv_android_core.domain.task import Task
+from rv_android_core.tools.abstract_tool import AbstractTool
+from rv_android_core.tools.tool_spec import ToolSpec
 from rv_android_core.util.error.error_handler import ErrorHandler
 from rv_android_core.util.logging.manager import LoggingManager
-from rv_android_core.tools.configurable_tool import ConfigurableTool
-from rv_android_core.tools.tool_spec import ToolSpec, ToolCategory
+from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
 
 
-class HumanoidTool(ConfigurableTool):
+class HumanoidTool(AbstractTool):
     """
-    Humanoid human-like testing tool for monitored operations testing.
+    Humanoid human-like testing tool with computer vision and NLP capabilities.
 
     ### Architectural Decisions:
-    - Extends ConfigurableTool to leverage standardized configuration management
-    - Implements human-like interaction strategies using computer vision and natural language
-    - Provides comprehensive GUI exploration with human behavior modeling capabilities
-    - Uses DroidBot framework integration for efficient execution and trace generation
-    - Supports configurable policies for different exploration strategies
+    - Inherits directly from AbstractTool for simplified architecture
+    - Implements human-like testing using computer vision and natural language processing
+    - Provides intelligent interaction based on visual understanding and context
+    - Uses script-based execution model for flexible testing scenarios
+    - Supports multiple interaction modes and configuration options
     - Integrates with rv-android-core infrastructure for error handling and logging
 
     ### Role in the System:
-    - Serves as a human-like testing tool for monitored operations using computer vision
-    - Provides natural language understanding for intelligent interaction with UI elements
-    - Enables human behavior modeling for realistic application testing scenarios
-    - Supports both guided and autonomous exploration with configurable policy strategies
-    - Facilitates computer vision-based UI element recognition and interaction
-    - Generates detailed trace files for comprehensive result analysis and debugging
+    - Serves as a human-like testing tool for natural Android app interaction
+    - Provides computer vision-based UI understanding and interaction
+    - Enables context-aware testing using natural language processing
+    - Supports both JCA cryptography detection and generic monitored operations testing
+    - Facilitates advanced testing through human-like behavior simulation
 
-    ### Key Considerations:
-    - Uses computer vision techniques for UI element detection and classification
-    - Implements natural language processing for understanding UI context and content
-    - Supports human-like interaction patterns including gestures and navigation flows
-    - Provides configurable exploration policies for different testing objectives
-    - Handles both emulator and real device execution environments
-    - Integrates with DroidBot framework for standardized execution and tracing
+    ### Key Features:
+    - Computer vision-based UI element recognition and interaction
+    - Natural language processing for context understanding
+    - Human-like interaction patterns and timing
+    - Script-based execution for complex testing scenarios
+    - Integration with Android Debug Bridge (ADB) for device communication
 
-    ### Integration Strategy:
-    - Compatible with experiment task execution system for automated workflows
-    - Supports configuration inheritance from experiment and variant specifications
-    - Enables result collection and analysis through standardized trace file format
-    - Provides clear extension points for custom exploration policies and behaviors
-    - Facilitates integration with coverage analysis and UI pattern recognition systems
-    - Supports plugin-based architecture for external tool ecosystem integration
-
-    ### Performance and Scalability:
-    - Optimized for human-like interaction speed with configurable timing parameters
-    - Supports configurable timeout mechanisms to prevent resource exhaustion
-    - Enables parallel execution across multiple device instances and applications
-    - Provides intelligent exploration strategies to minimize redundant actions
-    - Scales effectively for large-scale experiment execution scenarios
-    - Adaptable to different APK complexity and UI design patterns
-
-    ### Human-Like Testing Features:
-    - Computer vision-based element detection and interaction
-    - Natural language understanding for UI content analysis
-    - Human behavior modeling for realistic interaction patterns
-    - Gesture recognition and sophisticated touch interaction simulation
-    - Context-aware navigation and exploration strategies
-    - Adaptive learning from previous interaction experiences
+    ### Tool Variants:
+    Humanoid supports different interaction modes as variants:
+    - visual: Visual-based interaction using computer vision
+    - nlp: NLP-enhanced interaction with context understanding
+    - hybrid: Combined visual and NLP capabilities
     """
 
-    # Humanoid tool specification with comprehensive metadata
+    # Simplified tool specification
     TOOL_SPEC = ToolSpec.create_builtin_spec(
         name="humanoid",
-        description="Humanoid human-like testing tool using computer vision and natural language processing",
-        category=ToolCategory.AI_GUIDED,
+        description="Humanoid human-like testing tool with computer vision and NLP capabilities",
+        url="https://github.com/yzygitzh/Humanoid",
         version="1.0.0",
-        process_pattern="humanoid",
-        capabilities=[
-            "human_like_testing",
-            "computer_vision",
-            "natural_language_understanding",
-            "ui_element_recognition",
-            "gesture_simulation",
-            "context_aware_navigation",
-            "behavior_modeling",
-            "adaptive_exploration",
-            "trace_generation",
-            "monitored_operations_testing"
-        ]
+        process_pattern="humanoid"
     )
 
-    def __init__(self):
+    # Available interaction modes
+    AVAILABLE_MODES = [
+        'visual', 'nlp', 'hybrid', 'basic'
+    ]
+
+    def __init__(self, name: str = None, description: str = None, process_pattern: str = None):
         """
-        Initialize the Humanoid tool with default configuration.
-        
-        Sets up tool metadata, default parameters, and establishes
-        integration with rv-android-core infrastructure.
+        Initialize the Humanoid tool with rv-android-core infrastructure.
         """
         super().__init__(
-            name=self.TOOL_SPEC.name,
-            description=self.TOOL_SPEC.description,
-            process_pattern=self.TOOL_SPEC.process_pattern
+            name=name or self.TOOL_SPEC.name,
+            description=description or self.TOOL_SPEC.description,
+            process_pattern=process_pattern or self.TOOL_SPEC.process_pattern
         )
 
-        # Initialize logging and error handling
+        # Initialize rv-android-core infrastructure components
+        logging_manager = LoggingManager.get_instance()
+        self.logger = logging_manager.get_logger(
+            "rv_tools.builtin.humanoid",
+            {CONTEXT_COMPONENT: "HumanoidTool"}
+        )
         self.error_handler = ErrorHandler.get_instance()
-        self.logging_manager = LoggingManager.get_instance()
 
-        # Default tool configuration
-        self.default_config = {
-            "humanoid_url": "127.0.0.1:50405",
-            "policy": "dfs_greedy",
-            "timeout": 600,  # 10 minutes
-            "device_id": "emulator-5554",
-            "is_emulator": True,
-            "vision_enabled": True,
-            "nlp_enabled": True,
-            "behavior_model": "human",
-            "interaction_delay": 1.0,  # Seconds between interactions
-            "gesture_recognition": True,
-            "context_awareness": True,
-            "adaptive_learning": True,
-            "output_dir": None,
-            "debug_mode": False,
-            "trace_level": "detailed"
+        # Default Humanoid configuration
+        self.config = {
+            "interaction_mode": "hybrid",    # Interaction mode
+            "device_serial": None,           # Device serial number
+            "script_path": None,             # Path to Humanoid script
+            "timeout": 1800,                 # Execution timeout in seconds (30 minutes)
+            "debug_mode": False,             # Enable debug mode
+            "visual_threshold": 0.8,         # Visual recognition threshold
+            "nlp_model": "default",          # NLP model to use
+            "interaction_delay": 2.0,        # Delay between interactions (seconds)
+            "screenshot_interval": 1.0,      # Screenshot capture interval (seconds)
+            "max_iterations": 1000,          # Maximum test iterations
+            "enable_learning": True,         # Enable learning from interactions
+            "context_window": 5,             # Context window for NLP
+            "vision_model": "default"        # Computer vision model
         }
 
-        # Merge default configuration with current tool configuration
-        self.tool_config = self.default_config.copy()
+        self.logger.info("Initialized Humanoid tool for human-like exploration")
 
-        self.logger.info("Humanoid tool initialized successfully")
-
-    def configure_tool_specific(self, config: Dict[str, Any]) -> None:
+    def configure(self, config: Dict[str, Any]) -> None:
         """
-        Configure Humanoid-specific parameters and validate settings.
+        Configure Humanoid-specific parameters.
+
+        Supported configuration options:
+        - interaction_mode: Interaction mode (visual, nlp, hybrid, basic)
+        - device_serial: Device serial number
+        - script_path: Path to Humanoid script
+        - timeout: Execution timeout in seconds
+        - debug_mode: Enable debug mode
+        - visual_threshold: Visual recognition threshold
+        - nlp_model: NLP model to use
+        - interaction_delay: Delay between interactions in seconds
+        - screenshot_interval: Screenshot capture interval in seconds
+        - max_iterations: Maximum test iterations
+        - enable_learning: Enable learning from interactions
+        - context_window: Context window for NLP
+        - vision_model: Computer vision model
 
         Args:
-            config: Configuration dictionary with tool-specific parameters
-
-        Raises:
-            ValueError: If configuration parameters are invalid
+            config: Configuration dictionary with Humanoid parameters
         """
-        self.logger.debug("Configuring Humanoid-specific parameters")
+        if not config:
+            return
 
-        try:
-            # Humanoid URL configuration
-            if 'humanoid_url' in config:
-                humanoid_url = config['humanoid_url']
-                if not isinstance(humanoid_url, str) or not humanoid_url.strip():
-                    raise ValueError("humanoid_url must be a non-empty string")
-                self.tool_config['humanoid_url'] = humanoid_url.strip()
+        # Update interaction mode
+        if 'interaction_mode' in config:
+            mode = config['interaction_mode']
+            if mode not in self.AVAILABLE_MODES:
+                self.logger.warning(f"Invalid interaction mode '{mode}'. Using default 'hybrid'")
+                self.logger.warning(f"Available modes: {self.AVAILABLE_MODES}")
+            else:
+                self.config['interaction_mode'] = mode
+                self.logger.debug(f"Set Humanoid interaction mode to: {mode}")
 
-            # Policy configuration
-            if 'policy' in config:
-                policy = config['policy']
-                valid_policies = [
-                    'dfs_naive', 'dfs_greedy', 'bfs_naive', 'bfs_greedy',
-                    'random', 'human_like', 'vision_guided', 'context_aware'
-                ]
-                if policy not in valid_policies:
-                    raise ValueError(f"policy must be one of: {valid_policies}")
-                self.tool_config['policy'] = policy
+        # Update device serial
+        if 'device_serial' in config:
+            self.config['device_serial'] = config['device_serial']
+            self.logger.debug(f"Set Humanoid device serial to: {config['device_serial']}")
 
-            # Timeout configuration
-            if 'timeout' in config:
-                timeout = config['timeout']
-                if not isinstance(timeout, int) or timeout < 1:
-                    raise ValueError("timeout must be a positive integer")
-                self.tool_config['timeout'] = timeout
+        # Update script path
+        if 'script_path' in config:
+            self.config['script_path'] = config['script_path']
+            self.logger.debug(f"Set Humanoid script path to: {config['script_path']}")
 
-            # Device configuration
-            if 'device_id' in config:
-                self.tool_config['device_id'] = str(config['device_id'])
+        # Update timeout
+        if 'timeout' in config:
+            try:
+                timeout = int(config['timeout'])
+                if timeout > 0:
+                    self.config['timeout'] = timeout
+                    self.logger.debug(f"Set Humanoid timeout to: {timeout}s")
+                else:
+                    self.logger.warning("Timeout must be positive")
+            except (ValueError, TypeError):
+                self.logger.warning(f"Invalid timeout value: {config['timeout']}")
 
-            # Interaction delay configuration
-            if 'interaction_delay' in config:
-                delay = config['interaction_delay']
-                if not isinstance(delay, (int, float)) or delay < 0:
-                    raise ValueError("interaction_delay must be a non-negative number")
-                self.tool_config['interaction_delay'] = delay
+        # Update visual threshold
+        if 'visual_threshold' in config:
+            try:
+                threshold = float(config['visual_threshold'])
+                if 0.0 <= threshold <= 1.0:
+                    self.config['visual_threshold'] = threshold
+                    self.logger.debug(f"Set Humanoid visual threshold to: {threshold}")
+                else:
+                    self.logger.warning("Visual threshold must be between 0.0 and 1.0")
+            except (ValueError, TypeError):
+                self.logger.warning(f"Invalid visual_threshold value: {config['visual_threshold']}")
 
-            # Behavior model configuration
-            if 'behavior_model' in config:
-                model = config['behavior_model']
-                valid_models = ['human', 'expert', 'novice', 'exploratory', 'systematic']
-                if model not in valid_models:
-                    raise ValueError(f"behavior_model must be one of: {valid_models}")
-                self.tool_config['behavior_model'] = model
+        # Update interaction delay
+        if 'interaction_delay' in config:
+            try:
+                delay = float(config['interaction_delay'])
+                if delay >= 0.0:
+                    self.config['interaction_delay'] = delay
+                    self.logger.debug(f"Set Humanoid interaction delay to: {delay}s")
+                else:
+                    self.logger.warning("Interaction delay must be non-negative")
+            except (ValueError, TypeError):
+                self.logger.warning(f"Invalid interaction_delay value: {config['interaction_delay']}")
 
-            # Trace level configuration
-            if 'trace_level' in config:
-                level = config['trace_level']
-                valid_levels = ['minimal', 'standard', 'detailed', 'comprehensive']
-                if level not in valid_levels:
-                    raise ValueError(f"trace_level must be one of: {valid_levels}")
-                self.tool_config['trace_level'] = level
+        # Update screenshot interval
+        if 'screenshot_interval' in config:
+            try:
+                interval = float(config['screenshot_interval'])
+                if interval > 0.0:
+                    self.config['screenshot_interval'] = interval
+                    self.logger.debug(f"Set Humanoid screenshot interval to: {interval}s")
+                else:
+                    self.logger.warning("Screenshot interval must be positive")
+            except (ValueError, TypeError):
+                self.logger.warning(f"Invalid screenshot_interval value: {config['screenshot_interval']}")
 
-            # Output directory configuration
-            if 'output_dir' in config:
-                self.tool_config['output_dir'] = str(config['output_dir'])
+        # Update max iterations
+        if 'max_iterations' in config:
+            try:
+                iterations = int(config['max_iterations'])
+                if iterations > 0:
+                    self.config['max_iterations'] = iterations
+                    self.logger.debug(f"Set Humanoid max iterations to: {iterations}")
+                else:
+                    self.logger.warning("Max iterations must be positive")
+            except (ValueError, TypeError):
+                self.logger.warning(f"Invalid max_iterations value: {config['max_iterations']}")
 
-            # Boolean flags
-            boolean_flags = [
-                'is_emulator', 'vision_enabled', 'nlp_enabled', 'gesture_recognition',
-                'context_awareness', 'adaptive_learning', 'debug_mode'
-            ]
-            
-            for flag in boolean_flags:
-                if flag in config:
-                    self.tool_config[flag] = bool(config[flag])
+        # Update context window
+        if 'context_window' in config:
+            try:
+                window = int(config['context_window'])
+                if window > 0:
+                    self.config['context_window'] = window
+                    self.logger.debug(f"Set Humanoid context window to: {window}")
+                else:
+                    self.logger.warning("Context window must be positive")
+            except (ValueError, TypeError):
+                self.logger.warning(f"Invalid context_window value: {config['context_window']}")
 
-            self.logger.info("Humanoid tool configuration completed successfully")
+        # Update boolean flags
+        if 'debug_mode' in config:
+            self.config['debug_mode'] = bool(config['debug_mode'])
+            self.logger.debug(f"Set Humanoid debug mode to: {self.config['debug_mode']}")
 
-        except Exception as e:
-            self.error_handler.handle_error(
-                e,
-                context={
-                    "operation": "configure_tool_specific",
-                    "tool": "humanoid",
-                    "component": "HumanoidTool"
-                }
-            )
-            raise
+        if 'enable_learning' in config:
+            self.config['enable_learning'] = bool(config['enable_learning'])
+            self.logger.debug(f"Set Humanoid enable learning to: {self.config['enable_learning']}")
 
-    def execute_tool_specific_logic(self, task: Any, app: App) -> None:
+        # Update model configurations
+        model_params = ['nlp_model', 'vision_model']
+        for param in model_params:
+            if param in config:
+                self.config[param] = str(config[param])
+                self.logger.debug(f"Set Humanoid {param} to: {config[param]}")
+
+    @ErrorHandler.handle_errors(
+        component="HumanoidTool",
+        phase="execute_tool_specific_logic"
+    )
+    def execute_tool_specific_logic(self, task: Task, app: App) -> None:
         """
-        Execute Humanoid-specific testing logic through DroidBot integration.
-        
-        This method implements the core Humanoid execution workflow including
-        environment validation, command preparation, and execution with comprehensive
-        error handling and trace generation.
-        
+        Execute Humanoid testing with configured parameters.
+
+        ### Execution Workflow:
+        1. Resolve Humanoid script and model files
+        2. Prepare computer vision and NLP models
+        3. Execute Humanoid with specified interaction mode
+        4. Capture execution output and interaction logs
+        5. Process results and learning data
+
         Args:
             task: Task configuration containing timeout and other parameters
-            app: Application under test with path and metadata
+            app: Application under test with package name and metadata
         """
+        self.logger.info(f"Executing Humanoid tool for {app.package_name}")
+        self.logger.debug(f"Mode: {self.config['interaction_mode']}, Max iterations: {self.config['max_iterations']}")
+
+        # Get timeout from task configuration
+        timeout_in_seconds = getattr(task.config, 'timeout', self.config['timeout'])
+        
+        self.logger.info(f"Humanoid execution timeout: {timeout_in_seconds} seconds")
+
+        # Create output directory for Humanoid results
+        output_dir = os.path.join(os.path.dirname(task.result.trace_file), "humanoid_output")
+        os.makedirs(output_dir, exist_ok=True)
+
+        # Resolve Humanoid script
+        script_path = self._resolve_humanoid_script()
+
+        # Build Humanoid command
+        humanoid_cmd = self._build_humanoid_command(app, script_path, output_dir, timeout_in_seconds)
+        
+        # Build command string for logging
+        cmd_str = f"{humanoid_cmd.command} {' '.join(humanoid_cmd.args)}"
+        self.logger.debug(f"Humanoid command: {cmd_str}")
+
+        # Execute Humanoid testing
         try:
-            self.logger.info(f"Executing Humanoid tool for app: {app.name}")
-            self.logger.debug(f"Humanoid URL: {self.tool_config['humanoid_url']}")
-            self.logger.debug(f"Policy: {self.tool_config['policy']}")
-            self.logger.debug(f"Behavior model: {self.tool_config['behavior_model']}")
-
-            # Validate execution environment
-            if not self.validate_execution_environment(app):
-                raise RuntimeError("Humanoid execution environment validation failed")
-
-            # Get task configuration timeout
-            task_config = {"timeout": getattr(task.config, 'timeout', self.tool_config['timeout'])}
+            self.logger.info(f"Starting Humanoid execution for {app.package_name}")
+            result = humanoid_cmd.invoke()
             
-            # Determine output file from task
-            output_file = getattr(task.result, 'trace_file', None)
-            if not output_file:
-                raise ValueError("No output trace file specified in task result")
-
-            # Create execution command
-            command = self.get_execution_command(app, output_file, task_config)
+            # Write result to trace file
+            with open(task.result.trace_file, 'w') as trace_file:
+                trace_file.write(f"Humanoid execution completed\n")
+                trace_file.write(f"Interaction mode: {self.config['interaction_mode']}\n")
+                trace_file.write(f"Max iterations: {self.config['max_iterations']}\n")
+                trace_file.write(f"Visual threshold: {self.config['visual_threshold']}\n")
+                trace_file.write(f"NLP model: {self.config['nlp_model']}\n")
+                trace_file.write(f"Output directory: {output_dir}\n")
+                trace_file.write(f"Command: {cmd_str}\n")
+                if result.stdout:
+                    trace_file.write(f"STDOUT:\n{result.stdout}\n")
+                if result.stderr:
+                    trace_file.write(f"STDERR:\n{result.stderr}\n")
             
-            self.logger.info(f"Starting Humanoid execution with timeout: {task_config['timeout']} seconds")
+            self.logger.info("Humanoid execution completed successfully")
             
-            # Execute the command and capture output
-            with open(output_file, 'wb') as trace_file:
-                result = command.invoke(stdout=trace_file)
-                
-                # Process execution result
-                execution_result = self.process_execution_result(result, app, output_file)
-                
-                # Log execution summary
-                if execution_result.get('success', False):
-                    self.logger.info(f"Humanoid execution completed successfully for app: {app.name}")
-                    self.logger.info(f"Human-like interactions detected: {execution_result.get('human_like_interactions', 0)}")
-                    self.logger.info(f"Monitored operations detected: {execution_result.get('monitored_operations_detected', 0)}")
-                else:
-                    self.logger.warning(f"Humanoid execution failed for app: {app.name}")
-                    if execution_result.get('timeout_occurred', False):
-                        self.logger.warning("Execution terminated due to timeout")
-                    
-                    error_details = execution_result.get('error_details', '')
-                    if error_details:
-                        self.logger.error(f"Error details: {error_details}")
-
         except Exception as e:
-            self.error_handler.handle_error(
-                e,
-                context={
-                    "operation": "execute_tool_specific_logic",
-                    "app_name": app.name,
-                    "tool": "humanoid",
-                    "component": "HumanoidTool"
-                }
-            )
+            self.logger.error(f"Humanoid execution failed: {str(e)}")
+            # Write error information to trace file
+            with open(task.result.trace_file, 'w') as trace_file:
+                trace_file.write(f"Humanoid execution error: {str(e)}\n")
+                trace_file.write(f"Command: {cmd_str}\n")
             raise
 
-    def build_command_args(self, app: App, output_file: str, task_config: Dict[str, Any]) -> List[str]:
+    def _resolve_humanoid_script(self) -> str:
         """
-        Build command arguments for Humanoid execution through DroidBot.
+        Resolve the path to the Humanoid script.
+
+        Returns:
+            Path to Humanoid script
+
+        Raises:
+            FileNotFoundError: If Humanoid script is not found
+        """
+        # Check configured path first
+        if self.config.get("script_path") and os.path.isfile(self.config["script_path"]):
+            return self.config["script_path"]
+
+        # Common search paths for Humanoid script
+        search_paths = [
+            # Environment variable based path
+            os.path.join(os.environ.get('TOOLS_DIR', ''), 'humanoid', 'run_humanoid.sh'),
+            # Relative to current module
+            os.path.join(os.path.dirname(__file__), 'run_humanoid.sh'),
+            # Standard installation paths
+            '/opt/rv-android/tools/humanoid/run_humanoid.sh',
+            './tools/humanoid/run_humanoid.sh',
+            '../tools/humanoid/run_humanoid.sh'
+        ]
+
+        for path in search_paths:
+            if path and os.path.isfile(path):
+                self.logger.debug(f"Found Humanoid script at: {path}")
+                return path
+
+        raise FileNotFoundError("Humanoid script not found. Please ensure Humanoid is properly installed.")
+
+    def _build_humanoid_command(self, app: App, script_path: str, output_dir: str, timeout_seconds: int) -> Command:
+        """
+        Build the Humanoid command with configured parameters.
 
         Args:
-            app: Application instance containing APK information
-            output_file: Path to output trace file
-            task_config: Task-specific configuration parameters
+            app: Application under test
+            script_path: Path to Humanoid script
+            output_dir: Output directory for Humanoid results
+            timeout_seconds: Command execution timeout
 
         Returns:
-            List of command arguments for tool execution
+            Configured Command object for Humanoid execution
         """
-        try:
-            self.logger.debug(f"Building Humanoid command arguments for app: {app.name}")
+        # Start building command arguments
+        cmd_args = [
+            script_path,
+            "--apk", app.apk_path,
+            "--package", app.package_name,
+            "--output", output_dir,
+            "--mode", self.config["interaction_mode"],
+            "--max-iterations", str(self.config["max_iterations"]),
+            "--timeout", str(self.config["timeout"])
+        ]
 
-            # Base DroidBot arguments with Humanoid integration
-            args = [
-                "-d", self.tool_config['device_id'],
-                "-a", app.path,
-                "-humanoid", self.tool_config['humanoid_url'],
-                "-policy", self.tool_config['policy']
-            ]
+        # Add device serial if specified
+        if self.config["device_serial"]:
+            cmd_args.extend(["--device", self.config["device_serial"]])
 
-            # Timeout configuration
-            timeout_seconds = task_config.get('timeout', self.tool_config['timeout'])
-            args.extend(["-timeout", str(timeout_seconds)])
+        # Add visual parameters
+        cmd_args.extend([
+            "--visual-threshold", str(self.config["visual_threshold"]),
+            "--vision-model", self.config["vision_model"]
+        ])
 
-            # Output directory configuration
-            if self.tool_config.get('output_dir'):
-                args.extend(["-o", self.tool_config['output_dir']])
+        # Add NLP parameters
+        cmd_args.extend([
+            "--nlp-model", self.config["nlp_model"],
+            "--context-window", str(self.config["context_window"])
+        ])
 
-            # Emulator flag
-            if self.tool_config['is_emulator']:
-                args.append("-is_emulator")
+        # Add timing parameters
+        cmd_args.extend([
+            "--interaction-delay", str(self.config["interaction_delay"]),
+            "--screenshot-interval", str(self.config["screenshot_interval"])
+        ])
 
-            # Debug mode
-            if self.tool_config['debug_mode']:
-                args.append("-debug")
+        # Add debug mode if enabled
+        if self.config["debug_mode"]:
+            cmd_args.append("--debug")
 
-            # Add Humanoid-specific parameters as environment variables or additional args
-            # Note: Some parameters may need to be passed through environment variables
-            # depending on Humanoid's implementation
+        # Add learning flag if enabled
+        if self.config["enable_learning"]:
+            cmd_args.append("--enable-learning")
 
-            self.logger.debug(f"Humanoid command arguments: {args}")
-            return args
+        return Command("bash", cmd_args, timeout_seconds)
 
-        except Exception as e:
-            self.error_handler.handle_error(
-                e,
-                context={
-                    "operation": "build_command_args",
-                    "app_name": app.name,
-                    "tool": "humanoid",
-                    "component": "HumanoidTool"
-                }
-            )
-            raise
-
-    def validate_execution_environment(self, app: App) -> bool:
+    def get_available_modes(self) -> List[str]:
         """
-        Validate that the execution environment is properly configured for Humanoid.
-
-        Args:
-            app: Application instance to validate against
+        Get list of available interaction modes.
 
         Returns:
-            True if environment is valid, False otherwise
+            List of available mode names
         """
-        try:
-            self.logger.debug("Validating Humanoid execution environment")
+        return self.AVAILABLE_MODES.copy()
 
-            # Check if DroidBot is available (required for Humanoid integration)
-            try:
-                droidbot_check = Command("droidbot", ["--help"], timeout=10)
-                result = droidbot_check.invoke()
-                if result.returncode != 0:
-                    self.logger.error("DroidBot is not available (required for Humanoid)")
-                    return False
-            except Exception as e:
-                self.logger.error(f"DroidBot validation failed: {str(e)}")
-                return False
-
-            # Check if ADB is available
-            try:
-                adb_check = Command("adb", ["devices"], timeout=10)
-                result = adb_check.invoke()
-                if result.returncode != 0:
-                    self.logger.error("ADB is not available or not responding")
-                    return False
-            except Exception as e:
-                self.logger.error(f"ADB validation failed: {str(e)}")
-                return False
-
-            # Validate APK file
-            if not os.path.exists(app.path):
-                self.logger.error(f"APK file not found: {app.path}")
-                return False
-
-            # Check device connectivity
-            device_id = self.tool_config['device_id']
-            try:
-                device_check = Command("adb", ["-s", device_id, "shell", "echo", "test"], timeout=10)
-                result = device_check.invoke()
-                if result.returncode != 0:
-                    self.logger.error(f"Device not accessible: {device_id}")
-                    return False
-            except Exception as e:
-                self.logger.error(f"Device connectivity check failed: {str(e)}")
-                return False
-
-            # Validate Humanoid URL accessibility (basic check)
-            humanoid_url = self.tool_config['humanoid_url']
-            if not humanoid_url or ':' not in humanoid_url:
-                self.logger.error(f"Invalid Humanoid URL format: {humanoid_url}")
-                return False
-
-            self.logger.info("Humanoid execution environment validation successful")
-            return True
-
-        except Exception as e:
-            self.error_handler.handle_error(
-                e,
-                context={
-                    "operation": "validate_execution_environment",
-                    "app_name": app.name,
-                    "tool": "humanoid",
-                    "component": "HumanoidTool"
-                }
-            )
-            return False
-
-    def get_execution_command(self, app: App, output_file: str, task_config: Dict[str, Any]) -> Command:
+    def get_tool_info(self) -> dict:
         """
-        Create the execution command for Humanoid tool.
-
-        Args:
-            app: Application instance
-            output_file: Path to output trace file
-            task_config: Task-specific configuration
+        Get comprehensive Humanoid tool information.
 
         Returns:
-            Configured Command instance for execution
+            Dictionary with tool information and current configuration
         """
-        try:
-            # Build command arguments
-            args = self.build_command_args(app, output_file, task_config)
-            
-            # Calculate timeout with buffer
-            timeout_seconds = task_config.get('timeout', self.tool_config['timeout'])
-            execution_timeout = timeout_seconds + 30  # Add 30 second buffer
+        info = super().get_tool_info()
+        info.update({
+            "tool_spec": self.TOOL_SPEC.to_dict(),
+            "available_modes": self.get_available_modes(),
+            "current_mode": self.config["interaction_mode"],
+            "current_max_iterations": self.config["max_iterations"],
+            "visual_threshold": self.config["visual_threshold"],
+            "nlp_model": self.config["nlp_model"],
+            "vision_model": self.config["vision_model"],
+            "enable_learning": self.config["enable_learning"],
+            "version": self.TOOL_SPEC.version,
+            "url": self.TOOL_SPEC.url
+        })
+        return info
 
-            # Create command with comprehensive configuration
-            command = Command(
-                executable="droidbot",
-                args=args,
-                timeout=execution_timeout
-            )
 
-            self.logger.info(f"Humanoid execution command created for app: {app.name}")
-            return command
-
-        except Exception as e:
-            self.error_handler.handle_error(
-                e,
-                context={
-                    "operation": "get_execution_command",
-                    "app_name": app.name,
-                    "tool": "humanoid",
-                    "component": "HumanoidTool"
-                }
-            )
-            raise
-
-    def process_execution_result(self, result, app: App, output_file: str) -> Dict[str, Any]:
-        """
-        Process the execution result and extract relevant metrics.
-
-        Args:
-            result: Command execution result
-            app: Application instance
-            output_file: Path to output trace file
-
-        Returns:
-            Dictionary containing execution metrics and status information
-        """
-        try:
-            self.logger.debug(f"Processing Humanoid execution result for app: {app.name}")
-
-            # Base result information
-            execution_result = {
-                "tool": "humanoid",
-                "app_name": app.name,
-                "execution_time": getattr(result, 'execution_time', 0),
-                "return_code": result.returncode,
-                "success": result.returncode == 0,
-                "output_file": output_file,
-                "trace_generated": os.path.exists(output_file) if output_file else False
-            }
-
-            # Add tool-specific metrics
-            if result.returncode == 0:
-                execution_result.update({
-                    "exploration_completed": True,
-                    "timeout_occurred": False,
-                    "policy_used": self.tool_config['policy'],
-                    "behavior_model": self.tool_config['behavior_model'],
-                    "human_like_interactions": self._analyze_trace_for_human_interactions(output_file),
-                    "monitored_operations_detected": self._analyze_trace_for_monitored_operations(output_file),
-                    "vision_enabled": self.tool_config['vision_enabled'],
-                    "nlp_enabled": self.tool_config['nlp_enabled']
-                })
-            else:
-                execution_result.update({
-                    "exploration_completed": False,
-                    "timeout_occurred": result.returncode == 124,  # Standard timeout return code
-                    "error_details": getattr(result, 'stderr', ''),
-                    "policy_used": self.tool_config['policy'],
-                    "behavior_model": self.tool_config['behavior_model'],
-                    "human_like_interactions": 0,
-                    "monitored_operations_detected": 0
-                })
-
-            # Extract additional metrics from trace file
-            if output_file and os.path.exists(output_file):
-                execution_result.update(self._extract_trace_metrics(output_file))
-
-            self.logger.info(f"Humanoid execution result processed for app: {app.name}")
-            return execution_result
-
-        except Exception as e:
-            self.error_handler.handle_error(
-                e,
-                context={
-                    "operation": "process_execution_result",
-                    "app_name": app.name,
-                    "tool": "humanoid",
-                    "component": "HumanoidTool"
-                }
-            )
-            
-            # Return basic error result
-            return {
-                "tool": "humanoid",
-                "app_name": app.name,
-                "success": False,
-                "error": f"Result processing failed: {str(e)}"
-            }
-
-    def _analyze_trace_for_human_interactions(self, trace_file: str) -> int:
-        """
-        Analyze trace file for human-like interaction patterns.
-
-        Args:
-            trace_file: Path to the trace file
-
-        Returns:
-            Number of human-like interactions detected
-        """
-        try:
-            if not os.path.exists(trace_file):
-                return 0
-
-            # Simple analysis - count lines that might indicate human-like interactions
-            human_interactions = 0
-            with open(trace_file, 'r', encoding='utf-8', errors='ignore') as f:
-                for line in f:
-                    # Look for patterns that indicate human-like behavior
-                    if any(keyword in line.lower() for keyword in [
-                        'gesture', 'swipe', 'scroll', 'long_press', 'double_tap',
-                        'human', 'vision', 'nlp', 'context', 'behavior'
-                    ]):
-                        human_interactions += 1
-
-            return human_interactions
-
-        except Exception as e:
-            self.logger.warning(f"Failed to analyze trace file for human interactions: {str(e)}")
-            return 0
-
-    def _analyze_trace_for_monitored_operations(self, trace_file: str) -> int:
-        """
-        Analyze trace file for monitored operations occurrences.
-
-        Args:
-            trace_file: Path to the trace file
-
-        Returns:
-            Number of monitored operations detected
-        """
-        try:
-            if not os.path.exists(trace_file):
-                return 0
-
-            # Simple analysis - count lines that might indicate monitored operations
-            monitored_count = 0
-            with open(trace_file, 'r', encoding='utf-8', errors='ignore') as f:
-                for line in f:
-                    # Look for patterns that indicate monitored operations
-                    if any(keyword in line.lower() for keyword in [
-                        'cipher', 'encrypt', 'decrypt', 'hash', 'signature',
-                        'monitored', 'violation', 'specification'
-                    ]):
-                        monitored_count += 1
-
-            return monitored_count
-
-        except Exception as e:
-            self.logger.warning(f"Failed to analyze trace file for monitored operations: {str(e)}")
-            return 0
-
-    def _extract_trace_metrics(self, trace_file: str) -> Dict[str, Any]:
-        """
-        Extract additional metrics from the trace file.
-
-        Args:
-            trace_file: Path to the trace file
-
-        Returns:
-            Dictionary containing trace-based metrics
-        """
-        try:
-            if not os.path.exists(trace_file):
-                return {}
-
-            # Get basic file information
-            file_size = os.path.getsize(trace_file)
-            
-            # Count lines in trace file
-            line_count = 0
-            with open(trace_file, 'r', encoding='utf-8', errors='ignore') as f:
-                line_count = sum(1 for _ in f)
-
-            return {
-                "trace_file_size": file_size,
-                "trace_line_count": line_count,
-                "trace_file_exists": True,
-                "trace_level": self.tool_config['trace_level']
-            }
-
-        except Exception as e:
-            self.logger.warning(f"Failed to extract trace metrics: {str(e)}")
-            return {"trace_file_exists": False}
-
-    def get_tool_info(self) -> Dict[str, Any]:
-        """
-        Get comprehensive information about the Humanoid tool.
-
-        Returns:
-            Dictionary containing tool metadata and configuration
-        """
-        return {
-            "name": self.name,
-            "description": self.description,
-            "type": "ai_guided",
-            "category": "ai_guided",
-            "version": "1.0.0",
-            "capabilities": self.TOOL_SPEC.capabilities,
-            "supported_platforms": ["android"],
-            "configuration": dict(self.tool_config),
-            "execution_pattern": self.process_pattern,
-            "requires_adb": True,
-            "requires_droidbot": True,
-            "humanoid_url": self.tool_config.get('humanoid_url'),
-            "human_like_testing_support": True,
-            "computer_vision_support": self.tool_config.get('vision_enabled', True),
-            "natural_language_support": self.tool_config.get('nlp_enabled', True),
-            "monitored_operations_support": True
-        }
-
-    def __str__(self) -> str:
-        """String representation of the Humanoid tool."""
-        return f"HumanoidTool(name='{self.name}', configured={bool(self.tool_config)})"
-
-    def __repr__(self) -> str:
-        """Detailed string representation of the Humanoid tool."""
-        return (f"HumanoidTool(name='{self.name}', description='{self.description}', "
-                f"humanoid_url='{self.tool_config.get('humanoid_url')}', "
-                f"config_keys={list(self.tool_config.keys())})")
+# Function to register Humanoid variants
+def register_humanoid_variants(registry):
+    """
+    Register Humanoid variants in the tool registry.
+    
+    Args:
+        registry: ToolRegistry instance
+    """
+    # Register interaction mode variants
+    variants = {
+        "visual": {"interaction_mode": "visual", "visual_threshold": 0.9},
+        "nlp": {"interaction_mode": "nlp", "context_window": 10},
+        "hybrid": {"interaction_mode": "hybrid", "visual_threshold": 0.8, "context_window": 5},
+        "basic": {"interaction_mode": "basic", "enable_learning": False}
+    }
+    
+    for variant_name, config in variants.items():
+        registry.register_variant("humanoid", variant_name, config)
