@@ -12,7 +12,7 @@ from typing import Dict, List, Any, Optional, TypeVar, TYPE_CHECKING
 # TaskState is now located in rv_platform.execution.task_model to avoid duplication
 # and ensure compatibility with serialization/deserialization
 if TYPE_CHECKING:
-    from rv_platform.execution.task_model import TaskState
+    from rv_android_core.domain.task import TaskState
 
 T = TypeVar('T')
 

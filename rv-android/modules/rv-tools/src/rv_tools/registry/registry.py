@@ -99,7 +99,7 @@ class ToolRegistry:
         # Set up standardized logging
         logging_manager = LoggingManager.get_instance()
         self.logger = logging_manager.get_logger(
-            "tools.registry",
+            "rv_tools.registry",
             {CONTEXT_COMPONENT: "ToolRegistry"}
         )
         

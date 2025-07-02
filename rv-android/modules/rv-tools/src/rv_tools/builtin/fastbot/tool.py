@@ -94,7 +94,7 @@ class FastBotTool(ConfigurableTool):
         # Initialize rv-android-core infrastructure components
         self._logging_manager = LoggingManager.get_instance()
         self.logger = self._logging_manager.get_logger(
-            "tools.fastbot", 
+            "rv_tools.builtin.fastbot",
             {CONTEXT_COMPONENT: "FastBotTool"}
         )
         self.error_handler = ErrorHandler.get_instance()

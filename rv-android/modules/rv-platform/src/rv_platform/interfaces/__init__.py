@@ -1,5 +1,5 @@
 # Platform interfaces
-from rv_platform.execution.task_model import TaskState
+from rv_android_core.domain.task import TaskState
 from rv_platform.interfaces.task_interfaces import ITaskComponent, ITaskExecutor, ITaskStorage
 
 __all__ = [

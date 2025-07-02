@@ -8,13 +8,11 @@ for the monitored operations testing framework.
 import copy
 from typing import Dict, List, Any, Optional
 
-from rv_android_core.util.error.error_handler import ErrorHandler
-from rv_android_core.util.exceptions import RVToolError, RVToolConfigurationError
-from rv_android_core.util.logging.manager import LoggingManager
-from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
 from rv_android_core.tools.abstract_tool import AbstractTool
-from rv_android_core.tools.configurable_tool import ConfigurableTool
-from rv_android_core.tools.tool_spec import ToolSpec
+from rv_android_core.util.error.error_handler import ErrorHandler
+from rv_android_core.util.exceptions import RVToolError
+from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
+from rv_android_core.util.logging.manager import LoggingManager
 from rv_tools.registry.registry import ToolRegistry
 
 
@@ -91,7 +89,7 @@ class ToolFactory:
         # Set up logging and error handling
         logging_manager = LoggingManager.get_instance()
         logger = logging_manager.get_logger(
-            "tools.factory",
+            "rv_tools.factory",
             {CONTEXT_COMPONENT: "ToolFactory"}
         )
         error_handler = ErrorHandler.get_instance()
@@ -99,7 +97,7 @@ class ToolFactory:
         # Example: Using context manager for scoped error handling
         with error_handler.error_context(component="ToolFactory", phase="tool_creation"):
             logger.debug(f"Creating tool from specification: {spec}")
-            
+
             # Parse tool specification
             tool_name, variants, params = registry.resolve_tool_spec(spec)
             logger.debug(f"Parsed spec - tool: {tool_name}, variants: {variants}, params: {params}")
@@ -107,7 +105,7 @@ class ToolFactory:
             # Check if tool exists
             base_tool = registry.get_tool(tool_name)
             tool_class = registry.get_tool_class(tool_name)
-            
+
             if not base_tool and not tool_class:
                 raise RVToolError(f"Unknown tool: {tool_name}", tool_name=tool_name)
 
@@ -154,7 +152,7 @@ class ToolFactory:
         # Set up logging
         logging_manager = LoggingManager.get_instance()
         logger = logging_manager.get_logger(
-            "tools.factory",
+            "rv_tools.factory",
             {CONTEXT_COMPONENT: "ToolFactory"}
         )
 
@@ -207,7 +205,7 @@ class ToolFactory:
                     logger.debug(f"Applied default variant for tool '{tool_name}'")
                 # Skip warning for default variant if not explicitly defined
                 continue
-                
+
             variant_config = registry.variants.get(tool_name, {}).get(variant)
             if variant_config:
                 config = ToolFactory._deep_merge(config, variant_config)
@@ -260,7 +258,8 @@ class ToolFactory:
         return tool
 
     @staticmethod
-    def _create_tool_from_class(tool_class: type, config: Dict[str, Any], logger, tool_name: str = None) -> AbstractTool:
+    def _create_tool_from_class(tool_class: type, config: Dict[str, Any], logger,
+                                tool_name: str = None) -> AbstractTool:
         """
         Create a tool instance from a tool class.
 
@@ -276,7 +275,7 @@ class ToolFactory:
         try:
             # Get class name safely (handle mock objects)
             class_name = getattr(tool_class, '__name__', repr(tool_class))
-            
+
             # Instantiate the tool class, passing tool_name if supported
             try:
                 # Try to instantiate with tool_name if the constructor supports it
@@ -328,12 +327,12 @@ class ToolFactory:
                 config['timeout'] = int(params['timeout'])
             except ValueError:
                 pass  # Ignore invalid timeout values
-        
+
         if 'verbose' in params:
             # Convert string boolean to actual boolean
             verbose_value = params['verbose'].lower()
             config['verbose'] = verbose_value in ('true', '1', 'yes', 'on')
-        
+
         if 'device_id' in params:
             config['device_id'] = params['device_id']
 
@@ -405,7 +404,7 @@ class ToolFactory:
             'ignore_crashes', 'ignore_timeouts', 'ignore_monitored_violations',
             'kill_process_after_error', 'monitor_native_crashes'
         ]
-        
+
         for flag in boolean_flags:
             if flag in params:
                 config[flag] = params[flag].lower() in ('true', '1', 'yes', 'on')
@@ -498,13 +497,13 @@ class ToolFactory:
             Merged configuration dictionary
         """
         result = base.copy()
-        
+
         for key, value in override.items():
             if key in result and isinstance(result[key], dict) and isinstance(value, dict):
                 result[key] = ToolFactory._deep_merge(result[key], value)
             else:
                 result[key] = value
-        
+
         return result
 
     @staticmethod
@@ -549,7 +548,7 @@ class ToolFactory:
                 registry = ToolRegistry.get_instance()
 
             tool_name, variants, params = registry.resolve_tool_spec(spec)
-            
+
             # Check if tool exists
             if not registry.has_tool(tool_name) and tool_name not in registry.tool_classes:
                 return False

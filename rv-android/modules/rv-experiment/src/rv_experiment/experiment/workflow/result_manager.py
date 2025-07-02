@@ -25,7 +25,7 @@ from rv_android_core.util.logging.manager import LoggingManager
 from rv_android_core.event import EventBus, EventType
 # Import TaskState from rv-platform execution model (the one actually used in task serialization)
 # Import TaskStorage from rv-platform where it now resides
-from rv_platform.execution.task_model import TaskState
+from rv_android_core.domain.task import TaskState
 from rv_platform.storage.task_storage import TaskStorage
 
 

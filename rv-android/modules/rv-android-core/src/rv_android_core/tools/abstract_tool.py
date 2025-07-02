@@ -7,13 +7,13 @@ monitored operations testing tools.
 
 import os
 from abc import ABC, abstractmethod
-from typing import Any
 
 from rv_android_core.app import App
 from rv_android_core.commands.command import Command
+from rv_android_core.domain.task import Task
 from rv_android_core.util.error.error_handler import ErrorHandler
-from rv_android_core.util.logging.manager import LoggingManager
 from rv_android_core.util.logging.constants import CONTEXT_COMPONENT, CONTEXT_TOOL_NAME
+from rv_android_core.util.logging.manager import LoggingManager
 
 
 class AbstractTool(ABC):
@@ -68,24 +68,24 @@ class AbstractTool(ABC):
         self.name = name
         self.description = description
         self.process_pattern = process_pattern
-        
+
         # Set up standardized logging
         logging_manager = LoggingManager.get_instance()
         self.logger = logging_manager.get_logger(
-            f"tools.{name}",
+            f"rv_tools.builtin.{name}",
             {
                 CONTEXT_COMPONENT: f"{name.title()}Tool",
                 CONTEXT_TOOL_NAME: name
             }
         )
-        
+
         # Initialize error handler
         self.error_handler = ErrorHandler.get_instance()
-        
+
         super().__init__()
 
     @abstractmethod
-    def execute_tool_specific_logic(self, task: Any, app: App) -> None:
+    def execute_tool_specific_logic(self, task: Task, app: App) -> None:
         """
         Execute tool-specific testing logic.
         
@@ -101,7 +101,7 @@ class AbstractTool(ABC):
         """
         pass
 
-    def execute(self, task: Any, app: App) -> None:
+    def execute(self, task: Task, app: App) -> None:
         """
         Execute the tool using template method pattern.
         
@@ -121,18 +121,18 @@ class AbstractTool(ABC):
         try:
             self.logger.info(f"Executing monitored operations tool: {self.name}")
             self.logger.debug(f"Tool description: {self.description}")
-            
+
             # Execute tool-specific logic
             self.execute_tool_specific_logic(task, app)
-            
+
             # Cleanup related processes
             self.kill_related_processes(self.process_pattern)
-            
+
             self.logger.info(f"Tool {self.name} execution completed successfully")
-            
+
         except Exception as e:
             self.logger.error(f"Error executing tool {self.name}: {str(e)}", exc_info=True)
-            
+
             # Handle error using centralized error handler
             self.error_handler.handle_error(
                 e,
@@ -160,7 +160,7 @@ class AbstractTool(ABC):
 
         try:
             self.logger.debug(f"Cleaning up processes matching pattern: {process_pattern}")
-            
+
             # Get list of processes matching the pattern
             get_processes_cmd = Command('adb', [
                 'shell',
@@ -169,13 +169,13 @@ class AbstractTool(ABC):
                 'grep',
                 process_pattern
             ])
-            
+
             get_processes_result = get_processes_cmd.invoke()
-            
+
             if not get_processes_result.stdout:
                 self.logger.debug("No matching processes found for cleanup")
                 return
-            
+
             # Kill each matching process
             killed_count = 0
             for line in get_processes_result.stdout.decode('ascii').split(os.linesep):
@@ -195,10 +195,10 @@ class AbstractTool(ABC):
                             self.logger.debug(f"Killed process {process_id}")
                         except Exception as e:
                             self.logger.warning(f"Failed to kill process {process_id}: {str(e)}")
-            
+
             if killed_count > 0:
                 self.logger.info(f"Cleaned up {killed_count} related processes")
-                
+
         except Exception as e:
             self.logger.warning(f"Error during process cleanup: {str(e)}")
             # Don't raise here as cleanup errors shouldn't fail the main execution

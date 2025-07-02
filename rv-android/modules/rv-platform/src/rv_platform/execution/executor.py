@@ -27,7 +27,7 @@ from rv_android_core.event import (
     EventBus,
     EventType
 )
-from rv_platform.execution.task_model import Task, TaskState
+from rv_android_core.domain.task import Task, TaskState
 from rv_android_core.tools.abstract_tool import AbstractTool
 
 

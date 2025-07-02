@@ -52,7 +52,7 @@ class ValidationConfig:
         # Set up logging
         logging_manager = LoggingManager.get_instance()
         self._logger = logging_manager.get_logger(
-            'util.validation.config',
+            'rv_android_core.util.validation.config',
             {CONTEXT_COMPONENT: 'ValidationConfig'}
         )
         

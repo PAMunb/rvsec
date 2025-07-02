@@ -96,7 +96,7 @@ class DroidBotTool(ConfigurableTool):
         # Initialize rv-android-core infrastructure components
         self._logging_manager = LoggingManager.get_instance()
         self.logger = self._logging_manager.get_logger(
-            "tools.droidbot", 
+            "rv_tools.builtin.droidbot",
             {CONTEXT_COMPONENT: "DroidBotTool"}
         )
         self.error_handler = ErrorHandler.get_instance()

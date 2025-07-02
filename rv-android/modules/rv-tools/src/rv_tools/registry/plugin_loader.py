@@ -74,7 +74,7 @@ class PluginLoader:
         # Set up standardized logging
         logging_manager = LoggingManager.get_instance()
         self.logger = logging_manager.get_logger(
-            "tools.plugin_loader",
+            "rv_tools.plugin_loader",
             {CONTEXT_COMPONENT: "PluginLoader"}
         )
         

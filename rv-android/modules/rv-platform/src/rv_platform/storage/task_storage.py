@@ -20,7 +20,7 @@ from rv_android_core.util.validation.base import BaseValidatedModel
 from rv_android_core.util.error.error_handler import ErrorHandler
 from rv_android_core.util.logging.manager import LoggingManager
 from rv_platform.interfaces.task_interfaces import ITaskStorage
-from rv_platform.execution.task_model import Task, TaskFactory, TaskState
+from rv_android_core.domain.task import Task, TaskFactory, TaskState
 
 
 class ExperimentMetadata(BaseValidatedModel):

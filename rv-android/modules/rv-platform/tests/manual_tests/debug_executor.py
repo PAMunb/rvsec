@@ -1,6 +1,6 @@
 # Debug executor behavior
 from unittest.mock import MagicMock
-from rv_platform.execution.task_model import Task, TaskConfiguration
+from rv_android_core.domain.task import Task, TaskConfiguration
 from rv_platform.execution.executor import TaskExecutor
 from rv_android_core.app import App
 

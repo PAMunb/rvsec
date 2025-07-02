@@ -76,7 +76,7 @@ def validated_model(positional_fields: List[str]) -> Callable[[Type[T]], Type[T]
         # Set up logging for the decorator
         logging_manager = LoggingManager.get_instance()
         logger = logging_manager.get_logger(
-            f'util.validation.decorators.{cls.__name__}',
+            f'rv_android_core.util.validation.decorators.{cls.__name__}',
             {CONTEXT_COMPONENT: 'ValidationDecorator'}
         )
         

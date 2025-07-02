@@ -62,7 +62,7 @@ class ErrorHandler:
         # Get standardized logger with context
         logging_manager = LoggingManager.get_instance()
         self._logger = logging_manager.get_logger(
-            'util.error_handler',
+            'rv_android_core.util.error.error_handler',
             {
                 CONTEXT_COMPONENT: 'ErrorHandler'
             }

@@ -19,7 +19,7 @@ from rv_android_core.util.logging.constants import (
 from rv_android_core.event import EventBus
 from rv_android_core.util.logging.manager import LoggingManager
 from rv_android_core.util.error.error_handler import ErrorHandler
-from rv_platform.execution.task_model import Task
+from rv_android_core.domain.task import Task
 
 
 class LogcatComponent:

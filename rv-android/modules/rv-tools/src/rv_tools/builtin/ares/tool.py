@@ -95,7 +95,7 @@ class AresTool(ConfigurableTool):
         # Initialize rv-android-core infrastructure components
         self._logging_manager = LoggingManager.get_instance()
         self.logger = self._logging_manager.get_logger(
-            "tools.ares", 
+            "rv_tools.builtin.ares",
             {CONTEXT_COMPONENT: "AresTool"}
         )
         self.error_handler = ErrorHandler.get_instance()

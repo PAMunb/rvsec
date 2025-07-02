@@ -5,9 +5,10 @@ This module extends AbstractTool with comprehensive configuration management
 for monitored operations testing tools.
 """
 
-from typing import Dict, Any, Optional
+from typing import Dict, Any
 
 from rv_android_core.app import App
+from rv_android_core.domain.task import Task
 from .abstract_tool import AbstractTool
 
 
@@ -54,10 +55,10 @@ class ConfigurableTool(AbstractTool):
             process_pattern: Pattern for identifying related processes to cleanup
         """
         super().__init__(name, description, process_pattern)
-        
+
         # Initialize configuration storage
         self.config: Dict[str, Any] = {}
-        
+
         self.logger.debug(f"Initialized configurable tool: {name}")
 
     def configure(self, config: Dict[str, Any]) -> None:
@@ -73,9 +74,9 @@ class ConfigurableTool(AbstractTool):
         # Merge with existing configuration (preserving defaults) instead of overwriting
         if config:
             self.config.update(config)
-        
+
         self.logger.debug(f"Tool {self.name} configured with: {self.config}")
-        
+
         # Call tool-specific configuration hook
         self.configure_tool_specific(config or {})
 
@@ -110,7 +111,7 @@ class ConfigurableTool(AbstractTool):
         # Handle dot notation for nested keys
         if '.' in key:
             return self._get_nested_value(key, default)
-        
+
         return self.config.get(key, default)
 
     def _get_nested_value(self, key: str, default: Any) -> Any:
@@ -126,15 +127,15 @@ class ConfigurableTool(AbstractTool):
         """
         parts = key.split('.')
         current = self.config
-        
+
         try:
             for part in parts[:-1]:
                 if part not in current or not isinstance(current[part], dict):
                     return default
                 current = current[part]
-            
+
             return current.get(parts[-1], default)
-            
+
         except (KeyError, TypeError):
             return default
 
@@ -161,7 +162,7 @@ class ConfigurableTool(AbstractTool):
         """
         parts = key.split('.')
         current = self.config
-        
+
         # Navigate to the parent dictionary
         for part in parts[:-1]:
             if part not in current:
@@ -169,7 +170,7 @@ class ConfigurableTool(AbstractTool):
             elif not isinstance(current[part], dict):
                 current[part] = {}
             current = current[part]
-        
+
         # Set the final value
         current[parts[-1]] = value
 
@@ -186,18 +187,18 @@ class ConfigurableTool(AbstractTool):
         if '.' in key:
             parts = key.split('.')
             current = self.config
-            
+
             try:
                 for part in parts[:-1]:
                     if part not in current or not isinstance(current[part], dict):
                         return False
                     current = current[part]
-                
+
                 return parts[-1] in current
-                
+
             except (KeyError, TypeError):
                 return False
-        
+
         return key in self.config
 
     def get_config_dict(self) -> Dict[str, Any]:
@@ -214,7 +215,7 @@ class ConfigurableTool(AbstractTool):
         self.config.clear()
         self.logger.debug(f"Cleared configuration for tool: {self.name}")
 
-    def execute(self, task: Any, app: App) -> None:
+    def execute(self, task: Task, app: App) -> None:
         """
         Execute the tool with current configuration.
         
@@ -229,11 +230,11 @@ class ConfigurableTool(AbstractTool):
             self.logger.info(f"Executing {self.name} with configuration: {self.config}")
         else:
             self.logger.info(f"Executing {self.name} with default configuration")
-        
+
         # Delegate to parent execution workflow
         super().execute(task, app)
 
-    def execute_tool_specific_logic(self, task: Any, app: App) -> None:
+    def execute_tool_specific_logic(self, task: Task, app: App) -> None:
         """
         Default implementation that can be overridden by subclasses.
         
@@ -246,7 +247,7 @@ class ConfigurableTool(AbstractTool):
         """
         self.logger.info(f"Executing {self.name} tool for app: {app.name}")
         # Default implementation - subclasses should override for specific behavior
-    
+
     def get_tool_info(self) -> dict:
         """
         Get extended tool information including configuration.

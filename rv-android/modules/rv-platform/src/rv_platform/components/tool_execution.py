@@ -14,7 +14,7 @@ from rv_android_core.util.logging.constants import CONTEXT_TASK_ID, CONTEXT_APP_
 from rv_android_core.util.logging.manager import LoggingManager
 from rv_android_core.util.error.error_handler import ErrorHandler
 from rv_android_core.event import EventBus, EventType
-from rv_platform.execution.task_model import Task
+from rv_android_core.domain.task import Task
 from rv_android_core.tools.abstract_tool import AbstractTool
 
 

@@ -7,9 +7,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from rv_android_core.app import App
-from rv_android_core.domain.coverage import LogcatRepository
-from rv_android_core.domain.log import RvCoverageLog, RvErrorLog
-from rv_platform.execution.task_model import TaskState, TaskConfiguration, TaskResult, Task
+from rv_android_core.domain.task import TaskState, TaskConfiguration, TaskResult, Task
 
 
 class TestTaskState:
@@ -169,7 +167,7 @@ class TestTaskResult:
         result = TaskResult()
         
         # Mock datetime to control timing
-        with patch('rv_platform.execution.task_model.datetime') as mock_datetime:
+        with patch('rv_android_core.domain.task.datetime') as mock_datetime:
             test_time = datetime(2023, 1, 1, 10, 0, 0)
             mock_datetime.now.return_value = test_time
             

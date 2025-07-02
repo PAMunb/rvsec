@@ -96,7 +96,7 @@ class QTestingTool(ConfigurableTool):
         # Initialize rv-android-core infrastructure components
         self._logging_manager = LoggingManager.get_instance()
         self.logger = self._logging_manager.get_logger(
-            "tools.qtesting", 
+            "rv_tools.builtin.qtesting",
             {CONTEXT_COMPONENT: "QTestingTool"}
         )
         self.error_handler = ErrorHandler.get_instance()

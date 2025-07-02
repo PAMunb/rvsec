@@ -6,7 +6,6 @@ This module provides the primary interface for executing Android experiments
 through the rv-platform system.
 """
 
-import os
 from typing import List, Dict, Any, Optional
 from pathlib import Path
 
@@ -16,7 +15,7 @@ from rv_android_core.event import EventBus
 from rv_android_core.app import App
 from rv_tools import ToolFactory
 from rv_platform.config.platform_config import PlatformConfig
-from rv_platform.execution.task_model import Task, TaskConfiguration, TaskFactory
+from rv_android_core.domain.task import Task, TaskConfiguration, TaskFactory
 from rv_platform.execution.executor import TaskExecutor
 from rv_platform.components.tool_execution import ToolExecutionComponent
 from rv_platform.components.emulator import EmulatorComponent

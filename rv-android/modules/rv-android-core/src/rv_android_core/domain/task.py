@@ -1,4 +1,4 @@
-# rv_platform/execution/task_model.py
+# rv_platform/execution/task.py
 """
 Core model implementations for the task execution subsystem.
 
@@ -11,17 +11,16 @@ import logging
 import os
 import uuid
 from datetime import datetime
-from typing import Dict, List, Any, Optional, Type, TypeVar, Generic
 from enum import Enum
-
-from pydantic import Field
-from rv_android_core.util.validation.base import BaseValidatedModel
-from rv_android_core.util.validation.decorators import validated_model
-from rv_android_core.util.error.error_handler import ErrorHandler
-from rv_android_core.util.exceptions import RVTaskError
-
+from typing import Dict, List, Any, Optional, Type, TypeVar, Generic
 # TYPE_CHECKING import to avoid missing dependencies during tests
 from typing import TYPE_CHECKING
+
+from pydantic import Field
+
+from rv_android_core.util.error.error_handler import ErrorHandler
+from rv_android_core.util.validation.base import BaseValidatedModel
+from rv_android_core.util.validation.decorators import validated_model
 
 if TYPE_CHECKING:
     from rv_android_core.app import App
@@ -83,9 +82,9 @@ class TaskConfiguration(BaseValidatedModel):
     # Optional configuration with defaults
     no_window: bool = Field(default=False, description="Run in headless mode")
     clean_logcat: bool = Field(default=True, description="Clean logcat before execution")
-    skip_installation: bool = Field(default=False, description="Skip APK installation")
+    skip_installation: bool = Field(default=False, description="Skip APK installation") # TODO: Remove this
     device_id: str = Field(default="emulator-5554", description="Target device ID")
-    export_to_csv: bool = Field(default=True, description="Export results to CSV")
+    export_to_csv: bool = Field(default=True, description="Export results to CSV") # TODO: Remove this
 
     def __str__(self) -> str:
         """
@@ -96,6 +95,9 @@ class TaskConfiguration(BaseValidatedModel):
         """
         return (f"TaskConfiguration(apk={self.apk_name}, rep={self.repetition}, "
                 f"timeout={self.timeout}, tool={self.tool_name})")
+
+    def __repr__(self):
+        return f"TaskConfiguration({self.apk_name}, {self.repetition}, {self.timeout}, {self.tool_name})"
 
     def to_dict(self) -> Dict[str, Any]:
         """
@@ -167,7 +169,8 @@ class TaskResult(BaseValidatedModel):
     state: TaskState = Field(default=TaskState.CREATED, description="Current task execution state")
     start_time: Optional[datetime] = Field(default=None, description="Task lifecycle start timestamp")
     end_time: Optional[datetime] = Field(default=None, description="Task completion timestamp")
-    tool_execution_start: Optional[datetime] = Field(default=None, description="Tool execution start timestamp for accurate timing")
+    tool_execution_start: Optional[datetime] = Field(default=None,
+                                                     description="Tool execution start timestamp for accurate timing")
     execution_time_seconds: int = Field(default=0, description="Total task execution duration")
     error_message: Optional[str] = Field(default=None, description="Error message if task failed")
 
@@ -191,7 +194,7 @@ class TaskResult(BaseValidatedModel):
         should reflect tool execution duration rather than task lifecycle duration.
         """
         self.tool_execution_start = datetime.now()
-    
+
     @ErrorHandler.handle_errors(component="TaskResult", phase="timing")
     def get_time_since_tool_start(self) -> int:
         """
@@ -203,7 +206,7 @@ class TaskResult(BaseValidatedModel):
         if self.tool_execution_start:
             return int((datetime.now() - self.tool_execution_start).total_seconds())
         return 0
-    
+
     @ErrorHandler.handle_errors(component="TaskResult", phase="timing")
     def get_time_since_task_start(self) -> int:
         """
@@ -215,7 +218,7 @@ class TaskResult(BaseValidatedModel):
         if self.start_time:
             return int((datetime.now() - self.start_time).total_seconds())
         return 0
-    
+
     def update_execution_time(self) -> None:
         """
         Update execution time if start and end times are available.
@@ -280,15 +283,15 @@ class TaskResult(BaseValidatedModel):
             start_time = None
             if data.get("start_time"):
                 start_time = datetime.fromisoformat(data["start_time"])
-            
+
             end_time = None
             if data.get("end_time"):
                 end_time = datetime.fromisoformat(data["end_time"])
-            
+
             tool_execution_start = None
             if data.get("tool_execution_start"):
                 tool_execution_start = datetime.fromisoformat(data["tool_execution_start"])
-            
+
             # Create instance with parsed data
             result = cls(
                 state=TaskState[data.get("state", "CREATED")],
@@ -303,7 +306,7 @@ class TaskResult(BaseValidatedModel):
                 detected_errors=data.get("detected_errors", []),
                 state_transitions=data.get("state_transitions", [])
             )
-            
+
             return result
 
         except Exception as e:
@@ -550,7 +553,7 @@ class Task:
             self.logger.info(f"Execution time: {self.result.execution_time_seconds} seconds")
 
         self.logger.debug(f"Task state updated: {state.name}")
-    
+
     def mark_tool_execution_start(self) -> None:
         """
         Mark the precise moment when tool execution begins.
@@ -560,7 +563,7 @@ class Task:
         """
         self.result.mark_tool_execution_start()
         self.logger.debug(f"Tool execution started at {self.result.tool_execution_start}")
-    
+
     def get_time_since_tool_start(self) -> int:
         """
         Get seconds elapsed since tool execution started.
