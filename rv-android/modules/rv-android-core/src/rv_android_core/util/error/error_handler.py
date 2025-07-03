@@ -9,12 +9,12 @@ from typing import Dict, List, Callable, Any, Type, Optional, Union
 from rv_android_core.util.exceptions import (
     RVAndroidError, ADBError, EmulatorError, RvTimeoutError,
     RVTaskError, RVTaskExecutionError, RVTaskConfigurationError, RVTaskTimeoutError,
-    RVToolError, RVToolExecutionError, RVToolConfigurationError,
+    RVToolError, RVToolExecutionError, RVToolTimeoutError, RVToolConfigurationError,
     ToolNotFoundError, ToolRegistrationError, ToolVariantError, PluginError,
     RVExperimentError, RVExperimentSetupError, RVExperimentExecutionError,
     RVParsingError, RVLLMError, RVPromptError,
     RVValidationError, CommandValidationError, LogcatValidationError,
-    EventProcessingError, ConfigurationError
+    EventProcessingError, ConfigurationError, RVCommandTimeoutError, JarNotFoundError
 )
 from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
 from rv_android_core.util.logging.manager import LoggingManager
@@ -93,11 +93,16 @@ class ErrorHandler:
         self.register_handler(ToolRegistrationError, self._handle_tool_registration_error)
         self.register_handler(ToolVariantError, self._handle_tool_variant_error)
         self.register_handler(PluginError, self._handle_plugin_error)
+        self.register_handler(RVToolTimeoutError, self._handle_tool_timeout_error)
+        self.register_handler(RVToolExecutionError, self._handle_tool_execution_error)
         self.register_handler(RVToolError, self._handle_tool_error)
         self.register_handler(RVExperimentError, self._handle_experiment_error)
         self.register_handler(RVParsingError, self._handle_parsing_error)
         self.register_handler(RVPromptError, self._handle_prompt_error)
         self.register_handler(RVLLMError, self._handle_llm_error)
+        # Register new infrastructure exception handlers
+        self.register_handler(RVCommandTimeoutError, self._handle_command_timeout_error)
+        self.register_handler(JarNotFoundError, self._handle_jar_not_found_error)
         # Register common system error handlers
         self.register_handler(FileNotFoundError, self._handle_file_not_found_error)
         # Register generic handlers - order matters: specific before generic
@@ -244,7 +249,13 @@ class ErrorHandler:
         self._error_history.append(entry)
 
     def _log_error(self, error: Exception, context: Optional[Dict[str, Any]]):
-        """Log an error with detailed information."""
+        """Log an error with appropriate detail level based on error type."""
+        # For timeout errors, log less verbosely (no stacktrace)
+        if isinstance(error, (RVToolTimeoutError, RVCommandTimeoutError)):
+            self._logger.error(f"Error: {error}")
+            return
+            
+        # For other errors, log with full detail
         if isinstance(error, RVAndroidError) and error.cause:
             self._logger.error(f"Error: {error.message} caused by: {error.cause}", exc_info=error.cause)
         else:
@@ -470,6 +481,22 @@ class ErrorHandler:
             self._logger.error(f"Plugin: {error.plugin_name}")
         return True  # Error fully handled - don't propagate further
     
+    def _handle_tool_timeout_error(self, error: RVToolTimeoutError, context: Optional[Dict[str, Any]] = None) -> bool:
+        """Handle tool timeout errors with enhanced context."""
+        self._logger.info(f"Tool timeout (expected): {error.message}")
+        if hasattr(error, 'tool_name') and error.tool_name:
+            self._logger.info(f"Tool: {error.tool_name}")
+        if hasattr(error, 'timeout_seconds') and error.timeout_seconds:
+            self._logger.info(f"Timeout duration: {error.timeout_seconds}s")
+        return True  # Successfully handled - timeouts are expected
+    
+    def _handle_tool_execution_error(self, error: RVToolExecutionError, context: Optional[Dict[str, Any]] = None) -> bool:
+        """Handle tool execution errors with enhanced context."""
+        self._logger.error(f"Tool execution failed: {error.message}")
+        if hasattr(error, 'tool_name') and error.tool_name:
+            self._logger.error(f"Tool: {error.tool_name}")
+        return False  # Don't handle - let it propagate for task failure
+    
     def _handle_tool_error(self, error: RVToolError, context: Optional[Dict[str, Any]] = None) -> bool:
         """Handle tool-related errors with enhanced context."""
         self._logger.info(f"Tool error recorded: {error.message}")
@@ -590,6 +617,63 @@ class ErrorHandler:
             self._logger.warning(f"File not found: {error.filename or str(error)}")
         
         return False  # Don't handle - let caller decide
+
+    def _handle_command_timeout_error(self, error: RVCommandTimeoutError, context: Optional[Dict[str, Any]] = None) -> bool:
+        """
+        Handle command timeout errors at the infrastructure level.
+        
+        Command timeouts are expected behavior for long-running tool executions
+        and should be converted to appropriate tool-level timeout exceptions.
+        
+        Args:
+            error: The RVCommandTimeoutError
+            context: Optional context information
+            
+        Returns:
+            False to allow conversion to tool-level timeout exceptions
+        """
+        self._logger.debug(f"Command timeout detected: {error.message}")
+        if hasattr(error, 'timeout_seconds') and error.timeout_seconds:
+            self._logger.debug(f"Timeout duration: {error.timeout_seconds}s")
+        if hasattr(error, 'command') and error.command:
+            self._logger.debug(f"Command: {error.command}")
+        
+        # Log context if available
+        if context:
+            component = context.get('component', 'unknown')
+            self._logger.debug(f"Component: {component}")
+        
+        return False  # Let it propagate to be converted to tool timeout
+
+    def _handle_jar_not_found_error(self, error: JarNotFoundError, context: Optional[Dict[str, Any]] = None) -> bool:
+        """
+        Handle JAR file resolution failures in tool execution.
+        
+        JAR resolution failures indicate missing tool dependencies and should
+        provide detailed information for troubleshooting installation issues.
+        
+        Args:
+            error: The JarNotFoundError
+            context: Optional context information
+            
+        Returns:
+            False to propagate as tool execution error
+        """
+        self._logger.error(f"JAR resolution failed: {error.message}")
+        if hasattr(error, 'jar_name') and error.jar_name:
+            self._logger.error(f"Missing JAR: {error.jar_name}")
+        if hasattr(error, 'search_paths') and error.search_paths:
+            self._logger.error(f"Searched {len(error.search_paths)} paths:")
+            for path in error.search_paths:
+                self._logger.error(f"  - {path}")
+        
+        # Log context if available
+        if context:
+            component = context.get('component', 'unknown')
+            tool_name = context.get('tool_name', 'unknown')
+            self._logger.error(f"Tool: {tool_name}, Component: {component}")
+        
+        return False  # Let it propagate as tool execution error
 
     def _handle_generic_exception(self, error: Exception, context: Optional[Dict[str, Any]] = None) -> bool:
         """

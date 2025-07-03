@@ -14,6 +14,7 @@ from rv_android_core.domain.task import Task
 from rv_android_core.tools.abstract_tool import AbstractTool
 from rv_android_core.tools.tool_spec import ToolSpec
 from rv_android_core.util.error.error_handler import ErrorHandler
+from rv_android_core.util.jar_resolver import JarResolver
 from rv_android_core.util.logging.manager import LoggingManager
 from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
 
@@ -76,7 +77,7 @@ class DroidMateTool(AbstractTool):
             "rv_tools.builtin.droidmate",
             {CONTEXT_COMPONENT: "DroidMateTool"}
         )
-        self.error_handler = ErrorHandler.get_instance()
+        self.jar_resolver = JarResolver()
 
         # Default DroidMate configuration
         self.config = {
@@ -216,36 +217,31 @@ class DroidMateTool(AbstractTool):
         cmd_str = f"{droidmate_cmd.command} {' '.join(droidmate_cmd.args)}"
         self.logger.debug(f"DroidMate command: {cmd_str}")
 
-        # Execute DroidMate testing
+        # Execute DroidMate testing with centralized error handling
         try:
             self.logger.info(f"Starting DroidMate execution for {app.package_name}")
-            result = droidmate_cmd.invoke()
             
-            # Write result to trace file
-            with open(task.result.trace_file, 'w') as trace_file:
-                trace_file.write(f"DroidMate execution completed\n")
-                trace_file.write(f"Exploration strategy: {self.config['exploration_strategy']}\n")
-                trace_file.write(f"Exploration timeout: {self.config['exploration_timeout']}s\n")
-                trace_file.write(f"Output directory: {output_dir}\n")
-                trace_file.write(f"Command: {cmd_str}\n")
-                if result.stdout:
-                    trace_file.write(f"STDOUT:\n{result.stdout}\n")
-                if result.stderr:
-                    trace_file.write(f"STDERR:\n{result.stderr}\n")
+            with open(task.result.trace_file, 'wb') as trace_file:
+                # Use centralized command execution with error handling
+                result = self._execute_and_check_command(droidmate_cmd, stdout=trace_file)
+                
+                # Append success information to trace file
+                success_info = f"\n--- DroidMate Execution Completed ---\n"
+                success_info += f"Exploration strategy: {self.config['exploration_strategy']}\n"
+                success_info += f"Exploration timeout: {self.config['exploration_timeout']}s\n"
+                success_info += f"Output directory: {output_dir}\n"
+                success_info += f"Command: {cmd_str}\n"
+                trace_file.write(success_info.encode('utf-8'))
             
             self.logger.info("DroidMate execution completed successfully")
             
         except Exception as e:
             self.logger.error(f"DroidMate execution failed: {str(e)}")
-            # Write error information to trace file
-            with open(task.result.trace_file, 'w') as trace_file:
-                trace_file.write(f"DroidMate execution error: {str(e)}\n")
-                trace_file.write(f"Command: {cmd_str}\n")
             raise
 
     def _resolve_droidmate_jar_path(self) -> str:
         """
-        Resolve the path to the DroidMate jar file.
+        Resolve the path to the DroidMate jar file using centralized JarResolver.
 
         Returns:
             Path to DroidMate jar file
@@ -253,37 +249,27 @@ class DroidMateTool(AbstractTool):
         Raises:
             FileNotFoundError: If DroidMate jar file is not found
         """
-        # Check configured path first
-        if self.config.get("droidmate_jar_path") and os.path.isfile(self.config["droidmate_jar_path"]):
-            return self.config["droidmate_jar_path"]
-
         # Common search paths for DroidMate jar
         search_paths = [
             # Environment variable based path
-            os.path.join(os.environ.get('TOOLS_DIR', ''), 'droidmate', 'droidmate-2-X.X.X-all.jar'),
+            os.path.join(os.environ.get('TOOLS_DIR', ''), 'droidmate'),
             # Relative to current module
-            os.path.join(os.path.dirname(__file__), 'droidmate-2-X.X.X-all.jar'),
+            os.path.dirname(__file__),
             # Standard installation paths
-            '/opt/rv-android/tools/droidmate/droidmate-2-X.X.X-all.jar',
-            './tools/droidmate/droidmate-2-X.X.X-all.jar',
-            '../tools/droidmate/droidmate-2-X.X.X-all.jar'
+            '/opt/rv-android/tools/droidmate',
+            './tools/droidmate',
+            '../tools/droidmate'
         ]
 
-        # Also check for any DroidMate jar file in the expected locations
-        for base_path in [os.path.dirname(__file__), '/opt/rv-android/tools/droidmate', './tools/droidmate']:
-            if os.path.isdir(base_path):
-                for file in os.listdir(base_path):
-                    if file.startswith('droidmate') and file.endswith('.jar'):
-                        jar_path = os.path.join(base_path, file)
-                        self.logger.debug(f"Found DroidMate jar at: {jar_path}")
-                        return jar_path
-
-        for path in search_paths:
-            if path and os.path.isfile(path):
-                self.logger.debug(f"Found DroidMate jar at: {path}")
-                return path
-
-        raise FileNotFoundError("DroidMate jar file not found. Please ensure DroidMate is properly installed.")
+        try:
+            # Check configured path first
+            if self.config.get("droidmate_jar_path"):
+                return self.jar_resolver.resolve_jar_path("droidmate*.jar", [os.path.dirname(self.config["droidmate_jar_path"])])
+            
+            # Use JarResolver with search paths and pattern matching for DroidMate jars
+            return self.jar_resolver.resolve_jar_path("droidmate*.jar", search_paths)
+        except FileNotFoundError:
+            raise FileNotFoundError("DroidMate jar file not found. Please ensure DroidMate is properly installed.")
 
     def _build_droidmate_command(self, app: App, droidmate_jar_path: str, output_dir: str, timeout_seconds: int) -> Command:
         """

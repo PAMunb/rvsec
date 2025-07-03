@@ -1,5 +1,5 @@
 # rvandroid/util/exceptions.py
-from typing import Optional
+from typing import Optional, List
 
 
 class RVAndroidError(Exception):
@@ -155,6 +155,18 @@ class RVToolExecutionError(RVToolError):
     pass
 
 
+class RVToolTimeoutError(RVToolError):
+    """Exception for tool timeout scenarios during testing operations."""
+    
+    def __init__(self, message: str, tool_name: Optional[str] = None, timeout_seconds: Optional[int] = None, cause: Optional[Exception] = None):
+        super().__init__(message, tool_name, cause)
+        self.timeout_seconds = timeout_seconds
+    
+    def __str__(self):
+        timeout_info = f" (Timeout: {self.timeout_seconds}s)" if self.timeout_seconds else ""
+        return f"{super().__str__()}{timeout_info}"
+
+
 class RVToolConfigurationError(RVToolError):
     """Exception for tool configuration errors during setup."""
     pass
@@ -282,3 +294,33 @@ class EventProcessingError(RVAndroidError):
     def __str__(self):
         event_info = f" (Event: {self.event_type})" if self.event_type else ""
         return f"{super().__str__()}{event_info}"
+
+
+class RVCommandTimeoutError(RVAndroidError):
+    """Exception for command execution timeouts at the infrastructure level."""
+    
+    def __init__(self, message: str, timeout_seconds: Optional[int] = None, 
+                 command: Optional[str] = None, cause: Optional[Exception] = None):
+        super().__init__(message, cause)
+        self.timeout_seconds = timeout_seconds
+        self.command = command
+    
+    def __str__(self):
+        timeout_info = f" (Timeout: {self.timeout_seconds}s)" if self.timeout_seconds else ""
+        command_info = f" (Command: {self.command})" if self.command else ""
+        return f"{super().__str__()}{timeout_info}{command_info}"
+
+
+class JarNotFoundError(RVAndroidError):
+    """Exception for JAR file resolution failures in tool execution."""
+    
+    def __init__(self, message: str, jar_name: Optional[str] = None, 
+                 search_paths: Optional[List[str]] = None, cause: Optional[Exception] = None):
+        super().__init__(message, cause)
+        self.jar_name = jar_name
+        self.search_paths = search_paths or []
+    
+    def __str__(self):
+        jar_info = f" (JAR: {self.jar_name})" if self.jar_name else ""
+        paths_info = f" (Searched: {len(self.search_paths)} paths)" if self.search_paths else ""
+        return f"{super().__str__()}{jar_info}{paths_info}"

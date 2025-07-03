@@ -207,8 +207,11 @@ class Platform:
                 self.logger.info(f"Task completed: {success}")
                 
             except Exception as e:
-                self.logger.error(f"Task execution failed: {e}")
-                task.update_state(task.result.state.__class__.ERROR, str(e))
+                # Extract meaningful error message from exception chain
+                error_message = self._extract_meaningful_error_message(e)
+                
+                self.logger.error(f"Task execution failed: {error_message}")
+                task.update_state(task.result.state.__class__.ERROR, error_message)
                 
                 result = {
                     "task_id": task.id,
@@ -217,12 +220,51 @@ class Platform:
                     "repetition": task.config.repetition,
                     "timeout": task.config.timeout,
                     "success": False,
-                    "execution_time": 0,
-                    "error_message": str(e)
+                    "execution_time": task.result.execution_time_seconds if hasattr(task.result, 'execution_time_seconds') else 0,
+                    "error_message": error_message
                 }
                 results.append(result)
         
         return results
+
+    def _extract_meaningful_error_message(self, exception: Exception) -> str:
+        """
+        Extract a meaningful error message from an exception chain.
+        
+        Args:
+            exception: The exception to extract message from
+            
+        Returns:
+            A clear, user-friendly error message
+        """
+        from rv_android_core.util.exceptions import RVToolTimeoutError, RVToolExecutionError
+        
+        # Walk through the exception chain to find the root cause
+        current = exception
+        while current:
+            # Check for timeout scenarios
+            if isinstance(current, RVToolTimeoutError):
+                tool_name = getattr(current, 'tool_name', 'unknown tool')
+                timeout_seconds = getattr(current, 'timeout_seconds', None)
+                if timeout_seconds:
+                    return f"{tool_name} execution timed out after {timeout_seconds} seconds (expected behavior)"
+                else:
+                    return f"{tool_name} execution timed out (expected behavior)"
+            
+            # Check for tool execution errors
+            if isinstance(current, RVToolExecutionError):
+                tool_name = getattr(current, 'tool_name', 'unknown tool')
+                return f"{tool_name}: {current.message}"
+            
+            # Check for other specific RV exceptions with meaningful messages
+            if hasattr(current, 'message') and current.message:
+                return current.message
+            
+            # Move to the cause of the current exception
+            current = getattr(current, 'cause', None) or getattr(current, '__cause__', None)
+        
+        # Fallback to the original exception message
+        return str(exception)
 
     def _load_tool(self, tool_name: str):
         """

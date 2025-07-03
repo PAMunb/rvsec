@@ -68,7 +68,6 @@ class MonkeyTool(AbstractTool):
             "rv_tools.builtin.monkey",
             {CONTEXT_COMPONENT: "MonkeyTool"}
         )
-        self.error_handler = ErrorHandler.get_instance()
 
         # Default Monkey configuration
         self.config = {
@@ -198,7 +197,8 @@ class MonkeyTool(AbstractTool):
 
     @ErrorHandler.handle_errors(
         component="MonkeyTool",
-        phase="execute_tool_specific_logic"
+        phase="execute_tool_specific_logic",
+        reraise=True
     )
     def execute_tool_specific_logic(self, task: Task, app: App) -> None:
         """
@@ -232,77 +232,44 @@ class MonkeyTool(AbstractTool):
         cmd_str = f"{monkey_cmd.command} {' '.join(monkey_cmd.args)}"
         self.logger.debug(f"Monkey command: {cmd_str}")
 
-        # Execute Monkey testing
+        # Execute Monkey testing with centralized error handling
+        self.logger.info(f"Starting Monkey execution for {app.package_name}")
+        
         with open(task.result.trace_file, 'wb') as trace_file:
-            try:
-                self.logger.info(f"Starting Monkey execution for {app.package_name}")
-                monkey_cmd.invoke(stdout=trace_file)
-                self.logger.info("Monkey execution completed successfully")
-                
-            except Exception as e:
-                self.logger.error(f"Monkey execution failed: {str(e)}")
-                # Write error information to trace file
-                error_msg = f"Monkey execution error: {str(e)}\n"
-                trace_file.write(error_msg.encode('utf-8'))
-                raise
+            # Use centralized command execution with error handling
+            result = self._execute_and_check_command(monkey_cmd, stdout=trace_file)
+            
+            # Append success information to trace file
+            success_info = f"\n--- Monkey Execution Completed ---\n"
+            success_info += f"Events: {event_count}\n"
+            success_info += f"Command: {cmd_str}\n"
+            trace_file.write(success_info.encode('utf-8'))
+        
+        self.logger.info("Monkey execution completed successfully")
 
     def _build_monkey_command(self, app: App, timeout_seconds: int) -> Command:
         """
-        Build the Monkey command with configured parameters.
+        Build the Monkey command with validated parameters.
+        
+        Constructs ADB shell command for Monkey tool execution with appropriate
+        verbosity level, security exception handling, and event count configuration.
+        
+        Command format: adb shell monkey -v -v --ignore-security-exceptions -p <package> <event_count>
         
         Args:
-            app: Application under test
-            timeout_seconds: Command execution timeout
+            app: Application under test containing package name and metadata
+            timeout_seconds: Command execution timeout in seconds
             
         Returns:
             Configured Command object for Monkey execution
         """
-        # Start building command arguments
         cmd_args = [
-            "-s", self.config["device_id"],
-            "shell", "monkey"
+            "shell", "monkey",
+            "-v", "-v",
+            "--ignore-security-exceptions",
+            "-p", app.package_name,
+            str(1_000_000_000)  # High event count for comprehensive testing
         ]
-
-        # Add verbosity flags
-        verbosity = self.config["verbosity"]
-        for _ in range(verbosity):
-            cmd_args.append("-v")
-
-        # Add random seed if specified
-        if self.config["seed"] is not None:
-            cmd_args.extend(["--seed", str(self.config["seed"])])
-
-        # Add throttle delay if specified
-        if self.config["throttle"] > 0:
-            cmd_args.extend(["--throttle", str(self.config["throttle"])])
-
-        # Add boolean flags
-        if self.config["ignore_crashes"]:
-            cmd_args.append("--ignore-crashes")
-            
-        if self.config["ignore_timeouts"]:
-            cmd_args.append("--ignore-timeouts")
-            
-        if self.config["ignore_monitored_violations"]:
-            cmd_args.append("--ignore-security-exceptions")
-            
-        if self.config["kill_process_after_error"]:
-            cmd_args.append("--kill-process-after-error")
-            
-        if self.config["monitor_native_crashes"]:
-            cmd_args.append("--monitor-native-crashes")
-
-        # Add event type percentages
-        event_percentages = self.config["event_percentages"]
-        for event_type, percentage in event_percentages.items():
-            if percentage is not None:
-                cmd_args.extend([f"--pct-{event_type}", str(int(percentage))])
-
-        # Add package constraint
-        cmd_args.extend(["-p", app.package_name])
-
-        # Add event count
-        cmd_args.append(str(self.config["event_count"]))
 
         return Command("adb", cmd_args, timeout_seconds)
 

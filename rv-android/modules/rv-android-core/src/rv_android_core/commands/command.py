@@ -3,22 +3,17 @@
 import os
 import signal
 import sys
-from subprocess import PIPE, Popen
-from threading import Timer
+from subprocess import PIPE, Popen, TimeoutExpired
 from typing import List, Optional, Any
 
 import psutil
 from pydantic import Field, ConfigDict, field_validator, ValidationError as PydanticValidationError
 
-# Import TimeoutExpired for Python 3.3+
-if sys.version_info.major == 3 and sys.version_info.minor >= 3:
-    from subprocess import TimeoutExpired
-
 from rv_android_core.util.validation import BaseValidatedModel
 from rv_android_core.util.validation.decorators import validated_model
 from rv_android_core.util.logging.constants import CONTEXT_COMPONENT, LOG_START, LOG_COMPLETE, LOG_ERROR
 from rv_android_core.util.logging.manager import LoggingManager
-from rv_android_core.util.exceptions import CommandValidationError
+from rv_android_core.util.exceptions import CommandValidationError, RVCommandTimeoutError
 from rv_android_core.util.error.error_handler import ErrorHandler
 from .command_not_found_error import CommandNotFoundError
 from .command_result import CommandResult
@@ -204,60 +199,46 @@ class Command(BaseValidatedModel):
             if isinstance(stdin, str):
                 stdin = stdin.encode()
 
-            # Python 3.3+ has built-in timeout support
-            if sys.version_info.major == 3 and sys.version_info.minor >= 3:
-                try:
-                    proc = Popen(cmd_args, stderr=stderr, stdout=stdout)
-                    stdout_data, stderr_data = proc.communicate(stdin, timeout=self.timeout)
+            try:
+                proc = Popen(cmd_args, stderr=stderr, stdout=stdout)
+                stdout_data, stderr_data = proc.communicate(stdin, timeout=self.timeout)
 
+                # Log command completion with exit code
+                if proc.returncode != 0:
+                    self.logger.warning(
+                        f"Command failed with exit code {proc.returncode}: {cmd_str}",
+                        extra={
+                            "command": self.command,
+                            "command_args": self.args,
+                            "exit_code": proc.returncode,
+                            "timeout": self.timeout
+                        }
+                    )
+                else:
                     self.logger.debug(LOG_COMPLETE.format(
                         phase=f"command with exit code {proc.returncode}"
                     ))
 
-                    return CommandResult(proc.returncode, stdout_data, stderr_data)
+                return CommandResult(proc.returncode, stdout_data, stderr_data)
 
-                except TimeoutExpired:
-                    self.logger.warning(f"Command timed out after {self.timeout} seconds")
-                    self.kill_process(proc)
-                    stdout_data, stderr_data = proc.communicate()
+            except TimeoutExpired:
+                self.logger.warning(f"Command timed out after {self.timeout} seconds")
+                self.kill_process(proc)
+                
+                # Raise timeout exception with detailed context
+                raise RVCommandTimeoutError(
+                    f"Command '{cmd_str}' timed out after {self.timeout} seconds",
+                    timeout_seconds=self.timeout,
+                    command=cmd_str
+                )
 
-                    return CommandResult(proc.returncode, stdout_data, stderr_data)
+            except OSError as e:
+                self.logger.error(LOG_ERROR.format(
+                    phase=f"executing command {cmd_str}",
+                    error=str(e)
+                ))
+                raise CommandNotFoundError(f"The command {self.command} was not found")
 
-                except OSError as e:
-                    self.logger.error(LOG_ERROR.format(
-                        phase=f"executing command {cmd_str}",
-                        error=str(e)
-                    ))
-                    raise CommandNotFoundError(f"The command {self.command} was not found")
-
-            else:
-                # Legacy Python support
-                try:
-                    proc = Popen(cmd_args, stderr=stderr, stdout=stdout)
-
-                    # Setup timer for timeout if specified
-                    if self.timeout is not None:
-                        timer = Timer(self.timeout, self.kill_process, [proc])
-                        timer.start()
-
-                    stdout_data, stderr_data = proc.communicate(stdin)
-
-                    # Cancel timer if it's still running
-                    if self.timeout is not None:
-                        timer.cancel()
-
-                    self.logger.debug(LOG_COMPLETE.format(
-                        phase=f"command with exit code {proc.returncode}"
-                    ))
-
-                    return CommandResult(proc.returncode, stdout_data, stderr_data)
-
-                except OSError as e:
-                    self.logger.error(LOG_ERROR.format(
-                        phase=f"executing command {cmd_str}",
-                        error=str(e)
-                    ))
-                    raise CommandNotFoundError(f"The command {self.command} was not found")
 
     def kill_process(self, p):
         """

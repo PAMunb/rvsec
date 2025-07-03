@@ -24,7 +24,7 @@ integrated directly into the RV-Tools framework.
 
 ### Structure:
 Each tool is implemented as a separate package within builtin/ with:
-- tool.py: Main tool implementation extending ConfigurableTool
+- tool.py: Main tool implementation extending AbstractTool
 - __init__.py: Package exports
 - Additional tool-specific modules and resources as needed
 """

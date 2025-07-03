@@ -112,14 +112,16 @@ tools = ToolFactory.batch_create_tools([
 - **Capabilities**: systematic_testing, state_modeling
 
 ### APE (Android Programmatic Events)
-- **Description**: Model-based testing tool with state space exploration
-- **Parameters**: running_minutes, strategy, ape_timeout
-- **Capabilities**: model_based_testing, state_exploration
+- **Description**: CEGAR-based model abstraction testing tool for systematic exploration
+- **Variants**: sata, bfs, dfs, random
+- **Parameters**: running_minutes, strategy, device_serial
+- **Capabilities**: model_based_testing, systematic_exploration
 
-### Fastbot
-- **Description**: Model-based testing tool developed by Bytedance
-- **Parameters**: max_running_minutes, throttle, activity_blacklist
-- **Capabilities**: model_based_testing, intelligent_exploration
+### FastBot
+- **Description**: Model-based testing tool with reinforcement learning capabilities
+- **Variants**: conservative, aggressive, balanced, model_based
+- **Parameters**: max_step, throttle, learning_rate, exploration_rate
+- **Capabilities**: model_based_testing, reinforcement_learning
 
 ### DroidMate
 - **Description**: GUI testing tool for Android applications
@@ -177,8 +179,22 @@ class MyTool(AbstractTool):
         super().__init__(name, description, process_pattern or "mytool.*")
     
     def execute_tool_specific_logic(self, task, app):
-        # Tool implementation
-        pass
+        """Implement tool-specific execution logic."""
+        self.logger.info(f"Starting {self.name} execution for {app.package_name}")
+        
+        # Build tool command
+        command = self._build_tool_command(task, app)
+        
+        # Execute with centralized error handling
+        with open(task.result.trace_file, 'wb') as trace_file:
+            result = self._execute_and_check_command(command, stdout=trace_file)
+        
+        self.logger.info(f"{self.name} execution completed successfully")
+    
+    def _build_tool_command(self, task, app):
+        """Build tool-specific command."""
+        from rv_android_core.commands.command import Command
+        return Command("mytool", [app.apk_path], timeout=task.config.timeout)
 ```
 
 2. **Register via Entry Points** (pyproject.toml):

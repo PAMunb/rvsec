@@ -76,7 +76,6 @@ class AresTool(AbstractTool):
             "rv_tools.builtin.ares",
             {CONTEXT_COMPONENT: "AresTool"}
         )
-        self.error_handler = ErrorHandler.get_instance()
 
         # Default Ares configuration
         self.config = {
@@ -200,31 +199,26 @@ class AresTool(AbstractTool):
         cmd_str = f"{ares_cmd.command} {' '.join(ares_cmd.args)}"
         self.logger.debug(f"Ares command: {cmd_str}")
 
-        # Execute Ares testing
+        # Execute Ares testing with centralized error handling
         try:
             self.logger.info(f"Starting Ares execution for {app.package_name}")
-            result = ares_cmd.invoke()
             
-            # Write result to trace file
-            with open(task.result.trace_file, 'w') as trace_file:
-                trace_file.write(f"Ares execution completed\n")
-                trace_file.write(f"Docker image: {self.config['docker_image']}\n")
-                trace_file.write(f"Container name: {container_name}\n")
-                trace_file.write(f"Output directory: {output_dir}\n")
-                trace_file.write(f"Command: {cmd_str}\n")
-                if result.stdout:
-                    trace_file.write(f"STDOUT:\n{result.stdout}\n")
-                if result.stderr:
-                    trace_file.write(f"STDERR:\n{result.stderr}\n")
+            with open(task.result.trace_file, 'wb') as trace_file:
+                # Use centralized command execution with error handling
+                result = self._execute_and_check_command(ares_cmd, stdout=trace_file)
+                
+                # Append success information to trace file
+                success_info = f"\n--- Ares Execution Completed ---\n"
+                success_info += f"Docker image: {self.config['docker_image']}\n"
+                success_info += f"Container name: {container_name}\n"
+                success_info += f"Output directory: {output_dir}\n"
+                success_info += f"Command: {cmd_str}\n"
+                trace_file.write(success_info.encode('utf-8'))
             
             self.logger.info("Ares execution completed successfully")
             
         except Exception as e:
             self.logger.error(f"Ares execution failed: {str(e)}")
-            # Write error information to trace file
-            with open(task.result.trace_file, 'w') as trace_file:
-                trace_file.write(f"Ares execution error: {str(e)}\n")
-                trace_file.write(f"Command: {cmd_str}\n")
             raise
         finally:
             # Clean up container if enabled

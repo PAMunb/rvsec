@@ -81,7 +81,6 @@ class QTestingTool(AbstractTool):
             "rv_tools.builtin.qtesting",
             {CONTEXT_COMPONENT: "QTestingTool"}
         )
-        self.error_handler = ErrorHandler.get_instance()
 
         # Default QTesting configuration
         self.config = {
@@ -269,33 +268,28 @@ class QTestingTool(AbstractTool):
         cmd_str = f"{qtesting_cmd.command} {' '.join(qtesting_cmd.args)}"
         self.logger.debug(f"QTesting command: {cmd_str}")
 
-        # Execute QTesting
+        # Execute QTesting testing with centralized error handling
         try:
             self.logger.info(f"Starting QTesting execution for {app.package_name}")
-            result = qtesting_cmd.invoke()
             
-            # Write result to trace file
-            with open(task.result.trace_file, 'w') as trace_file:
-                trace_file.write(f"QTesting execution completed\n")
-                trace_file.write(f"Algorithm: {self.config['algorithm']}\n")
-                trace_file.write(f"Max episodes: {self.config['max_episodes']}\n")
-                trace_file.write(f"Learning rate: {self.config['learning_rate']}\n")
-                trace_file.write(f"Container name: {container_name}\n")
-                trace_file.write(f"Output directory: {output_dir}\n")
-                trace_file.write(f"Command: {cmd_str}\n")
-                if result.stdout:
-                    trace_file.write(f"STDOUT:\n{result.stdout}\n")
-                if result.stderr:
-                    trace_file.write(f"STDERR:\n{result.stderr}\n")
+            with open(task.result.trace_file, 'wb') as trace_file:
+                # Use centralized command execution with error handling
+                result = self._execute_and_check_command(qtesting_cmd, stdout=trace_file)
+                
+                # Append success information to trace file
+                success_info = f"\n--- QTesting Execution Completed ---\n"
+                success_info += f"Algorithm: {self.config['algorithm']}\n"
+                success_info += f"Max episodes: {self.config['max_episodes']}\n"
+                success_info += f"Learning rate: {self.config['learning_rate']}\n"
+                success_info += f"Container name: {container_name}\n"
+                success_info += f"Output directory: {output_dir}\n"
+                success_info += f"Command: {cmd_str}\n"
+                trace_file.write(success_info.encode('utf-8'))
             
             self.logger.info("QTesting execution completed successfully")
             
         except Exception as e:
             self.logger.error(f"QTesting execution failed: {str(e)}")
-            # Write error information to trace file
-            with open(task.result.trace_file, 'w') as trace_file:
-                trace_file.write(f"QTesting execution error: {str(e)}\n")
-                trace_file.write(f"Command: {cmd_str}\n")
             raise
         finally:
             # Clean up container if enabled

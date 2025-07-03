@@ -46,8 +46,9 @@ The RV-Android-Core module serves as the fundamental infrastructure layer for th
 - **UI Components**: Window, widget, and navigation graph models
 
 #### Tool Infrastructure
-- **AbstractTool**: Base abstraction for all testing tool implementations
-- **ConfigurableTool**: Enhanced tool base with rich configuration support
+- **AbstractTool**: Base abstraction for all testing tool implementations with centralized error handling
+- **Command**: Command execution infrastructure with timeout handling
+- **JarResolver**: Centralized JAR file resolution utility for tools
 - **ToolSpec**: Tool specification and metadata management
 
 #### Utility Components
@@ -55,6 +56,8 @@ The RV-Android-Core module serves as the fundamental infrastructure layer for th
 - **Performance Monitor**: Real-time performance tracking and metrics
 - **Diagnostics**: System health monitoring and troubleshooting
 - **Android Utilities**: Emulator management and Android SDK integration
+- **JAR Resolution**: Centralized JAR file discovery and resolution
+- **Command Execution**: Command infrastructure with timeout and error handling
 - **Data Validation**: Pydantic v2 models with environment-controlled validation
 
 ### Integration Points
@@ -266,9 +269,10 @@ model2 = CustomModel("test", 42)  # Positional arguments work too
 
 ```python
 from rv_android_core.tools.abstract_tool import AbstractTool
-from rv_android_core.tools.configurable_tool import ConfigurableTool
+from rv_android_core.commands.command import Command
+from rv_android_core.util.jar_resolver import JarResolver
 
-class MyTool(ConfigurableTool):
+class MyTool(AbstractTool):
     """Custom testing tool implementation."""
     
     def __init__(self):
@@ -277,24 +281,24 @@ class MyTool(ConfigurableTool):
             description="Custom monitored operations testing tool",
             process_pattern="com.mytool"
         )
+        self.jar_resolver = JarResolver()
     
-    @ErrorHandler.handle_errors(component="MyTool", phase="execution")
     def execute_tool_specific_logic(self, task, app):
         """Implement tool-specific execution logic."""
-        with self.logger.with_context(app_name=app.name):
-            self.logger.info("Starting custom tool execution")
-            
-            # Tool execution logic
-            result = self._run_tool(app.apk_path)
-            
-            # Publish completion event
-            self.event_bus.publish_tool_event(
-                EventType.TOOL_COMPLETED,
-                tool_name=self.name,
-                details={"result": result}
-            )
-            
-            return result
+        self.logger.info(f"Starting {self.name} execution for {app.package_name}")
+        
+        # Build tool command
+        command = self._build_tool_command(task, app)
+        
+        # Execute with centralized error handling
+        with open(task.result.trace_file, 'wb') as trace_file:
+            result = self._execute_and_check_command(command, stdout=trace_file)
+        
+        self.logger.info(f"{self.name} execution completed successfully")
+    
+    def _build_tool_command(self, task, app):
+        """Build tool-specific command."""
+        return Command("mytool", [app.apk_path], timeout=task.config.timeout)
 ```
 
 ## Testing

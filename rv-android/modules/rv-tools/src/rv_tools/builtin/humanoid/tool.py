@@ -81,7 +81,6 @@ class HumanoidTool(AbstractTool):
             "rv_tools.builtin.humanoid",
             {CONTEXT_COMPONENT: "HumanoidTool"}
         )
-        self.error_handler = ErrorHandler.get_instance()
 
         # Default Humanoid configuration
         self.config = {
@@ -276,33 +275,28 @@ class HumanoidTool(AbstractTool):
         cmd_str = f"{humanoid_cmd.command} {' '.join(humanoid_cmd.args)}"
         self.logger.debug(f"Humanoid command: {cmd_str}")
 
-        # Execute Humanoid testing
+        # Execute Humanoid testing with centralized error handling
         try:
             self.logger.info(f"Starting Humanoid execution for {app.package_name}")
-            result = humanoid_cmd.invoke()
             
-            # Write result to trace file
-            with open(task.result.trace_file, 'w') as trace_file:
-                trace_file.write(f"Humanoid execution completed\n")
-                trace_file.write(f"Interaction mode: {self.config['interaction_mode']}\n")
-                trace_file.write(f"Max iterations: {self.config['max_iterations']}\n")
-                trace_file.write(f"Visual threshold: {self.config['visual_threshold']}\n")
-                trace_file.write(f"NLP model: {self.config['nlp_model']}\n")
-                trace_file.write(f"Output directory: {output_dir}\n")
-                trace_file.write(f"Command: {cmd_str}\n")
-                if result.stdout:
-                    trace_file.write(f"STDOUT:\n{result.stdout}\n")
-                if result.stderr:
-                    trace_file.write(f"STDERR:\n{result.stderr}\n")
+            with open(task.result.trace_file, 'wb') as trace_file:
+                # Use centralized command execution with error handling
+                result = self._execute_and_check_command(humanoid_cmd, stdout=trace_file)
+                
+                # Append success information to trace file
+                success_info = f"\n--- Humanoid Execution Completed ---\n"
+                success_info += f"Interaction mode: {self.config['interaction_mode']}\n"
+                success_info += f"Max iterations: {self.config['max_iterations']}\n"
+                success_info += f"Visual threshold: {self.config['visual_threshold']}\n"
+                success_info += f"NLP model: {self.config['nlp_model']}\n"
+                success_info += f"Output directory: {output_dir}\n"
+                success_info += f"Command: {cmd_str}\n"
+                trace_file.write(success_info.encode('utf-8'))
             
             self.logger.info("Humanoid execution completed successfully")
             
         except Exception as e:
             self.logger.error(f"Humanoid execution failed: {str(e)}")
-            # Write error information to trace file
-            with open(task.result.trace_file, 'w') as trace_file:
-                trace_file.write(f"Humanoid execution error: {str(e)}\n")
-                trace_file.write(f"Command: {cmd_str}\n")
             raise
 
     def _resolve_humanoid_script(self) -> str:

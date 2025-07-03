@@ -84,7 +84,6 @@ class DroidBotTool(AbstractTool):
             "rv_tools.builtin.droidbot",
             {CONTEXT_COMPONENT: "DroidBotTool"}
         )
-        self.error_handler = ErrorHandler.get_instance()
 
         # Default DroidBot configuration
         self.config = {
@@ -203,7 +202,8 @@ class DroidBotTool(AbstractTool):
 
     @ErrorHandler.handle_errors(
         component="DroidBotTool",
-        phase="execute_tool_specific_logic"
+        phase="execute_tool_specific_logic",
+        reraise=True
     )
     def execute_tool_specific_logic(self, task: Task, app: App) -> None:
         """
@@ -227,107 +227,54 @@ class DroidBotTool(AbstractTool):
         
         self.logger.info(f"DroidBot execution timeout: {timeout_in_seconds} seconds")
 
-        # Create output directory for DroidBot results
-        output_dir = os.path.join(os.path.dirname(task.result.trace_file), "droidbot_output")
-        os.makedirs(output_dir, exist_ok=True)
-
         # Build DroidBot command
-        droidbot_cmd = self._build_droidbot_command(app, output_dir, timeout_in_seconds)
+        droidbot_cmd = self._build_droidbot_command(app, timeout_in_seconds)
         
         # Build command string for logging
         cmd_str = f"{droidbot_cmd.command} {' '.join(droidbot_cmd.args)}"
         self.logger.debug(f"DroidBot command: {cmd_str}")
 
-        # Execute DroidBot testing
-        try:
-            self.logger.info(f"Starting DroidBot execution for {app.package_name}")
-            result = droidbot_cmd.invoke()
+        # Execute DroidBot testing with centralized error handling
+        self.logger.info(f"Starting DroidBot execution for {app.package_name}")
+        
+        with open(task.result.trace_file, 'wb') as trace_file:
+            # Use centralized command execution with error handling
+            result = self._execute_and_check_command(droidbot_cmd, stdout=trace_file)
             
-            # Write result to trace file
-            with open(task.result.trace_file, 'w') as trace_file:
-                trace_file.write(f"DroidBot execution completed\n")
-                trace_file.write(f"Policy: {self.config['policy']}\n")
-                trace_file.write(f"Event count: {self.config['count']}\n")
-                trace_file.write(f"Output directory: {output_dir}\n")
-                trace_file.write(f"Command: {cmd_str}\n")
-                if result.stdout:
-                    trace_file.write(f"STDOUT:\n{result.stdout}\n")
-                if result.stderr:
-                    trace_file.write(f"STDERR:\n{result.stderr}\n")
-            
-            self.logger.info("DroidBot execution completed successfully")
-            
-        except Exception as e:
-            self.logger.error(f"DroidBot execution failed: {str(e)}")
-            # Write error information to trace file
-            with open(task.result.trace_file, 'w') as trace_file:
-                trace_file.write(f"DroidBot execution error: {str(e)}\n")
-                trace_file.write(f"Command: {cmd_str}\n")
-            raise
+            # Append success information to trace file
+            success_info = f"\n--- DroidBot Execution Completed ---\n"
+            success_info += f"Policy: {self.config['policy']}\n"
+            success_info += f"Event count: 10000000000\n"
+            success_info += f"Command: {cmd_str}\n"
+            trace_file.write(success_info.encode('utf-8'))
+        
+        self.logger.info("DroidBot execution completed successfully")
 
-    def _build_droidbot_command(self, app: App, output_dir: str, timeout_seconds: int) -> Command:
+    def _build_droidbot_command(self, app: App, timeout_seconds: int) -> Command:
         """
-        Build the DroidBot command with configured parameters.
+        Build the DroidBot command with validated parameters.
+        
+        Constructs DroidBot command for UI exploration with policy-based testing,
+        device targeting, and emulator-specific configurations.
+        
+        Command format: droidbot -d emulator-5554 -a <apk> -policy <policy> -count 10000000000 -timeout <timeout> -ignore_ad -is_emulator
         
         Args:
-            app: Application under test
-            output_dir: Output directory for DroidBot results
-            timeout_seconds: Command execution timeout
+            app: Application under test containing APK path and metadata
+            timeout_seconds: Command execution timeout in seconds
             
         Returns:
             Configured Command object for DroidBot execution
         """
-        # Start building command arguments
         cmd_args = [
+            "-d", "emulator-5554",               # Target device specification
             "-a", app.apk_path,
-            "-o", output_dir,
-            "-policy", self.config["policy"],
-            "-count", str(self.config["count"]),
-            "-timeout", str(self.config["timeout"]),
-            "-interval", str(self.config["interval"])
+            "-policy", self.config["policy"],    # Exploration policy configuration
+            "-count", "10000000000",             # High event count for comprehensive exploration
+            "-timeout", str(timeout_seconds),
+            "-ignore_ad",                        # Ignore advertisement elements
+            "-is_emulator"                       # Emulator-specific optimizations
         ]
-
-        # Add device serial if specified
-        if self.config["device_serial"]:
-            cmd_args.extend(["-d", self.config["device_serial"]])
-
-        # Add boolean flags
-        if self.config["keep_app"]:
-            cmd_args.append("-keep_app")
-            
-        if self.config["keep_env"]:
-            cmd_args.append("-keep_env")
-            
-        if self.config["debug_mode"]:
-            cmd_args.append("-debug")
-            
-        if self.config["random_input"]:
-            cmd_args.append("-random")
-            
-        if self.config["grant_perm"]:
-            cmd_args.append("-grant_perm")
-            
-        if self.config["enable_accessibility_hard"]:
-            cmd_args.append("-accessibility_hard")
-            
-        if self.config["ignore_ad"]:
-            cmd_args.append("-ignore_ad")
-
-        # Add optional parameters
-        if self.config["script_path"]:
-            cmd_args.extend(["-script", self.config["script_path"]])
-            
-        if self.config["profiling_method"] and self.config["profiling_method"] != "none":
-            cmd_args.extend(["-profiling", self.config["profiling_method"]])
-            
-        if self.config["master"]:
-            cmd_args.extend(["-master", self.config["master"]])
-            
-        if self.config["humanoid"]:
-            cmd_args.extend(["-humanoid", self.config["humanoid"]])
-            
-        if self.config["replay_output"]:
-            cmd_args.extend(["-replay_output", self.config["replay_output"]])
 
         return Command("droidbot", cmd_args, timeout_seconds)
 

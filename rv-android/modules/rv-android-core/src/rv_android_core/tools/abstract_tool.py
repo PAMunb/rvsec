@@ -10,8 +10,12 @@ from abc import ABC, abstractmethod
 
 from rv_android_core.app import App
 from rv_android_core.commands.command import Command
+from rv_android_core.commands.command_result import CommandResult
 from rv_android_core.domain.task import Task
 from rv_android_core.util.error.error_handler import ErrorHandler
+from rv_android_core.util.exceptions import (
+    RVCommandTimeoutError, RVToolTimeoutError, RVToolExecutionError
+)
 from rv_android_core.util.logging.constants import CONTEXT_COMPONENT, CONTEXT_TOOL_NAME
 from rv_android_core.util.logging.manager import LoggingManager
 
@@ -103,16 +107,18 @@ class AbstractTool(ABC):
 
     def execute(self, task: Task, app: App) -> None:
         """
-        Execute the tool using template method pattern.
+        Execute the tool using template method pattern with unified error handling.
         
         This method implements the standard execution workflow that delegates
         to the abstract method for tool-specific logic, then performs cleanup.
+        Provides centralized timeout and error handling for all tools.
         
         ### Execution Workflow:
         1. Log tool execution start
         2. Delegate to tool-specific logic implementation
-        3. Perform process cleanup and resource management
-        4. Handle any errors that occur during execution
+        3. Handle command timeouts and convert to tool timeouts
+        4. Perform process cleanup and resource management
+        5. Handle any errors that occur during execution
         
         Args:
             task: Task configuration and context
@@ -130,6 +136,19 @@ class AbstractTool(ABC):
 
             self.logger.info(f"Tool {self.name} execution completed successfully")
 
+        except RVCommandTimeoutError as e:
+            # Convert command timeout to tool timeout - this is expected behavior
+            timeout_msg = f"{self.name} execution timed out after {e.timeout_seconds} seconds"
+            self.logger.info(f"Tool timeout detected: {timeout_msg}")
+            
+            # Raise tool timeout exception (handled gracefully by error handler)
+            raise RVToolTimeoutError(
+                timeout_msg,
+                tool_name=self.name,
+                timeout_seconds=e.timeout_seconds,
+                cause=e
+            )
+
         except Exception as e:
             self.logger.error(f"Error executing tool {self.name}: {str(e)}", exc_info=True)
 
@@ -143,6 +162,67 @@ class AbstractTool(ABC):
                 }
             )
             raise
+
+    def _execute_and_check_command(self, command: Command, stdout=None, stderr=None, stdin=None) -> CommandResult:
+        """
+        Execute command with unified error handling and timeout detection.
+        
+        This method centralizes all command execution logic providing consistent
+        behavior across all tools. It handles command timeouts, execution failures,
+        and provides structured error information for debugging.
+        
+        ### Command Execution Strategy:
+        1. Execute command using Command infrastructure
+        2. Catch RVCommandTimeoutError and convert to RVToolTimeoutError
+        3. Check result.is_failure() and raise RVToolExecutionError for failures
+        4. Provide detailed error context for debugging and trace file logging
+        5. Enable consistent error handling across all tool implementations
+        
+        Args:
+            command: Command instance to execute
+            stdout: Where to redirect standard output (default: PIPE)
+            stderr: Where to redirect standard error (default: PIPE)
+            stdin: Input to pass to the command (default: None)
+            
+        Returns:
+            CommandResult on successful execution
+            
+        Raises:
+            RVToolTimeoutError: When command times out (converted from RVCommandTimeoutError)
+            RVToolExecutionError: When command fails with non-zero exit code
+        """
+        try:
+            # Execute command - may raise RVCommandTimeoutError
+            result = command.invoke(stdout=stdout, stderr=stderr, stdin=stdin)
+            
+            # Check for command failure
+            if result.is_failure():
+                error_msg = f"{self.name} command failed with exit code {result.code}"
+                if result.has_error_output():
+                    error_msg += f". Error output: {result.get_stderr_text()}"
+                
+                # Log error details for debugging
+                self.logger.error(f"Command execution failed: {error_msg}")
+                
+                raise RVToolExecutionError(
+                    error_msg,
+                    tool_name=self.name,
+                    cause=None
+                )
+            
+            return result
+            
+        except RVCommandTimeoutError as e:
+            # Convert command timeout to tool timeout - this is expected behavior
+            timeout_msg = f"{self.name} execution timed out after {e.timeout_seconds} seconds"
+            self.logger.info(f"Tool timeout detected during command execution: {timeout_msg}")
+            
+            raise RVToolTimeoutError(
+                timeout_msg,
+                tool_name=self.name,
+                timeout_seconds=e.timeout_seconds,
+                cause=e
+            )
 
     def kill_related_processes(self, process_pattern: str) -> None:
         """

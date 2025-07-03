@@ -122,27 +122,42 @@ class ToolExecutionComponent:
             return True
 
         except Exception as e:
-            self.logger.error(LOG_ERROR.format(
-                phase=f"executing tool {self.tool.name}",
-                error=str(e)
-            ))
-            self.error_handler.handle_error(
-                ToolError(f"Error executing tool {self.tool.name}", self.tool.name, e),
-                {"task_id": self.task.id, "tool_name": self.tool.name}
-            )
+            # Check if this is a timeout exception (already logged)
+            from rv_android_core.util.exceptions import RVToolTimeoutError
+            
+            if isinstance(e, RVToolTimeoutError):
+                # Timeout is expected, don't log as error
+                self.logger.info(LOG_COMPLETE.format(phase=f"tool: {self.tool.name} (timeout)"))
+                
+                # Publish tool completed event for timeouts
+                self.event_bus.publish_task_event(
+                    EventType.TOOL_STOPPED,
+                    task_id=self.task.id,
+                    details={"tool_name": self.tool.name, "reason": "timeout"},
+                    source="ToolExecutionComponent"
+                )
+                
+                return True  # Timeout is considered successful completion
+            else:
+                # Actual failure - reduced logging (tool already logged the details)
+                self.logger.error(LOG_ERROR.format(
+                    phase=f"executing tool {self.tool.name}",
+                    error=str(e)
+                ))
+                
+                # Don't handle the error here - let it propagate with original context
+                # Publish tool failed event
+                self.event_bus.publish_task_event(
+                    EventType.TASK_FAILED,
+                    task_id=self.task.id,
+                    details={
+                        "tool_name": self.tool.name,
+                        "error": str(e)
+                    },
+                    source="ToolExecutionComponent"
+                )
 
-            # Publish tool failed event
-            self.event_bus.publish_task_event(
-                EventType.TASK_FAILED,
-                task_id=self.task.id,
-                details={
-                    "tool_name": self.tool.name,
-                    "error": str(e)
-                },
-                source="ToolExecutionComponent"
-            )
-
-            return False
+                return False
 
     def cleanup_processes(self) -> None:
         """Clean up any hanging processes related to the tool."""

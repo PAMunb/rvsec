@@ -14,6 +14,8 @@ from rv_android_core.domain.task import Task
 from rv_android_core.tools.abstract_tool import AbstractTool
 from rv_android_core.tools.tool_spec import ToolSpec
 from rv_android_core.util.error.error_handler import ErrorHandler
+from rv_android_core.util.exceptions import RVToolTimeoutError
+from rv_android_core.util.jar_resolver import JarResolver
 from rv_android_core.util.logging.manager import LoggingManager
 from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
 
@@ -26,7 +28,7 @@ class APETool(AbstractTool):
     - Inherits directly from AbstractTool for simplified architecture
     - Implements CEGAR-based model abstraction refinement for systematic testing
     - Provides clean interface to APE testing framework with configurable parameters
-    - Uses direct binary execution model for efficient resource utilization
+    - Uses ADB shell execution model matching original implementation
     - Supports multiple exploration strategies with systematic state space coverage
     - Integrates with rv-android-core infrastructure for error handling and logging
 
@@ -41,7 +43,7 @@ class APETool(AbstractTool):
     - Multiple exploration strategies: sata, bfs, dfs, random
     - CEGAR-based model abstraction and refinement capabilities
     - Configurable execution timeouts and exploration parameters
-    - JAR-based deployment and execution on Android devices
+    - JAR-based deployment and execution on Android devices via ADB shell
     - Integration with Android Debug Bridge (ADB) for device communication
 
     ### Tool Variants:
@@ -82,16 +84,15 @@ class APETool(AbstractTool):
             "rv_tools.builtin.ape",
             {CONTEXT_COMPONENT: "APETool"}
         )
-        self.error_handler = ErrorHandler.get_instance()
+        self.jar_resolver = JarResolver()
 
         # Default APE configuration
         self.config = {
             "strategy": "sata",              # Exploration strategy
             "running_minutes": 5,            # Execution time in minutes
-            "device_serial": None,           # Device serial number
+            "device_serial": "emulator-5554", # Device serial number
             "ape_jar_path": None,            # Path to APE jar file
-            "push_jar": True,                # Whether to push jar to device
-            "debug_mode": False,             # Enable debug mode
+            "debug_mode": True,              # Enable debug mode
             "output_dir": None               # Output directory for results
         }
 
@@ -106,7 +107,6 @@ class APETool(AbstractTool):
         - running_minutes: Execution time limit in minutes
         - device_serial: Device serial number
         - ape_jar_path: Path to APE jar file
-        - push_jar: Whether to push jar to device
         - debug_mode: Enable debug mode
         - output_dir: Output directory for results
 
@@ -149,11 +149,9 @@ class APETool(AbstractTool):
             self.logger.debug(f"Set APE jar path to: {config['ape_jar_path']}")
 
         # Update boolean flags
-        boolean_flags = ['push_jar', 'debug_mode']
-        for flag in boolean_flags:
-            if flag in config:
-                self.config[flag] = bool(config[flag])
-                self.logger.debug(f"Set APE {flag} to: {self.config[flag]}")
+        if 'debug_mode' in config:
+            self.config['debug_mode'] = bool(config['debug_mode'])
+            self.logger.debug(f"Set APE debug_mode to: {self.config['debug_mode']}")
 
         # Update output directory
         if 'output_dir' in config:
@@ -162,30 +160,37 @@ class APETool(AbstractTool):
 
     @ErrorHandler.handle_errors(
         component="APETool",
-        phase="execute_tool_specific_logic"
+        phase="execute_tool_specific_logic",
+        reraise=True
     )
     def execute_tool_specific_logic(self, task: Task, app: App) -> None:
         """
-        Execute APE testing with configured parameters.
+        Execute APE testing with configured parameters using original ADB shell approach.
 
         ### Execution Workflow:
         1. Resolve APE jar file location
         2. Calculate execution timeout from task configuration
-        3. Push APE jar to Android device (if enabled)
-        4. Execute APE with specified strategy and parameters
-        5. Capture execution output for analysis
+        3. Push APE jar to Android device
+        4. Execute APE using original ADB shell command format
+        5. Check command execution result and handle failures
 
         Args:
             task: Task configuration containing timeout and other parameters
             app: Application under test with package name and metadata
+            
+        Raises:
+            RVToolExecutionError: If APE execution fails or command returns non-zero exit code
         """
         self.logger.info(f"Executing APE tool for {app.package_name}")
-        self.logger.debug(f"Strategy: {self.config['strategy']}, Running minutes: {self.config['running_minutes']}")
 
         # Get timeout from task configuration
         timeout_in_seconds = getattr(task.config, 'timeout', self.config['running_minutes'] * 60)
+        timeout_in_minutes = int(timeout_in_seconds / 60)
+        if timeout_in_minutes == 0:
+            timeout_in_minutes = 1
         
-        self.logger.info(f"APE execution timeout: {timeout_in_seconds} seconds")
+        self.logger.debug(f"Strategy: {self.config['strategy']}, Running minutes: {timeout_in_minutes}")
+        self.logger.info(f"APE execution timeout: {timeout_in_seconds} seconds ({timeout_in_minutes} minutes)")
 
         # Create output directory for APE results
         output_dir = os.path.join(os.path.dirname(task.result.trace_file), "ape_output")
@@ -194,106 +199,149 @@ class APETool(AbstractTool):
         # Resolve APE jar file
         ape_jar_path = self._resolve_ape_jar_path()
 
-        # Build APE command
-        ape_cmd = self._build_ape_command(app, ape_jar_path, output_dir, timeout_in_seconds)
+        # Step 1: Push APE jar to device
+        self._push_ape_jar_to_device(ape_jar_path, task.result.trace_file)
+
+        # Step 2: Execute APE using original ADB shell command format
+        ape_cmd = self._build_ape_shell_command(app, timeout_in_minutes, timeout_in_seconds)
         
         # Build command string for logging
         cmd_str = f"{ape_cmd.command} {' '.join(ape_cmd.args)}"
         self.logger.debug(f"APE command: {cmd_str}")
 
-        # Execute APE testing
-        try:
-            self.logger.info(f"Starting APE execution for {app.package_name}")
-            result = ape_cmd.invoke()
-            
-            # Write result to trace file
-            with open(task.result.trace_file, 'w') as trace_file:
-                trace_file.write(f"APE execution completed\n")
-                trace_file.write(f"Strategy: {self.config['strategy']}\n")
-                trace_file.write(f"Running minutes: {self.config['running_minutes']}\n")
-                trace_file.write(f"Output directory: {output_dir}\n")
-                trace_file.write(f"Command: {cmd_str}\n")
-                if result.stdout:
-                    trace_file.write(f"STDOUT:\n{result.stdout}\n")
-                if result.stderr:
-                    trace_file.write(f"STDERR:\n{result.stderr}\n")
-            
-            self.logger.info("APE execution completed successfully")
-            
-        except Exception as e:
-            self.logger.error(f"APE execution failed: {str(e)}")
-            # Write error information to trace file
-            with open(task.result.trace_file, 'w') as trace_file:
-                trace_file.write(f"APE execution error: {str(e)}\n")
-                trace_file.write(f"Command: {cmd_str}\n")
-            raise
+        # Execute APE testing with centralized error handling
+        self.logger.info(f"Starting APE execution for {app.package_name}")
+        
+        with open(task.result.trace_file, 'wb') as trace_file:
+            try:
+                # Use centralized command execution with error handling
+                result = self._execute_and_check_command(ape_cmd, stdout=trace_file)
+                
+                # Append success information to trace file
+                success_info = f"\n--- APE Execution Completed ---\n"
+                success_info += f"Strategy: {self.config['strategy']}\n"
+                success_info += f"Running minutes: {timeout_in_minutes}\n"
+                success_info += f"Command: {cmd_str}\n"
+                trace_file.write(success_info.encode('utf-8'))
+                
+            except RVToolTimeoutError as e:
+                # APE timeout is expected behavior - log as completion
+                self.logger.info(f"APE execution timed out after {timeout_in_seconds} seconds (expected behavior)")
+                
+                # Append timeout information to trace file
+                timeout_info = f"\n--- APE Execution Completed (Timeout) ---\n"
+                timeout_info += f"Timeout duration: {timeout_in_seconds} seconds\n"
+                timeout_info += f"Strategy: {self.config['strategy']}\n"
+                timeout_info += f"Command: {cmd_str}\n"
+                trace_file.write(timeout_info.encode('utf-8'))
+                
+                # Re-raise the timeout exception (will be handled gracefully by error handler)
+                raise
+        
+        self.logger.info("APE execution completed successfully")
 
     def _resolve_ape_jar_path(self) -> str:
         """
-        Resolve the path to the APE jar file.
+        Resolve the path to the APE jar file using centralized JarResolver.
 
         Returns:
             Path to APE jar file
 
         Raises:
-            FileNotFoundError: If APE jar file is not found
+            RVToolExecutionError: If APE jar file is not found
         """
-        # Check configured path first
-        if self.config.get("ape_jar_path") and os.path.isfile(self.config["ape_jar_path"]):
-            return self.config["ape_jar_path"]
-
-        # Common search paths for APE jar
+        # Use JarResolver for centralized JAR resolution
         search_paths = [
             # Environment variable based path
-            os.path.join(os.environ.get('TOOLS_DIR', ''), 'ape', 'ape.jar'),
+            os.path.join(os.environ.get('TOOLS_DIR', ''), 'ape'),
             # Relative to current module
-            os.path.join(os.path.dirname(__file__), 'ape.jar'),
+            os.path.dirname(__file__),
             # Standard installation paths
-            '/opt/rv-android/tools/ape/ape.jar',
-            './tools/ape/ape.jar',
-            '../tools/ape/ape.jar'
+            '/opt/rv-android/tools/ape',
+            './tools/ape',
+            '../tools/ape'
         ]
 
-        for path in search_paths:
-            if path and os.path.isfile(path):
-                self.logger.debug(f"Found APE jar at: {path}")
-                return path
+        try:
+            # Check configured path first
+            if self.config.get("ape_jar_path"):
+                return self.jar_resolver.resolve_jar_path("ape.jar", [os.path.dirname(self.config["ape_jar_path"])])
+            
+            # Use JarResolver with search paths
+            return self.jar_resolver.resolve_jar_path("ape.jar", search_paths)
+        except FileNotFoundError as e:
+            error_msg = "APE jar file not found. Please ensure APE is properly installed."
+            self.logger.error(error_msg)
+            raise RVToolExecutionError(
+                error_msg,
+                tool_name=self.name,
+                cause=e
+            )
 
-        raise FileNotFoundError("APE jar file not found. Please ensure APE is properly installed.")
-
-    def _build_ape_command(self, app: App, ape_jar_path: str, output_dir: str, timeout_seconds: int) -> Command:
+    def _push_ape_jar_to_device(self, jar_path: str, trace_file_path: str) -> None:
         """
-        Build the APE command with configured parameters.
+        Push APE jar to Android device (matching original implementation).
+
+        Args:
+            jar_path: Local path to APE jar file
+            trace_file_path: Path to trace file for logging output
+            
+        Raises:
+            RVToolExecutionError: If jar push fails
+        """
+        device_jar_path = "/data/local/tmp/ape.jar"
+        
+        self.logger.info(f"Pushing APE jar from {jar_path} to {device_jar_path}")
+        
+        push_cmd = Command('adb', [
+            '-s', self.config['device_serial'],
+            'push', '-a', '-p', jar_path, device_jar_path
+        ], timeout=60)  # 60 seconds timeout for push
+        
+        with open(trace_file_path, 'ab') as trace_file:
+            trace_file.write(f"\n--- APE Jar Push ---\n".encode('utf-8'))
+            result = push_cmd.invoke(stdout=trace_file)
+            
+            if result.is_failure():
+                error_msg = f"Failed to push APE jar to device with exit code {result.code}"
+                if result.has_error_output():
+                    error_msg += f". Error: {result.get_stderr_text()}"
+                
+                self.logger.error(error_msg)
+                raise RVToolExecutionError(
+                    error_msg,
+                    tool_name=self.name,
+                    cause=None
+                )
+        
+        self.logger.debug("APE jar pushed to device successfully")
+
+    def _build_ape_shell_command(self, app: App, timeout_minutes: int, timeout_seconds: int) -> Command:
+        """
+        Build the APE command using original ADB shell format.
 
         Args:
             app: Application under test
-            ape_jar_path: Path to APE jar file
-            output_dir: Output directory for APE results
-            timeout_seconds: Command execution timeout
+            timeout_minutes: Execution timeout in minutes
+            timeout_seconds: Command execution timeout in seconds
 
         Returns:
             Configured Command object for APE execution
         """
-        # Start building command arguments
+        # Build original ADB shell command format
         cmd_args = [
-            "-jar", ape_jar_path,
-            "-p", app.package_name,
-            "-running-minutes", str(self.config["running_minutes"]),
-            "-ape", self.config["strategy"]
+            '-s', self.config['device_serial'],
+            'shell',
+            'CLASSPATH=/data/local/tmp/ape.jar',
+            '/system/bin/app_process',
+            '/data/local/tmp/',
+            'com.android.commands.monkey.Monkey',
+            '-p', app.package_name,
+            '--running-minutes', str(timeout_minutes),
+            '--ape', self.config['strategy']
         ]
 
-        # Add device serial if specified
-        if self.config["device_serial"]:
-            cmd_args.extend(["-s", self.config["device_serial"]])
-
-        # Add debug mode if enabled
-        if self.config["debug_mode"]:
-            cmd_args.append("-debug")
-
-        # Add output directory
-        cmd_args.extend(["-o", output_dir])
-
-        return Command("java", cmd_args, timeout_seconds)
+        return Command("adb", cmd_args, timeout_seconds)
 
     def get_available_strategies(self) -> List[str]:
         """
