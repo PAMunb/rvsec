@@ -12,16 +12,16 @@ rv-android-core = {path = "../rv-android-core", develop = true}
 rv-screen-parser = {path = "../rv-screen-parser", develop = true}
 rv-llm = {path = "../rv-llm", develop = true}
 rv-tools = {path = "../rv-tools", develop = true}
-pydantic = "^2.8.0"
+pydantic = "^2.9.0"
 # Dependências específicas do RVAndroid
-flask = "*"  # Para REST API server
-flask-cors = "*"  # Para CORS no servidor
+flask = "^3.0.0"  # Para REST API server
+flask-cors = "^5.0.0"  # Para CORS no servidor
 #droidbot = "*"  # Integração com DroidBot (se disponível via pip)
 # requests já vem do workspace
 
 [tool.poetry.group.dev.dependencies]
-pytest = "^7.4.0"
-pytest-cov = "^4.1.0"
+pytest = "^8.0.0"
+pytest-cov = "^5.0.0"
 pytest-flask = "*"  # Para testes do servidor Flask
 
 # Plugin registration for rv-tools

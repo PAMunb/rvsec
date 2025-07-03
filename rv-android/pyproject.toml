@@ -7,13 +7,9 @@ package-mode = false
 
 [tool.poetry.dependencies]
 python = ">=3.12,<4.0"
-# Dependências comuns
-requests = "^2.28.0"
+# Dependências comuns do workspace
+requests = "^2.32.0"
 pyyaml = "^6.0"
-# Dependências do rv-android-core
-psutil = "^7.0.0"
-networkx = "^3.5"
-androguard = "3.4.0a1"
 
 # Path dependencies
 rv-android-core = {path = "modules/rv-android-core", develop = true}
@@ -30,15 +26,15 @@ rv-experiment = {path = "modules/rv-experiment", develop = true}
 #rvandroid = {path = "modules/rvandroid", develop = true}
 
 [tool.poetry.group.dev.dependencies]
-pytest = "^7.0"
-pytest-cov = "^4.0"
-black = "^23.0"
-flake8 = "^6.0"
-pylint = "^3.0"
-mypy = "^1.0"
-bandit = "^1.7"
-vulture = "^2.7"
-safety = "^3.0"
+pytest = "^8.0.0"
+pytest-cov = "^5.0.0"
+black = "^24.0.0"
+flake8 = "^7.0.0"
+pylint = "^3.2.0"
+mypy = "^1.11.0"
+bandit = "^1.7.0"
+vulture = "^2.7.0"
+safety = "^3.2.0"
 
 [build-system]
 requires = ["poetry-core"]

@@ -10,11 +10,11 @@ packages = [{include = "rv_static_analysis", from = "src"}]
 [tool.poetry.dependencies]
 python = ">=3.12,<4.0"
 rv-android-core = {path = "../rv-android-core", develop = true}
-pydantic = "^2.8.0"
+pydantic = "^2.9.0"
 
 [tool.poetry.group.dev.dependencies]
-pytest = "^7.4.0"
-pytest-cov = "^4.1.0"
+pytest = "^8.0.0"
+pytest-cov = "^5.0.0"
 
 [tool.poetry.scripts]
 rv-static-analysis = "rv_static_analysis.__main__:main"

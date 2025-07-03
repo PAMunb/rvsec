@@ -11,15 +11,41 @@ python = ">=3.12,<4.0"
 androguard = "3.4.0a1"
 psutil = "^7.0.0"
 networkx = "^3.5"
-pydantic = "^2.8.0"
+pydantic = "^2.9.0"
 
 [tool.poetry.group.dev.dependencies]
-pytest = "^7.4.0"
-pytest-cov = "^4.1.0"
+pytest = "^8.0.0"
+pytest-cov = "^5.0.0"
 
 [tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = [
+    "--strict-markers",
+    "--strict-config",
+    "--verbose",
+]
 markers = [
+    "integration: Integration tests that require external dependencies",
+    "slow: Slow running tests",
     "performance: marks tests as performance tests (may be slow)",
+]
+
+[tool.coverage.run]
+source = ["src"]
+omit = [
+    "*/tests/*",
+    "*/test_*.py",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
 ]
 
 [build-system]
