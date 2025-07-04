@@ -279,19 +279,22 @@ class HumanoidTool(AbstractTool):
         try:
             self.logger.info(f"Starting Humanoid execution for {app.package_name}")
             
+            # Execute command with output redirection (binary mode for command output)
             with open(task.result.trace_file, 'wb') as trace_file:
                 # Use centralized command execution with error handling
-                result = self._execute_and_check_command(humanoid_cmd, stdout=trace_file)
-                
-                # Append success information to trace file
-                success_info = f"\n--- Humanoid Execution Completed ---\n"
-                success_info += f"Interaction mode: {self.config['interaction_mode']}\n"
-                success_info += f"Max iterations: {self.config['max_iterations']}\n"
-                success_info += f"Visual threshold: {self.config['visual_threshold']}\n"
-                success_info += f"NLP model: {self.config['nlp_model']}\n"
-                success_info += f"Output directory: {output_dir}\n"
-                success_info += f"Command: {cmd_str}\n"
-                trace_file.write(success_info.encode('utf-8'))
+                # Redirect both stdout and stderr to trace file to prevent console flooding
+                result = self._execute_and_check_command(humanoid_cmd, stdout=trace_file, stderr=trace_file)
+            
+            # Append success information to trace file (text mode for metadata)
+            # with open(task.result.trace_file, 'a', encoding='utf-8') as trace_file:
+            #     success_info = f"\n--- Humanoid Execution Completed ---\n"
+            #     success_info += f"Interaction mode: {self.config['interaction_mode']}\n"
+            #     success_info += f"Max iterations: {self.config['max_iterations']}\n"
+            #     success_info += f"Visual threshold: {self.config['visual_threshold']}\n"
+            #     success_info += f"NLP model: {self.config['nlp_model']}\n"
+            #     success_info += f"Output directory: {output_dir}\n"
+            #     success_info += f"Command: {cmd_str}\n"
+            #     trace_file.write(success_info)
             
             self.logger.info("Humanoid execution completed successfully")
             

@@ -263,16 +263,19 @@ class FastBotTool(AbstractTool):
         try:
             self.logger.info(f"Starting FastBot execution for {app.package_name}")
             
+            # Execute command with output redirection (binary mode for command output)
             with open(task.result.trace_file, 'wb') as trace_file:
                 # Use centralized command execution with error handling
-                result = self._execute_and_check_command(fastbot_cmd, stdout=trace_file)
-                
-                # Append success information to trace file
-                success_info = f"\n--- FastBot Execution Completed ---\n"
-                success_info += f"Strategy: {self.config['strategy']}\n"
-                success_info += f"Running minutes: {timeout_in_minutes}\n"
-                success_info += f"Command: {cmd_str}\n"
-                trace_file.write(success_info.encode('utf-8'))
+                # Redirect both stdout and stderr to trace file to prevent console flooding
+                result = self._execute_and_check_command(fastbot_cmd, stdout=trace_file, stderr=trace_file)
+            
+            # Append success information to trace file (text mode for metadata)
+            # with open(task.result.trace_file, 'a', encoding='utf-8') as trace_file:
+            #     success_info = f"\n--- FastBot Execution Completed ---\n"
+            #     success_info += f"Strategy: {self.config['strategy']}\n"
+            #     success_info += f"Running minutes: {timeout_in_minutes}\n"
+            #     success_info += f"Command: {cmd_str}\n"
+            #     trace_file.write(success_info)
             
             self.logger.info("FastBot execution completed successfully")
             

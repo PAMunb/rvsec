@@ -2,35 +2,36 @@
 
 [[package]]
 name = "accelerate"
-version = "0.34.2"
+version = "1.8.1"
 description = "Accelerate"
 optional = false
-python-versions = ">=3.8.0"
+python-versions = ">=3.9.0"
 groups = ["main"]
 files = [
-    {file = "accelerate-0.34.2-py3-none-any.whl", hash = "sha256:d69159e2c4e4a473d14443b27d2d732929254e826b3ab4813b3785b5ac616c7c"},
-    {file = "accelerate-0.34.2.tar.gz", hash = "sha256:98c1ebe1f5a45c0a3af02dc60b5bb8b7d58d60c3326a326a06ce6d956b18ca5b"},
+    {file = "accelerate-1.8.1-py3-none-any.whl", hash = "sha256:c47b8994498875a2b1286e945bd4d20e476956056c7941d512334f4eb44ff991"},
+    {file = "accelerate-1.8.1.tar.gz", hash = "sha256:f60df931671bc4e75077b852990469d4991ce8bd3a58e72375c3c95132034db9"},
 ]
 
 [package.dependencies]
-huggingface-hub = ">=0.21.0"
+huggingface_hub = ">=0.21.0"
 numpy = ">=1.17,<3.0.0"
 packaging = ">=20.0"
 psutil = "*"
 pyyaml = "*"
 safetensors = ">=0.4.3"
-torch = ">=1.10.0"
+torch = ">=2.0.0"
 
 [package.extras]
 deepspeed = ["deepspeed"]
-dev = ["bitsandbytes", "black (>=23.1,<24.0)", "datasets", "diffusers", "evaluate", "hf-doc-builder (>=0.3.0)", "parameterized", "pytest (>=7.2.0,<=8.0.0)", "pytest-subtests", "pytest-xdist", "rich", "ruff (>=0.2.1,<0.3.0)", "scikit-learn", "scipy", "timm", "torchdata (>=0.8.0)", "torchpippy (>=0.2.0)", "tqdm", "transformers"]
-quality = ["black (>=23.1,<24.0)", "hf-doc-builder (>=0.3.0)", "ruff (>=0.2.1,<0.3.0)"]
+dev = ["bitsandbytes", "black (>=23.1,<24.0)", "datasets", "diffusers", "evaluate", "hf-doc-builder (>=0.3.0)", "parameterized", "pytest (>=7.2.0,<=8.0.0)", "pytest-order", "pytest-subtests", "pytest-xdist", "rich", "ruff (>=0.11.2,<0.12.0)", "scikit-learn", "scipy", "timm", "torchdata (>=0.8.0)", "torchpippy (>=0.2.0)", "tqdm", "transformers"]
+quality = ["black (>=23.1,<24.0)", "hf-doc-builder (>=0.3.0)", "ruff (>=0.11.2,<0.12.0)"]
 rich = ["rich"]
 sagemaker = ["sagemaker"]
 test-dev = ["bitsandbytes", "datasets", "diffusers", "evaluate", "scikit-learn", "scipy", "timm", "torchdata (>=0.8.0)", "torchpippy (>=0.2.0)", "tqdm", "transformers"]
-test-prod = ["parameterized", "pytest (>=7.2.0,<=8.0.0)", "pytest-subtests", "pytest-xdist"]
-test-trackers = ["comet-ml", "dvclive", "tensorboard", "wandb"]
-testing = ["bitsandbytes", "datasets", "diffusers", "evaluate", "parameterized", "pytest (>=7.2.0,<=8.0.0)", "pytest-subtests", "pytest-xdist", "scikit-learn", "scipy", "timm", "torchdata (>=0.8.0)", "torchpippy (>=0.2.0)", "tqdm", "transformers"]
+test-fp8 = ["torchao"]
+test-prod = ["parameterized", "pytest (>=7.2.0,<=8.0.0)", "pytest-order", "pytest-subtests", "pytest-xdist"]
+test-trackers = ["comet-ml", "dvclive", "matplotlib", "mlflow", "swanlab", "tensorboard", "wandb"]
+testing = ["bitsandbytes", "datasets", "diffusers", "evaluate", "parameterized", "pytest (>=7.2.0,<=8.0.0)", "pytest-order", "pytest-subtests", "pytest-xdist", "scikit-learn", "scipy", "timm", "torchdata (>=0.8.0)", "torchpippy (>=0.2.0)", "tqdm", "transformers"]
 
 [[package]]
 name = "adbutils"
@@ -96,29 +97,28 @@ files = [
 
 [[package]]
 name = "anthropic"
-version = "0.37.1"
+version = "0.53.0"
 description = "The official Python library for the anthropic API"
 optional = false
-python-versions = ">=3.7"
+python-versions = ">=3.8"
 groups = ["main"]
 files = [
-    {file = "anthropic-0.37.1-py3-none-any.whl", hash = "sha256:8f550f88906823752e2abf99fbe491fbc8d40bce4cb26b9663abdf7be990d721"},
-    {file = "anthropic-0.37.1.tar.gz", hash = "sha256:99f688265795daa7ba9256ee68eaf2f05d53cd99d7417f4a0c2dc292c106d00a"},
+    {file = "anthropic-0.53.0-py3-none-any.whl", hash = "sha256:b3a84751885a81d96bbddef180c3ce559c9140f7f230cdd825385405bd6d312e"},
+    {file = "anthropic-0.53.0.tar.gz", hash = "sha256:f5d1499fc45b2e05801fcbbeae25679f72f7479763e3c706126a7a7c8de06eff"},
 ]
 
 [package.dependencies]
 anyio = ">=3.5.0,<5"
 distro = ">=1.7.0,<2"
-httpx = ">=0.23.0,<1"
+httpx = ">=0.25.0,<1"
 jiter = ">=0.4.0,<1"
 pydantic = ">=1.9.0,<3"
 sniffio = "*"
-tokenizers = ">=0.13.0"
-typing-extensions = ">=4.7,<5"
+typing-extensions = ">=4.10,<5"
 
 [package.extras]
 bedrock = ["boto3 (>=1.28.57)", "botocore (>=1.31.57)"]
-vertex = ["google-auth (>=2,<3)"]
+vertex = ["google-auth[requests] (>=2,<3)"]
 
 [[package]]
 name = "anyio"
@@ -247,23 +247,26 @@ lxml = ["lxml"]
 
 [[package]]
 name = "bitsandbytes"
-version = "0.43.3"
+version = "0.46.1"
 description = "k-bit optimizers and matrix multiplication routines."
 optional = false
-python-versions = "*"
+python-versions = ">=3.9"
 groups = ["main"]
 files = [
-    {file = "bitsandbytes-0.43.3-py3-none-manylinux_2_24_x86_64.whl", hash = "sha256:cc99507c352be0715098b2c7577b690dd158972dc4ea10c7495bac104c7c79f0"},
-    {file = "bitsandbytes-0.43.3-py3-none-win_amd64.whl", hash = "sha256:257f6552f2144748a84e6c44e1f7a98f3da888f675ed74e18fd7f7eb13c6cafa"},
+    {file = "bitsandbytes-0.46.1-py3-none-manylinux_2_24_aarch64.whl", hash = "sha256:21b349f776d04c6c1380405961081de29c84f49640b79d3d199b6d719818da84"},
+    {file = "bitsandbytes-0.46.1-py3-none-manylinux_2_24_x86_64.whl", hash = "sha256:b0ee4a204fb926d4eae02bc2f5468ae3c11c011cfa849a4c771d4c6b201f57ae"},
+    {file = "bitsandbytes-0.46.1-py3-none-win_amd64.whl", hash = "sha256:9f6f61376bd0e9780c5dc4ddee7d1f52cb10fe8034a1ea588611f4e8b87eb6a7"},
 ]
 
 [package.dependencies]
-numpy = "*"
-torch = "*"
+numpy = ">=1.17"
+torch = ">=2.2,<3"
 
 [package.extras]
 benchmark = ["matplotlib", "pandas"]
-test = ["scipy"]
+dev = ["bitsandbytes[test]", "build (>=1.0.0,<2)", "pre-commit (>=3.5.0,<4)", "ruff (==0.11.2)", "wheel (>=0.42,<1)"]
+docs = ["hf-doc-builder (==0.5.0)"]
+test = ["einops (>=0.8.0,<0.9.0)", "lion-pytorch (==0.2.3)", "pytest (>=8.3,<9.0)", "scipy (>=1.11.4,<2) ; python_version >= \"3.9\"", "transformers (>=4.30.1,<5)"]
 
 [[package]]
 name = "black"
@@ -2554,18 +2557,19 @@ files = [
 
 [[package]]
 name = "ollama"
-version = "0.3.3"
+version = "0.5.1"
 description = "The official Python client for Ollama."
 optional = false
-python-versions = "<4.0,>=3.8"
+python-versions = ">=3.8"
 groups = ["main"]
 files = [
-    {file = "ollama-0.3.3-py3-none-any.whl", hash = "sha256:ca6242ce78ab34758082b7392df3f9f6c2cb1d070a9dede1a4c545c929e16dba"},
-    {file = "ollama-0.3.3.tar.gz", hash = "sha256:f90a6d61803117f40b0e8ff17465cab5e1eb24758a473cfe8101aff38bc13b51"},
+    {file = "ollama-0.5.1-py3-none-any.whl", hash = "sha256:4c8839f35bc173c7057b1eb2cbe7f498c1a7e134eafc9192824c8aecb3617506"},
+    {file = "ollama-0.5.1.tar.gz", hash = "sha256:5a799e4dc4e7af638b11e3ae588ab17623ee019e496caaf4323efbaa8feeff93"},
 ]
 
 [package.dependencies]
-httpx = ">=0.27.0,<0.28.0"
+httpx = ">=0.27"
+pydantic = ">=2.9"
 
 [[package]]
 name = "openai"
@@ -3237,19 +3241,20 @@ dev = ["argcomplete", "attrs (>=19.2)", "hypothesis (>=3.56)", "mock", "requests
 
 [[package]]
 name = "pytest-cov"
-version = "5.0.0"
+version = "6.2.1"
 description = "Pytest plugin for measuring coverage."
 optional = false
-python-versions = ">=3.8"
+python-versions = ">=3.9"
 groups = ["dev"]
 files = [
-    {file = "pytest-cov-5.0.0.tar.gz", hash = "sha256:5837b58e9f6ebd335b0f8060eecce69b662415b16dc503883a02f45dfeb14857"},
-    {file = "pytest_cov-5.0.0-py3-none-any.whl", hash = "sha256:4f0764a1219df53214206bf1feea4633c3b558a2925c8b59f144f682861ce652"},
+    {file = "pytest_cov-6.2.1-py3-none-any.whl", hash = "sha256:f5bc4c23f42f1cdd23c70b1dab1bbaef4fc505ba950d53e0081d0730dd7e86d5"},
+    {file = "pytest_cov-6.2.1.tar.gz", hash = "sha256:25cc6cc0a5358204b8108ecedc51a9b57b34cc6b8c967cc2c01a4e00d8a67da2"},
 ]
 
 [package.dependencies]
-coverage = {version = ">=5.2.1", extras = ["toml"]}
-pytest = ">=4.6"
+coverage = {version = ">=7.5", extras = ["toml"]}
+pluggy = ">=1.2"
+pytest = ">=6.2.5"
 
 [package.extras]
 testing = ["fields", "hunter", "process-tests", "pytest-xdist", "virtualenv"]
@@ -3678,21 +3683,21 @@ files = []
 develop = true
 
 [package.dependencies]
-accelerate = "^0.34.0"
-anthropic = "^0.37.0"
-bitsandbytes = "^0.43.0"
+accelerate = "^1.7.0"
+anthropic = "^0.53.0"
+bitsandbytes = "^0.46.0"
 boto3 = "^1.35.0"
 google-generativeai = "^0.8.0"
 httpx = "^0.27.0"
 jinja2 = "^3.1.0"
-ollama = "^0.3.0"
-openai = "^1.50.0"
+ollama = "^0.5.0"
+openai = "^1.56.0"
 pydantic = "^2.9.0"
 requests = "^2.32.0"
 rv-android-core = {path = "../rv-android-core", develop = true}
 rv-screen-parser = {path = "../rv-screen-parser", develop = true}
-torch = "^2.4.0"
-transformers = "^4.45.0"
+torch = "^2.5.0"
+transformers = "^4.47.0"
 
 [package.source]
 type = "directory"
@@ -4434,4 +4439,4 @@ watchdog = ["watchdog (>=2.3)"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.12,<4.0"
-content-hash = "feffcc1119a8c9d52662154fdfa87640a9e2ac4498fd768dc32cd9d3b91ed8b6"
+content-hash = "918ad89df5aff59a5b0e12a67f6bb6395696e921d00bc1d868a023535f12d081"

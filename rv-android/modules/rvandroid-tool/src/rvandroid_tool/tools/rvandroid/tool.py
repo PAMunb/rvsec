@@ -278,13 +278,9 @@ class RVAndroidTool(AbstractTool):
         except Exception as e:
             self.logger.error(f"Error during RVAndroid configuration: {e}")
 
-    @ErrorHandler.handle_errors(
-        component="RVAndroidTool",
-        phase="execute_tool_specific_logic"
-    )
     def execute_tool_specific_logic(self, task: Task, app: App) -> None:
         """
-        Execute RVAndroid testing with configured parameters.
+        Execute RVAndroid testing with configured parameters using unified architecture.
         
         This method starts the RVAndroid server and executes AI-driven testing
         based on the configured LLM backend and parameters.
@@ -314,34 +310,24 @@ class RVAndroidTool(AbstractTool):
         cmd_str = f"{rvandroid_cmd.command} {' '.join(rvandroid_cmd.args)}"
         self.logger.debug(f"RVAndroid command: {cmd_str}")
 
-        # Execute RVAndroid testing
-        try:
-            self.logger.info(f"Starting RVAndroid execution for {app.package_name}")
-            result = rvandroid_cmd.invoke()
+        # Execute RVAndroid testing with centralized error handling
+        self.logger.info(f"Starting RVAndroid execution for {app.package_name}")
+        
+        with open(task.result.trace_file, 'wb') as trace_file:
+            # Use centralized command execution with error handling
+            result = self._execute_and_check_command(rvandroid_cmd, stdout=trace_file)
             
-            # Write result to trace file
-            with open(task.result.trace_file, 'w') as trace_file:
-                trace_file.write(f"RVAndroid execution completed\n")
-                trace_file.write(f"LLM Backend: {self.config['llm_backend']}\n")
-                trace_file.write(f"LLM Model: {self.config['llm_model']}\n")
-                trace_file.write(f"Prompt Strategy: {self.config['prompt_strategy']}\n")
-                trace_file.write(f"Visitor Type: {self.config['visitor_type']}\n")
-                trace_file.write(f"Output directory: {output_dir}\n")
-                trace_file.write(f"Command: {cmd_str}\n")
-                if result.stdout:
-                    trace_file.write(f"STDOUT:\n{result.stdout}\n")
-                if result.stderr:
-                    trace_file.write(f"STDERR:\n{result.stderr}\n")
-            
-            self.logger.info("RVAndroid execution completed successfully")
-            
-        except Exception as e:
-            self.logger.error(f"RVAndroid execution failed: {str(e)}")
-            # Write error information to trace file
-            with open(task.result.trace_file, 'w') as trace_file:
-                trace_file.write(f"RVAndroid execution error: {str(e)}\n")
-                trace_file.write(f"Command: {cmd_str}\n")
-            raise
+            # Append success information to trace file
+            success_info = f"\n--- RVAndroid Execution Completed ---\n"
+            success_info += f"LLM Backend: {self.config['llm_backend']}\n"
+            success_info += f"LLM Model: {self.config['llm_model']}\n"
+            success_info += f"Prompt Strategy: {self.config['prompt_strategy']}\n"
+            success_info += f"Visitor Type: {self.config['visitor_type']}\n"
+            success_info += f"Output directory: {output_dir}\n"
+            success_info += f"Command: {cmd_str}\n"
+            trace_file.write(success_info.encode('utf-8'))
+        
+        self.logger.info("RVAndroid execution completed successfully")
 
     def _build_rvandroid_command(self, app: App, output_dir: str, timeout_seconds: int) -> Command:
         """

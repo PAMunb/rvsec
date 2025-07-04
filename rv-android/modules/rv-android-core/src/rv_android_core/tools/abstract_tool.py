@@ -9,12 +9,14 @@ import os
 from abc import ABC, abstractmethod
 
 from rv_android_core.app import App
+from rv_android_core.commands.circuit_breaker import CommandCircuitBreaker
 from rv_android_core.commands.command import Command
 from rv_android_core.commands.command_result import CommandResult
 from rv_android_core.domain.task import Task
 from rv_android_core.util.error.error_handler import ErrorHandler
 from rv_android_core.util.exceptions import (
-    RVCommandTimeoutError, RVToolTimeoutError, RVToolExecutionError
+    RVCommandTimeoutError, RVToolTimeoutError, RVToolExecutionError,
+    CircuitBreakerOpenError
 )
 from rv_android_core.util.logging.constants import CONTEXT_COMPONENT, CONTEXT_TOOL_NAME
 from rv_android_core.util.logging.manager import LoggingManager
@@ -85,6 +87,9 @@ class AbstractTool(ABC):
 
         # Initialize error handler
         self.error_handler = ErrorHandler.get_instance()
+
+        # Initialize circuit breaker for command resilience
+        self.circuit_breaker = CommandCircuitBreaker()
 
         super().__init__()
 
@@ -165,18 +170,20 @@ class AbstractTool(ABC):
 
     def _execute_and_check_command(self, command: Command, stdout=None, stderr=None, stdin=None) -> CommandResult:
         """
-        Execute command with unified error handling and timeout detection.
+        Execute command with circuit breaker protection and unified error handling.
         
         This method centralizes all command execution logic providing consistent
-        behavior across all tools. It handles command timeouts, execution failures,
-        and provides structured error information for debugging.
+        behavior across all tools. It integrates circuit breaker pattern for
+        resilience against consistently failing commands while maintaining
+        existing timeout and error handling behavior.
         
         ### Command Execution Strategy:
-        1. Execute command using Command infrastructure
-        2. Catch RVCommandTimeoutError and convert to RVToolTimeoutError
-        3. Check result.is_failure() and raise RVToolExecutionError for failures
-        4. Provide detailed error context for debugging and trace file logging
-        5. Enable consistent error handling across all tool implementations
+        1. Check circuit breaker state for command execution permission
+        2. Execute command using Command infrastructure with timeout handling
+        3. Handle command timeouts (do not count as circuit breaker failures)
+        4. Check result.is_failure() and record circuit breaker failures
+        5. Record circuit breaker success for successful executions
+        6. Provide detailed error context for debugging and trace file logging
         
         Args:
             command: Command instance to execute
@@ -188,15 +195,22 @@ class AbstractTool(ABC):
             CommandResult on successful execution
             
         Raises:
+            CircuitBreakerOpenError: When circuit breaker blocks command execution
             RVToolTimeoutError: When command times out (converted from RVCommandTimeoutError)
             RVToolExecutionError: When command fails with non-zero exit code
         """
         try:
+            # Check circuit breaker before execution
+            self.circuit_breaker.is_execution_allowed(command)
+            
             # Execute command - may raise RVCommandTimeoutError
             result = command.invoke(stdout=stdout, stderr=stderr, stdin=stdin)
             
             # Check for command failure
             if result.is_failure():
+                # Record failure in circuit breaker
+                self.circuit_breaker.record_failure(command)
+                
                 error_msg = f"{self.name} command failed with exit code {result.code}"
                 if result.has_error_output():
                     error_msg += f". Error output: {result.get_stderr_text()}"
@@ -210,10 +224,13 @@ class AbstractTool(ABC):
                     cause=None
                 )
             
+            # Record success in circuit breaker
+            self.circuit_breaker.record_success(command)
+            
             return result
             
         except RVCommandTimeoutError as e:
-            # Convert command timeout to tool timeout - this is expected behavior
+            # Timeout is expected behavior - do not record as circuit breaker failure
             timeout_msg = f"{self.name} execution timed out after {e.timeout_seconds} seconds"
             self.logger.info(f"Tool timeout detected during command execution: {timeout_msg}")
             
@@ -223,6 +240,10 @@ class AbstractTool(ABC):
                 timeout_seconds=e.timeout_seconds,
                 cause=e
             )
+        
+        except CircuitBreakerOpenError:
+            # Circuit breaker blocked execution - re-raise as-is
+            raise
 
     def kill_related_processes(self, process_pattern: str) -> None:
         """

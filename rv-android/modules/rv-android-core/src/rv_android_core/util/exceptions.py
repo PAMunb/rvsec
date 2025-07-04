@@ -324,3 +324,18 @@ class JarNotFoundError(RVAndroidError):
         jar_info = f" (JAR: {self.jar_name})" if self.jar_name else ""
         paths_info = f" (Searched: {len(self.search_paths)} paths)" if self.search_paths else ""
         return f"{super().__str__()}{jar_info}{paths_info}"
+
+
+class CircuitBreakerOpenError(RVAndroidError):
+    """Exception for circuit breaker open state in command execution."""
+    
+    def __init__(self, message: str, command_signature: Optional[str] = None, 
+                 failure_count: Optional[int] = None, cause: Optional[Exception] = None):
+        super().__init__(message, cause)
+        self.command_signature = command_signature
+        self.failure_count = failure_count
+    
+    def __str__(self):
+        command_info = f" (Command: {self.command_signature})" if self.command_signature else ""
+        failure_info = f" (Failures: {self.failure_count})" if self.failure_count else ""
+        return f"{super().__str__()}{command_info}{failure_info}"

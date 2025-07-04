@@ -32,24 +32,12 @@ bitsandbytes = "^0.46.0"  # For quantization
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.0.0"
-pytest-cov = "^5.0.0"
+pytest-cov = "^6.0.0" 
 
 # Sem CLI inicialmente - apenas uso programático
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
-python_files = ["test_*.py"]
-python_classes = ["Test*"]
-python_functions = ["test_*"]
-addopts = [
-    "--strict-markers",
-    "--strict-config",
-    "--verbose",
-]
-markers = [
-    "integration: Integration tests that require external dependencies",
-    "slow: Slow running tests",
-]
+addopts = "--cov=src"
 
 [tool.coverage.run]
 source = ["src"]
@@ -59,12 +47,8 @@ omit = [
 ]
 
 [tool.coverage.report]
-exclude_lines = [
-    "pragma: no cover",
-    "def __repr__",
-    "raise AssertionError",
-    "raise NotImplementedError",
-]
+# show_missing = true
+# fail_under = 80
 
 [build-system]
 requires = ["poetry-core"]

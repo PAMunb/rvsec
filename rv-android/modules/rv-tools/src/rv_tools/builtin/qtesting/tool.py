@@ -272,19 +272,22 @@ class QTestingTool(AbstractTool):
         try:
             self.logger.info(f"Starting QTesting execution for {app.package_name}")
             
+            # Execute command with output redirection (binary mode for command output)
             with open(task.result.trace_file, 'wb') as trace_file:
                 # Use centralized command execution with error handling
-                result = self._execute_and_check_command(qtesting_cmd, stdout=trace_file)
-                
-                # Append success information to trace file
-                success_info = f"\n--- QTesting Execution Completed ---\n"
-                success_info += f"Algorithm: {self.config['algorithm']}\n"
-                success_info += f"Max episodes: {self.config['max_episodes']}\n"
-                success_info += f"Learning rate: {self.config['learning_rate']}\n"
-                success_info += f"Container name: {container_name}\n"
-                success_info += f"Output directory: {output_dir}\n"
-                success_info += f"Command: {cmd_str}\n"
-                trace_file.write(success_info.encode('utf-8'))
+                # Redirect both stdout and stderr to trace file to prevent console flooding
+                result = self._execute_and_check_command(qtesting_cmd, stdout=trace_file, stderr=trace_file)
+            
+            # Append success information to trace file (text mode for metadata)
+            # with open(task.result.trace_file, 'a', encoding='utf-8') as trace_file:
+            #     success_info = f"\n--- QTesting Execution Completed ---\n"
+            #     success_info += f"Algorithm: {self.config['algorithm']}\n"
+            #     success_info += f"Max episodes: {self.config['max_episodes']}\n"
+            #     success_info += f"Learning rate: {self.config['learning_rate']}\n"
+            #     success_info += f"Container name: {container_name}\n"
+            #     success_info += f"Output directory: {output_dir}\n"
+            #     success_info += f"Command: {cmd_str}\n"
+            #     trace_file.write(success_info)
             
             self.logger.info("QTesting execution completed successfully")
             

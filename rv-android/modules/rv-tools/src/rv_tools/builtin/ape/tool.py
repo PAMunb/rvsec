@@ -14,7 +14,7 @@ from rv_android_core.domain.task import Task
 from rv_android_core.tools.abstract_tool import AbstractTool
 from rv_android_core.tools.tool_spec import ToolSpec
 from rv_android_core.util.error.error_handler import ErrorHandler
-from rv_android_core.util.exceptions import RVToolTimeoutError
+from rv_android_core.util.exceptions import RVToolTimeoutError, RVToolExecutionError
 from rv_android_core.util.jar_resolver import JarResolver
 from rv_android_core.util.logging.manager import LoggingManager
 from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
@@ -212,31 +212,35 @@ class APETool(AbstractTool):
         # Execute APE testing with centralized error handling
         self.logger.info(f"Starting APE execution for {app.package_name}")
         
-        with open(task.result.trace_file, 'wb') as trace_file:
-            try:
+        # Execute command with output redirection (binary mode for command output)
+        try:
+            with open(task.result.trace_file, 'wb') as trace_file:
                 # Use centralized command execution with error handling
-                result = self._execute_and_check_command(ape_cmd, stdout=trace_file)
+                # Redirect both stdout and stderr to trace file to prevent console flooding
+                result = self._execute_and_check_command(ape_cmd, stdout=trace_file, stderr=trace_file)
+            
+            # # Append success information to trace file (text mode for metadata)
+            # with open(task.result.trace_file, 'a', encoding='utf-8') as trace_file:
+            #     success_info = f"\n--- APE Execution Completed ---\n"
+            #     success_info += f"Strategy: {self.config['strategy']}\n"
+            #     success_info += f"Running minutes: {timeout_in_minutes}\n"
+            #     success_info += f"Command: {cmd_str}\n"
+            #     trace_file.write(success_info)
                 
-                # Append success information to trace file
-                success_info = f"\n--- APE Execution Completed ---\n"
-                success_info += f"Strategy: {self.config['strategy']}\n"
-                success_info += f"Running minutes: {timeout_in_minutes}\n"
-                success_info += f"Command: {cmd_str}\n"
-                trace_file.write(success_info.encode('utf-8'))
-                
-            except RVToolTimeoutError as e:
-                # APE timeout is expected behavior - log as completion
-                self.logger.info(f"APE execution timed out after {timeout_in_seconds} seconds (expected behavior)")
-                
-                # Append timeout information to trace file
-                timeout_info = f"\n--- APE Execution Completed (Timeout) ---\n"
-                timeout_info += f"Timeout duration: {timeout_in_seconds} seconds\n"
-                timeout_info += f"Strategy: {self.config['strategy']}\n"
-                timeout_info += f"Command: {cmd_str}\n"
-                trace_file.write(timeout_info.encode('utf-8'))
-                
-                # Re-raise the timeout exception (will be handled gracefully by error handler)
-                raise
+        except RVToolTimeoutError as e:
+            # APE timeout is expected behavior - log as completion
+            self.logger.info(f"APE execution timed out after {timeout_in_seconds} seconds (expected behavior)")
+            
+            # Append timeout information to trace file (text mode for metadata)
+            # with open(task.result.trace_file, 'a', encoding='utf-8') as trace_file:
+            #     timeout_info = f"\n--- APE Execution Completed (Timeout) ---\n"
+            #     timeout_info += f"Timeout duration: {timeout_in_seconds} seconds\n"
+            #     timeout_info += f"Strategy: {self.config['strategy']}\n"
+            #     timeout_info += f"Command: {cmd_str}\n"
+            #     trace_file.write(timeout_info)
+            
+            # Re-raise the timeout exception (will be handled gracefully by error handler)
+            raise
         
         self.logger.info("APE execution completed successfully")
 

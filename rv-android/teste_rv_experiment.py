@@ -203,14 +203,19 @@ def tmp_experiment_controller():
         from rv_experiment.config import ExperimentConfig
         from rv_platform.config.platform_config import ToolConfig
         from rv_android_core.event import EventBus
-        
+
+        tools = [
+            # ToolConfig(name="monkey", parameters={"count": 100}),
+            ToolConfig(name="ape")
+        ]
+
         # Create configuration for actual execution
         config = ExperimentConfig(
-            name="ccc",
+            name="hhh",
             # description="Integration test with actual execution",
-            tool_configs=[ToolConfig(name="monkey", parameters={"count": 10})],  # Short monkey test
+            tool_configs=tools,
             repetitions=1,
-            timeouts=[60],  # Short timeout for quick test
+            timeouts=[30],  # Short timeout for quick test
             specification_set="custom",  # Use custom specs from specs_mini
             apks_dir="./apks_examples/"
         )

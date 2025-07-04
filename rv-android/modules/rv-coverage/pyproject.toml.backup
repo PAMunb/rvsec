@@ -16,11 +16,22 @@ python-dateutil = "^2.9.0"  # Para parsing de timestamps
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.0.0"
-pytest-cov = "^6.0.0" 
+pytest-cov = "^5.0.0"
 
 [tool.pytest.ini_options]
-addopts = "--cov=src"
-
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = [
+    "--strict-markers",
+    "--strict-config",
+    "--verbose",
+]
+markers = [
+    "integration: Integration tests that require external dependencies",
+    "slow: Slow running tests",
+]
 
 [tool.coverage.run]
 source = ["src"]
@@ -30,9 +41,12 @@ omit = [
 ]
 
 [tool.coverage.report]
-# show_missing = true
-# fail_under = 80
-
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+]
 
 [build-system]
 requires = ["poetry-core"]

@@ -27,7 +27,7 @@ rv-experiment = {path = "modules/rv-experiment", develop = true}
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.0.0"
-pytest-cov = "^5.0.0"
+pytest-cov = "^6.0.0"
 black = "^24.0.0"
 flake8 = "^7.0.0"
 pylint = "^3.2.0"

@@ -5,8 +5,7 @@ This module provides integration with the DroidBot Android testing framework,
 enabling lightweight test input generation and UI transition graph construction.
 """
 
-import os
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, List
 
 from rv_android_core.app import App
 from rv_android_core.commands.command import Command
@@ -14,8 +13,8 @@ from rv_android_core.domain.task import Task
 from rv_android_core.tools.abstract_tool import AbstractTool
 from rv_android_core.tools.tool_spec import ToolSpec
 from rv_android_core.util.error.error_handler import ErrorHandler
-from rv_android_core.util.logging.manager import LoggingManager
 from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
+from rv_android_core.util.logging.manager import LoggingManager
 
 
 class DroidBotTool(AbstractTool):
@@ -87,23 +86,23 @@ class DroidBotTool(AbstractTool):
 
         # Default DroidBot configuration
         self.config = {
-            "policy": "dfs_naive",        # Exploration policy
-            "count": 1000,                # Number of events to generate
-            "timeout": 3600,              # Timeout in seconds
-            "interval": 3,                # Interval between events
-            "device_serial": None,        # Device serial number
-            "keep_app": False,            # Keep app installed after testing
-            "keep_env": False,            # Keep environment after testing
-            "debug_mode": False,          # Enable debug mode
-            "random_input": False,        # Enable random input generation
-            "script_path": None,          # Path to script for guided testing
-            "profiling_method": "none",   # Profiling method
-            "grant_perm": True,           # Grant permissions automatically
+            "policy": "dfs_naive",  # Exploration policy
+            "count": 1000,  # Number of events to generate
+            "timeout": 3600,  # Timeout in seconds
+            "interval": 3,  # Interval between events
+            "device_serial": None,  # Device serial number
+            "keep_app": False,  # Keep app installed after testing
+            "keep_env": False,  # Keep environment after testing
+            "debug_mode": False,  # Enable debug mode
+            "random_input": False,  # Enable random input generation
+            "script_path": None,  # Path to script for guided testing
+            "profiling_method": "none",  # Profiling method
+            "grant_perm": True,  # Grant permissions automatically
             "enable_accessibility_hard": False,  # Enable accessibility service
-            "master": None,               # Master device for distributed testing
-            "humanoid": None,             # Humanoid model for input generation
-            "ignore_ad": True,            # Ignore advertisement elements
-            "replay_output": None         # Replay output directory
+            "master": None,  # Master device for distributed testing
+            "humanoid": None,  # Humanoid model for input generation
+            "ignore_ad": True,  # Ignore advertisement elements
+            "replay_output": None  # Replay output directory
         }
 
         self.logger.info("Initialized DroidBot tool for UI exploration")
@@ -184,10 +183,10 @@ class DroidBotTool(AbstractTool):
 
         # Update boolean flags
         boolean_flags = [
-            'keep_app', 'keep_env', 'debug_mode', 'random_input', 
+            'keep_app', 'keep_env', 'debug_mode', 'random_input',
             'grant_perm', 'enable_accessibility_hard', 'ignore_ad'
         ]
-        
+
         for flag in boolean_flags:
             if flag in config:
                 self.config[flag] = bool(config[flag])
@@ -224,30 +223,33 @@ class DroidBotTool(AbstractTool):
 
         # Get timeout from task configuration
         timeout_in_seconds = getattr(task.config, 'timeout', self.config['timeout'])
-        
+
         self.logger.info(f"DroidBot execution timeout: {timeout_in_seconds} seconds")
 
         # Build DroidBot command
         droidbot_cmd = self._build_droidbot_command(app, timeout_in_seconds)
-        
+
         # Build command string for logging
         cmd_str = f"{droidbot_cmd.command} {' '.join(droidbot_cmd.args)}"
         self.logger.debug(f"DroidBot command: {cmd_str}")
 
         # Execute DroidBot testing with centralized error handling
         self.logger.info(f"Starting DroidBot execution for {app.package_name}")
-        
+
+        # Execute command with output redirection (binary mode for command output)
         with open(task.result.trace_file, 'wb') as trace_file:
             # Use centralized command execution with error handling
-            result = self._execute_and_check_command(droidbot_cmd, stdout=trace_file)
-            
-            # Append success information to trace file
-            success_info = f"\n--- DroidBot Execution Completed ---\n"
-            success_info += f"Policy: {self.config['policy']}\n"
-            success_info += f"Event count: 10000000000\n"
-            success_info += f"Command: {cmd_str}\n"
-            trace_file.write(success_info.encode('utf-8'))
-        
+            # Redirect both stdout and stderr to trace file to prevent console flooding
+            result = self._execute_and_check_command(droidbot_cmd, stdout=trace_file, stderr=trace_file)
+
+        # Append success information to trace file (text mode for metadata)
+        # with open(task.result.trace_file, 'a', encoding='utf-8') as trace_file:
+        #     success_info = f"\n--- DroidBot Execution Completed ---\n"
+        #     success_info += f"Policy: {self.config['policy']}\n"
+        #     success_info += f"Event count: 10000000000\n"
+        #     success_info += f"Command: {cmd_str}\n"
+        #     trace_file.write(success_info)
+
         self.logger.info("DroidBot execution completed successfully")
 
     def _build_droidbot_command(self, app: App, timeout_seconds: int) -> Command:
@@ -267,13 +269,13 @@ class DroidBotTool(AbstractTool):
             Configured Command object for DroidBot execution
         """
         cmd_args = [
-            "-d", "emulator-5554",               # Target device specification
-            "-a", app.apk_path,
-            "-policy", self.config["policy"],    # Exploration policy configuration
-            "-count", "10000000000",             # High event count for comprehensive exploration
+            "-d", "emulator-5554",  # Target device specification
+            "-a", app.path,
+            "-policy", self.config["policy"],  # Exploration policy configuration
+            "-count", "10000000000",  # High event count for comprehensive exploration
             "-timeout", str(timeout_seconds),
-            "-ignore_ad",                        # Ignore advertisement elements
-            "-is_emulator"                       # Emulator-specific optimizations
+            "-ignore_ad",  # Ignore advertisement elements
+            "-is_emulator"  # Emulator-specific optimizations
         ]
 
         return Command("droidbot", cmd_args, timeout_seconds)
@@ -323,6 +325,6 @@ def register_droidbot_variants(registry):
         "dfs_naive": {"policy": "dfs_naive"},
         "random": {"policy": "random"}
     }
-    
+
     for variant_name, config in variants.items():
         registry.register_variant("droidbot", variant_name, config)

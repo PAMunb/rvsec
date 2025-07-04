@@ -13,21 +13,24 @@ pydantic = "^2.9.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.0.0"
-pytest-cov = "^5.0.0"
+pytest-cov = "^6.0.0"  # v5.0.0 has known buffer API issue in teardown
 
 [tool.pytest.ini_options]
-addopts = "--cov=src" # This ensures pytest-cov is always active for 'pytest' runs
+addopts = "--cov=src --cov-report=term-missing --cov-config=pyproject.toml"
 
 [tool.coverage.run]
-source = ["src"] # Specify the source directories for coverage
+source = ["src"]
 omit = [
-    "src/rv_tools/builtin/qtesting/src/*", # Your exclusion pattern
-    # Add other patterns here if needed
+    "*/tests/*",
+    "*/test_*.py",
+    "src/rv_tools/builtin/qtesting/src/*"
 ]
+parallel = false
+data_file = ".coverage"
 
-[tool.coverage.report]
+#[tool.coverage.report]
 # show_missing = true
-# fail_under = 80 # Uncomment if you want tests to fail below a certain coverage percentage
+# fail_under = 80
 
 [build-system]
 requires = ["poetry-core"]

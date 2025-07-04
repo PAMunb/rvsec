@@ -14,7 +14,7 @@ The RVAndroid-Tool module provides an AI-driven testing server that combines Lar
 - **RESTful Server Architecture**: HTTP server with API endpoints, error handling, and response formatting
 - **Action Generation**: Context-aware Android action generation with constraint handling, semantic understanding, and goal-oriented planning
 - **State Analysis**: UI state understanding with transition planning, pattern recognition, and optimization strategies
-- **Tool Integration**: Integration with Android testing tools, emulators, and testing frameworks through architecture patterns
+- **Tool Integration**: Integration with Android testing tools, emulators, and testing frameworks through unified architecture patterns with circuit breaker protection
 
 ## Architecture
 

@@ -13,6 +13,10 @@ from rv_android_core.tools.abstract_tool import AbstractTool
 from rv_android_core.app import App
 from rv_android_core.commands.command import Command
 from rv_android_core.commands.command_result import CommandResult
+from rv_android_core.util.exceptions import (
+    RVCommandTimeoutError, RVToolTimeoutError, RVToolExecutionError,
+    CircuitBreakerOpenError
+)
 
 
 class ConcreteTestTool(AbstractTool):
@@ -42,9 +46,10 @@ class TestAbstractToolInitialization:
         assert tool.name == name
         assert tool.description == description
         assert tool.process_pattern == process_pattern
-        # Logger and ErrorHandler are created by singletons, so we just check they exist
+        # Logger, ErrorHandler, and CircuitBreaker are created by singletons, so we just check they exist
         assert tool.logger is not None
         assert tool.error_handler is not None
+        assert tool.circuit_breaker is not None
 
     def test_abstract_class_cannot_be_instantiated(self):
         """Test that AbstractTool cannot be instantiated directly."""
@@ -406,3 +411,188 @@ class TestAbstractToolUtilityMethods:
         expected = ("ConcreteTestTool(name='test_tool', "
                     "description='Test description', process_pattern='com.test.tool')")
         assert repr_str == expected
+
+
+class TestAbstractToolCommandExecution:
+    """Tests for AbstractTool command execution with circuit breaker integration."""
+
+    @pytest.fixture
+    def mock_dependencies(self):
+        """Fixture providing mocked dependencies."""
+        with patch('rv_android_core.util.logging.manager.LoggingManager') as mock_logging, \
+                patch('rv_android_core.util.error.error_handler.ErrorHandler') as mock_error, \
+                patch('rv_android_core.commands.circuit_breaker.CommandCircuitBreaker') as mock_circuit_breaker:
+            mock_context_adapter = Mock()
+            mock_logging_instance = Mock()
+            mock_logging_instance.get_logger.return_value = mock_context_adapter
+            mock_logging.get_instance.return_value = mock_logging_instance
+
+            mock_error_instance = Mock()
+            mock_error.get_instance.return_value = mock_error_instance
+
+            mock_circuit_breaker_instance = Mock()
+            mock_circuit_breaker.return_value = mock_circuit_breaker_instance
+
+            yield {
+                'logger': mock_context_adapter,
+                'error_handler': mock_error_instance,
+                'circuit_breaker': mock_circuit_breaker_instance
+            }
+
+    @pytest.fixture
+    def test_tool(self, mock_dependencies):
+        """Fixture providing a concrete test tool instance."""
+        tool = ConcreteTestTool("test_tool", "Test description", "com.test.tool")
+        # Replace the circuit breaker with our mock
+        tool.circuit_breaker = mock_dependencies['circuit_breaker']
+        return tool
+
+    def test_execute_and_check_command_success(self, test_tool, mock_dependencies):
+        """Test successful command execution with circuit breaker."""
+        # Arrange
+        command = Mock(spec=Command)
+        command.command = "echo"
+        command.args = ["test"]
+        result = Mock(spec=CommandResult)
+        result.is_failure.return_value = False
+        command.invoke.return_value = result
+
+        mock_circuit_breaker = mock_dependencies['circuit_breaker']
+        mock_circuit_breaker.is_execution_allowed.return_value = True
+
+        # Act
+        actual_result = test_tool._execute_and_check_command(command)
+
+        # Assert
+        assert actual_result == result
+        mock_circuit_breaker.is_execution_allowed.assert_called_once_with(command)
+        mock_circuit_breaker.record_success.assert_called_once_with(command)
+        mock_circuit_breaker.record_failure.assert_not_called()
+
+    def test_execute_and_check_command_failure(self, test_tool, mock_dependencies):
+        """Test command execution failure with circuit breaker recording."""
+        # Arrange
+        command = Mock(spec=Command)
+        command.command = "false"
+        command.args = []
+        result = Mock(spec=CommandResult)
+        result.is_failure.return_value = True
+        result.code = 1
+        result.has_error_output.return_value = True
+        result.get_stderr_text.return_value = "Command failed"
+        command.invoke.return_value = result
+
+        mock_circuit_breaker = mock_dependencies['circuit_breaker']
+        mock_circuit_breaker.is_execution_allowed.return_value = True
+
+        # Act & Assert
+        with pytest.raises(RVToolExecutionError) as exc_info:
+            test_tool._execute_and_check_command(command)
+
+        # Verify exception details
+        assert "test_tool command failed with exit code 1" in str(exc_info.value)
+        assert exc_info.value.tool_name == "test_tool"
+
+        # Verify circuit breaker interactions
+        mock_circuit_breaker.is_execution_allowed.assert_called_once_with(command)
+        mock_circuit_breaker.record_failure.assert_called_once_with(command)
+        mock_circuit_breaker.record_success.assert_not_called()
+
+    def test_execute_and_check_command_timeout(self, test_tool, mock_dependencies):
+        """Test command timeout handling (no circuit breaker failure)."""
+        # Arrange
+        command = Mock(spec=Command)
+        command.command = "sleep"
+        command.args = ["60"]
+        timeout_error = RVCommandTimeoutError("Command timed out", timeout_seconds=30, command="test command")
+        command.invoke.side_effect = timeout_error
+
+        mock_circuit_breaker = mock_dependencies['circuit_breaker']
+        mock_circuit_breaker.is_execution_allowed.return_value = True
+
+        # Act & Assert
+        with pytest.raises(RVToolTimeoutError) as exc_info:
+            test_tool._execute_and_check_command(command)
+
+        # Verify exception details
+        assert "test_tool execution timed out after 30 seconds" in str(exc_info.value)
+        assert exc_info.value.tool_name == "test_tool"
+        assert exc_info.value.timeout_seconds == 30
+        assert exc_info.value.cause == timeout_error
+
+        # Verify circuit breaker interactions (timeout should not record failure)
+        mock_circuit_breaker.is_execution_allowed.assert_called_once_with(command)
+        mock_circuit_breaker.record_failure.assert_not_called()
+        mock_circuit_breaker.record_success.assert_not_called()
+
+    def test_execute_and_check_command_circuit_breaker_open(self, test_tool, mock_dependencies):
+        """Test command execution blocked by circuit breaker."""
+        # Arrange
+        command = Mock(spec=Command)
+        command.command = "failing_command"
+        command.args = ["arg1"]
+        circuit_breaker_error = CircuitBreakerOpenError("Circuit breaker is open", command_signature="test_cmd", failure_count=3)
+
+        mock_circuit_breaker = mock_dependencies['circuit_breaker']
+        mock_circuit_breaker.is_execution_allowed.side_effect = circuit_breaker_error
+
+        # Act & Assert
+        with pytest.raises(CircuitBreakerOpenError) as exc_info:
+            test_tool._execute_and_check_command(command)
+
+        # Verify exception is re-raised as-is
+        assert exc_info.value == circuit_breaker_error
+
+        # Verify circuit breaker interactions
+        mock_circuit_breaker.is_execution_allowed.assert_called_once_with(command)
+        mock_circuit_breaker.record_failure.assert_not_called()
+        mock_circuit_breaker.record_success.assert_not_called()
+
+    def test_execute_and_check_command_with_stdout_redirect(self, test_tool, mock_dependencies):
+        """Test command execution with stdout redirection."""
+        # Arrange
+        command = Mock(spec=Command)
+        command.command = "echo"
+        command.args = ["output"]
+        result = Mock(spec=CommandResult)
+        result.is_failure.return_value = False
+        command.invoke.return_value = result
+
+        mock_circuit_breaker = mock_dependencies['circuit_breaker']
+        mock_circuit_breaker.is_execution_allowed.return_value = True
+
+        stdout_file = Mock()
+
+        # Act
+        actual_result = test_tool._execute_and_check_command(command, stdout=stdout_file)
+
+        # Assert
+        assert actual_result == result
+        command.invoke.assert_called_once_with(stdout=stdout_file, stderr=None, stdin=None)
+        mock_circuit_breaker.record_success.assert_called_once_with(command)
+
+    def test_execute_and_check_command_failure_without_error_output(self, test_tool, mock_dependencies):
+        """Test command execution failure without error output."""
+        # Arrange
+        command = Mock(spec=Command)
+        command.command = "exit"
+        command.args = ["2"]
+        result = Mock(spec=CommandResult)
+        result.is_failure.return_value = True
+        result.code = 2
+        result.has_error_output.return_value = False
+        command.invoke.return_value = result
+
+        mock_circuit_breaker = mock_dependencies['circuit_breaker']
+        mock_circuit_breaker.is_execution_allowed.return_value = True
+
+        # Act & Assert
+        with pytest.raises(RVToolExecutionError) as exc_info:
+            test_tool._execute_and_check_command(command)
+
+        # Verify exception details (no error output)
+        assert "test_tool command failed with exit code 2" in str(exc_info.value)
+        assert "Error output:" not in str(exc_info.value)
+
+        # Verify circuit breaker recorded failure
+        mock_circuit_breaker.record_failure.assert_called_once_with(command)

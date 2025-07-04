@@ -46,8 +46,9 @@ The RV-Android-Core module serves as the fundamental infrastructure layer for th
 - **UI Components**: Window, widget, and navigation graph models
 
 #### Tool Infrastructure
-- **AbstractTool**: Base abstraction for all testing tool implementations with centralized error handling
-- **Command**: Command execution infrastructure with timeout handling
+- **AbstractTool**: Base abstraction for all testing tool implementations with centralized error handling and circuit breaker pattern
+- **Command**: Command execution infrastructure with timeout handling and failure detection
+- **CircuitBreaker**: Command-specific resilience pattern preventing cascading failures
 - **JarResolver**: Centralized JAR file resolution utility for tools
 - **ToolSpec**: Tool specification and metadata management
 
@@ -290,7 +291,7 @@ class MyTool(AbstractTool):
         # Build tool command
         command = self._build_tool_command(task, app)
         
-        # Execute with centralized error handling
+        # Execute with centralized error handling and circuit breaker protection
         with open(task.result.trace_file, 'wb') as trace_file:
             result = self._execute_and_check_command(command, stdout=trace_file)
         
@@ -299,6 +300,30 @@ class MyTool(AbstractTool):
     def _build_tool_command(self, task, app):
         """Build tool-specific command."""
         return Command("mytool", [app.apk_path], timeout=task.config.timeout)
+```
+
+### Circuit Breaker Usage
+
+```python
+from rv_android_core.commands.circuit_breaker import CommandCircuitBreaker, CircuitBreakerState
+from rv_android_core.util.exceptions import CircuitBreakerOpenError
+
+# Circuit breaker is automatically integrated in AbstractTool
+# Custom configuration (optional)
+class CustomTool(AbstractTool):
+    def __init__(self):
+        super().__init__(name="custom", description="Custom tool", process_pattern="custom")
+        # Override default circuit breaker settings
+        self.circuit_breaker = CommandCircuitBreaker(failure_threshold=5, retry_count=2)
+    
+    def execute_tool_specific_logic(self, task, app):
+        try:
+            # Commands automatically protected by circuit breaker
+            result = self._execute_and_check_command(command)
+        except CircuitBreakerOpenError as e:
+            self.logger.warning(f"Circuit breaker protection activated: {e}")
+            # Handle blocked execution or implement fallback
+            raise
 ```
 
 ## Testing
@@ -321,9 +346,10 @@ poetry run pytest tests/domain/
 ### Test Structure
 
 - `tests/analysis/`: Base analyzer functionality
-- `tests/commands/`: Command infrastructure tests
+- `tests/commands/`: Command infrastructure and circuit breaker tests
 - `tests/domain/`: Domain model validation
 - `tests/event/`: Event system comprehensive testing
+- `tests/tools/`: Tool infrastructure and AbstractTool tests
 - `tests/util/`: Utility component tests
   - `error/`: Error handling infrastructure
   - `logging/`: Logging manager functionality
@@ -331,9 +357,11 @@ poetry run pytest tests/domain/
 ### Test Coverage
 
 The module includes comprehensive tests covering:
-- Error handling infrastructure
+- Error handling infrastructure with circuit breaker integration
+- Command execution and resilience patterns
 - Event system functionality  
 - Domain model validation
+- Tool infrastructure and abstractions
 - Utility component behavior
 
 ## Integration Examples
