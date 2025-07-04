@@ -181,3 +181,179 @@ class TestLoggingManager:
 
         # But should be a copy
         assert retrieved_context is not complex_context
+
+    def test_context_display_default_configuration(self, cleanup_instance):
+        """Test that context display is enabled by default with correct settings"""
+        manager = LoggingManager.get_instance()
+
+        # Check default context display configuration
+        assert manager._output_config['console']['show_context'] is True
+        assert manager._output_config['console']['max_context_length'] == 120
+        assert manager._output_config['file']['show_context'] is True
+        assert manager._output_config['file']['max_context_length'] == 200
+
+    def test_toggle_context_display(self, cleanup_instance):
+        """Test toggling context display for console and file"""
+        manager = LoggingManager.get_instance()
+
+        # Initial state
+        assert manager._output_config['console']['show_context'] is True
+        assert manager._output_config['file']['show_context'] is True
+
+        # Toggle console context off
+        manager.toggle_context_display(console=False)
+        assert manager._output_config['console']['show_context'] is False
+        assert manager._output_config['file']['show_context'] is True
+
+        # Toggle file context off
+        manager.toggle_context_display(file=False)
+        assert manager._output_config['console']['show_context'] is False
+        assert manager._output_config['file']['show_context'] is False
+
+        # Toggle both back on
+        manager.toggle_context_display(console=True, file=True)
+        assert manager._output_config['console']['show_context'] is True
+        assert manager._output_config['file']['show_context'] is True
+
+    def test_toggle_context_display_none_values(self, cleanup_instance):
+        """Test that None values in toggle_context_display don't change settings"""
+        manager = LoggingManager.get_instance()
+
+        # Set initial state
+        manager._output_config['console']['show_context'] = False
+        manager._output_config['file']['show_context'] = True
+
+        # Toggle with None values
+        manager.toggle_context_display(console=None, file=None)
+
+        # Values should remain unchanged
+        assert manager._output_config['console']['show_context'] is False
+        assert manager._output_config['file']['show_context'] is True
+
+    def test_toggle_context_display_validation(self, cleanup_instance):
+        """Test that toggle_context_display validates input parameters"""
+        manager = LoggingManager.get_instance()
+
+        # Test invalid console parameter
+        with pytest.raises(Exception) as exc_info:
+            manager.toggle_context_display(console="invalid")
+        assert "Console context display must be boolean" in str(exc_info.value)
+
+        # Test invalid file parameter
+        with pytest.raises(Exception) as exc_info:
+            manager.toggle_context_display(file=123)
+        assert "File context display must be boolean" in str(exc_info.value)
+
+    def test_configure_context_display(self, cleanup_instance):
+        """Test comprehensive context display configuration"""
+        manager = LoggingManager.get_instance()
+
+        # Configure all parameters
+        manager.configure_context_display(
+            console_context=False,
+            file_context=True,
+            console_max_length=50,
+            file_max_length=300
+        )
+
+        # Check configuration was applied
+        assert manager._output_config['console']['show_context'] is False
+        assert manager._output_config['file']['show_context'] is True
+        assert manager._output_config['console']['max_context_length'] == 50
+        assert manager._output_config['file']['max_context_length'] == 300
+
+    def test_configure_context_display_partial(self, cleanup_instance):
+        """Test partial configuration of context display"""
+        manager = LoggingManager.get_instance()
+
+        # Store initial values
+        initial_console_context = manager._output_config['console']['show_context']
+        initial_file_length = manager._output_config['file']['max_context_length']
+
+        # Configure only console max length
+        manager.configure_context_display(console_max_length=80)
+
+        # Check only specified value changed
+        assert manager._output_config['console']['max_context_length'] == 80
+        assert manager._output_config['console']['show_context'] == initial_console_context
+        assert manager._output_config['file']['max_context_length'] == initial_file_length
+
+    def test_configure_context_display_validation(self, cleanup_instance):
+        """Test that configure_context_display validates input parameters"""
+        manager = LoggingManager.get_instance()
+
+        # Test invalid console context
+        with pytest.raises(Exception) as exc_info:
+            manager.configure_context_display(console_context="invalid")
+        assert "Console context display must be boolean" in str(exc_info.value)
+
+        # Test invalid file context
+        with pytest.raises(Exception) as exc_info:
+            manager.configure_context_display(file_context=123)
+        assert "File context display must be boolean" in str(exc_info.value)
+
+        # Test invalid console max length
+        with pytest.raises(Exception) as exc_info:
+            manager.configure_context_display(console_max_length=-1)
+        assert "Console max context length must be positive integer" in str(exc_info.value)
+
+        # Test invalid file max length
+        with pytest.raises(Exception) as exc_info:
+            manager.configure_context_display(file_max_length="invalid")
+        assert "File max context length must be positive integer" in str(exc_info.value)
+
+    def test_get_context_display_config(self, cleanup_instance):
+        """Test getting current context display configuration"""
+        manager = LoggingManager.get_instance()
+
+        # Set specific configuration
+        manager.configure_context_display(
+            console_context=False,
+            file_context=True,
+            console_max_length=100,
+            file_max_length=250
+        )
+
+        # Get configuration
+        config = manager.get_context_display_config()
+
+        # Check returned configuration
+        expected_config = {
+            'console': {
+                'show_context': False,
+                'max_context_length': 100
+            },
+            'file': {
+                'show_context': True,
+                'max_context_length': 250
+            }
+        }
+
+        assert config == expected_config
+
+    def test_configure_output_with_context_parameters(self, cleanup_instance):
+        """Test that configure_output handles context parameters correctly"""
+        manager = LoggingManager.get_instance()
+
+        # Configure output with context parameters
+        manager.configure_output(
+            console=True,
+            file=True,
+            console_context=False,
+            file_context=True
+        )
+
+        # Check context configuration was applied
+        assert manager._output_config['console']['show_context'] is False
+        assert manager._output_config['file']['show_context'] is True
+
+        # Configure output with None context parameters
+        manager.configure_output(
+            console_level=logging.DEBUG,
+            console_context=None,
+            file_context=None
+        )
+
+        # Context settings should remain unchanged
+        assert manager._output_config['console']['show_context'] is False
+        assert manager._output_config['file']['show_context'] is True

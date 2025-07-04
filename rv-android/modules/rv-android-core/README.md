@@ -10,11 +10,12 @@ The RV-Android-Core module serves as the fundamental infrastructure layer for th
 
 - **Infrastructure**: ErrorHandler with decorators, LoggingManager, EventBus for modular architecture
 - **Domain Models**: Domain objects for Android applications, coverage, static analysis, and UI elements
-- **Tool Abstractions**: Base classes for testing tool implementations with error handling
-- **Utility Libraries**: Configuration management, performance monitoring, diagnostics
-- **Event System**: Event-driven architecture for component communication
+- **Tool Abstractions**: Base classes for testing tool implementations with centralized error handling and circuit breaker protection
+- **Resilience Patterns**: Circuit breaker implementation preventing cascading failures in command execution
+- **Utility Libraries**: Configuration management, performance monitoring, diagnostics, and JAR resolution
+- **Event System**: Event-driven architecture for component communication and system integration
 - **Type Safety**: Type annotations and validation throughout with Pydantic v2
-- **Data Validation**: Environment-controlled validation with strong typing
+- **Data Validation**: Environment-controlled validation with strong typing and backward compatibility
 - **Monitored Operations**: Support for both JCA cryptography and generic programming pattern specifications
 
 ## Architecture
@@ -46,20 +47,20 @@ The RV-Android-Core module serves as the fundamental infrastructure layer for th
 - **UI Components**: Window, widget, and navigation graph models
 
 #### Tool Infrastructure
-- **AbstractTool**: Base abstraction for all testing tool implementations with centralized error handling and circuit breaker pattern
-- **Command**: Command execution infrastructure with timeout handling and failure detection
-- **CircuitBreaker**: Command-specific resilience pattern preventing cascading failures
-- **JarResolver**: Centralized JAR file resolution utility for tools
-- **ToolSpec**: Tool specification and metadata management
+- **AbstractTool**: Base abstraction for all testing tool implementations providing centralized error handling, unified command execution, and automatic circuit breaker protection
+- **Command**: Command execution infrastructure with timeout handling, failure detection, and comprehensive logging support
+- **CommandCircuitBreaker**: Resilience pattern implementation preventing cascading failures through command-specific failure tracking and automatic recovery testing
+- **JarResolver**: Centralized JAR file resolution utility providing standardized search patterns and comprehensive error handling for JAR-dependent tools
+- **ToolSpec**: Tool specification and metadata management system enabling tool discovery and configuration
 
 #### Utility Components
-- **Configuration Management**: Type-safe configuration with validation
-- **Performance Monitor**: Real-time performance tracking and metrics
-- **Diagnostics**: System health monitoring and troubleshooting
-- **Android Utilities**: Emulator management and Android SDK integration
-- **JAR Resolution**: Centralized JAR file discovery and resolution
-- **Command Execution**: Command infrastructure with timeout and error handling
-- **Data Validation**: Pydantic v2 models with environment-controlled validation
+- **Configuration Management**: Type-safe configuration with validation and environment-controlled settings
+- **Performance Monitor**: Real-time performance tracking and metrics collection
+- **Diagnostics**: System health monitoring and troubleshooting capabilities
+- **Android Utilities**: Emulator management and Android SDK integration tools
+- **JAR Resolution**: Centralized JAR file discovery with standardized search patterns and comprehensive error handling
+- **Command Execution**: Command infrastructure with timeout handling, failure detection, and circuit breaker protection
+- **Data Validation**: Pydantic v2 models with environment-controlled validation and backward compatibility support
 
 ### Integration Points
 
@@ -291,7 +292,12 @@ class MyTool(AbstractTool):
         # Build tool command
         command = self._build_tool_command(task, app)
         
-        # Execute with centralized error handling and circuit breaker protection
+        # Execute with centralized error handling and automatic circuit breaker protection
+        # The _execute_and_check_command method provides:
+        # - Automatic timeout detection and conversion to tool timeouts
+        # - Command failure detection and appropriate exception raising
+        # - Circuit breaker protection preventing repeated execution of failing commands
+        # - Comprehensive logging for debugging and monitoring
         with open(task.result.trace_file, 'wb') as trace_file:
             result = self._execute_and_check_command(command, stdout=trace_file)
         
@@ -301,6 +307,50 @@ class MyTool(AbstractTool):
         """Build tool-specific command."""
         return Command("mytool", [app.apk_path], timeout=task.config.timeout)
 ```
+
+## Circuit Breaker Protection
+
+### Understanding the Circuit Breaker Pattern
+
+The RV-Android framework incorporates a circuit breaker pattern specifically designed to enhance system resilience during command execution. This pattern acts as a protective mechanism that prevents cascading failures when testing tools encounter persistent issues, ensuring the overall system remains stable even when individual components fail repeatedly.
+
+### Why Circuit Breakers Are Essential
+
+Testing frameworks often execute commands that interact with external systems, emulators, or third-party tools. These interactions can fail for various reasons: network connectivity issues, resource exhaustion, corrupted tool installations, or environmental problems. Without protection, a single failing command could consume system resources indefinitely, attempting the same operation repeatedly without success.
+
+Consider a scenario where a testing tool's JAR file becomes corrupted or a required dependency is missing. In a traditional system, each test execution would attempt to run the same failing command, consuming CPU cycles, memory, and potentially blocking other operations. The circuit breaker pattern recognizes these failure patterns and temporarily suspends execution attempts, allowing the system to continue functioning while providing clear feedback about the problematic command.
+
+### How Circuit Breakers Work
+
+The circuit breaker monitors command execution patterns and maintains three distinct states. Initially, the circuit operates in a closed state, allowing all commands to execute normally. When a command fails, the circuit breaker records this failure against the specific command signature. If failures accumulate beyond a configured threshold, the circuit breaker transitions to an open state, blocking further execution attempts for that particular command.
+
+After remaining open for a period, the circuit breaker enters a half-open state to test whether the underlying issue has been resolved. During this testing phase, it allows limited command execution. If the command succeeds, the circuit breaker returns to the closed state, resuming normal operation. If the command fails again, the circuit breaker immediately returns to the open state, indicating the issue persists.
+
+### Benefits of Circuit Breaker Protection
+
+The circuit breaker pattern provides several key advantages for testing framework stability. Resource protection prevents failing commands from consuming excessive system resources, ensuring other operations can continue uninterrupted. Fast failure detection means the system quickly identifies problematic commands and stops attempting futile operations, improving overall response time.
+
+System stability is enhanced because isolated command failures cannot cascade into broader system failures. The framework continues operating even when specific tools encounter issues. Additionally, the circuit breaker provides clear failure feedback, helping developers quickly identify and diagnose problematic commands or environmental issues.
+
+### Circuit Breaker Behavior in Practice
+
+When a testing tool executes a command, the circuit breaker first checks whether execution is permitted based on the command's failure history. For commands that have been executing successfully, the circuit breaker remains transparent, adding minimal overhead to the execution process.
+
+If a command begins failing consistently, the circuit breaker starts tracking these failures. Once the failure threshold is exceeded, the circuit breaker blocks further execution attempts, immediately raising an exception that clearly indicates the protection mechanism has activated. This immediate feedback prevents resource waste and provides clear diagnostic information.
+
+The circuit breaker operates at the command level, meaning that failure of one specific command does not affect other commands or tools. This granular approach ensures that system protection is applied precisely where needed without impacting unrelated operations.
+
+### System Operation Without Circuit Breakers
+
+Without circuit breaker protection, a testing framework would be vulnerable to several problematic scenarios. Failing commands would continue executing indefinitely, consuming system resources and potentially causing memory exhaustion or CPU overload. Multiple test runs would repeat the same failing operations, wasting time and resources without providing additional diagnostic value.
+
+System failures could cascade as resource exhaustion from one failing command impacts other system components. Debugging would be more difficult because repeated failures would generate excessive log output without clear indication of the underlying problem. The framework would lack graceful degradation capabilities, potentially requiring manual intervention to stop problematic operations.
+
+### Integration with Testing Tools
+
+The circuit breaker pattern integrates seamlessly with the existing tool infrastructure. Testing tools automatically benefit from circuit breaker protection without requiring modifications to their core logic. The pattern operates at the command execution level, providing protection regardless of which tool initiates the command.
+
+When a circuit breaker activates, the testing framework can implement fallback strategies or provide clear failure reporting. This integration ensures that research and development activities can continue even when specific tools encounter issues, maintaining productivity and system reliability.
 
 ### Circuit Breaker Usage
 
@@ -345,24 +395,25 @@ poetry run pytest tests/domain/
 
 ### Test Structure
 
-- `tests/analysis/`: Base analyzer functionality
-- `tests/commands/`: Command infrastructure and circuit breaker tests
-- `tests/domain/`: Domain model validation
-- `tests/event/`: Event system comprehensive testing
-- `tests/tools/`: Tool infrastructure and AbstractTool tests
+- `tests/analysis/`: Base analyzer functionality testing
+- `tests/commands/`: Command infrastructure, circuit breaker resilience patterns, and command execution testing
+- `tests/domain/`: Domain model validation and data integrity testing
+- `tests/event/`: Event system comprehensive testing including publishing, subscription, and event processing
+- `tests/tools/`: Tool infrastructure, AbstractTool base functionality, and tool integration testing
 - `tests/util/`: Utility component tests
-  - `error/`: Error handling infrastructure
-  - `logging/`: Logging manager functionality
+  - `error/`: Error handling infrastructure and exception management testing
+  - `logging/`: Logging manager functionality and contextual logging testing
 
 ### Test Coverage
 
 The module includes comprehensive tests covering:
-- Error handling infrastructure with circuit breaker integration
-- Command execution and resilience patterns
-- Event system functionality  
-- Domain model validation
-- Tool infrastructure and abstractions
-- Utility component behavior
+- Error handling infrastructure with complete exception hierarchy testing
+- Command execution infrastructure including timeout handling and failure detection
+- Circuit breaker resilience patterns with state transitions, failure tracking, and recovery testing
+- Event system functionality including publishing, subscription, and asynchronous processing
+- Domain model validation and data integrity across all model types
+- Tool infrastructure including AbstractTool base functionality and JAR resolution utilities
+- Utility component behavior including logging, configuration management, and Android SDK integration
 
 ## Integration Examples
 

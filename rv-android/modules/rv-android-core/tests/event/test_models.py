@@ -9,8 +9,11 @@ of the rv-android framework, ensuring they properly represent and carry event da
 from datetime import datetime
 from enum import Enum
 
+import pytest
+
 from rv_android_core.event.models import (
-    EventType, Event, TaskEvent, ExperimentEvent, AnalysisEvent
+    EventType, CoreEventType, Event, TaskEvent, ExperimentEvent, AnalysisEvent,
+    TaskToolExecutionEvent, PhaseExecutionModeEvent
 )
 
 
@@ -52,6 +55,66 @@ class TestEventType:
 
         # Check that all values are unique
         assert len(values) == len(set(values)), "Event type values must be unique"
+
+    def test_is_core_method(self):
+        """Test the is_core class method."""
+        # Test core events
+        assert EventType.is_core(EventType.EXPERIMENT_STARTED) == True
+        assert EventType.is_core(EventType.EXPERIMENT_COMPLETED) == True
+        assert EventType.is_core(EventType.EXPERIMENT_FAILED) == True
+        assert EventType.is_core(EventType.TASK_STARTED) == True
+        assert EventType.is_core(EventType.TASK_COMPLETED) == True
+        assert EventType.is_core(EventType.TASK_FAILED) == True
+        assert EventType.is_core(EventType.TOOL_STARTED) == True
+        assert EventType.is_core(EventType.COVERAGE_UPDATED) == True
+        assert EventType.is_core(EventType.STATIC_ANALYSIS_COMPLETED) == True
+        assert EventType.is_core(EventType.ERROR_DETECTED) == True
+
+        # Test non-core events
+        assert EventType.is_core(EventType.TASK_CREATED) == False
+        assert EventType.is_core(EventType.TASK_CONFIGURED) == False
+        assert EventType.is_core(EventType.EXPERIMENT_PAUSED) == False
+        assert EventType.is_core(EventType.COVERAGE_TRACKING_STARTED) == False
+        assert EventType.is_core(EventType.EMULATOR_STARTED) == False
+
+    def test_to_core_method(self):
+        """Test the to_core class method."""
+        # Test core event mappings
+        assert EventType.to_core(EventType.EXPERIMENT_STARTED) == CoreEventType.EXPERIMENT_STARTED
+        assert EventType.to_core(EventType.EXPERIMENT_COMPLETED) == CoreEventType.EXPERIMENT_COMPLETED
+        assert EventType.to_core(EventType.EXPERIMENT_FAILED) == CoreEventType.EXPERIMENT_FAILED
+        assert EventType.to_core(EventType.TASK_STARTED) == CoreEventType.TASK_STARTED
+        assert EventType.to_core(EventType.TASK_COMPLETED) == CoreEventType.TASK_COMPLETED
+        assert EventType.to_core(EventType.TASK_FAILED) == CoreEventType.TASK_FAILED
+        assert EventType.to_core(EventType.TOOL_STARTED) == CoreEventType.TOOL_EXECUTION_STARTED
+        assert EventType.to_core(EventType.COVERAGE_UPDATED) == CoreEventType.COVERAGE_UPDATED
+        assert EventType.to_core(EventType.STATIC_ANALYSIS_COMPLETED) == CoreEventType.STATIC_ANALYSIS_COMPLETED
+        assert EventType.to_core(EventType.ERROR_DETECTED) == CoreEventType.ERROR_DETECTED
+
+        # Test non-core events return None
+        assert EventType.to_core(EventType.TASK_CREATED) is None
+        assert EventType.to_core(EventType.EXPERIMENT_PAUSED) is None
+        assert EventType.to_core(EventType.EMULATOR_STARTED) is None
+
+
+class TestCoreEventType:
+    """Tests for the CoreEventType enumeration."""
+
+    def test_core_event_type_existence(self):
+        """Test that CoreEventType contains expected core events."""
+        expected_core_types = [
+            "EXPERIMENT_STARTED", "EXPERIMENT_COMPLETED", "EXPERIMENT_FAILED",
+            "TASK_STARTED", "TASK_COMPLETED", "TASK_FAILED",
+            "TOOL_EXECUTION_STARTED", "COVERAGE_UPDATED",
+            "STATIC_ANALYSIS_COMPLETED", "ERROR_DETECTED"
+        ]
+
+        for event_type in expected_core_types:
+            assert hasattr(CoreEventType, event_type)
+
+    def test_core_event_type_is_enum(self):
+        """Test that CoreEventType is properly defined as an Enum."""
+        assert issubclass(CoreEventType, Enum)
 
 
 class TestBaseEvent:
@@ -95,6 +158,67 @@ class TestBaseEvent:
         assert "TASK_STARTED" in string_repr
         assert source in string_repr
         assert event.timestamp.isoformat() in string_repr
+
+    def test_event_name_property(self):
+        """Test the name property returns event type name."""
+        event = Event(EventType.TASK_STARTED)
+        assert event.name == "TASK_STARTED"
+
+    def test_is_lifecycle_event(self):
+        """Test the is_lifecycle_event method."""
+        # Test lifecycle events
+        lifecycle_events = [
+            EventType.TASK_CREATED, EventType.TASK_STARTED, EventType.TASK_COMPLETED, EventType.TASK_FAILED,
+            EventType.EXPERIMENT_STARTED, EventType.EXPERIMENT_COMPLETED, EventType.EXPERIMENT_FAILED,
+            EventType.WORKFLOW_STARTED, EventType.WORKFLOW_COMPLETED, EventType.WORKFLOW_FAILED,
+            EventType.EMULATOR_STARTED, EventType.EMULATOR_STOPPED, EventType.TOOL_STARTED, EventType.TOOL_STOPPED
+        ]
+
+        for event_type in lifecycle_events:
+            event = Event(event_type)
+            assert event.is_lifecycle_event() == True
+
+        # Test non-lifecycle events
+        non_lifecycle_event = Event(EventType.COVERAGE_UPDATED)
+        assert non_lifecycle_event.is_lifecycle_event() == False
+
+    def test_is_analysis_event(self):
+        """Test the is_analysis_event method."""
+        # Test analysis events
+        analysis_events = [
+            EventType.COVERAGE_UPDATED, EventType.COVERAGE_TRACKING_STARTED, EventType.COVERAGE_TRACKING_STOPPED,
+            EventType.ERROR_DETECTED, EventType.STATIC_ANALYSIS_COMPLETED, EventType.ANALYSIS_COMPLETED,
+            EventType.NEW_METHOD_DISCOVERED
+        ]
+
+        for event_type in analysis_events:
+            event = Event(event_type)
+            assert event.is_analysis_event() == True
+
+        # Test non-analysis events
+        non_analysis_event = Event(EventType.TASK_STARTED)
+        assert non_analysis_event.is_analysis_event() == False
+
+    def test_event_comparison(self):
+        """Test event comparison for priority queue operations."""
+        # Create events with different timestamps
+        timestamp1 = datetime(2023, 1, 1, 12, 0, 0)
+        timestamp2 = datetime(2023, 1, 1, 12, 1, 0)
+
+        event1 = Event(EventType.TASK_STARTED, timestamp=timestamp1)
+        event2 = Event(EventType.TASK_COMPLETED, timestamp=timestamp2)
+
+        # Earlier event should be less than later event
+        assert event1 < event2
+        assert not (event2 < event1)
+
+    def test_event_comparison_with_non_event(self):
+        """Test event comparison with non-Event objects."""
+        event = Event(EventType.TASK_STARTED)
+
+        # Comparison with non-Event should return NotImplemented
+        result = event.__lt__("not an event")
+        assert result is NotImplemented
 
 
 class TestTaskEvent:
@@ -153,6 +277,54 @@ class TestTaskEvent:
         assert "TASK_STARTED" in string_repr
         assert "Task 42" in string_repr
         assert event.timestamp.isoformat() in string_repr
+
+    def test_get_task_summary(self):
+        """Test the get_task_summary method."""
+        task_config = {"tool": "monkey", "timeout": 60}
+        details = {"device": "emulator-5554", "status": "running"}
+
+        event = TaskEvent(
+            type=EventType.TASK_STARTED,
+            task_id="test-task-123",
+            task_config=task_config,
+            details=details,
+            source="TaskExecutor"
+        )
+
+        summary = event.get_task_summary()
+
+        assert summary['task_id'] == "test-task-123"
+        assert summary['event_type'] == "TASK_STARTED"
+        assert summary['source'] == "TaskExecutor"
+        assert summary['config_keys'] == ['tool', 'timeout']
+        assert summary['detail_keys'] == ['device', 'status']
+        assert 'timestamp' in summary
+
+    def test_has_error_details(self):
+        """Test the has_error_details method."""
+        # Event with error details
+        event_with_error = TaskEvent(
+            type=EventType.TASK_FAILED,
+            task_id="42",
+            details={"error": "Connection timeout"}
+        )
+        assert event_with_error.has_error_details() == True
+
+        # Event with exception details
+        event_with_exception = TaskEvent(
+            type=EventType.TASK_FAILED,
+            task_id="42",
+            details={"exception": "ValueError: Invalid input"}
+        )
+        assert event_with_exception.has_error_details() == True
+
+        # Event without error details
+        event_without_error = TaskEvent(
+            type=EventType.TASK_COMPLETED,
+            task_id="42",
+            details={"status": "success"}
+        )
+        assert event_without_error.has_error_details() == False
 
 
 class TestExperimentEvent:
@@ -215,6 +387,59 @@ class TestExperimentEvent:
         assert "EXPERIMENT_STARTED" in string_repr
         assert "exp_1" in string_repr
         assert "Test message" in string_repr
+
+    def test_get_experiment_summary(self):
+        """Test the get_experiment_summary method."""
+        affected_tasks = ["task1", "task2", "task3"]
+        message = "Experiment completed successfully"
+
+        event = ExperimentEvent(
+            type=EventType.EXPERIMENT_COMPLETED,
+            experiment_id="exp-test-123",
+            affected_tasks=affected_tasks,
+            message=message,
+            source="ExperimentRunner"
+        )
+
+        summary = event.get_experiment_summary()
+
+        assert summary['experiment_id'] == "exp-test-123"
+        assert summary['event_type'] == "EXPERIMENT_COMPLETED"
+        assert summary['source'] == "ExperimentRunner"
+        assert summary['affected_tasks_count'] == 3
+        assert summary['has_message'] == True
+        assert 'timestamp' in summary
+
+    def test_affects_task(self):
+        """Test the affects_task method."""
+        affected_tasks = ["task1", "task2", "task3"]
+
+        event = ExperimentEvent(
+            type=EventType.EXPERIMENT_STARTED,
+            experiment_id="exp_1",
+            affected_tasks=affected_tasks
+        )
+
+        # Test task that is affected
+        assert event.affects_task("task1") == True
+        assert event.affects_task("task2") == True
+        assert event.affects_task("task3") == True
+
+        # Test task that is not affected
+        assert event.affects_task("task4") == False
+
+    def test_is_failure_event(self):
+        """Test the is_failure_event method."""
+        # Test failure events
+        failure_event1 = ExperimentEvent(type=EventType.EXPERIMENT_FAILED, experiment_id="exp_1")
+        assert failure_event1.is_failure_event() == True
+
+        failure_event2 = ExperimentEvent(type=EventType.WORKFLOW_FAILED, experiment_id="exp_1")
+        assert failure_event2.is_failure_event() == True
+
+        # Test non-failure events
+        success_event = ExperimentEvent(type=EventType.EXPERIMENT_COMPLETED, experiment_id="exp_1")
+        assert success_event.is_failure_event() == False
 
 
 class TestAnalysisEvent:
@@ -279,6 +504,265 @@ class TestAnalysisEvent:
         assert "COVERAGE_UPDATED" in string_repr2
         assert "Task" not in string_repr2
 
+    def test_get_analysis_summary(self):
+        """Test the get_analysis_summary method."""
+        data = {"coverage": 85.2, "methods_called": 150}
+
+        event = AnalysisEvent(
+            type=EventType.COVERAGE_UPDATED,
+            data=data,
+            related_task_id="task-123",
+            source="CoverageAnalyzer"
+        )
+
+        summary = event.get_analysis_summary()
+
+        assert summary['event_type'] == "COVERAGE_UPDATED"
+        assert summary['source'] == "CoverageAnalyzer"
+        assert summary['related_task_id'] == "task-123"
+        assert summary['data_keys'] == ['coverage', 'methods_called']
+        assert summary['has_task_relation'] == True
+        assert 'timestamp' in summary
+
+    def test_is_coverage_event(self):
+        """Test the is_coverage_event method."""
+        # Test coverage events
+        coverage_events = [
+            EventType.COVERAGE_UPDATED,
+            EventType.COVERAGE_TRACKING_STARTED,
+            EventType.COVERAGE_TRACKING_STOPPED
+        ]
+
+        for event_type in coverage_events:
+            event = AnalysisEvent(type=event_type)
+            assert event.is_coverage_event() == True
+
+        # Test non-coverage events
+        non_coverage_event = AnalysisEvent(type=EventType.ERROR_DETECTED)
+        assert non_coverage_event.is_coverage_event() == False
+
+    def test_is_monitored_operations_event(self):
+        """Test the is_monitored_operations_event method."""
+        # Test with monitored operations data
+        event_with_mop = AnalysisEvent(
+            type=EventType.ERROR_DETECTED,
+            data={"monitored_operations": ["crypto_api"], "violations": 2}
+        )
+        assert event_with_mop.is_monitored_operations_event() == True
+
+        event_with_detection = AnalysisEvent(
+            type=EventType.ERROR_DETECTED,
+            data={"mop_detected": True, "spec": "JCA"}
+        )
+        assert event_with_detection.is_monitored_operations_event() == True
+
+        event_with_violation = AnalysisEvent(
+            type=EventType.ERROR_DETECTED,
+            data={"specification_violation": "Use of deprecated API"}
+        )
+        assert event_with_violation.is_monitored_operations_event() == True
+
+        # Test without monitored operations data
+        event_without_mop = AnalysisEvent(
+            type=EventType.COVERAGE_UPDATED,
+            data={"coverage": 75.0, "methods": 100}
+        )
+        assert event_without_mop.is_monitored_operations_event() == False
+
+
+class TestTaskToolExecutionEvent:
+    """Tests for the TaskToolExecutionEvent class."""
+
+    def test_task_tool_execution_event_initialization(self):
+        """Test that TaskToolExecutionEvent initializes with correct values."""
+        task_id = "task-123"
+        tool_execution_start = datetime(2023, 1, 1, 12, 5, 0)
+        task_config = {"tool": "monkey", "timeout": 300}
+        details = {"device": "emulator-5554"}
+        source = "ToolExecutor"
+
+        event = TaskToolExecutionEvent(
+            type=EventType.TOOL_STARTED,
+            task_id=task_id,
+            tool_execution_start=tool_execution_start,
+            task_config=task_config,
+            details=details,
+            source=source
+        )
+
+        assert event.type == EventType.TOOL_STARTED
+        assert event.task_id == task_id
+        assert event.tool_execution_start == tool_execution_start
+        assert event.task_config == task_config
+        assert event.details == details
+        assert event.source == source
+        assert isinstance(event.timestamp, datetime)
+
+    def test_task_tool_execution_event_inheritance(self):
+        """Test that TaskToolExecutionEvent properly inherits from TaskEvent."""
+        tool_execution_start = datetime(2023, 1, 1, 12, 5, 0)
+        event = TaskToolExecutionEvent(
+            type=EventType.TOOL_STARTED,
+            task_id="task-123",
+            tool_execution_start=tool_execution_start
+        )
+
+        assert isinstance(event, TaskEvent)
+        assert isinstance(event, Event)
+
+    def test_get_tool_execution_summary(self):
+        """Test the get_tool_execution_summary method."""
+        task_id = "task-456"
+        tool_execution_start = datetime(2023, 1, 1, 12, 5, 30)
+        event_timestamp = datetime(2023, 1, 1, 12, 5, 0)
+
+        event = TaskToolExecutionEvent(
+            type=EventType.TOOL_STARTED,
+            timestamp=event_timestamp,
+            task_id=task_id,
+            tool_execution_start=tool_execution_start,
+            source="ToolManager"
+        )
+
+        summary = event.get_tool_execution_summary()
+
+        assert summary['task_id'] == task_id
+        assert summary['tool_execution_start'] == tool_execution_start.isoformat()
+        assert summary['event_timestamp'] == event_timestamp.isoformat()
+        assert summary['source'] == "ToolManager"
+        assert summary['execution_delay'] == 30.0  # 30 second delay
+
+    def test_task_tool_execution_event_string_representation(self):
+        """Test the string representation of TaskToolExecutionEvent objects."""
+        tool_execution_start = datetime(2023, 1, 1, 12, 5, 0)
+        event = TaskToolExecutionEvent(
+            type=EventType.TOOL_STARTED,
+            task_id="task-789",
+            tool_execution_start=tool_execution_start
+        )
+
+        string_repr = str(event)
+        assert "TOOL_STARTED" in string_repr
+        assert "task-789" in string_repr
+        assert tool_execution_start.isoformat() in string_repr
+
+
+class TestPhaseExecutionModeEvent:
+    """Tests for the PhaseExecutionModeEvent class."""
+
+    def test_phase_execution_mode_event_initialization(self):
+        """Test that PhaseExecutionModeEvent initializes with correct values."""
+        phase_name = "static_analysis"
+        execution_mode = "full"
+        fallback_reason = None
+        artifacts_available = {"apk": True, "libs": True}
+        source = "WorkflowManager"
+
+        event = PhaseExecutionModeEvent(
+            type=EventType.WORKFLOW_STARTED,
+            phase_name=phase_name,
+            execution_mode=execution_mode,
+            fallback_reason=fallback_reason,
+            artifacts_available=artifacts_available,
+            source=source
+        )
+
+        assert event.type == EventType.WORKFLOW_STARTED
+        assert event.phase_name == phase_name
+        assert event.execution_mode == execution_mode
+        assert event.fallback_reason == fallback_reason
+        assert event.artifacts_available == artifacts_available
+        assert event.source == source
+        assert isinstance(event.timestamp, datetime)
+
+    def test_phase_execution_mode_event_inheritance(self):
+        """Test that PhaseExecutionModeEvent properly inherits from Event."""
+        event = PhaseExecutionModeEvent(
+            type=EventType.WORKFLOW_STARTED,
+            phase_name="instrumentation",
+            execution_mode="fallback"
+        )
+
+        assert isinstance(event, Event)
+
+    def test_get_phase_summary(self):
+        """Test the get_phase_summary method."""
+        phase_name = "coverage_analysis"
+        execution_mode = "fallback"
+        fallback_reason = "Missing static analysis data"
+        artifacts_available = {"logcat": True, "trace": False}
+
+        event = PhaseExecutionModeEvent(
+            type=EventType.WORKFLOW_COMPLETED,
+            phase_name=phase_name,
+            execution_mode=execution_mode,
+            fallback_reason=fallback_reason,
+            artifacts_available=artifacts_available,
+            source="PhaseManager"
+        )
+
+        summary = event.get_phase_summary()
+
+        assert summary['phase_name'] == phase_name
+        assert summary['execution_mode'] == execution_mode
+        assert summary['fallback_reason'] == fallback_reason
+        assert summary['source'] == "PhaseManager"
+        assert summary['artifacts_available'] == artifacts_available
+        assert summary['is_degraded'] == True  # fallback mode is degraded
+        assert 'timestamp' in summary
+
+    def test_is_fallback_execution(self):
+        """Test the is_fallback_execution method."""
+        # Test fallback execution
+        fallback_event = PhaseExecutionModeEvent(
+            type=EventType.WORKFLOW_STARTED,
+            phase_name="instrumentation",
+            execution_mode="fallback"
+        )
+        assert fallback_event.is_fallback_execution() == True
+
+        # Test non-fallback execution
+        full_event = PhaseExecutionModeEvent(
+            type=EventType.WORKFLOW_STARTED,
+            phase_name="instrumentation",
+            execution_mode="full"
+        )
+        assert full_event.is_fallback_execution() == False
+
+        skipped_event = PhaseExecutionModeEvent(
+            type=EventType.WORKFLOW_STARTED,
+            phase_name="instrumentation",
+            execution_mode="skipped"
+        )
+        assert skipped_event.is_fallback_execution() == False
+
+    def test_phase_execution_mode_event_string_representation(self):
+        """Test the string representation of PhaseExecutionModeEvent objects."""
+        # Event with fallback reason
+        event_with_reason = PhaseExecutionModeEvent(
+            type=EventType.WORKFLOW_FAILED,
+            phase_name="tool_execution",
+            execution_mode="failed",
+            fallback_reason="Tool timeout"
+        )
+
+        string_repr_with_reason = str(event_with_reason)
+        assert "tool_execution" in string_repr_with_reason
+        assert "failed" in string_repr_with_reason
+        assert "Tool timeout" in string_repr_with_reason
+
+        # Event without fallback reason
+        event_without_reason = PhaseExecutionModeEvent(
+            type=EventType.WORKFLOW_COMPLETED,
+            phase_name="results_collection",
+            execution_mode="full"
+        )
+
+        string_repr_without_reason = str(event_without_reason)
+        assert "results_collection" in string_repr_without_reason
+        assert "full" in string_repr_without_reason
+        assert "(" not in string_repr_without_reason  # No reason in parentheses
+
 
 class TestEventIntegration:
     """
@@ -322,3 +806,55 @@ class TestEventIntegration:
         # All events should be created within a very small window (e.g., 0.1 seconds)
         # This verifies they all use "now" without having to mock datetime.now()
         assert max_diff < 0.1, f"Events should have very close timestamps, but max difference was {max_diff} seconds"
+
+    def test_event_hierarchy_consistency(self):
+        """Test that specialized events maintain base Event functionality."""
+        # Create different event types
+        base_event = Event(EventType.CUSTOM)
+        task_event = TaskEvent(EventType.TASK_STARTED, task_id="test-task")
+        experiment_event = ExperimentEvent(EventType.EXPERIMENT_STARTED, experiment_id="test-exp")
+        analysis_event = AnalysisEvent(EventType.COVERAGE_UPDATED)
+        tool_event = TaskToolExecutionEvent(
+            type=EventType.TOOL_STARTED,
+            task_id="test-task",
+            tool_execution_start=datetime.now()
+        )
+        phase_event = PhaseExecutionModeEvent(
+            type=EventType.WORKFLOW_STARTED,
+            phase_name="test_phase",
+            execution_mode="full"
+        )
+
+        # All should have Event properties
+        all_events = [base_event, task_event, experiment_event, analysis_event, tool_event, phase_event]
+
+        for event in all_events:
+            assert hasattr(event, 'type')
+            assert hasattr(event, 'timestamp')
+            assert hasattr(event, 'source')
+            assert hasattr(event, 'name')
+            assert callable(getattr(event, 'is_lifecycle_event'))
+            assert callable(getattr(event, 'is_analysis_event'))
+
+    def test_event_comparison_sorting(self):
+        """Test that events can be sorted by timestamp."""
+        # Create events with specific timestamps
+        timestamps = [
+            datetime(2023, 1, 1, 12, 0, 0),
+            datetime(2023, 1, 1, 12, 1, 0),
+            datetime(2023, 1, 1, 12, 2, 0)
+        ]
+
+        events = [
+            Event(EventType.TASK_STARTED, timestamp=timestamps[2]),
+            Event(EventType.TASK_COMPLETED, timestamp=timestamps[0]),
+            Event(EventType.EXPERIMENT_STARTED, timestamp=timestamps[1])
+        ]
+
+        # Sort events
+        sorted_events = sorted(events)
+
+        # Check that they're sorted by timestamp
+        assert sorted_events[0].timestamp == timestamps[0]
+        assert sorted_events[1].timestamp == timestamps[1]
+        assert sorted_events[2].timestamp == timestamps[2]
