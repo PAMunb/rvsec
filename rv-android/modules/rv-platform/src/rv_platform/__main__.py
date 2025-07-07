@@ -106,6 +106,15 @@ def create_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Run emulator in headless mode"
     )
+    run_parser.add_argument(
+        "--skip-result-processing",
+        action="store_true",
+        help="Skip automatic result processing after task execution"
+    )
+    run_parser.add_argument(
+        "--process-results",
+        help="Process existing experiment results directory (standalone mode)"
+    )
     
     # Performance monitoring arguments
     add_performance_arguments(run_parser)
@@ -147,6 +156,10 @@ def cmd_run(args) -> int:
         # Setup logging
         logging_manager = LoggingManager.get_instance()
         logger = logging_manager.get_logger('rv_platform.cli')
+        
+        # Check for standalone result processing mode
+        if args.process_results:
+            return _process_results_standalone(args.process_results)
         
         if args.config:
             # Config file mode
@@ -354,7 +367,7 @@ def _create_config_from_cli(args) -> PlatformConfig:
     else:
         results_dir = args.results_dir
     
-    return PlatformConfig(
+    config = PlatformConfig(
         apks_dir=args.apks_dir,
         tools=tools,
         repetitions=args.repetitions,
@@ -363,6 +376,11 @@ def _create_config_from_cli(args) -> PlatformConfig:
         no_window=args.no_window,
         log_level="INFO"
     )
+    
+    # Set CLI flags
+    config.skip_result_processing = args.skip_result_processing
+    
+    return config
 
 
 def _create_basic_template() -> PlatformConfig:
@@ -402,6 +420,54 @@ def _create_advanced_template() -> PlatformConfig:
         no_window=True,
         log_level="DEBUG"
     )
+
+
+def _process_results_standalone(results_dir: str) -> int:
+    """
+    Process existing experiment results directory in standalone mode.
+    
+    Args:
+        results_dir: Directory containing experiment results to process
+        
+    Returns:
+        Exit code (0 for success, 1 for error)
+    """
+    try:
+        from rv_platform.components.result_processor import ResultProcessorComponent
+        from rv_platform.storage.task_storage import TaskStorage
+        
+        print(f"📊 Processing existing results from: {results_dir}")
+        
+        # Check if results directory exists
+        results_path = Path(results_dir)
+        if not results_path.exists():
+            print(f"❌ Results directory not found: {results_dir}", file=sys.stderr)
+            return 1
+        
+        # Load completed tasks from storage
+        task_storage = TaskStorage(results_dir)
+        tasks = task_storage.get_tasks()
+        
+        if not tasks:
+            print(f"❌ No tasks found in results directory: {results_dir}", file=sys.stderr)
+            return 1
+        
+        print(f"📋 Found {len(tasks)} tasks to process")
+        
+        # Create result processor and process results
+        processor = ResultProcessorComponent(tasks, results_dir)
+        processor.initialize({})
+        processor.execute({})
+        processor.cleanup()
+        
+        print(f"✅ Results processing completed successfully")
+        print(f"📂 Output files saved to: {results_dir}")
+        
+        return 0
+        
+    except Exception as e:
+        print(f"❌ Error processing results: {e}", file=sys.stderr)
+        return 1
 
 
 if __name__ == "__main__":

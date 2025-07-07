@@ -10,7 +10,7 @@ The RV-Platform module provides a standalone execution engine for Android testin
 
 - **Independent Task Execution**: Executes testing tasks independently with configurable tools
 - **Logcat Processing**: Parses logcat files for coverage data and monitored operations errors
-- **Result File Generation**: Generates and saves CSV/JSON result files directly to storage
+- **Result Processing**: Processes completed experiment tasks to generate standardized CSV and JSON output files
 - **Coverage Calculation**: Calculates coverage metrics via CoverageTracker integration
 - **Component-Based Architecture**: Modular design with specialized components for emulator, logcat, coverage, and tool execution
 - **Static Analysis Integration**: Loads pre-generated static analysis files for coverage calculation
@@ -33,6 +33,7 @@ The RV-Platform module provides a standalone execution engine for Android testin
 - **CoverageComponent**: Coverage tracking initialization and execution with static analysis integration
 - **StaticAnalysisComponent**: Static analysis file copying from instrumented directory and data loading
 - **ToolExecutionComponent**: Tool execution coordination with configuration and error handling
+- **ResultProcessorComponent**: Result processing to generate CSV and JSON output files from completed tasks
 
 #### Configuration Management
 - **PlatformConfig**: Configuration class with validation, tool configuration, and execution parameters
@@ -60,9 +61,10 @@ The RV-Platform module provides a standalone execution engine for Android testin
 - **Metrics Aggregation**: Aggregate coverage and error metrics for analysis
 
 #### Result Generation and Storage
-- **CSV Generation**: Generate detailed coverage.csv and errors.csv files
-- **JSON Generation**: Generate comprehensive results.json and summary files
-- **Direct Storage**: Save result files directly to storage without intermediate processing
+- **Result Processing**: Process completed tasks to generate CSV and JSON output files
+- **CSV Generation**: Generate detailed coverage.csv, errors.csv, and summary.csv files
+- **JSON Generation**: Generate comprehensive results.json and instrumentation errors files
+- **Standalone Processing**: Reprocess existing experiment results without re-execution
 - **Performance Data**: Collect and export performance metrics and execution data
 
 #### CLI and Configuration
@@ -110,6 +112,12 @@ rv-platform run --tools monkey --apks-dir ./my_apks --results-dir ./my_results
 
 # Headless execution
 rv-platform run --tools monkey --no-window
+
+# Skip automatic result processing
+rv-platform run --tools monkey --skip-result-processing
+
+# Process existing results directory
+rv-platform run --process-results ./results/experiment_20241201_143022
 ```
 
 #### Configuration File Usage
@@ -338,21 +346,20 @@ experiment_config.generate_monitors()        # rv-experiment responsibility
 # rv-experiment creates platform configuration for task execution
 platform_config = experiment_config.get_platform_config()
 
-# rv-platform handles independent task execution
+# rv-platform handles independent task execution and result processing
 platform = Platform(platform_config)
-results = platform.run()  # Includes logcat processing, CSV/JSON generation
+results = platform.run()  # Includes task execution, logcat processing, CSV/JSON generation
 
-# rv-experiment handles post-processing
-experiment_config.process_results(results)   # rv-experiment responsibility
-experiment_config.generate_summaries()       # rv-experiment responsibility
+# rv-experiment handles experiment-specific post-processing
+experiment_config.process_experiment_diagnostics(results)
 ```
 
 ### Architectural Separation
 
-- **rv-experiment**: Orchestrates lifecycle, instruments APKs, generates static analysis
-- **rv-platform**: Executes tasks, processes logcat, generates result files
-- **No data transfer**: rv-experiment calls rv-platform, doesn't transfer processed data
-- **Independent operation**: rv-platform can function without rv-experiment
+- **rv-experiment**: Orchestrates experiment lifecycle, instruments APKs, generates static analysis
+- **rv-platform**: Executes tasks, processes logcat, generates CSV/JSON result files
+- **Clear boundaries**: rv-platform handles all data processing, rv-experiment focuses on orchestration
+- **Independent operation**: rv-platform can function standalone or reprocess existing results
 
 ## Architecture Guidelines
 

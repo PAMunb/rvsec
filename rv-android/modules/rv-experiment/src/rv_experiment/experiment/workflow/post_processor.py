@@ -1,7 +1,9 @@
-# rvandroid/experiment_workflow/post_processor.py
+# rv_experiment/experiment/workflow/post_processor.py
 """
-Post-processor component for RV-Android experiments.
-Handles analysis of experiment results.
+Simplified post-processor component for RV-Android experiments.
+
+This module provides minimal post-processing functionality focused on
+experiment diagnostics and coordination.
 """
 import os
 
@@ -13,30 +15,40 @@ from rv_android_core.event import EventBus, EventType
 
 class PostProcessor:
     """
-    A specialized component for handling the post-processing phase of experiments.
+    Simplified post-processor component for RV-Android experiments.
 
-    ### Architectural Decisions:
-    - Separates result processing concerns from the main experiment controller
-    - Provides a clean interface for post-experiment analysis
-    - Encapsulates the logic for results processing and analysis
-    - Enables independent testing and reuse of post-processing functionality
+    This component handles only basic post-processing functionality focused on
+    experiment diagnostics. CSV and JSON result processing is now handled by
+    rv-platform's ResultProcessorComponent for better separation of concerns.
 
-    ### Role in the System:
-    - Processes raw experimental results after execution
-    - Performs standardized analysis of coverage and error data
-    - Prepares data for reporting and visualization
-    - Generates experiment summaries and metrics
+    ### Architectural Role:
+    - Handles experiment-level diagnostics and error reporting
+    - Coordinates with ResultManager for instrumentation error tracking
+    - Provides basic post-experiment analysis capabilities
+    - Delegates complex data processing to rv-platform
+
+    ### Key Capabilities:
+    - Generate diagnostic information about experiment execution
+    - Coordinate with simplified ResultManager for basic reporting
+    - Provide experiment completion notifications
+    - Handle post-processing error scenarios gracefully
+
+    ### Integration Points:
+    - Uses ErrorHandler decorator for error processing
+    - Uses LoggingManager for consistent logging with context support
+    - Publishes experiment events through EventBus
+    - Coordinates with ResultManager for basic experiment metadata
     """
 
     def __init__(self, results_dir: str, event_bus: EventBus, execution_controller=None, result_manager=None):
         """
-        Initialize the post-processor.
+        Initialize the simplified post-processor.
 
         Args:
             results_dir: Directory containing experiment results
             event_bus: Event bus for publishing events
             execution_controller: Reference to the execution controller
-            result_manager: Result manager for processing results
+            result_manager: Result manager for basic reporting
         """
         self.results_dir = results_dir
         self.event_bus = event_bus
@@ -47,7 +59,7 @@ class PostProcessor:
         # Configure logging
         self.logging_manager = LoggingManager.get_instance()
         self.logger = self.logging_manager.get_logger(
-            'experiment_workflow.post_processor',
+            'experiment.workflow.post_processor',
             {
                 CONTEXT_COMPONENT: 'PostProcessor'
             }
@@ -56,97 +68,52 @@ class PostProcessor:
     def process(self):
         """
         Process experiment results after execution.
-        Performs standardized analysis on collected data.
+        
+        This method handles basic post-processing and coordinates with
+        ResultManager for instrumentation error tracking. Complex data
+        processing is delegated to rv-platform's ResultProcessorComponent.
         """
         with self.logger.with_context(phase="post_processing"):
-            self.logger.info(LOG_START.format(phase="results processing"))
+            self.logger.info(LOG_START.format(phase="experiment post-processing"))
 
-            # Process the results
-            self._process_coverage_data()
-            self._analyze_results()
+            # Basic experiment diagnostics
+            self._generate_experiment_diagnostics()
 
-            self.logger.info(LOG_COMPLETE.format(phase="results processing"))
+            # Coordinate with ResultManager for basic reporting
+            self._coordinate_basic_reporting()
+
+            self.logger.info(LOG_COMPLETE.format(phase="experiment post-processing"))
 
             # Notify that post-processing is complete
             self.event_bus.publish_experiment_event(
                 EventType.EXPERIMENT_COMPLETED,
                 experiment_id="post_processing",
-                message="Post-processing completed",
+                message="Experiment post-processing completed",
                 source="PostProcessor"
             )
 
-    def _process_coverage_data(self):
+    def _generate_experiment_diagnostics(self):
         """
-        Delegate coverage data processing to ResultManager.
-        Focuses on experiment-level coordination only.
-        """
-        with self.logger.with_context(phase="process_coverage"):
-            self.logger.info(LOG_START.format(phase="coverage processing delegation"))
-
-            # Delegate to ResultManager instead of duplicating logic
-            if self.result_manager:
-                self.logger.info("Delegating coverage processing to ResultManager")
-                # ResultManager will handle all coverage processing in generate_reports()
-                # No duplicated logic here
-            else:
-                self.logger.warning("No ResultManager available - coverage processing skipped")
-
-            self.logger.info(LOG_COMPLETE.format(phase="coverage processing delegation"))
-
-            # Publish delegation complete event
-            self.event_bus.publish_analysis_event(
-                EventType.COVERAGE_UPDATED,
-                data={"delegated_to": "ResultManager"},
-                source="PostProcessor"
-            )
-
-    def _analyze_results(self):
-        """
-        Perform detailed analysis of experiment results.
-        Uses the configured ResultManager for result processing.
-        """
-        with self.logger.with_context(phase="results_analysis"):
-            self.logger.info(LOG_START.format(phase="results analysis"))
-
-            try:
-                # Use the configured ResultManager instead of creating a new one
-                if self.result_manager:
-                    self.logger.info("Generating comprehensive experiment reports")
-                    self.result_manager.generate_reports()
-                    self.logger.info("Results generated successfully by ResultManager")
-                else:
-                    self.logger.warning("No ResultManager available - skipping detailed analysis")
-
-                # Generate performance and error diagnostics
-                self._generate_diagnostics()
-
-            except Exception as e:
-                error_context = {
-                    "component": "PostProcessor",
-                    "operation": "results_analysis",
-                    "results_dir": self.results_dir,
-                    "has_result_manager": self.result_manager is not None
-                }
-                self.error_handler.handle_error(e, error_context)
-
-            self.logger.info(LOG_COMPLETE.format(phase="results analysis"))
-
-    def _generate_diagnostics(self):
-        """
-        Generate diagnostic information about the experiment execution.
-        Includes performance metrics and error summaries.
+        Generate basic diagnostic information about the experiment execution.
         """
         with self.logger.with_context(phase="diagnostics"):
-            self.logger.info(LOG_START.format(phase="generating diagnostics"))
+            self.logger.info(LOG_START.format(phase="generating experiment diagnostics"))
 
             try:
-                # Generate diagnostic report
-                from rv_android_core.util.diagnostics import DiagnosticTool
-                diagnostic_tool = DiagnosticTool()
-                report = diagnostic_tool.generate_report()
-                report_path = os.path.join(self.results_dir, "diagnostic_report.json")
-                report.save_to_file(report_path)
-                self.logger.info(f"Diagnostic report saved to {report_path}")
+                # Generate basic diagnostic information
+                diagnostic_info = {
+                    "results_directory": self.results_dir,
+                    "has_result_manager": self.result_manager is not None,
+                    "has_execution_controller": self.execution_controller is not None,
+                    "diagnostic_timestamp": self._get_current_timestamp()
+                }
+
+                # Log diagnostic information
+                self.logger.info(f"Experiment diagnostics: {diagnostic_info}")
+
+                # Save basic diagnostics if needed
+                diagnostic_path = os.path.join(self.results_dir, "experiment_diagnostics.json")
+                self._save_diagnostics(diagnostic_path, diagnostic_info)
 
             except Exception as e:
                 error_context = {
@@ -156,4 +123,61 @@ class PostProcessor:
                 }
                 self.error_handler.handle_error(e, error_context)
 
-            self.logger.info(LOG_COMPLETE.format(phase="generating diagnostics"))
+            self.logger.info(LOG_COMPLETE.format(phase="generating experiment diagnostics"))
+
+    def _coordinate_basic_reporting(self):
+        """
+        Coordinate with ResultManager for basic experiment reporting.
+        
+        This method delegates to ResultManager for instrumentation error
+        tracking and basic metadata generation.
+        """
+        with self.logger.with_context(phase="basic_reporting"):
+            self.logger.info(LOG_START.format(phase="basic experiment reporting"))
+
+            try:
+                if self.result_manager:
+                    self.logger.info("Coordinating with ResultManager for basic reporting")
+                    # ResultManager handles instrumentation errors and basic metadata
+                    self.result_manager.generate_reports()
+                    self.logger.info("Basic reporting completed by ResultManager")
+                else:
+                    self.logger.warning("No ResultManager available - basic reporting skipped")
+
+            except Exception as e:
+                error_context = {
+                    "component": "PostProcessor",
+                    "operation": "basic_reporting",
+                    "results_dir": self.results_dir,
+                    "has_result_manager": self.result_manager is not None
+                }
+                self.error_handler.handle_error(e, error_context)
+
+            self.logger.info(LOG_COMPLETE.format(phase="basic experiment reporting"))
+
+    def _get_current_timestamp(self) -> str:
+        """
+        Get current timestamp for diagnostics.
+        
+        Returns:
+            ISO format timestamp string
+        """
+        from datetime import datetime
+        return datetime.now().isoformat()
+
+    def _save_diagnostics(self, diagnostic_path: str, diagnostic_info: dict):
+        """
+        Save diagnostic information to file.
+        
+        Args:
+            diagnostic_path: Path to save diagnostics
+            diagnostic_info: Diagnostic information to save
+        """
+        import json
+        
+        try:
+            with open(diagnostic_path, 'w', encoding='utf-8') as f:
+                json.dump(diagnostic_info, f, indent=2, ensure_ascii=False)
+            self.logger.info(f"Experiment diagnostics saved to {diagnostic_path}")
+        except Exception as e:
+            self.logger.warning(f"Failed to save diagnostics to {diagnostic_path}: {e}")

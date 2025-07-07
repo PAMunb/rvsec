@@ -22,6 +22,7 @@ from rv_platform.components.emulator import EmulatorComponent
 from rv_platform.components.logcat import LogcatComponent
 from rv_platform.components.coverage import CoverageComponent
 from rv_platform.components.static_analysis import StaticAnalysisComponent
+from rv_platform.components.result_processor import ResultProcessorComponent
 
 
 class Platform:
@@ -86,6 +87,10 @@ class Platform:
             
             # Execute tasks
             results = self._execute_tasks()
+            
+            # Process experiment results (unless skipped)
+            if not getattr(self.config, 'skip_result_processing', False):
+                self._process_experiment_results()
             
             # Generate summary
             summary = self._generate_summary(results)
@@ -346,3 +351,25 @@ class Platform:
             List of task summaries
         """
         return [task.to_dict() for task in self.tasks]
+
+    @ErrorHandler.handle_errors(component="Platform", phase="result_processing")
+    def _process_experiment_results(self) -> None:
+        """
+        Generate CSV/JSON files from completed experiment tasks.
+        
+        This method processes completed tasks to generate standardized output
+        files for analysis and research purposes.
+        """
+        self.logger.info("Processing experiment results")
+        
+        # Create result processor component
+        processor = ResultProcessorComponent(self.tasks, self.config.results_dir)
+        
+        # Initialize and execute result processing
+        processor.initialize({})
+        processor.execute({})
+        
+        # Clean up
+        processor.cleanup()
+        
+        self.logger.info("Experiment results processing completed")
