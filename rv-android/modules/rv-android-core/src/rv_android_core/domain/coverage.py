@@ -5,6 +5,7 @@ This module provides validated data structures for tracking method coverage
 and coverage metrics during runtime verification execution.
 """
 import logging
+import time
 from datetime import datetime
 from typing import Dict, List, Optional, Set, Any
 from pydantic import Field, computed_field
@@ -419,8 +420,22 @@ class CoverageMetrics(BaseValidatedModel):
 
 class LogcatRepository:
     """
-    Central repository for coverage data.
-    Provides a unified API for storing and retrieving coverage information.
+    Repository for logcat-based coverage data with centralized metrics calculation.
+    
+    Provides unified coverage metrics calculation to eliminate duplication
+    between CoverageAnalyzer and CoverageTracker components.
+    
+    ### Architectural Role:
+    - Centralizes coverage metrics calculation logic
+    - Maintains class and method coverage state
+    - Provides consistent metrics format across components
+    - Supports caching for performance optimization
+    
+    ### Integration Points:
+    - Used by CoverageAnalyzer for analysis operations
+    - Used by CoverageTracker for real-time tracking
+    - Populated by repository_initializer function
+    - Supports ResultManager for report generation
     """
 
     def __init__(self):
@@ -571,6 +586,51 @@ class LogcatRepository:
                         metrics.called_mop_methods += 1
 
         return metrics
+
+    def calculate_coverage_metrics(self, cache_key: Optional[str] = None) -> Dict[str, Any]:
+        """
+        Calculate comprehensive coverage metrics.
+        
+        Provides centralized implementation for coverage metrics calculation,
+        eliminating duplication across CoverageAnalyzer and CoverageTracker.
+        Calculates class and method coverage percentages with caching support.
+        
+        Args:
+            cache_key: Optional cache key for performance optimization
+            
+        Returns:
+            Dictionary containing all coverage metrics with standardized format
+        """
+        # Use existing calculate_metrics() for core logic
+        metrics_obj = self.calculate_metrics()
+        metrics_dict = metrics_obj.to_dict()
+        
+        # Calculate coverage percentages
+        total_classes = metrics_dict.get('total_classes', 0)
+        covered_classes = metrics_dict.get('called_classes', 0)
+        total_methods = metrics_dict.get('total_methods', 0)
+        covered_methods = metrics_dict.get('called_methods', 0)
+        
+        class_coverage = (covered_classes / total_classes * 100) if total_classes > 0 else 0
+        method_coverage = (covered_methods / total_methods * 100) if total_methods > 0 else 0
+        
+        return {
+            'total_classes': total_classes,
+            'covered_classes': covered_classes,
+            'class_coverage_percentage': class_coverage,
+            'total_methods': total_methods,
+            'covered_methods': covered_methods,
+            'method_coverage_percentage': method_coverage,
+            'total_activities': metrics_dict.get('total_activities', 0),
+            'called_activities': metrics_dict.get('called_activities', 0),
+            'activity_coverage_percentage': metrics_dict.get('activity_coverage', 0.0),
+            'total_mop_methods': metrics_dict.get('total_mop_methods', 0),
+            'called_mop_methods': metrics_dict.get('called_mop_methods', 0),
+            'mop_method_coverage_percentage': metrics_dict.get('mop_method_coverage', 0.0),
+            'total_errors': metrics_dict.get('total_errors', 0),
+            'unique_errors': metrics_dict.get('unique_errors', 0),
+            'timestamp': time.time()
+        }
 
     def _calculate_static_totals(self) -> None:
         """Calculate and cache totals from static analysis data."""

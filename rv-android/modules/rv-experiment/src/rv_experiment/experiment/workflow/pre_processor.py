@@ -3,6 +3,7 @@
 Pre-processor component for RV-Android experiments.
 Handles monitor generation, APK instrumentation, and static analysis.
 """
+import json
 import os
 from typing import List
 
@@ -154,10 +155,15 @@ class PreProcessor:
                 
                 if not success:
                     self.logger.error("APK instrumentation failed")
+                
+                # Generate instrumentation errors JSON immediately after instrumentation
+                self._generate_instrument_errors_json(instrumenter if 'instrumenter' in locals() else None)
                     
             except ImportError:
                 self.logger.warning("Instrumentation module not available - copying original APKs")
                 self._copy_original_apks()
+                # Generate empty instrumentation errors file
+                self._generate_instrument_errors_json(None)
             except Exception as e:
                 error_context = {
                     "component": "PreProcessor", 
@@ -167,6 +173,8 @@ class PreProcessor:
                 }
                 self.error_handler.handle_error(e, error_context)
                 self._copy_original_apks()
+                # Generate empty instrumentation errors file on failure
+                self._generate_instrument_errors_json(None)
             
             self.logger.info(LOG_COMPLETE.format(phase="APK instrumentation"))
 
@@ -325,3 +333,57 @@ class PreProcessor:
                     apks.append(app)
 
             return apks
+
+    def _generate_instrument_errors_json(self, instrumenter=None):
+        """
+        Generate instrumentation errors JSON file immediately after APK instrumentation.
+        
+        This method captures instrumentation errors that occur during the
+        pre-processing phase and saves them for later analysis.
+        
+        Args:
+            instrumenter: RVInstrumentation instance that performed the instrumentation (optional)
+        """
+        with self.logger.with_context(phase="instrument_errors_generation"):
+            self.logger.info(LOG_START.format(phase="instrumentation errors JSON generation"))
+
+            try:
+                instrument_errors = {}
+                
+                # Extract instrumentation errors from instrumenter if available
+                if instrumenter and hasattr(instrumenter, 'get_instrumentation_errors'):
+                    errors = instrumenter.get_instrumentation_errors()
+                    instrument_errors.update(errors)
+                
+                # Also check for any APK-level errors that occurred during processing
+                apk_list = self.config.get_apk_list()
+                for apk_path in apk_list:
+                    apk_name = os.path.basename(apk_path)
+                    # Check if APK was successfully instrumented
+                    instrumented_path = os.path.join(self.config.output_dir, INSTRUMENTED_APKS_DIR, apk_name)
+                    if not os.path.exists(instrumented_path):
+                        if apk_name not in instrument_errors:
+                            instrument_errors[apk_name] = []
+                        instrument_errors[apk_name].append({
+                            "error_type": "instrumentation_failed",
+                            "message": "APK instrumentation failed - instrumented APK not found",
+                            "source_apk": apk_path
+                        })
+
+                # Create instrumentation errors file
+                errors_file = os.path.join(self.config.output_dir, "instrument_errors.json")
+                
+                with open(errors_file, 'w', encoding='utf-8') as f:
+                    json.dump(instrument_errors, f, indent=2, ensure_ascii=False)
+
+                if instrument_errors:
+                    error_count = sum(len(errors) for errors in instrument_errors.values())
+                    self.logger.info(f"Instrumentation errors JSON generated: {errors_file} ({len(instrument_errors)} APKs, {error_count} total errors)")
+                else:
+                    self.logger.info("No instrumentation errors found - empty file created")
+
+            except Exception as e:
+                self.logger.error(LOG_ERROR.format(
+                    phase="generating instrumentation errors JSON",
+                    error=str(e)
+                ))

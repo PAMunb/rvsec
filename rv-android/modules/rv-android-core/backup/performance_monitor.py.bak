@@ -16,7 +16,6 @@ from rv_android_core.util.logging.constants import CONTEXT_COMPONENT, LOG_ERROR
 from rv_android_core.util.logging.manager import LoggingManager
 from rv_android_core.util.validation import BaseValidatedModel
 from rv_android_core.util.validation.decorators import validated_model
-from rv_android_core.config.configuration import PerformanceMonitorConfig
 
 
 @validated_model(['name', 'value', 'unit', 'timestamp'])
@@ -90,28 +89,15 @@ class TimingMetric(Metric):
 class PerformanceMonitor:
     """
     Central system for tracking performance metrics in rv-android.
-    
-    This monitor can be configured to reduce overhead in production
-    environments through CLI arguments passed to the system.
+    Handles storing, aggregating, and reporting metrics.
     """
 
     _instance = None
     _lock = threading.Lock()
-    _config: Optional[PerformanceMonitorConfig] = None
-
-    @classmethod
-    def configure(cls, config: PerformanceMonitorConfig):
-        """
-        Configure the performance monitor globally.
-        
-        Args:
-            config: Performance monitor configuration
-        """
-        cls._config = config
 
     @classmethod
     def get_instance(cls):
-        """Get the singleton instance with global configuration."""
+        """Get the singleton instance."""
         with cls._lock:
             if cls._instance is None:
                 cls._instance = PerformanceMonitor()
@@ -132,20 +118,6 @@ class PerformanceMonitor:
         # Set up default subscribers
         self._setup_default_subscribers()
 
-    def _is_enabled(self) -> bool:
-        """Check if performance monitoring is enabled."""
-        return self._config is None or self._config.enabled
-
-    def _should_log_metric(self) -> bool:
-        """Check if metrics should be logged based on configuration."""
-        if not self._is_enabled():
-            return False
-        
-        if self._config is None:
-            return True
-            
-        return self._config.log_level != 'DISABLED'
-
     def _setup_default_subscribers(self):
         """Set up default subscribers for metrics."""
 
@@ -163,17 +135,14 @@ class PerformanceMonitor:
 
     def record_metric(self, name: str, value: float, unit: str = "", context: Optional[Dict[str, Any]] = None):
         """
-        Record a general metric if monitoring is enabled.
-        
+        Record a general metric.
+
         Args:
             name: Name of the metric
             value: Value of the metric
             unit: Unit of the metric (optional)
             context: Additional context for the metric (optional)
         """
-        if not self._is_enabled():
-            return
-        
         metric = Metric(
             name=name,
             value=value,
@@ -181,13 +150,7 @@ class PerformanceMonitor:
             timestamp=time.time(),
             context=context or {}
         )
-        
-        # Respect max_samples configuration
-        if self._config and self._config.max_samples > 0:
-            if len(self.metrics) >= self._config.max_samples:
-                # Remove oldest metrics to make room
-                self.metrics = self.metrics[-(self._config.max_samples - 1):]
-        
+
         self.metrics.append(metric)
         self._notify_subscribers(metric)
 
@@ -203,16 +166,10 @@ class PerformanceMonitor:
         Yields:
             Nothing, just executes the block and measures time
         """
-        if not self._is_enabled():
-            # If monitoring is disabled, just yield without measuring
-            yield
-            return
-            
         start_time = time.time()
         with self.logger.with_context(phase=name, **({} if context is None else context)):
             try:
-                if self._should_log_metric():
-                    self.logger.debug(f"Starting timed operation: {name}")
+                self.logger.debug(f"Starting timed operation: {name}")
                 yield
             finally:
                 end_time = time.time()
@@ -228,17 +185,10 @@ class PerformanceMonitor:
                     end_time=end_time
                 )
 
-                # Respect max_samples configuration
-                if self._config and self._config.max_samples > 0:
-                    if len(self.metrics) >= self._config.max_samples:
-                        # Remove oldest metrics to make room
-                        self.metrics = self.metrics[-(self._config.max_samples - 1):]
-
                 self.metrics.append(metric)
                 self._notify_subscribers(metric)
 
-                if self._should_log_metric():
-                    self.logger.debug(f"Completed timed operation: {name} in {duration:.2f}s")
+                self.logger.debug(f"Completed timed operation: {name} in {duration:.2f}s")
 
     def get_metrics_by_name(self, name: str) -> List[Metric]:
         """

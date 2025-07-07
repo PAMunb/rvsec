@@ -17,49 +17,6 @@ from rv_platform.config.platform_config import PlatformConfig, ToolConfig
 from rv_platform.platform import Platform
 
 
-def add_performance_arguments(parser):
-    """
-    Add performance monitoring arguments to CLI parser.
-    
-    Args:
-        parser: Command line argument parser
-    """
-    perf_group = parser.add_argument_group('Performance Monitoring')
-    
-    perf_group.add_argument(
-        '--disable-performance-monitor',
-        action='store_true',
-        help='Disable performance monitoring to reduce overhead'
-    )
-    
-    perf_group.add_argument(
-        '--performance-monitor-level',
-        choices=['DEBUG', 'INFO', 'WARNING', 'ERROR', 'DISABLED'],
-        default='DEBUG',
-        help='Performance monitor logging level (default: DEBUG)'
-    )
-    
-    perf_group.add_argument(
-        '--performance-monitor-max-samples',
-        type=int,
-        default=1000,
-        help='Maximum number of metrics to store in memory (default: 1000)'
-    )
-    
-    perf_group.add_argument(
-        '--performance-export-enabled',
-        action='store_true',
-        help='Enable performance metrics export to file'
-    )
-    
-    perf_group.add_argument(
-        '--performance-export-format',
-        choices=['JSON', 'CSV'],
-        default='JSON',
-        help='Format for performance metrics export (default: JSON)'
-    )
-
-
 def create_parser() -> argparse.ArgumentParser:
     """Create the argument parser for rv-platform CLI."""
     parser = argparse.ArgumentParser(
@@ -106,9 +63,6 @@ def create_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Run emulator in headless mode"
     )
-    
-    # Performance monitoring arguments
-    add_performance_arguments(run_parser)
     
     # List tools command
     list_parser = subparsers.add_parser("list-tools", help="List available tools")

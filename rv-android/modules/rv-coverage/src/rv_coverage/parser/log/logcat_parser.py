@@ -17,6 +17,7 @@ from typing import Tuple
 
 from rv_android_core.domain.coverage import LogcatRepository
 from rv_android_core.domain.log import RvErrorLog, RvCoverageLog, TAG_RVSEC, TAG_RVSEC_COV
+from rv_android_core.util.repository_initializer import initialize_repository_from_static_data
 
 
 def parse_logcat_file(log_file: str, static_data=None) -> LogcatRepository:
@@ -38,7 +39,7 @@ def parse_logcat_file(log_file: str, static_data=None) -> LogcatRepository:
     # Initialize repository with static data if provided
     if static_data and hasattr(static_data, 'classes'):
         logger.debug("Initializing repository with static analysis data")
-        _initialize_repository_from_static_data(repository, static_data)
+        initialize_repository_from_static_data(repository, static_data, "LogcatParser")
 
     # Process log file line by line for memory efficiency
     try:
@@ -56,46 +57,7 @@ def parse_logcat_file(log_file: str, static_data=None) -> LogcatRepository:
     return repository
 
 
-def _initialize_repository_from_static_data(repository: LogcatRepository, static_data) -> None:
-    """
-    Initialize repository with data from static analysis.
-
-    Args:
-        repository: LogcatRepository instance to initialize
-        static_data: Static analysis data
-    """
-    try:
-        # Process classes from static data
-        classes = static_data.classes
-        for class_name, class_info in classes.classes.items():
-            # Create class in repository
-            from rv_android_core.domain.coverage import ClassCoverageData
-            class_data = ClassCoverageData(
-                name=class_name,
-                is_activity=class_info.is_activity,
-                is_main_activity=getattr(class_info, "is_main_activity", False)
-            )
-
-            # Add to repository
-            repository.add_class(class_data)
-
-            # Add methods to class
-            for method in class_info.methods:
-                from rv_android_core.domain.coverage import MethodCoverageData
-                method_data = MethodCoverageData(
-                    class_name=class_name,
-                    method_name=method.name,
-                    signature=method.signature,
-                    parameters=getattr(method, "params", []),
-                    reachable=method.reachable,
-                    reaches_mop=method.reaches_mop,
-                    directly_reaches_mop=method.directly_reaches_mop,
-                    from_static_analysis=True
-                )
-                class_data.add_method(method_data)
-
-    except Exception as e:
-        logging.getLogger(__name__).error(f"Error initializing from static data: {e}", exc_info=True)
+# Legacy function removed - now using centralized initialize_repository_from_static_data
 
 
 def stream_logcat_entries(log_file: str) -> Generator[Dict[str, Any], None, None]:

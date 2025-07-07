@@ -124,11 +124,14 @@ class AbstractTool(ABC):
         3. Handle command timeouts and convert to tool timeouts
         4. Perform process cleanup and resource management
         5. Handle any errors that occur during execution
+        6. Log success only if no exceptions occurred
         
         Args:
             task: Task configuration and context
             app: Application under test
         """
+        execution_successful = False
+        
         try:
             self.logger.info(f"Executing monitored operations tool: {self.name}")
             self.logger.debug(f"Tool description: {self.description}")
@@ -139,6 +142,8 @@ class AbstractTool(ABC):
             # Cleanup related processes
             self.kill_related_processes(self.process_pattern)
 
+            # Mark execution as successful only if we reach this point
+            execution_successful = True
             self.logger.info(f"Tool {self.name} execution completed successfully")
 
         except RVCommandTimeoutError as e:

@@ -10,6 +10,7 @@ from rv_android_core.domain.coverage import LogcatRepository
 from rv_android_core.domain.static import StaticAnalysisData
 from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
 from rv_android_core.util.logging.manager import LoggingManager
+from rv_android_core.util.repository_initializer import initialize_repository_from_static_data
 from rv_android_core.event.bus import EventBus, EventType
 from rv_coverage.parser.log.logcat_parser import parse_logcat_line
 
@@ -153,37 +154,11 @@ class CoverageTracker:
         try:
             self.logger.info("Initializing coverage tracker from static analysis data")
 
-            # Process classes from static data
-            classes = self.static_data.classes
-            for class_name, class_info in classes.classes.items():
-                # Create class in repository
-                from rv_android_core.domain.coverage import ClassCoverageData
-                class_data = ClassCoverageData(
-                    name=class_name,
-                    is_activity=class_info.is_activity,
-                    is_main_activity=getattr(class_info, "is_main_activity", False)
-                )
-
-                # Add to repository directly - no wrapper layer needed
-                self.repository.add_class(class_data)
-
-                # Add methods to class
-                for method in class_info.methods:
-                    from rv_android_core.domain.coverage import MethodCoverageData
-                    method_data = MethodCoverageData(
-                        class_name=class_name,
-                        method_name=method.name,
-                        signature=method.signature,
-                        parameters=getattr(method, "params", []),
-                        reachable=method.reachable,
-                        reaches_mop=method.reaches_mop,
-                        directly_reaches_mop=method.directly_reaches_mop,
-                        from_static_analysis=True
-                    )
-                    class_data.add_method(method_data)
+            # Use centralized repository initializer to eliminate code duplication
+            initialize_repository_from_static_data(self.repository, self.static_data, self.__class__.__name__)
 
             # Log summary of initialized data
-            total_methods = sum(len(class_info.methods) for class_info in classes.classes.values())
+            total_methods = sum(len(class_info.methods) for class_info in self.static_data.classes.classes.values())
             self.logger.info(
                 f"Initialized repository with {len(self.repository.classes)} classes "
                 f"and {total_methods} methods from static data"

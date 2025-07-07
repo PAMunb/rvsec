@@ -184,7 +184,9 @@ class ExecutionController:
                 # Execute through rv-platform
                 results = self.platform.run()
                 
-                # Transfer tasks from rv-platform to rv-experiment TaskStorage
+                # TEMPORARY ARCHITECTURAL COMPROMISE: Transfer tasks from rv-platform to rv-experiment
+                # This violates intended architecture but is necessary until CSV generation 
+                # is implemented directly in rv-platform
                 self._transfer_platform_tasks_to_experiment()
                 
                 # Track execution results
@@ -275,6 +277,11 @@ class ExecutionController:
     def _transfer_platform_tasks_to_experiment(self) -> None:
         """
         Transfer completed tasks from rv-platform to rv-experiment TaskStorage.
+        
+        ### TEMPORARY ARCHITECTURAL COMPROMISE:
+        This method represents a temporary violation of the intended architecture
+        where rv-platform should handle its own result processing. This transfer
+        is necessary until CSV generation is implemented directly in rv-platform.
         
         ### Integration Strategy:
         - Retrieves task objects directly from rv-platform (no serialization)

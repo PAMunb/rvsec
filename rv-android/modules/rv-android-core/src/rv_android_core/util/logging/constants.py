@@ -8,6 +8,13 @@ TASK_START = 27
 TASK_END = 28
 ERROR = 40  # Same as logging.ERROR
 
+# Standard log level names (strings)
+LOG_LEVEL_DEBUG = "DEBUG"
+LOG_LEVEL_INFO = "INFO" 
+LOG_LEVEL_WARNING = "WARNING"
+LOG_LEVEL_ERROR = "ERROR"
+LOG_LEVEL_CRITICAL = "CRITICAL"
+
 # Register custom log levels with logging module
 logging.addLevelName(EXPERIMENT_START, "EXPERIMENT_START")
 logging.addLevelName(EXPERIMENT_END, "EXPERIMENT_END")

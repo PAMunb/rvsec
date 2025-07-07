@@ -9,7 +9,7 @@ import os
 from pathlib import Path
 from typing import Optional, Dict, Any
 
-from rv_android_core.constants import ENV_RVSEC_HOME, ENV_ANDROID_HOME, ENV_RT_JAR
+from rv_android_core.constants import ENV_RVSEC_HOME, ENV_ANDROID_HOME, ENV_RT_JAR, EXTENSION_APK
 from rv_android_core.util.exceptions import RVAndroidError, ConfigurationError
 from rv_android_core.util.validation import BaseValidatedModel
 from pydantic import Field
@@ -360,7 +360,7 @@ class RVStaticAnalysisConfig(BaseValidatedModel):
         if not os.path.isfile(apk_path):
             raise ConfigurationError(f"APK file does not exist: {apk_path}")
 
-        if not apk_path.lower().endswith('.apk'):
+        if not apk_path.lower().endswith(EXTENSION_APK):
             raise ConfigurationError(f"File is not an APK: {apk_path}")
 
     def get_tool_command(self, tool_name: str, apk_path: str, output_file: str, **kwargs) -> list:

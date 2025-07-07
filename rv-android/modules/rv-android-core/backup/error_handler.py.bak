@@ -432,11 +432,8 @@ class ErrorHandler:
                     
                     if handled:
                         handler._logger.debug(f"Error handled by decorator in {func.__name__}")
-                        # Check if we should re-raise even after successful handling
-                        if reraise:
-                            raise  # Re-raise even though handled when reraise=True
-                        else:
-                            return None  # Suppress exception when reraise=False
+                        # Don't re-raise if handled successfully
+                        return None
                     elif reraise:
                         raise  # Not handled but reraise requested
                     else:
@@ -496,37 +493,11 @@ class ErrorHandler:
         return True  # Successfully handled - timeouts are expected
     
     def _handle_tool_execution_error(self, error: RVToolExecutionError, context: Optional[Dict[str, Any]] = None) -> bool:
-        """
-        Handle tool execution errors with context logging.
-        
-        Processes RVToolExecutionError instances by logging error details
-        and context information. Returns True to indicate successful handling
-        and prevent "No handler successfully processed" messages.
-        
-        Args:
-            error: RVToolExecutionError instance with execution failure details
-            context: Optional context dictionary with additional error information
-            
-        Returns:
-            True indicating error was processed successfully
-        """
-        # Extract essential context for debugging
-        tool_name = getattr(error, 'tool_name', context.get('tool_name', 'unknown') if context else 'unknown')
-        error_type = type(error).__name__
-        exit_code = getattr(error, 'exit_code', None)
-        
-        # Log with essential context - balance between simplicity and useful debugging info
-        self._logger.error(
-            f"Tool execution failed: {error.message}",
-            extra={
-                'tool_name': tool_name,
-                'error_type': error_type,
-                'exit_code': exit_code
-            }
-        )
-        
-        # Return True to indicate successful error handling
-        return True
+        """Handle tool execution errors with enhanced context."""
+        self._logger.error(f"Tool execution failed: {error.message}")
+        if hasattr(error, 'tool_name') and error.tool_name:
+            self._logger.error(f"Tool: {error.tool_name}")
+        return False  # Don't handle - let it propagate for task failure
     
     def _handle_tool_error(self, error: RVToolError, context: Optional[Dict[str, Any]] = None) -> bool:
         """Handle tool-related errors with enhanced context."""
@@ -720,17 +691,17 @@ class ErrorHandler:
         Returns:
             True to handle gracefully and prevent execution
         """
-        self._logger.warning(f"Circuit breaker protection activated: {error.message}")
+        self.logger.warning(f"Circuit breaker protection activated: {error.message}")
         if hasattr(error, 'command_signature') and error.command_signature:
-            self._logger.warning(f"Blocked command: {error.command_signature}")
+            self.logger.warning(f"Blocked command: {error.command_signature}")
         if hasattr(error, 'failure_count') and error.failure_count:
-            self._logger.warning(f"Previous failures: {error.failure_count}")
+            self.logger.warning(f"Previous failures: {error.failure_count}")
         
         # Log context if available
         if context:
             component = context.get('component', 'unknown')
             tool_name = context.get('tool_name', 'unknown')
-            self._logger.warning(f"Tool: {tool_name}, Component: {component}")
+            self.logger.warning(f"Tool: {tool_name}, Component: {component}")
         
         return True  # Handle gracefully - circuit breaker is protective behavior
 

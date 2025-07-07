@@ -8,13 +8,14 @@ The RV-Platform module provides a standalone execution engine for Android testin
 
 ### Key Features
 
-- **Component-Based Architecture**: Modular design with specialized components for emulator management, logcat capture, coverage tracking, and tool execution
-- **Task Management**: Task lifecycle management with state tracking, persistence, and error recovery
-- **Tool Integration**: Integration with rv-tools registry supporting multiple testing frameworks
-- **Static Analysis Integration**: Copying and loading of static analysis files for coverage calculation
+- **Independent Task Execution**: Executes testing tasks independently with configurable tools
+- **Logcat Processing**: Parses logcat files for coverage data and monitored operations errors
+- **Result File Generation**: Generates and saves CSV/JSON result files directly to storage
+- **Coverage Calculation**: Calculates coverage metrics via CoverageTracker integration
+- **Component-Based Architecture**: Modular design with specialized components for emulator, logcat, coverage, and tool execution
+- **Static Analysis Integration**: Loads pre-generated static analysis files for coverage calculation
 - **Emulator Management**: Fresh emulator instances per task with lifecycle management
-- **Result Collection**: Collection of logcat, tool outputs, coverage metrics, and error data
-- **CLI Interface**: Command-line interface with configuration templates and validation
+- **CLI Interface**: Standalone command-line interface for independent execution
 
 ## Architecture
 
@@ -41,8 +42,33 @@ The RV-Platform module provides a standalone execution engine for Android testin
 
 - **rv-android-core**: Uses ErrorHandler decorators, LoggingManager, EventBus, and domain models
 - **rv-tools**: Integration with tool registry for tool discovery, creation, and execution coordination
-- **rv-static-analysis**: Integration for static analysis file processing and coverage calculation
+- **rv-static-analysis**: Loads pre-generated static analysis files for coverage calculation
 - **rv-coverage**: Integration for coverage tracking, metrics calculation, and result reporting
+
+### Architectural Responsibilities
+
+#### Task Execution Engine
+- **Independent Execution**: Execute tasks provided by external orchestrators (like rv-experiment)
+- **Tool Coordination**: Coordinate testing tool execution with configurable parameters
+- **Emulator Management**: Manage fresh emulator instances per task for isolation
+- **Environment Setup**: Set up testing environment with APK installation and static analysis
+
+#### Data Processing and Analysis
+- **Logcat Processing**: Parse logcat files for coverage data and monitored operations violations
+- **Coverage Calculation**: Calculate progressive coverage metrics during task execution
+- **Error Detection**: Detect and categorize monitored operations errors from logcat data
+- **Metrics Aggregation**: Aggregate coverage and error metrics for analysis
+
+#### Result Generation and Storage
+- **CSV Generation**: Generate detailed coverage.csv and errors.csv files
+- **JSON Generation**: Generate comprehensive results.json and summary files
+- **Direct Storage**: Save result files directly to storage without intermediate processing
+- **Performance Data**: Collect and export performance metrics and execution data
+
+#### CLI and Configuration
+- **Standalone CLI**: Provide independent command-line interface for direct execution
+- **Configuration Management**: Manage platform-specific configuration and validation
+- **Template Generation**: Generate configuration templates for different scenarios
 
 ## Installation
 
@@ -296,19 +322,37 @@ results = platform.run()
 
 ### Integration with rv-experiment
 
+RV-Platform functions as an independent execution engine that rv-experiment coordinates with:
+
 ```python
-# rv-platform as execution engine for rv-experiment
+# rv-experiment orchestrates the complete workflow
 from rv_platform.platform import Platform
 from rv_experiment.config import ExperimentConfig
 
-# rv-experiment creates platform configuration
+# rv-experiment handles pre-processing
 experiment_config = ExperimentConfig.from_file("experiment.json")
+experiment_config.instrument_apks()          # rv-experiment responsibility
+experiment_config.generate_static_analysis() # rv-experiment responsibility
+experiment_config.generate_monitors()        # rv-experiment responsibility
+
+# rv-experiment creates platform configuration for task execution
 platform_config = experiment_config.get_platform_config()
 
-# rv-platform handles execution
+# rv-platform handles independent task execution
 platform = Platform(platform_config)
-results = platform.run()
+results = platform.run()  # Includes logcat processing, CSV/JSON generation
+
+# rv-experiment handles post-processing
+experiment_config.process_results(results)   # rv-experiment responsibility
+experiment_config.generate_summaries()       # rv-experiment responsibility
 ```
+
+### Architectural Separation
+
+- **rv-experiment**: Orchestrates lifecycle, instruments APKs, generates static analysis
+- **rv-platform**: Executes tasks, processes logcat, generates result files
+- **No data transfer**: rv-experiment calls rv-platform, doesn't transfer processed data
+- **Independent operation**: rv-platform can function without rv-experiment
 
 ## Architecture Guidelines
 

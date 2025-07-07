@@ -17,6 +17,11 @@ EXTENSION_GATOR = ".wtg"
 EXECUTION_MEMORY_FILENAME = "execution_memory.json"
 RESULTS_FILENAME = "results_analysis.json"
 
+# Export formats
+FORMAT_JSON = "JSON"
+FORMAT_CSV = "CSV"
+FORMAT_XML = "XML"
+
 # COLUMNS (reports, results)
 
 # Quantidade total de activities (no apk)

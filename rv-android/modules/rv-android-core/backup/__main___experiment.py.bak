@@ -324,20 +324,6 @@ def cli(ctx: CLIContext, debug: bool):
               help='Run static analysis on APKs (default: enabled)')
 @click.option('--output-dir', type=click.Path(),
               help='Output directory for experiment results (default: auto-generated)')
-@click.option('--disable-performance-monitor', is_flag=True,
-              help='Disable performance monitoring to reduce overhead')
-@click.option('--performance-monitor-level',
-              type=click.Choice(['DEBUG', 'INFO', 'WARNING', 'ERROR', 'DISABLED']),
-              default='DEBUG',
-              help='Performance monitor logging level (default: DEBUG)')
-@click.option('--performance-monitor-max-samples', type=int, default=1000,
-              help='Maximum number of metrics to store in memory (default: 1000)')
-@click.option('--performance-export-enabled', is_flag=True,
-              help='Enable performance metrics export to file')
-@click.option('--performance-export-format',
-              type=click.Choice(['JSON', 'CSV']),
-              default='JSON',
-              help='Format for performance metrics export (default: JSON)')
 @pass_context
 @ErrorHandler.handle_errors(
     component="CLIContext",
@@ -346,9 +332,7 @@ def cli(ctx: CLIContext, debug: bool):
 def run(ctx: CLIContext, tools: str, config: Optional[str], timeout: int, repetitions: int,
         apks_dir: str, specification_set: str, custom_specs_dir: Optional[str],
         custom_aspects_dir: Optional[str], generate_monitors: bool, instrument_apks: bool, 
-        static_analysis: bool, output_dir: Optional[str], disable_performance_monitor: bool,
-        performance_monitor_level: str, performance_monitor_max_samples: int,
-        performance_export_enabled: bool, performance_export_format: str):
+        static_analysis: bool, output_dir: Optional[str]):
     """
     Execute experiment with modern tool specification parsing and configuration support.
     
@@ -411,10 +395,7 @@ def run(ctx: CLIContext, tools: str, config: Optional[str], timeout: int, repeti
                 experiment_config = _create_experiment_config_from_cli(
                     ctx, tools, timeout, repetitions, apks_dir,
                     specification_set, custom_specs_dir, custom_aspects_dir, 
-                    generate_monitors, instrument_apks, static_analysis, output_dir,
-                    disable_performance_monitor, performance_monitor_level,
-                    performance_monitor_max_samples, performance_export_enabled,
-                    performance_export_format
+                    generate_monitors, instrument_apks, static_analysis, output_dir
                 )
             
             # Validate configuration before execution
@@ -733,9 +714,7 @@ def _create_experiment_config_from_cli(ctx: CLIContext, tools: str, timeout: int
                                      specification_set: str, custom_specs_dir: Optional[str],
                                      custom_aspects_dir: Optional[str], generate_monitors: bool, 
                                      instrument_apks: bool, static_analysis: bool, 
-                                     output_dir: Optional[str], disable_performance_monitor: bool,
-                                     performance_monitor_level: str, performance_monitor_max_samples: int,
-                                     performance_export_enabled: bool, performance_export_format: str) -> ExperimentConfig:
+                                     output_dir: Optional[str]) -> ExperimentConfig:
     """
     Create ExperimentConfig from CLI arguments with comprehensive tool parsing.
     

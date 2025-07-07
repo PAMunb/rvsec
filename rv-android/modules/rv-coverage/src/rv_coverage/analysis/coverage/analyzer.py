@@ -13,6 +13,7 @@ from rv_android_core.domain.coverage import LogcatRepository
 from rv_android_core.domain.log import RvCoverageLog, RvErrorLog
 from rv_android_core.domain.static import StaticAnalysisData
 from rv_android_core.util.error.error_handler import ErrorHandler
+from rv_android_core.util.repository_initializer import initialize_repository_from_static_data
 
 
 class CoverageCalculationMode(Enum):
@@ -97,50 +98,19 @@ class CoverageAnalyzer(BaseAnalyzer[Dict[str, Any]]):
     @ErrorHandler.handle_errors(component="CoverageAnalyzer", phase="static_data_initialization")
     def _initialize_from_static_data(self) -> None:
         """Initialize repository from static analysis data."""
-        # Example: Using decorator for cleaner error handling pattern
         self.logger.info("Initializing analyzer from static analysis data")
 
-        # Repository is now direct LogcatRepository - no wrapper needed
-        core_repo = self.repository
-
-        # Process classes from static data
-        classes = self.static_data.classes
-
-        for class_name, class_info in classes.classes.items():
-            # Create class in repository
-            from rv_android_core.domain.coverage import ClassCoverageData
-            class_data = ClassCoverageData(
-                name=class_name,
-                is_activity=class_info.is_activity,
-                is_main_activity=getattr(class_info, "is_main_activity", False)
-            )
-
-            # Add to repository
-            core_repo.add_class(class_data)
-
-            # Add methods to class
-            for method in class_info.methods:
-                from rv_android_core.domain.coverage import MethodCoverageData
-                method_data = MethodCoverageData(
-                    class_name=class_name,
-                    method_name=method.name,
-                    signature=method.signature,
-                    parameters=getattr(method, "params", []),
-                    reachable=method.reachable,
-                    reaches_mop=method.reaches_mop,
-                    directly_reaches_mop=method.directly_reaches_mop,
-                    from_static_analysis=True
-                )
-                class_data.add_method(method_data)
+        # Use centralized repository initializer to eliminate code duplication
+        initialize_repository_from_static_data(self.repository, self.static_data, self.__class__.__name__)
 
         # Log summary
-        total_methods = sum(len(class_info.methods) for class_info in classes.classes.values())
+        total_methods = sum(len(class_info.methods) for class_info in self.static_data.classes.classes.values())
         self.log_processing_summary(
             "methods from static data",
             total_methods
         )
         self.logger.info(
-            f"Initialized analyzer with {len(core_repo.classes)} classes and "
+            f"Initialized analyzer with {len(self.repository.classes)} classes and "
             f"{total_methods} methods from static data"
         )
     

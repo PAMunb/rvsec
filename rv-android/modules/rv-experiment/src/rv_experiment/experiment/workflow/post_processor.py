@@ -3,7 +3,6 @@
 Post-processor component for RV-Android experiments.
 Handles analysis of experiment results.
 """
-import json
 import os
 
 from rv_android_core.util.error.error_handler import ErrorHandler
@@ -78,41 +77,26 @@ class PostProcessor:
 
     def _process_coverage_data(self):
         """
-        Process coverage data from experiment execution.
-        Generates a standardized coverage report.
+        Delegate coverage data processing to ResultManager.
+        Focuses on experiment-level coordination only.
         """
         with self.logger.with_context(phase="process_coverage"):
-            self.logger.info(LOG_START.format(phase="coverage processing"))
+            self.logger.info(LOG_START.format(phase="coverage processing delegation"))
 
-            # Get coverage report from execution controller
-            if self.execution_controller:
-                coverage_report = self.execution_controller.get_coverage_report()
+            # Delegate to ResultManager instead of duplicating logic
+            if self.result_manager:
+                self.logger.info("Delegating coverage processing to ResultManager")
+                # ResultManager will handle all coverage processing in generate_reports()
+                # No duplicated logic here
             else:
-                # Fall back to creating an empty report structure
-                coverage_report = {
-                    "tasks": {},
-                    "summary": {
-                        "total_tasks": 0,
-                        "completed_tasks": 0,
-                        "avg_method_coverage": 0,
-                        "avg_activities_coverage": 0,
-                        "avg_mop_coverage": 0,
-                        "total_errors": 0
-                    }
-                }
+                self.logger.warning("No ResultManager available - coverage processing skipped")
 
-            # Save coverage report to file
-            report_path = os.path.join(self.results_dir, "coverage_report.json")
-            with open(report_path, 'w') as f:
-                json.dump(coverage_report, f, indent=2)
+            self.logger.info(LOG_COMPLETE.format(phase="coverage processing delegation"))
 
-            self.logger.info(f"Coverage report saved to {report_path}")
-            self.logger.info(LOG_COMPLETE.format(phase="coverage processing"))
-
-            # Publish coverage report generated event
+            # Publish delegation complete event
             self.event_bus.publish_analysis_event(
                 EventType.COVERAGE_UPDATED,
-                data={"report_path": report_path},
+                data={"delegated_to": "ResultManager"},
                 source="PostProcessor"
             )
 

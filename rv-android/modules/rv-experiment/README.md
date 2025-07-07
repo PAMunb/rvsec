@@ -1,19 +1,21 @@
 # RV-Experiment Module
 
-Simple CLI-based experiment orchestration system for monitored operations testing in Android applications.
+Experiment orchestration system for monitored operations testing in Android applications with comprehensive lifecycle management.
 
 ## Overview
 
-The RV-Experiment module provides a simplified CLI interface for executing monitored operations experiments in the RV-Android ecosystem. It offers direct experiment execution, configuration management, and result coordination while supporting both JCA cryptography and generic programming pattern specifications.
+The RV-Experiment module serves as the orchestrator for monitored operations experiments in the RV-Android ecosystem. It manages the complete experiment lifecycle including APK instrumentation, static analysis generation, experiment configuration, and coordination with rv-platform for task execution. The module focuses on high-level experiment management while delegating task execution to rv-platform.
 
 ### Key Features
 
-- **CLI Interface**: Four core commands (run, config, list-tools, validate) with direct execution
-- **Tool Specification DSL**: tool:variant@parameter format parsing
-- **Configuration Templates**: Pre-built templates for different experiment scenarios  
-- **Direct Execution**: Execution via execute_with_config()
+- **Experiment Orchestration**: Complete lifecycle management from pre-processing to result analysis
+- **APK Instrumentation**: Instruments APKs for runtime verification and monitoring
+- **Static Analysis Generation**: Generates static analysis files for consumption by rv-platform
+- **Configuration Management**: Comprehensive experiment configuration with validation and templates
+- **RV-Platform Coordination**: Coordinates with rv-platform for task execution without data transfer
+- **Result Interface**: Provides interfaces for result analysis and experiment summaries
 - **Monitored Operations**: Support for JCA crypto and generic specification monitoring
-- **Tool Integration**: Integration with rv-tools registry and all testing tools
+- **CLI Interface**: Four core commands (run, config, list-tools, validate)
 
 ## Architecture
 
@@ -52,11 +54,31 @@ The RV-Experiment module provides a simplified CLI interface for executing monit
 ### Integration Points
 
 - **rv-android-core**: Uses ErrorHandler decorators, LoggingManager for consistent error handling and logging
-- **rv-tools**: Direct registry integration for tool discovery, creation, and execution
-- **rv-static-analysis**: Configuration for static analysis tools integration
-- **rv-coverage**: Configuration for coverage tracking and analysis
-- **rv-monitor-generator**: Configuration for monitor generation
-- **rv-instrumentation**: Configuration for APK instrumentation
+- **rv-platform**: Coordinates task execution by calling rv-platform with configured tasks
+- **rv-static-analysis**: Generates static analysis files for rv-platform consumption
+- **rv-instrumentation**: Instruments APKs and generates monitored operations artifacts
+- **rv-monitor-generator**: Generates monitoring specifications for runtime verification
+- **rv-coverage**: Provides coverage configuration for rv-platform components
+
+### Architectural Responsibilities
+
+#### Pre-processing Phase
+- **APK Instrumentation**: Instrument APKs using rv-instrumentation with monitored operations
+- **Static Analysis**: Generate static analysis files (GATOR, GESDA, REACH) for coverage calculation
+- **Monitor Generation**: Create monitor specifications using rv-monitor-generator
+- **Configuration Validation**: Validate experiment configuration and prepare execution parameters
+
+#### Execution Coordination Phase
+- **Task Generation**: Create task configurations for rv-platform execution
+- **RV-Platform Coordination**: Coordinate with rv-platform for independent task execution
+- **Progress Monitoring**: Monitor experiment progress through event bus integration
+- **Error Management**: Handle experiment-level errors and orchestration issues
+
+#### Post-processing Phase
+- **Result Collection**: Collect and organize results from rv-platform execution
+- **Summary Generation**: Generate experiment summaries and metadata
+- **Interface Provision**: Provide interfaces for result analysis and reporting
+- **Instrumentation Error Reporting**: Report APK instrumentation and orchestration errors
 
 ## Installation
 
