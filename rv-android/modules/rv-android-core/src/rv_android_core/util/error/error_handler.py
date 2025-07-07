@@ -755,15 +755,22 @@ class ErrorHandler:
         error_type = type(error).__name__
         
         # Don't handle validation errors - let them propagate to tests/callers
-        from pydantic_core import ValidationError as PydanticValidationError
-        critical_error_types = (
+        critical_error_types = [
             ValueError,
-            PydanticValidationError,
             ConfigurationError,
             RVValidationError,
             CommandValidationError,
             LogcatValidationError
-        )
+        ]
+        
+        # Add PydanticValidationError if available
+        try:
+            from pydantic_core import ValidationError as PydanticValidationError
+            critical_error_types.append(PydanticValidationError)
+        except ImportError:
+            pass  # pydantic_core not available
+        
+        critical_error_types = tuple(critical_error_types)
         
         if isinstance(error, critical_error_types):
             self._logger.debug(f"Not handling {error_type} - allowing propagation")

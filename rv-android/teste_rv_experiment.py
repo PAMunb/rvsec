@@ -211,7 +211,7 @@ def tmp_experiment_controller():
 
         # Create configuration for actual execution
         config = ExperimentConfig(
-            name="eee",
+            name="fff",
             # description="Integration test with actual execution",
             tool_configs=tools,
             repetitions=1,
