@@ -76,7 +76,7 @@ The RV-Experiment module serves as the orchestrator for monitored operations exp
 
 #### Post-processing Phase
 - **Experiment Diagnostics**: Generate experiment-level diagnostics and completion tracking
-- **Instrumentation Error Reporting**: Track and report APK instrumentation errors
+- **Instrumentation Error Reporting**: Generate instrument_errors.json during pre-processing phase
 - **Basic Metadata**: Provide basic experiment metadata for logging and coordination
 - **Result Interface**: Coordinate with rv-platform for comprehensive result processing
 

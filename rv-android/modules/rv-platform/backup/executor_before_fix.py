@@ -29,7 +29,6 @@ from rv_android_core.event import (
 )
 from rv_android_core.domain.task import Task, TaskState
 from rv_android_core.tools.abstract_tool import AbstractTool
-from rv_platform.storage.task_storage import TaskStorage
 
 
 @log_execution(logger_prefix="platform.task_executor", component_name="TaskExecutor")
@@ -55,7 +54,6 @@ class TaskExecutor:
                  task: Task,
                  tool: AbstractTool,
                  event_bus: Optional[EventBus] = None,
-                 task_storage: Optional[TaskStorage] = None,
                  error_handler: Optional[ErrorHandler] = None):
         """
         Initialize with a task and tool.
@@ -64,13 +62,11 @@ class TaskExecutor:
             task: Task to execute
             tool: Tool implementation to use
             event_bus: Optional event bus for notifications
-            task_storage: Optional task storage for persistence
             error_handler: Optional error handler
         """
         self.task = task
         self.tool = tool
         self.event_bus = event_bus or EventBus.get_instance()
-        self.task_storage = task_storage
         self.error_handler = error_handler or ErrorHandler.get_instance()
 
         # Initialize logging

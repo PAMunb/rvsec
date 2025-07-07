@@ -62,9 +62,9 @@ def mock_config(tmp_path):
 
 
 @pytest.fixture
-def execution_controller(mock_task_storage, mock_config, mock_event_bus):
+def execution_controller(mock_config, mock_event_bus):
     """Create an ExecutionController instance for testing."""
-    return ExecutionController(mock_task_storage, mock_config, mock_event_bus)
+    return ExecutionController(mock_config, mock_event_bus)
 
 
 def test_setup_creates_platform_config(execution_controller, mock_app):
@@ -84,7 +84,8 @@ def test_setup_creates_platform_config(execution_controller, mock_app):
             apks=[mock_app],
             repetitions=repetitions,
             timeouts=timeouts,
-            tools=tools
+            tools=tools,
+            results_dir="/tmp/test_results"
         )
 
         # Verify platform configuration was created
@@ -110,7 +111,8 @@ def test_setup_preserves_existing_tasks(execution_controller, mock_app):
             apks=[mock_app],
             repetitions=repetitions,
             timeouts=timeouts,
-            tools=tools
+            tools=tools,
+            results_dir="/tmp/test_results"
         )
 
         # Just verify setup completes without error
@@ -123,9 +125,9 @@ def test_run_calls_platform_run(execution_controller):
     mock_platform = MagicMock()
     # Platform.run() should return a dict with execution results
     mock_platform.run.return_value = {
-        'success': True,
-        'failed_tasks': 0,
-        'completed_tasks': 5
+        'total_tasks': 5,
+        'successful_tasks': 4,
+        'failed_tasks': 1
     }
     execution_controller.platform = mock_platform
     execution_controller.platform_config = MagicMock()  # Simulate setup was called
@@ -136,8 +138,8 @@ def test_run_calls_platform_run(execution_controller):
     # Assert platform.run was called once
     mock_platform.run.assert_called_once()
 
-    # Assert the result is True
-    assert result is True
+    # Assert the result is False (since failed_tasks > 0)
+    assert result is False
 
 
 
@@ -146,50 +148,32 @@ def test_get_statistics(execution_controller):
     """Test retrieving execution statistics."""
     # Setup mock platform
     mock_platform = MagicMock()
-    mock_platform_stats = {
-        'total': 10,
-        'completed': 5,
-        'failed': 2,
-        'pending': 3,
-        'running': False
-    }
-    mock_platform.get_execution_summary.return_value = mock_platform_stats
     execution_controller.platform = mock_platform
+    execution_controller.platform_config = MagicMock()
+    execution_controller.platform_config.results_dir = "/tmp/test_results"
 
     # Call get_statistics
     stats = execution_controller.get_statistics()
 
-    # Verify the method was called
-    mock_platform.get_execution_summary.assert_called_once()
-    
-    # Verify the returned stats include platform stats and experiment metadata
+    # Verify the returned stats include basic metadata
     assert 'execution_method' in stats
     assert stats['execution_method'] == 'rv_platform_integration'
-    assert stats['total'] == 10
-    assert stats['completed'] == 5
+    assert 'platform_results_dir' in stats
 
 
 def test_get_coverage_report(execution_controller):
     """Test retrieving coverage report."""
     # Setup mock platform
     mock_platform = MagicMock()
-    mock_platform_stats = {
-        'total_tasks': 10,
-        'completed_tasks': 5,
-        'avg_method_coverage': 60.0,
-        'avg_activities_coverage': 50.0,
-        'total_errors': 2
-    }
-    mock_platform.get_execution_summary.return_value = mock_platform_stats
     execution_controller.platform = mock_platform
+    execution_controller.platform_config = MagicMock()
+    execution_controller.platform_config.results_dir = "/tmp/test_results"
+    execution_controller.has_errors = False
 
     # Call get_coverage_report
     coverage_report = execution_controller.get_coverage_report()
 
-    # Verify the method was called
-    mock_platform.get_execution_summary.assert_called_once()
-    
     # Verify the returned report structure
     assert coverage_report['coverage_source'] == 'rv_platform_integration'
     assert coverage_report['has_coverage_data'] is True
-    assert coverage_report['execution_summary'] == mock_platform_stats
+    assert coverage_report['results_location'] == "/tmp/test_results"

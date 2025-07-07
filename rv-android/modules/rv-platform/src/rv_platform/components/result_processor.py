@@ -9,6 +9,7 @@ output files for analysis and research purposes.
 import csv
 import json
 import os
+import time
 from datetime import datetime
 from typing import Dict, Any, List, Optional
 
@@ -108,7 +109,7 @@ class ResultProcessorComponent:
             self._generate_errors_csv(completed_tasks)
             self._generate_summary_csv(completed_tasks)
             self._generate_results_json(completed_tasks)
-            self._generate_instrument_errors_json(completed_tasks)
+            self._generate_performance_csv(completed_tasks)
 
             self.logger.info(LOG_COMPLETE.format(phase="experiment result processing"))
 
@@ -535,32 +536,73 @@ class ResultProcessorComponent:
             self.logger.warning(f"Failed to extract data for task {task.id}: {e}")
             return {"summary": {}, "monitored_operations_errors": {"total": 0, "messages": [], "details": []}}
 
-    @ErrorHandler.handle_errors(component="ResultProcessorComponent", phase="instrument_errors_json_generation")
-    def _generate_instrument_errors_json(self, completed_tasks: List[Any]) -> None:
+
+    @ErrorHandler.handle_errors(component="ResultProcessorComponent", phase="performance_csv_generation")
+    def _generate_performance_csv(self, completed_tasks: List[Any]) -> None:
         """
-        Generate instrumentation errors JSON file if any errors occurred.
+        Generate performance CSV file using PerformanceProcessorComponent.
         
         Args:
             completed_tasks: List of completed tasks to process
         """
-        with self.logger.with_context(phase="instrument_errors_json_generation"):
-            self.logger.info(LOG_START.format(phase="instrumentation errors JSON generation"))
+        with self.logger.with_context(phase="performance_csv_generation"):
+            self.logger.info(LOG_START.format(phase="performance CSV generation"))
 
-            # Collect instrumentation errors
-            instrument_errors = {}
+            try:
+                # Import and use performance processor
+                from rv_platform.components.performance_processor import PerformanceProcessorComponent
+                
+                # Create performance processor
+                performance_processor = PerformanceProcessorComponent(completed_tasks, self.results_dir)
+                
+                # Initialize and execute performance processing
+                performance_processor.initialize({})
+                performance_processor.execute({})
+                performance_processor.cleanup()
+                
+                # Get performance summary for logging
+                summary = performance_processor.get_performance_summary()
+                self.logger.info(f"Performance processing completed: {summary.get('summary', 'Unknown status')}")
+
+            except Exception as e:
+                self.logger.warning(f"Performance CSV generation failed: {e}")
+                # Create empty performance file as fallback
+                self._create_empty_performance_csv()
+
+            self.logger.info(LOG_COMPLETE.format(phase="performance CSV generation"))
+
+    def _create_empty_performance_csv(self) -> None:
+        """
+        Create an empty performance CSV file as fallback.
+        """
+        try:
+            performance_file = os.path.join(self.results_dir, "performance.csv")
             
-            for task in completed_tasks:
-                if hasattr(task.result, 'instrument_errors') and task.result.instrument_errors:
-                    apk_name = task.config.apk_name
-                    instrument_errors[apk_name] = task.result.instrument_errors
-
-            # Create file with errors or empty object
-            errors_file = os.path.join(self.results_dir, "instrument_errors.json")
+            with open(performance_file, 'w', newline='', encoding='utf-8') as f:
+                writer = csv.writer(f)
+                writer.writerow([
+                    'apk', 'rep', 'timeout', 'tool', 'execution_time_seconds', 
+                    'task_state', 'monitoring_enabled', 'timestamp'
+                ])
+                
+                # Write basic data for each completed task
+                for task in self.tasks:
+                    try:
+                        config = task.config
+                        writer.writerow([
+                            config.apk_name,
+                            config.repetition,
+                            config.timeout,
+                            config.tool_name,
+                            getattr(task.result, 'execution_time_seconds', 0),
+                            getattr(task.result, 'state', 'unknown'),
+                            False,  # monitoring was disabled/failed
+                            time.time()
+                        ])
+                    except Exception:
+                        pass  # Skip problematic tasks
+                        
+            self.logger.info(f"Empty performance CSV created: {performance_file}")
             
-            with open(errors_file, 'w', encoding='utf-8') as f:
-                json.dump(instrument_errors, f, indent=2, ensure_ascii=False)
-
-            if instrument_errors:
-                self.logger.info(f"Instrumentation errors JSON generated: {errors_file}")
-            else:
-                self.logger.info("No instrumentation errors found - empty file created")
+        except Exception as e:
+            self.logger.error(f"Failed to create empty performance CSV: {e}")

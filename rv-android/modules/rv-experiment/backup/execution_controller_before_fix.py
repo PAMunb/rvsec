@@ -180,8 +180,11 @@ class ExecutionController:
         Returns:
             PlatformConfig configured for experiment execution
         """
-        # Use provided results directory (should be the experiment results directory)
-        platform_results_dir = results_dir
+        # Use provided results directory or experiment output
+        if results_dir:
+            platform_results_dir = results_dir
+        else:
+            platform_results_dir = self.config.output_dir
 
         # Use instrumented APKs directory from experiment output_dir
         apks_dir = os.path.join(self.config.output_dir, INSTRUMENTED_APKS_DIR)

@@ -8,7 +8,7 @@ The RV-Platform module provides a standalone execution engine for Android testin
 
 ### Key Features
 
-- **Independent Task Execution**: Executes testing tasks independently with configurable tools
+- **Independent Task Execution**: Executes testing tasks independently with configurable tools (works with any APK)
 - **Logcat Processing**: Parses logcat files for coverage data and monitored operations errors
 - **Result Processing**: Processes completed experiment tasks to generate standardized CSV and JSON output files
 - **Coverage Calculation**: Calculates coverage metrics via CoverageTracker integration
@@ -34,6 +34,7 @@ The RV-Platform module provides a standalone execution engine for Android testin
 - **StaticAnalysisComponent**: Static analysis file copying from instrumented directory and data loading
 - **ToolExecutionComponent**: Tool execution coordination with configuration and error handling
 - **ResultProcessorComponent**: Result processing to generate CSV and JSON output files from completed tasks
+- **PerformanceProcessorComponent**: Performance metrics processing to generate performance.csv files
 
 #### Configuration Management
 - **PlatformConfig**: Configuration class with validation, tool configuration, and execution parameters
@@ -62,8 +63,9 @@ The RV-Platform module provides a standalone execution engine for Android testin
 
 #### Result Generation and Storage
 - **Result Processing**: Process completed tasks to generate CSV and JSON output files
-- **CSV Generation**: Generate detailed coverage.csv, errors.csv, and summary.csv files
-- **JSON Generation**: Generate comprehensive results.json and instrumentation errors files
+- **CSV Generation**: Generate detailed coverage.csv, errors.csv, summary.csv, and performance.csv files
+- **JSON Generation**: Generate comprehensive results.json files with experiment data
+- **Performance Metrics**: Generate performance.csv with detailed metrics when monitoring is enabled
 - **Standalone Processing**: Reprocess existing experiment results without re-execution
 - **Performance Data**: Collect and export performance metrics and execution data
 

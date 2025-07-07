@@ -59,19 +59,11 @@ class ExperimentController:
         self.config = config
         self.experiment_id = experiment_id or datetime.now().strftime("%Y%m%d_%H%M%S")
         
-        # Setup results directory using proper naming logic
-        # Use config.results_dir as base directory (defaults to "./results")
-        results_base_dir = config.results_dir or "./results"
-        
-        if config.name and config.name.strip():
-            # Use experiment name if specified
-            experiment_folder = config.name.strip()
-        else:
-            # Use timestamp-based name as fallback
-            experiment_folder = f"experiment_{self.experiment_id}"
-        
-        # Create full results directory path
-        self.results_dir = os.path.join(results_base_dir, experiment_folder)
+        # Setup results directory
+        self.results_dir = os.path.join(
+            config.output_dir, 
+            f"experiment_{self.experiment_id}"
+        )
         os.makedirs(self.results_dir, exist_ok=True)
 
         # Initialize logging and error handling

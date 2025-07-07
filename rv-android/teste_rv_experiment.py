@@ -205,17 +205,17 @@ def tmp_experiment_controller():
         from rv_android_core.event import EventBus
 
         tools = [
-            # ToolConfig(name="monkey", parameters={"count": 100}),
-            ToolConfig(name="ape")
+            ToolConfig(name="monkey"), #, parameters={"count": 100}),
+            # ToolConfig(name="ape")
         ]
 
         # Create configuration for actual execution
         config = ExperimentConfig(
-            name="hhh",
+            name="eee",
             # description="Integration test with actual execution",
             tool_configs=tools,
             repetitions=1,
-            timeouts=[30],  # Short timeout for quick test
+            timeouts=[60],  # Short timeout for quick test
             specification_set="custom",  # Use custom specs from specs_mini
             apks_dir="./apks_examples/"
         )
@@ -225,7 +225,7 @@ def tmp_experiment_controller():
         config.generate_monitors = True
         config.instrument_apks = True
         config.run_static_analysis = True
-        config.no_window = True  # Headless mode for testing
+        config.no_window = True
         
         # Create event bus
         event_bus = EventBus.get_instance()

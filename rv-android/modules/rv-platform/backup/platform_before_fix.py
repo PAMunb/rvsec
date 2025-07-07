@@ -6,7 +6,6 @@ This module provides the primary interface for executing Android experiments
 through the rv-platform system.
 """
 
-import os
 from typing import List, Dict, Any, Optional
 from pathlib import Path
 
@@ -24,7 +23,6 @@ from rv_platform.components.logcat import LogcatComponent
 from rv_platform.components.coverage import CoverageComponent
 from rv_platform.components.static_analysis import StaticAnalysisComponent
 from rv_platform.components.result_processor import ResultProcessorComponent
-from rv_platform.storage.task_storage import TaskStorage
 
 
 class Platform:
@@ -65,15 +63,8 @@ class Platform:
         # Error handler
         self.error_handler = ErrorHandler.get_instance()
         
-        # Task management with persistent storage
+        # Task management
         self.task_factory = TaskFactory(Task)
-        
-        # Initialize TaskStorage for persistent task tracking
-        tasks_file = os.path.join(config.results_dir, "tasks.json")
-        self.task_storage = TaskStorage(tasks_file, self.task_factory)
-        self.task_storage.load()
-        
-        # Tasks list for in-memory operations
         self.tasks: List[Task] = []
         
         # Tool factory
@@ -187,8 +178,8 @@ class Platform:
                 # Load tool
                 tool = self._load_tool(task.config.tool_name)
                 
-                # Create task executor with TaskStorage
-                executor = TaskExecutor(task, tool, self.event_bus, self.task_storage)
+                # Create task executor
+                executor = TaskExecutor(task, tool, self.event_bus)
                 
                 # Register all essential components in execution order
                 components = [
@@ -204,9 +195,6 @@ class Platform:
                 
                 # Execute task
                 success = executor.execute()
-                
-                # Save task to persistent storage
-                self.task_storage.update_task(task)
                 
                 # Collect result
                 result = {
@@ -229,9 +217,6 @@ class Platform:
                 
                 self.logger.error(f"Task execution failed: {error_message}")
                 task.update_state(task.result.state.__class__.ERROR, error_message)
-                
-                # Save failed task to persistent storage
-                self.task_storage.update_task(task)
                 
                 result = {
                     "task_id": task.id,

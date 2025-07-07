@@ -59,7 +59,8 @@ class TestTaskExecutor:
 
     def test_executor_initialization(self, task_with_app, mock_tool, mock_event_bus, mock_error_handler):
         """Test that TaskExecutor initializes correctly"""
-        executor = TaskExecutor(task_with_app, mock_tool, mock_event_bus, mock_error_handler)
+        # Updated signature: task, tool, event_bus, task_storage, error_handler
+        executor = TaskExecutor(task_with_app, mock_tool, mock_event_bus, None, mock_error_handler)
 
         assert executor.task == task_with_app
         assert executor.tool == mock_tool
