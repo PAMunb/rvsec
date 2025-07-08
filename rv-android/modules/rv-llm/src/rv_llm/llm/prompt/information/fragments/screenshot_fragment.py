@@ -34,7 +34,7 @@ from typing import Any, Dict, Optional
 from rv_android_core.util.error.error_handler import ErrorHandler
 from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
 from rv_android_core.util.logging.manager import LoggingManager
-from rv_android_core.util.exceptions import RVParsingError
+from rv_android_core.util.error.exceptions import RVParsingError
 from rv_screen_parser.parser.screen.visitor.model import ScreenItem
 
 from rv_llm.llm.constants import StateEntry

@@ -6,14 +6,13 @@ that defines the core contract for all testing tools in the RV-Android framework
 """
 
 import pytest
-from unittest.mock import Mock, patch, MagicMock, call
-from abc import ABC
+from unittest.mock import Mock, patch
 
 from rv_android_core.tools.abstract_tool import AbstractTool
-from rv_android_core.app import App
+from rv_android_core.domain.app import App
 from rv_android_core.commands.command import Command
 from rv_android_core.commands.command_result import CommandResult
-from rv_android_core.util.exceptions import (
+from rv_android_core.util.error.exceptions import (
     RVCommandTimeoutError, RVToolTimeoutError, RVToolExecutionError,
     CircuitBreakerOpenError
 )

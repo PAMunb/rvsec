@@ -238,10 +238,8 @@ class TestRuntimeVerificationGenerator:
 
                 # Verify summary content
                 assert summary['output_directory'] == output_dir
-                assert summary['aspectj_files']['count'] == 2
-                assert summary['monitor_classes']['count'] == 3
-                assert 'purpose' in summary['aspectj_files']
-                assert 'purpose' in summary['monitor_classes']
+                assert summary['aspectj_files'] == 2
+                assert summary['monitor_classes'] == 3
                 assert 'specs_processed' in summary
 
         finally:

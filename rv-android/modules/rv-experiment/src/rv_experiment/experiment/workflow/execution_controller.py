@@ -7,11 +7,11 @@ execution through rv-platform with clean separation of concerns.
 import os
 from typing import List, Dict, Any
 
-from rv_android_core.app import App
+from rv_android_core.domain.app import App
 from rv_android_core.util.error.error_handler import ErrorHandler
 from rv_android_core.util.logging.constants import CONTEXT_COMPONENT, LOG_START, LOG_COMPLETE, LOG_ERROR
 from rv_android_core.util.logging.manager import LoggingManager
-from rv_android_core.util.exceptions import RVExperimentExecutionError
+from rv_android_core.util.error.exceptions import RVExperimentExecutionError
 from rv_android_core.event import EventBus
 from rv_android_core.tools.abstract_tool import AbstractTool
 
@@ -63,7 +63,7 @@ class ExecutionController:
         self.logging_manager = LoggingManager.get_instance()
         self.error_handler = ErrorHandler.get_instance()
         self.logger = self.logging_manager.get_logger(
-            'rv_experiment.execution_controller',
+            'rv_experiment.experiment.workflow.execution_controller',
             {CONTEXT_COMPONENT: 'ExecutionController'}
         )
 

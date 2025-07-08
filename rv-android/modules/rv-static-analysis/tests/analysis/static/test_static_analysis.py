@@ -16,7 +16,7 @@ from rv_static_analysis.analysis.static.static_analysis import (
     StaticAnalysisException
 )
 from rv_static_analysis.config import RVStaticAnalysisConfig
-from rv_android_core.app import App
+from rv_android_core.domain.app import App
 from rv_android_core.commands.command import Command
 from rv_android_core.commands.command_result import CommandResult
 

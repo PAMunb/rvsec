@@ -15,7 +15,7 @@ from rv_android_core.domain.classes import Classes
 from rv_android_core.domain.static import StaticAnalysisData
 from rv_android_core.domain.window import Windows
 from rv_android_core.domain.wtg import WindowTransitionGraph
-from rv_android_core.util.exceptions import RVParsingError
+from rv_android_core.util.error.exceptions import RVParsingError
 from rv_screen_parser.parser.screen.droidbot.droidbot_parser import DroidBotParser
 from rv_screen_parser.parser.screen.visitor.basic_visitor import BasicTextVisitor
 from rv_screen_parser.parser.screen.visitor.model import Node, ScreenDescription

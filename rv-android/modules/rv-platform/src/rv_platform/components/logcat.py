@@ -7,8 +7,8 @@ Manages logcat capture and filtering during task execution.
 
 from typing import Optional, Dict, Any
 
-from rv_android_core.util.exceptions import AnalysisError
-from rv_android_core.util.logcat_manager import LogcatManager
+from rv_android_core.util.error.exceptions import AnalysisError
+from rv_android_core.util.android.logcat_manager import LogcatManager
 from rv_android_core.util.logging.constants import (
     CONTEXT_TASK_ID, 
     CONTEXT_APP_NAME, 
@@ -49,7 +49,7 @@ class LogcatComponent:
         # Initialize logging with task context
         logging_manager = LoggingManager.get_instance()
         self.logger = logging_manager.get_logger(
-            'platform.logcat',
+            'rv_platform.components.logcat',
             {
                 CONTEXT_TASK_ID: task.id,
                 CONTEXT_APP_NAME: task.config.apk_name

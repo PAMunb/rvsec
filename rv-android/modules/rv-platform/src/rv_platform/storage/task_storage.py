@@ -16,11 +16,13 @@ from datetime import datetime
 from typing import Dict, List, Optional
 
 from pydantic import Field
-from rv_android_core.util.validation.base import BaseValidatedModel
-from rv_android_core.util.error.error_handler import ErrorHandler
-from rv_android_core.util.logging.manager import LoggingManager
-from rv_platform.interfaces.task_interfaces import ITaskStorage
+
 from rv_android_core.domain.task import Task, TaskFactory, TaskState
+from rv_android_core.util.error.error_handler import ErrorHandler
+from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
+from rv_android_core.util.logging.manager import LoggingManager
+from rv_android_core.util.validation.base import BaseValidatedModel
+from rv_platform.interfaces.task_interfaces import ITaskStorage
 
 
 class ExperimentMetadata(BaseValidatedModel):
@@ -43,7 +45,7 @@ class ExperimentMetadata(BaseValidatedModel):
     start_time: datetime = Field(description="Experiment start timestamp")
     config_checksum: str = Field(description="SHA-256 checksum of experiment configuration")
     current_status: str = Field(default="running", description="Current experiment status")
-    
+
     @classmethod
     def create_from_config(cls, experiment_id: str, config_dict: Dict) -> 'ExperimentMetadata':
         """
@@ -59,7 +61,7 @@ class ExperimentMetadata(BaseValidatedModel):
         # Calculate config checksum for continuation validation
         config_json = json.dumps(config_dict, sort_keys=True)
         config_checksum = hashlib.sha256(config_json.encode()).hexdigest()
-        
+
         return cls(
             experiment_id=experiment_id,
             start_time=datetime.now(),
@@ -136,8 +138,8 @@ class TaskStorage(ITaskStorage):
     - Provides experiment continuation and recovery capabilities
     """
 
-    def __init__(self, storage_file: str, task_factory: Optional[TaskFactory] = None, 
-                 storage_config: Optional[StorageConfig] = None, 
+    def __init__(self, storage_file: str, task_factory: Optional[TaskFactory] = None,
+                 storage_config: Optional[StorageConfig] = None,
                  experiment_metadata: Optional[ExperimentMetadata] = None):
         """
         Initialize storage with file path and enhanced metadata support.
@@ -155,7 +157,10 @@ class TaskStorage(ITaskStorage):
 
         # Initialize logging
         logging_manager = LoggingManager.get_instance()
-        self.logger = logging_manager.get_logger('experiment.task_storage')
+        self.logger = logging_manager.get_logger(
+            'rv_platform.storage.task_storage',
+            {CONTEXT_COMPONENT: 'TaskStorage'}
+        )
 
         # Task storage
         self.tasks: Dict[str, Task] = {}
@@ -616,28 +621,29 @@ class TaskStorage(ITaskStorage):
         """
         tasks = list(self.tasks.values())
         total_tasks = len(tasks)
-        
+
         if total_tasks == 0:
             return ExperimentStatistics()
-        
+
         # Count tasks by state
         completed_tasks = len([t for t in tasks if t.result.state == TaskState.COMPLETED])
         failed_tasks = len([t for t in tasks if t.result.state == TaskState.ERROR])
-        pending_tasks = len([t for t in tasks if t.result.state not in [TaskState.COMPLETED, TaskState.ERROR, TaskState.CANCELED]])
-        
+        pending_tasks = len(
+            [t for t in tasks if t.result.state not in [TaskState.COMPLETED, TaskState.ERROR, TaskState.CANCELED]])
+
         # Calculate percentages
         completion_percentage = (completed_tasks / total_tasks) * 100.0 if total_tasks > 0 else 0.0
-        
+
         # Calculate execution times
         execution_times = [
-            t.result.execution_time_seconds 
-            for t in tasks 
+            t.result.execution_time_seconds
+            for t in tasks
             if t.result.execution_time_seconds > 0
         ]
-        
+
         total_execution_time = sum(execution_times)
         average_execution_time = total_execution_time / len(execution_times) if execution_times else 0.0
-        
+
         return ExperimentStatistics(
             total_tasks=total_tasks,
             completed_tasks=completed_tasks,
@@ -648,7 +654,7 @@ class TaskStorage(ITaskStorage):
             total_execution_time=total_execution_time,
             last_updated=datetime.now()
         )
-    
+
     def get_statistics(self) -> ExperimentStatistics:
         """
         Get current experiment statistics with caching.
@@ -658,18 +664,18 @@ class TaskStorage(ITaskStorage):
         """
         with self.lock:
             now = datetime.now()
-            
+
             # Use cache if recent (within 10 seconds)
-            if (self._statistics_cache and self._statistics_cache_time and 
-                (now - self._statistics_cache_time).total_seconds() < 10):
+            if (self._statistics_cache and self._statistics_cache_time and
+                    (now - self._statistics_cache_time).total_seconds() < 10):
                 return self._statistics_cache
-            
+
             # Calculate fresh statistics
             self._statistics_cache = self._calculate_statistics()
             self._statistics_cache_time = now
-            
+
             return self._statistics_cache
-    
+
     def set_experiment_metadata(self, metadata: ExperimentMetadata) -> None:
         """
         Set experiment metadata for the storage.
@@ -680,7 +686,7 @@ class TaskStorage(ITaskStorage):
         with self.lock:
             self.experiment_metadata = metadata
             self.logger.debug(f"Set experiment metadata for {metadata.experiment_id}")
-    
+
     def get_experiment_metadata(self) -> Optional[ExperimentMetadata]:
         """
         Get current experiment metadata.
@@ -689,7 +695,7 @@ class TaskStorage(ITaskStorage):
             ExperimentMetadata if available, None otherwise
         """
         return self.experiment_metadata
-    
+
     def update_experiment_status(self, status: str) -> None:
         """
         Update experiment status in metadata.
@@ -703,7 +709,7 @@ class TaskStorage(ITaskStorage):
                 if self.storage_config.auto_save:
                     self.save()
                 self.logger.debug(f"Updated experiment status to: {status}")
-    
+
     def check_continuation_compatibility(self, config_dict: Dict) -> bool:
         """
         Check if experiment can be continued with given configuration.
@@ -716,19 +722,19 @@ class TaskStorage(ITaskStorage):
         """
         if not self.experiment_metadata:
             return False
-        
+
         # Calculate checksum of new configuration
         config_json = json.dumps(config_dict, sort_keys=True)
         new_checksum = hashlib.sha256(config_json.encode()).hexdigest()
-        
+
         # Compare with stored checksum
         compatible = new_checksum == self.experiment_metadata.config_checksum
-        
+
         if not compatible:
             self.logger.warning(
                 f"Configuration mismatch detected. "
                 f"Stored: {self.experiment_metadata.config_checksum[:8]}..., "
                 f"New: {new_checksum[:8]}..."
             )
-        
+
         return compatible

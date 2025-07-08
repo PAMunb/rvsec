@@ -5,16 +5,17 @@ This module provides robust configuration handling for the monitor generation pi
 supporting flexible deployment scenarios and comprehensive validation.
 """
 
-import os
 import glob
+import os
 import subprocess
-from typing import Optional, Dict, Any
 from pathlib import Path
+from typing import Optional, Dict, Any
+
+from pydantic import Field
 
 import rv_android_core.constants as constants
-from rv_android_core.util.validation import BaseValidatedModel, validated_model
-from rv_android_core.util.exceptions import RVAndroidError
-from pydantic import Field, field_validator
+from rv_android_core.util.error.exceptions import RVAndroidError
+from rv_android_core.util.validation import BaseValidatedModel
 
 
 class ConfigurationError(RVAndroidError):
@@ -51,7 +52,7 @@ class RVGeneratorConfig(BaseValidatedModel):
     3. ENV_RVSEC_HOME environment variable with relative path resolution
     4. Configuration error if no valid source is available
     """
-    
+
     javamop_bin: Optional[str] = Field(
         default=None,
         description="Path to JavaMOP binary executable"
@@ -106,7 +107,7 @@ class RVGeneratorConfig(BaseValidatedModel):
         # Priority 1: Check if all critical individual paths are explicitly provided
         # Note: mop_specs_dir is always required as it determines monitored operations type
         tool_paths = [self.javamop_bin, self.rvmonitor_bin]
-        
+
         if all(path is not None for path in tool_paths) and self.mop_specs_dir is not None:
             # All critical paths explicitly provided - highest priority resolution
             # aspects_dir will use default if not provided
@@ -114,10 +115,10 @@ class RVGeneratorConfig(BaseValidatedModel):
                 # Set default aspects_dir relative to mop_specs_dir if not provided
                 self.aspects_dir = os.path.join(os.path.dirname(self.mop_specs_dir), 'aspect')
             return
-        
+
         # Priority 2 & 3: Determine rvsec_root source for automatic path discovery
         resolved_rvsec_root = None
-        
+
         if self.rvsec_root is not None:
             # Priority 2: Explicit rvsec_root provided
             resolved_rvsec_root = self.rvsec_root
@@ -132,9 +133,9 @@ class RVGeneratorConfig(BaseValidatedModel):
                     "Configuration resolution failed. Must provide one of:\n"
                     "1. Individual paths: javamop_bin, rvmonitor_bin, mop_specs_dir\n"
                     "2. rvsec_root parameter for automatic discovery\n"
-                    "3. ENV_RVSEC_HOME environment variable for automatic discovery"
+                    "3. RVSEC_HOME environment variable for automatic discovery"
                 )
-        
+
         # Perform automatic path discovery from resolved rvsec_root
         self._resolve_from_rvsec_root(resolved_rvsec_root)
 
@@ -152,18 +153,17 @@ class RVGeneratorConfig(BaseValidatedModel):
         # Resolve tool binaries using standard RVSEC layout
         if self.javamop_bin is None:
             self.javamop_bin = os.path.join(rvsec_root, "javamop", "bin", "javamop")
-        
+
         if self.rvmonitor_bin is None:
             self.rvmonitor_bin = os.path.join(rvsec_root, "rv-monitor", "bin", "rv-monitor")
-        
+
         # Critical: mop_specs_dir determines the type of monitored operations
         # User must explicitly specify which specification set to use (JCA, generic, custom)
         if self.mop_specs_dir is None:
             # Default to JCA specs for backward compatibility
-            # TODO: Consider making this explicitly required in future versions
             mop_base_dir = os.path.join(rvsec_root, "rvsec", "rvsec-mop", "src", "main", "resources")
             self.mop_specs_dir = os.path.join(mop_base_dir, "jca")
-        
+
         if self.aspects_dir is None:
             # Standard aspects directory location
             mop_base_dir = os.path.join(rvsec_root, "rvsec", "rvsec-mop", "src", "main", "resources")
@@ -189,14 +189,14 @@ class RVGeneratorConfig(BaseValidatedModel):
         # Phase 1: Critical tool binary validation
         self._validate_tool_binary(self.javamop_bin, "JavaMOP")
         self._validate_tool_binary(self.rvmonitor_bin, "RV-Monitor")
-        
+
         # Phase 2: Directory accessibility validation
         self._validate_directory(self.mop_specs_dir, "MOP specifications")
         self._validate_directory(self.aspects_dir, "AspectJ aspects")
-        
+
         # Phase 3: Specification availability validation
         self._validate_mop_specifications()
-        
+
         # Phase 4: Tool functionality validation
         self._validate_tool_functionality()
 
@@ -213,14 +213,14 @@ class RVGeneratorConfig(BaseValidatedModel):
         try:
             # Create directory if it doesn't exist
             Path(output_dir).mkdir(parents=True, exist_ok=True)
-            
+
             # Test write permissions
             test_file = os.path.join(output_dir, '.write_test')
             with open(test_file, 'w') as f:
                 f.write('test')
             os.remove(test_file)
-            
-        except (OSError, PermissionError) as e:
+
+        except OSError as e:
             raise ConfigurationError(f"Cannot write to output directory: {output_dir} - {e}")
 
     def _validate_tool_binary(self, binary_path: str, tool_name: str) -> None:
@@ -236,7 +236,7 @@ class RVGeneratorConfig(BaseValidatedModel):
         """
         if not os.path.isfile(binary_path):
             raise ConfigurationError(f"{tool_name} binary not found: {binary_path}")
-        
+
         if not os.access(binary_path, os.X_OK):
             raise ConfigurationError(f"{tool_name} binary not executable: {binary_path}")
 
@@ -253,7 +253,7 @@ class RVGeneratorConfig(BaseValidatedModel):
         """
         if not os.path.isdir(directory_path):
             raise ConfigurationError(f"{directory_purpose} directory not found: {directory_path}")
-        
+
         if not os.access(directory_path, os.R_OK):
             raise ConfigurationError(f"{directory_purpose} directory not readable: {directory_path}")
 
@@ -286,8 +286,8 @@ class RVGeneratorConfig(BaseValidatedModel):
         # Test JavaMOP functionality
         try:
             result = subprocess.run(
-                [self.javamop_bin, '-h'], 
-                capture_output=True, 
+                [self.javamop_bin, '-h'],
+                capture_output=True,
                 timeout=10,
                 text=True
             )
@@ -296,12 +296,12 @@ class RVGeneratorConfig(BaseValidatedModel):
                 raise ConfigurationError(f"JavaMOP produced no output: {self.javamop_bin}")
         except (subprocess.TimeoutExpired, FileNotFoundError) as e:
             raise ConfigurationError(f"JavaMOP functionality test failed: {self.javamop_bin}\nError: {e}")
-        
+
         # Test RV-Monitor functionality
         try:
             result = subprocess.run(
-                [self.rvmonitor_bin, '-h'], 
-                capture_output=True, 
+                [self.rvmonitor_bin, '-h'],
+                capture_output=True,
                 timeout=10,
                 text=True
             )
@@ -319,7 +319,7 @@ class RVGeneratorConfig(BaseValidatedModel):
             Dict containing detailed configuration information for logging and debugging
         """
         mop_files = glob.glob(os.path.join(self.mop_specs_dir, f"*{constants.EXTENSION_MOP}"))
-        
+
         return {
             'tools': {
                 'javamop_bin': self.javamop_bin,
@@ -332,7 +332,7 @@ class RVGeneratorConfig(BaseValidatedModel):
             'specifications': {
                 'count': len(mop_files),
                 'files': [os.path.basename(f) for f in mop_files],
-                'type': 'JCA' if 'jca' in self.mop_specs_dir.lower() else 'Generic/Custom'
+                'path': self.mop_specs_dir
             },
             'validation_status': 'Validated'
         }
@@ -344,7 +344,6 @@ class RVGeneratorConfig(BaseValidatedModel):
             f"  JavaMOP: {self.javamop_bin}\n"
             f"  RV-Monitor: {self.rvmonitor_bin}\n"
             f"  Specifications: {self.mop_specs_dir}\n"
-            f"  Aspects: {self.aspects_dir}\n"
-            f"  Status: Validated\n"
+            f"  Aspects: {self.aspects_dir}"
             f")"
         )

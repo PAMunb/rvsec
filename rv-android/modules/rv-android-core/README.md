@@ -117,7 +117,7 @@ export RV_PYDANTIC=false
 
 ```python
 from rv_android_core.util.error.error_handler import ErrorHandler
-from rv_android_core.util.exceptions import RVToolError
+from rv_android_core.util.error.exceptions import RVToolError
 
 # Get singleton instance
 error_handler = ErrorHandler.get_instance()
@@ -128,11 +128,13 @@ with error_handler.error_context(component="MyComponent", operation="test_operat
     if something_wrong:
         raise RVToolError("Tool execution failed", tool_name="droidbot")
 
+
 # Using decorator
 @ErrorHandler.handle_errors(component="Parser", phase="parsing")
 def parse_data(data):
     # Errors automatically handled with context
     pass
+
 
 # Manual error handling with context
 try:
@@ -140,7 +142,7 @@ try:
 except Exception as e:
     context = error_handler.create_context(
         component="TestRunner",
-        phase="execution", 
+        phase="execution",
         task_id="123"
     )
     error_handler.handle_error(e, context)
@@ -206,7 +208,7 @@ def execute_tool(self, task):
 ### Domain Models
 
 ```python
-from rv_android_core.app import App
+from rv_android_core.domain.app import App
 from rv_android_core.domain.coverage import CoverageMetrics
 from rv_android_core.domain.static import StaticAnalysisData
 from rv_android_core.commands.command_result import CommandResult
@@ -219,26 +221,26 @@ print(f"Size: {app.size_mb} MB")
 
 # Coverage tracking
 coverage = CoverageMetrics(
-    total_methods=1000,
-    called_methods=750,
-    total_activities=25,
-    visited_activities=20
+  total_methods=1000,
+  called_methods=750,
+  total_activities=25,
+  visited_activities=20
 )
 print(f"Method coverage: {coverage.method_coverage}%")
 
 # Static analysis integration
 static_data = StaticAnalysisData.from_files(
-    gesda_file="app.gesda",
-    gator_file="app.wtg",
-    reach_file="app.reach"
+  gesda_file="app.gesda",
+  gator_file="app.wtg",
+  reach_file="app.reach"
 )
 
 # Command execution with validation
 result = CommandResult(
-    exit_code=0,
-    stdout=b"Command output",
-    stderr=None,
-    execution_time=1.5
+  exit_code=0,
+  stdout=b"Command output",
+  stderr=None,
+  execution_time=1.5
 )
 print(f"Output: {result.get_stdout_text()}")
 ```
@@ -356,7 +358,8 @@ When a circuit breaker activates, the testing framework can implement fallback s
 
 ```python
 from rv_android_core.commands.circuit_breaker import CommandCircuitBreaker, CircuitBreakerState
-from rv_android_core.util.exceptions import CircuitBreakerOpenError
+from rv_android_core.util.error.exceptions import CircuitBreakerOpenError
+
 
 # Circuit breaker is automatically integrated in AbstractTool
 # Custom configuration (optional)
@@ -365,7 +368,7 @@ class CustomTool(AbstractTool):
         super().__init__(name="custom", description="Custom tool", process_pattern="custom")
         # Override default circuit breaker settings
         self.circuit_breaker = CommandCircuitBreaker(failure_threshold=5, retry_count=2)
-    
+
     def execute_tool_specific_logic(self, task, app):
         try:
             # Commands automatically protected by circuit breaker

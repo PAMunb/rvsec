@@ -1,17 +1,17 @@
 import glob
 import os
-import subprocess
 from pathlib import Path
 from typing import Optional, Dict, Any
 
 from pydantic import Field, field_validator, computed_field
+
 from rv_android_core import constants
+from rv_android_core.util.error.error_handler import ErrorHandler
+from rv_android_core.util.error.exceptions import ConfigurationError
+from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
+from rv_android_core.util.logging.manager import LoggingManager
 from rv_android_core.util.validation.base import BaseValidatedModel
 from rv_android_core.util.validation.decorators import validated_model
-from rv_android_core.util.exceptions import ConfigurationError
-from rv_android_core.util.error.error_handler import ErrorHandler
-from rv_android_core.util.logging.manager import LoggingManager
-from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
 
 
 class Dex2jarTools(BaseValidatedModel):
@@ -35,11 +35,11 @@ class Dex2jarTools(BaseValidatedModel):
     - asm_verify: JAR structural verification utility
     - apk_sign: APK signing tool for deployment preparation
     """
-    
+
     dex2jar: str = Field(..., description="Path to dex2jar executable for DEX conversion")
     asm_verify: str = Field(..., description="Path to ASM verify tool for JAR validation")
     apk_sign: str = Field(..., description="Path to APK signing tool for deployment")
-    
+
     @field_validator('dex2jar', 'asm_verify', 'apk_sign')
     @classmethod
     def validate_tool_exists(cls, v: str) -> str:
@@ -57,10 +57,10 @@ class Dex2jarTools(BaseValidatedModel):
         """
         if not os.path.exists(v):
             raise ValueError(f"dex2jar tool not found: {v}")
-        
+
         if not os.access(v, os.R_OK | os.X_OK):
             raise ValueError(f"dex2jar tool not executable: {v}")
-        
+
         return v
 
 
@@ -80,7 +80,7 @@ class ConfigurationSummary(BaseValidatedModel):
     - Supports automated configuration analysis and verification
     - Facilitates troubleshooting of instrumentation pipeline setup
     """
-    
+
     android_integration: Dict[str, str] = Field(..., description="Android SDK integration configuration")
     instrumentation_paths: Dict[str, str] = Field(..., description="Instrumentation directory paths")
     temporary_directories: Dict[str, str] = Field(..., description="Temporary processing directories")
@@ -106,7 +106,7 @@ class InstrumentationError(BaseValidatedModel):
     - Supports automated error recovery and retry strategies
     - Provides consistent error interface for experiment orchestration
     """
-    
+
     code: int = Field(..., description="Numeric error code for programmatic handling")
     tool: Optional[str] = Field(default=None, description="Name of tool that failed during execution")
     message: str = Field(..., description="Human-readable error description")
@@ -129,14 +129,14 @@ class InstrumentationResults(BaseValidatedModel):
     - Enables automated quality assessment of instrumentation operations
     - Supports debugging and optimization of instrumentation workflows
     """
-    
+
     errors: Dict[str, InstrumentationError] = Field(
-        default_factory=dict, 
+        default_factory=dict,
         description="Detailed error information keyed by APK name"
     )
     success_count: int = Field(default=0, ge=0, description="Number of successfully instrumented APKs")
     total_count: int = Field(default=0, ge=0, description="Total number of APKs processed")
-    
+
     @computed_field
     @property
     def success_rate(self) -> float:
@@ -197,59 +197,59 @@ class RVInstrumentationConfig(BaseValidatedModel):
 
     # Core paths
     rvsec_root: Optional[str] = Field(
-        default=None, 
+        default=None,
         description="Root directory of RVSEC installation for path discovery"
     )
     monitor_output_dir: Optional[str] = Field(
-        default=None, 
+        default=None,
         description="Directory containing generated monitor artifacts from rv-monitor-generator"
     )
     working_dir: Optional[str] = Field(
-        default=None, 
+        default=None,
         description="Base working directory for instrumentation operations"
     )
 
     # Android SDK paths
     android_jar_path: Optional[str] = Field(
-        default=None, 
+        default=None,
         description="Path to Android SDK android.jar file for APK processing"
     )
     android_platforms_dir: Optional[str] = Field(
-        default=None, 
+        default=None,
         description="Android SDK platforms directory for API compatibility"
     )
 
     # Output directories
     instrumented_dir: Optional[str] = Field(
-        default=None, 
+        default=None,
         description="Output directory for instrumented APK artifacts"
     )
     tmp_dir: Optional[str] = Field(
-        default=None, 
+        default=None,
         description="Temporary directory for intermediate processing files"
     )
     lib_tmp_dir: Optional[str] = Field(
-        default=None, 
+        default=None,
         description="Temporary directory for library extraction and processing"
     )
     rvm_tmp_dir: Optional[str] = Field(
-        default=None, 
+        default=None,
         description="Temporary directory for runtime verification monitor processing"
     )
 
     # Signing configuration
     keystore_file: Optional[str] = Field(
-        default=None, 
+        default=None,
         description="Path to keystore file for APK signing"
     )
     keystore_password: Optional[str] = Field(
-        default=None, 
+        default=None,
         description="Password for keystore access"
     )
 
     # Tools
     dex2jar_home: Optional[str] = Field(
-        default=None, 
+        default=None,
         description="Directory containing dex2jar tool suite"
     )
 
@@ -266,17 +266,17 @@ class RVInstrumentationConfig(BaseValidatedModel):
         """
         # Store original values before calling super().__init__
         original_rvsec_root = data.get('rvsec_root')
-        
+
         # Call parent constructor first to set up Pydantic model
         super().__init__(**data)
-        
+
         # Set up logging
         logging_manager = LoggingManager.get_instance()
         self._logger = logging_manager.get_logger(
             'rv_instrumentation.config.RVInstrumentationConfig',
             {CONTEXT_COMPONENT: 'RVInstrumentationConfig'}
         )
-        
+
         # Resolve paths based on priority
         self._resolve_paths(original_rvsec_root)
 
@@ -590,7 +590,7 @@ class RVInstrumentationConfig(BaseValidatedModel):
         for directory in directories_to_create:
             try:
                 Path(directory).mkdir(parents=True, exist_ok=True)
-            except (OSError, PermissionError) as e:
+            except OSError as e:
                 raise ConfigurationError(f"Cannot create directory: {directory} - {e}")
 
     def get_dex2jar_tools(self) -> Dex2jarTools:

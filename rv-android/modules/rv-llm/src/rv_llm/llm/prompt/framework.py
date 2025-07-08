@@ -28,7 +28,7 @@ the prompt generation process through factory patterns, with direct component in
 from typing import Any, Dict, List, Optional
 
 from rv_android_core.util.error.error_handler import ErrorHandler
-from rv_android_core.util.exceptions import RVLLMError, RVPromptError
+from rv_android_core.util.error.exceptions import RVPromptError
 from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
 from rv_android_core.util.logging.manager import LoggingManager
 # from rv_llm import LLMConfig

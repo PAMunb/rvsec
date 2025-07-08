@@ -121,7 +121,7 @@ class TestPublishEventDecorator:
         self.event_bus.publish_async = Mock()
 
         @publish_event(
-            event_type=EventType.ERROR_DETECTED,
+            event_type=EventType.MOP_ERROR_DETECTED,
             async_mode=True,
             event_bus_provider=lambda: self.event_bus
         )
@@ -238,7 +238,7 @@ class TestSubscribeToDecorator:
             return event.source == "important_source"
 
         @subscribe_to(
-            event_types=EventType.ERROR_DETECTED,
+            event_types=EventType.MOP_ERROR_DETECTED,
             filter_fn=filter_by_source,
             event_bus_provider=lambda: self.event_bus
         )
@@ -246,8 +246,8 @@ class TestSubscribeToDecorator:
             self.handled_events.append(event)
 
         # Publish events with different sources
-        event1 = Event(type=EventType.ERROR_DETECTED, source="important_source")
-        event2 = Event(type=EventType.ERROR_DETECTED, source="other_source")
+        event1 = Event(type=EventType.MOP_ERROR_DETECTED, source="important_source")
+        event2 = Event(type=EventType.MOP_ERROR_DETECTED, source="other_source")
         
         self.event_bus.publish(event1)
         self.event_bus.publish(event2)
@@ -379,7 +379,7 @@ class TestDecoratorIntegration:
     def test_decorator_error_handling(self):
         """Test decorator behavior with various error scenarios."""
         @publish_event(
-            event_type=EventType.ERROR_DETECTED,
+            event_type=EventType.MOP_ERROR_DETECTED,
             event_bus_provider=lambda: self.event_bus
         )
         def method_with_none_return():

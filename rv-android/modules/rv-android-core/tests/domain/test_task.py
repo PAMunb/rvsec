@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from rv_android_core.app import App
+from rv_android_core.domain.app import App
 from rv_android_core.domain.task import TaskState, TaskConfiguration, TaskResult, Task
 
 

@@ -8,8 +8,8 @@ and generates CSV files for performance analysis and research purposes.
 
 import csv
 import os
-from typing import Dict, Any, List, Optional
 from datetime import datetime
+from typing import Dict, Any, List
 
 from rv_android_core.util.error.error_handler import ErrorHandler
 from rv_android_core.util.logging.constants import (
@@ -18,7 +18,7 @@ from rv_android_core.util.logging.constants import (
     LOG_COMPLETE
 )
 from rv_android_core.util.logging.manager import LoggingManager
-from rv_android_core.util.performance_monitor import PerformanceMonitor
+from rv_android_core.util.performance.performance_monitor import PerformanceMonitor
 
 
 class PerformanceProcessorComponent:
@@ -63,7 +63,7 @@ class PerformanceProcessorComponent:
         # Initialize logging with component context
         logging_manager = LoggingManager.get_instance()
         self.logger = logging_manager.get_logger(
-            'platform.components.performance_processor',
+            'rv_platform.componentss.performance_processor',
             {CONTEXT_COMPONENT: 'PerformanceProcessorComponent'}
         )
 
@@ -81,7 +81,7 @@ class PerformanceProcessorComponent:
         Args:
             context: Initialization context (unused for this component)
         """
-        self.logger.info(LOG_START.format(phase="performance processor initialization"))
+        # self.logger.info(LOG_START.format(phase="performance processor initialization"))
         # No specific initialization required
         self.logger.info(LOG_COMPLETE.format(phase="performance processor initialization"))
 
@@ -134,16 +134,16 @@ class PerformanceProcessorComponent:
             self.logger.info(LOG_START.format(phase="detailed performance CSV generation"))
 
             performance_file = os.path.join(self.results_dir, "performance.csv")
-            
+
             with open(performance_file, 'w', newline='', encoding='utf-8') as f:
                 writer = csv.writer(f)
-                
+
                 # Write header for detailed performance metrics
                 writer.writerow([
-                    'apk', 'rep', 'timeout', 'tool', 'metric_name', 'metric_value', 
+                    'apk', 'rep', 'timeout', 'tool', 'metric_name', 'metric_value',
                     'metric_unit', 'metric_timestamp', 'task_id', 'context_info'
                 ])
-                
+
                 # Process each completed task
                 for task in self.tasks:
                     self._write_task_performance_data_detailed(writer, task)
@@ -159,16 +159,16 @@ class PerformanceProcessorComponent:
             self.logger.info(LOG_START.format(phase="basic performance CSV generation"))
 
             performance_file = os.path.join(self.results_dir, "performance.csv")
-            
+
             with open(performance_file, 'w', newline='', encoding='utf-8') as f:
                 writer = csv.writer(f)
-                
+
                 # Write header for basic performance metrics
                 writer.writerow([
-                    'apk', 'rep', 'timeout', 'tool', 'execution_time_seconds', 
+                    'apk', 'rep', 'timeout', 'tool', 'execution_time_seconds',
                     'task_state', 'monitoring_enabled', 'timestamp'
                 ])
-                
+
                 # Process each completed task with basic metrics
                 for task in self.tasks:
                     self._write_task_performance_data_basic(writer, task)
@@ -194,18 +194,19 @@ class PerformanceProcessorComponent:
 
             # Get performance metrics from the monitor
             all_metrics = self.performance_monitor.metrics
-            
+
             # Filter metrics that might be related to this task
             # (this is approximate since metrics don't have direct task association)
             task_start_time = getattr(task.result, 'start_time', None)
             task_end_time = getattr(task.result, 'end_time', None)
-            
+
             relevant_metrics = []
             if task_start_time and task_end_time:
                 # Filter metrics by timestamp range
-                start_timestamp = task_start_time.timestamp() if hasattr(task_start_time, 'timestamp') else task_start_time
+                start_timestamp = task_start_time.timestamp() if hasattr(task_start_time,
+                                                                         'timestamp') else task_start_time
                 end_timestamp = task_end_time.timestamp() if hasattr(task_end_time, 'timestamp') else task_end_time
-                
+
                 relevant_metrics = [
                     metric for metric in all_metrics
                     if start_timestamp <= metric.timestamp <= end_timestamp
@@ -218,7 +219,7 @@ class PerformanceProcessorComponent:
             if relevant_metrics:
                 for metric in relevant_metrics:
                     context_info = "|".join([f"{k}:{v}" for k, v in metric.context.items()]) if metric.context else ""
-                    
+
                     writer.writerow([
                         apk_name,
                         repetition,
@@ -268,7 +269,7 @@ class PerformanceProcessorComponent:
             # Get basic execution metrics
             execution_time = getattr(task.result, 'execution_time_seconds', 0)
             task_state = getattr(task.result, 'state', 'unknown')
-            
+
             writer.writerow([
                 apk_name,
                 repetition,
@@ -301,11 +302,11 @@ class PerformanceProcessorComponent:
 
             # Get performance statistics
             total_metrics = len(self.performance_monitor.metrics)
-            
+
             # Calculate some basic statistics
             timing_metrics = [m for m in self.performance_monitor.metrics if m.unit == "s"]
             avg_timing = sum(m.value for m in timing_metrics) / len(timing_metrics) if timing_metrics else 0
-            
+
             return {
                 "monitoring_enabled": True,
                 "total_tasks": len(self.tasks),

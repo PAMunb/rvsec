@@ -14,7 +14,7 @@ from rv_tools.registry.registry import ToolRegistry
 from rv_tools.registry.factory import ToolFactory
 from rv_android_core.commands.circuit_breaker import CommandCircuitBreaker, CircuitBreakerState
 from rv_android_core.commands.command import Command
-from rv_android_core.util.exceptions import CircuitBreakerOpenError, RVToolExecutionError
+from rv_android_core.util.error.exceptions import CircuitBreakerOpenError, RVToolExecutionError
 from rv_android_core.tools.abstract_tool import AbstractTool
 from rv_android_core.tools.tool_spec import ToolSpec
 
@@ -263,8 +263,7 @@ class TestCircuitBreakerIntegration:
         """Test circuit breaker thread safety in tool execution context."""
         import threading
         import time
-        from io import BytesIO
-        
+
         # Arrange
         tool = MockFailingTool()
         tool.circuit_breaker = CommandCircuitBreaker(failure_threshold=5, retry_count=2)

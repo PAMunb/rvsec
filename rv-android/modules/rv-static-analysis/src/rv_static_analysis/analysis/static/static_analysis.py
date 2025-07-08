@@ -18,12 +18,12 @@ from typing import Dict, Any, Optional, List
 from pydantic import Field, field_validator
 
 from rv_android_core.analysis.base_analyzer import BaseAnalyzer
-from rv_android_core.app import App
+from rv_android_core.domain.app import App
 from rv_android_core.commands.command import Command
 from rv_android_core.commands.command_result import CommandResult
 from rv_android_core.domain.static import StaticAnalysisData
 from rv_android_core.util.error.error_handler import ErrorHandler
-from rv_android_core.util.exceptions import RVAndroidError
+from rv_android_core.util.error.exceptions import RVAndroidError
 from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
 from rv_android_core.util.logging.manager import LoggingManager
 from rv_android_core.util.logging.context_adapter import ContextAdapter
@@ -152,9 +152,6 @@ class StaticAnalyzer(BaseValidatedModel, BaseAnalyzer[StaticAnalysisResult]):
         including configuration validation, output directory preparation, and integration
         with centralized error handling and logging infrastructure.
         """
-        # Initialize BaseAnalyzer attributes manually (already set by Pydantic fields)
-        # BaseAnalyzer.__init__(self, "static", None) - not needed, fields are set
-
         # Resolve output directory
         if self.output_dir is None:
             self.output_dir = os.path.join(self.config.output_dir, self.app.package_name)
@@ -236,6 +233,7 @@ class StaticAnalyzer(BaseValidatedModel, BaseAnalyzer[StaticAnalysisResult]):
             'app_package': self.app.package_name,
             'pipeline_stage': 'initialization'
         })
+        self.logger.debug(self.config)
 
         try:
             # Execute analysis pipeline in dependency order
@@ -369,7 +367,7 @@ class StaticAnalyzer(BaseValidatedModel, BaseAnalyzer[StaticAnalysisResult]):
                 })
                 return CommandResult(0, b"", b"")
 
-            self.logger.info("Executing static analysis tool", extra={
+            self.logger.info(f"Executing static analysis tool: {name}", extra={
                 'tool_name': name,
                 'app_name': self.app.name,
                 'command_args': command.args[:3] if len(command.args) > 3 else command.args,  # Truncate for logging
@@ -382,6 +380,7 @@ class StaticAnalyzer(BaseValidatedModel, BaseAnalyzer[StaticAnalysisResult]):
             execution_time = time.time() - start_time
 
             # Store execution performance metrics
+            # TODO usar performance monitor
             self.execution_times[name] = execution_time
 
             # Validate execution results

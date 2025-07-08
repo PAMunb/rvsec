@@ -10,18 +10,7 @@ focusing on the key behaviors:
 - No duplicate handler execution
 """
 
-import threading
-import time
-from unittest.mock import Mock, patch, MagicMock
-from contextlib import contextmanager
-
 import pytest
-
-from rv_android_core.util.error.error_handler import ErrorHandler, error_context
-from rv_android_core.util.exceptions import (
-    RVAndroidError, RVTaskError, RVToolError, RVExperimentError, 
-    RVParsingError, RVLLMError, RVPromptError
-)
 
 
 class TestErrorHandlerRefactored:
@@ -420,20 +409,16 @@ focusing on the key behaviors:
 """
 
 import threading
-import time
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import Mock, patch
 from contextlib import contextmanager
 
 import pytest
 
 from rv_android_core.util.error.error_handler import ErrorHandler, error_context
-from rv_android_core.util.exceptions import (
-    RVAndroidError, RVTaskError, RVToolError, RVExperimentError,
+from rv_android_core.util.error.exceptions import (
+    RVTaskError, RVToolError, RVExperimentError,
     RVParsingError, RVLLMError, RVPromptError,
-    RVToolTimeoutError, RVToolExecutionError, ToolNotFoundError, ToolRegistrationError,
-    ToolVariantError, PluginError, CommandValidationError, LogcatValidationError,
-    EventProcessingError, RVCommandTimeoutError, JarNotFoundError, CircuitBreakerOpenError,
-    ConfigurationError, RVValidationError
+    RVToolExecutionError, ConfigurationError
 )
 
 

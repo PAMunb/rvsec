@@ -275,7 +275,7 @@ class DiagnosticTool:
         """
         try:
             # Import here to avoid circular imports
-            from rv_android_core.util.performance_monitor import PerformanceMonitor
+            from rv_android_core.util.performance.performance_monitor import PerformanceMonitor
 
             # Get performance monitor instance
             monitor = PerformanceMonitor.get_instance()

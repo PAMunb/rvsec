@@ -25,7 +25,7 @@ import cv2
 import numpy as np
 
 from rv_android_core.util.error.error_handler import ErrorHandler
-from rv_android_core.util.exceptions import RVParsingError
+from rv_android_core.util.error.exceptions import RVParsingError
 from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
 from rv_android_core.util.logging.manager import LoggingManager
 

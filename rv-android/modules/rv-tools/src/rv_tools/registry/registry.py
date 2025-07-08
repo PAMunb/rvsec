@@ -10,7 +10,7 @@ from typing import Dict, List, Optional, Any, Type
 from rv_android_core.util.error.error_handler import ErrorHandler
 from rv_android_core.util.logging.manager import LoggingManager
 from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
-from rv_android_core.util.exceptions import ToolNotFoundError, ToolRegistrationError
+from rv_android_core.util.error.exceptions import ToolNotFoundError, ToolRegistrationError
 from rv_android_core.tools.abstract_tool import AbstractTool
 from rv_android_core.tools.tool_spec import ToolSpec
 

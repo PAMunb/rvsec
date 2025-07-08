@@ -6,14 +6,14 @@ entry point for coverage analysis operations in the RV-Android system,
 with support for graceful degradation when static analysis data is not available.
 """
 from typing import Dict, Optional, Any
-from enum import Enum, auto
+from enum import Enum
 
 from rv_android_core.analysis.base_analyzer import BaseAnalyzer
 from rv_android_core.domain.coverage import LogcatRepository
 from rv_android_core.domain.log import RvCoverageLog, RvErrorLog
 from rv_android_core.domain.static import StaticAnalysisData
 from rv_android_core.util.error.error_handler import ErrorHandler
-from rv_android_core.util.repository_initializer import initialize_repository_from_static_data
+from rv_android_core.util.android.repository_initializer import initialize_repository_from_static_data
 
 
 class CoverageCalculationMode(Enum):
@@ -322,7 +322,7 @@ class CoverageAnalyzer(BaseAnalyzer[Dict[str, Any]]):
         Returns:
             Dictionary with coverage results
         """
-        from rv_android_core.parser.log.logcat_parser import parse_logcat_file
+        from rv_coverage.parser.log.logcat_parser import parse_logcat_file
 
         # Parse logcat file
         parsed_repo = parse_logcat_file(logcat_file)

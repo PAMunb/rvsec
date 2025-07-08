@@ -26,7 +26,7 @@ from pydantic import Field, field_validator, model_validator
 
 from rv_android_core.util.validation.base import BaseValidatedModel
 from rv_android_core.util.error.error_handler import ErrorHandler
-from rv_android_core.util.exceptions import RVValidationError
+from rv_android_core.util.error.exceptions import RVValidationError
 from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
 from rv_android_core.util.logging.manager import LoggingManager
 

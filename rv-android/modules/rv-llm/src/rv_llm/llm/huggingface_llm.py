@@ -127,7 +127,7 @@ class HuggingFaceLLM(LanguageModel):
             except Exception as e:
                 error_msg = f"Error loading model: {str(e)}"
                 self.logger.error(error_msg)
-                from rv_android_core.util.exceptions import RVAndroidError
+                from rv_android_core.util.error.exceptions import RVAndroidError
                 error = RVAndroidError(error_msg)
                 self.error_handler.handle_error(error)
                 raise
@@ -161,7 +161,7 @@ class HuggingFaceLLM(LanguageModel):
             except Exception as e:
                 error_msg = f"Error loading tokenizer: {str(e)}"
                 self.logger.error(error_msg)
-                from rv_android_core.util.exceptions import RVAndroidError
+                from rv_android_core.util.error.exceptions import RVAndroidError
                 error = RVAndroidError(error_msg)
                 self.error_handler.handle_error(error)
                 raise
@@ -288,7 +288,7 @@ class HuggingFaceLLM(LanguageModel):
         except Exception as e:
             error_msg = f"Error generating text: {str(e)}"
             self.logger.error(error_msg)
-            from rv_android_core.util.exceptions import RVAndroidError
+            from rv_android_core.util.error.exceptions import RVAndroidError
             error = RVAndroidError(error_msg)
             self.error_handler.handle_error(error)
             raise

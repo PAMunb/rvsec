@@ -302,7 +302,7 @@ def test_circuit_breaker():
     try:
         from rv_android_core.commands.circuit_breaker import CommandCircuitBreaker, CircuitBreakerState
         from rv_android_core.commands.command import Command
-        from rv_android_core.util.exceptions import CircuitBreakerOpenError
+        from rv_android_core.util.error.exceptions import CircuitBreakerOpenError
         
         # Create circuit breaker with low threshold for testing
         circuit_breaker = CommandCircuitBreaker(failure_threshold=2, retry_count=1)
@@ -393,7 +393,7 @@ def test_unified_architecture():
         
         # Teste Command com timeout handling
         from rv_android_core.commands.command import Command
-        from rv_android_core.util.exceptions import RVCommandTimeoutError
+        from rv_android_core.util.error.exceptions import RVCommandTimeoutError
         
         # Comando simples que deve funcionar
         command = Command("echo", ["test"], timeout=30)
@@ -408,7 +408,7 @@ def test_unified_architecture():
             print("✅ ErrorHandler funcionando")
         
         # Teste exceções específicas
-        from rv_android_core.util.exceptions import (
+        from rv_android_core.util.error.exceptions import (
             RVCommandTimeoutError, RVToolTimeoutError, 
             RVToolExecutionError, JarNotFoundError
         )

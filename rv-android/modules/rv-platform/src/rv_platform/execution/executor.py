@@ -11,7 +11,7 @@ from typing import Optional, Dict, Any, List, Callable
 
 from rv_android_core.util.decorators import log_execution
 from rv_android_core.util.error.error_handler import ErrorHandler
-from rv_android_core.util.exceptions import TaskExecutionError
+from rv_android_core.util.error.exceptions import TaskExecutionError
 from rv_android_core.util.logging.constants import (
     CONTEXT_TASK_ID,
     CONTEXT_APP_NAME,
@@ -22,7 +22,7 @@ from rv_android_core.util.logging.constants import (
     LOG_COMPLETE
 )
 from rv_android_core.util.logging.manager import LoggingManager
-from rv_android_core.util.performance_monitor import PerformanceMonitor
+from rv_android_core.util.performance.performance_monitor import PerformanceMonitor
 from rv_android_core.event import (
     EventBus,
     EventType

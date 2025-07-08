@@ -8,13 +8,13 @@ monitored operations testing tools.
 import os
 from abc import ABC, abstractmethod
 
-from rv_android_core.app import App
+from rv_android_core.domain.app import App
 from rv_android_core.commands.circuit_breaker import CommandCircuitBreaker
 from rv_android_core.commands.command import Command
 from rv_android_core.commands.command_result import CommandResult
 from rv_android_core.domain.task import Task
 from rv_android_core.util.error.error_handler import ErrorHandler
-from rv_android_core.util.exceptions import (
+from rv_android_core.util.error.exceptions import (
     RVCommandTimeoutError, RVToolTimeoutError, RVToolExecutionError,
     CircuitBreakerOpenError
 )

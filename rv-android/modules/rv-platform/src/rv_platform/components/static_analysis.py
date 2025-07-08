@@ -9,7 +9,7 @@ import os
 import shutil
 from typing import Dict, Any, Optional
 
-from rv_android_core.util.exceptions import AnalysisError
+from rv_android_core.util.error.exceptions import AnalysisError
 from rv_android_core.util.logging.constants import (
     CONTEXT_TASK_ID, 
     CONTEXT_APP_NAME, 
@@ -53,7 +53,7 @@ class StaticAnalysisComponent:
         # Initialize logging with task context
         logging_manager = LoggingManager.get_instance()
         self.logger = logging_manager.get_logger(
-            'platform.static_analysis',
+            'rv_platform.components.static_analysis',
             {
                 CONTEXT_TASK_ID: task.id,
                 CONTEXT_APP_NAME: task.config.apk_name

@@ -23,7 +23,7 @@ from rv_android_core.util.validation.base import BaseValidatedModel
 from rv_android_core.util.validation.decorators import validated_model
 
 if TYPE_CHECKING:
-    from rv_android_core.app import App
+    from rv_android_core.domain.app import App
 else:
     # Fallback for when full dependencies aren't available
     App = Any

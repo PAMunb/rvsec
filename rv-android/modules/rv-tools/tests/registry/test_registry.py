@@ -6,13 +6,13 @@ and which methods raise exceptions normally.
 """
 
 import pytest
-from unittest.mock import Mock, patch, MagicMock
-from typing import Type, Dict, Any
+from unittest.mock import patch
+from typing import Dict, Any
 
 from rv_tools.registry.registry import ToolRegistry
 from rv_android_core.tools.abstract_tool import AbstractTool
 from rv_android_core.tools.tool_spec import ToolSpec
-from rv_android_core.util.exceptions import ToolNotFoundError, ToolRegistrationError
+from rv_android_core.util.error.exceptions import ToolNotFoundError
 
 
 class MockToolWithSpec(AbstractTool):

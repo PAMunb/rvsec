@@ -12,7 +12,7 @@ import pytest
 
 from rv_android_core.tools.abstract_tool import AbstractTool
 from rv_android_core.tools.tool_spec import ToolSpec
-from rv_android_core.util.exceptions import ToolNotFoundError
+from rv_android_core.util.error.exceptions import ToolNotFoundError
 from rv_tools.registry.factory import ToolFactory
 from rv_tools.registry.registry import ToolRegistry
 

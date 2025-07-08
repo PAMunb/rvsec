@@ -9,13 +9,12 @@ throughout the event system to ensure robust behavior under failure conditions.
 import pytest
 import threading
 import time
-from unittest.mock import Mock, patch, MagicMock
-from datetime import datetime
+from unittest.mock import patch
 
 from rv_android_core.event.bus import EventBus
 from rv_android_core.event.handler import EventHandler, HandlerPriority
 from rv_android_core.event.models import Event, EventType, TaskEvent, ExperimentEvent, AnalysisEvent
-from rv_android_core.util.exceptions import RVAndroidError
+from rv_android_core.util.error.exceptions import RVAndroidError
 
 
 class TestEventBusErrorHandling:
@@ -128,7 +127,7 @@ class TestEventBusErrorHandling:
             self.error_events.append(event)
         
         self.event_bus.subscribe(
-            EventType.ERROR_DETECTED, 
+            EventType.EXPERIMENT_ERROR,
             error_handler,
             channel=EventBus.ERROR_CHANNEL
         )
@@ -147,7 +146,7 @@ class TestEventBusErrorHandling:
         # Verify error event data
         error_event = self.error_events[0]
         assert isinstance(error_event, AnalysisEvent)
-        assert error_event.type == EventType.ERROR_DETECTED
+        assert error_event.type == EventType.EXPERIMENT_ERROR
         assert error_event.related_task_id == "task-123"
         assert error_event.data["error_type"] == "RVAndroidError"
         assert error_event.data["message"] == "RVAndroid error occurred"
@@ -362,7 +361,7 @@ class TestEventModelErrorScenarios:
         # Test with non-dict data - should raise ValidationError with Pydantic
         try:
             event2 = AnalysisEvent(
-                type=EventType.ERROR_DETECTED,
+                type=EventType.MOP_ERROR_DETECTED,
                 data="string_data"
             )
             assert False, "Expected ValidationError for non-dict data"

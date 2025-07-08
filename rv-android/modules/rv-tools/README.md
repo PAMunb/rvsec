@@ -326,7 +326,7 @@ for tool in available_tools:
 The module integrates with rv-android-core error handling:
 
 ```python
-from rv_android_core.util.exceptions import ToolNotFoundError, ToolRegistrationError
+from rv_android_core.util.error.exceptions import ToolNotFoundError, ToolRegistrationError
 
 try:
     tool = registry.get_tool("nonexistent_tool")

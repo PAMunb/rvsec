@@ -5,15 +5,15 @@ import threading
 from datetime import datetime
 from typing import Dict, List, Any, Callable, Optional, Union
 
-from rv_android_core.util.error.error_handler import ErrorHandler
-from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
-from rv_android_core.util.logging.manager import LoggingManager
 from rv_android_core.event.handler import EventHandler, HandlerPriority
 from rv_android_core.event.models import (
-    Event, EventType, CoreEventType, TaskEvent, ExperimentEvent, AnalysisEvent,
+    Event, EventType, TaskEvent, ExperimentEvent, AnalysisEvent,
     TaskToolExecutionEvent, PhaseExecutionModeEvent
 )
-from rv_android_core.util.exceptions import EventProcessingError
+from rv_android_core.util.error.error_handler import ErrorHandler
+from rv_android_core.util.error.exceptions import EventProcessingError
+from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
+from rv_android_core.util.logging.manager import LoggingManager
 
 
 class EventBus:
@@ -102,7 +102,7 @@ class EventBus:
         self.max_history_size = 1000
         self._lock = threading.Lock()
         self._active = True
-        
+
         # Core events filtering configuration
         self.core_events_only = core_events_only
         self.deprecated_event_warnings = True
@@ -590,7 +590,7 @@ class EventBus:
         }
 
         # If it's a known RVAndroid error, include more details
-        from rv_android_core.util.exceptions import RVAndroidError
+        from rv_android_core.util.error.exceptions import RVAndroidError
         if isinstance(error, RVAndroidError):
             error_data["message"] = error.message
             if error.cause:
@@ -601,7 +601,7 @@ class EventBus:
 
         # Publish as analysis event
         return self.publish_analysis_event(
-            event_type=EventType.ERROR_DETECTED,
+            event_type=EventType.EXPERIMENT_ERROR,
             data=error_data,
             related_task_id=task_id,
             source="ErrorHandler",
@@ -707,7 +707,7 @@ class EventBus:
                 core_events.append(event)
             elif self.deprecated_event_warnings:
                 self.logger.warning(f"Non-core event filtered: {event.type.name}")
-        
+
         return core_events
 
     @ErrorHandler.handle_errors(component="EventBus", phase="core_event_publishing")
@@ -726,7 +726,7 @@ class EventBus:
             if self.deprecated_event_warnings:
                 self.logger.warning(f"Non-core event rejected: {event.type.name}")
             return 0
-        
+
         return self.publish(event, channel)
 
     @ErrorHandler.handle_errors(component="EventBus", phase="deprecation_warning")
@@ -739,7 +739,7 @@ class EventBus:
         """
         if not self.deprecated_event_warnings:
             return
-            
+
         core_event = EventType.to_core(event_type)
         if core_event:
             self.logger.warning(
@@ -815,10 +815,10 @@ class EventBus:
         else:
             return self.publish(event, channel)
 
-    @ErrorHandler.handle_errors(component="EventBus", phase="phase_execution_mode_event")  
+    @ErrorHandler.handle_errors(component="EventBus", phase="phase_execution_mode_event")
     def publish_phase_execution_mode_event(self,
                                            phase_name: str,
-                                           execution_mode: str,
+                                           execution_mode: str = "full",
                                            fallback_reason: Optional[str] = None,
                                            artifacts_available: Dict[str, bool] = None,
                                            source: str = None,

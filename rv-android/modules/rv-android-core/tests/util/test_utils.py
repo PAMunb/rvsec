@@ -345,7 +345,7 @@ class TestUtils:
             mock_apk.get_min_sdk_version.return_value = 21
             return mock_apk
 
-        monkeypatch.setattr('rv_android_core.app.APK', mock_apk_init)
+        monkeypatch.setattr('rv_android_core.domain.app.APK', mock_apk_init)
 
         # Retrieve APKs
         apks = utils.get_apks(temp_dir)

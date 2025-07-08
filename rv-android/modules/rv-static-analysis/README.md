@@ -79,7 +79,7 @@ The module uses a priority-based configuration system:
 ```python
 from rv_static_analysis.config import RVStaticAnalysisConfig
 from rv_static_analysis.analysis.static.static_analysis import StaticAnalyzer
-from rv_android_core.app import App
+from rv_android_core.domain.app import App
 
 # Create configuration
 config = RVStaticAnalysisConfig(
@@ -100,7 +100,7 @@ result = analyzer.analyze()
 # Process results
 if result and result.success:
     print("Static analysis completed successfully")
-    
+
     # Get metrics
     metrics = analyzer.get_metrics()
     print(f"Execution times: {result.execution_times}")

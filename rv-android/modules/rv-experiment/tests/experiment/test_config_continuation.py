@@ -3,11 +3,9 @@ import json
 import os
 import tempfile
 from unittest.mock import patch
-from datetime import datetime
 
 import pytest
 
-from rv_android_core.util.exceptions import ConfigurationError
 from rv_experiment.config import ExperimentConfig
 from rv_platform.config.platform_config import ToolConfig
 

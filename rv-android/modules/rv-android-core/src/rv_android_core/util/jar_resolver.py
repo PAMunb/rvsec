@@ -10,7 +10,7 @@ import os
 from typing import List, Dict, Optional
 
 from rv_android_core.util.error.error_handler import ErrorHandler
-from rv_android_core.util.exceptions import JarNotFoundError
+from rv_android_core.util.error.exceptions import JarNotFoundError
 from rv_android_core.util.logging.manager import LoggingManager
 from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
 

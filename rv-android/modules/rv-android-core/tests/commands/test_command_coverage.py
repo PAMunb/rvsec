@@ -14,7 +14,7 @@ import psutil
 
 from rv_android_core.commands.command import Command, kill_process_tree
 from rv_android_core.commands.command_not_found_error import CommandNotFoundError
-from rv_android_core.util.exceptions import RVCommandTimeoutError
+from rv_android_core.util.error.exceptions import RVCommandTimeoutError
 
 
 class TestCommandCoverage:

@@ -1,1 +1,0 @@
-# Configuration module for RV-Android system

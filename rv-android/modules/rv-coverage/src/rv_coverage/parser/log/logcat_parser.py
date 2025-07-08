@@ -17,7 +17,7 @@ from typing import Tuple
 
 from rv_android_core.domain.coverage import LogcatRepository
 from rv_android_core.domain.log import RvErrorLog, RvCoverageLog, TAG_RVSEC, TAG_RVSEC_COV
-from rv_android_core.util.repository_initializer import initialize_repository_from_static_data
+from rv_android_core.util.android.repository_initializer import initialize_repository_from_static_data
 
 
 def parse_logcat_file(log_file: str, static_data=None) -> LogcatRepository:

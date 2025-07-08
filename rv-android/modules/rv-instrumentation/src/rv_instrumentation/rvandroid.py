@@ -5,19 +5,18 @@ import time
 from typing import Optional
 
 from rv_android_core import constants
-from rv_android_core.app import App
 from rv_android_core.commands.command import Command
 from rv_android_core.commands.command_exception import CommandException
+from rv_android_core.domain.app import App
 from rv_android_core.util import utils
 from rv_android_core.util.error.error_handler import ErrorHandler
-from rv_android_core.util.exceptions import InstrumentationError
+from rv_android_core.util.error.exceptions import InstrumentationError
 from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
 from rv_android_core.util.logging.manager import LoggingManager
 from rv_instrumentation.config import (
-    RVInstrumentationConfig, 
-    InstrumentationResults, 
-    InstrumentationError as InstrumentationErrorModel,
-    Dex2jarTools
+    RVInstrumentationConfig,
+    InstrumentationResults,
+    InstrumentationError as InstrumentationErrorModel
 )
 
 
@@ -106,7 +105,8 @@ class RVInstrumentation:
         })
 
     @ErrorHandler.handle_errors(component="RVInstrumentation", phase="batch_instrumentation")
-    def instrument_apks(self, apks_dir: str, results_dir: str, force_instrumentation: bool = False) -> InstrumentationResults:
+    def instrument_apks(self, apks_dir: str, results_dir: str,
+                        force_instrumentation: bool = False) -> InstrumentationResults:
         """
         Execute batch instrumentation of multiple APKs with comprehensive error tracking.
         
@@ -163,10 +163,10 @@ class RVInstrumentation:
                 InstrumentationError("Failed to prepare instrumentation environment", e),
                 context
             )
-            
+
             setup_error = InstrumentationErrorModel(
-                code=-1, 
-                message=str(e), 
+                code=-1,
+                message=str(e),
                 phase="preparation",
                 tool=None
             )
@@ -193,10 +193,10 @@ class RVInstrumentation:
                 InstrumentationError("Failed to retrieve APKs", e),
                 context
             )
-            
+
             retrieval_error = InstrumentationErrorModel(
-                code=-1, 
-                message=str(e), 
+                code=-1,
+                message=str(e),
                 phase="retrieval",
                 tool=None
             )
@@ -206,11 +206,13 @@ class RVInstrumentation:
 
         total_apks = len(apks)
         results.total_count = total_apks
-        
+
         self._logger.info(f"Discovered {total_apks} APKs for instrumentation", extra={
             'total_apks': total_apks,
             'pipeline_stage': 'processing_start'
         })
+
+        self._logger.debug(self.config)
 
         # Process each APK through the instrumentation pipeline
         for index, app in enumerate(apks, 1):
@@ -236,7 +238,7 @@ class RVInstrumentation:
                     'app_name': app.name,
                     'pipeline_stage': 'completed'
                 })
-                
+
                 results.success_count += 1
 
             except CommandException as ex:

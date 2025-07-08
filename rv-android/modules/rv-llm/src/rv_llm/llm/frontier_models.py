@@ -198,7 +198,7 @@ class FrontierModel(LanguageModel):
             if not adapter.validate_request(messages, _config):
                 error_msg = "Invalid request for frontier model"
                 self.logger.error(error_msg)
-                from rv_android_core.util.exceptions import RVAndroidError
+                from rv_android_core.util.error.exceptions import RVAndroidError
                 error = RVAndroidError(error_msg)
                 self.error_handler.handle_error(error)
                 raise ValueError(error_msg)
@@ -228,7 +228,7 @@ class FrontierModel(LanguageModel):
         except Exception as e:
             error_msg = f"Error generating text with {self.provider}: {str(e)}"
             self.logger.error(error_msg)
-            from rv_android_core.util.exceptions import RVAndroidError
+            from rv_android_core.util.error.exceptions import RVAndroidError
             error = RVAndroidError(error_msg)
             self.error_handler.handle_error(error)
             raise

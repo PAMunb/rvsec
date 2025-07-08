@@ -8,7 +8,7 @@ Manages coverage tracking and analysis during task execution.
 from typing import Optional, Dict, Any
 
 from rv_android_core.domain.coverage import LogcatRepository
-from rv_android_core.util.exceptions import AnalysisError
+from rv_android_core.util.error.exceptions import AnalysisError
 from rv_android_core.util.logging.constants import (
     CONTEXT_TASK_ID, 
     CONTEXT_APP_NAME, 
@@ -65,7 +65,7 @@ class CoverageComponent:
         # Initialize logging with task context
         logging_manager = LoggingManager.get_instance()
         self.logger = logging_manager.get_logger(
-            'platform.coverage',
+            'rv_platform.components.coverage',
             {
                 CONTEXT_TASK_ID: task.id,
                 CONTEXT_APP_NAME: task.config.apk_name
@@ -160,6 +160,7 @@ class CoverageComponent:
                 # CRITICAL: Use tool_execution_start for accurate timing in CSV generation
                 # tool_execution_start reflects when the actual tool began execution (after emulator setup)
                 # This ensures coverage.csv and errors.csv have accurate timing that excludes setup overhead
+                # TODO rever
                 timing_reference = self.task.result.tool_execution_start or self.task.result.start_time
                 
                 self.coverage_tracker = CoverageTracker(

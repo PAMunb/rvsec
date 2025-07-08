@@ -11,7 +11,7 @@ import pytest
 
 from rv_screen_parser.parser.screen.droidbot.droidbot_parser import DroidBotParser
 from rv_screen_parser.parser.screen.visitor.model import ScreenDescription, Node
-from rv_android_core.util.exceptions import RVParsingError
+from rv_android_core.util.error.exceptions import RVParsingError
 
 
 class TestDroidBotParserEdgeCases:

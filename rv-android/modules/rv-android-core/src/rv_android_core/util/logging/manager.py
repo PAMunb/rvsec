@@ -8,7 +8,7 @@ from typing import Dict, Any, Optional
 from rv_android_core.util.logging import constants
 from rv_android_core.util.logging.context_adapter import ContextAdapter
 from rv_android_core.util.logging.formatters import JsonFormatter, StructuredFormatter
-from rv_android_core.util.exceptions import ConfigurationError
+from rv_android_core.util.error.exceptions import ConfigurationError
 
 
 class LoggingManager:

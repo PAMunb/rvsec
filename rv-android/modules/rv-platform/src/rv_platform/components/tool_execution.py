@@ -8,7 +8,6 @@ standalone manner suitable for the platform architecture.
 
 from typing import Optional, Dict, Any
 
-from rv_android_core.util.exceptions import ToolError
 from rv_android_core.util.logging.constants import CONTEXT_TASK_ID, CONTEXT_APP_NAME, CONTEXT_TOOL_NAME, \
     LOG_START, LOG_COMPLETE, LOG_ERROR
 from rv_android_core.util.logging.manager import LoggingManager
@@ -44,7 +43,7 @@ class ToolExecutionComponent:
         # Initialize logging
         logging_manager = LoggingManager.get_instance()
         self.logger = logging_manager.get_logger(
-            'platform.tool_execution',
+            'rv_platform.components.tool_execution',
             {
                 CONTEXT_TASK_ID: task.id,
                 CONTEXT_APP_NAME: task.config.apk_name,
@@ -123,7 +122,7 @@ class ToolExecutionComponent:
 
         except Exception as e:
             # Check if this is a timeout exception (already logged)
-            from rv_android_core.util.exceptions import RVToolTimeoutError
+            from rv_android_core.util.error.exceptions import RVToolTimeoutError
             
             if isinstance(e, RVToolTimeoutError):
                 # Timeout is expected, don't log as error

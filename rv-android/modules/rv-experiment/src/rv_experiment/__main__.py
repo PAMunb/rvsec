@@ -38,14 +38,14 @@ import sys
 import uuid
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, Optional
 
 import click
 
 from rv_android_core.util.error.error_handler import ErrorHandler
 from rv_android_core.util.logging.manager import LoggingManager
 from rv_android_core.util.logging.constants import CONTEXT_COMPONENT, LOG_START, LOG_COMPLETE
-from rv_android_core.util.exceptions import ConfigurationError
+from rv_android_core.util.error.exceptions import ConfigurationError
 from rv_tools.registry.registry import ToolRegistry
 from rv_experiment.config import ExperimentConfig
 from rv_platform.config.platform_config import ToolConfig

@@ -13,7 +13,7 @@ from rv_android_core.util.validation import BaseValidatedModel
 from rv_android_core.util.validation.decorators import validated_model
 from rv_android_core.util.logging.constants import CONTEXT_COMPONENT, LOG_START, LOG_COMPLETE, LOG_ERROR
 from rv_android_core.util.logging.manager import LoggingManager
-from rv_android_core.util.exceptions import CommandValidationError, RVCommandTimeoutError
+from rv_android_core.util.error.exceptions import CommandValidationError, RVCommandTimeoutError
 from rv_android_core.util.error.error_handler import ErrorHandler
 from .command_not_found_error import CommandNotFoundError
 from .command_result import CommandResult
@@ -164,7 +164,7 @@ class Command(BaseValidatedModel):
         # Use object.__setattr__ to bypass Pydantic validation for logger
         logging_manager = LoggingManager.get_instance()
         logger = logging_manager.get_logger(
-            "commands.command",
+            "rv_android_core.commands.command",
             {CONTEXT_COMPONENT: "Command"}
         )
         object.__setattr__(self, 'logger', logger)

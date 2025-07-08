@@ -10,7 +10,7 @@ from rv_android_core.domain.coverage import LogcatRepository
 from rv_android_core.domain.static import StaticAnalysisData
 from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
 from rv_android_core.util.logging.manager import LoggingManager
-from rv_android_core.util.repository_initializer import initialize_repository_from_static_data
+from rv_android_core.util.android.repository_initializer import initialize_repository_from_static_data
 from rv_android_core.event.bus import EventBus, EventType
 from rv_coverage.parser.log.logcat_parser import parse_logcat_line
 
@@ -328,7 +328,7 @@ class CoverageTracker:
                 
                 # Publish MOP error event for real-time monitoring
                 self.event_bus.publish_analysis_event(
-                    EventType.ERROR_DETECTED,
+                    EventType.MOP_ERROR_DETECTED,
                     data={
                         "spec": error_log.spec,
                         "error_type": error_log.error_type,
@@ -346,14 +346,17 @@ class CoverageTracker:
 
             elif coverage_log:
                 # Calculate time since tool execution start using logcat timestamp
+                # TODO
                 if self.tool_execution_start_time and coverage_log.time_occurred:
                     time_since_start = int((coverage_log.time_occurred - self.tool_execution_start_time).total_seconds())
                     time_since_start = max(0, time_since_start)  # Ensure non-negative
                 else:
                     time_since_start = 0
-                    
+
+                # TODO onde esta lancando o evento?
+
                 # Set timing info for coverage
-                coverage_log.time_since_task_start = time_since_start
+                coverage_log.time_since_task_start = time_since_start # TODO
                 self.repository.register_method_call(coverage_log)
                 self.total_method_calls += 1
                 self._data_changed_since_last_update = True  # Mark data as changed

@@ -86,7 +86,7 @@ class TestEventFiltering:
                 timestamp=self.base_time + timedelta(minutes=7)
             ),
             AnalysisEvent(
-                type=EventType.ERROR_DETECTED,
+                type=EventType.MOP_ERROR_DETECTED,
                 related_task_id="task-2",
                 data={"error_type": "timeout"},
                 source="monitor",
@@ -313,7 +313,7 @@ class TestEventSearch:
                 timestamp=self.base_time + timedelta(minutes=7)
             ),
             AnalysisEvent(
-                type=EventType.ERROR_DETECTED,
+                type=EventType.MOP_ERROR_DETECTED,
                 related_task_id="task-2",
                 data={"error_type": "timeout"},
                 source="monitor",
@@ -357,7 +357,7 @@ class TestEventSearch:
         # Should include: TaskEvents for task-2, AnalysisEvent for task-2, ExperimentEvent affecting task-2
         # Let's count what should be included:
         # - 2 TaskEvents (STARTED, FAILED)
-        # - 1 AnalysisEvent (ERROR_DETECTED)  
+        # - 1 AnalysisEvent (MOP_ERROR_DETECTED)
         # - 1 ExperimentEvent (exp-1 affects task-2)
         assert len(task_2_related) == 4
         
@@ -367,7 +367,7 @@ class TestEventSearch:
         experiment_events = [e for e in task_2_related if isinstance(e, ExperimentEvent)]
         
         assert len(task_events) == 2  # STARTED and FAILED
-        assert len(analysis_events) == 1  # ERROR_DETECTED
+        assert len(analysis_events) == 1  # MOP_ERROR_DETECTED
         assert len(experiment_events) == 1  # EXPERIMENT_STARTED affects task-2
 
     def test_extract_task_timeline(self):

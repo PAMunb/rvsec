@@ -41,7 +41,7 @@ from typing import Any, Dict, List, Optional, Tuple
 from rv_android_core.util.error.error_handler import ErrorHandler
 from rv_android_core.util.logging.manager import LoggingManager
 from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
-from rv_android_core.util.exceptions import ConfigurationError, RVLLMError, RVPromptError
+from rv_android_core.util.error.exceptions import ConfigurationError, RVLLMError, RVPromptError
 from rv_llm.config.llm_config import LLMConfig
 from rv_llm.llm.prompt.strategy.base_strategy import PromptStrategy
 from rv_llm.llm.language_model import LanguageModel

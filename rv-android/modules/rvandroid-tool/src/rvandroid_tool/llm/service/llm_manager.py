@@ -34,7 +34,7 @@ from rv_android_core.event.bus import EventBus, EventType
 from rv_android_core.util.error.error_handler import ErrorHandler
 from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
 from rv_android_core.util.logging.manager import LoggingManager
-from rv_android_core.util.performance_monitor import PerformanceMonitor
+from rv_android_core.util.performance.performance_monitor import PerformanceMonitor
 from rv_llm.config.llm_config import LLMConfig
 from rv_llm.factories import LLMComponentFactory
 from rv_llm.llm.data_structures import LLMMessage, LLMResponse

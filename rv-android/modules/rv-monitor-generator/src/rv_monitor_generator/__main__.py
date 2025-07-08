@@ -7,8 +7,6 @@ monitors from MOP specifications using JavaMOP and RV-Monitor tools.
 
 import argparse
 import sys
-import os
-from typing import Optional
 
 from rv_monitor_generator.config import RVGeneratorConfig, ConfigurationError
 from rv_monitor_generator.runtime_verification_generator import RuntimeVerificationGenerator
@@ -48,24 +46,24 @@ Configuration Priority (highest to lowest):
   4. Error if none available
         """
     )
-    
+
     # Add subcommands
     subparsers = parser.add_subparsers(dest='command', help='Available commands')
-    
+
     # Generate command
     generate_parser = subparsers.add_parser(
         'generate',
         help='Generate monitors from MOP specifications',
         description='Generate runtime verification monitors and AspectJ files from MOP specifications'
     )
-    
+
     # Configuration options
     config_group = generate_parser.add_argument_group('Configuration Options')
     config_group.add_argument(
         '--rvsec-root',
         help='Root directory of RVSEC installation (alternative to individual paths)'
     )
-    
+
     # Individual tool paths
     tools_group = generate_parser.add_argument_group('Individual Tool Paths')
     tools_group.add_argument(
@@ -73,10 +71,10 @@ Configuration Priority (highest to lowest):
         help='Path to JavaMOP binary executable'
     )
     tools_group.add_argument(
-        '--rvmonitor-bin', 
+        '--rvmonitor-bin',
         help='Path to RV-Monitor binary executable'
     )
-    
+
     # Specification directories
     specs_group = generate_parser.add_argument_group('Specification Directories')
     specs_group.add_argument(
@@ -87,7 +85,7 @@ Configuration Priority (highest to lowest):
         '--aspects-dir',
         help='Directory containing custom AspectJ files (.aj)'
     )
-    
+
     # Output configuration
     output_group = generate_parser.add_argument_group('Output Configuration')
     output_group.add_argument(
@@ -95,7 +93,7 @@ Configuration Priority (highest to lowest):
         required=True,
         help='Output directory for generated monitors and AspectJ files'
     )
-    
+
     # Utility options
     util_group = generate_parser.add_argument_group('Utility Options')
     util_group.add_argument(
@@ -108,7 +106,7 @@ Configuration Priority (highest to lowest):
         action='store_true',
         help='Display generation summary after completion'
     )
-    
+
     return parser
 
 
@@ -120,7 +118,7 @@ def configure_logging(verbose: bool) -> None:
         verbose: Enable verbose logging if True
     """
     import logging
-    
+
     level = logging.DEBUG if verbose else logging.INFO
     logging.basicConfig(
         level=level,
@@ -148,31 +146,33 @@ def handle_generate_command(args) -> int:
             mop_specs_dir=args.specs_dir,
             aspects_dir=args.aspects_dir
         )
-        
+
         # Initialize generator
         generator = RuntimeVerificationGenerator(config)
-        
+
         # Execute generation
         print(f"Generating monitors to: {args.output}")
         success = generator.generate_monitors(args.output)
-        
+
         if success:
             print("✓ Monitor generation completed successfully")
-            
+
             # Display summary if requested
             if args.summary:
                 summary = generator.get_generation_summary(args.output)
                 print("\nGeneration Summary:")
                 print(f"  Output Directory: {summary['output_directory']}")
                 print(f"  AspectJ Files: {summary['aspectj_files']['count']} ({summary['aspectj_files']['purpose']})")
-                print(f"  Monitor Classes: {summary['monitor_classes']['count']} ({summary['monitor_classes']['purpose']})")
-                print(f"  Specs Processed: {summary['specs_processed']['count']} from {summary['specs_processed']['source_directory']}")
-            
+                print(
+                    f"  Monitor Classes: {summary['monitor_classes']['count']} ({summary['monitor_classes']['purpose']})")
+                print(
+                    f"  Specs Processed: {summary['specs_processed']['count']} from {summary['specs_processed']['source_directory']}")
+
             return 0
         else:
             print("✗ Monitor generation failed")
             return 1
-            
+
     except ConfigurationError as e:
         print(f"Configuration Error: {e}", file=sys.stderr)
         return 1
@@ -190,10 +190,10 @@ def main() -> int:
     """
     parser = create_parser()
     args = parser.parse_args()
-    
+
     # Configure logging
     configure_logging(getattr(args, 'verbose', False))
-    
+
     # Handle commands
     if args.command == 'generate':
         return handle_generate_command(args)

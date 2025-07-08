@@ -34,7 +34,7 @@ class TestEventType:
             "EXPERIMENT_STARTED", "EXPERIMENT_COMPLETED", "EXPERIMENT_FAILED",
             "EXPERIMENT_PAUSED", "EXPERIMENT_RESUMED",
             "COVERAGE_UPDATED", "COVERAGE_TRACKING_STARTED", "COVERAGE_TRACKING_STOPPED",
-            "ERROR_DETECTED", "STATIC_ANALYSIS_COMPLETED", "NEW_METHOD_DISCOVERED",
+            "MOP_ERROR_DETECTED", "STATIC_ANALYSIS_COMPLETED", "NEW_METHOD_DISCOVERED",
             "EMULATOR_STARTED", "EMULATOR_STOPPED", "APP_INSTALLED",
             "TOOL_STARTED", "TOOL_STOPPED",
             "CONFIG_LOADED", "CONFIG_SAVED",
@@ -68,7 +68,7 @@ class TestEventType:
         assert EventType.is_core(EventType.TOOL_STARTED) == True
         assert EventType.is_core(EventType.COVERAGE_UPDATED) == True
         assert EventType.is_core(EventType.STATIC_ANALYSIS_COMPLETED) == True
-        assert EventType.is_core(EventType.ERROR_DETECTED) == True
+        assert EventType.is_core(EventType.MOP_ERROR_DETECTED) == True
 
         # Test non-core events
         assert EventType.is_core(EventType.TASK_CREATED) == False
@@ -89,32 +89,12 @@ class TestEventType:
         assert EventType.to_core(EventType.TOOL_STARTED) == CoreEventType.TOOL_EXECUTION_STARTED
         assert EventType.to_core(EventType.COVERAGE_UPDATED) == CoreEventType.COVERAGE_UPDATED
         assert EventType.to_core(EventType.STATIC_ANALYSIS_COMPLETED) == CoreEventType.STATIC_ANALYSIS_COMPLETED
-        assert EventType.to_core(EventType.ERROR_DETECTED) == CoreEventType.ERROR_DETECTED
+        assert EventType.to_core(EventType.MOP_ERROR_DETECTED) == CoreEventType.ERROR_DETECTED
 
         # Test non-core events return None
         assert EventType.to_core(EventType.TASK_CREATED) is None
         assert EventType.to_core(EventType.EXPERIMENT_PAUSED) is None
         assert EventType.to_core(EventType.EMULATOR_STARTED) is None
-
-
-class TestCoreEventType:
-    """Tests for the CoreEventType enumeration."""
-
-    def test_core_event_type_existence(self):
-        """Test that CoreEventType contains expected core events."""
-        expected_core_types = [
-            "EXPERIMENT_STARTED", "EXPERIMENT_COMPLETED", "EXPERIMENT_FAILED",
-            "TASK_STARTED", "TASK_COMPLETED", "TASK_FAILED",
-            "TOOL_EXECUTION_STARTED", "COVERAGE_UPDATED",
-            "STATIC_ANALYSIS_COMPLETED", "ERROR_DETECTED"
-        ]
-
-        for event_type in expected_core_types:
-            assert hasattr(CoreEventType, event_type)
-
-    def test_core_event_type_is_enum(self):
-        """Test that CoreEventType is properly defined as an Enum."""
-        assert issubclass(CoreEventType, Enum)
 
 
 class TestBaseEvent:
@@ -187,7 +167,7 @@ class TestBaseEvent:
         # Test analysis events
         analysis_events = [
             EventType.COVERAGE_UPDATED, EventType.COVERAGE_TRACKING_STARTED, EventType.COVERAGE_TRACKING_STOPPED,
-            EventType.ERROR_DETECTED, EventType.STATIC_ANALYSIS_COMPLETED, EventType.ANALYSIS_COMPLETED,
+            EventType.MOP_ERROR_DETECTED, EventType.STATIC_ANALYSIS_COMPLETED, EventType.ANALYSIS_COMPLETED,
             EventType.NEW_METHOD_DISCOVERED
         ]
 
@@ -538,26 +518,26 @@ class TestAnalysisEvent:
             assert event.is_coverage_event() == True
 
         # Test non-coverage events
-        non_coverage_event = AnalysisEvent(type=EventType.ERROR_DETECTED)
+        non_coverage_event = AnalysisEvent(type=EventType.MOP_ERROR_DETECTED)
         assert non_coverage_event.is_coverage_event() == False
 
     def test_is_monitored_operations_event(self):
         """Test the is_monitored_operations_event method."""
         # Test with monitored operations data
         event_with_mop = AnalysisEvent(
-            type=EventType.ERROR_DETECTED,
+            type=EventType.MOP_ERROR_DETECTED,
             data={"monitored_operations": ["crypto_api"], "violations": 2}
         )
         assert event_with_mop.is_monitored_operations_event() == True
 
         event_with_detection = AnalysisEvent(
-            type=EventType.ERROR_DETECTED,
+            type=EventType.MOP_ERROR_DETECTED,
             data={"mop_detected": True, "spec": "JCA"}
         )
         assert event_with_detection.is_monitored_operations_event() == True
 
         event_with_violation = AnalysisEvent(
-            type=EventType.ERROR_DETECTED,
+            type=EventType.MOP_ERROR_DETECTED,
             data={"specification_violation": "Use of deprecated API"}
         )
         assert event_with_violation.is_monitored_operations_event() == True

@@ -14,7 +14,7 @@ from enum import Enum
 from typing import Dict, Optional
 
 from rv_android_core.commands.command import Command
-from rv_android_core.util.exceptions import CircuitBreakerOpenError
+from rv_android_core.util.error.exceptions import CircuitBreakerOpenError
 from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
 from rv_android_core.util.logging.manager import LoggingManager
 

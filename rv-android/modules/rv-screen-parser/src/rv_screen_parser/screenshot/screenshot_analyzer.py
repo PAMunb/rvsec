@@ -41,22 +41,19 @@ pip3 install \
 
 import sys
 import time
-from typing import Dict, List, Any, Optional
+from typing import Dict, Any, Optional
 
 import cv2
-import numpy as np
 
 from rv_android_core.analysis.base_analyzer import BaseAnalyzer
 from rv_android_core.domain.static import StaticAnalysisData
 from rv_android_core.util.error.error_handler import ErrorHandler
-from rv_android_core.util.exceptions import RVParsingError, RVValidationError
+from rv_android_core.util.error.exceptions import RVParsingError
 from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
 from rv_android_core.util.logging.manager import LoggingManager
 
 from .models import (
-    ScreenshotAnalysisResult, ImageDimensions, BoundingBox, DetectedText,
-    DetectedButton, ErrorIndicator, InteractiveElement, DetectionMethod,
-    InteractiveElementType, ErrorType, IconType
+    ScreenshotAnalysisResult, ImageDimensions
 )
 from .detectors import (
     get_text_detector, get_button_detector, get_error_detector, 

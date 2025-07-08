@@ -3,18 +3,17 @@
 Pre-processor component for RV-Android experiments.
 Handles monitor generation, APK instrumentation, and static analysis.
 """
-import json
 import os
 from typing import List
 
-from rv_android_core.app import App
-from rv_android_core.constants import EXTENSION_APK, EXTENSION_REACH, EXTENSION_GATOR, EXTENSION_GESDA
+from rv_android_core.constants import EXTENSION_APK
+from rv_android_core.domain.app import App
 from rv_android_core.event import EventBus, EventType
 from rv_android_core.util.error.error_handler import ErrorHandler
-from rv_android_core.util.logging.constants import LOG_START, CONTEXT_COMPONENT, LOG_COMPLETE, LOG_ERROR
+from rv_android_core.util.logging.constants import LOG_START, CONTEXT_COMPONENT, LOG_COMPLETE
 from rv_android_core.util.logging.manager import LoggingManager
 from rv_experiment.config import ExperimentConfig
-from rv_experiment.constants import MONITORS_DIR, INSTRUMENTED_APKS_DIR, STATIC_ANALYSIS_DIR
+from rv_experiment.constants import MONITORS_DIR, INSTRUMENTED_APKS_DIR
 
 
 class PreProcessor:
@@ -50,7 +49,7 @@ class PreProcessor:
         # Configure logging
         self.logging_manager = LoggingManager.get_instance()
         self.logger = self.logging_manager.get_logger(
-            'experiment_workflow.pre_processor',
+            'rv_experiment.experiment.workflow.pre_processor',
             {
                 CONTEXT_COMPONENT: 'PreProcessor'
             }
@@ -71,39 +70,62 @@ class PreProcessor:
             # Generate monitors if requested
             if generate_monitors:
                 self._generate_monitors()
+            else:
+                self.logger.warning("Skipping monitor generation")
 
             # Instrument APKs if requested
             if instrument:
                 self._instrument_apks()
+            else:
+                self.logger.warning("Skipping APK instrumentation")
 
             # Perform static analysis if requested
             if static_analysis:
                 self._run_static_analysis()
+            else:
+                self.logger.warning("Skipping static analysis")
 
             self.logger.info(LOG_COMPLETE.format(phase="APK pre-processing"))
+
+            # Publish event for pre-processing completion
+            self.event_bus.publish_experiment_event(
+                event_type=EventType.WORKFLOW_COMPLETED,
+                experiment_id=self.config.name,
+                message="Pre-processing phase completed",
+                source="PreProcessor"
+            )
 
     def _generate_monitors(self):
         """Generate runtime verification monitors using JavaMOP and RV-Monitor."""
         with self.logger.with_context(phase="generate_monitors"):
             self.logger.info(LOG_START.format(phase="monitor generation"))
-            
+
             try:
                 # Ensure monitor output directory exists
                 monitor_output_dir = os.path.join(self.config.output_dir, MONITORS_DIR)
                 os.makedirs(monitor_output_dir, exist_ok=True)
-                
+
                 # Get monitored operations configuration
                 rv_config = self.config.get_monitored_operations_config()
-                
+
                 # Import and use monitor generator
                 from rv_monitor_generator.runtime_verification_generator import RuntimeVerificationGenerator
-                
+
                 generator = RuntimeVerificationGenerator(rv_config)
-                
+
                 success = generator.generate_monitors(monitor_output_dir)
                 if not success:
                     self.logger.warning("Monitor generation failed")
-                    
+                else:
+                    self.logger.info(LOG_COMPLETE.format(phase="monitor generation"))
+
+                    # Publish event for monitor generation completion
+                    self.event_bus.publish_analysis_event(
+                        EventType.MONITOR_GENERATED,
+                        data={"phase": "monitor_generation"},
+                        source="PreProcessor"
+                    )
+
             except ImportError:
                 self.logger.warning("Monitor generator module not available - skipping monitor generation")
             except Exception as e:
@@ -113,59 +135,60 @@ class PreProcessor:
                     "config": str(rv_config) if 'rv_config' in locals() else "unavailable"
                 }
                 self.error_handler.handle_error(e, error_context)
-            
-            self.logger.info(LOG_COMPLETE.format(phase="monitor generation"))
-
-            # Publish event for monitor generation completion
-            self.event_bus.publish_analysis_event(
-                EventType.STATIC_ANALYSIS_COMPLETED,
-                data={"phase": "monitor_generation"},
-                source="PreProcessor"
-            )
 
     def _instrument_apks(self):
         """Instrument APKs with runtime verification monitors."""
         with self.logger.with_context(phase="instrument_apks"):
             self.logger.info(LOG_START.format(phase="APK instrumentation"))
-            
+
             try:
                 # Ensure required directories exist
                 instrumented_dir = os.path.join(self.config.output_dir, INSTRUMENTED_APKS_DIR)
                 os.makedirs(instrumented_dir, exist_ok=True)
-                
+
                 # Get instrumentation configuration (monitors should already be generated)
                 instrumentation_config = self.config.get_rv_instrumentation_config()
-                
+
                 # Import instrumentation module
                 from rv_instrumentation import RVInstrumentation
-                
+
                 instrumenter = RVInstrumentation(instrumentation_config)
                 apk_list = self.config.get_apk_list()
-                
+
                 if not apk_list:
                     self.logger.warning("No APKs configured for instrumentation")
                     return
-                
+
                 # Execute instrumentation
                 instrumented_dir = os.path.join(self.config.output_dir, INSTRUMENTED_APKS_DIR)
                 success = instrumenter.instrument_apks(
                     apks_dir=self.config.apks_dir,
                     results_dir=instrumented_dir
                 )
-                
+
                 if not success:
                     self.logger.error("APK instrumentation failed")
-                
-                # Note: Instrumentation errors JSON will be generated by ResultManager
-                # during post-processing with access to experiment results directory
-                    
+                else:
+                    # TODO salvar arquivo de erros json
+
+                    # Note: Instrumentation errors JSON will be generated by ResultManager
+                    # during post-processing with access to experiment results directory
+                    self.logger.info(LOG_COMPLETE.format(phase="APK instrumentation"))
+
+                    # Publish event for instrumentation completion
+                    self.event_bus.publish_analysis_event(
+                        EventType.INSTRUMENTATION_COMPLETED,
+                        data={"phase": "apk_instrumentation"},
+                        source="PreProcessor"
+                    )
+
             except ImportError:
                 self.logger.warning("Instrumentation module not available - copying original APKs")
                 self._copy_original_apks()
                 # Note: Instrumentation errors will be tracked and reported by ResultManager
             except Exception as e:
                 error_context = {
-                    "component": "PreProcessor", 
+                    "component": "PreProcessor",
                     "operation": "apk_instrumentation",
                     "apks_dir": self.config.apks_dir,
                     "output_dir": self.config.output_dir
@@ -173,21 +196,13 @@ class PreProcessor:
                 self.error_handler.handle_error(e, error_context)
                 self._copy_original_apks()
                 # Note: Instrumentation errors will be tracked and reported by ResultManager
-            
-            self.logger.info(LOG_COMPLETE.format(phase="APK instrumentation"))
 
-            # Publish event for instrumentation completion
-            self.event_bus.publish_analysis_event(
-                EventType.STATIC_ANALYSIS_COMPLETED,
-                data={"phase": "apk_instrumentation"},
-                source="PreProcessor"
-            )
 
     def _copy_original_apks(self):
         """Copy original APKs to output directory as fallback."""
         instrumented_dir = os.path.join(self.config.output_dir, INSTRUMENTED_APKS_DIR)
         os.makedirs(instrumented_dir, exist_ok=True)
-        
+
         import shutil
         for apk_path in self.config.get_apk_list():
             apk_name = os.path.basename(apk_path)
@@ -209,10 +224,10 @@ class PreProcessor:
             try:
                 # Import static analysis module
                 from rv_static_analysis.analysis.static.static_analysis import StaticAnalyzer
-                
+
                 # Get static analysis configuration
                 static_config = self.config.get_static_analysis_config()
-                
+
                 # Get target APKs (prefer instrumented, fallback to original)
                 target_apks = self._get_target_apks_for_analysis()
                 if not target_apks:
@@ -223,40 +238,33 @@ class PreProcessor:
 
                 for apk_path in target_apks:
                     apk_name = os.path.basename(apk_path)
-                    
+
                     with self.logger.with_context(app_name=apk_name):
                         try:
                             self.logger.info(LOG_START.format(phase=f"static analysis for {apk_name}"))
-                            
+
                             # Use instrumented APKs directory for static analysis output
                             # This keeps APKs and their static analysis files together
                             apk_output_dir = os.path.join(self.config.output_dir, INSTRUMENTED_APKS_DIR)
                             os.makedirs(apk_output_dir, exist_ok=True)
-                            
+
                             # Create App instance and analyzer
                             app = App(app_path=apk_path)
-                            
+
                             analyzer = StaticAnalyzer(
                                 app=app,
                                 config=static_config,
                                 output_dir=apk_output_dir
                             )
-                            
+
                             # Execute analysis
                             result = analyzer.analyze()
-                            
-                            # Publish event with result data
-                            self.event_bus.publish_analysis_event(
-                                EventType.STATIC_ANALYSIS_COMPLETED,
-                                data={
-                                    "app_name": apk_name,
-                                    "success": result.success if result else False
-                                },
-                                source="PreProcessor"
-                            )
-                            
-                            self.logger.info(LOG_COMPLETE.format(phase=f"static analysis for {apk_name}"))
-                            
+
+                            if not result.success:
+                                self.logger.warning(f"Static analysis failed for {apk_name}: {result.errors}")
+                            else:
+                                self.logger.info(LOG_COMPLETE.format(phase=f"static analysis for {apk_name}"))
+
                         except Exception as e:
                             error_context = {
                                 "component": "PreProcessor",
@@ -265,7 +273,16 @@ class PreProcessor:
                                 "apk_path": apk_path
                             }
                             self.error_handler.handle_error(e, error_context)
-                            
+
+                self.logger.info(LOG_COMPLETE.format(phase="static analysis"))
+
+                # Publish event for static analysis completion
+                self.event_bus.publish_analysis_event(
+                    EventType.STATIC_ANALYSIS_COMPLETED,
+                    data={"phase": "static_analysis"},
+                    source="PreProcessor"
+                )
+
             except ImportError:
                 self.logger.warning("Static analysis module not available - skipping static analysis")
             except Exception as e:
@@ -276,23 +293,22 @@ class PreProcessor:
                 }
                 self.error_handler.handle_error(e, error_context)
 
-            self.logger.info(LOG_COMPLETE.format(phase="static analysis"))
 
     def _get_target_apks_for_analysis(self) -> List[str]:
         """Get APKs for static analysis (prefer instrumented over original)."""
         target_apks = []
-        
+
         # Try instrumented APKs first
         instrumented_dir = os.path.join(self.config.output_dir, INSTRUMENTED_APKS_DIR)
         if os.path.exists(instrumented_dir):
             for file in os.listdir(instrumented_dir):
                 if file.endswith(EXTENSION_APK):
                     target_apks.append(os.path.join(instrumented_dir, file))
-        
+
         # Fallback to original APKs if no instrumented found
         if not target_apks:
             target_apks.extend(self.config.get_apk_list())
-            
+
         return target_apks
 
     def get_instrumented_apks(self) -> List[App]:
@@ -305,7 +321,7 @@ class PreProcessor:
         with self.logger.with_context(phase="find_instrumented_apks"):
             apks = []
             instrumented_dir = os.path.join(self.config.output_dir, INSTRUMENTED_APKS_DIR)
-            
+
             if os.path.exists(instrumented_dir):
                 for file in os.listdir(instrumented_dir):
                     if file.endswith(EXTENSION_APK):

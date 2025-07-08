@@ -17,7 +17,7 @@ from rv_tools.registry.registry import ToolRegistry
 from rv_tools.registry.factory import ToolFactory
 from rv_android_core.tools.abstract_tool import AbstractTool
 from rv_android_core.tools.tool_spec import ToolSpec
-from rv_android_core.util.exceptions import ToolNotFoundError, ToolRegistrationError, ToolVariantError
+from rv_android_core.util.error.exceptions import ToolNotFoundError, ToolRegistrationError, ToolVariantError
 
 
 class MockTool(AbstractTool):

@@ -12,7 +12,7 @@ from unittest.mock import MagicMock
 
 from rv_android_core.commands.circuit_breaker import CommandCircuitBreaker, CircuitBreakerState
 from rv_android_core.commands.command import Command
-from rv_android_core.util.exceptions import CircuitBreakerOpenError
+from rv_android_core.util.error.exceptions import CircuitBreakerOpenError
 
 
 class TestCommandCircuitBreaker:

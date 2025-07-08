@@ -8,20 +8,18 @@ import os
 from datetime import datetime
 from typing import List
 
-from rv_android_core.app import App
 from rv_android_core.util.error.error_handler import ErrorHandler
 from rv_android_core.util.logging.constants import CONTEXT_COMPONENT, LOG_START, LOG_COMPLETE, LOG_ERROR
 from rv_android_core.util.logging.manager import LoggingManager
-from rv_android_core.util.exceptions import RVExperimentExecutionError
+from rv_android_core.util.error.exceptions import RVExperimentExecutionError
 from rv_android_core.event import EventBus, EventType
 from rv_android_core.tools.abstract_tool import AbstractTool
 
 from rv_experiment.config import ExperimentConfig
-from rv_experiment.constants import EXPERIMENT_TASKS_FILE
 from rv_experiment.experiment.workflow.pre_processor import PreProcessor
 from rv_experiment.experiment.workflow.execution_controller import ExecutionController
 from rv_experiment.experiment.workflow.post_processor import PostProcessor
-
+import rv_experiment.constants as rv_cte
 
 class ExperimentController:
     """
@@ -58,10 +56,10 @@ class ExperimentController:
         """
         self.config = config
         self.experiment_id = experiment_id or datetime.now().strftime("%Y%m%d_%H%M%S")
-        
+
         # Setup results directory using proper naming logic
         # Use config.results_dir as base directory (defaults to "./results")
-        results_base_dir = config.results_dir or "./results"
+        results_base_dir = config.results_dir or f"./{rv_cte.RESULTS_DIR}"
         
         if config.name and config.name.strip():
             # Use experiment name if specified
@@ -69,6 +67,7 @@ class ExperimentController:
         else:
             # Use timestamp-based name as fallback
             experiment_folder = f"experiment_{self.experiment_id}"
+            config.name = self.experiment_id
         
         # Create full results directory path
         self.results_dir = os.path.join(results_base_dir, experiment_folder)
@@ -78,7 +77,7 @@ class ExperimentController:
         self.logging_manager = LoggingManager.get_instance()
         self.error_handler = ErrorHandler.get_instance()
         self.logger = self.logging_manager.get_logger(
-            'experiment.controller',
+            'rv_experiment.experiment.controller',
             {CONTEXT_COMPONENT: 'ExperimentController'}
         )
 

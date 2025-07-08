@@ -133,6 +133,7 @@ class RuntimeVerificationGenerator(BaseValidatedModel):
                 'specs_count': len(self._get_mop_specs()),
                 'pipeline_stage': 'initialization'
             })
+            self._logger.debug(f"Runtime verification config: {self.config}")
             
             # Prepare clean generation environment
             utils.reset_folder(output_dir)
@@ -183,7 +184,6 @@ class RuntimeVerificationGenerator(BaseValidatedModel):
         mop_specs = self._get_mop_specs()
         
         self._logger.info("Executing JavaMOP ...", extra={
-            'tool': 'JavaMOP',
             'specs_directory': self.config.mop_specs_dir,
             'specs_count': len(mop_specs),
             'output_directory': output_dir
@@ -270,14 +270,8 @@ class RuntimeVerificationGenerator(BaseValidatedModel):
         
         return {
             'output_directory': output_dir,
-            'aspectj_files': {
-                'count': len(aspectj_files),
-                'purpose': 'Weaving specifications for monitored operations instrumentation'
-            },
-            'monitor_classes': {
-                'count': len(java_files),
-                'purpose': 'Runtime verification monitor implementations'
-            },
+            'aspectj_files':  len(aspectj_files),
+            'monitor_classes': len(java_files),
             'specs_processed': {
                 'source_directory': self.config.mop_specs_dir,
                 'count': len(self._get_mop_specs())

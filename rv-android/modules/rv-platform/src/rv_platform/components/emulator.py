@@ -8,9 +8,9 @@ and cleanup during task execution.
 
 from typing import Any, Optional, Dict
 
-from rv_android_core.app import App
-from rv_android_core.util.emulator_manager import EmulatorManager
-from rv_android_core.util.exceptions import EmulatorError
+from rv_android_core.domain.app import App
+from rv_android_core.util.android.emulator_manager import EmulatorManager
+from rv_android_core.util.error.exceptions import EmulatorError
 from rv_android_core.util.logging.constants import (
     CONTEXT_TASK_ID, 
     CONTEXT_APP_NAME, 
@@ -52,7 +52,7 @@ class EmulatorComponent:
         # Initialize logging with task context
         logging_manager = LoggingManager.get_instance()
         self.logger = logging_manager.get_logger(
-            'platform.emulator',
+            'rv_platform.components.emulator',
             {
                 CONTEXT_TASK_ID: task.id,
                 CONTEXT_APP_NAME: task.config.apk_name

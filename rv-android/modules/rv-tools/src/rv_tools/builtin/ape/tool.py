@@ -8,13 +8,13 @@ enabling CEGAR-based model abstraction refinement for systematic exploration.
 import os
 from typing import Dict, Any, List
 
-from rv_android_core.app import App
+from rv_android_core.domain.app import App
 from rv_android_core.commands.command import Command
 from rv_android_core.domain.task import Task
 from rv_android_core.tools.abstract_tool import AbstractTool
 from rv_android_core.tools.tool_spec import ToolSpec
 from rv_android_core.util.error.error_handler import ErrorHandler
-from rv_android_core.util.exceptions import RVToolTimeoutError, RVToolExecutionError
+from rv_android_core.util.error.exceptions import RVToolTimeoutError, RVToolExecutionError
 from rv_android_core.util.jar_resolver import JarResolver
 from rv_android_core.util.logging.manager import LoggingManager
 from rv_android_core.util.logging.constants import CONTEXT_COMPONENT

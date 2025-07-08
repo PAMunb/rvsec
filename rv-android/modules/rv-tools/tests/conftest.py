@@ -19,14 +19,11 @@ monitored operations testing tool registry and plugin system tests.
 """
 
 import pytest
-from unittest.mock import Mock, MagicMock, patch
-from typing import Dict, Any, List
+from unittest.mock import Mock
+from typing import Dict
 import threading
-from pathlib import Path
 
 from rv_tools.registry.registry import ToolRegistry
-from rv_tools.registry.factory import ToolFactory
-from rv_tools.registry.plugin_loader import PluginLoader
 from rv_android_core.tools.abstract_tool import AbstractTool
 from rv_android_core.tools.tool_spec import ToolSpec
 
@@ -356,7 +353,7 @@ def sample_app():
     Returns:
         Mock: Configured App mock for tool testing
     """
-    from rv_android_core.app import App
+    from rv_android_core.domain.app import App
     
     mock_app = Mock(spec=App)
     mock_app.name = "test_app"

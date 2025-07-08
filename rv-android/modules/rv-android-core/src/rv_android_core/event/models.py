@@ -85,6 +85,8 @@ class EventType(Enum):
     EXPERIMENT_PAUSED = auto()
     EXPERIMENT_RESUMED = auto()
 
+    EXPERIMENT_ERROR = auto()
+
     # Workflow lifecycle events
     WORKFLOW_STARTED = auto()
     WORKFLOW_COMPLETED = auto()
@@ -100,10 +102,12 @@ class EventType(Enum):
     COVERAGE_UPDATED = auto()
     COVERAGE_TRACKING_STARTED = auto()
     COVERAGE_TRACKING_STOPPED = auto()
-    ERROR_DETECTED = auto() # MOP error detection
+    MOP_ERROR_DETECTED = auto() # MOP error detection
+    MONITOR_GENERATED = auto()
+    INSTRUMENTATION_COMPLETED = auto()
     STATIC_ANALYSIS_COMPLETED = auto()
     ANALYSIS_COMPLETED = auto()
-    NEW_METHOD_DISCOVERED = auto()
+    NEW_METHOD_DISCOVERED = auto()  # TODO remover ... nao pode encontrar novos metodos
 
     # Environment lifecycle events
     EMULATOR_STARTED = auto()
@@ -137,7 +141,7 @@ class EventType(Enum):
             cls.TOOL_STARTED: CoreEventType.TOOL_EXECUTION_STARTED,
             cls.COVERAGE_UPDATED: CoreEventType.COVERAGE_UPDATED,
             cls.STATIC_ANALYSIS_COMPLETED: CoreEventType.STATIC_ANALYSIS_COMPLETED,
-            cls.ERROR_DETECTED: CoreEventType.ERROR_DETECTED,
+            cls.MOP_ERROR_DETECTED: CoreEventType.ERROR_DETECTED,
         }
         return event_type in core_mapping
     
@@ -162,7 +166,7 @@ class EventType(Enum):
             cls.TOOL_STARTED: CoreEventType.TOOL_EXECUTION_STARTED,
             cls.COVERAGE_UPDATED: CoreEventType.COVERAGE_UPDATED,
             cls.STATIC_ANALYSIS_COMPLETED: CoreEventType.STATIC_ANALYSIS_COMPLETED,
-            cls.ERROR_DETECTED: CoreEventType.ERROR_DETECTED,
+            cls.MOP_ERROR_DETECTED: CoreEventType.ERROR_DETECTED,
         }
         return core_mapping.get(event_type)
 
@@ -247,7 +251,7 @@ class Event(BaseValidatedModel):
         """
         analysis_types = {
             EventType.COVERAGE_UPDATED, EventType.COVERAGE_TRACKING_STARTED, EventType.COVERAGE_TRACKING_STOPPED,
-            EventType.ERROR_DETECTED, EventType.STATIC_ANALYSIS_COMPLETED, EventType.ANALYSIS_COMPLETED,
+            EventType.MOP_ERROR_DETECTED, EventType.STATIC_ANALYSIS_COMPLETED, EventType.ANALYSIS_COMPLETED,
             EventType.NEW_METHOD_DISCOVERED
         }
         return self.type in analysis_types

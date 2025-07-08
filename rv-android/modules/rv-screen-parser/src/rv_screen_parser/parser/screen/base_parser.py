@@ -92,7 +92,7 @@ class BaseScreenParser(Generic[T], ABC):
             # Common validation logic
             if not self.validate_state_data(state_data):
                 self.logger.error(f"Invalid {self.parser_name} state data: missing required fields")
-                from rv_android_core.util.exceptions import RVParsingError
+                from rv_android_core.util.error.exceptions import RVParsingError
                 raise RVParsingError(f"Invalid {self.parser_name} state data: missing required fields", parser_type=self.parser_name)
 
             activity = self.get_activity_name(state_data)

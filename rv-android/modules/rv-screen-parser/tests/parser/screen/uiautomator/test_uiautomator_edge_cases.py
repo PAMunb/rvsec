@@ -11,7 +11,7 @@ import pytest
 
 from rv_screen_parser.parser.screen.uiautomator.uiautomator_parser import UIAutomator2Parser
 from rv_screen_parser.parser.screen.visitor.model import ScreenDescription, Node
-from rv_android_core.util.exceptions import RVParsingError
+from rv_android_core.util.error.exceptions import RVParsingError
 
 
 @pytest.fixture

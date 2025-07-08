@@ -35,7 +35,7 @@ from rv_android_core.analysis.base_analyzer import BaseAnalyzer
 from rv_android_core.domain.static import StaticAnalysisData
 from rv_android_core.domain.widget import WidgetEventType
 from rv_android_core.util.error.error_handler import ErrorHandler
-from rv_android_core.util.exceptions import RVParsingError, RVValidationError
+from rv_android_core.util.error.exceptions import RVParsingError, RVValidationError
 from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
 from rv_android_core.util.logging.manager import LoggingManager
 

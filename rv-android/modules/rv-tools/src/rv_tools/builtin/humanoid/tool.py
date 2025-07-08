@@ -8,7 +8,7 @@ enabling human-like testing with computer vision and natural language processing
 import os
 from typing import Dict, Any, List
 
-from rv_android_core.app import App
+from rv_android_core.domain.app import App
 from rv_android_core.commands.command import Command
 from rv_android_core.domain.task import Task
 from rv_android_core.tools.abstract_tool import AbstractTool

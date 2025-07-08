@@ -30,24 +30,22 @@ and dependency injection ready design.
 import rv_experiment.constants as constants
 import json
 import os
-import uuid
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, Any, List, Optional, Union, TYPE_CHECKING
 
-from pydantic import Field, field_validator, model_validator
+from pydantic import Field
 from rv_android_core.util.validation import BaseValidatedModel
 # Import ToolConfig from rv-platform for unified tool configuration
 from rv_platform.config.platform_config import ToolConfig
 
 from rv_android_core.constants import ENV_RVSEC_HOME
 from rv_android_core.util.error.error_handler import ErrorHandler
-from rv_android_core.util.exceptions import ConfigurationError
+from rv_android_core.util.error.exceptions import ConfigurationError
 from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
 from rv_android_core.util.logging.manager import LoggingManager
 from rv_experiment.constants import (
     RESULTS_DIR, INSTRUMENTED_DIR, DEFAULT_APKS_DIR,
-    DEFAULT_TIMEOUT, DEFAULT_REPETITIONS,
     DEFAULT_SPEC_SET, get_experiment_dir, MONITORS_DIR, INSTRUMENTED_APKS_DIR
 )
 from rv_instrumentation.config import RVInstrumentationConfig, ConfigurationError as InstrumentationConfigError

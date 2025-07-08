@@ -8,7 +8,7 @@ from typing import List, Dict, Any, Type, Optional
 from rv_tools.interfaces.plugin_interface import ToolPlugin
 from rv_android_core.tools.abstract_tool import AbstractTool
 from rv_android_core.tools.tool_spec import ToolSpec
-from rv_android_core.util.exceptions import ToolRegistrationError, PluginError
+from rv_android_core.util.error.exceptions import ToolRegistrationError, PluginError
 from rv_android_core.util.error.error_handler import ErrorHandler
 from rv_android_core.util.logging.manager import LoggingManager
 from rv_android_core.util.logging.constants import CONTEXT_COMPONENT

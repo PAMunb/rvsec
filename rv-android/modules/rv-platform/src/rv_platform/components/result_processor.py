@@ -68,7 +68,7 @@ class ResultProcessorComponent:
         # Initialize logging with component context
         logging_manager = LoggingManager.get_instance()
         self.logger = logging_manager.get_logger(
-            'platform.components.result_processor',
+            'rv_platform.components.result_processor',
             {CONTEXT_COMPONENT: 'ResultProcessorComponent'}
         )
 

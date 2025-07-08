@@ -11,7 +11,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch, MagicMock
 
-from rv_android_core.util.exceptions import ConfigurationError
+from rv_android_core.util.error.exceptions import ConfigurationError
 from rv_instrumentation.config import (
     RVInstrumentationConfig, 
     Dex2jarTools, 

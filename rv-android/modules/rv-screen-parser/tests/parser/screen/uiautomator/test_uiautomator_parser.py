@@ -16,7 +16,7 @@ from rv_android_core.domain.classes import Classes
 from rv_android_core.domain.static import StaticAnalysisData
 from rv_android_core.domain.window import Windows
 from rv_android_core.domain.wtg import WindowTransitionGraph
-from rv_android_core.util.exceptions import RVParsingError
+from rv_android_core.util.error.exceptions import RVParsingError
 from rv_screen_parser.parser.screen.uiautomator.uiautomator_parser import UIAutomator2Parser
 from rv_screen_parser.parser.screen.visitor.model import Node, ScreenDescription
 

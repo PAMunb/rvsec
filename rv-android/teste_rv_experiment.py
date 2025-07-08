@@ -211,8 +211,7 @@ def tmp_experiment_controller():
 
         # Create configuration for actual execution
         config = ExperimentConfig(
-            name="fff",
-            # description="Integration test with actual execution",
+            # name="aaa",
             tool_configs=tools,
             repetitions=1,
             timeouts=[60],  # Short timeout for quick test
@@ -227,11 +226,9 @@ def tmp_experiment_controller():
         config.run_static_analysis = True
         config.no_window = True
         
-        # Create event bus
-        event_bus = EventBus.get_instance()
-        
         # Create experiment controller to validate integration
-        controller = ExperimentController(config, event_bus)
+        controller = ExperimentController(config)
+        # controller.run()
         
         print("✅ ExperimentController created successfully")
         print(f"   Config name: {controller.config.name}")

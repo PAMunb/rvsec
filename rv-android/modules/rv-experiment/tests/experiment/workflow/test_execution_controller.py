@@ -2,7 +2,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from rv_android_core.app import App
+from rv_android_core.domain.app import App
 from rv_android_core.event.bus import EventBus
 from rv_platform.storage.task_storage import TaskStorage
 from rv_experiment.experiment.workflow.execution_controller import ExecutionController

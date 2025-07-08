@@ -9,10 +9,11 @@ import os
 from pathlib import Path
 from typing import Optional, Dict, Any
 
-from rv_android_core.constants import ENV_RVSEC_HOME, ENV_ANDROID_HOME, ENV_RT_JAR, EXTENSION_APK
-from rv_android_core.util.exceptions import RVAndroidError, ConfigurationError
-from rv_android_core.util.validation import BaseValidatedModel
 from pydantic import Field
+
+from rv_android_core.constants import ENV_RVSEC_HOME, ENV_ANDROID_HOME, ENV_RT_JAR, EXTENSION_APK
+from rv_android_core.util.error.exceptions import ConfigurationError
+from rv_android_core.util.validation import BaseValidatedModel
 
 
 class RVStaticAnalysisConfig(BaseValidatedModel):
@@ -172,10 +173,6 @@ class RVStaticAnalysisConfig(BaseValidatedModel):
         if not self.output_dir:
             self.output_dir = str(rvsec_path / "out")
 
-        # TODO rever working_dir
-        if not self.working_dir:
-            self.working_dir = str(rvsec_path / "working")
-
         # Tool-specific path resolution using standard RVSEC layout
         lib_path = Path(self.lib_dir)
 
@@ -236,8 +233,7 @@ class RVStaticAnalysisConfig(BaseValidatedModel):
         """
         required_paths = {
             'lib_dir': self.lib_dir,
-            'output_dir': self.output_dir,
-            'working_dir': self.working_dir
+            'output_dir': self.output_dir
         }
 
         for name, path in required_paths.items():
@@ -382,7 +378,7 @@ class RVStaticAnalysisConfig(BaseValidatedModel):
         Raises:
             ConfigurationError: If tool is not supported or required parameters are missing
         """
-        tools = self.get_static_analysis_tools()
+        # tools = self.get_static_analysis_tools()
         components = self.get_tool_components()
 
         if tool_name == 'gesda':
@@ -440,8 +436,7 @@ class RVStaticAnalysisConfig(BaseValidatedModel):
                 'rvsec_root': self.rvsec_root,
                 'lib_dir': self.lib_dir,
                 'mop_dir': self.mop_dir,
-                'output_dir': self.output_dir,
-                'working_dir': self.working_dir
+                'output_dir': self.output_dir
             },
             'java_android_integration': {
                 'android_platforms_dir': self.android_platforms_dir,
@@ -473,7 +468,7 @@ class RVStaticAnalysisConfig(BaseValidatedModel):
         This method ensures that all required directories exist before starting
         the static analysis process.
         """
-        directories = [self.output_dir, self.working_dir]
+        directories = [self.output_dir]
 
         for directory in directories:
             if directory:

@@ -136,7 +136,7 @@ class TestEventBusHelperMethods:
         # Get the event that was published
         event = self.event_bus.publish.call_args[0][0]
         assert isinstance(event, AnalysisEvent)
-        assert event.type == EventType.ERROR_DETECTED
+        assert event.type == EventType.EXPERIMENT_ERROR
         assert event.data["error_type"] == "Exception"
         assert event.data["error_message"] == "Test error"
         assert event.data["context"] == context
@@ -159,13 +159,13 @@ class TestEventBusHelperMethods:
         # Get the event that was published
         event = self.event_bus.publish.call_args[0][0]
         assert isinstance(event, AnalysisEvent)
-        assert event.type == EventType.ERROR_DETECTED
+        assert event.type == EventType.EXPERIMENT_ERROR
         assert event.related_task_id is None  # No task ID should be set
 
     def test_publish_rvandroid_error(self):
         """Test publishing a RVAndroidError with cause information."""
         # Arrange
-        from rv_android_core.util.exceptions import RVAndroidError
+        from rv_android_core.util.error.exceptions import RVAndroidError
 
         cause = ValueError("Original error")
         error = RVAndroidError("An error occurred", cause)

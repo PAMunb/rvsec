@@ -33,7 +33,7 @@ from typing import Dict, Any, Optional
 from rv_android_core.util.error.error_handler import ErrorHandler
 from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
 from rv_android_core.util.logging.manager import LoggingManager
-from rv_android_core.util.exceptions import RVParsingError
+from rv_android_core.util.error.exceptions import RVParsingError
 
 from rv_llm.llm.constants import StateEntry
 from rv_llm.llm.prompt.information.base_fragment import InformationFragment

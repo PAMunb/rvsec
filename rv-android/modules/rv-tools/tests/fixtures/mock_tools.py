@@ -6,8 +6,8 @@ the simplified AbstractTool interface for testing the core functionalities
 of the rv-tools system.
 """
 
-from typing import Dict, Any, Optional
-from rv_android_core.app import App
+from typing import Dict, Any
+from rv_android_core.domain.app import App
 from rv_android_core.tools.abstract_tool import AbstractTool
 from rv_android_core.tools.tool_spec import ToolSpec
 from rv_android_core.domain.task import Task

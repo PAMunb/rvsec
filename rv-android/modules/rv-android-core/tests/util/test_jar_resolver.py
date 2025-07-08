@@ -12,7 +12,7 @@ from unittest.mock import Mock, patch, MagicMock
 from pathlib import Path
 
 from rv_android_core.util.jar_resolver import JarResolver
-from rv_android_core.util.exceptions import JarNotFoundError
+from rv_android_core.util.error.exceptions import JarNotFoundError
 
 
 class TestJarResolver:

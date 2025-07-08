@@ -12,7 +12,7 @@ from rv_android_core.event.bus import EventBus, EventType
 from rv_android_core.util.error.error_handler import ErrorHandler
 from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
 from rv_android_core.util.logging.manager import LoggingManager
-from rv_android_core.util.performance_monitor import PerformanceMonitor
+from rv_android_core.util.performance.performance_monitor import PerformanceMonitor
 from rv_llm.config.llm_config import LLMConfig
 from rv_llm.llm.constants import ContextEntry, StateEntry
 from rv_llm.llm.data_structures import LLMMessage, LLMResponse
@@ -190,7 +190,7 @@ class LLMActionService:
 
             except Exception as e:
                 self.logger.error(f"Error processing state: {e}", exc_info=True)
-                from rv_android_core.util.exceptions import RVAndroidError
+                from rv_android_core.util.error.exceptions import RVAndroidError
                 error = RVAndroidError(f"State processing error: {str(e)}")
                 self.error_handler.handle_error(error, context=context)
 

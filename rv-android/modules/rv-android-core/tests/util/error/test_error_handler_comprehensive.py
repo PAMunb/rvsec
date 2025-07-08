@@ -9,14 +9,12 @@ for uncovered lines in the error handler module.
 import pytest
 import threading
 import time
-import inspect
 from unittest.mock import Mock, patch, MagicMock, call
 from contextlib import contextmanager
 from typing import Dict, Any, Optional
-from hypothesis import given, strategies as st, example, settings, assume, HealthCheck
 
 from rv_android_core.util.error.error_handler import ErrorHandler, error_context
-from rv_android_core.util.exceptions import (
+from rv_android_core.util.error.exceptions import (
     RVAndroidError, RVTaskError, RVToolError, RVExperimentError,
     RVParsingError, RVLLMError, RVPromptError, RVValidationError,
     CommandValidationError, LogcatValidationError, EventProcessingError,

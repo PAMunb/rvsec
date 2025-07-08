@@ -7,14 +7,12 @@ including GATOR, GESDA, and REACH analysis tools.
 """
 
 import argparse
-import os
 import sys
 import time
 from pathlib import Path
-from typing import Optional
 
-from rv_android_core.app import App
-from rv_android_core.util.exceptions import ConfigurationError
+from rv_android_core.domain.app import App
+from rv_android_core.util.error.exceptions import ConfigurationError
 from rv_static_analysis import RVStaticAnalysisConfig, StaticAnalyzer, StaticAnalysisException
 
 
