@@ -23,10 +23,8 @@ from rv_android_core.util.logging.constants import (
 )
 from rv_android_core.util.logging.manager import LoggingManager
 from rv_android_core.util.performance.performance_monitor import PerformanceMonitor
-from rv_android_core.event import (
-    EventBus,
-    EventType
-)
+from rv_android_core.event.bus import EventBus
+from rv_android_core.event.models import EventType, EventChannel, EventPriority
 from rv_android_core.domain.task import Task, TaskState
 from rv_android_core.tools.abstract_tool import AbstractTool
 from rv_platform.storage.task_storage import TaskStorage
@@ -417,7 +415,7 @@ class TaskExecutor:
                 "tool_name": self.task.config.tool_name
             },
             source="TaskExecutor",
-            channel=EventBus.LIFECYCLE_CHANNEL
+            channel=EventChannel.LIFECYCLE
         )
 
     def _publish_task_completed_event(self) -> None:
@@ -432,7 +430,7 @@ class TaskExecutor:
                 "tool_name": self.task.config.tool_name
             },
             source="TaskExecutor",
-            channel=EventBus.LIFECYCLE_CHANNEL
+            channel=EventChannel.LIFECYCLE
         )
 
     def _publish_task_failed_event(self, error_message: str) -> None:
@@ -455,7 +453,7 @@ class TaskExecutor:
                 "error": error_message
             },
             source="TaskExecutor",
-            channel=EventBus.ERROR_CHANNEL
+            channel=EventChannel.ERROR
         )
     
     def _publish_tool_execution_started_event(self) -> None:
@@ -477,5 +475,5 @@ class TaskExecutor:
                 "timing_context": "precise_tool_execution"
             },
             source="TaskExecutor",
-            channel=EventBus.LIFECYCLE_CHANNEL
+            channel=EventChannel.LIFECYCLE
         )

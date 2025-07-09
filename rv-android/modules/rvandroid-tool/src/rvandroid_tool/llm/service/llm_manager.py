@@ -30,7 +30,7 @@ and performance monitoring using clean, stateless operations.
 import time
 from typing import List, Dict, Optional, Any
 
-from rv_android_core.event.bus import EventBus, EventType
+from rv_android_core.event.bus import EventBus, EventType, EventChannel
 from rv_android_core.util.error.error_handler import ErrorHandler
 from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
 from rv_android_core.util.logging.manager import LoggingManager
@@ -151,15 +151,17 @@ class LLMManager:
             self.logger.info(f"Successfully initialized {self.config.llm_type} LLM")
 
             # Publish LLM initialization event
-            self.event_bus.publish_analysis_event(
+            self.event_bus.publish_task_event(
                 EventType.COVERAGE_TRACKING_STARTED,  # Reusing existing event type
-                data={
+                task_id="llm_manager",
+                details={
                     "llm_type": self.config.llm_type,
                     "model": self.config.model,
                     "strategy_type": self.config.strategy_type,
                     "max_tokens": self.config.max_tokens
                 },
-                source="LLMManager"
+                source="LLMManager",
+                channel=EventChannel.LIFECYCLE
             )
 
         except ImportError as e:
@@ -347,9 +349,10 @@ class LLMManager:
         )
 
         # Publish configuration update event
-        self.event_bus.publish_analysis_event(
+        self.event_bus.publish_task_event(
             EventType.COVERAGE_TRACKING_STARTED,  # Reusing existing event type
-            data={
+            task_id="llm_manager",
+            details={
                 "old_config": {
                     "llm_type": old_config.llm_type,
                     "model": old_config.model,
@@ -362,7 +365,8 @@ class LLMManager:
                 },
                 "llm_recreated": llm_changed
             },
-            source="LLMManager"
+            source="LLMManager",
+            channel=EventChannel.LIFECYCLE
         )
 
     def get_configuration(self) -> LLMConfig:
@@ -396,14 +400,16 @@ class LLMManager:
                 self.logger.info("Successfully cleaned up LLM resources")
 
                 # Publish cleanup event
-                self.event_bus.publish_analysis_event(
+                self.event_bus.publish_task_event(
                     EventType.COVERAGE_TRACKING_STARTED,  # Reusing existing event type
-                    data={
+                    task_id="llm_manager",
+                    details={
                         "operation": "llm_cleanup",
                         "llm_type": self.config.llm_type,
                         "model": self.config.model
                     },
-                    source="LLMManager"
+                    source="LLMManager",
+                    channel=EventChannel.LIFECYCLE
                 )
 
             except Exception as e:

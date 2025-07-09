@@ -13,7 +13,7 @@ import pytest
 
 from rv_android_core.event.bus import EventBus
 from rv_android_core.event.handler import HandlerPriority
-from rv_android_core.event.models import Event, EventType
+from rv_android_core.event.models import Event, EventType, EventChannel
 
 
 class TestEventBusCore:
@@ -52,24 +52,6 @@ class TestEventBusCore:
         assert new_instance is not singleton
         assert isinstance(new_instance, EventBus)
 
-    def test_initialization(self):
-        """Test that EventBus initializes with the expected state."""
-        # Assert
-        assert self.event_bus.channel_subscribers is not None
-        assert EventBus.DEFAULT_CHANNEL in self.event_bus.channel_subscribers
-        assert EventBus.SYSTEM_CHANNEL in self.event_bus.channel_subscribers
-        assert EventBus.LIFECYCLE_CHANNEL in self.event_bus.channel_subscribers
-        assert EventBus.ANALYSIS_CHANNEL in self.event_bus.channel_subscribers
-        assert EventBus.ERROR_CHANNEL in self.event_bus.channel_subscribers
-        assert EventBus.USER_CHANNEL in self.event_bus.channel_subscribers
-
-        # Check that each channel has entries for all event types
-        for channel in self.event_bus.channel_subscribers:
-            assert len(self.event_bus.channel_subscribers[channel]) == len(EventType)
-
-        # Check history initialization
-        assert self.event_bus.history == []
-        assert self.event_bus.max_history_size > 0
 
     def test_subscribe(self):
         """Test subscribing to an event type."""
@@ -86,7 +68,7 @@ class TestEventBusCore:
         assert handler_id is not None
 
         # Check that the handler was added
-        handlers = self.event_bus.channel_subscribers[EventBus.DEFAULT_CHANNEL][EventType.EXPERIMENT_STARTED]
+        handlers = self.event_bus.channel_subscribers[EventChannel.DEFAULT.value][EventType.EXPERIMENT_STARTED]
         assert len(handlers) == 1
         assert handlers[0].callback == callback
         assert handlers[0].filter_fn is None
@@ -104,11 +86,11 @@ class TestEventBusCore:
             callback,
             filter_fn=filter_fn,
             priority=HandlerPriority.HIGH,
-            channel=EventBus.LIFECYCLE_CHANNEL
+            channel=EventChannel.LIFECYCLE
         )
 
         # Assert
-        handlers = self.event_bus.channel_subscribers[EventBus.LIFECYCLE_CHANNEL][EventType.EXPERIMENT_STARTED]
+        handlers = self.event_bus.channel_subscribers[EventChannel.LIFECYCLE.value][EventType.EXPERIMENT_STARTED]
         assert len(handlers) == 1
         assert handlers[0].callback == callback
         assert handlers[0].filter_fn == filter_fn
@@ -127,8 +109,8 @@ class TestEventBusCore:
         assert len(handler_ids) == 2
 
         # Check that handlers were added for both event types
-        handlers1 = self.event_bus.channel_subscribers[EventBus.DEFAULT_CHANNEL][EventType.EXPERIMENT_STARTED]
-        handlers2 = self.event_bus.channel_subscribers[EventBus.DEFAULT_CHANNEL][EventType.EXPERIMENT_COMPLETED]
+        handlers1 = self.event_bus.channel_subscribers[EventChannel.DEFAULT.value][EventType.EXPERIMENT_STARTED]
+        handlers2 = self.event_bus.channel_subscribers[EventChannel.DEFAULT.value][EventType.EXPERIMENT_COMPLETED]
 
         assert len(handlers1) == 1
         assert len(handlers2) == 1
@@ -149,7 +131,7 @@ class TestEventBusCore:
 
         # Assert
         assert result is True
-        handlers = self.event_bus.channel_subscribers[EventBus.DEFAULT_CHANNEL][EventType.EXPERIMENT_STARTED]
+        handlers = self.event_bus.channel_subscribers[EventChannel.DEFAULT.value][EventType.EXPERIMENT_STARTED]
         assert len(handlers) == 0
 
     def test_unsubscribe_by_handler_invalid_id(self):
@@ -166,7 +148,7 @@ class TestEventBusCore:
 
         # Assert
         assert result is False
-        handlers = self.event_bus.channel_subscribers[EventBus.DEFAULT_CHANNEL][EventType.EXPERIMENT_STARTED]
+        handlers = self.event_bus.channel_subscribers[EventChannel.DEFAULT.value][EventType.EXPERIMENT_STARTED]
         assert len(handlers) == 1
 
     def test_unsubscribe_all(self):
@@ -181,7 +163,7 @@ class TestEventBusCore:
         self.event_bus.subscribe(
             EventType.TASK_STARTED,
             callback,
-            channel=EventBus.LIFECYCLE_CHANNEL
+            channel=EventChannel.LIFECYCLE
         )
         self.event_bus.subscribe(EventType.TASK_COMPLETED, callback2)
 
@@ -192,14 +174,14 @@ class TestEventBusCore:
         assert count == 3
 
         # Check that only callback2 remains
-        handlers = self.event_bus.channel_subscribers[EventBus.DEFAULT_CHANNEL][EventType.TASK_COMPLETED]
+        handlers = self.event_bus.channel_subscribers[EventChannel.DEFAULT.value][EventType.TASK_COMPLETED]
         assert len(handlers) == 1
         assert handlers[0].callback == callback2
 
         # Check that all handlers for callback were removed
-        assert len(self.event_bus.channel_subscribers[EventBus.DEFAULT_CHANNEL][EventType.EXPERIMENT_STARTED]) == 0
-        assert len(self.event_bus.channel_subscribers[EventBus.DEFAULT_CHANNEL][EventType.EXPERIMENT_COMPLETED]) == 0
-        assert len(self.event_bus.channel_subscribers[EventBus.LIFECYCLE_CHANNEL][EventType.TASK_STARTED]) == 0
+        assert len(self.event_bus.channel_subscribers[EventChannel.DEFAULT.value][EventType.EXPERIMENT_STARTED]) == 0
+        assert len(self.event_bus.channel_subscribers[EventChannel.DEFAULT.value][EventType.EXPERIMENT_COMPLETED]) == 0
+        assert len(self.event_bus.channel_subscribers[EventChannel.LIFECYCLE.value][EventType.TASK_STARTED]) == 0
 
     def test_unsubscribe_all_specific_channels(self):
         """Test unsubscribing a callback from specific channels only."""
@@ -210,30 +192,30 @@ class TestEventBusCore:
         self.event_bus.subscribe(
             EventType.EXPERIMENT_STARTED,
             callback,
-            channel=EventBus.LIFECYCLE_CHANNEL
+            channel=EventChannel.LIFECYCLE
         )
         self.event_bus.subscribe(
             EventType.TASK_STARTED,
             callback,
-            channel=EventBus.LIFECYCLE_CHANNEL
+            channel=EventChannel.LIFECYCLE
         )
         self.event_bus.subscribe(
             EventType.COVERAGE_UPDATED,
             callback,
-            channel=EventBus.ANALYSIS_CHANNEL
+            channel=EventChannel.ANALYSIS
         )
 
         # Act
         count = self.event_bus.unsubscribe_all(
             callback,
-            channels=[EventBus.LIFECYCLE_CHANNEL]
+            channels=[EventChannel.LIFECYCLE]
         )
 
         # Assert
         assert count == 2
 
         # Check that only the ANALYSIS_CHANNEL handler remains
-        handlers = self.event_bus.channel_subscribers[EventBus.ANALYSIS_CHANNEL][EventType.COVERAGE_UPDATED]
+        handlers = self.event_bus.channel_subscribers[EventChannel.ANALYSIS.value][EventType.COVERAGE_UPDATED]
         assert len(handlers) == 1
 
     def test_publish_basic(self):
@@ -250,25 +232,6 @@ class TestEventBusCore:
         # Assert
         assert count == 1
         callback.assert_called_once_with(event)
-
-        # Check event was added to history
-        assert len(self.event_bus.history) == 1
-        assert self.event_bus.history[0] == event
-
-    def test_publish_invalid_event(self):
-        """Test publishing an invalid event."""
-        # Arrange
-        callback = MagicMock()
-        self.event_bus.subscribe(EventType.EXPERIMENT_STARTED, callback)
-
-        # Act
-        count = self.event_bus.publish("not an event")
-
-        # Assert
-        assert count == 0
-        callback.assert_not_called()
-        assert len(self.event_bus.history) == 0
-        assert self.event_bus.logger.error.called
 
     def test_publish_handlers_sorted_by_priority(self):
         """Test that handlers are called in priority order."""
@@ -318,37 +281,6 @@ class TestEventBusCore:
         assert count == 4
         # Highest priority should be called first
         assert call_order == ["critical", "high", "normal", "low"]
-
-    def test_history_limit(self):
-        """Test that history is limited to max_history_size."""
-        # Arrange
-        original_size = self.event_bus.max_history_size
-
-        # Temporarily reduce max_history_size for testing
-        self.event_bus.max_history_size = 3
-
-        # Act
-        # Publish more events than the history size limit
-        for i in range(5):
-            event = Event(
-                type=EventType.EXPERIMENT_STARTED,
-                source=f"test{i}"
-            )
-            self.event_bus.publish(event)
-
-        # Assert
-        assert len(self.event_bus.history) == 3
-
-        # Check that the oldest events were removed
-        sources = [e.source for e in self.event_bus.history]
-        assert "test0" not in sources
-        assert "test1" not in sources
-        assert "test2" in sources
-        assert "test3" in sources
-        assert "test4" in sources
-
-        # Restore original size
-        self.event_bus.max_history_size = original_size
 
     def test_shutdown(self):
         """Test shutting down the EventBus."""

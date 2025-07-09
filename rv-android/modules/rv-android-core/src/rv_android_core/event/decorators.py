@@ -25,7 +25,7 @@ from typing import Callable, TypeVar, Optional, Dict, Any, Union, List
 
 from rv_android_core.event.bus import EventBus
 from rv_android_core.event.handler import HandlerPriority
-from rv_android_core.event.models import Event, EventType
+from rv_android_core.event.models import Event, EventType, EventChannel, EventPriority
 
 F = TypeVar('F', bound=Callable)
 T = TypeVar('T')
@@ -34,8 +34,9 @@ T = TypeVar('T')
 def publish_event(event_type: EventType,
                   get_source: Optional[Callable[[Any], str]] = None,
                   get_details: Optional[Callable[[Any, Any], Dict[str, Any]]] = None,
-                  channel: str = EventBus.DEFAULT_CHANNEL,
+                  channel: EventChannel = EventChannel.DEFAULT,
                   async_mode: bool = False,
+                  priority: int = EventPriority.NORMAL,
                   event_bus_provider: Callable[[], EventBus] = EventBus.get_instance) -> Callable[[F], F]:
     """
     Decorator to publish an event after a function is called.
@@ -48,7 +49,8 @@ def publish_event(event_type: EventType,
         event_type: EventType to publish
         get_source: Optional function to extract the source from the function's self parameter
         get_details: Optional function to extract event details from function args/kwargs
-        channel: Channel to publish to (defaults to DEFAULT_CHANNEL)
+        channel: EventChannel to publish to (defaults to EventChannel.DEFAULT)
+        priority: Event priority using EventPriority constants
         async_mode: Whether to publish asynchronously
         event_bus_provider: Function providing the event bus to use
         
@@ -80,7 +82,7 @@ def publish_event(event_type: EventType,
 
             # Publish the event
             if async_mode:
-                event_bus.publish_async(event, channel=channel)
+                event_bus.publish_async(event, channel=channel, priority=priority)
             else:
                 event_bus.publish(event, channel=channel)
 
@@ -94,7 +96,7 @@ def publish_event(event_type: EventType,
 def subscribe_to(event_types: Union[EventType, List[EventType]],
                  filter_fn: Optional[Callable[[Event], bool]] = None,
                  priority: HandlerPriority = HandlerPriority.NORMAL,
-                 channel: str = EventBus.DEFAULT_CHANNEL,
+                 channel: EventChannel = EventChannel.DEFAULT,
                  event_bus_provider: Callable[[], EventBus] = EventBus.get_instance) -> Callable[[F], F]:
     """
     Decorator to subscribe a function to events.
@@ -107,7 +109,7 @@ def subscribe_to(event_types: Union[EventType, List[EventType]],
         event_types: EventType(s) to subscribe to
         filter_fn: Optional function to filter events
         priority: Priority for this handler
-        channel: Channel to subscribe in (defaults to DEFAULT_CHANNEL)
+        channel: EventChannel to subscribe in (defaults to EventChannel.DEFAULT)
         event_bus_provider: Function providing the event bus to use
         
     Returns:
@@ -125,7 +127,7 @@ def subscribe_to(event_types: Union[EventType, List[EventType]],
                 callback=cls_or_func,
                 filter_fn=filter_fn,
                 priority=priority,
-                channel=channel
+                channel=channel.value
             )
 
         # Return original function/class unchanged

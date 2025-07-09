@@ -98,7 +98,7 @@ class TestCoverageTracker:
         mock_bus_instance = MagicMock()
         mock_event_bus.get_instance.return_value = mock_bus_instance
 
-        tracker = CoverageTracker(sample_logcat_file, mock_static_data)
+        tracker = CoverageTracker(sample_logcat_file, mock_static_data, task_id="test_task")
 
         # Simulate tracking
         with open(sample_logcat_file, 'r') as f:
@@ -120,7 +120,7 @@ class TestCoverageTracker:
         """Test retrieving detailed coverage metrics."""
         from rv_coverage.analysis.coverage.tracker import CoverageTracker
 
-        tracker = CoverageTracker(sample_logcat_file, mock_static_data)
+        tracker = CoverageTracker(sample_logcat_file, mock_static_data, task_id="test_task")
 
         # Process lines manually
         with open(sample_logcat_file, 'r') as f:

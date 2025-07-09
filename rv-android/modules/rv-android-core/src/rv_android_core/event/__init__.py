@@ -16,17 +16,16 @@ tracking, and asynchronous event processing.
 
 ### Core Components:
 1. EventBus: Central communication hub for publishing and subscribing to events
-2. Event Models: Hierarchical event types (Event, TaskEvent, ExperimentEvent, AnalysisEvent)
+2. Event Models: Hierarchical event types (Event, TaskEvent, ExperimentEvent, CoverageEvent, MOPErrorEvent)
 3. EventHandler: Configurable event processors with priority and filtering support
 4. EventType: Enumeration of all supported event types across the system
 5. Decorators: Declarative event integration for methods and functions
 
 ### Event Channels:
-- SYSTEM_CHANNEL: System-level events and configuration changes
-- LIFECYCLE_CHANNEL: Component lifecycle events (start, stop, complete)
-- ANALYSIS_CHANNEL: Analysis results and coverage updates
-- ERROR_CHANNEL: Error detection and recovery events
-- USER_CHANNEL: User interactions and interface events
+- EventChannel.DEFAULT: General system events without specific category
+- EventChannel.LIFECYCLE: Task and experiment lifecycle events (including coverage and MOP events)
+- EventChannel.ANALYSIS: General analysis results and static analysis events
+- EventChannel.ERROR: Error events and exception handling notifications
 
 ### Usage Examples:
 
@@ -60,13 +59,13 @@ event_bus.subscribe(
     event_type=EventType.TASK_COMPLETED,
     callback=handle_task_completion,
     priority=HandlerPriority.HIGH,
-    channel=EventBus.LIFECYCLE_CHANNEL
+    channel=EventChannel.LIFECYCLE
 )
 ```
 """
 
 # Export event models
-from rv_android_core.event.models import Event, EventType, TaskEvent, ExperimentEvent, AnalysisEvent
+from rv_android_core.event.models import Event, EventType, TaskEvent, ExperimentEvent, CoverageEvent, MOPErrorEvent, EventChannel, EventPriority
 
 # Export event bus
 from rv_android_core.event.bus import EventBus
@@ -94,7 +93,7 @@ from rv_android_core.event.utils import (
 # Define the exported API
 __all__ = [
     # Event models
-    'Event', 'EventType', 'TaskEvent', 'ExperimentEvent', 'AnalysisEvent',
+    'Event', 'EventType', 'TaskEvent', 'ExperimentEvent', 'CoverageEvent', 'MOPErrorEvent', 'EventChannel', 'EventPriority',
     
     # EventBus
     'EventBus',

@@ -41,17 +41,6 @@ class TestAsyncEventPublishing:
         # Verify no crash occurred and event was processed
         assert len(self.processed_events) >= 0  # May or may not process depending on timing
 
-    def test_publish_async_invalid_event_handling(self):
-        """Test async publishing with invalid event objects."""
-        # Mock the logger to capture error messages
-        with patch.object(self.event_bus, 'logger') as mock_logger:
-            # Try to publish invalid event
-            self.event_bus.publish_async("not_an_event")
-            
-            # Should log error for invalid event
-            mock_logger.error.assert_called_once()
-            assert "Invalid event object" in str(mock_logger.error.call_args)
-
     def test_async_processing_thread_lifecycle(self):
         """Test that async processing thread is properly managed."""
         # Create new bus to test initialization
@@ -101,19 +90,6 @@ class TestCallbackPublishing:
         
         # Verify callback was called (exact counts may vary)
         assert len(self.callback_results) >= 0
-
-    def test_publish_with_callback_invalid_event(self):
-        """Test callback publishing with invalid event."""
-        def result_callback(event, handler_count):
-            self.callback_results.append(handler_count)
-        
-        # Mock logger to capture invalid event errors
-        with patch.object(self.event_bus, 'logger') as mock_logger:
-            self.event_bus.publish_with_callback("not_an_event", result_callback)
-            
-            # Should log error for invalid event
-            mock_logger.error.assert_called_once()
-            assert "Invalid event object" in str(mock_logger.error.call_args)
 
 
 class TestAsyncBasicIntegration:

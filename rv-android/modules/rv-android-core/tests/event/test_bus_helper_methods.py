@@ -11,7 +11,7 @@ from unittest.mock import MagicMock
 
 from rv_android_core.event.bus import EventBus
 from rv_android_core.event.models import (
-    TaskEvent, ExperimentEvent, AnalysisEvent, EventType
+    TaskEvent, ExperimentEvent, EventType
 )
 
 
@@ -92,98 +92,3 @@ class TestEventBusHelperMethods:
         assert event.message == message
         assert event.affected_tasks == affected_tasks
         assert event.source == source
-
-    def test_publish_analysis_event(self):
-        """Test publishing an analysis event using the helper method."""
-        # Arrange
-        data = {"coverage": 85.5, "errors": 0}
-        related_task_id = "42"
-        source = "test_source"
-
-        # Act
-        result = self.event_bus.publish_analysis_event(
-            EventType.COVERAGE_UPDATED,
-            data,
-            related_task_id,
-            source
-        )
-
-        # Assert
-        assert result == 1
-        self.event_bus.publish.assert_called_once()
-
-        # Get the event that was published
-        event = self.event_bus.publish.call_args[0][0]
-        assert isinstance(event, AnalysisEvent)
-        assert event.type == EventType.COVERAGE_UPDATED
-        assert event.data == data
-        assert event.related_task_id == related_task_id
-        assert event.source == source
-
-    def test_publish_error_event(self):
-        """Test publishing an error event using the helper method."""
-        # Arrange
-        error = Exception("Test error")
-        context = {"phase": "execution", "task_id": "42"}
-
-        # Act
-        result = self.event_bus.publish_error_event(error, context)
-
-        # Assert
-        assert result == 1
-        self.event_bus.publish.assert_called_once()
-
-        # Get the event that was published
-        event = self.event_bus.publish.call_args[0][0]
-        assert isinstance(event, AnalysisEvent)
-        assert event.type == EventType.EXPERIMENT_ERROR
-        assert event.data["error_type"] == "Exception"
-        assert event.data["error_message"] == "Test error"
-        assert event.data["context"] == context
-        assert event.related_task_id == "42"  # Should extract from context
-        assert event.source == "ErrorHandler"
-
-    def test_publish_error_event_without_task_id(self):
-        """Test publishing an error event without a task ID in the context."""
-        # Arrange
-        error = Exception("Test error")
-        context = {"phase": "execution"}  # No task_id
-
-        # Act
-        result = self.event_bus.publish_error_event(error, context)
-
-        # Assert
-        assert result == 1
-        self.event_bus.publish.assert_called_once()
-
-        # Get the event that was published
-        event = self.event_bus.publish.call_args[0][0]
-        assert isinstance(event, AnalysisEvent)
-        assert event.type == EventType.EXPERIMENT_ERROR
-        assert event.related_task_id is None  # No task ID should be set
-
-    def test_publish_rvandroid_error(self):
-        """Test publishing a RVAndroidError with cause information."""
-        # Arrange
-        from rv_android_core.util.error.exceptions import RVAndroidError
-
-        cause = ValueError("Original error")
-        error = RVAndroidError("An error occurred", cause)
-        context = {"phase": "execution"}
-
-        # Act
-        result = self.event_bus.publish_error_event(error, context)
-
-        # Assert
-        assert result == 1
-        self.event_bus.publish.assert_called_once()
-
-        # Get the event that was published
-        event = self.event_bus.publish.call_args[0][0]
-        error_data = event.data
-
-        assert error_data["error_type"] == "RVAndroidError"
-        assert error_data["message"] == "An error occurred"
-        assert "cause" in error_data
-        assert error_data["cause"]["type"] == "ValueError"
-        assert error_data["cause"]["message"] == "Original error"

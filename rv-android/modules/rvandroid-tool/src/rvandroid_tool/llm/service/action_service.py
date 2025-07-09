@@ -8,7 +8,7 @@ AI-driven test action generation system using the PromptFramework.
 from typing import Any, Dict, List
 
 from rv_android_core.domain.static import StaticAnalysisData
-from rv_android_core.event.bus import EventBus, EventType
+from rv_android_core.event.bus import EventBus, EventType, EventChannel
 from rv_android_core.util.error.error_handler import ErrorHandler
 from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
 from rv_android_core.util.logging.manager import LoggingManager
@@ -98,10 +98,12 @@ class LLMActionService:
         self.framework = PromptFramework.create(self.config)
 
         # Record session creation event
-        self.event_bus.publish_analysis_event(
+        self.event_bus.publish_experiment_event(
             EventType.EXPERIMENT_STARTED,
-            data={"service": "LLMActionService", "model": self.config.llm_config.model_name},
-            source="LLMActionService"
+            experiment_id=app_package,
+            message=f"LLMActionService initialized with model {self.config.llm_config.model_name}",
+            source="LLMActionService",
+            channel=EventChannel.LIFECYCLE
         )
 
         # Log initialization

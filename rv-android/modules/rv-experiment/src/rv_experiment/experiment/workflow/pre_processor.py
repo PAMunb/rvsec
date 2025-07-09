@@ -8,7 +8,7 @@ from typing import List
 
 from rv_android_core.constants import EXTENSION_APK
 from rv_android_core.domain.app import App
-from rv_android_core.event import EventBus, EventType
+from rv_android_core.event import EventBus, EventType, EventChannel
 from rv_android_core.util.error.error_handler import ErrorHandler
 from rv_android_core.util.logging.constants import LOG_START, CONTEXT_COMPONENT, LOG_COMPLETE
 from rv_android_core.util.logging.manager import LoggingManager
@@ -120,10 +120,12 @@ class PreProcessor:
                     self.logger.info(LOG_COMPLETE.format(phase="monitor generation"))
 
                     # Publish event for monitor generation completion
-                    self.event_bus.publish_analysis_event(
+                    self.event_bus.publish_task_event(
                         EventType.MONITOR_GENERATED,
-                        data={"phase": "monitor_generation"},
-                        source="PreProcessor"
+                        task_id="pre_processor",
+                        details={"phase": "monitor_generation"},
+                        source="PreProcessor",
+                        channel=EventChannel.ANALYSIS
                     )
 
             except ImportError:
@@ -176,10 +178,12 @@ class PreProcessor:
                     self.logger.info(LOG_COMPLETE.format(phase="APK instrumentation"))
 
                     # Publish event for instrumentation completion
-                    self.event_bus.publish_analysis_event(
+                    self.event_bus.publish_task_event(
                         EventType.INSTRUMENTATION_COMPLETED,
-                        data={"phase": "apk_instrumentation"},
-                        source="PreProcessor"
+                        task_id="pre_processor",
+                        details={"phase": "apk_instrumentation"},
+                        source="PreProcessor",
+                        channel=EventChannel.ANALYSIS
                     )
 
             except ImportError:
@@ -277,10 +281,12 @@ class PreProcessor:
                 self.logger.info(LOG_COMPLETE.format(phase="static analysis"))
 
                 # Publish event for static analysis completion
-                self.event_bus.publish_analysis_event(
+                self.event_bus.publish_task_event(
                     EventType.STATIC_ANALYSIS_COMPLETED,
-                    data={"phase": "static_analysis"},
-                    source="PreProcessor"
+                    task_id="pre_processor",
+                    details={"phase": "static_analysis"},
+                    source="PreProcessor",
+                    channel=EventChannel.ANALYSIS
                 )
 
             except ImportError:

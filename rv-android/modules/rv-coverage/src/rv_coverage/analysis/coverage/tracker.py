@@ -11,7 +11,8 @@ from rv_android_core.domain.static import StaticAnalysisData
 from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
 from rv_android_core.util.logging.manager import LoggingManager
 from rv_android_core.util.android.repository_initializer import initialize_repository_from_static_data
-from rv_android_core.event.bus import EventBus, EventType
+from rv_android_core.event.bus import EventBus
+from rv_android_core.event.models import Event, EventType, EventChannel, EventPriority
 from rv_coverage.parser.log.logcat_parser import parse_logcat_line
 
 
@@ -92,20 +93,22 @@ class CoverageTracker:
     """
 
     def __init__(self, logcat_file: str, static_data: Optional[StaticAnalysisData] = None,
-                 task_start_time: Optional[datetime] = None):
+                 task_start_time: Optional[datetime] = None, task_id: Optional[str] = None):
         """
-        Initialize the coverage tracker.
+        Initialize the coverage tracker with optional task correlation.
 
         Args:
             logcat_file: Path to the logcat file to monitor
             static_data: Optional static analysis data
             task_start_time: When tool execution started (for calculating accurate relative timing)
                             Note: This should be tool_execution_start, not task creation time
+            task_id: Optional task identifier for event correlation
         """
         self.logcat_file = logcat_file
         self.static_data = static_data
         # Using task_start_time parameter name for compatibility, but this should contain tool_execution_start time
         self.tool_execution_start_time = task_start_time
+        self.task_id = task_id
 
         # Set up logging
         logging_manager = LoggingManager.get_instance()
@@ -327,18 +330,31 @@ class CoverageTracker:
                 self._data_changed_since_last_update = True  # Mark data as changed
                 
                 # Publish MOP error event for real-time monitoring
-                self.event_bus.publish_analysis_event(
-                    EventType.MOP_ERROR_DETECTED,
-                    data={
-                        "spec": error_log.spec,
-                        "error_type": error_log.error_type,
-                        "class_name": error_log.class_full_name,
-                        "method": error_log.method,
-                        "message": error_log.message,
-                        "time_since_start": time_since_start
-                    },
-                    source="CoverageTracker"
-                )
+                if self.task_id:
+                    self.event_bus.publish_mop_error_event(
+                        EventType.MOP_ERROR_DETECTED,
+                        task_id=self.task_id,
+                        error_log={
+                            "spec": error_log.spec,
+                            "error_type": error_log.error_type,
+                            "class_full_name": error_log.class_full_name,
+                            "method": error_log.method,
+                            "message": error_log.message,
+                            "time_since_task_start": time_since_start
+                        },
+                        source="CoverageTracker",
+                        channel=EventChannel.LIFECYCLE,
+                        priority=EventPriority.HIGH
+                    )
+                else:
+                    # Fallback to generic event if no task_id
+                    self.event_bus.publish(
+                        Event(
+                            type=EventType.MOP_ERROR_DETECTED,
+                            source="CoverageTracker"
+                        ),
+                        channel=EventChannel.LIFECYCLE
+                    )
                 
                 self.logger.info(
                     f"Tracked formal property violation in {error_log.class_full_name}.{error_log.method}: {error_log.message}"
@@ -410,11 +426,24 @@ class CoverageTracker:
                 self._previous_metrics = current_metrics.copy()
 
                 # Publish metrics update event
-                self.event_bus.publish_analysis_event(
-                    EventType.COVERAGE_UPDATED,
-                    data=current_metrics,
-                    source="CoverageTracker"
-                )
+                if self.task_id:
+                    self.event_bus.publish_coverage_event(
+                        EventType.COVERAGE_UPDATED,
+                        task_id=self.task_id,
+                        coverage_metrics=current_metrics,
+                        source="CoverageTracker",
+                        channel=EventChannel.LIFECYCLE,
+                        priority=EventPriority.NORMAL
+                    )
+                else:
+                    # Fallback to generic event if no task_id
+                    self.event_bus.publish(
+                        Event(
+                            type=EventType.COVERAGE_UPDATED,
+                            source="CoverageTracker"
+                        ),
+                        channel=EventChannel.LIFECYCLE
+                    )
 
                 # Log update since changes occurred
                 self.logger.info(

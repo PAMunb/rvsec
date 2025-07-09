@@ -13,7 +13,7 @@ from unittest.mock import patch
 
 from rv_android_core.event.bus import EventBus
 from rv_android_core.event.handler import EventHandler, HandlerPriority
-from rv_android_core.event.models import Event, EventType, TaskEvent, ExperimentEvent, AnalysisEvent
+from rv_android_core.event.models import Event, EventType, TaskEvent, ExperimentEvent, EventChannel
 from rv_android_core.util.error.exceptions import RVAndroidError
 
 
@@ -24,27 +24,6 @@ class TestEventBusErrorHandling:
         """Set up test environment with isolated event bus."""
         self.event_bus = EventBus()
         self.error_events = []
-
-    def test_publish_invalid_event_object(self):
-        """Test publishing invalid event objects."""
-        # Mock logger to capture error messages
-        with patch.object(self.event_bus, 'logger') as mock_logger:
-            # Try to publish various invalid objects
-            invalid_objects = [
-                None,
-                "string_event",
-                123,
-                {"type": "dict_event"},
-                [],
-                object()
-            ]
-            
-            for invalid_obj in invalid_objects:
-                result = self.event_bus.publish(invalid_obj)
-                assert result == 0  # Should return 0 handlers processed
-            
-            # Should log error for each invalid object
-            assert mock_logger.error.call_count == len(invalid_objects)
 
     def test_subscribe_with_invalid_callback(self):
         """Test subscribing with invalid callback functions."""
@@ -121,38 +100,6 @@ class TestEventBusErrorHandling:
         # Event should not be processed due to filter exception
         assert len(processed_events) == 0
 
-    def test_publish_error_event_with_rvandroid_exception(self):
-        """Test publishing error events with RVAndroid-specific exceptions."""
-        def error_handler(event):
-            self.error_events.append(event)
-        
-        self.event_bus.subscribe(
-            EventType.EXPERIMENT_ERROR,
-            error_handler,
-            channel=EventBus.ERROR_CHANNEL
-        )
-        
-        # Create RVAndroid exception with cause
-        cause = ValueError("Original cause")
-        rv_error = RVAndroidError("RVAndroid error occurred", cause=cause)
-        
-        # Publish error event
-        context = {"task_id": "task-123", "component": "test"}
-        result = self.event_bus.publish_error_event(rv_error, context=context)
-        
-        assert result == 1
-        assert len(self.error_events) == 1
-        
-        # Verify error event data
-        error_event = self.error_events[0]
-        assert isinstance(error_event, AnalysisEvent)
-        assert error_event.type == EventType.EXPERIMENT_ERROR
-        assert error_event.related_task_id == "task-123"
-        assert error_event.data["error_type"] == "RVAndroidError"
-        assert error_event.data["message"] == "RVAndroid error occurred"
-        assert error_event.data["cause"]["type"] == "ValueError"
-        assert error_event.data["cause"]["message"] == "Original cause"
-
     def test_unsubscribe_invalid_handler_id(self):
         """Test unsubscribing with invalid handler IDs."""
         # Subscribe a handler first
@@ -182,21 +129,9 @@ class TestEventBusErrorHandling:
         result = self.event_bus.unsubscribe_by_handler(
             EventType.TASK_STARTED, 
             handler_id,
-            channel="non_existent_channel"
+            channel=EventChannel.LIFECYCLE
         )
         assert result is False
-
-    def test_publish_to_invalid_channel(self):
-        """Test publishing to channels that don't exist."""
-        event = Event(type=EventType.CONFIG_LOADED, source="test")
-        
-        # Mock logger to capture warning
-        with patch.object(self.event_bus, 'logger') as mock_logger:
-            result = self.event_bus.publish(event, channel="invalid_channel")
-            
-            # Should warn about unknown channel
-            mock_logger.warning.assert_called_with("Unknown channel: invalid_channel")
-            assert result == 0
 
 
 class TestEventHandlerErrorScenarios:
@@ -345,28 +280,6 @@ class TestEventModelErrorScenarios:
         )
         # Should preserve the list as-is
         assert len(event2.affected_tasks) == 3
-
-    def test_analysis_event_with_invalid_data(self):
-        """Test AnalysisEvent with invalid data structures."""
-        from pydantic_core import ValidationError
-        
-        # Test with default data (not providing data field)
-        event1 = AnalysisEvent(
-            type=EventType.COVERAGE_UPDATED
-            # data not provided, should use default
-        )
-        # Should use default empty dict
-        assert event1.data == {}
-        
-        # Test with non-dict data - should raise ValidationError with Pydantic
-        try:
-            event2 = AnalysisEvent(
-                type=EventType.MOP_ERROR_DETECTED,
-                data="string_data"
-            )
-            assert False, "Expected ValidationError for non-dict data"
-        except ValidationError as e:
-            assert "dict" in str(e).lower()
 
 
 class TestConcurrencyErrorScenarios:
@@ -552,24 +465,3 @@ class TestResourceCleanupErrorScenarios:
         except Exception:
             # If it fails, that's also valid behavior for shutdown bus
             pass
-
-    def test_event_history_memory_management(self):
-        """Test event history memory management with large number of events."""
-        # Create bus with small history limit for testing
-        test_bus = EventBus(is_singleton=False)
-        test_bus.max_history_size = 10
-        
-        # Publish more events than history limit
-        for i in range(20):
-            event = Event(type=EventType.TASK_STARTED, source=f"test-{i}")
-            test_bus.publish(event)
-        
-        # History should be trimmed to max size
-        assert len(test_bus.history) == 10
-        
-        # Should contain the most recent events
-        recent_sources = {event.source for event in test_bus.history}
-        expected_sources = {f"test-{i}" for i in range(10, 20)}
-        assert recent_sources == expected_sources
-        
-        test_bus.shutdown()

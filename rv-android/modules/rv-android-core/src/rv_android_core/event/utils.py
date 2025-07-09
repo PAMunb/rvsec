@@ -11,7 +11,7 @@ from typing import Dict, List, Optional, TypeVar, Set
 
 # Import from models directly
 from rv_android_core.event.models import (
-    Event, EventType, TaskEvent, ExperimentEvent, AnalysisEvent
+    Event, EventType, TaskEvent, ExperimentEvent, CoverageEvent, MOPErrorEvent
 )
 
 # Type variable for events

@@ -1,4 +1,10 @@
-# rvandroid/experiment/event/bus.py
+"""
+Event bus system for RV-Android Core.
+
+This module provides a centralized event bus for managing event subscriptions
+and publishing with thread-safe operations and priority-based processing.
+"""
+
 import concurrent.futures
 import queue
 import threading
@@ -7,7 +13,8 @@ from typing import Dict, List, Any, Callable, Optional, Union
 
 from rv_android_core.event.handler import EventHandler, HandlerPriority
 from rv_android_core.event.models import (
-    Event, EventType, TaskEvent, ExperimentEvent, AnalysisEvent,
+    Event, EventType, EventPriority, EventChannel, EventHistoryManager,
+    TaskEvent, ExperimentEvent, CoverageEvent, MOPErrorEvent,
     TaskToolExecutionEvent, PhaseExecutionModeEvent
 )
 from rv_android_core.util.error.error_handler import ErrorHandler
@@ -20,37 +27,36 @@ class EventBus:
     """
     Central event bus for managing event subscriptions and publishing.
 
-    A thread-safe publish-subscribe event management system for decoupled communication across the rvandroid framework.
+    A thread-safe publish-subscribe event management system for decoupled 
+    communication across the RV-Android framework.
 
     ### Architectural Decisions:
-    - Implements a pub/sub pattern with flexibility
+    - Implements pub/sub pattern with strict type safety
     - Provides thread-safe event handling and subscription management
-    - Supports multiple event types and granular filtering
+    - Supports multiple event types with type-safe channel routing
     - Enables dynamic event registration and unregistration
-    - Maintains event history for traceability
+    - Delegates history management to EventHistoryManager
     - Supports asynchronous event processing with priority queuing
-    - Provides dedicated event channels for different system components
+    - Uses EventChannel enum for type-safe channel specification
 
     ### Role in the System:
     - Serves as the central communication backbone for the framework
     - Facilitates loose coupling between different system components
     - Enables real-time event tracking and notification
     - Supports event-driven workflows across experiment lifecycle
-    - Provides a mechanism for inter-component communication
+    - Provides mechanism for inter-component communication
+
+    ### Key Features:
+    - Type-safe event channel routing via EventChannel enum
+    - Priority-based event processing with EventPriority constants
+    - Memory-efficient event history management
+    - Comprehensive error handling integration
+    - Thread-safe subscription management
+    - Asynchronous event processing with worker threads
     """
 
     _instance = None
     _lock = threading.Lock()
-
-    # Event channels for specialized system aspects
-    SYSTEM_CHANNEL = "system"
-    LIFECYCLE_CHANNEL = "lifecycle"
-    ANALYSIS_CHANNEL = "analysis"
-    ERROR_CHANNEL = "error"
-    USER_CHANNEL = "user"
-
-    # Default channel for events without a specified channel
-    DEFAULT_CHANNEL = "default"
 
     @classmethod
     def get_instance(cls) -> 'EventBus':
@@ -78,7 +84,7 @@ class EventBus:
         """
         return EventBus(is_singleton=False)
 
-    def __init__(self, is_singleton=True, worker_threads=4, max_queue_size=1000, core_events_only=False):
+    def __init__(self, is_singleton=True, worker_threads=4, max_queue_size=1000):
         """
         Initialize the event bus.
         
@@ -86,36 +92,31 @@ class EventBus:
             is_singleton: Whether this instance is a singleton
             worker_threads: Number of worker threads for async processing
             max_queue_size: Maximum size of the event queue
-            core_events_only: Whether to process only core events (performance mode)
         """
         # Configure logging and error handling
         logging_manager = LoggingManager.get_instance()
         self.logger = logging_manager.get_logger(
-            "experiment.event.bus",
+            "rv_android_core.event.bus",
             {
                 CONTEXT_COMPONENT: "EventBus"
             }
         )
         self.error_handler = ErrorHandler.get_instance()
+        
+        # Initialize event history manager
+        self.history_manager = EventHistoryManager()
+        
+        # Initialize subscriber management
         self.channel_subscribers: Dict[str, Dict[EventType, List[EventHandler]]] = {}
-        self.history: List[Event] = []
-        self.max_history_size = 1000
         self._lock = threading.Lock()
         self._active = True
 
-        # Core events filtering configuration
-        self.core_events_only = core_events_only
-        self.deprecated_event_warnings = True
-
-        # Create channel map
-        for channel in [self.SYSTEM_CHANNEL, self.LIFECYCLE_CHANNEL, self.ANALYSIS_CHANNEL,
-                        self.ERROR_CHANNEL, self.USER_CHANNEL, self.DEFAULT_CHANNEL]:
-            self.channel_subscribers[channel] = {}
-
-        # Initialize empty subscriber lists for each event type in each channel
-        for channel in self.channel_subscribers:
+        # Create type-safe channel map
+        for channel in EventChannel:
+            self.channel_subscribers[channel.value] = {}
+            # Initialize empty subscriber lists for each event type in each channel
             for event_type in EventType:
-                self.channel_subscribers[channel][event_type] = []
+                self.channel_subscribers[channel.value][event_type] = []
 
         # Setup asynchronous processing
         self._setup_async_processing(worker_threads, max_queue_size)
@@ -152,10 +153,7 @@ class EventBus:
                 priority, event, channel = self._event_queue.get(timeout=0.5)
 
                 # Process the event
-                if channel:
-                    self._process_event_in_channel(event, channel)
-                else:
-                    self._process_event(event)
+                self._process_event_in_channel(event, channel)
 
                 # Mark the task as done
                 self._event_queue.task_done()
@@ -166,18 +164,44 @@ class EventBus:
             except Exception as e:
                 self.logger.error(f"Error processing event from queue: {e}", exc_info=True)
 
-    def _process_event(self, event: Event) -> int:
+    @ErrorHandler.handle_errors(component="EventBus", phase="event_publication")
+    def _publish_base(self, event: Event, channel: str, 
+                      callback: Optional[Callable] = None, 
+                      priority: int = EventPriority.NORMAL) -> int:
         """
-        Process an event synchronously through the default channel.
+        Base method for all event publication forms with complete integration.
         
-        Args:
-            event: The event to process
-            
-        Returns:
-            Number of handlers that processed the event
+        ### Architectural Decisions:
+        - Centralized validation and history management via EventHistoryManager
+        - Common error handling for all publication types
+        - Supports both synchronous and asynchronous processing
+        - Uses EventPriority constants for consistent priority handling
+        - Eliminates duplicated history logic from EventBus
+        
+        ### Role in the System:
+        - Serves as the foundation for all publication methods
+        - Ensures consistent event processing behavior
+        - Delegates history management to EventHistoryManager
+        - Provides unified error handling and logging
         """
-        # Process through the default channel
-        return self._process_event_in_channel(event, self.DEFAULT_CHANNEL)
+        # Validation
+        if not isinstance(event, Event):
+            raise EventProcessingError(f"Invalid event object: {event}", event_type=str(type(event)))
+        
+        # Add to history via EventHistoryManager
+        self.history_manager.add_event(event)
+        
+        # Process event
+        handler_count = self._process_event_in_channel(event, channel)
+        
+        # Execute callback if provided
+        if callback:
+            try:
+                callback(event, handler_count)
+            except Exception as e:
+                self.logger.error(f"Error in publication callback: {e}", exc_info=True)
+        
+        return handler_count
 
     def _process_event_in_channel(self, event: Event, channel: str) -> int:
         """
@@ -194,6 +218,8 @@ class EventBus:
         if channel not in self.channel_subscribers:
             self.logger.warning(f"Unknown channel: {channel}")
             return 0
+
+        print(f"******************* _process_event_in_channel .... event={event} ... channel={channel}")
 
         handlers = self.channel_subscribers[channel].get(event.type, [])
 
@@ -216,7 +242,7 @@ class EventBus:
                   callback: Callable[[Event], None],
                   filter_fn: Optional[Callable[[Event], bool]] = None,
                   priority: HandlerPriority = HandlerPriority.NORMAL,
-                  channel: str = DEFAULT_CHANNEL) -> int:
+                  channel: EventChannel = EventChannel.DEFAULT) -> int:
         """
         Subscribe to an event type.
 
@@ -225,7 +251,7 @@ class EventBus:
             callback: Function to call when event occurs
             filter_fn: Optional function to filter events
             priority: Priority for this handler
-            channel: Channel to subscribe in (defaults to DEFAULT_CHANNEL)
+            channel: Channel to subscribe in (strict EventChannel enum)
 
         Returns:
             Handler ID for unsubscribing
@@ -233,14 +259,10 @@ class EventBus:
         handler = EventHandler(callback, filter_fn, priority=priority)
 
         with self._lock:
-            if channel not in self.channel_subscribers:
-                self.logger.warning(f"Unknown channel: {channel}, defaulting to {self.DEFAULT_CHANNEL}")
-                channel = self.DEFAULT_CHANNEL
-
-            self.channel_subscribers[channel][event_type].append(handler)
+            self.channel_subscribers[channel.value][event_type].append(handler)
             self.logger.debug(
-                f"Subscribed to {event_type.name} in channel {channel}, "
-                f"total subscribers: {len(self.channel_subscribers[channel][event_type])}"
+                f"Subscribed to {event_type.name} in channel {channel.value}, "
+                f"total subscribers: {len(self.channel_subscribers[channel.value][event_type])}"
             )
 
         return id(handler)
@@ -250,7 +272,7 @@ class EventBus:
                        callback: Callable[[Event], None],
                        filter_fn: Optional[Callable[[Event], bool]] = None,
                        priority: HandlerPriority = HandlerPriority.NORMAL,
-                       channel: str = DEFAULT_CHANNEL) -> List[int]:
+                       channel: EventChannel = EventChannel.DEFAULT) -> List[int]:
         """
         Subscribe to multiple event types.
 
@@ -259,7 +281,7 @@ class EventBus:
             callback: Function to call when any of the events occur
             filter_fn: Optional function to filter events
             priority: Priority for this handler
-            channel: Channel to subscribe in (defaults to DEFAULT_CHANNEL)
+            channel: Channel to subscribe in (strict EventChannel enum)
 
         Returns:
             List of handler IDs for unsubscribing
@@ -268,32 +290,29 @@ class EventBus:
                 for event_type in event_types]
 
     def unsubscribe_by_handler(self, event_type: EventType, handler_id: int,
-                               channel: str = DEFAULT_CHANNEL) -> bool:
+                               channel: EventChannel = EventChannel.DEFAULT) -> bool:
         """
         Unsubscribe from an event type by handler ID.
 
         Args:
             event_type: Type of event to unsubscribe from
             handler_id: Handler ID returned from subscribe
-            channel: Channel to unsubscribe from (defaults to DEFAULT_CHANNEL)
+            channel: Channel to unsubscribe from (strict EventChannel enum)
 
         Returns:
             True if handler was found and removed, False otherwise
         """
         with self._lock:
-            if channel not in self.channel_subscribers:
-                return False
-
-            for i, handler in enumerate(self.channel_subscribers[channel][event_type]):
+            for i, handler in enumerate(self.channel_subscribers[channel.value][event_type]):
                 if id(handler) == handler_id:
-                    self.channel_subscribers[channel][event_type].pop(i)
-                    self.logger.debug(f"Unsubscribed from {event_type.name} in channel {channel}")
+                    self.channel_subscribers[channel.value][event_type].pop(i)
+                    self.logger.debug(f"Unsubscribed from {event_type.name} in channel {channel.value}")
                     return True
 
         return False
 
     def unsubscribe_all(self, callback: Callable[[Event], None],
-                        channels: Optional[List[str]] = None) -> int:
+                        channels: Optional[List[EventChannel]] = None) -> int:
         """
         Unsubscribe a callback from all event types.
 
@@ -310,13 +329,13 @@ class EventBus:
             # Unsubscribe from specified channels
             if channels:
                 for channel in channels:
-                    if channel in self.channel_subscribers:
+                    if channel.value in self.channel_subscribers:
                         for event_type in EventType:
-                            handlers = self.channel_subscribers[channel][event_type]
-                            self.channel_subscribers[channel][event_type] = [
+                            handlers = self.channel_subscribers[channel.value][event_type]
+                            self.channel_subscribers[channel.value][event_type] = [
                                 h for h in handlers if h.callback != callback
                             ]
-                            count += len(handlers) - len(self.channel_subscribers[channel][event_type])
+                            count += len(handlers) - len(self.channel_subscribers[channel.value][event_type])
             else:
                 # Unsubscribe from all channels
                 for channel in self.channel_subscribers:
@@ -330,291 +349,141 @@ class EventBus:
         self.logger.debug(f"Unsubscribed {count} handlers")
         return count
 
-    def publish(self, event: Event, channel: str = DEFAULT_CHANNEL) -> int:
+    @ErrorHandler.handle_errors(component="EventBus", phase="synchronous_publication")
+    def publish(self, event: Event, channel: EventChannel = EventChannel.DEFAULT) -> int:
+        """Publish an event to all subscribers synchronously."""
+        return self._publish_base(event, channel.value)
+
+    @ErrorHandler.handle_errors(component="EventBus", phase="asynchronous_publication")
+    def publish_async(self, event: Event, 
+                      channel: EventChannel = EventChannel.DEFAULT, 
+                      priority: int = EventPriority.NORMAL) -> None:
         """
-        Publish an event to all subscribers synchronously.
-
-        Args:
-            event: Event to publish
-            channel: Channel to publish to (defaults to DEFAULT_CHANNEL)
-
-        Returns:
-            Number of handlers that processed the event
-        """
-        if not isinstance(event, Event):
-            self.logger.error(f"Invalid event object: {event}")
-            return 0
-
-        # Check for core events only mode
-        if self.core_events_only and not self.is_core_event(event.type):
-            if self.deprecated_event_warnings:
-                self._warn_deprecated_event(event.type)
-            return 0
-
-        # Warn about deprecated events even in normal mode
-        if not self.is_core_event(event.type) and self.deprecated_event_warnings:
-            self._warn_deprecated_event(event.type)
-
-        self.logger.debug(f"Publishing event: {event} in channel {channel}")
-
-        # Add to history
-        with self._lock:
-            self.history.append(event)
-            # Trim history if needed
-            if len(self.history) > self.max_history_size:
-                self.history = self.history[-self.max_history_size:]
-
-        # Process the event
-        return self._process_event_in_channel(event, channel)
-
-    def publish_async(self, event: Event,
-                      channel: str = DEFAULT_CHANNEL,
-                      priority: int = 0) -> None:
-        """
-        Publish an event asynchronously.
+        Publish an event asynchronously using priority queue with EventPriority constants.
         
-        The event will be added to a queue and processed by worker threads.
+        ### Priority Queue Behavior:
+        - Lower priority values are processed first (EventPriority.CRITICAL = 0)
+        - Events with same priority are processed in FIFO order
+        - Uses queue.PriorityQueue for thread-safe priority handling
+        - Standard priority levels defined in EventPriority class
+        
+        ### Architectural Decisions:
+        - Priority queue ensures critical events are processed first
+        - Thread-safe implementation supports concurrent publishing
+        - Queue overflow handling prevents system instability
+        - Event ordering maintained within priority levels
+        - EventPriority constants eliminate magic numbers
         
         Args:
             event: Event to publish
-            channel: Channel to publish to (defaults to DEFAULT_CHANNEL)
-            priority: Priority of this event (lower numbers = higher priority)
+            channel: Channel to publish to (strict EventChannel enum)
+            priority: Event priority using EventPriority constants
         """
-        if not isinstance(event, Event):
-            self.logger.error(f"Invalid event object for async publishing: {event}")
-            return
-
-        # Check for core events only mode
-        if self.core_events_only and not self.is_core_event(event.type):
-            if self.deprecated_event_warnings:
-                self._warn_deprecated_event(event.type)
-            return
-
-        # Warn about deprecated events even in normal mode
-        if not self.is_core_event(event.type) and self.deprecated_event_warnings:
-            self._warn_deprecated_event(event.type)
-
-        self.logger.debug(f"Queuing async event: {event} in channel {channel}")
-
-        # Add to history
-        with self._lock:
-            self.history.append(event)
-            # Trim history if needed
-            if len(self.history) > self.max_history_size:
-                self.history = self.history[-self.max_history_size:]
-
-        # Add to the processing queue
+        # Add to history via EventHistoryManager
+        self.history_manager.add_event(event)
+        
         try:
-            self._event_queue.put((priority, event, channel))
+            self._event_queue.put((priority, event, channel.value))
         except queue.Full:
-            # Using error handler for queue overflow handling
-            self.error_handler.handle_error_with_introspection(
-                EventProcessingError("Event queue is full, discarding event", event_type=event.type.name),
-                channel=channel,
-                priority=priority,
-                queue_size=self._event_queue.qsize()
-            )
+            raise EventProcessingError("Event queue is full", event_type=event.type.name)
 
-    def publish_with_callback(self, event: Event,
+    @ErrorHandler.handle_errors(component="EventBus", phase="callback_publication")
+    def publish_with_callback(self, event: Event, 
                               callback: Callable[[Event, int], None],
-                              channel: str = DEFAULT_CHANNEL) -> None:
-        """
-        Publish an event and call the provided callback with the result.
-        
-        Args:
-            event: Event to publish
-            callback: Function to call with (event, handler_count) after processing
-            channel: Channel to publish to (defaults to DEFAULT_CHANNEL)
-        """
-        if not isinstance(event, Event):
-            self.logger.error(f"Invalid event object for callback publishing: {event}")
-            return
-
-        # Submit the task to the thread pool
+                              channel: EventChannel = EventChannel.DEFAULT) -> None:
+        """Publish an event and call the provided callback with the result."""
         def _publish_and_callback():
-            # Process the event
-            count = self._process_event_in_channel(event, channel)
-
-            # Call the callback with the result
-            try:
-                callback(event, count)
-            except Exception as e:
-                self.logger.error(f"Error in publish callback: {e}", exc_info=True)
-
-        # Add to history
-        with self._lock:
-            self.history.append(event)
-            # Trim history if needed
-            if len(self.history) > self.max_history_size:
-                self.history = self.history[-self.max_history_size:]
-
-        # Submit to thread pool
+            count = self._publish_base(event, channel.value)
+            callback(event, count)
+        
         self._thread_pool.submit(_publish_and_callback)
 
-    # Helper methods for publishing common event types
+    # Type-safe helper methods for publishing specific event types
 
-    def publish_task_event(self,
-                           event_type: EventType,
-                           task_id: str,  # Changed from int to str for UUID support
-                           task_config: Dict[str, Any] = None,
+    @ErrorHandler.handle_errors(component="EventBus", phase="task_event_publication")
+    def publish_task_event(self, event_type: EventType, task_id: str, 
+                           task_config: Dict[str, Any] = None, 
                            details: Dict[str, Any] = None,
-                           source: str = None,
-                           async_mode: bool = False,
-                           channel: Optional[str] = LIFECYCLE_CHANNEL) -> Union[int, None]:
-        """
-        Create and publish a task event.
-
-        Args:
-            event_type: Event type
-            task_id: Task ID (UUID as string)
-            task_config: Optional task configuration
-            details: Optional additional details
-            source: Optional event source
-            async_mode: Whether to publish asynchronously
-            channel: Optional channel to publish to (defaults to LIFECYCLE_CHANNEL)
-
-        Returns:
-            Number of handlers that processed the event, or None if async
-        """
+                           source: str = None, async_mode: bool = False,
+                           channel: EventChannel = EventChannel.LIFECYCLE,
+                           priority: int = EventPriority.NORMAL) -> Union[int, None]:
+        """Create and publish a task event with strict type safety."""
         event = TaskEvent(
-            type=event_type,
-            task_id=task_id,
-            task_config=task_config or {},
-            details=details or {},
-            source=source
+            type=event_type, task_id=task_id, task_config=task_config or {},
+            details=details or {}, source=source
         )
-
+        
         if async_mode:
-            self.publish_async(event, channel)
+            self.publish_async(event, channel, priority)
             return None
         else:
             return self.publish(event, channel)
 
-    def publish_experiment_event(self,
-                                 event_type: EventType,
-                                 experiment_id: str,
-                                 message: str = "",
-                                 affected_tasks: List[str] = None,  # Changed to str for UUID support
-                                 source: str = None,
-                                 async_mode: bool = False,
-                                 channel: Optional[str] = LIFECYCLE_CHANNEL) -> Union[int, None]:
-        """
-        Create and publish an experiment event.
-
-        Args:
-            event_type: Event type
-            experiment_id: Experiment ID
-            message: Optional message
-            affected_tasks: Optional list of affected task IDs
-            source: Optional event source
-            async_mode: Whether to publish asynchronously
-            channel: Optional channel to publish to (defaults to LIFECYCLE_CHANNEL)
-
-        Returns:
-            Number of handlers that processed the event, or None if async
-        """
+    @ErrorHandler.handle_errors(component="EventBus", phase="experiment_event_publication")
+    def publish_experiment_event(self, event_type: EventType, experiment_id: str,
+                                 message: str = "", affected_tasks: List[str] = None,
+                                 source: str = None, async_mode: bool = False,
+                                 channel: EventChannel = EventChannel.LIFECYCLE,
+                                 priority: int = EventPriority.NORMAL) -> Union[int, None]:
+        """Create and publish an experiment event with strict type safety."""
         event = ExperimentEvent(
-            type=event_type,
-            experiment_id=experiment_id,
-            message=message,
-            affected_tasks=affected_tasks or [],
-            source=source
+            type=event_type, experiment_id=experiment_id, message=message,
+            affected_tasks=affected_tasks or [], source=source
         )
-
+        
         if async_mode:
-            self.publish_async(event, channel)
+            self.publish_async(event, channel, priority)
             return None
         else:
             return self.publish(event, channel)
 
-    def publish_analysis_event(self,
-                               event_type: EventType,
-                               data: Dict[str, Any] = None,
-                               related_task_id: Optional[str] = None,  # Changed to str for UUID support
-                               source: str = None,
-                               async_mode: bool = False,
-                               channel: Optional[str] = ANALYSIS_CHANNEL) -> Union[int, None]:
-        """
-        Create and publish an analysis event.
-
-        Args:
-            event_type: Event type
-            data: Optional analysis data
-            related_task_id: Optional related task ID
-            source: Optional event source
-            async_mode: Whether to publish asynchronously
-            channel: Optional channel to publish to (defaults to ANALYSIS_CHANNEL)
-
-        Returns:
-            Number of handlers that processed the event, or None if async
-        """
-        event = AnalysisEvent(
-            type=event_type,
-            data=data or {},
-            related_task_id=related_task_id,
-            source=source
+    @ErrorHandler.handle_errors(component="EventBus", phase="coverage_event_publication")
+    def publish_coverage_event(self, event_type: EventType, task_id: str,
+                               coverage_entry: Dict[str, Any] = None,
+                               coverage_metrics: Dict[str, Any] = None,
+                               task_config: Dict[str, Any] = None, 
+                               details: Dict[str, Any] = None,
+                               source: str = None, async_mode: bool = False,
+                               channel: EventChannel = EventChannel.LIFECYCLE,
+                               priority: int = EventPriority.NORMAL) -> Union[int, None]:
+        """Create and publish a coverage event with task context."""
+        event = CoverageEvent(
+            type=event_type, task_id=task_id, 
+            coverage_entry=coverage_entry, coverage_metrics=coverage_metrics,
+            task_config=task_config or {}, details=details or {}, source=source
         )
-
+        
         if async_mode:
-            self.publish_async(event, channel)
+            self.publish_async(event, channel, priority)
             return None
         else:
             return self.publish(event, channel)
 
-    def publish_error_event(self,
-                            error: Exception,
-                            context: Optional[Dict[str, Any]] = None,
-                            async_mode: bool = False) -> Union[int, None]:
-        """
-        Publish an error event with details about the exception.
-
-        Args:
-            error: The exception that occurred
-            context: Optional context information
-            async_mode: Whether to publish asynchronously
-
-        Returns:
-            Number of handlers that processed the event, or None if async
-        """
-        # Extract task ID from context if available
-        task_id = None
-        if context and "task_id" in context:
-            task_id = context["task_id"]
-
-        # Create error data
-        error_data = {
-            "error_type": type(error).__name__,
-            "error_message": str(error),
-            "timestamp": datetime.now().isoformat(),
-            "context": context or {}
-        }
-
-        # If it's a known RVAndroid error, include more details
-        from rv_android_core.util.error.exceptions import RVAndroidError
-        if isinstance(error, RVAndroidError):
-            error_data["message"] = error.message
-            if error.cause:
-                error_data["cause"] = {
-                    "type": type(error.cause).__name__,
-                    "message": str(error.cause)
-                }
-
-        # Publish as analysis event
-        return self.publish_analysis_event(
-            event_type=EventType.EXPERIMENT_ERROR,
-            data=error_data,
-            related_task_id=task_id,
-            source="ErrorHandler",
-            async_mode=async_mode,
-            channel=self.ERROR_CHANNEL
+    @ErrorHandler.handle_errors(component="EventBus", phase="mop_error_event_publication")
+    def publish_mop_error_event(self, event_type: EventType, task_id: str,
+                                error_log: Dict[str, Any] = None,
+                                task_config: Dict[str, Any] = None,
+                                details: Dict[str, Any] = None, source: str = None,
+                                async_mode: bool = False, 
+                                channel: EventChannel = EventChannel.LIFECYCLE,
+                                priority: int = EventPriority.HIGH) -> Union[int, None]:
+        """Create and publish a MOP error event with task context."""
+        event = MOPErrorEvent(
+            type=event_type, task_id=task_id, error_log=error_log,
+            task_config=task_config or {}, details=details or {}, source=source
         )
+        
+        if async_mode:
+            self.publish_async(event, channel, priority)
+            return None
+        else:
+            return self.publish(event, channel)
 
     def get_history(self,
                     event_type: Optional[EventType] = None,
                     since: Optional[datetime] = None,
                     source: Optional[str] = None,
-                    task_id: Optional[str] = None,  # Changed to str for UUID support
-                    channels: Optional[List[str]] = None,
+                    task_id: Optional[str] = None,
                     limit: int = 100) -> List[Event]:
         """
         Get event history with optional filters.
@@ -624,31 +493,16 @@ class EventBus:
             since: Optional filter by timestamp
             source: Optional filter by source
             task_id: Optional filter by task ID (for TaskEvents)
-            channels: Optional filter by channels
             limit: Maximum number of events to return
 
         Returns:
             List of events matching the filters
         """
-        with self._lock:
-            events = self.history.copy()
+        return self.history_manager.get_events(event_type, since, source, task_id, limit)
 
-        # Apply filters
-        if event_type is not None:
-            events = [e for e in events if e.type == event_type]
-
-        if since is not None:
-            events = [e for e in events if e.timestamp >= since]
-
-        if source is not None:
-            events = [e for e in events if e.source == source]
-
-        if task_id is not None:
-            events = [e for e in events if isinstance(e, TaskEvent) and e.task_id == task_id]
-
-        # Sort by timestamp (newest first) and apply limit
-        events.sort(key=lambda e: e.timestamp, reverse=True)
-        return events[:limit]
+    def get_statistics(self) -> Dict[str, Any]:
+        """Get event bus statistics."""
+        return self.history_manager.get_statistics()
 
     def shutdown(self, wait_for_completion: bool = True) -> None:
         """
@@ -674,182 +528,3 @@ class EventBus:
             self._processing_thread.join(timeout=2.0)
 
         self.logger.info("EventBus shutdown complete")
-
-    # Core events filtering methods
-
-    @ErrorHandler.handle_errors(component="EventBus", phase="core_event_filtering")
-    def is_core_event(self, event_type: EventType) -> bool:
-        """
-        Check if an event type is considered core.
-        
-        Args:
-            event_type: Event type to check
-            
-        Returns:
-            True if the event type is core
-        """
-        return EventType.is_core(event_type)
-
-    @ErrorHandler.handle_errors(component="EventBus", phase="core_event_filtering")
-    def filter_core_events(self, events: List[Event]) -> List[Event]:
-        """
-        Filter a list of events to include only core events.
-        
-        Args:
-            events: List of events to filter
-            
-        Returns:
-            List containing only core events
-        """
-        core_events = []
-        for event in events:
-            if self.is_core_event(event.type):
-                core_events.append(event)
-            elif self.deprecated_event_warnings:
-                self.logger.warning(f"Non-core event filtered: {event.type.name}")
-
-        return core_events
-
-    @ErrorHandler.handle_errors(component="EventBus", phase="core_event_publishing")
-    def publish_core_only(self, event: Event, channel: str = DEFAULT_CHANNEL) -> int:
-        """
-        Publish an event only if it's a core event.
-        
-        Args:
-            event: Event to publish
-            channel: Channel to publish to
-            
-        Returns:
-            Number of handlers that processed the event, or 0 if not core
-        """
-        if not self.is_core_event(event.type):
-            if self.deprecated_event_warnings:
-                self.logger.warning(f"Non-core event rejected: {event.type.name}")
-            return 0
-
-        return self.publish(event, channel)
-
-    @ErrorHandler.handle_errors(component="EventBus", phase="deprecation_warning")
-    def _warn_deprecated_event(self, event_type: EventType) -> None:
-        """
-        Log a deprecation warning for non-core events.
-        
-        Args:
-            event_type: The deprecated event type
-        """
-        if not self.deprecated_event_warnings:
-            return
-
-        core_event = EventType.to_core(event_type)
-        if core_event:
-            self.logger.warning(
-                f"Event {event_type.name} is deprecated. "
-                f"Consider using core event equivalent: {core_event.name}"
-            )
-        else:
-            self.logger.warning(
-                f"Event {event_type.name} is deprecated and has no core equivalent. "
-                f"This event will be filtered in core-only mode."
-            )
-
-    def set_core_events_only(self, enabled: bool) -> None:
-        """
-        Enable or disable core events only mode.
-        
-        Args:
-            enabled: Whether to enable core events only mode
-        """
-        self.core_events_only = enabled
-        mode = "enabled" if enabled else "disabled"
-        self.logger.info(f"Core events only mode {mode}")
-
-    def set_deprecated_warnings(self, enabled: bool) -> None:
-        """
-        Enable or disable deprecation warnings for non-core events.
-        
-        Args:
-            enabled: Whether to enable deprecation warnings
-        """
-        self.deprecated_event_warnings = enabled
-        mode = "enabled" if enabled else "disabled"
-        self.logger.info(f"Deprecation warnings {mode}")
-
-    # Convenience methods for new core event types
-
-    @ErrorHandler.handle_errors(component="EventBus", phase="task_tool_execution_event")
-    def publish_task_tool_execution_event(self,
-                                          task_id: str,
-                                          tool_execution_start: datetime,
-                                          task_config: Dict[str, Any] = None,
-                                          details: Dict[str, Any] = None,
-                                          source: str = None,
-                                          async_mode: bool = False,
-                                          channel: Optional[str] = LIFECYCLE_CHANNEL) -> Union[int, None]:
-        """
-        Create and publish a task tool execution event.
-
-        Args:
-            task_id: Task ID (UUID as string)
-            tool_execution_start: Timestamp when tool execution started
-            task_config: Optional task configuration
-            details: Optional additional details
-            source: Optional event source
-            async_mode: Whether to publish asynchronously
-            channel: Optional channel to publish to
-
-        Returns:
-            Number of handlers that processed the event, or None if async
-        """
-        event = TaskToolExecutionEvent(
-            type=EventType.TOOL_STARTED,  # Maps to core TOOL_EXECUTION_STARTED
-            task_id=task_id,
-            tool_execution_start=tool_execution_start,
-            task_config=task_config or {},
-            details=details or {},
-            source=source
-        )
-
-        if async_mode:
-            self.publish_async(event, channel)
-            return None
-        else:
-            return self.publish(event, channel)
-
-    @ErrorHandler.handle_errors(component="EventBus", phase="phase_execution_mode_event")
-    def publish_phase_execution_mode_event(self,
-                                           phase_name: str,
-                                           execution_mode: str = "full",
-                                           fallback_reason: Optional[str] = None,
-                                           artifacts_available: Dict[str, bool] = None,
-                                           source: str = None,
-                                           async_mode: bool = False,
-                                           channel: Optional[str] = LIFECYCLE_CHANNEL) -> Union[int, None]:
-        """
-        Create and publish a phase execution mode event.
-
-        Args:
-            phase_name: Name of the workflow phase
-            execution_mode: Execution mode (full, fallback, skipped, failed)
-            fallback_reason: Optional reason for fallback
-            artifacts_available: Optional artifacts availability
-            source: Optional event source
-            async_mode: Whether to publish asynchronously
-            channel: Optional channel to publish to
-
-        Returns:
-            Number of handlers that processed the event, or None if async
-        """
-        event = PhaseExecutionModeEvent(
-            type=EventType.WORKFLOW_STARTED,  # Use appropriate workflow event
-            phase_name=phase_name,
-            execution_mode=execution_mode,
-            fallback_reason=fallback_reason,
-            artifacts_available=artifacts_available or {},
-            source=source
-        )
-
-        if async_mode:
-            self.publish_async(event, channel)
-            return None
-        else:
-            return self.publish(event, channel)

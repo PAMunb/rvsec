@@ -171,7 +171,7 @@ class TestEventHandler:
         handler = EventHandler(callback)
 
         # Create different types of events from the event hierarchy
-        from rv_android_core.event.models import TaskEvent, ExperimentEvent, AnalysisEvent
+        from rv_android_core.event.models import TaskEvent, ExperimentEvent
 
         task_event = TaskEvent(
             type=EventType.TASK_STARTED,
@@ -185,22 +185,16 @@ class TestEventHandler:
             message="Experiment started"
         )
 
-        analysis_event = AnalysisEvent(
-            type=EventType.COVERAGE_UPDATED,
-            data={"coverage": 75.5}
-        )
 
         # Act
         handler.handle(task_event)
         handler.handle(experiment_event)
-        handler.handle(analysis_event)
 
         # Assert
-        assert callback.call_count == 3
+        assert callback.call_count == 2
         callback.assert_has_calls([
             call(task_event),
-            call(experiment_event),
-            call(analysis_event)
+            call(experiment_event)
         ])
 
     def test_handle_with_filter_exception(self):

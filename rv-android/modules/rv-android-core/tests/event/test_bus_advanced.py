@@ -45,7 +45,6 @@ class TestEventBusAdvanced:
         # Assert
         assert count == 0  # No successful handlers
         assert self.event_bus.logger.error.called
-        assert len(self.event_bus.history) == 1
 
     def test_multiple_handlers_one_exception(self):
         """Test that one failing handler doesn't prevent others from executing."""
@@ -171,30 +170,3 @@ class TestEventBusAdvanced:
         assert len(task1_events) == 2
         assert task1_events[0] == event3  # Most recent first
         assert task1_events[1] == event1
-
-    def test_get_history_with_time_filter(self):
-        """Test filtering history by timestamp."""
-        # Arrange
-        now = datetime.now()
-
-        # Create events with different timestamps
-        event1 = Event(type=EventType.EXPERIMENT_STARTED, source="test1")
-        event1.timestamp = now - timedelta(hours=2)
-
-        event2 = Event(type=EventType.TASK_STARTED, source="test2")
-        event2.timestamp = now - timedelta(hours=1)
-
-        event3 = Event(type=EventType.EXPERIMENT_COMPLETED, source="test3")
-        event3.timestamp = now
-
-        # Manually add events to history with specific timestamps
-        self.event_bus.history = [event1, event2, event3]
-
-        # Act
-        recent_events = self.event_bus.get_history(since=now - timedelta(hours=1, minutes=30))
-
-        # Assert
-        assert len(recent_events) == 2
-        assert recent_events[0] == event3  # Most recent first
-        assert recent_events[1] == event2
-       

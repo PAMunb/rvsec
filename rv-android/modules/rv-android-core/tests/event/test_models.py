@@ -12,7 +12,7 @@ from enum import Enum
 import pytest
 
 from rv_android_core.event.models import (
-    EventType, CoreEventType, Event, TaskEvent, ExperimentEvent, AnalysisEvent,
+    EventType, Event, TaskEvent, ExperimentEvent,
     TaskToolExecutionEvent, PhaseExecutionModeEvent
 )
 
@@ -34,7 +34,7 @@ class TestEventType:
             "EXPERIMENT_STARTED", "EXPERIMENT_COMPLETED", "EXPERIMENT_FAILED",
             "EXPERIMENT_PAUSED", "EXPERIMENT_RESUMED",
             "COVERAGE_UPDATED", "COVERAGE_TRACKING_STARTED", "COVERAGE_TRACKING_STOPPED",
-            "MOP_ERROR_DETECTED", "STATIC_ANALYSIS_COMPLETED", "NEW_METHOD_DISCOVERED",
+            "MOP_ERROR_DETECTED", "STATIC_ANALYSIS_COMPLETED",
             "EMULATOR_STARTED", "EMULATOR_STOPPED", "APP_INSTALLED",
             "TOOL_STARTED", "TOOL_STOPPED",
             "CONFIG_LOADED", "CONFIG_SAVED",
@@ -55,46 +55,6 @@ class TestEventType:
 
         # Check that all values are unique
         assert len(values) == len(set(values)), "Event type values must be unique"
-
-    def test_is_core_method(self):
-        """Test the is_core class method."""
-        # Test core events
-        assert EventType.is_core(EventType.EXPERIMENT_STARTED) == True
-        assert EventType.is_core(EventType.EXPERIMENT_COMPLETED) == True
-        assert EventType.is_core(EventType.EXPERIMENT_FAILED) == True
-        assert EventType.is_core(EventType.TASK_STARTED) == True
-        assert EventType.is_core(EventType.TASK_COMPLETED) == True
-        assert EventType.is_core(EventType.TASK_FAILED) == True
-        assert EventType.is_core(EventType.TOOL_STARTED) == True
-        assert EventType.is_core(EventType.COVERAGE_UPDATED) == True
-        assert EventType.is_core(EventType.STATIC_ANALYSIS_COMPLETED) == True
-        assert EventType.is_core(EventType.MOP_ERROR_DETECTED) == True
-
-        # Test non-core events
-        assert EventType.is_core(EventType.TASK_CREATED) == False
-        assert EventType.is_core(EventType.TASK_CONFIGURED) == False
-        assert EventType.is_core(EventType.EXPERIMENT_PAUSED) == False
-        assert EventType.is_core(EventType.COVERAGE_TRACKING_STARTED) == False
-        assert EventType.is_core(EventType.EMULATOR_STARTED) == False
-
-    def test_to_core_method(self):
-        """Test the to_core class method."""
-        # Test core event mappings
-        assert EventType.to_core(EventType.EXPERIMENT_STARTED) == CoreEventType.EXPERIMENT_STARTED
-        assert EventType.to_core(EventType.EXPERIMENT_COMPLETED) == CoreEventType.EXPERIMENT_COMPLETED
-        assert EventType.to_core(EventType.EXPERIMENT_FAILED) == CoreEventType.EXPERIMENT_FAILED
-        assert EventType.to_core(EventType.TASK_STARTED) == CoreEventType.TASK_STARTED
-        assert EventType.to_core(EventType.TASK_COMPLETED) == CoreEventType.TASK_COMPLETED
-        assert EventType.to_core(EventType.TASK_FAILED) == CoreEventType.TASK_FAILED
-        assert EventType.to_core(EventType.TOOL_STARTED) == CoreEventType.TOOL_EXECUTION_STARTED
-        assert EventType.to_core(EventType.COVERAGE_UPDATED) == CoreEventType.COVERAGE_UPDATED
-        assert EventType.to_core(EventType.STATIC_ANALYSIS_COMPLETED) == CoreEventType.STATIC_ANALYSIS_COMPLETED
-        assert EventType.to_core(EventType.MOP_ERROR_DETECTED) == CoreEventType.ERROR_DETECTED
-
-        # Test non-core events return None
-        assert EventType.to_core(EventType.TASK_CREATED) is None
-        assert EventType.to_core(EventType.EXPERIMENT_PAUSED) is None
-        assert EventType.to_core(EventType.EMULATOR_STARTED) is None
 
 
 class TestBaseEvent:
@@ -167,8 +127,7 @@ class TestBaseEvent:
         # Test analysis events
         analysis_events = [
             EventType.COVERAGE_UPDATED, EventType.COVERAGE_TRACKING_STARTED, EventType.COVERAGE_TRACKING_STOPPED,
-            EventType.MOP_ERROR_DETECTED, EventType.STATIC_ANALYSIS_COMPLETED, EventType.ANALYSIS_COMPLETED,
-            EventType.NEW_METHOD_DISCOVERED
+            EventType.MOP_ERROR_DETECTED, EventType.STATIC_ANALYSIS_COMPLETED, EventType.ANALYSIS_COMPLETED
         ]
 
         for event_type in analysis_events:
@@ -422,134 +381,6 @@ class TestExperimentEvent:
         assert success_event.is_failure_event() == False
 
 
-class TestAnalysisEvent:
-    """
-    Tests for the AnalysisEvent class.
-
-    ### Architectural Testing Considerations:
-    - Verify analysis events properly track analytical data
-    - Ensure proper inheritance from base Event class
-    - Validate analysis details are properly captured and accessible
-    """
-
-    def test_analysis_event_initialization(self):
-        """Test that AnalysisEvent initializes with correct values."""
-        data = {"coverage": 75.5, "errors": 2}
-        related_task_id = "42"
-        source = "test_source"
-
-        event = AnalysisEvent(
-            type=EventType.COVERAGE_UPDATED,
-            data=data,
-            related_task_id=related_task_id,
-            source=source
-        )
-
-        # Check all attributes are properly set
-        assert event.type == EventType.COVERAGE_UPDATED
-        assert event.data == data
-        assert event.related_task_id == related_task_id
-        assert event.source == source
-        assert isinstance(event.timestamp, datetime)
-
-    def test_analysis_event_default_values(self):
-        """Test that AnalysisEvent uses correct default values."""
-        event = AnalysisEvent(type=EventType.COVERAGE_UPDATED)
-
-        assert event.data == {}
-        assert event.related_task_id is None
-
-    def test_analysis_event_inheritance(self):
-        """Test that AnalysisEvent properly inherits from Event."""
-        event = AnalysisEvent(type=EventType.COVERAGE_UPDATED)
-
-        assert isinstance(event, Event)
-
-    def test_analysis_event_string_representation(self):
-        """Test the string representation of AnalysisEvent objects."""
-        # With related task ID
-        event1 = AnalysisEvent(
-            type=EventType.COVERAGE_UPDATED,
-            related_task_id="42"
-        )
-
-        string_repr1 = str(event1)
-        assert "COVERAGE_UPDATED" in string_repr1
-        assert "Task 42" in string_repr1
-
-        # Without related task ID
-        event2 = AnalysisEvent(type=EventType.COVERAGE_UPDATED)
-
-        string_repr2 = str(event2)
-        assert "COVERAGE_UPDATED" in string_repr2
-        assert "Task" not in string_repr2
-
-    def test_get_analysis_summary(self):
-        """Test the get_analysis_summary method."""
-        data = {"coverage": 85.2, "methods_called": 150}
-
-        event = AnalysisEvent(
-            type=EventType.COVERAGE_UPDATED,
-            data=data,
-            related_task_id="task-123",
-            source="CoverageAnalyzer"
-        )
-
-        summary = event.get_analysis_summary()
-
-        assert summary['event_type'] == "COVERAGE_UPDATED"
-        assert summary['source'] == "CoverageAnalyzer"
-        assert summary['related_task_id'] == "task-123"
-        assert summary['data_keys'] == ['coverage', 'methods_called']
-        assert summary['has_task_relation'] == True
-        assert 'timestamp' in summary
-
-    def test_is_coverage_event(self):
-        """Test the is_coverage_event method."""
-        # Test coverage events
-        coverage_events = [
-            EventType.COVERAGE_UPDATED,
-            EventType.COVERAGE_TRACKING_STARTED,
-            EventType.COVERAGE_TRACKING_STOPPED
-        ]
-
-        for event_type in coverage_events:
-            event = AnalysisEvent(type=event_type)
-            assert event.is_coverage_event() == True
-
-        # Test non-coverage events
-        non_coverage_event = AnalysisEvent(type=EventType.MOP_ERROR_DETECTED)
-        assert non_coverage_event.is_coverage_event() == False
-
-    def test_is_monitored_operations_event(self):
-        """Test the is_monitored_operations_event method."""
-        # Test with monitored operations data
-        event_with_mop = AnalysisEvent(
-            type=EventType.MOP_ERROR_DETECTED,
-            data={"monitored_operations": ["crypto_api"], "violations": 2}
-        )
-        assert event_with_mop.is_monitored_operations_event() == True
-
-        event_with_detection = AnalysisEvent(
-            type=EventType.MOP_ERROR_DETECTED,
-            data={"mop_detected": True, "spec": "JCA"}
-        )
-        assert event_with_detection.is_monitored_operations_event() == True
-
-        event_with_violation = AnalysisEvent(
-            type=EventType.MOP_ERROR_DETECTED,
-            data={"specification_violation": "Use of deprecated API"}
-        )
-        assert event_with_violation.is_monitored_operations_event() == True
-
-        # Test without monitored operations data
-        event_without_mop = AnalysisEvent(
-            type=EventType.COVERAGE_UPDATED,
-            data={"coverage": 75.0, "methods": 100}
-        )
-        assert event_without_mop.is_monitored_operations_event() == False
-
-
 class TestTaskToolExecutionEvent:
     """Tests for the TaskToolExecutionEvent class."""
 
@@ -786,35 +617,6 @@ class TestEventIntegration:
         # All events should be created within a very small window (e.g., 0.1 seconds)
         # This verifies they all use "now" without having to mock datetime.now()
         assert max_diff < 0.1, f"Events should have very close timestamps, but max difference was {max_diff} seconds"
-
-    def test_event_hierarchy_consistency(self):
-        """Test that specialized events maintain base Event functionality."""
-        # Create different event types
-        base_event = Event(EventType.CUSTOM)
-        task_event = TaskEvent(EventType.TASK_STARTED, task_id="test-task")
-        experiment_event = ExperimentEvent(EventType.EXPERIMENT_STARTED, experiment_id="test-exp")
-        analysis_event = AnalysisEvent(EventType.COVERAGE_UPDATED)
-        tool_event = TaskToolExecutionEvent(
-            type=EventType.TOOL_STARTED,
-            task_id="test-task",
-            tool_execution_start=datetime.now()
-        )
-        phase_event = PhaseExecutionModeEvent(
-            type=EventType.WORKFLOW_STARTED,
-            phase_name="test_phase",
-            execution_mode="full"
-        )
-
-        # All should have Event properties
-        all_events = [base_event, task_event, experiment_event, analysis_event, tool_event, phase_event]
-
-        for event in all_events:
-            assert hasattr(event, 'type')
-            assert hasattr(event, 'timestamp')
-            assert hasattr(event, 'source')
-            assert hasattr(event, 'name')
-            assert callable(getattr(event, 'is_lifecycle_event'))
-            assert callable(getattr(event, 'is_analysis_event'))
 
     def test_event_comparison_sorting(self):
         """Test that events can be sorted by timestamp."""

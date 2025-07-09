@@ -5,6 +5,7 @@ This module provides validated event models for representing system events
 with comprehensive type safety and standardized event lifecycle management.
 """
 
+import threading
 from datetime import datetime
 from enum import Enum, auto
 from typing import Any, Dict, List, Optional
@@ -14,43 +15,52 @@ from rv_android_core.util.validation.base import BaseValidatedModel
 from rv_android_core.util.validation.decorators import validated_model
 
 
-class CoreEventType(Enum):
+class EventPriority:
     """
-    Enumeration of core event types for optimized event processing.
+    Standard priority levels for event processing.
     
     ### Architectural Decisions:
-    - Limited to 10 core events for performance optimization
-    - Focuses on critical experiment lifecycle and error tracking
-    - Enables high-performance event filtering in production
-    - Maintains backwards compatibility through EventType mapping
+    - Uses integer constants for PriorityQueue compatibility
+    - Lower values indicate higher priority (standard queue convention)
+    - Provides standard levels for consistent usage across system
+    - Enables priority-based event processing and routing
     
-    ### Core Event Categories:
-    - Experiment lifecycle: Core experiment tracking (3 events)
-    - Task lifecycle: Basic task execution tracking (3 events)
-    - Tool execution: Critical tool operation tracking (1 event)
-    - Analysis results: Coverage and error detection (2 events)
-    - System errors: Error detection and handling (1 event)
+    ### Priority Levels:
+    - CRITICAL: System-critical events requiring immediate processing
+    - HIGH: Important lifecycle and error events
+    - NORMAL: Standard operational events (default)
+    - LOW: Background and informational events
+    - BACKGROUND: Lowest priority events (logging, metrics)
     """
     
-    # Experiment lifecycle (3 events)
-    EXPERIMENT_STARTED = auto()
-    EXPERIMENT_COMPLETED = auto()
-    EXPERIMENT_FAILED = auto()
+    CRITICAL = 0     # System-critical events requiring immediate processing
+    HIGH = 10        # Important lifecycle and error events
+    NORMAL = 50      # Standard operational events (default)
+    LOW = 90         # Background and informational events
+    BACKGROUND = 100 # Lowest priority events (logging, metrics)
+
+
+class EventChannel(Enum):
+    """
+    Enumeration of event channels for organized event routing.
     
-    # Task lifecycle (3 events)
-    TASK_STARTED = auto()
-    TASK_COMPLETED = auto()
-    TASK_FAILED = auto()
+    ### Architectural Decisions:
+    - Provides type safety for channel specification
+    - Enables IDE autocomplete and validation
+    - Supports clear channel responsibility documentation
+    - Prevents runtime errors from invalid channel names
     
-    # Tool execution (1 event)
-    TOOL_EXECUTION_STARTED = auto()
+    ### Channel Responsibilities:
+    - DEFAULT: General system events without specific category
+    - LIFECYCLE: Task and experiment lifecycle events (including coverage and MOP events)
+    - ANALYSIS: General analysis results and static analysis events
+    - ERROR: Error events and exception handling notifications
+    """
     
-    # Analysis results (2 events)
-    COVERAGE_UPDATED = auto()
-    STATIC_ANALYSIS_COMPLETED = auto()
-    
-    # System errors (1 event)
-    ERROR_DETECTED = auto()
+    DEFAULT = "default"      # General system events
+    LIFECYCLE = "lifecycle"  # Task and experiment lifecycle events
+    ANALYSIS = "analysis"    # General analysis results events
+    ERROR = "error"         # Error and exception events
 
 
 class EventType(Enum):
@@ -69,106 +79,66 @@ class EventType(Enum):
     - Analysis: Coverage, error detection, static analysis results
     - Environment: Emulator, app, and tool management
     - Configuration: System configuration changes
+    
+    ### Serialization Warning:
+    This enum uses auto() for value assignment. The integer values are NOT
+    guaranteed to be stable across code changes. Do NOT persist or serialize
+    the integer values directly. Use the enum name (.name) for persistence.
+    
+    Example:
+        # Correct for persistence
+        event_name = event.type.name  # "TASK_STARTED"
+        
+        # Incorrect for persistence
+        event_value = event.type.value  # 3 (may change)
     """
     
     # Task lifecycle events
-    TASK_CREATED = auto()
-    TASK_CONFIGURED = auto()
-    TASK_STARTED = auto()
-    TASK_COMPLETED = auto()
-    TASK_FAILED = auto()
-
+    TASK_CREATED = auto()           # Task instance created in the system. Typical: Task configuration completed
+    TASK_CONFIGURED = auto()        # Task configuration validated and applied. Typical: Before task execution
+    TASK_STARTED = auto()           # Task execution initiated. Typical: Tool execution begins
+    TASK_COMPLETED = auto()         # Task execution completed successfully. Typical: All analysis finished
+    TASK_FAILED = auto()            # Task execution failed with error. Typical: Tool failure or timeout
+    
     # Experiment lifecycle events
-    EXPERIMENT_STARTED = auto()
-    EXPERIMENT_COMPLETED = auto()
-    EXPERIMENT_FAILED = auto()
-    EXPERIMENT_PAUSED = auto()
-    EXPERIMENT_RESUMED = auto()
-
-    EXPERIMENT_ERROR = auto()
-
+    EXPERIMENT_STARTED = auto()     # Experiment execution initiated. Typical: First task starts
+    EXPERIMENT_COMPLETED = auto()   # Experiment execution completed successfully. Typical: All tasks finished
+    EXPERIMENT_FAILED = auto()      # Experiment execution failed with error. Typical: Critical failure
+    EXPERIMENT_PAUSED = auto()      # Experiment execution paused. Typical: Manual intervention
+    EXPERIMENT_RESUMED = auto()     # Experiment execution resumed. Typical: After pause resolution
+    EXPERIMENT_ERROR = auto()       # Experiment encountered recoverable error. Typical: Retry scenario
+    
     # Workflow lifecycle events
-    WORKFLOW_STARTED = auto()
-    WORKFLOW_COMPLETED = auto()
-    WORKFLOW_FAILED = auto()
-
+    WORKFLOW_STARTED = auto()       # Workflow phase started. Typical: Analysis phase begins
+    WORKFLOW_COMPLETED = auto()     # Workflow phase completed. Typical: Static analysis finished
+    WORKFLOW_FAILED = auto()        # Workflow phase failed. Typical: Tool unavailable
+    
     # Orchestration events
-    ORCHESTRATION_EVENT = auto()
-
+    ORCHESTRATION_EVENT = auto()    # General orchestration event. Typical: Coordinator actions
+    
     # Generic events
-    CUSTOM = auto()
-
+    CUSTOM = auto()                 # Custom user-defined event. Typical: Plugin or extension events
+    
     # Analysis events
-    COVERAGE_UPDATED = auto()
-    COVERAGE_TRACKING_STARTED = auto()
-    COVERAGE_TRACKING_STOPPED = auto()
-    MOP_ERROR_DETECTED = auto() # MOP error detection
-    MONITOR_GENERATED = auto()
-    INSTRUMENTATION_COMPLETED = auto()
-    STATIC_ANALYSIS_COMPLETED = auto()
-    ANALYSIS_COMPLETED = auto()
-    NEW_METHOD_DISCOVERED = auto()  # TODO remover ... nao pode encontrar novos metodos
-
+    COVERAGE_UPDATED = auto()       # Coverage data updated. Typical: New coverage information available
+    COVERAGE_TRACKING_STARTED = auto() # Coverage tracking initiated. Typical: Tool monitoring begins
+    COVERAGE_TRACKING_STOPPED = auto() # Coverage tracking stopped. Typical: Analysis phase complete
+    MOP_ERROR_DETECTED = auto()     # MOP specification violation detected. Typical: Runtime monitor trigger
+    MONITOR_GENERATED = auto()      # Monitor artifact generated. Typical: Instrumentation complete
+    INSTRUMENTATION_COMPLETED = auto() # APK instrumentation finished. Typical: Ready for execution
+    STATIC_ANALYSIS_COMPLETED = auto() # Static analysis finished. Typical: WTG generation complete
+    ANALYSIS_COMPLETED = auto()     # General analysis completed. Typical: All analysis phases done
+    
     # Environment lifecycle events
-    EMULATOR_STARTED = auto()
-    EMULATOR_STOPPED = auto()
-    APP_INSTALLED = auto()
-    TOOL_STARTED = auto()
-    TOOL_STOPPED = auto()
-
+    EMULATOR_STARTED = auto()       # Android emulator started. Typical: Before app installation
+    EMULATOR_STOPPED = auto()       # Android emulator stopped. Typical: After experiment completion
+    APP_INSTALLED = auto()          # Application installed on device. Typical: Before test execution
+    TOOL_STARTED = auto()           # Tool execution started. Typical: DroidBot begins exploration
+    TOOL_STOPPED = auto()           # Tool execution stopped. Typical: Exploration completed
+    
     # Configuration events
-    CONFIG_LOADED = auto()
-    CONFIG_SAVED = auto()
-    
-    @classmethod
-    def is_core(cls, event_type) -> bool:
-        """
-        Check if an event type is considered core.
-        
-        Args:
-            event_type: EventType to check
-            
-        Returns:
-            True if the event type is core for functionality
-        """
-        core_mapping = {
-            cls.EXPERIMENT_STARTED: CoreEventType.EXPERIMENT_STARTED,
-            cls.EXPERIMENT_COMPLETED: CoreEventType.EXPERIMENT_COMPLETED,
-            cls.EXPERIMENT_FAILED: CoreEventType.EXPERIMENT_FAILED,
-            cls.TASK_STARTED: CoreEventType.TASK_STARTED,
-            cls.TASK_COMPLETED: CoreEventType.TASK_COMPLETED,
-            cls.TASK_FAILED: CoreEventType.TASK_FAILED,
-            cls.TOOL_STARTED: CoreEventType.TOOL_EXECUTION_STARTED,
-            cls.COVERAGE_UPDATED: CoreEventType.COVERAGE_UPDATED,
-            cls.STATIC_ANALYSIS_COMPLETED: CoreEventType.STATIC_ANALYSIS_COMPLETED,
-            cls.MOP_ERROR_DETECTED: CoreEventType.ERROR_DETECTED,
-        }
-        return event_type in core_mapping
-    
-    @classmethod
-    def to_core(cls, event_type):
-        """
-        Convert an EventType to its corresponding CoreEventType.
-        
-        Args:
-            event_type: EventType to convert
-            
-        Returns:
-            Corresponding CoreEventType or None if not core
-        """
-        core_mapping = {
-            cls.EXPERIMENT_STARTED: CoreEventType.EXPERIMENT_STARTED,
-            cls.EXPERIMENT_COMPLETED: CoreEventType.EXPERIMENT_COMPLETED,
-            cls.EXPERIMENT_FAILED: CoreEventType.EXPERIMENT_FAILED,
-            cls.TASK_STARTED: CoreEventType.TASK_STARTED,
-            cls.TASK_COMPLETED: CoreEventType.TASK_COMPLETED,
-            cls.TASK_FAILED: CoreEventType.TASK_FAILED,
-            cls.TOOL_STARTED: CoreEventType.TOOL_EXECUTION_STARTED,
-            cls.COVERAGE_UPDATED: CoreEventType.COVERAGE_UPDATED,
-            cls.STATIC_ANALYSIS_COMPLETED: CoreEventType.STATIC_ANALYSIS_COMPLETED,
-            cls.MOP_ERROR_DETECTED: CoreEventType.ERROR_DETECTED,
-        }
-        return core_mapping.get(event_type)
+    CONFIG_LOADED = auto()          # Configuration loaded from file. Typical: System startup
+    CONFIG_SAVED = auto()           # Configuration saved to file. Typical: Settings update
 
 
 @validated_model(['type', 'timestamp', 'source'])
@@ -251,8 +221,7 @@ class Event(BaseValidatedModel):
         """
         analysis_types = {
             EventType.COVERAGE_UPDATED, EventType.COVERAGE_TRACKING_STARTED, EventType.COVERAGE_TRACKING_STOPPED,
-            EventType.MOP_ERROR_DETECTED, EventType.STATIC_ANALYSIS_COMPLETED, EventType.ANALYSIS_COMPLETED,
-            EventType.NEW_METHOD_DISCOVERED
+            EventType.MOP_ERROR_DETECTED, EventType.STATIC_ANALYSIS_COMPLETED, EventType.ANALYSIS_COMPLETED
         }
         return self.type in analysis_types
     
@@ -442,90 +411,104 @@ class ExperimentEvent(Event):
         return f"{self.type.name} for Experiment {self.experiment_id}: {self.message}"
 
 
-@validated_model(['type', 'timestamp', 'source'])
-class AnalysisEvent(Event):
+@validated_model(['type', 'timestamp', 'source', 'task_id'])
+class CoverageEvent(TaskEvent):
     """
-    Event related to analysis results and monitored operations tracking.
+    Event related to coverage analysis during task execution.
     
     ### Architectural Decisions:
-    - Inherits from Event for consistent base functionality
-    - Supports flexible data payload for various analysis types
-    - Optionally links to specific tasks for correlation
-    - Enables analysis result tracking and aggregation
+    - Inherits from TaskEvent for automatic task context and correlation
+    - Provides specific coverage data structure for analysis
+    - Supports both individual coverage entries and aggregate metrics
+    - Enables direct correlation with executing task
+    - Uses Optional coverage fields for both individual entries and metrics events
     
     ### Role in the System:
-    - Represents events from analysis components (static, coverage, etc.)
-    - Tracks analysis progress and results
-    - Provides data for analysis result aggregation
-    - Supports debugging of analysis processes
-    
-    ### Analysis Context:
-    - data: Flexible payload containing analysis results
-    - related_task_id: Optional task association for correlation
-    - Used for tracking monitored operations detection and coverage
+    - Represents coverage events that occur during task execution
+    - Tracks coverage progress and results for specific tasks
+    - Provides complete task context for coverage analysis
+    - Supports coverage debugging with task execution details
     """
     
-    data: Dict[str, Any] = Field(
-        default_factory=dict,
-        description="Analysis data and results payload"
-    )
-    
-    related_task_id: Optional[str] = Field(
+    coverage_entry: Optional[Dict[str, Any]] = Field(
         default=None,
-        description="Optional task ID for correlation with task execution"
+        description="Optional coverage log entry for individual method calls"
     )
     
-    def get_analysis_summary(self) -> Dict[str, Any]:
-        """
-        Get summary information about the analysis from this event.
-        
-        Returns:
-            Dictionary with analysis summary information
-        """
-        return {
-            'event_type': self.type.name,
-            'timestamp': self.timestamp.isoformat(),
-            'source': self.source,
-            'related_task_id': self.related_task_id,
-            'data_keys': list(self.data.keys()),
-            'has_task_relation': self.related_task_id is not None
+    coverage_metrics: Optional[Dict[str, Any]] = Field(
+        default=None,
+        description="Optional coverage metrics for aggregate updates"
+    )
+    
+    def get_coverage_summary(self) -> Dict[str, Any]:
+        """Get summary of coverage data with task context."""
+        summary = {
+            'task_id': self.task_id,
+            'task_config': self.task_config,
+            'timestamp': self.timestamp.isoformat()
         }
-    
-    def is_coverage_event(self) -> bool:
-        """
-        Check if this event is related to coverage analysis.
         
-        Returns:
-            True if event type indicates coverage analysis
-        """
-        coverage_types = {
-            EventType.COVERAGE_UPDATED,
-            EventType.COVERAGE_TRACKING_STARTED,
-            EventType.COVERAGE_TRACKING_STOPPED
+        if self.coverage_entry:
+            summary.update({
+                'coverage_type': 'individual',
+                'class': self.coverage_entry.get('clazz'),
+                'method': self.coverage_entry.get('method'),
+                'signature': self.coverage_entry.get('signature'),
+                'time_since_start': self.coverage_entry.get('time_since_task_start')
+            })
+        
+        if self.coverage_metrics:
+            summary.update({
+                'coverage_type': 'aggregate',
+                'metrics': self.coverage_metrics
+            })
+        
+        return summary
+
+
+@validated_model(['type', 'timestamp', 'source', 'task_id'])
+class MOPErrorEvent(TaskEvent):
+    """
+    Event related to MOP (Monitored Operation) specification violations during task execution.
+    
+    ### Architectural Decisions:
+    - Inherits from TaskEvent for automatic task context and correlation
+    - Provides specific MOP error data structure
+    - Supports specification violation tracking during task execution
+    - Enables direct correlation with executing task and its configuration
+    - Uses Optional error log for consistency with coverage pattern
+    
+    ### Role in the System:
+    - Represents MOP specification violations that occur during task execution
+    - Tracks runtime monitoring results for specific tasks
+    - Provides complete task context for violation analysis
+    - Supports MOP debugging with task execution context
+    """
+    
+    error_log: Optional[Dict[str, Any]] = Field(
+        default=None,
+        description="Optional error log entry for MOP violations"
+    )
+    
+    def get_violation_summary(self) -> Dict[str, Any]:
+        """Get summary of MOP violation with task context."""
+        summary = {
+            'task_id': self.task_id,
+            'task_config': self.task_config,
+            'timestamp': self.timestamp.isoformat()
         }
-        return self.type in coverage_types
-    
-    def is_monitored_operations_event(self) -> bool:
-        """
-        Check if this event is related to monitored operations.
         
-        Returns:
-            True if event data contains monitored operations information
-        """
-        return any(
-            key in self.data 
-            for key in ['monitored_operations', 'mop_detected', 'specification_violation']
-        )
-    
-    def __str__(self) -> str:
-        """
-        Get string representation of the analysis event.
+        if self.error_log:
+            summary.update({
+                'spec': self.error_log.get('spec'),
+                'error_type': self.error_log.get('error_type'),
+                'class_name': self.error_log.get('class_full_name'),
+                'method': self.error_log.get('method'),
+                'message': self.error_log.get('message'),
+                'time_since_start': self.error_log.get('time_since_task_start')
+            })
         
-        Returns:
-            Formatted string with event type, task relation, and timestamp
-        """
-        task_str = f" for Task {self.related_task_id}" if self.related_task_id else ""
-        return f"{self.type.name}{task_str} at {self.timestamp.isoformat()}"
+        return summary
 
 
 @validated_model(['type', 'timestamp', 'source', 'task_id', 'tool_execution_start'])
@@ -659,3 +642,84 @@ class PhaseExecutionModeEvent(Event):
         """
         fallback_info = f" ({self.fallback_reason})" if self.fallback_reason else ""
         return f"Phase {self.phase_name} executed in {self.execution_mode} mode{fallback_info}"
+
+
+class EventHistoryManager:
+    """
+    Manages event history with memory-efficient storage and retrieval.
+    
+    ### Architectural Decisions:
+    - Implements circular buffer for memory efficiency
+    - Provides filtering and querying capabilities
+    - Supports thread-safe operations
+    - Maintains configurable history size limits
+    - Memory-only storage with no persistence requirements
+    
+    ### Role in the System:
+    - Manages event storage with automatic size limits
+    - Provides efficient filtering and querying
+    - Supports debugging and audit trail functionality
+    - Prevents memory leaks from unlimited history growth
+    - Centralizes all history management logic from EventBus
+    """
+    
+    def __init__(self, max_size: int = 1000):
+        """
+        Initialize the event history manager.
+        
+        Args:
+            max_size: Maximum number of events to store in memory
+        """
+        self._history: List[Event] = []
+        self._max_size = max_size
+        self._lock = threading.Lock()
+    
+    def add_event(self, event: Event) -> None:
+        """Add event to history with automatic size management."""
+        with self._lock:
+            self._history.append(event)
+            if len(self._history) > self._max_size:
+                self._history = self._history[-self._max_size:]
+    
+    def get_events(self, 
+                   event_type: Optional[EventType] = None,
+                   since: Optional[datetime] = None,
+                   source: Optional[str] = None,
+                   task_id: Optional[str] = None,
+                   limit: int = 100) -> List[Event]:
+        """Get events with optional filtering."""
+        with self._lock:
+            events = self._history.copy()
+        
+        # Apply filters
+        if event_type:
+            events = [e for e in events if e.type == event_type]
+        if since:
+            events = [e for e in events if e.timestamp >= since]
+        if source:
+            events = [e for e in events if e.source == source]
+        if task_id:
+            events = [e for e in events if isinstance(e, TaskEvent) and e.task_id == task_id]
+        
+        # Sort and limit
+        events.sort(key=lambda e: e.timestamp, reverse=True)
+        return events[:limit]
+    
+    def clear(self) -> None:
+        """Clear all events from history."""
+        with self._lock:
+            self._history.clear()
+    
+    def get_statistics(self) -> Dict[str, Any]:
+        """Get history statistics."""
+        with self._lock:
+            event_counts = {}
+            for event in self._history:
+                event_counts[event.type.name] = event_counts.get(event.type.name, 0) + 1
+            
+            return {
+                'total_events': len(self._history),
+                'event_type_counts': event_counts,
+                'oldest_event': self._history[0].timestamp if self._history else None,
+                'newest_event': self._history[-1].timestamp if self._history else None
+            }

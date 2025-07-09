@@ -269,6 +269,8 @@ class MonkeyTool(AbstractTool):
         cmd_args = [
             "shell", "monkey",
             "-v", "-v",
+            # "--ignore-crashes",
+            # "--ignore-timeouts",
             "--ignore-security-exceptions",
             "-p", app.package_name,
             str(1_000_000_000)  # High event count for comprehensive testing
