@@ -150,7 +150,7 @@ def validated_model(positional_fields: List[str]) -> Callable[[Type[T]], Type[T]
         cls._is_validated_model = True
         
         # Log successful decoration
-        logger.debug(f"Applied validation decorator to {cls.__name__}")
+        # logger.debug(f"Applied validation decorator to {cls.__name__}")
         
         return cls
     

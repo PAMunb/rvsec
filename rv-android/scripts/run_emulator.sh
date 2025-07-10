@@ -11,3 +11,5 @@ emulator @${EMULATOR_NAME_x86} -writable-system -wipe-data -no-boot-anim -noaudi
 #adb wait-for-device
 
 #adb install ../media.apk
+
+# adb logcat -v threadtime -s RVSEC RVSEC-COV

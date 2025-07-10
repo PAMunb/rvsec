@@ -67,7 +67,7 @@ class ExperimentController:
         else:
             # Use timestamp-based name as fallback
             experiment_folder = f"experiment_{self.experiment_id}"
-            config.name = self.experiment_id
+            self.config.name = self.experiment_id
         
         # Create full results directory path
         self.results_dir = os.path.join(results_base_dir, experiment_folder)
@@ -92,7 +92,7 @@ class ExperimentController:
         # Register event handlers
         self._setup_event_handlers()
 
-        self.logger.info(f"Clean experiment {self.experiment_id} initialized")
+        self.logger.info(f"Experiment '{self.config.name}' initialized: {self.results_dir}")
 
     def _setup_event_handlers(self):
         """
@@ -121,7 +121,7 @@ class ExperimentController:
             try:
                 success = True
 
-                # Phase 1: Pre-processing (includes instrumentation error tracking)
+                # Phase 1: Pre-processing (includes apk instrumentation for MOP error tracking)
                 self.logger.info("Starting pre-processing phase")
                 self._run_pre_processing()
 

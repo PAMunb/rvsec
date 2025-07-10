@@ -72,7 +72,7 @@ class ExecutionController:
         self.platform_config = None
         self.has_errors = False
         
-        self.logger.info("ExecutionController initialized with clean rv-platform integration")
+        self.logger.info("ExecutionController initialized")
 
     @ErrorHandler.handle_errors(
         component="ExecutionController",

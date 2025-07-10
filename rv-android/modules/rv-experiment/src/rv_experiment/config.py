@@ -27,7 +27,6 @@ and dependency injection ready design.
 - **Template Builder**: Intelligent template creation for different scenarios
 - **Validation Strategy**: Comprehensive validation with clear error messages
 """
-import rv_experiment.constants as constants
 import json
 import os
 from datetime import datetime
@@ -35,15 +34,15 @@ from pathlib import Path
 from typing import Dict, Any, List, Optional, Union, TYPE_CHECKING
 
 from pydantic import Field
-from rv_android_core.util.validation import BaseValidatedModel
-# Import ToolConfig from rv-platform for unified tool configuration
-from rv_platform.config.platform_config import ToolConfig
 
+import rv_experiment.constants as constants
 from rv_android_core.constants import ENV_RVSEC_HOME
+from rv_android_core.constants import EXTENSION_MOP
 from rv_android_core.util.error.error_handler import ErrorHandler
 from rv_android_core.util.error.exceptions import ConfigurationError
 from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
 from rv_android_core.util.logging.manager import LoggingManager
+from rv_android_core.util.validation import BaseValidatedModel
 from rv_experiment.constants import (
     RESULTS_DIR, INSTRUMENTED_DIR, DEFAULT_APKS_DIR,
     DEFAULT_SPEC_SET, get_experiment_dir, MONITORS_DIR, INSTRUMENTED_APKS_DIR
@@ -52,8 +51,9 @@ from rv_instrumentation.config import RVInstrumentationConfig, ConfigurationErro
 from rv_llm.config.llm_config import LLMConfig
 # Configuration class imports for proper type usage
 from rv_monitor_generator.config import RVGeneratorConfig, ConfigurationError as MonitorConfigError
+# Import ToolConfig from rv-platform for unified tool configuration
+from rv_platform.config.platform_config import ToolConfig
 from rv_static_analysis.config import RVStaticAnalysisConfig
-from rv_android_core.constants import EXTENSION_MOP
 
 # Just-in-time imports - only import when needed
 if TYPE_CHECKING:
@@ -61,8 +61,6 @@ if TYPE_CHECKING:
 
 
 # ToolConfig is imported from rv-platform for unified tool configuration
-
-
 
 
 class ExperimentConfig(BaseValidatedModel):
@@ -96,20 +94,20 @@ class ExperimentConfig(BaseValidatedModel):
     output_dir: str = ""
     experiment_dir: str = ""
 
+    rvsec_root: Optional[str] = Field(default=None, description="Override for RVSEC_HOME environment variable")
+
     # Tool configuration
     tool_configs: List[ToolConfig] = Field(default_factory=list, description="List of tool configurations")
 
     # Execution parameters
     repetitions: int = Field(default=1, gt=0, description="Number of repetitions")
-    timeouts: List[int] = Field(default_factory=lambda: [300], description="List of timeout values in seconds")
+    timeouts: List[int] = Field(default_factory=lambda: [60], description="List of timeout values in seconds")
     no_window: bool = Field(default=True, description="Run without GUI window")
 
     # Processing phases
     generate_monitors: bool = Field(default=True, description="Generate monitors")
     instrument_apks: bool = Field(default=True, description="Instrument APKs")
     run_static_analysis: bool = Field(default=True, description="Run static analysis")
-    # TODO remover
-    analyze_instrumented_apks: bool = Field(default=False, description="Use instrumented APKs for static analysis when available")
 
     # Monitored operations specification set
     specification_set: str = Field(default=DEFAULT_SPEC_SET, description="Specification set type")
@@ -117,10 +115,11 @@ class ExperimentConfig(BaseValidatedModel):
     custom_aspects_dir: Optional[str] = Field(default=None, description="Custom AspectJ aspects directory")
 
     # APK sources - Updated structure
-    apks_dir: str = Field(default=f"./{DEFAULT_APKS_DIR}/", description="Source APK directory path (contains APKs to be instrumented)")
-    
+    apks_dir: str = Field(default=f"./{DEFAULT_APKS_DIR}/",
+                          description="Source APK directory path (contains APKs to be instrumented)")
+
     # Results configuration
-    results_dir: Optional[str] = Field(default=None, description="Results directory path (defaults to same level as output_dir)")
+    results_dir: Optional[str] = Field(default=None, description="Results directory path")
 
     # Additional metadata
     metadata: Dict[str, Any] = Field(default_factory=dict, description="Additional metadata")
@@ -129,20 +128,7 @@ class ExperimentConfig(BaseValidatedModel):
     # Continuation support and configuration hierarchy
     resume_mode: bool = Field(default=False, description="Enable experiment continuation mode")
     status_file: Optional[str] = Field(default=None, description="Path to experiment status file for continuation")
-    artifact_reuse_enabled: bool = Field(default=True, description="Enable artifact reuse for phase execution")
-    skip_completed_phases: bool = Field(default=True, description="Skip phases with existing artifacts")
-    force_regeneration: bool = Field(default=False, description="Regenerate all artifacts regardless of existence")
-    rvsec_root: Optional[str] = Field(default=None, description="Override for RVSEC_HOME environment variable")
-    
-    # Phase control for flexible execution
-    phase_control: Dict[str, bool] = Field(
-        default_factory=lambda: {
-            "skip_monitors": False,
-            "skip_instrumentation": False,
-            "skip_static_analysis": False
-        },
-        description="Phase execution control flags"
-    )
+
 
     def model_post_init(self, __context) -> None:
         """Initialize configuration after creation with defaults and validation."""
@@ -160,7 +146,7 @@ class ExperimentConfig(BaseValidatedModel):
                 self.results_dir = os.path.join(os.path.dirname(self.output_dir), RESULTS_DIR)
             else:
                 self.results_dir = RESULTS_DIR
-        
+
         self.experiment_dir = get_experiment_dir(self.results_dir, self.name)
 
         if not self.created_at:
@@ -172,7 +158,8 @@ class ExperimentConfig(BaseValidatedModel):
             "rv_experiment.config",
             {CONTEXT_COMPONENT: "ExperimentConfig"}
         )
-        logger.debug("ExperimentConfig initialized")
+        self.validate()
+        logger.info(f"ExperimentConfig initialized: {self.to_json()}")
 
     @ErrorHandler.handle_errors(
         component="ExperimentConfig",
@@ -184,10 +171,10 @@ class ExperimentConfig(BaseValidatedModel):
         
         ### Validation Strategy:
         - Basic parameter validation (names, timeouts, repetitions)
-        - Tool configuration validation with variant support
+        - Tool configuration validation
         - APK source validation with pattern matching
         - Monitored operations specification validation
-        - Directory structure validation
+        - Directory structure validation # TODO
         
         Raises:
             ValueError: If configuration is invalid
@@ -224,12 +211,6 @@ class ExperimentConfig(BaseValidatedModel):
                 f"Invalid specification set '{self.specification_set}'. "
                 f"Must be one of: {valid_spec_sets}"
             )
-
-        # Validate output directory
-        if self.output_dir:
-            output_path = Path(self.output_dir)
-            if not output_path.parent.exists():
-                raise ValueError(f"Parent directory for output does not exist: {output_path.parent}")
 
         # Get logger for validation message
         logging_manager = LoggingManager.get_instance()
@@ -787,14 +768,14 @@ class ExperimentConfig(BaseValidatedModel):
             if not os.path.exists(self.rvsec_root):
                 raise ConfigurationError(f"Configured rvsec_root path does not exist: {self.rvsec_root}")
             return self.rvsec_root
-        
+
         # Priority 2: Environment variable fallback
         env_value = os.getenv(ENV_RVSEC_HOME)
         if env_value:
             if not os.path.exists(env_value):
                 raise ConfigurationError(f"RVSEC_HOME environment path does not exist: {env_value}")
             return env_value
-        
+
         # Priority 3: Error for required configuration
         raise ConfigurationError(
             "RVSEC_HOME not found in configuration or environment. "
@@ -830,17 +811,17 @@ class ExperimentConfig(BaseValidatedModel):
         """
         if not os.path.exists(status_file):
             raise ConfigurationError(f"Status file not found: {status_file}")
-        
+
         try:
             with open(status_file, 'r') as f:
                 status_data = json.load(f)
-            
+
             # Extract experiment metadata
             if "experiment" not in status_data:
                 raise ConfigurationError("Status file does not contain experiment metadata")
-            
+
             experiment_data = status_data["experiment"]
-            
+
             # Load the original configuration (would need to be stored separately or reconstructed)
             # For now, create a basic config that can be enhanced
             config = cls(
@@ -848,7 +829,7 @@ class ExperimentConfig(BaseValidatedModel):
                 resume_mode=True,
                 status_file=status_file
             )
-            
+
             # Set metadata for continuation tracking
             config.metadata.update({
                 "resumed_from": status_file,
@@ -856,9 +837,9 @@ class ExperimentConfig(BaseValidatedModel):
                 "continuation_time": datetime.now().isoformat(),
                 "config_checksum": experiment_data.get("config_checksum")
             })
-            
+
             return config
-            
+
         except json.JSONDecodeError as e:
             raise ConfigurationError(f"Invalid JSON in status file: {e}")
         except Exception as e:
@@ -873,31 +854,13 @@ class ExperimentConfig(BaseValidatedModel):
         """
         self.resume_mode = True
         self.status_file = status_file
-        
+
         # Update metadata
         self.metadata.update({
             "continuation_enabled": True,
             "status_file": status_file,
             "continuation_time": datetime.now().isoformat()
         })
-
-    def get_enhanced_storage_config(self) -> 'StorageConfig':
-        """
-        Get enhanced storage configuration based on experiment settings.
-        
-        Returns:
-            StorageConfig with experiment-specific settings
-        """
-        # Import here to avoid circular dependency
-        from rv_platform.storage.task_storage import StorageConfig
-        
-        return StorageConfig(
-            enable_metadata=True,
-            enable_statistics=True,
-            auto_save=not self.resume_mode,  # Disable auto-save in resume mode for performance
-            compression=False,
-            backup_count=3 if not self.resume_mode else 1
-        )
 
     def get_artifact_validation_config(self) -> Dict[str, bool]:
         """
@@ -908,68 +871,9 @@ class ExperimentConfig(BaseValidatedModel):
         """
         return {
             "validate_monitors": self.artifact_reuse_enabled and not self.phase_control.get("skip_monitors", False),
-            "validate_instrumentation": self.artifact_reuse_enabled and not self.phase_control.get("skip_instrumentation", False),
-            "validate_static_analysis": self.artifact_reuse_enabled and not self.phase_control.get("skip_static_analysis", False),
+            "validate_instrumentation": self.artifact_reuse_enabled and not self.phase_control.get(
+                "skip_instrumentation", False),
+            "validate_static_analysis": self.artifact_reuse_enabled and not self.phase_control.get(
+                "skip_static_analysis", False),
             "strict_validation": not self.resume_mode  # Relaxed validation in resume mode
         }
-    
-    @ErrorHandler.handle_errors(component="ExperimentConfig", phase="directory_manager")
-    def get_directory_manager(self, base_dir: Optional[str] = None) -> 'ExperimentDirectoryManager':
-        """
-        Get ExperimentDirectoryManager instance configured for this experiment.
-        
-        Args:
-            base_dir: Optional base directory override (defaults to ./out/)
-            
-        Returns:
-            ExperimentDirectoryManager instance
-        """
-        from rv_experiment.directory_manager import ExperimentDirectoryManager
-        
-        if base_dir is None:
-            base_dir = "./out/"
-            
-        return ExperimentDirectoryManager(base_dir=base_dir)
-    
-    # Removed duplicate get_apk_list method - using the updated version at line 258
-    
-    @ErrorHandler.handle_errors(component="ExperimentConfig", phase="artifact_reuse_analysis")
-    def analyze_artifact_reuse(self) -> Dict[str, Any]:
-        """
-        Analyze artifact reuse potential for this experiment configuration.
-        
-        Returns:
-            Dictionary with artifact reuse analysis results
-        """
-        if not self.artifact_reuse_enabled:
-            return {
-                "reuse_enabled": False,
-                "can_skip_phases": {},
-                "reusable_artifacts": {}
-            }
-        
-        directory_manager = self.get_directory_manager()
-        apk_list = self.get_apk_list()
-        
-        # Get comprehensive artifact analysis
-        reuse_analysis = directory_manager.get_reusable_artifacts(
-            apk_list=[os.path.basename(apk) for apk in apk_list],
-            specification_set=self.specification_set
-        )
-        
-        # Determine which phases can be skipped
-        can_skip_phases = {}
-        if self.skip_completed_phases and not self.force_regeneration:
-            can_skip_phases["static_analysis"] = reuse_analysis["overall"].get("static_analysis_complete", False)
-            can_skip_phases["monitor_generation"] = reuse_analysis["overall"].get("monitors_complete", False)
-            can_skip_phases["instrumentation"] = reuse_analysis["overall"].get("instrumentation_complete", False)
-        
-        return {
-            "reuse_enabled": True,
-            "can_skip_phases": can_skip_phases,
-            "reusable_artifacts": reuse_analysis,
-            "force_regeneration": self.force_regeneration,
-            "analyze_instrumented_apks": self.analyze_instrumented_apks
-        }
-
-

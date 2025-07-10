@@ -29,7 +29,7 @@ class EmulatorManager:
         # Set up logging using LoggingManager
         logging_manager = LoggingManager.get_instance()
         self.logger = logging_manager.get_logger(
-            "util.emulator_manager",
+            "rv_android_core.util.android.emulator_manager",
             {CONTEXT_COMPONENT: "EmulatorManager"}
         )
 
