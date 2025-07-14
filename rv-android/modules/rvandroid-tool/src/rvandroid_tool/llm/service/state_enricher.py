@@ -251,8 +251,9 @@ class StateEnricher:
             if not hasattr(self, 'parser') or self.parser is None:
                 # Try to initialize parser dynamically if it's not already available
                 try:
-                    from rv_screen_parser.parser.screen.parser_factory import ParserFactory, ParserType
-                    self.parser = ParserFactory.create(ParserType.DROIDBOT, DefaultTextVisitor)
+                    from rv_screen_parser.parser.screen.parser_factory import ParserFactory
+                    from rv_screen_parser.constants import ScreenParserType
+                    self.parser = ParserFactory.create(ScreenParserType.DROIDBOT, DefaultTextVisitor)
                     self.logger.debug(f"Created parser on demand: {self.parser.__class__.__name__}")
                 except ImportError:
                     self.logger.warning("Could not create parser, using simple text description")

@@ -498,7 +498,7 @@ class ExperimentConfig(BaseValidatedModel):
         - **Model Selection**: Configures LLM model type and parameters for tool execution
         - **Provider Configuration**: Sets up LLM provider (Ollama, OpenAI, etc.) integration
         - **Strategy Coordination**: Aligns LLM strategy with experiment objectives
-        - **Parser Integration**: Coordinates screen parsing with LLM-driven analysis
+        - **Clean Configuration**: Only LLM-specific settings (parser/visitor moved to tools)
         
         ### Role in the System:
         - Provides LLM configuration for RVAndroid and other AI-enhanced testing tools
@@ -513,7 +513,8 @@ class ExperimentConfig(BaseValidatedModel):
             ConfigurationError: If LLM configuration validation fails
         """
         try:
-            # Create LLMConfig instance with default settings
+            # Create clean LLMConfig instance with only LLM-specific settings
+            # Parser/visitor configuration moved to rvandroid-tool in Phase 7
             config = LLMConfig(
                 llm_type="ollama",
                 model="llama3.2:3b",
@@ -521,9 +522,7 @@ class ExperimentConfig(BaseValidatedModel):
                 temperature=0.3,
                 max_tokens=2048,
                 provider="ollama",
-                strategy_type="standard",
-                parser_type="droidbot",
-                visitor_type="enhanced"
+                strategy_type="standard"
             )
 
             # Validate configuration

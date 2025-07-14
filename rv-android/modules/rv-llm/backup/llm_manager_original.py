@@ -118,7 +118,7 @@ class LLMManager:
 
         self.logger.info(
             f"LLM Manager initialized: backend={self.config.llm_type}, "
-            f"model={self.config.model}"
+            f"model={self.config.model}, strategy={self.config.strategy_type}"
         )
 
     @ErrorHandler.handle_errors(
@@ -157,6 +157,7 @@ class LLMManager:
                 details={
                     "llm_type": self.config.llm_type,
                     "model": self.config.model,
+                    "strategy_type": self.config.strategy_type,
                     "max_tokens": self.config.max_tokens
                 },
                 source="LLMManager",
@@ -168,7 +169,14 @@ class LLMManager:
             self.logger.error(error_msg)
 
             # Publish error event
-            # self.event_bus.publish_error_event(e, {"llm_type": self.config.llm_type, "model": self.config.model, "operation": "llm_initialization"})
+            self.event_bus.publish_error_event(
+                e,
+                {
+                    "llm_type": self.config.llm_type,
+                    "model": self.config.model,
+                    "operation": "llm_initialization"
+                }
+            )
 
             raise RuntimeError(error_msg) from e
 
@@ -177,7 +185,14 @@ class LLMManager:
             self.logger.error(error_msg)
 
             # Publish error event
-            # self.event_bus.publish_error_event(e, {"llm_type": self.config.llm_type, "model": self.config.model, "operation": "llm_initialization"})
+            self.event_bus.publish_error_event(
+                e,
+                {
+                    "llm_type": self.config.llm_type,
+                    "model": self.config.model,
+                    "operation": "llm_initialization"
+                }
+            )
 
             raise RuntimeError(error_msg) from e
 
@@ -222,7 +237,8 @@ class LLMManager:
         context = {
             "llm_type": effective_config.llm_type,
             "model": effective_config.model,
-            # Strategy and parser information moved to PromptConfig
+            "strategy_type": effective_config.strategy_type,
+            "parser_type": effective_config.parser_type,
             "generation_id": str(time.time())
         }
 
@@ -247,8 +263,9 @@ class LLMManager:
         # Perform generation with timing
         start_time = time.time()
         try:
-            # Pass LLMConfig directly to LLM generation
-            response: LLMResponse = self.llm.generate(messages, effective_config)
+            # Convert LLMConfig to parameters for LLM generation
+            llm_params = effective_config.get_llm_parameters()
+            response: LLMResponse = self.llm.generate(messages, llm_params)
             elapsed_time = time.time() - start_time
 
             # Log successful generation
@@ -276,7 +293,10 @@ class LLMManager:
             )
 
             # Publish error event
-            # self.event_bus.publish_error_event(e, {**context, "elapsed_time": elapsed_time, "operation": "text_generation"})
+            self.event_bus.publish_error_event(
+                e,
+                {**context, "elapsed_time": elapsed_time, "operation": "text_generation"}
+            )
 
             raise RuntimeError(error_msg) from e
 
@@ -325,7 +345,7 @@ class LLMManager:
 
         self.logger.info(
             f"Updated LLM configuration: backend={self.config.llm_type}, "
-            f"model={self.config.model}"
+            f"model={self.config.model}, strategy={self.config.strategy_type}"
         )
 
         # Publish configuration update event
@@ -335,11 +355,13 @@ class LLMManager:
             details={
                 "old_config": {
                     "llm_type": old_config.llm_type,
-                    "model": old_config.model
+                    "model": old_config.model,
+                    "strategy_type": old_config.strategy_type
                 },
                 "new_config": {
                     "llm_type": new_config.llm_type,
-                    "model": new_config.model
+                    "model": new_config.model,
+                    "strategy_type": new_config.strategy_type
                 },
                 "llm_recreated": llm_changed
             },

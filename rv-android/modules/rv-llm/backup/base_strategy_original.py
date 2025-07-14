@@ -10,7 +10,7 @@ from typing import Any, Dict, List, Optional
 from rv_android_core.util.error.error_handler import ErrorHandler
 from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
 from rv_android_core.util.logging.manager import LoggingManager
-from rv_llm.config import PromptConfig
+from rv_llm.config.llm_config import LLMConfig
 from rv_llm.llm.constants import ContextEntry, PromptStrategyType
 from rv_llm.llm.data_structures import LLMMessage, LLMRole, LLMTextContent
 
@@ -30,8 +30,7 @@ class PromptStrategy(abc.ABC):
             self,
             name: str,
             information_manager=None,
-            template_repository=None,
-            config: Optional[PromptConfig] = None
+            template_repository=None
     ):
         """Initialize the prompt strategy.
         
@@ -39,12 +38,11 @@ class PromptStrategy(abc.ABC):
             name: A unique identifier for the strategy.
             information_manager: The information manager to use.
             template_repository: The template repository to use.
-            config: Optional PromptConfig for strategy configuration.
         """
         self.name = name
         self.information_manager = information_manager
         self.template_repository = template_repository
-        self.config = config
+        self.config = None # TODO deprecated
 
         # Set up logging
         logging_manager = LoggingManager.get_instance()
@@ -90,45 +88,40 @@ class PromptStrategy(abc.ABC):
         component="PromptStrategy",
         operation="configure_from_config"
     )
-    def configure_from_config(self, config: PromptConfig) -> None:
+    def configure_from_config(self, config: LLMConfig) -> None:
         """
-        Configure strategy with PromptConfig for monitored operations testing.
+        Configure strategy with LLMConfig for monitored operations testing.
         
         ### Architectural Note:
         This method provides the primary interface for strategy configuration
-        using the modern PromptConfig system. It extracts strategy-specific parameters
+        using the modern LLMConfig system. It extracts strategy-specific parameters
         and applies them to the strategy for prompt generation operations.
         
         ### Configuration Strategy:
-        - Extracts strategy-specific parameters from PromptConfig
+        - Extracts strategy-specific parameters from LLMConfig
         - Creates configuration dictionary for internal processing
         - Validates configuration before applying
         - Provides error handling and logging for configuration failures
         
         Args:
-            config: PromptConfig instance with strategy configuration
+            config: LLMConfig instance with strategy configuration
             
         Raises:
             ValueError: If configuration is invalid or conversion fails
         """
-        self.logger.info(f"Configuring strategy {self.name} from PromptConfig")
+        self.logger.info(f"Configuring strategy {self.name} from LLMConfig")
 
         try:
-            # Extract strategy parameters from PromptConfig
+            # Extract strategy parameters from LLMConfig
             strategy_params = config.get_strategy_parameters()
 
-            # Create configuration dictionary from PromptConfig parameters
+            # Create configuration dictionary from LLMConfig parameters
             config_dict = {
                 "strategy_name": config.strategy_type,
                 "max_context_length": config.max_context_length,
-                "parser_type": config.parser_type,
-                "visitor_type": config.visitor_type,
                 **{k: v for k, v in strategy_params.items() if k.startswith("strategy_")}
             }
 
-            # Store the config directly for easier access
-            self.config = config
-            
             # Use existing configure method with converted config
             self.configure(config_dict)
 

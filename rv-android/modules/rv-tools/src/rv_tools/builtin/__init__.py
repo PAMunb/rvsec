@@ -13,11 +13,13 @@ integrated directly into the RV-Tools framework.
 - **FastBot**: Model-based testing tool with reinforcement learning capabilities
 - **Humanoid**: Human-like testing tool with computer vision and NLP
 - **QTesting**: Reinforcement learning based intelligent testing framework
+- **RVAndroid**: LLM-based testing tool for monitored operations with hybrid configuration
 
 ### Tool Categories:
 - **Random Testing**: Monkey
 - **Model-Based**: APE, DroidBot, DroidMate, Ares
 - **AI-Guided**: FastBot, Humanoid, QTesting
+- **LLM-Based**: RVAndroid
 - **Systematic**: DroidMate, Ares
 - **Docker-Based**: Ares
 - **Learning-Based**: FastBot, Humanoid, QTesting
@@ -38,6 +40,7 @@ from .droidmate import DroidMateTool
 from .fastbot import FastBotTool
 from .humanoid import HumanoidTool
 from .qtesting import QTestingTool
+from .rvandroid import RVAndroidTool
 
 # Tool registry for built-in tools
 BUILTIN_TOOLS = [
@@ -49,6 +52,7 @@ BUILTIN_TOOLS = [
     FastBotTool,
     HumanoidTool,
     QTestingTool,
+    RVAndroidTool,
 ]
 
 # Tool class mapping for dynamic loading
@@ -61,6 +65,7 @@ BUILTIN_TOOL_CLASSES = {
     "fastbot": FastBotTool,
     "humanoid": HumanoidTool,
     "qtesting": QTestingTool,
+    "rvandroid": RVAndroidTool,
 }
 
 __all__ = [
@@ -72,6 +77,7 @@ __all__ = [
     "FastBotTool",
     "HumanoidTool",
     "QTestingTool",
+    "RVAndroidTool",
     "BUILTIN_TOOLS",
     "BUILTIN_TOOL_CLASSES"
 ]

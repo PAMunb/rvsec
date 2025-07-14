@@ -11,7 +11,8 @@ from rv_android_core.util.error.exceptions import (
     RVExperimentError, RVParsingError, RVLLMError, RVPromptError,
     RVValidationError, CommandValidationError, LogcatValidationError,
     EventProcessingError, ConfigurationError, RVCommandTimeoutError, JarNotFoundError,
-    CircuitBreakerOpenError
+    CircuitBreakerOpenError, RVLLMConnectionError, RVLLMModelError, RVLLMProviderError,
+    RVLLMConfigurationError, RVLLMTemplateError
 )
 from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
 from rv_android_core.util.logging.manager import LoggingManager
@@ -96,6 +97,13 @@ class ErrorHandler:
         self.register_handler(RVExperimentError, self._handle_experiment_error)
         self.register_handler(RVParsingError, self._handle_parsing_error)
         self.register_handler(RVPromptError, self._handle_prompt_error)
+        # Register specific LLM error handlers (Phase 6)
+        self.register_handler(RVLLMConnectionError, self._handle_llm_connection_error)
+        self.register_handler(RVLLMModelError, self._handle_llm_model_error)
+        self.register_handler(RVLLMProviderError, self._handle_llm_provider_error)
+        self.register_handler(RVLLMConfigurationError, self._handle_llm_configuration_error)
+        self.register_handler(RVLLMTemplateError, self._handle_llm_template_error)
+        # Register generic LLM error handler last
         self.register_handler(RVLLMError, self._handle_llm_error)
         # Register new infrastructure exception handlers
         self.register_handler(RVCommandTimeoutError, self._handle_command_timeout_error)
@@ -564,6 +572,53 @@ class ErrorHandler:
         self._logger.info(f"LLM error recorded: {error.message}")
         if hasattr(error, 'model_name') and error.model_name:
             self._logger.info(f"Model: {error.model_name}")
+        return True  # Successfully handled
+    
+    def _handle_llm_connection_error(self, error: RVLLMConnectionError, context: Optional[Dict[str, Any]] = None) -> bool:
+        """Handle LLM connection failures with enhanced context."""
+        self._logger.error(f"LLM connection failed: {error.message}")
+        if hasattr(error, 'model_name') and error.model_name:
+            self._logger.error(f"Model: {error.model_name}")
+        if hasattr(error, 'provider') and error.provider:
+            self._logger.error(f"Provider: {error.provider}")
+        return True  # Successfully handled
+    
+    def _handle_llm_model_error(self, error: RVLLMModelError, context: Optional[Dict[str, Any]] = None) -> bool:
+        """Handle LLM model loading/generation errors with enhanced context."""
+        self._logger.error(f"LLM model error: {error.message}")
+        if hasattr(error, 'model_name') and error.model_name:
+            self._logger.error(f"Model: {error.model_name}")
+        if hasattr(error, 'operation') and error.operation:
+            self._logger.error(f"Operation: {error.operation}")
+        return True  # Successfully handled
+    
+    def _handle_llm_provider_error(self, error: RVLLMProviderError, context: Optional[Dict[str, Any]] = None) -> bool:
+        """Handle LLM provider-specific errors with enhanced context."""
+        self._logger.error(f"LLM provider error: {error.message}")
+        if hasattr(error, 'model_name') and error.model_name:
+            self._logger.error(f"Model: {error.model_name}")
+        if hasattr(error, 'provider') and error.provider:
+            self._logger.error(f"Provider: {error.provider}")
+        if hasattr(error, 'status_code') and error.status_code:
+            self._logger.error(f"Status Code: {error.status_code}")
+        return True  # Successfully handled
+    
+    def _handle_llm_configuration_error(self, error: RVLLMConfigurationError, context: Optional[Dict[str, Any]] = None) -> bool:
+        """Handle LLM configuration validation errors with enhanced context."""
+        self._logger.error(f"LLM configuration error: {error.message}")
+        if hasattr(error, 'model_name') and error.model_name:
+            self._logger.error(f"Model: {error.model_name}")
+        if hasattr(error, 'config_field') and error.config_field:
+            self._logger.error(f"Configuration Field: {error.config_field}")
+        return True  # Successfully handled
+    
+    def _handle_llm_template_error(self, error: RVLLMTemplateError, context: Optional[Dict[str, Any]] = None) -> bool:
+        """Handle LLM template processing errors with enhanced context."""
+        self._logger.error(f"LLM template error: {error.message}")
+        if hasattr(error, 'strategy_name') and error.strategy_name:
+            self._logger.error(f"Strategy: {error.strategy_name}")
+        if hasattr(error, 'template_name') and error.template_name:
+            self._logger.error(f"Template: {error.template_name}")
         return True  # Successfully handled
 
     def _handle_validation_error(self, error: RVValidationError, context: Optional[Dict[str, Any]] = None) -> bool:

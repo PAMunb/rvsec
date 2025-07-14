@@ -13,9 +13,9 @@ from rv_android_core.util.error.error_handler import ErrorHandler
 from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
 from rv_android_core.util.logging.manager import LoggingManager
 from rv_android_core.util.performance.performance_monitor import PerformanceMonitor
-from rv_llm.config import LLMConfig, PromptConfig
+from rv_llm.config.llm_config import LLMConfig
 from rvandroid_tool.config.tool_config import RvAndroidToolConfig
-from rv_llm.llm.constants import ContextEntry, StateEntry, PromptStrategyType
+from rv_llm.llm.constants import ContextEntry, StateEntry
 from rv_llm.llm.data_structures import LLMMessage, LLMResponse
 from rv_llm.llm.prompt.framework import PromptFramework
 from rvandroid_tool.llm.service.action_generator import ActionGenerator, GeneratedAction
@@ -103,20 +103,9 @@ class LLMActionService:
         self.action_generator = ActionGenerator(self.config, static_data)
         self.llm_manager = LLMManager(self.config, **model_kwargs)
 
-        # Initialize framework with PromptConfig
-        # Create PromptConfig from tool_config settings
-        if tool_config:
-            prompt_config = PromptConfig(
-                strategy_type=PromptStrategyType.BATCH_ACTION,  # Default strategy
-                parser_type=tool_config.parser_type if hasattr(tool_config, 'parser_type') else "droidbot",
-                visitor_type=tool_config.visitor_type if hasattr(tool_config, 'visitor_type') else "detailed"
-            )
-        else:
-            # Fallback to default configuration
-            prompt_config = PromptConfig()
-        
+        # Initialize framework
         self.logger.info("Creating PromptFramework")
-        self.framework = PromptFramework.create(prompt_config)
+        self.framework = PromptFramework.create(self.config)
         
         # Register tool templates with PromptFramework - Phase 7 enhancement
         self.tool_config.register_templates_with_framework(self.framework)
@@ -126,7 +115,7 @@ class LLMActionService:
         self.event_bus.publish_experiment_event(
             EventType.EXPERIMENT_STARTED,
             experiment_id=app_package,
-            message=f"LLMActionService initialized with model {self.config.model}",
+            message=f"LLMActionService initialized with model", # {self.config.llm_config.model_name}",
             source="LLMActionService",
             channel=EventChannel.LIFECYCLE
         )
@@ -136,6 +125,7 @@ class LLMActionService:
             f"Initialized LLM Action Service, "
             f"model={self.config.model}, ")
         #     f"strategy={config.strategy_class.__name__ if config and config.strategy_class else 'default'}"
+        # )
 
     def process_state(self, state: Dict[str, Any]) -> List[Dict[str, Any]]:
         """Process the current application state to generate AI-driven actions.
@@ -416,8 +406,8 @@ class LLMActionService:
             ContextEntry.APP_ACTIVITY: state[StateEntry.ACTIVITY],
             ContextEntry.MODEL_TYPE: self.config.llm_type,
             ContextEntry.MODEL_NAME: self.config.model,
-            # Strategy information moved to PromptConfig
-            # Parser and visitor information in tool config
+            ContextEntry.STRATEGY: self.config.strategy_type,
+            # TODO ContextEntry.VISITOR: self.config.
         }
         return context
 

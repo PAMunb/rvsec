@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 class FrontierModel(LanguageModel):
     """
     Language model implementation that uses frontier models like Claude, ChatGPT, Gemini, etc.
-    Handles initialization and interaction with various API providers.
+    Handles initialization and interaction with various API providers using MCP.
     """
     NAME = "frontier"
 
@@ -84,25 +84,9 @@ class FrontierModel(LanguageModel):
         """Get model type string."""
         return "frontier"
 
-    # MCP adapter removed in Phase 3 - direct provider API calls
-    
-    def _format_messages(self, messages: List[LLMMessage]) -> List[Dict[str, str]]:
-        """
-        Format LLMMessage objects for provider APIs.
-        
-        Args:
-            messages: List of LLMMessage objects
-            
-        Returns:
-            List of message dictionaries for provider APIs
-        """
-        formatted = []
-        for msg in messages:
-            formatted.append({
-                "role": msg.role,
-                "content": msg.content
-            })
-        return formatted
+    def _get_adapter(self):
+        """Get the appropriate MCP adapter for this model."""
+        return None  # FrontierAdapter()
 
     def _infer_provider(self, model_name: str) -> str:
         """
@@ -187,7 +171,10 @@ class FrontierModel(LanguageModel):
 
         return self._client
 
-    # Async generation removed in Phase 3 - using synchronous API calls
+    # async def generate(self, messages: List[LLMMessage], config: Optional[MCPConfiguration] = None) -> LLMMessage:
+    #     """Generate a response using the language model asynchronously."""
+    #     # Use synchronous implementation for now (could be updated to use async later)
+    #     return self.generate_sync(messages, config)
 
     def generate(self, messages: List[LLMMessage], config=None) -> LLMMessage:
         """
@@ -195,7 +182,7 @@ class FrontierModel(LanguageModel):
 
         Args:
             messages: List of LLMMessage objects
-            config: Optional configuration parameters
+            config: Optional MCPConfiguration object
 
         Returns:
             LLMMessage with the generated response
@@ -204,37 +191,45 @@ class FrontierModel(LanguageModel):
         _config = config or self.config
 
         try:
-            # Convert LLMMessage objects to provider-specific format
-            formatted_messages = self._format_messages(messages)
+            # Get MCP adapter
+            adapter = self._get_adapter()
 
-            # Extract generation parameters
-            max_tokens = getattr(_config, 'max_tokens', 800) if _config else 800
-            temperature = getattr(_config, 'temperature', 0.7) if _config else 0.7
-            
-            model_kwargs = {
-                'temperature': temperature
-            }
+            # Validate request
+            if not adapter.validate_request(messages, _config):
+                error_msg = "Invalid request for frontier model"
+                self.logger.error(error_msg)
+                from rv_android_core.util.error.exceptions import RVAndroidError
+                error = RVAndroidError(error_msg)
+                self.error_handler.handle_error(error)
+                raise ValueError(error_msg)
+
+            # Format messages using the adapter
+            formatted_messages = adapter.prepare_messages(messages)["messages"]
+
+            # Format configuration using the adapter
+            model_kwargs = adapter.prepare_config(_config)
+            max_tokens = model_kwargs.pop("max_tokens", 800)
 
             # Call appropriate provider's generation method
             if self.provider == "anthropic":
-                response_text = self._generate_anthropic(formatted_messages, max_tokens, model_kwargs)
+                response = self._generate_anthropic(formatted_messages, max_tokens, model_kwargs)
             elif self.provider == "openai":
-                response_text = self._generate_openai(formatted_messages, max_tokens, model_kwargs)
+                response = self._generate_openai(formatted_messages, max_tokens, model_kwargs)
             elif self.provider == "google":
-                response_text = self._generate_google(formatted_messages, max_tokens, model_kwargs)
+                response = self._generate_google(formatted_messages, max_tokens, model_kwargs)
             elif self.provider == "amazon":
-                response_text = self._generate_amazon(formatted_messages, max_tokens, model_kwargs)
+                response = self._generate_amazon(formatted_messages, max_tokens, model_kwargs)
             else:
                 raise ValueError(f"Unsupported provider: {self.provider}")
 
-            # Create response LLMMessage
-            return LLMMessage(role="assistant", content=response_text)
+            # Parse response using the adapter
+            return adapter.parse_response(response)
 
         except Exception as e:
             error_msg = f"Error generating text with {self.provider}: {str(e)}"
             self.logger.error(error_msg)
-            from rv_android_core.util.error.exceptions import RVLLMError
-            error = RVLLMError(error_msg, model_name=self.model_name)
+            from rv_android_core.util.error.exceptions import RVAndroidError
+            error = RVAndroidError(error_msg)
             self.error_handler.handle_error(error)
             raise
 
@@ -392,62 +387,3 @@ class FrontierModel(LanguageModel):
             List of model identifiers
         """
         return FrontierModel.MODELS
-    
-    @classmethod
-    def create_openai(cls, model_name: str = GPT_4, api_key: Optional[str] = None, **kwargs) -> 'FrontierModel':
-        """
-        Create OpenAI model instance.
-        
-        Args:
-            model_name: OpenAI model name
-            api_key: OpenAI API key
-            **kwargs: Additional model parameters
-            
-        Returns:
-            FrontierModel instance configured for OpenAI
-        """
-        return cls(model_name=model_name, provider="openai", api_key=api_key, **kwargs)
-    
-    @classmethod
-    def create_anthropic(cls, model_name: str = CLAUDE_SONNET, api_key: Optional[str] = None, **kwargs) -> 'FrontierModel':
-        """
-        Create Anthropic model instance.
-        
-        Args:
-            model_name: Anthropic model name
-            api_key: Anthropic API key
-            **kwargs: Additional model parameters
-            
-        Returns:
-            FrontierModel instance configured for Anthropic
-        """
-        return cls(model_name=model_name, provider="anthropic", api_key=api_key, **kwargs)
-    
-    @classmethod
-    def create_google(cls, model_name: str = GEMINI_PRO, api_key: Optional[str] = None, **kwargs) -> 'FrontierModel':
-        """
-        Create Google model instance.
-        
-        Args:
-            model_name: Google model name
-            api_key: Google API key
-            **kwargs: Additional model parameters
-            
-        Returns:
-            FrontierModel instance configured for Google
-        """
-        return cls(model_name=model_name, provider="google", api_key=api_key, **kwargs)
-    
-    @classmethod
-    def create_amazon(cls, model_name: str = NOVA_SONNET, **kwargs) -> 'FrontierModel':
-        """
-        Create Amazon Bedrock model instance.
-        
-        Args:
-            model_name: Amazon Bedrock model name
-            **kwargs: Additional model parameters
-            
-        Returns:
-            FrontierModel instance configured for Amazon Bedrock
-        """
-        return cls(model_name=model_name, provider="amazon", **kwargs)

@@ -1,6 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<fragment name="standard_instructions">
-  <![CDATA[
-Select EXACTLY ONE action from the available options. Choose the action that most effectively advances testing coverage while following a logical interaction sequence.
-  ]]>
-</fragment>

@@ -31,7 +31,7 @@ from rv_android_core.util.error.error_handler import ErrorHandler
 from rv_android_core.util.error.exceptions import RVPromptError
 from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
 from rv_android_core.util.logging.manager import LoggingManager
-from rv_llm.config import PromptConfig
+# from rv_llm import LLMConfig
 from rv_llm.llm.constants import PromptStrategyType
 from rv_llm.llm.data_structures import LLMMessage
 from rv_llm.llm.prompt.information.fragment_manager import InformationManager
@@ -77,20 +77,21 @@ class PromptFramework:
             self,
             information_manager: InformationManager,
             template_repository: Jinja2TemplateRepository,
-            config: Optional['PromptConfig']
+            config: Optional['LLMConfig']
     ):
         """Initialize the prompt framework.
         
         Args:
             information_manager: Manager for information fragments.
             template_repository: Repository for templates using Jinja2.
-            config: Prompt configuration.
+            config: LLM configuration.
         """
         # Store components
         self.information_manager = information_manager
         self.template_repository = template_repository
 
-        self.config = config or PromptConfig()
+        from rv_llm import LLMConfig
+        self.config = config or LLMConfig()
 
         # Set up logging
         logging_manager = LoggingManager.get_instance()
@@ -103,7 +104,7 @@ class PromptFramework:
         self.error_handler = ErrorHandler.get_instance()
 
     @classmethod
-    def create(cls, config: Optional['PromptConfig']) -> 'PromptFramework':
+    def create(cls, config: Optional['LLMConfig']) -> 'PromptFramework':
         # Create information manager and fragments
         information_manager = InformationManager()
 
@@ -225,12 +226,12 @@ class PromptFramework:
     #     else:
     #         self.logger.warning("Strategy factory not available for registration")
 
-    def get_strategy(self, strategy_name: Optional[str] = None) -> Optional:
+    def get_strategy(self, config: Optional['LLMConfig'] = None) -> Optional:
         """Get a strategy implementation using the factory pattern."""
-        if strategy_name is None:
-            strategy_name = self.config.strategy_type if self.config else PromptStrategyType.STANDARD
+        if config is None:
+            config = self.config
 
-        self.logger.debug(f"Retrieving strategy: {strategy_name}")
+        self.logger.debug(f"Retrieving strategy: {config.strategy_type}")
 
         # Use factory to create strategy
         try:
@@ -244,10 +245,10 @@ class PromptFramework:
             # Re-raise RVPromptError without wrapping to avoid double handling
             raise
         except Exception as e:
-            error_msg = f"Error creating strategy '{strategy_name}': {e}"
+            error_msg = f"Error creating strategy '{config.strategy_type}': {e}"
             self.logger.error(error_msg)
             # Only create new RVPromptError for non-RVPromptError exceptions
-            raise RVPromptError(error_msg, strategy_name, e) from e
+            raise RVPromptError(error_msg, config.strategy_type, e) from e
 
     @ErrorHandler.handle_errors(
         component="PromptFramework",
@@ -256,25 +257,32 @@ class PromptFramework:
     def generate_prompt(
             self,
             state: Dict[str, Any],
-            context: Optional[Dict[str, Any]] = None
+            context: Optional[Dict[str, Any]] = None,
+            strategy_name: Optional[str] = None
     ) -> List[LLMMessage]:
-        """Generate a prompt using the configured strategy.
+        """Generate a prompt using the appropriate strategy.
         
         ### Architectural Decision:
-        - Uses strategy configured in PromptConfig
+        - Uses factory pattern for strategy selection
         - Provides robust error handling with decorator pattern
         - Follows the established architectural pattern from rv-android-core
-        - Eliminates need for strategy parameter passing
+        - Eliminates dependency on legacy ComponentConfigurator
         
         Args:
             state: Current application state containing all relevant information.
             context: Additional context information for prompt generation.
+            strategy_name: Optional strategy name override.
             
         Returns:
             List of LLMMessage objects forming the complete prompt.
         """
-        # Use strategy from configuration
-        strategy_name = self.config.strategy_type if self.config else PromptStrategyType.STANDARD
+        # Determine strategy name from parameter or default
+        if strategy_name is None:
+            strategy_name = PromptStrategyType.STANDARD
+
+        # Extract strategy from context if provided
+        if context and 'strategy_type' in context:
+            strategy_name = context['strategy_type']
 
         self.logger.debug(f"Generating prompt with strategy: {strategy_name}")
 

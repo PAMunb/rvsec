@@ -45,7 +45,7 @@ from rv_android_core.util.error.exceptions import (
     ConfigurationError, RVLLMError, RVPromptError, RVLLMConnectionError, 
     RVLLMModelError, RVLLMProviderError, RVLLMConfigurationError
 )
-from rv_llm.config import LLMConfig, PromptConfig
+from rv_llm.config.llm_config import LLMConfig
 from rv_llm.llm.prompt.strategy.base_strategy import PromptStrategy
 from rv_llm.llm.language_model import LanguageModel
 from rv_llm.llm.prompt.information.fragment_manager import InformationManager
@@ -267,7 +267,7 @@ class LLMComponentFactory:
         component="LLMComponentFactory",
         operation="create_strategy"
     )
-    def create_strategy(config: PromptConfig,
+    def create_strategy(config: LLMConfig,
                         information_manager: Optional[InformationManager] = None,
                         template_repository: Optional[Jinja2TemplateRepository] = None) -> PromptStrategy:
 
@@ -278,27 +278,21 @@ class LLMComponentFactory:
             if config.strategy_type in ["batch_action", "batch_action_modular"]:
                 from rv_llm.llm.prompt.strategy.strategies.batch_action_strategy import BatchActionStrategy
                 
-                strategy = BatchActionStrategy(
-                    name="batch_action",
-                    information_manager=information_manager,
-                    template_repository=template_repository
-                )
+                strategy = BatchActionStrategy(information_manager=information_manager,
+                                               template_repository=template_repository)
                 logger.debug("Created batch action strategy")
                 
             elif config.strategy_type in ["standard", "single_action", "standard_modular"]:
                 from rv_llm.llm.prompt.strategy.strategies.standard_strategy import StandardStrategy
                 
-                strategy = StandardStrategy(
-                    name="standard",
-                    information_manager=information_manager,
-                    template_repository=template_repository
-                )
+                strategy = StandardStrategy(information_manager=information_manager,
+                                            template_repository=template_repository)
                 logger.debug("Created standard strategy")
                 
             else:
                 raise ConfigurationError(f"Unsupported strategy type: {config.strategy_type}")
             
-            # Configure strategy with PromptConfig
+            # Configure strategy with LLMConfig
             strategy.configure_from_config(config)
             logger.debug(f"Configured strategy with parameters: {list(strategy_params.keys())}")
             
@@ -319,7 +313,7 @@ class LLMComponentFactory:
             # General LLM error - use RVLLMError
             error_msg = f"Failed to create strategy '{config.strategy_type}': {e}"
             logger.error(error_msg)
-            raise RVLLMError(error_msg, config.strategy_type) from e
+            raise RVLLMError(error_msg, config.model) from e
     
     
     @staticmethod

@@ -44,7 +44,7 @@ from rv_android_core.util.error.error_handler import ErrorHandler
 from rv_android_core.util.logging.manager import LoggingManager
 from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
 from rv_android_core.util.validation import BaseValidatedModel
-from rv_llm.llm.constants import LLMType
+from rv_llm.llm.constants import LLMType, PromptStrategyType
 
 class LLMConfig(BaseValidatedModel):
     """
@@ -65,6 +65,7 @@ class LLMConfig(BaseValidatedModel):
     ### Configuration Categories:
     - LLM Backend: Type, model, connection settings
     - Generation: Temperature, tokens, sampling parameters
+    - Strategy: Prompt strategy type and configuration
     - Additional: Custom parameters via kwargs
     
     ### Usage Examples:
@@ -98,7 +99,8 @@ class LLMConfig(BaseValidatedModel):
     frequency_penalty: float = Field(default=0.0, ge=-2.0, le=2.0, description="Frequency penalty")
     presence_penalty: float = Field(default=0.0, ge=-2.0, le=2.0, description="Presence penalty")
     
-    # Context Configuration
+    # Strategy Configuration
+    strategy_type: str = Field(default="standard", description="Prompt strategy type")
     max_context_length: int = Field(default=8192, ge=512, le=32768, description="Maximum context length")
     
     # Parser Configuration - Moved to rvandroid-tool RvAndroidToolConfig
@@ -132,6 +134,14 @@ class LLMConfig(BaseValidatedModel):
             raise ValueError(f"llm_type must be one of: {valid_types}")
         return v
     
+    @field_validator('strategy_type')
+    @classmethod
+    def validate_strategy_type(cls, v: str) -> str:
+        """Validate strategy type against supported strategies."""
+        valid_strategies = PromptStrategyType.ALL
+        if v not in valid_strategies:
+            raise ValueError(f"strategy_type must be one of: {valid_strategies}")
+        return v
     
     # Parser/visitor validation moved to tool-specific configuration classes
     
@@ -203,7 +213,9 @@ class LLMConfig(BaseValidatedModel):
         llm_config = cls._parse_llm_variants(variants)
         config_dict.update(llm_config)
         
-        # Strategy configuration moved to PromptConfig
+        # Parse strategy variants
+        strategy_config = cls._parse_strategy_variants(variants)
+        config_dict.update(strategy_config)
         
         # Parser/UI variants moved to tool-specific configuration classes
         
@@ -263,7 +275,42 @@ class LLMConfig(BaseValidatedModel):
         
         return config
     
-    # Strategy variant parsing moved to PromptConfig
+    @classmethod
+    def _parse_strategy_variants(cls, variants: List[str]) -> Dict[str, Any]:
+        """
+        Parse strategy variants into configuration parameters.
+        
+        ### Strategy Templates:
+        - **batch_action**: Generate multiple actions in one response
+        - **single_action**: Generate one action per response
+        - **standard**: Default strategy with balanced approach
+        
+        Args:
+            variants: List of variant strings
+            
+        Returns:
+            Dictionary with strategy configuration
+        """
+        config = {}
+        
+        if "batch_action" in variants:
+            config.update({
+                "strategy_type": "batch_action",
+                "max_tokens": 800  # More tokens for batch actions
+            })
+        elif "single_action" in variants:
+            config.update({
+                "strategy_type": "standard",
+                "max_tokens": 500
+            })
+        else:
+            # Default strategy
+            config.update({
+                "strategy_type": "standard",
+                "max_tokens": 500
+            })
+        
+        return config
     
     # _parse_parser_variants moved to tool-specific configuration classes
     
@@ -348,21 +395,22 @@ class LLMConfig(BaseValidatedModel):
             **{k: v for k, v in self.kwargs.items() if k.startswith("llm_")}
         }
     
-    def get_context_parameters(self) -> Dict[str, Any]:
+    def get_strategy_parameters(self) -> Dict[str, Any]:
         """
-        Get context-specific parameters for context management.
+        Get strategy-specific parameters for strategy configuration.
         
         ### Parameter Extraction Strategy:
-        Extracts parameters relevant for context management,
-        including context length and token limits.
+        Extracts parameters relevant for prompt strategy configuration,
+        including context management settings.
         
         Returns:
-            Dictionary with context configuration parameters
+            Dictionary with strategy configuration parameters
         """
         return {
+            "strategy_type": self.strategy_type,
             "max_context_length": self.max_context_length,
             "max_tokens": self.max_tokens,
-            **{k: v for k, v in self.kwargs.items() if k.startswith("context_")}
+            **{k: v for k, v in self.kwargs.items() if k.startswith("strategy_")}
         }
     
     # get_parser_parameters() moved to tool-specific configuration classes
@@ -374,7 +422,8 @@ class LLMConfig(BaseValidatedModel):
         Returns:
             Concise string representation
         """
-        return (f"LLMConfig(llm_type={self.llm_type}, model={self.model})")
+        return (f"LLMConfig(llm_type={self.llm_type}, model={self.model}, "
+                f"strategy_type={self.strategy_type})")
     
     def __repr__(self) -> str:
         """
@@ -387,4 +436,5 @@ class LLMConfig(BaseValidatedModel):
                 f"llm_type={repr(self.llm_type)}, "
                 f"model={repr(self.model)}, "
                 f"temperature={repr(self.temperature)}, "
+                f"strategy_type={repr(self.strategy_type)}, "
                 f"kwargs_count={len(self.kwargs)})")

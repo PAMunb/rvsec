@@ -142,15 +142,6 @@ class TestExperimentConfigContinuation:
         assert "status_file" in sample_config.metadata
         assert "continuation_time" in sample_config.metadata
 
-    def test_get_enhanced_storage_config(self, sample_config):
-        """Test enhanced storage configuration generation"""
-        storage_config = sample_config.get_enhanced_storage_config()
-        
-        # Verify storage configuration is properly initialized
-        assert storage_config.enable_metadata is True
-        assert storage_config.enable_statistics is True
-        assert storage_config.auto_save is True
-
     def test_continuation_fields_defaults(self, sample_config):
         """Test that continuation fields have proper defaults"""
         assert sample_config.resume_mode is False

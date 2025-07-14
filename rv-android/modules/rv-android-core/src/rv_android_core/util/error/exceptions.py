@@ -339,3 +339,73 @@ class CircuitBreakerOpenError(RVAndroidError):
         command_info = f" (Command: {self.command_signature})" if self.command_signature else ""
         failure_info = f" (Failures: {self.failure_count})" if self.failure_count else ""
         return f"{super().__str__()}{command_info}{failure_info}"
+
+
+# LLM-specific exceptions added in Phase 6
+
+class RVLLMConnectionError(RVLLMError):
+    """Exception for LLM connection failures."""
+    
+    def __init__(self, message: str, model_name: Optional[str] = None, 
+                 provider: Optional[str] = None, cause: Optional[Exception] = None):
+        super().__init__(message, model_name, cause)
+        self.provider = provider
+    
+    def __str__(self):
+        provider_info = f" (Provider: {self.provider})" if self.provider else ""
+        return f"{super().__str__()}{provider_info}"
+
+
+class RVLLMModelError(RVLLMError):
+    """Exception for LLM model loading and generation errors."""
+    
+    def __init__(self, message: str, model_name: Optional[str] = None, 
+                 operation: Optional[str] = None, cause: Optional[Exception] = None):
+        super().__init__(message, model_name, cause)
+        self.operation = operation
+    
+    def __str__(self):
+        operation_info = f" (Operation: {self.operation})" if self.operation else ""
+        return f"{super().__str__()}{operation_info}"
+
+
+class RVLLMProviderError(RVLLMError):
+    """Exception for provider-specific errors."""
+    
+    def __init__(self, message: str, model_name: Optional[str] = None, 
+                 provider: Optional[str] = None, status_code: Optional[int] = None, 
+                 cause: Optional[Exception] = None):
+        super().__init__(message, model_name, cause)
+        self.provider = provider
+        self.status_code = status_code
+    
+    def __str__(self):
+        provider_info = f" (Provider: {self.provider})" if self.provider else ""
+        status_info = f" (Status: {self.status_code})" if self.status_code else ""
+        return f"{super().__str__()}{provider_info}{status_info}"
+
+
+class RVLLMConfigurationError(RVLLMError):
+    """Exception for LLM configuration validation errors."""
+    
+    def __init__(self, message: str, model_name: Optional[str] = None, 
+                 config_field: Optional[str] = None, cause: Optional[Exception] = None):
+        super().__init__(message, model_name, cause)
+        self.config_field = config_field
+    
+    def __str__(self):
+        field_info = f" (Field: {self.config_field})" if self.config_field else ""
+        return f"{super().__str__()}{field_info}"
+
+
+class RVLLMTemplateError(RVPromptError):
+    """Exception for LLM template processing errors."""
+    
+    def __init__(self, message: str, strategy: Optional[str] = None, 
+                 template_name: Optional[str] = None, cause: Optional[Exception] = None):
+        super().__init__(message, strategy, cause)
+        self.template_name = template_name
+    
+    def __str__(self):
+        template_info = f" (Template: {self.template_name})" if self.template_name else ""
+        return f"{super().__str__()}{template_info}"

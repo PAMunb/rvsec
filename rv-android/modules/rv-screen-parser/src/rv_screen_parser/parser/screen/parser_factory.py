@@ -8,19 +8,9 @@ based on input source type, enabling seamless integration with diverse monitorin
 from enum import Enum
 from typing import Dict, Type, Optional
 
+from rv_screen_parser.constants import ScreenParserType
 from rv_screen_parser.parser.screen.base_parser import BaseScreenParser
 from rv_screen_parser.parser.screen.visitor.abstract_visitor import AbstractScreenVisitor
-
-
-class ParserType(Enum):
-    """
-    Enumeration of supported Android UI monitoring parser types.
-    
-    Defines the available parser implementations for different monitoring tool outputs
-    used in the RV-Android monitored operations framework.
-    """
-    DROIDBOT = "droidbot"
-    UIAUTOMATOR = "uiautomator"
 
 
 class ParserFactory:
@@ -48,7 +38,7 @@ class ParserFactory:
     """
 
     # Registry of parser types and their implementations
-    _REGISTRY: Dict[ParserType, Type[BaseScreenParser]] = {}
+    _REGISTRY: Dict[ScreenParserType, Type[BaseScreenParser]] = {}
 
     @classmethod
     def register_default_parsers(cls):
@@ -56,13 +46,13 @@ class ParserFactory:
         from rv_screen_parser.parser.screen.droidbot.droidbot_parser import DroidBotParser
         from rv_screen_parser.parser.screen.uiautomator.uiautomator_parser import UIAutomator2Parser
 
-        cls.register_parser_type(ParserType.DROIDBOT, DroidBotParser)
-        cls.register_parser_type(ParserType.UIAUTOMATOR, UIAutomator2Parser)
+        cls.register_parser_type(ScreenParserType.DROIDBOT, DroidBotParser)
+        cls.register_parser_type(ScreenParserType.UIAUTOMATOR, UIAutomator2Parser)
 
     @classmethod
     def create(
             cls,
-            parser_type: ParserType,
+            parser_type: ScreenParserType,
             visitor_class: Optional[Type[AbstractScreenVisitor]] = None
     ) -> BaseScreenParser:
         """
@@ -89,7 +79,7 @@ class ParserFactory:
         return parser_class(visitor_class)
 
     @staticmethod
-    def get_available_types() -> Dict[ParserType, Type[BaseScreenParser]]:
+    def get_available_types() -> Dict[ScreenParserType, Type[BaseScreenParser]]:
         """
         Get all available parser types.
 
@@ -103,7 +93,7 @@ class ParserFactory:
         return ParserFactory._REGISTRY.copy()
 
     @staticmethod
-    def register_parser_type(parser_type: ParserType, parser_class: Type[BaseScreenParser]) -> None:
+    def register_parser_type(parser_type: ScreenParserType, parser_class: Type[BaseScreenParser]) -> None:
         """
         Register a new parser type.
 

@@ -58,13 +58,13 @@ class ResponseProcessor:
         self.parser = ResponseParser()
 
         # Determine if we're using single action mode
-        strategy_class = config.strategy_class
-        self.single_action_mode = False
-        if strategy_class:
-            class_name = strategy_class.__name__
-            self.single_action_mode = "StandardStrategy" in class_name
+        # strategy_class = config.strategy_class
+        # self.single_action_mode = False
+        # if strategy_class:
+        #     class_name = strategy_class.__name__
+        #     self.single_action_mode = "StandardStrategy" in class_name
 
-        self.logger.info(f"Response processor initialized (single_action_mode={self.single_action_mode})")
+        self.logger.info(f"Response processor initialized")# (single_action_mode={self.single_action_mode})")
 
     def process_response(self,
                          response: str,

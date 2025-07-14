@@ -17,6 +17,7 @@ component creation with just-in-time configuration and DI-ready design.
 - ExperimentFactory: Creates and configures experiment components
 - ConfigurationFactory: Creates configuration instances for different scenarios
 - ComponentFactory: Creates sub-module components with just-in-time configuration
+- RvAndroidConfigFactory: Creates RVAndroid tool configurations with hybrid variant system
 
 ### Role in the System:
 - Provides clean component creation patterns for experiment orchestration
@@ -26,7 +27,9 @@ component creation with just-in-time configuration and DI-ready design.
 """
 
 from .configuration_factory import ConfigurationFactory
+from .rvandroid_config_factory import RvAndroidConfigFactory
 
 __all__ = [
-    'ConfigurationFactory'
+    'ConfigurationFactory',
+    'RvAndroidConfigFactory'
 ]

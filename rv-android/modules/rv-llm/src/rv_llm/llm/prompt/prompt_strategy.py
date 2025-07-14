@@ -16,7 +16,8 @@ from typing import Dict, List, Any, Optional, Union
 from rv_android_core.domain.static import StaticAnalysisData
 from rv_llm.llm.data_structures import LLMRole
 from rv_screen_parser.parser.screen.base_parser import BaseScreenParser
-from rv_screen_parser.parser.screen.parser_factory import ParserType, ParserFactory
+from rv_screen_parser.parser.screen.parser_factory import  ParserFactory
+from rv_screen_parser.constants import ScreenParserType
 
 
 class PromptStrategy(ABC):
@@ -41,7 +42,7 @@ class PromptStrategy(ABC):
     # TODO parser apenas do tipo BaseScreenParser, senao nao pega o visitor
     def __init__(self,
                  static_data: Optional["StaticAnalysisData"] = None,
-                 parser: Union[ParserType, BaseScreenParser, None] = None):
+                 parser: Union[ScreenParserType, BaseScreenParser, None] = None):
         """
         Initialize the prompt strategy.
 
@@ -56,8 +57,8 @@ class PromptStrategy(ABC):
         # Handle the parser parameter
         if isinstance(parser, BaseScreenParser):
             self.parser = parser
-        elif isinstance(parser, ParserType) or parser is None:
-            parser_type = ParserType.DROIDBOT if parser is None else parser
+        elif isinstance(parser, ScreenParserType) or parser is None:
+            parser_type = ScreenParserType.DROIDBOT if parser is None else parser
             self.parser = ParserFactory.create(parser_type)
         else:
             raise TypeError(

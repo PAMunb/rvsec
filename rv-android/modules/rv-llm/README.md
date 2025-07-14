@@ -1,16 +1,16 @@
 # RV-LLM Module
 
-Language Model integration infrastructure and prompt framework for AI-driven Android application testing.
+Language Model integration infrastructure and prompt framework for monitored operations testing.
 
 ## Overview
 
-The RV-LLM module provides LLM integration capabilities for the RV-Android system, enabling AI-driven Android application testing through component architecture, prompt generation, and provider abstraction. The module implements a configuration approach with error handling.
+The RV-LLM module provides LLM integration capabilities for the RV-Android system, enabling AI-driven Android application testing through component architecture, prompt generation, and provider abstraction. The module implements a clean configuration approach with comprehensive error handling.
 
 ### Key Features
 
 - **Multi-Provider Support**: Integration with Ollama, HuggingFace, OpenAI, Anthropic, Google, and AWS Bedrock
 - **Prompt Framework**: Prompt generation using strategy patterns and template systems
-- **Type-Safe Configuration**: Configuration management with validation and error handling
+- **Type-Safe Configuration**: Separated configuration management with validation and error handling
 - **Component Factory**: Component creation through factory patterns
 - **Performance Monitoring**: Built-in metrics and performance tracking with structured logging
 
@@ -27,12 +27,13 @@ The RV-LLM module provides LLM integration capabilities for the RV-Android syste
 #### Prompt Framework
 - **PromptFramework**: Unified prompt generation system with strategy coordination and context management
 - **PromptStrategy**: Strategy pattern for different prompt generation approaches with template support
-- **InformationManager**: Fragment-based information gathering and composition with direct parameter passing
+- **InformationManager**: Fragment-based information gathering and composition
 - **Jinja2TemplateRepository**: Template management with XML support and caching
 
 #### Configuration Management
-- **LLMConfig**: LLM configuration with validation and error reporting
-- **ComponentFactory**: Component creation through factory patterns
+- **LLMConfig**: LLM backend configuration with validation and error reporting
+- **PromptConfig**: Prompt generation configuration with strategy and parser settings
+- **LLMComponentFactory**: Component creation through factory patterns
 
 #### Data Structures
 - **LLMMessage**: Message structure for LLM communication
@@ -76,10 +77,13 @@ poetry install --extras dev
 ### Basic Language Model Usage
 
 ```python
-from rv_llm import OllamaLLM, LLMConfig, LLMMessage, LLMRole, LLMTextContent
+from rv_llm.config import LLMConfig
+from rv_llm.llm.ollama_llm import OllamaLLM
+from rv_llm.llm.data_structures import LLMMessage, LLMRole, LLMTextContent
 
 # Initialize model with configuration
 config = LLMConfig(
+    llm_type="ollama",
     model="llama3.2:3b",
     temperature=0.2,
     max_tokens=800
@@ -93,7 +97,7 @@ messages = [
 ]
 
 # Generate response with performance metrics
-response = model.generate(messages, config.get_llm_parameters())
+response = model.generate(messages, config)
 print(f"Response: {response.content}")
 print(f"Tokens: {response.output_tokens}")
 print(f"Duration: {response.total_duration}ms")
@@ -102,18 +106,22 @@ print(f"Duration: {response.total_duration}ms")
 ### Prompt Framework Usage
 
 ```python
-from rv_llm import PromptFramework
+from rv_llm.config import PromptConfig
+from rv_llm.llm.prompt.framework import PromptFramework
+from rv_llm.llm.constants import PromptStrategyType
+from rv_screen_parser.constants import ScreenParserType, VisitorType
 
-# Create framework with clean architecture
-framework = PromptFramework.create()
-
-# Configure framework with direct parameters
-framework.configure(
-    template_format="jinja2",
-    template_validation=True
+# Create prompt configuration
+prompt_config = PromptConfig(
+    strategy_type=PromptStrategyType.BATCH_ACTION,
+    parser_type=ScreenParserType.DROIDBOT,
+    visitor_type=VisitorType.DETAILED
 )
 
-# Generate sophisticated prompts with context
+# Create framework with configuration
+framework = PromptFramework.create(prompt_config)
+
+# Generate prompts with context
 state = {
     "current_screen": screen_data,
     "action_history": previous_actions,
@@ -122,37 +130,64 @@ state = {
 }
 
 context = {
-    "strategy_type": "exploration",
-    "constraints": ["avoid_destructive_actions"]
+    "app_package": "com.example.app",
+    "app_activity": "MainActivity"
 }
 
 # Generate context-aware prompts
 prompt_messages = framework.generate_prompt(state, context)
 
 # Use with configured LLM
-response = model.generate(prompt_messages, config.get_llm_parameters())
+response = model.generate(prompt_messages, llm_config)
 ```
 
 ### Configuration Management
 
 ```python
-from rv_llm.config.llm_config import LLMConfig
+from rv_llm.config import LLMConfig, PromptConfig
+from rv_llm.llm.constants import LLMType, PromptStrategyType
+from rv_screen_parser.constants import ScreenParserType, VisitorType
 
-# Create configuration from CLI variants
-config = LLMConfig.from_variants_and_params(
-    variants=["llama", "batch_action"],
-    params={"temperature": "0.3", "max_tokens": "1000"}
+# Create LLM configuration
+llm_config = LLMConfig(
+    llm_type=LLMType.OLLAMA,
+    model="llama3.2:3b",
+    temperature=0.2,
+    max_tokens=800
 )
 
-# Validate configuration
-is_valid, errors = config.validate()
-if not is_valid:
-    print(f"Configuration errors: {errors}")
+# Create prompt configuration
+prompt_config = PromptConfig(
+    strategy_type=PromptStrategyType.STANDARD,
+    parser_type=ScreenParserType.DROIDBOT,
+    visitor_type=VisitorType.DETAILED
+)
 
-# Get specific parameter sets
-llm_params = config.get_llm_parameters()
-strategy_params = config.get_strategy_parameters()
-parser_params = config.get_parser_parameters()
+# Validate configurations
+if not llm_config.validate():
+    print(f"LLM Configuration errors: {llm_config.get_validation_errors()}")
+
+if not prompt_config.validate():
+    print(f"Prompt Configuration errors: {prompt_config.get_validation_errors()}")
+```
+
+### Component Factory Usage
+
+```python
+from rv_llm.factories.component_factory import LLMComponentFactory
+from rv_llm.config import LLMConfig, PromptConfig
+
+# Create LLM backend
+llm_config = LLMConfig(llm_type="ollama", model="llama3.2:3b")
+llm = LLMComponentFactory.create_llm(llm_config)
+
+# Create prompt strategy
+prompt_config = PromptConfig(strategy_type="batch_action")
+strategy = LLMComponentFactory.create_strategy(prompt_config)
+
+# Check supported backends
+supported_llms = LLMComponentFactory.get_supported_llm_types()
+supported_strategies = LLMComponentFactory.get_supported_strategy_types()
 ```
 
 ## Configuration
@@ -160,18 +195,33 @@ parser_params = config.get_parser_parameters()
 ### LLM Configuration Options
 
 ```python
-from rv_llm import LLMConfig
+from rv_llm.config import LLMConfig
+from rv_llm.llm.constants import LLMType
 
 config = LLMConfig(
-    llm_type="ollama",            # Provider type
-    model="llama3.2:3b",          # Specific model
-    temperature=0.2,              # Creativity control
-    max_tokens=800,               # Response length limit
-    top_p=1.0,                    # Nucleus sampling
-    frequency_penalty=0.0,        # Repetition penalty
-    presence_penalty=0.0,         # Topic diversity
-    strategy_type="standard",     # Prompt strategy
-    parser_type="droidbot"        # Screen parser type
+    llm_type=LLMType.OLLAMA,       # Provider type
+    model="llama3.2:3b",           # Specific model
+    temperature=0.2,               # Creativity control
+    max_tokens=800,                # Response length limit
+    top_p=1.0,                     # Nucleus sampling
+    frequency_penalty=0.0,         # Repetition penalty
+    presence_penalty=0.0,          # Topic diversity
+    base_url="http://localhost:11434"  # Provider URL
+)
+```
+
+### Prompt Configuration Options
+
+```python
+from rv_llm.config import PromptConfig
+from rv_llm.llm.constants import PromptStrategyType
+from rv_screen_parser.constants import ScreenParserType, VisitorType
+
+config = PromptConfig(
+    strategy_type=PromptStrategyType.BATCH_ACTION,  # Prompt strategy
+    parser_type=ScreenParserType.DROIDBOT,         # Screen parser type
+    visitor_type=VisitorType.DETAILED,             # Visitor type
+    max_context_length=8192                        # Context limit
 )
 ```
 
@@ -194,10 +244,10 @@ poetry run pytest tests/test_data_structures.py
 
 Current test status: **4/4 tests passing (100%)**
 
--  Core data structures validation
--  LLM message creation and handling
--  Response object functionality
--  Role enumeration correctness
+- Core data structures validation
+- LLM message creation and handling
+- Response object functionality
+- Role enumeration correctness
 
 ## Contributing
 
@@ -210,12 +260,12 @@ Current test status: **4/4 tests passing (100%)**
 
 ### Architecture Guidelines
 
-- Use PromptFramework.create() for framework initialization
-- Use direct parameter passing for component configuration
+- Use separated configuration approach (LLMConfig + PromptConfig)
+- Use LLMComponentFactory for component creation
 - Integrate with ErrorHandler decorators for comprehensive error management
-- Use LLMConfig for configuration management with validation
+- Use constants from rv_llm.llm.constants for type-safe configuration
 - Maintain provider-agnostic interfaces with clear abstraction layers
-- Use simple factory methods for component creation
+- Use BaseValidatedModel for configuration classes
 
 ## License
 

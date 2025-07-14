@@ -165,10 +165,9 @@ class Jinja2TemplateRepository:
         self.logger.info(f"Loading templates from {self.template_dir}")
 
         try:
-            # If the directory doesn't exist or is empty, create default templates
+            # If the directory doesn't exist or is empty, templates will be registered by tools
             if not os.path.exists(self.template_dir) or not os.listdir(self.template_dir):
-                self.logger.warning("Template directory empty or not found, creating default templates")
-                create_default_templates(self.template_dir)
+                self.logger.info("Template directory empty or not found - templates will be registered by tools")
 
             # Define directories to load templates from
             template_dirs = [self.template_dir]
@@ -964,3 +963,27 @@ Screen Elements:
                 }
             )
             return []
+
+    def register_template_directory(self, directory: str) -> None:
+        """Register an additional template directory for loading templates.
+        
+        Args:
+            directory: Path to directory containing template XML files
+        """
+        if os.path.exists(directory):
+            self.logger.info(f"Registering additional template directory: {directory}")
+            self._load_templates_from_directory(directory)
+        else:
+            self.logger.warning(f"Template directory does not exist: {directory}")
+
+    def register_fragment_directory(self, directory: str) -> None:
+        """Register an additional fragment directory for loading fragments.
+        
+        Args:
+            directory: Path to directory containing fragment XML files
+        """
+        if os.path.exists(directory):
+            self.logger.info(f"Registering additional fragment directory: {directory}")
+            self._load_fragments_from_directory(directory)
+        else:
+            self.logger.warning(f"Fragment directory does not exist: {directory}")

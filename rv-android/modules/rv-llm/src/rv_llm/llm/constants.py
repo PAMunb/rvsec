@@ -20,7 +20,6 @@ to support the factory-based architecture and monitored operations framework.
 - Maintains compatibility with the modern factory pattern architecture
 - Defines clear contracts for template and fragment systems
 """
-from rv_screen_parser.parser.screen.visitor.visitor_factory import VisitorFactory
 
 
 class LLMType:
@@ -35,6 +34,7 @@ class LLMType:
     OLLAMA = "ollama"
     HUGGINGFACE = "huggingface"
     FRONTIER = "frontier"
+    ALL = [OLLAMA, HUGGINGFACE, FRONTIER]
 
 
 class PromptStrategyType:
@@ -52,30 +52,8 @@ class PromptStrategyType:
     ALL = [STANDARD, BATCH_ACTION]
 
 
-class ScreenParserType:
-    """
-    Constants for screen parser types integrated with rv-screen-parser module.
-    
-    ### Parser Types:
-    - **DROIDBOT**: DroidBot-compatible screen parsing
-    - **UIAUTOMATOR**: UIAutomator2-based screen parsing
-    """
-    DROIDBOT = "droidbot"
-    UIAUTOMATOR = "uiautomator"
 
 
-class VisitorType:
-    """
-    Constants for visitor types from rv-screen-parser visitor factory.
-    
-    ### Visitor Types:
-    - **BASIC**: Basic text extraction visitor
-    - **DEFAULT**: Default visitor with standard features
-    - **DETAILED**: Enhanced visitor with comprehensive analysis
-    """
-    BASIC = VisitorFactory.BASIC
-    DEFAULT = VisitorFactory.DEFAULT
-    DETAILED = VisitorFactory.DETAILED
 
 
 class FragmentType:
@@ -178,3 +156,5 @@ class ContextEntry:
     STRATEGY = "strategy"
     PARSER = "parser"
     VISITOR = "visitor"
+    TESTING_HISTORY = "testing_history"
+    ADDITIONAL_GUIDELINES = "additional_guidelines"

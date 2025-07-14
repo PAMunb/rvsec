@@ -158,15 +158,21 @@ class OllamaLLM(LanguageModel):
             self.logger.info(f"Calling Ollama with model: {self.model_name}, options: {options}")
             # TODO voltar debug self.logger.debug(f"Calling Ollama with model: {self.model_name}, options: {options}")
 
+            print(f">>> messages=\n{formatted_msgs}")
+            print(f">>> options=\n{options}")
+
             # Call Ollama chat API synchronously
             response: ChatResponse = self.client.chat(
                 model=self.model_name,
                 messages=formatted_msgs,
-                options=options
+                options=options,
+                keep_alive=True
             )
 
+            print(f"<<< response=\n{response}")
+
             # Create an LLM response from the Ollama response
-            llm_response = LLMResponse(response.message.content)
+            llm_response = LLMResponse(content=response.message.content)
 
             # Add performance metrics from Ollama
             llm_response.done_reason = response.done_reason
@@ -209,15 +215,15 @@ class OllamaLLM(LanguageModel):
         self.logger.info("Cleaned up Ollama LLM resources")
 
 
-# Register the model
-def register():
-    """Register Ollama model with the configurator."""
-    from rv_llm.factories import LLMFactory, PromptStrategyFactory
-
-    # Check if this LLM is already registered
-    if OllamaLLM.NAME in ComponentConfigurator._registries.get('llm', {}).get_names():
-        # Already registered, skip registration
-        return
-
-    # Register the LLM
-    ComponentConfigurator.register_llm(OllamaLLM.NAME, OllamaLLM)
+# # Register the model
+# def register():
+#     """Register Ollama model with the configurator."""
+#     from rv_llm.factories import LLMFactory, PromptStrategyFactory
+#
+#     # Check if this LLM is already registered
+#     if OllamaLLM.NAME in ComponentConfigurator._registries.get('llm', {}).get_names():
+#         # Already registered, skip registration
+#         return
+#
+#     # Register the LLM
+#     ComponentConfigurator.register_llm(OllamaLLM.NAME, OllamaLLM)

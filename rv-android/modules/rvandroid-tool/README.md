@@ -1,58 +1,50 @@
 # RVAndroid-Tool Module
 
-AI-driven Android testing server with LLM integration, screenshot analysis, and action generation for monitored operations testing.
+AI-driven Android testing tool with LLM integration, screenshot analysis, and action generation for monitored operations testing.
 
 ## Overview
 
-The RVAndroid-Tool module provides an AI-driven testing server that combines Large Language Model integration with Android UI analysis to generate testing actions. It serves as an implementation for AI-guided testing in the RV-Android ecosystem, implementing architecture patterns with error handling, memory management, and multi-provider LLM support.
+The RVAndroid-Tool module provides an AI-driven testing implementation that combines Large Language Model integration with Android UI analysis to generate testing actions. It serves as a concrete tool implementation for AI-guided testing in the RV-Android ecosystem, implementing comprehensive architecture patterns with error handling, memory management, and multi-provider LLM support.
 
 ### Key Features
 
-- **LLM Integration**: Integration with multiple language model providers using rv-llm factories for Ollama, OpenAI, Anthropic, and other providers
+- **LLM Integration**: Integration with multiple language model providers using rv-llm component factory for Ollama, OpenAI, Anthropic, and other providers
 - **Screenshot Analysis**: UI analysis with action recommendation, visual element detection, and context interpretation
-- **Memory Management**: Multi-layered memory systems with long-term pattern learning, short-term context retention, and state transition optimization
-- **RESTful Server Architecture**: HTTP server with API endpoints, error handling, and response formatting
+- **Memory Management**: Multi-layered memory systems with long-term pattern learning, short-term context retention, and state transition tracking
 - **Action Generation**: Context-aware Android action generation with constraint handling, semantic understanding, and goal-oriented planning
-- **State Analysis**: UI state understanding with transition planning, pattern recognition, and optimization strategies
-- **Tool Integration**: Integration with Android testing tools, emulators, and testing frameworks through unified architecture patterns with circuit breaker protection
+- **State Analysis**: UI state understanding with transition planning, pattern recognition, and testing strategies
+- **Tool Configuration**: Flexible configuration system with parser, visitor, and LLM settings separation
 
 ## Architecture
 
 ### Core Components
 
 #### LLM Service Layer
-- **LLMManager**: Language model orchestration and configuration
-- **ActionService**: LLM-powered action generation with context awareness
-- **ActionGenerator**: Action planning and optimization
-- **ResponseProcessor**: LLM response parsing and validation
-- **StateAnalyzer**: UI state analysis and interpretation
+- **LLMActionService**: Orchestrates AI-driven test action generation using PromptFramework
+- **LLMManager**: Language model orchestration and configuration management
+- **ActionGenerator**: Action planning and optimization with DroidBot integration
+- **ResponseProcessor**: LLM response parsing and validation with error handling
+- **StateEnricher**: Context enhancement with historical and static analysis data
 
 #### Memory Management
-- **MemoryManager**: Memory coordination and persistence
-- **LongTermMemory**: Persistent storage for learned patterns and strategies
+- **MemoryManager**: Memory coordination and persistence with activity tracking
+- **LongTermMemory**: Persistent storage for learned patterns and testing strategies
 - **ShortTermMemory**: Session-based context and action history management
-- **StateEnricher**: Context enhancement with historical and static analysis data
-- **TransitionManager**: State transition tracking and optimization
+- **TransitionManager**: State transition tracking and navigation guidance
 
-#### Screenshot Analysis
-- **ScreenshotAnalyzer**: UI element detection and classification
-- **ScreenshotActionComplementor**: Action enhancement based on visual analysis
-- **ScreenshotManager**: Screenshot capture and processing coordination
-
-#### Server Infrastructure
-- **Server**: Main HTTP server with RESTful API endpoints
-- **RequestHandler**: HTTP request processing and routing
-- **ResponseFormatter**: Response formatting and error handling
+#### Configuration Management
+- **RvAndroidToolConfig**: Tool-specific configuration with parser and visitor settings
+- **Template Management**: Tool-specific template registration with PromptFramework
+- **Multi-instance Support**: Independent configuration for parallel tool execution
 
 ### Integration Points
 
-- **rv-llm**: Uses PromptFramework and LLMConfig for language model integration and prompt generation
-- **rv-screen-parser**: Integrates screen parsing capabilities for UI state analysis and element detection
-- **rv-android-core**: Uses ErrorHandler decorators, LoggingManager, EventBus, and domain models for infrastructure integration
-- **rv-experiment**: Provides AI-driven testing capabilities for experiment orchestration and test execution
+- **rv-llm**: Uses PromptFramework, LLMConfig, PromptConfig, and LLMComponentFactory for language model integration
+- **rv-screen-parser**: Integrates screen parsing capabilities using ScreenParserType and VisitorType constants
+- **rv-android-core**: Uses ErrorHandler decorators, LoggingManager, EventBus, and domain models for infrastructure
+- **rv-experiment**: Provides AI-driven testing capabilities for experiment orchestration
 - **rv-static-analysis**: Integrates static analysis data for context and action planning
-- **rv-coverage**: Coordinates with coverage tracking for testing and optimization strategies
-- **Testing Tools**: Direct integration with DroidBot, Monkey, and other testing frameworks
+- **rv-coverage**: Coordinates with coverage tracking for testing optimization
 
 ## Installation
 
@@ -79,418 +71,242 @@ poetry install --extras dev
 
 ## Usage
 
-### HTTP Server
-
-#### Starting the Server
-
-```bash
-# Start with default configuration
-rvandroid-tool server --port 8080
-
-# Start with custom LLM configuration
-rvandroid-tool server \
-    --port 8080 \
-    --llm-provider ollama \
-    --llm-model llama3.2:3b \
-    --temperature 0.2
-
-# Start with memory configuration
-rvandroid-tool server \
-    --port 8080 \
-    --memory-dir /path/to/memory \
-    --enable-long-term-memory \
-    --memory-persistence-interval 300
-```
-
-#### API Endpoints
-
-##### Action Generation
-```bash
-# Generate actions for current screen
-curl -X POST http://localhost:8080/api/actions/generate \
-  -H "Content-Type: application/json" \
-  -d '{
-    "screenshot_path": "/path/to/screenshot.png",
-    "current_activity": "MainActivity",
-    "action_history": [...],
-    "constraints": ["avoid_destructive_actions"],
-    "strategy": "exploration"
-  }'
-
-# Response
-{
-  "actions": [
-    {
-      "type": "click",
-      "coordinates": [100, 200],
-      "description": "Click login button",
-      "confidence": 0.95,
-      "reasoning": "Login button appears to be the primary action"
-    }
-  ],
-  "strategy_recommendation": "continue_exploration",
-  "confidence": 0.92
-}
-```
-
-##### State Analysis
-```bash
-# Analyze current UI state
-curl -X POST http://localhost:8080/api/state/analyze \
-  -H "Content-Type: application/json" \
-  -d '{
-    "screenshot_path": "/path/to/screenshot.png",
-    "ui_hierarchy": "...",
-    "context": {...}
-  }'
-
-# Response
-{
-  "state_type": "login_screen",
-  "ui_elements": [...],
-  "interaction_opportunities": [...],
-  "recommended_strategy": "form_completion",
-  "risk_assessment": "low"
-}
-```
-
-##### Memory Management
-```bash
-# Store action results
-curl -X POST http://localhost:8080/api/memory/store \
-  -H "Content-Type: application/json" \
-  -d '{
-    "action": {...},
-    "result": "success",
-    "state_before": {...},
-    "state_after": {...},
-    "coverage_impact": {...}
-  }'
-
-# Retrieve relevant memories
-curl -X GET http://localhost:8080/api/memory/retrieve \
-  -H "Content-Type: application/json" \
-  -d '{
-    "current_state": {...},
-    "query_type": "similar_situations",
-    "limit": 10
-  }'
-```
-
-### Programmatic Interface
+### Basic LLM Action Service
 
 ```python
-from rvandroid_tool.llm.service.action_service import ActionService
-from rvandroid_tool.llm.service.memory_manager import MemoryManager
-from rvandroid_tool.analysis.screenshot.screenshot_analyzer import ScreenshotAnalyzer
+from rvandroid_tool.llm.service.action_service import LLMActionService
+from rvandroid_tool.config.tool_config import RvAndroidToolConfig
+from rv_llm.config import LLMConfig
+from rv_llm.llm.constants import LLMType
+from rv_screen_parser.constants import ScreenParserType, VisitorType
+from rv_android_core.domain.static import StaticAnalysisData
 
-# Initialize components
-action_service = ActionService(llm_config)
-memory_manager = MemoryManager(memory_config)
-screenshot_analyzer = ScreenshotAnalyzer()
-
-# Analyze screenshot and generate actions
-screenshot_data = screenshot_analyzer.analyze("/path/to/screenshot.png")
-context = memory_manager.get_relevant_context(screenshot_data)
-
-actions = action_service.generate_actions(
-    screenshot_data=screenshot_data,
-    context=context,
-    constraints=["avoid_destructive_actions"],
-    strategy="systematic_exploration"
-)
-
-# Store results for learning
-memory_manager.store_action_result(
-    action=actions[0],
-    result="success",
-    context=context
-)
-```
-
-### LLM Configuration
-
-```python
-from rvandroid_tool.llm.service.llm_manager import LLMManager
-from rv_llm.llm.llm_config import LLMConfiguration
-
-# Configure LLM provider
-llm_config = LLMConfiguration(
-    model_type="ollama",
-    model_name="llama3.2:3b",
+# Create LLM configuration
+llm_config = LLMConfig(
+    llm_type=LLMType.OLLAMA,
+    model="llama3.2:3b",
     temperature=0.2,
-    max_tokens=800,
-    strategy_type="standard"
+    max_tokens=800
 )
 
-llm_manager = LLMManager(llm_config)
-
-# Generate contextual response
-response = llm_manager.generate_response(
-    prompt="Analyze this Android screen and suggest testing actions",
-    context={
-        "screenshot_analysis": screenshot_data,
-        "testing_history": action_history,
-        "coverage_info": coverage_metrics
-    }
+# Create tool configuration
+tool_config = RvAndroidToolConfig(
+    parser_type=ScreenParserType.DROIDBOT,
+    visitor_type=VisitorType.DETAILED,
+    llm_config=llm_config
 )
+
+# Initialize service
+static_data = StaticAnalysisData({})
+service = LLMActionService(
+    static_data=static_data,
+    config=llm_config,
+    app_package="com.example.app",
+    tool_config=tool_config
+)
+
+# Process application state
+state = {
+    "package_name": "com.example.app",
+    "activity": "MainActivity",
+    "screen": {"components": [...]}
+}
+
+actions = service.process_state(state)
+```
+
+### Tool Configuration
+
+```python
+from rvandroid_tool.config.tool_config import RvAndroidToolConfig
+from rv_llm.config import LLMConfig
+from rv_llm.llm.constants import LLMType
+from rv_screen_parser.constants import ScreenParserType, VisitorType
+
+# Create tool configuration with separated concerns
+llm_config = LLMConfig(
+    llm_type=LLMType.OLLAMA,
+    model="llama3.2:3b",
+    temperature=0.2,
+    max_tokens=800
+)
+
+tool_config = RvAndroidToolConfig(
+    parser_type=ScreenParserType.DROIDBOT,
+    visitor_type=VisitorType.DETAILED,
+    llm_config=llm_config
+)
+
+# Get parser parameters
+parser_params = tool_config.get_parser_parameters()
+
+# Get template paths
+template_paths = tool_config.get_template_paths()
+
+# Register templates with PromptFramework
+tool_config.register_templates_with_framework(prompt_framework)
 ```
 
 ### Memory System Usage
 
 ```python
-from rvandroid_tool.core.memory.long_term_memory import LongTermMemory
-from rvandroid_tool.core.memory.short_term_memory import ShortTermMemory
+from rvandroid_tool.llm.service.memory_manager import MemoryManager
+from rv_android_core.domain.static import StaticAnalysisData
 
-# Initialize memory systems
-long_term = LongTermMemory("/path/to/memory/db")
-short_term = ShortTermMemory(max_history=100)
+# Initialize memory system
+static_data = StaticAnalysisData({})
+memory_manager = MemoryManager("com.example.app", static_data)
 
-# Store successful patterns
-long_term.store_successful_pattern(
-    pattern_type="login_flow",
-    context={"screen_type": "login", "app_category": "social"},
-    actions=[...],
-    success_rate=0.95
+# Update with current state
+state = {"activity": "MainActivity", "screen": {...}}
+memory_manager.update(state)
+
+# Enrich state with historical information
+memory_manager.enrich_state_with_history(state)
+
+# Record actions
+generated_actions = [...]
+memory_manager.record_actions(state, generated_actions)
+```
+
+### Action Generation with Multiple Configurations
+
+```python
+from rvandroid_tool.llm.service.action_service import LLMActionService
+from rvandroid_tool.config.tool_config import RvAndroidToolConfig
+from rv_llm.config import LLMConfig
+from rv_llm.llm.constants import LLMType, PromptStrategyType
+from rv_screen_parser.constants import ScreenParserType, VisitorType
+
+# Configuration 1: Ollama with batch actions
+llm_config_1 = LLMConfig(
+    llm_type=LLMType.OLLAMA,
+    model="llama3.2:3b",
+    temperature=0.2
 )
 
-# Retrieve relevant patterns
-patterns = long_term.get_patterns_by_context(
-    context={"screen_type": "login"},
-    min_success_rate=0.8
+tool_config_1 = RvAndroidToolConfig(
+    parser_type=ScreenParserType.DROIDBOT,
+    visitor_type=VisitorType.DETAILED,
+    llm_config=llm_config_1
 )
 
-# Manage short-term context
-short_term.add_action(action, result, context)
-recent_context = short_term.get_recent_context(window_size=10)
+service_1 = LLMActionService(
+    static_data=static_data,
+    config=llm_config_1,
+    app_package="com.example.app",
+    tool_config=tool_config_1
+)
+
+# Configuration 2: Different settings for parallel execution
+llm_config_2 = LLMConfig(
+    llm_type=LLMType.OLLAMA,
+    model="qwen2.5:7b",
+    temperature=0.7
+)
+
+tool_config_2 = RvAndroidToolConfig(
+    parser_type=ScreenParserType.DROIDBOT,
+    visitor_type=VisitorType.BASIC,
+    llm_config=llm_config_2
+)
+
+service_2 = LLMActionService(
+    static_data=static_data,
+    config=llm_config_2,
+    app_package="com.example.app",
+    tool_config=tool_config_2
+)
+
+# Each service operates independently
+actions_1 = service_1.process_state(test_state)
+actions_2 = service_2.process_state(test_state)
 ```
 
 ## Configuration
 
-### Server Configuration
-
-```yaml
-# rvandroid-server.yml
-server:
-  host: "0.0.0.0"
-  port: 8080
-  debug: false
-  cors_enabled: true
-
-llm:
-  provider: "ollama"
-  model: "llama3.2:3b"
-  temperature: 0.2
-  max_tokens: 800
-  timeout: 30
-
-memory:
-  enable_long_term: true
-  persistence_interval: 300
-  max_short_term_history: 100
-  database_path: "/tmp/rvandroid_memory"
-
-analysis:
-  screenshot_timeout: 10
-  ui_parsing_strategy: "enhanced"
-  confidence_threshold: 0.7
-```
-
-### Action Generation Settings
+### Tool Configuration Options
 
 ```python
-action_config = {
-    "strategies": {
-        "exploration": {
-            "priority": ["unvisited_elements", "form_fields", "buttons"],
-            "avoid": ["destructive_actions", "exit_actions"],
-            "depth_limit": 5
-        },
-        "systematic": {
-            "priority": ["coverage_optimization", "state_coverage"],
-            "methodical": True,
-            "backtrack_enabled": True
-        }
-    },
-    "constraints": {
-        "safety": ["no_uninstall", "no_factory_reset", "no_payment"],
-        "scope": ["current_app_only", "avoid_system_settings"],
-        "resource": ["respect_rate_limits", "manage_memory"]
-    }
-}
+from rvandroid_tool.config.tool_config import RvAndroidToolConfig
+from rv_llm.config import LLMConfig
+from rv_screen_parser.constants import ScreenParserType, VisitorType
+
+# Create from LLM configuration
+llm_config = LLMConfig(llm_type="ollama", model="llama3.2:3b")
+tool_config = RvAndroidToolConfig.from_llm_config(
+    llm_config=llm_config,
+    parser_type=ScreenParserType.DROIDBOT,
+    visitor_type=VisitorType.DETAILED
+)
+
+# Access configuration parameters
+parser_params = tool_config.get_parser_parameters()
+template_paths = tool_config.get_template_paths()
 ```
 
-## API Reference
-
-### Action Generation API
-
-#### POST /api/actions/generate
-
-Generate intelligent actions for current screen state.
-
-**Request Body:**
-```json
-{
-  "screenshot_path": "string",
-  "ui_hierarchy": "string (optional)",
-  "current_activity": "string",
-  "action_history": "array",
-  "constraints": "array",
-  "strategy": "string",
-  "context": "object"
-}
-```
-
-**Response:**
-```json
-{
-  "actions": [
-    {
-      "type": "click|swipe|type|back|home",
-      "coordinates": [x, y],
-      "text": "string (for type actions)",
-      "description": "string",
-      "confidence": "float",
-      "reasoning": "string"
-    }
-  ],
-  "strategy_recommendation": "string",
-  "confidence": "float",
-  "estimated_impact": "object"
-}
-```
-
-### State Analysis API
-
-#### POST /api/state/analyze
-
-Analyze current UI state and provide insights.
-
-**Request Body:**
-```json
-{
-  "screenshot_path": "string",
-  "ui_hierarchy": "string (optional)",
-  "context": "object"
-}
-```
-
-**Response:**
-```json
-{
-  "state_type": "string",
-  "ui_elements": "array",
-  "interaction_opportunities": "array",
-  "recommended_strategy": "string",
-  "risk_assessment": "string",
-  "complexity_score": "float"
-}
-```
-
-### Memory API
-
-#### POST /api/memory/store
-
-Store action results for learning.
-
-#### GET /api/memory/retrieve
-
-Retrieve relevant historical context.
-
-#### GET /api/memory/stats
-
-Get memory system statistics.
-
-## Integration Examples
-
-### With DroidBot
+### Multi-Instance Configuration
 
 ```python
-# DroidBot integration with RVAndroid server
-import droidbot
-import requests
+# Independent configurations for parallel testing
+configs = []
 
-class RVAndroidPolicy(droidbot.Policy):
-    def __init__(self):
-        self.rvandroid_url = "http://localhost:8080"
-        
-    def generate_event(self, device_state):
-        # Send screenshot to RVAndroid server
-        screenshot_path = device_state.screenshot_path
-        
-        response = requests.post(f"{self.rvandroid_url}/api/actions/generate", 
-                               json={
-                                   "screenshot_path": screenshot_path,
-                                   "current_activity": device_state.foreground_activity,
-                                   "action_history": self.get_action_history(),
-                                   "strategy": "exploration"
-                               })
-        
-        actions = response.json()["actions"]
-        return self.convert_to_droidbot_event(actions[0])
+for i in range(3):
+    llm_config = LLMConfig(
+        llm_type="ollama",
+        model=f"llama3.2:{i+1}b",
+        temperature=0.2 + (i * 0.1)
+    )
+    
+    tool_config = RvAndroidToolConfig(
+        parser_type=ScreenParserType.DROIDBOT,
+        visitor_type=VisitorType.DETAILED,
+        llm_config=llm_config
+    )
+    
+    configs.append((llm_config, tool_config))
+
+# Each configuration creates independent service instances
+services = []
+for llm_config, tool_config in configs:
+    service = LLMActionService(
+        static_data=static_data,
+        config=llm_config,
+        app_package="com.example.app",
+        tool_config=tool_config
+    )
+    services.append(service)
 ```
 
-### With Testing Framework
+## Template System
 
-```bash
-# Start RVAndroid server
-rvandroid-tool server --port 8080 &
-
-# Run testing framework with RVAndroid integration
-python test_runner.py \
-    --rvandroid-server http://localhost:8080 \
-    --strategy ai_guided \
-    --max-actions 1000
-```
-
-### With Experiment Pipeline
+### Template Registration
 
 ```python
-# Integration with rv-experiment
-from rv_experiment.experiment.task.components import ToolExecutionComponent
+from rvandroid_tool.config.tool_config import RvAndroidToolConfig
+from rv_llm.llm.prompt.framework import PromptFramework
+from rv_llm.config import PromptConfig
 
-class RVAndroidComponent(ToolExecutionComponent):
-    def setup(self):
-        # Start RVAndroid server
-        self.start_rvandroid_server()
-        
-    def execute_tool(self, task, app):
-        # Configure tool to use RVAndroid server
-        tool_config = {
-            "rvandroid_server": "http://localhost:8080",
-            "strategy": "systematic_exploration",
-            "memory_enabled": True
-        }
-        
-        return self.run_with_rvandroid(task, app, tool_config)
+# Tool configuration automatically registers templates
+tool_config = RvAndroidToolConfig(
+    parser_type=ScreenParserType.DROIDBOT,
+    visitor_type=VisitorType.DETAILED,
+    llm_config=llm_config
+)
+
+# Create prompt framework
+prompt_config = PromptConfig(strategy_type="batch_action")
+framework = PromptFramework.create(prompt_config)
+
+# Register tool templates
+tool_config.register_templates_with_framework(framework)
 ```
 
-## Performance Characteristics
+### Template Paths
 
-### LLM Response Times
-- **Local Models (Ollama)**: 2-5 seconds per action generation
-- **Cloud Models (OpenAI)**: 1-3 seconds per action generation
-- **Caching**: 50ms for cached similar scenarios
-
-### Memory Operations
-- **Pattern Storage**: < 100ms per pattern
-- **Pattern Retrieval**: < 50ms for relevant context lookup
-- **Memory Persistence**: Background operation, non-blocking
-
-### Screenshot Analysis
-- **UI Parsing**: 200-500ms per screenshot
-- **Element Detection**: 100-300ms per screen
-- **Action Recommendation**: 50-150ms per suggestion
-
-## Error Handling
-
-The server provides comprehensive error handling:
-
-- **LLM Errors**: Provider failures, rate limiting, timeout handling
-- **Screenshot Errors**: Invalid images, parsing failures, format issues
-- **Memory Errors**: Database issues, persistence failures, corruption recovery
-- **API Errors**: Malformed requests, authentication, rate limiting
-- **Integration Errors**: Tool communication failures, emulator issues
+The tool provides templates and fragments in:
+- `rvandroid_tool/templates/fragments/`: Reusable template fragments
+- `rvandroid_tool/templates/templates/`: Complete prompt templates
 
 ## Testing
 
@@ -504,29 +320,57 @@ poetry run pytest
 poetry run pytest --cov=rvandroid_tool
 
 # Run specific test categories
-poetry run pytest tests/analysis/screenshot/
 poetry run pytest tests/llm/service/
+poetry run pytest tests/config/
 ```
 
 ### Test Structure
 
-- `tests/analysis/screenshot/`: Screenshot analysis functionality
 - `tests/llm/service/`: LLM service integration tests
+- `tests/config/`: Configuration management tests
 - `tests/core/memory/`: Memory system validation
-- `tests/server/`: HTTP server and API tests
 
-### Current Test Status
+### Manual Testing
 
-Tests are focused on core functionality with mock integrations for external dependencies.
+```bash
+# Test LLM service with real data
+poetry run python teste_llm_service.py
+```
+
+## Performance Characteristics
+
+### LLM Response Times
+- **Local Models (Ollama)**: 2-5 seconds per action generation
+- **Cloud Models (OpenAI)**: 1-3 seconds per action generation
+- **Template Processing**: 50-100ms per prompt generation
+
+### Memory Operations
+- **Pattern Storage**: < 100ms per pattern
+- **Pattern Retrieval**: < 50ms for relevant context lookup
+- **State Enrichment**: 100-200ms per state update
+
+### Configuration Management
+- **Tool Configuration**: < 10ms per instance creation
+- **Template Registration**: 50-100ms per framework setup
+- **Multi-instance Setup**: < 100ms per additional instance
+
+## Error Handling
+
+The tool provides comprehensive error handling:
+
+- **LLM Errors**: Provider failures, rate limiting, timeout handling with fallback actions
+- **Configuration Errors**: Validation failures, missing parameters, invalid settings
+- **Memory Errors**: Database issues, persistence failures, corruption recovery
+- **Template Errors**: Missing templates, rendering failures, fragment issues
+- **Integration Errors**: Parser failures, static analysis issues, communication problems
 
 ## Dependencies
 
 - `rv-android-core`: Core infrastructure and utilities
 - `rv-llm`: Language model integration framework
 - `rv-screen-parser`: UI parsing and analysis
-- `requests`: HTTP client for API integrations
-- `flask`: HTTP server framework
-- `sqlite3`: Memory persistence (for LongTermMemory)
+- `pydantic`: Configuration validation
+- `jinja2`: Template processing
 
 ## Contributing
 
@@ -535,16 +379,16 @@ Tests are focused on core functionality with mock integrations for external depe
 1. Follow existing architectural patterns for service components
 2. Use comprehensive error handling with rv-android-core infrastructure
 3. Implement proper logging for debugging and monitoring
-4. Add integration tests for new API endpoints
-5. Document LLM prompt engineering decisions
+4. Add integration tests for new functionality
+5. Document configuration options and usage patterns
 
-### API Design Principles
+### Configuration Design Principles
 
-1. Maintain RESTful API conventions
-2. Use consistent response formats across endpoints
-3. Implement proper authentication and rate limiting
-4. Provide comprehensive error responses with context
-5. Follow semantic versioning for API changes
+1. Maintain clear separation between LLM and prompt concerns
+2. Use constants from appropriate modules for type safety
+3. Implement comprehensive validation for all configuration options
+4. Support multi-instance scenarios with independent configurations
+5. Provide clear factory methods for configuration creation
 
 ## License
 
