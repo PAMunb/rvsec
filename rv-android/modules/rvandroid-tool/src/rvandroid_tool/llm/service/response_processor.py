@@ -169,7 +169,7 @@ class ResponseProcessor:
 
         # Validate actions
         valid_actions, validation_errors = self._validate_actions(
-            actions, available_action_ids, self.single_action_mode
+            actions, available_action_ids
         )
 
         # Add validation errors to the errors list
@@ -201,15 +201,13 @@ class ResponseProcessor:
 
     def _validate_actions(self,
                           actions: List[Dict[str, Any]],
-                          available_action_ids: List[str],
-                          single_action_mode: bool) -> Tuple[List[Dict[str, Any]], List[str]]:
+                          available_action_ids: List[str]) -> Tuple[List[Dict[str, Any]], List[str]]:
         """
         Validate actions against available action IDs.
 
         Args:
             actions: List of action dictionaries
             available_action_ids: List of valid action IDs
-            single_action_mode: Whether to enforce single action
 
         Returns:
             Tuple of (valid_actions, errors)

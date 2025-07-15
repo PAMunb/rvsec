@@ -263,7 +263,7 @@ class StateEnricher:
                     return
 
             # Parse the screen to get a structured ScreenDescription object
-            screen_description: ScreenDescription = self.parser.parse(state, self.static_data)
+            screen_description: ScreenDescription = self.parser.parse_screen(state, self.static_data)
 
             if screen_description:
                 self.logger.debug(f"Successfully created ScreenDescription with {len(screen_description.items)} items")
