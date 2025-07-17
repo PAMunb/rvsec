@@ -217,13 +217,3 @@ class OllamaLLM(LanguageModel):
 
 # # Register the model
 # def register():
-#     """Register Ollama model with the configurator."""
-#     from rv_llm.factories import LLMFactory, PromptStrategyFactory
-#
-#     # Check if this LLM is already registered
-#     if OllamaLLM.NAME in ComponentConfigurator._registries.get('llm', {}).get_names():
-#         # Already registered, skip registration
-#         return
-#
-#     # Register the LLM
-#     ComponentConfigurator.register_llm(OllamaLLM.NAME, OllamaLLM)

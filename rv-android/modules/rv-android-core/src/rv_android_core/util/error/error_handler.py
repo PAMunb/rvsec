@@ -6,13 +6,13 @@ from contextlib import contextmanager
 from typing import Dict, List, Callable, Any, Type, Optional, Union
 
 from rv_android_core.util.error.exceptions import (
-    RVAndroidError, RVTaskError, RVToolError, RVToolExecutionError, RVToolTimeoutError, ToolNotFoundError,
+    RVAndroidError, RVTaskError, RVToolError, RVToolExecutionError, RVToolTimeoutError, RVAndroidToolError, ToolNotFoundError,
     ToolRegistrationError, ToolVariantError, PluginError,
     RVExperimentError, RVParsingError, RVLLMError, RVPromptError,
     RVValidationError, CommandValidationError, LogcatValidationError,
     EventProcessingError, ConfigurationError, RVCommandTimeoutError, JarNotFoundError,
     CircuitBreakerOpenError, RVLLMConnectionError, RVLLMModelError, RVLLMProviderError,
-    RVLLMConfigurationError, RVLLMTemplateError
+    RVLLMConfigurationError, RVLLMTemplateError, LLMServiceError, ToolCreationError
 )
 from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
 from rv_android_core.util.logging.manager import LoggingManager
@@ -93,6 +93,7 @@ class ErrorHandler:
         self.register_handler(PluginError, self._handle_plugin_error)
         self.register_handler(RVToolTimeoutError, self._handle_tool_timeout_error)
         self.register_handler(RVToolExecutionError, self._handle_tool_execution_error)
+        self.register_handler(RVAndroidToolError, self._handle_rvandroid_tool_error)
         self.register_handler(RVToolError, self._handle_tool_error)
         self.register_handler(RVExperimentError, self._handle_experiment_error)
         self.register_handler(RVParsingError, self._handle_parsing_error)
@@ -539,6 +540,43 @@ class ErrorHandler:
         # Return True to indicate successful error handling
         return True
 
+    def _handle_rvandroid_tool_error(self, error: RVAndroidToolError, context: Optional[Dict[str, Any]] = None) -> bool:
+        """Handle RVAndroid tool execution errors with enhanced context."""
+        self._logger.error(f"RVAndroid tool error: {error.message}")
+        
+        # Log tool-specific information
+        if hasattr(error, 'tool_name') and error.tool_name:
+            self._logger.info(f"Tool: {error.tool_name}")
+        
+        # Log context information if available
+        if context:
+            component = context.get('component', 'unknown')
+            operation = context.get('operation', 'unknown')
+            self._logger.info(f"Component: {component}, Operation: {operation}")
+            
+            # Log LLM configuration if available
+            if 'llm_config' in context:
+                llm_config = context['llm_config']
+                if hasattr(llm_config, 'llm_type') and hasattr(llm_config, 'model'):
+                    self._logger.info(f"LLM: {llm_config.llm_type}:{llm_config.model}")
+        
+        # Log cause if available
+        if hasattr(error, 'cause') and error.cause:
+            self._logger.info(f"Caused by: {error.cause}")
+        
+        # Check for specific error patterns and provide recovery suggestions
+        error_message = str(error).lower()
+        if "configuration" in error_message:
+            self._logger.warning("Configuration error detected. Check LLM and tool settings.")
+        elif "server" in error_message:
+            self._logger.warning("Server error detected. Check server startup and port availability.")
+        elif "llm" in error_message:
+            self._logger.warning("LLM error detected. Check LLM backend connectivity and model availability.")
+        elif "droidbot" in error_message:
+            self._logger.warning("DroidBot integration error detected. Check DroidBot installation and emulator status.")
+        
+        return False  # Allow further handling by parent handlers
+
     def _handle_tool_error(self, error: RVToolError, context: Optional[Dict[str, Any]] = None) -> bool:
         """Handle tool-related errors with enhanced context."""
         self._logger.info(f"Tool error recorded: {error.message}")
@@ -738,6 +776,30 @@ class ErrorHandler:
 
         return False  # Let it propagate to be converted to tool timeout
 
+    def _handle_llm_service_error(self, error: LLMServiceError, context: Optional[Dict[str, Any]] = None) -> bool:
+        """Handle LLM service errors with appropriate logging and recovery."""
+        self._logger.error(f"LLM service error: {error.message}")
+        
+        # Log context if available
+        if context:
+            component = context.get('component', 'unknown')
+            operation = context.get('operation', 'unknown')
+            self._logger.error(f"Component: {component}, Operation: {operation}")
+        
+        return False  # Allow propagation for higher-level handling
+
+    def _handle_tool_creation_error(self, error: ToolCreationError, context: Optional[Dict[str, Any]] = None) -> bool:
+        """Handle tool creation errors with appropriate logging and recovery."""
+        self._logger.error(f"Tool creation error: {error.message}")
+        
+        # Log context if available
+        if context:
+            component = context.get('component', 'unknown')
+            operation = context.get('operation', 'unknown')
+            self._logger.error(f"Component: {component}, Operation: {operation}")
+        
+        return False  # Allow propagation for higher-level handling
+
     def _handle_jar_not_found_error(self, error: JarNotFoundError, context: Optional[Dict[str, Any]] = None) -> bool:
         """
         Handle JAR file resolution failures in tool execution.
@@ -889,3 +951,19 @@ def error_context(**context_kwargs):
     """
     handler = ErrorHandler.get_instance()
     return handler.error_context(**context_kwargs)
+
+
+# Register handlers for new exceptions
+def _register_new_exception_handlers():
+    """Register handlers for new exceptions added in architectural correction."""
+    handler = ErrorHandler.get_instance()
+    
+    # Register LLMServiceError handler
+    handler.register_handler(LLMServiceError, handler._handle_llm_service_error)
+    
+    # Register ToolCreationError handler
+    handler.register_handler(ToolCreationError, handler._handle_tool_creation_error)
+
+
+# Initialize handlers when module is loaded
+_register_new_exception_handlers()

@@ -33,7 +33,7 @@ The RVAndroid-Tool module provides an AI-driven testing implementation that comb
 - **TransitionManager**: State transition tracking and navigation guidance
 
 #### Configuration Management
-- **RvAndroidToolConfig**: Tool-specific configuration with parser and visitor settings
+- **RvAndroidToolConfig**: Configuration through composition of LLMConfig and PromptConfig
 - **Template Management**: Tool-specific template registration with PromptFramework
 - **Multi-instance Support**: Independent configuration for parallel tool execution
 
@@ -76,8 +76,8 @@ poetry install --extras dev
 ```python
 from rvandroid_tool.llm.service.action_service import LLMActionService
 from rvandroid_tool.config.tool_config import RvAndroidToolConfig
-from rv_llm.config import LLMConfig
-from rv_llm.llm.constants import LLMType
+from rv_llm.config import LLMConfig, PromptConfig
+from rv_llm.llm.constants import LLMType, PromptStrategyType
 from rv_screen_parser.constants import ScreenParserType, VisitorType
 from rv_android_core.domain.static import StaticAnalysisData
 
@@ -89,20 +89,27 @@ llm_config = LLMConfig(
     max_tokens=800
 )
 
-# Create tool configuration
-tool_config = RvAndroidToolConfig(
+# Create prompt configuration
+prompt_config = PromptConfig(
+    strategy_type=PromptStrategyType.BATCH_ACTION,
     parser_type=ScreenParserType.DROIDBOT,
-    visitor_type=VisitorType.DETAILED,
-    llm_config=llm_config
+    visitor_type=VisitorType.DETAILED
+)
+
+# Create unified tool configuration
+tool_config = RvAndroidToolConfig(
+    llm_config=llm_config,
+    prompt_config=prompt_config,
+    server_port=8080,
+    debug_mode=True
 )
 
 # Initialize service
 static_data = StaticAnalysisData({})
 service = LLMActionService(
     static_data=static_data,
-    config=llm_config,
-    app_package="com.example.app",
-    tool_config=tool_config
+    tool_config=tool_config,
+    app_package="com.example.app"
 )
 
 # Process application state
@@ -119,11 +126,11 @@ actions = service.process_state(state)
 
 ```python
 from rvandroid_tool.config.tool_config import RvAndroidToolConfig
-from rv_llm.config import LLMConfig
-from rv_llm.llm.constants import LLMType
+from rv_llm.config import LLMConfig, PromptConfig
+from rv_llm.llm.constants import LLMType, PromptStrategyType
 from rv_screen_parser.constants import ScreenParserType, VisitorType
 
-# Create tool configuration with separated concerns
+# Create configuration components
 llm_config = LLMConfig(
     llm_type=LLMType.OLLAMA,
     model="llama3.2:3b",
@@ -131,14 +138,24 @@ llm_config = LLMConfig(
     max_tokens=800
 )
 
-tool_config = RvAndroidToolConfig(
+prompt_config = PromptConfig(
+    strategy_type=PromptStrategyType.STANDARD,
     parser_type=ScreenParserType.DROIDBOT,
-    visitor_type=VisitorType.DETAILED,
-    llm_config=llm_config
+    visitor_type=VisitorType.DETAILED
 )
 
-# Get parser parameters
-parser_params = tool_config.get_parser_parameters()
+# Create tool configuration through composition
+tool_config = RvAndroidToolConfig(
+    llm_config=llm_config,
+    prompt_config=prompt_config,
+    server_port=8080,
+    debug_mode=False
+)
+
+# Access configuration components
+strategy_type = tool_config.get_strategy_type()
+parser_type = tool_config.get_parser_type()
+visitor_type = tool_config.get_visitor_type()
 
 # Get template paths
 template_paths = tool_config.get_template_paths()
@@ -174,7 +191,7 @@ memory_manager.record_actions(state, generated_actions)
 ```python
 from rvandroid_tool.llm.service.action_service import LLMActionService
 from rvandroid_tool.config.tool_config import RvAndroidToolConfig
-from rv_llm.config import LLMConfig
+from rv_llm.config import LLMConfig, PromptConfig
 from rv_llm.llm.constants import LLMType, PromptStrategyType
 from rv_screen_parser.constants import ScreenParserType, VisitorType
 
@@ -185,17 +202,22 @@ llm_config_1 = LLMConfig(
     temperature=0.2
 )
 
-tool_config_1 = RvAndroidToolConfig(
+prompt_config_1 = PromptConfig(
+    strategy_type=PromptStrategyType.BATCH_ACTION,
     parser_type=ScreenParserType.DROIDBOT,
-    visitor_type=VisitorType.DETAILED,
-    llm_config=llm_config_1
+    visitor_type=VisitorType.DETAILED
+)
+
+tool_config_1 = RvAndroidToolConfig(
+    llm_config=llm_config_1,
+    prompt_config=prompt_config_1,
+    server_port=8080
 )
 
 service_1 = LLMActionService(
     static_data=static_data,
-    config=llm_config_1,
-    app_package="com.example.app",
-    tool_config=tool_config_1
+    tool_config=tool_config_1,
+    app_package="com.example.app"
 )
 
 # Configuration 2: Different settings for parallel execution
@@ -205,17 +227,22 @@ llm_config_2 = LLMConfig(
     temperature=0.7
 )
 
-tool_config_2 = RvAndroidToolConfig(
+prompt_config_2 = PromptConfig(
+    strategy_type=PromptStrategyType.STANDARD,
     parser_type=ScreenParserType.DROIDBOT,
-    visitor_type=VisitorType.BASIC,
-    llm_config=llm_config_2
+    visitor_type=VisitorType.BASIC
+)
+
+tool_config_2 = RvAndroidToolConfig(
+    llm_config=llm_config_2,
+    prompt_config=prompt_config_2,
+    server_port=8081
 )
 
 service_2 = LLMActionService(
     static_data=static_data,
-    config=llm_config_2,
-    app_package="com.example.app",
-    tool_config=tool_config_2
+    tool_config=tool_config_2,
+    app_package="com.example.app"
 )
 
 # Each service operates independently
@@ -229,19 +256,31 @@ actions_2 = service_2.process_state(test_state)
 
 ```python
 from rvandroid_tool.config.tool_config import RvAndroidToolConfig
-from rv_llm.config import LLMConfig
+from rv_llm.config import LLMConfig, PromptConfig
+from rv_llm.llm.constants import LLMType, PromptStrategyType
 from rv_screen_parser.constants import ScreenParserType, VisitorType
 
-# Create from LLM configuration
-llm_config = LLMConfig(llm_type="ollama", model="llama3.2:3b")
-tool_config = RvAndroidToolConfig.from_llm_config(
-    llm_config=llm_config,
-    parser_type=ScreenParserType.DROIDBOT,
-    visitor_type=VisitorType.DETAILED
+# Create from experiment configuration
+from rv_experiment.config import ExperimentConfig
+
+experiment_config = ExperimentConfig(
+    app_path="/path/to/app.apk",
+    tools=[{
+        "name": "rvandroid",
+        "variants": ["batch_action"],
+        "parameters": {"temperature": "0.2"}
+    }]
 )
 
-# Access configuration parameters
-parser_params = tool_config.get_parser_parameters()
+tool_config = RvAndroidToolConfig.from_experiment_config(
+    experiment_config=experiment_config,
+    tool_name="rvandroid"
+)
+
+# Access configuration components
+strategy_type = tool_config.get_strategy_type()
+parser_type = tool_config.get_parser_type()
+visitor_type = tool_config.get_visitor_type()
 template_paths = tool_config.get_template_paths()
 ```
 
@@ -253,27 +292,32 @@ configs = []
 
 for i in range(3):
     llm_config = LLMConfig(
-        llm_type="ollama",
+        llm_type=LLMType.OLLAMA,
         model=f"llama3.2:{i+1}b",
         temperature=0.2 + (i * 0.1)
     )
     
-    tool_config = RvAndroidToolConfig(
+    prompt_config = PromptConfig(
+        strategy_type=PromptStrategyType.BATCH_ACTION,
         parser_type=ScreenParserType.DROIDBOT,
-        visitor_type=VisitorType.DETAILED,
-        llm_config=llm_config
+        visitor_type=VisitorType.DETAILED
     )
     
-    configs.append((llm_config, tool_config))
+    tool_config = RvAndroidToolConfig(
+        llm_config=llm_config,
+        prompt_config=prompt_config,
+        server_port=8080 + i
+    )
+    
+    configs.append(tool_config)
 
 # Each configuration creates independent service instances
 services = []
-for llm_config, tool_config in configs:
+for tool_config in configs:
     service = LLMActionService(
         static_data=static_data,
-        config=llm_config,
-        app_package="com.example.app",
-        tool_config=tool_config
+        tool_config=tool_config,
+        app_package="com.example.app"
     )
     services.append(service)
 ```
@@ -285,17 +329,29 @@ for llm_config, tool_config in configs:
 ```python
 from rvandroid_tool.config.tool_config import RvAndroidToolConfig
 from rv_llm.llm.prompt.framework import PromptFramework
-from rv_llm.config import PromptConfig
+from rv_llm.config import LLMConfig, PromptConfig
+from rv_llm.llm.constants import LLMType, PromptStrategyType
+from rv_screen_parser.constants import ScreenParserType, VisitorType
 
-# Tool configuration automatically registers templates
-tool_config = RvAndroidToolConfig(
+# Create configurations
+llm_config = LLMConfig(
+    llm_type=LLMType.OLLAMA,
+    model="llama3.2:3b"
+)
+
+prompt_config = PromptConfig(
+    strategy_type=PromptStrategyType.BATCH_ACTION,
     parser_type=ScreenParserType.DROIDBOT,
-    visitor_type=VisitorType.DETAILED,
-    llm_config=llm_config
+    visitor_type=VisitorType.DETAILED
+)
+
+# Create tool configuration
+tool_config = RvAndroidToolConfig(
+    llm_config=llm_config,
+    prompt_config=prompt_config
 )
 
 # Create prompt framework
-prompt_config = PromptConfig(strategy_type="batch_action")
 framework = PromptFramework.create(prompt_config)
 
 # Register tool templates

@@ -212,9 +212,12 @@ class StateEnricher:
             # Get monitored operations for this activity
             monitored_ops = []
             actv_class = self.static_data.classes.get_clazz(activity)
-            for method in actv_class.methods:
-                if method.directly_reaches_mop or method.reaches_mop:
-                    monitored_ops.append(method.signature)
+            if actv_class and hasattr(actv_class, 'methods'):
+                for method in actv_class.methods:
+                    if method.directly_reaches_mop or method.reaches_mop:
+                        monitored_ops.append(method.signature)
+            else:
+                self.logger.warning(f"Activity class not found or has no methods: {activity}")
 
             # Add monitored operations to state
             if monitored_ops:

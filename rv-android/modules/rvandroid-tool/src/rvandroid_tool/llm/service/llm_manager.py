@@ -32,6 +32,7 @@ from typing import List, Dict, Optional, Any
 
 from rv_android_core.event.bus import EventBus, EventType, EventChannel
 from rv_android_core.util.error.error_handler import ErrorHandler
+from rv_android_core.util.error.exceptions import RVLLMError, RVLLMConfigurationError, RVLLMProviderError
 from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
 from rv_android_core.util.logging.manager import LoggingManager
 from rv_android_core.util.performance.performance_monitor import PerformanceMonitor
@@ -103,7 +104,6 @@ class LLMManager:
         self.model_kwargs = model_kwargs
 
         # Get system services
-        self.event_bus = EventBus.get_instance()
         self.performance_monitor = PerformanceMonitor.get_instance()
         logging_manager = LoggingManager.get_instance()
 
@@ -127,12 +127,11 @@ class LLMManager:
     )
     def _initialize_llm(self) -> None:
         """
-        Initialize the LLM instance using modern factory pattern.
+        Initialize the LLM instance using factory pattern.
         
         ### Initialization Strategy:
         - Uses LLMComponentFactory for clean, type-safe LLM creation
         - Applies configuration validation before instance creation
-        - Publishes initialization events for system monitoring
         - Handles initialization failures with proper error reporting
         
         Raises:
@@ -145,41 +144,22 @@ class LLMManager:
         self.logger.info(f"Initializing {self.config.llm_type} LLM: {self.config.model}")
 
         try:
-            # Create LLM instance using modern factory
+            # Create LLM instance using factory
             self.llm = LLMComponentFactory.create_llm(self.config)
 
             self.logger.info(f"Successfully initialized {self.config.llm_type} LLM")
-
-            # Publish LLM initialization event
-            self.event_bus.publish_task_event(
-                EventType.COVERAGE_TRACKING_STARTED,  # Reusing existing event type
-                task_id="llm_manager",
-                details={
-                    "llm_type": self.config.llm_type,
-                    "model": self.config.model,
-                    "max_tokens": self.config.max_tokens
-                },
-                source="LLMManager",
-                channel=EventChannel.LIFECYCLE
-            )
 
         except ImportError as e:
             error_msg = f"Failed to import required modules for {self.config.llm_type}: {e}"
             self.logger.error(error_msg)
 
-            # Publish error event
-            # self.event_bus.publish_error_event(e, {"llm_type": self.config.llm_type, "model": self.config.model, "operation": "llm_initialization"})
-
-            raise RuntimeError(error_msg) from e
+            raise RVLLMError(error_msg) from e
 
         except Exception as e:
             error_msg = f"Failed to initialize {self.config.llm_type} LLM: {e}"
             self.logger.error(error_msg)
 
-            # Publish error event
-            # self.event_bus.publish_error_event(e, {"llm_type": self.config.llm_type, "model": self.config.model, "operation": "llm_initialization"})
-
-            raise RuntimeError(error_msg) from e
+            raise RVLLMError(error_msg) from e
 
     @ErrorHandler.handle_errors(
         component="LLMManager",
@@ -217,12 +197,11 @@ class LLMManager:
         if config_override:
             is_valid, errors = config_override.validate()
             if not is_valid:
-                raise ValueError(f"Invalid override configuration: {', '.join(errors)}")
+                raise RVLLMConfigurationError(f"Invalid override configuration: {', '.join(errors)}")
 
         context = {
             "llm_type": effective_config.llm_type,
             "model": effective_config.model,
-            # Strategy and parser information moved to PromptConfig
             "generation_id": str(time.time())
         }
 
@@ -275,10 +254,7 @@ class LLMManager:
                 context={**context, "error": str(e), "elapsed_time": elapsed_time}
             )
 
-            # Publish error event
-            # self.event_bus.publish_error_event(e, {**context, "elapsed_time": elapsed_time, "operation": "text_generation"})
-
-            raise RuntimeError(error_msg) from e
+            raise RVLLMProviderError(error_msg) from e
 
     @ErrorHandler.handle_errors(
         component="LLMManager",
@@ -315,7 +291,6 @@ class LLMManager:
                 new_config.model != self.config.model
         )
 
-        old_config = self.config
         self.config = new_config
 
         # Clean up existing LLM if it needs to be recreated
@@ -326,25 +301,6 @@ class LLMManager:
         self.logger.info(
             f"Updated LLM configuration: backend={self.config.llm_type}, "
             f"model={self.config.model}"
-        )
-
-        # Publish configuration update event
-        self.event_bus.publish_task_event(
-            EventType.COVERAGE_TRACKING_STARTED,  # Reusing existing event type
-            task_id="llm_manager",
-            details={
-                "old_config": {
-                    "llm_type": old_config.llm_type,
-                    "model": old_config.model
-                },
-                "new_config": {
-                    "llm_type": new_config.llm_type,
-                    "model": new_config.model
-                },
-                "llm_recreated": llm_changed
-            },
-            source="LLMManager",
-            channel=EventChannel.LIFECYCLE
         )
 
     def get_configuration(self) -> LLMConfig:
@@ -376,19 +332,6 @@ class LLMManager:
                     self.llm.cleanup()
                 self.llm = None
                 self.logger.info("Successfully cleaned up LLM resources")
-
-                # Publish cleanup event
-                self.event_bus.publish_task_event(
-                    EventType.COVERAGE_TRACKING_STARTED,  # Reusing existing event type
-                    task_id="llm_manager",
-                    details={
-                        "operation": "llm_cleanup",
-                        "llm_type": self.config.llm_type,
-                        "model": self.config.model
-                    },
-                    source="LLMManager",
-                    channel=EventChannel.LIFECYCLE
-                )
 
             except Exception as e:
                 self.logger.warning(f"Error during LLM cleanup: {e}")

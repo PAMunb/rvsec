@@ -485,54 +485,185 @@ class ExperimentConfig(BaseValidatedModel):
         except Exception as e:
             raise ConfigurationError(f"Static analysis configuration failed: {e}") from e
 
-    def get_llm_config(self) -> LLMConfig:
+    @ErrorHandler.handle_errors(component="ExperimentConfig", operation="get_llm_config")
+    def get_llm_config(self, tool_name: str = "rvandroid") -> LLMConfig:
         """
-        Just-in-time configuration for LLM integration in AI-driven testing tools.
+        Create LLM configuration for RVAndroid tools based on tool_configs.
         
-        ### Configuration Pattern:
-        This method creates LLM configuration only when needed for tools that
-        require AI integration, providing sensible defaults while supporting
-        experiment-specific model and parameter customization.
+        ### Configuration Resolution Strategy:
+        This method uses tool_configs (populated from CLI parsing) to find RVAndroid
+        entries and creates appropriate LLM configuration based on variants and parameters.
         
-        ### LLM Integration Architecture:
-        - **Model Selection**: Configures LLM model type and parameters for tool execution
-        - **Provider Configuration**: Sets up LLM provider (Ollama, OpenAI, etc.) integration
-        - **Strategy Coordination**: Aligns LLM strategy with experiment objectives
-        - **Clean Configuration**: Only LLM-specific settings (parser/visitor moved to tools)
+        ### CLI Integration:
+        - Variant from CLI: "rvandroid:llama_batch_detailed" → variants=["llama_batch_detailed"]
+        - Factory resolution: llama_batch_detailed → LLM config with Ollama + Llama3.2
+        - Parameter overrides: CLI parameters override variant defaults
         
-        ### Role in the System:
-        - Provides LLM configuration for RVAndroid and other AI-enhanced testing tools
-        - Coordinates model parameters with experiment requirements
-        - Enables consistent LLM behavior across experiment repetitions
-        - Integrates with experiment configuration validation pipeline
+        ### Constants Usage:
+        - LLMType.OLLAMA, LLMType.OPENAI from rv_llm.constants
+        - DEFAULT_MODEL, DEFAULT_TEMPERATURE from rv_llm.constants
         
+        Args:
+            tool_name: Tool name to search for in tool_configs (default: "rvandroid")
+            
         Returns:
-            LLMConfig instance with validated LLM configuration
+            Configured LLMConfig instance based on CLI tool_configs
             
         Raises:
-            ConfigurationError: If LLM configuration validation fails
+            ConfigurationError: If tool configuration is invalid
         """
-        try:
-            # Create clean LLMConfig instance with only LLM-specific settings
-            # Parser/visitor configuration moved to rvandroid-tool in Phase 7
-            config = LLMConfig(
-                llm_type="ollama",
-                model="llama3.2:3b",
-                base_url="http://127.0.0.1:11434",
-                temperature=0.3,
-                max_tokens=2048,
-                provider="ollama",
-                strategy_type="standard"
+        from rv_llm.constants import LLMType, DEFAULT_MODEL, DEFAULT_TEMPERATURE
+        from rv_experiment.factories.rvandroid_config_factory import RvAndroidConfigFactory
+        
+        # Find RVAndroid tool in tool_configs (populated from CLI)
+        rvandroid_tools = [tc for tc in self.tool_configs if tc.name == tool_name]
+        
+        if not rvandroid_tools:
+            # Return default configuration using constants
+            return LLMConfig(
+                llm_type=LLMType.OLLAMA,
+                model=DEFAULT_MODEL,
+                temperature=DEFAULT_TEMPERATURE,
+                base_url="http://localhost:11434"
             )
+        
+        # Use RvAndroidConfigFactory for variant resolution
+        tool_config = rvandroid_tools[0]
+        
+        # Check if any variant is a predefined variant
+        variant_name = None
+        for variant in tool_config.variants:
+            if RvAndroidConfigFactory.is_variant_supported(variant):
+                variant_name = variant
+                break
+        
+        if variant_name:
+            # Use variant as tool_name for factory resolution
+            config_dict = RvAndroidConfigFactory.create_from_tool_name(
+                tool_name=variant_name,
+                tool_config=tool_config,
+                experiment_config=self
+            )
+        else:
+            # Use manual configuration from parameters
+            config_dict = RvAndroidConfigFactory.create_from_tool_name(
+                tool_name=tool_name,
+                tool_config=tool_config,
+                experiment_config=self
+            )
+        
+        # Extract LLM-specific configuration
+        llm_config = RvAndroidConfigFactory.create_llm_config(config_dict)
+        
+        # Validate configuration
+        is_valid, errors = llm_config.validate()
+        if not is_valid:
+            raise ConfigurationError(f"LLM configuration validation failed: {errors}")
+        
+        return llm_config
 
-            # Validate configuration
-            is_valid, errors = config.validate()
-            if not is_valid:
-                raise ConfigurationError(f"LLM configuration validation failed: {errors}")
-
-            return config
-        except Exception as e:
-            raise ConfigurationError(f"LLM configuration failed: {e}") from e
+    @ErrorHandler.handle_errors(
+        component="ExperimentConfig",
+        operation="get_prompt_config"
+    )
+    def get_prompt_config(self, tool_name: str = "rvandroid") -> PromptConfig:
+        """
+        Create prompt configuration for RVAndroid tools based on tool_configs.
+        
+        This method creates prompt configuration from tool specifications,
+        enabling different prompt strategies and processing approaches based
+        on CLI arguments and configuration files.
+        
+        ### Configuration Resolution Strategy:
+        1. Extract tool configuration from experiment tool_configs
+        2. Parse variants to determine strategy, parser, and visitor types
+        3. Apply parameter overrides from tool configuration
+        4. Create validated PromptConfig instance
+        
+        ### Variant Processing:
+        - Strategy variants: 'standard', 'batch_action' → strategy_type
+        - Parser variants: 'droidbot', 'uiautomator' → parser_type
+        - Visitor variants: 'basic', 'detailed', 'default' → visitor_type
+        
+        ### CLI Integration:
+        - Variant from CLI: "rvandroid:batch_action:detailed" → strategy=BATCH_ACTION, visitor=DETAILED
+        - Parameter overrides: CLI parameters override variant defaults
+        
+        Args:
+            tool_name: Tool name to search for in tool_configs (default: "rvandroid")
+            
+        Returns:
+            Configured PromptConfig instance based on CLI tool_configs
+            
+        Raises:
+            ConfigurationError: If prompt configuration cannot be created
+        """
+        from rv_llm.llm.constants import PromptStrategyType
+        from rv_llm.config.prompt_config import PromptConfig
+        from rv_screen_parser.constants import ScreenParserType, VisitorType
+        
+        # Find RVAndroid tool in tool_configs
+        rvandroid_tools = [tc for tc in self.tool_configs if tc.name == tool_name]
+        
+        if not rvandroid_tools:
+            # Return default prompt configuration using constants
+            return PromptConfig(
+                strategy_type=PromptStrategyType.STANDARD,
+                parser_type=ScreenParserType.DROIDBOT,
+                visitor_type=VisitorType.DETAILED
+            )
+        
+        tool_config = rvandroid_tools[0]
+        
+        # Parse variants to determine configuration
+        strategy_type = PromptStrategyType.STANDARD
+        parser_type = ScreenParserType.DROIDBOT
+        visitor_type = VisitorType.DETAILED
+        
+        # Process strategy variants
+        if "batch_action" in tool_config.variants:
+            strategy_type = PromptStrategyType.BATCH_ACTION
+        elif "standard" in tool_config.variants:
+            strategy_type = PromptStrategyType.STANDARD
+        
+        # Process parser variants
+        if "uiautomator" in tool_config.variants:
+            parser_type = ScreenParserType.UIAUTOMATOR
+        elif "droidbot" in tool_config.variants:
+            parser_type = ScreenParserType.DROIDBOT
+        
+        # Process visitor variants
+        if "basic" in tool_config.variants:
+            visitor_type = VisitorType.BASIC
+        elif "detailed" in tool_config.variants:
+            visitor_type = VisitorType.DETAILED
+        elif "default" in tool_config.variants:
+            visitor_type = VisitorType.DEFAULT
+        
+        # Apply parameter overrides
+        if "strategy_type" in tool_config.parameters:
+            strategy_type = tool_config.parameters["strategy_type"]
+        
+        if "parser_type" in tool_config.parameters:
+            parser_type = tool_config.parameters["parser_type"]
+        
+        if "visitor_type" in tool_config.parameters:
+            visitor_type = tool_config.parameters["visitor_type"]
+        
+        # Create prompt configuration
+        prompt_config = PromptConfig(
+            strategy_type=strategy_type,
+            parser_type=parser_type,
+            visitor_type=visitor_type,
+            additional_params=tool_config.parameters
+        )
+        
+        # Validate configuration
+        is_valid, errors = prompt_config.validate()
+        if not is_valid:
+            raise ConfigurationError(f"Prompt configuration validation failed: {errors}")
+        
+        return prompt_config
 
     def to_dict(self) -> Dict[str, Any]:
         """

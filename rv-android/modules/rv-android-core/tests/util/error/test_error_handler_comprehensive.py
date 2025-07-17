@@ -1050,12 +1050,12 @@ class TestErrorHandlerEdgeCases:
 
     def test_all_builtin_handlers_registered(self, error_handler):
         """Test that all expected builtin handlers are registered."""
-        # Should have 27 built-in handlers as mentioned in existing tests
-        assert len(error_handler._error_callbacks) == 27
+        # Should have 28 built-in handlers as mentioned in existing tests
+        assert len(error_handler._error_callbacks) == 28
 
         # Should have registered handlers tracking
         assert hasattr(error_handler, '_registered_handlers')
-        assert len(error_handler._registered_handlers) == 27
+        assert len(error_handler._registered_handlers) == 28
 
 
 class TestSpecificHandlerBehaviors:
@@ -1298,7 +1298,7 @@ class TestErrorHandlerCoverageGaps:
         error_handler._error_callbacks.remove(failing_callback)
 
     def test_notify_callbacks_exception_handling(self, error_handler, mock_logging_manager):
-        """Test _notify_error_callbacks exception handling (lines 268-272)."""
+        """Test _notify_error_callbacks exception handling (lines 268-282)."""
         _, _, mock_logger = mock_logging_manager
         
         # Register a callback that raises an exception

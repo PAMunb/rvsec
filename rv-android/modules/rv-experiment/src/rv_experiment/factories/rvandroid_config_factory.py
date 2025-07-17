@@ -1,120 +1,202 @@
 """
-RVAndroid configuration factory for monitored operations testing.
+RVAndroid Configuration Factory with Unified Configuration Support
 
-This module provides factory methods to create RVAndroidToolConfig instances
-from various configuration sources, implementing the hybrid variant system
-for maximum flexibility and ease of use.
+This module provides factory methods to create unified RVAndroid configurations
+from various configuration sources, implementing comprehensive strategy support
+and eliminating configuration duplication through composition architecture.
+
+### Architectural Overview:
+This factory implements unified configuration creation that combines LLM backend
+configuration with prompt strategy configuration, enabling complete control over
+RVAndroid tool behavior through single configuration objects.
+
+### Key Features:
+- Unified Configuration Creation: Single factory for complete tool configuration
+- Strategy Support: Full support for prompt strategies (BATCH_ACTION, STANDARD)
+- Composition Architecture: Uses composed configurations instead of duplication
+- Variant Processing: Comprehensive variant-to-configuration mapping
+- CLI Integration: Direct CLI control over all configuration aspects
+
+### Design Patterns:
+- Factory Method: Configuration creation from different sources
+- Composition Pattern: Combines multiple configuration objects
+- Strategy Pattern: Different resolution strategies for different input types
+- Template Method: Common configuration resolution workflow
+- Validation Pattern: Comprehensive parameter validation
+
+### Integration Strategy:
+- Creates unified RvAndroidToolConfig instances
+- Integrates with ExperimentConfig for configuration resolution
+- Supports both predefined variants and manual configuration
+- Provides type-safe configuration creation with validation
 """
 
 from typing import Dict, Any, Optional, List
+
 from rv_android_core.util.error.error_handler import ErrorHandler
 from rv_android_core.util.logging.manager import LoggingManager
 from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
 from rv_android_core.util.error.exceptions import ConfigurationError
 from rv_experiment.config import ExperimentConfig
-# from rv_experiment.domain.task import TaskConfig  # Use generic type for now
 from rv_llm.config import LLMConfig
+from rv_llm.config.prompt_config import PromptConfig
 from rv_llm.llm.constants import LLMType, PromptStrategyType
 from rv_screen_parser.constants import ScreenParserType, VisitorType
+from rvandroid_tool.config.tool_config import RvAndroidToolConfig
 
 
 class RvAndroidConfigFactory:
     """
-    Factory for creating RVAndroidToolConfig instances from various sources.
+    Factory for creating unified RVAndroid configurations from various sources.
     
     ### Architectural Overview:
-    This factory implements the hybrid variant system that allows users to:
-    1. Use pre-configured variants for common scenarios
-    2. Manually configure all parameters for custom scenarios
-    3. Mix variants with parameter overrides for flexibility
+    This factory implements unified configuration creation that combines LLM backend
+    configuration with prompt strategy configuration through composition, enabling
+    complete control over RVAndroid tool behavior.
     
     ### Key Features:
-    - Pre-configured variants for common LLM + strategy combinations
-    - Manual configuration support for custom scenarios
-    - Hybrid approach: variant baseline + parameter overrides
-    - Type-safe configuration creation with validation
-    - Integration with rv-experiment configuration system
+    - Unified Configuration Creation: Single factory for complete tool configuration
+    - Strategy Support: Full support for prompt strategies (BATCH_ACTION, STANDARD)
+    - Composition Architecture: Uses composed configurations instead of duplication
+    - Variant Processing: Comprehensive variant-to-configuration mapping
+    - CLI Integration: Direct CLI control over all configuration aspects
+    
+    ### Configuration Resolution Strategy:
+    1. Determine if variants match predefined configurations
+    2. Create LLM configuration using experiment configuration
+    3. Create prompt configuration with strategy support
+    4. Combine configurations into unified RvAndroidToolConfig
+    
+    ### Variant Support:
+    - Predefined variants: 'llama_batch_detailed', 'gpt4_standard_basic'
+    - Strategy variants: 'batch_action', 'standard'
+    - Parser variants: 'droidbot', 'uiautomator'
+    - Visitor variants: 'basic', 'detailed', 'default'
     
     ### Role in the System:
-    - Central factory for RVAndroid tool configuration creation
+    - Central factory for unified RVAndroid tool configuration creation
     - Bridge between experiment configuration and tool-specific configuration
     - Enables multi-instance support with independent configurations
     - Provides consistent configuration resolution across different input types
-    
-    ### Design Patterns:
-    - Factory Method: Configuration creation from different sources
-    - Strategy Pattern: Different resolution strategies for different input types
-    - Template Method: Common configuration resolution workflow
-    - Validation Pattern: Comprehensive parameter validation
     """
     
-    # Pre-configured variants for common use cases
+    # Predefined variant configurations
     PREDEFINED_VARIANTS = {
         "llama_batch_detailed": {
-            "llm_backend": LLMType.OLLAMA,
-            "llm_model": "llama3.2:3b",
-            "llm_base_url": "http://localhost:11434",
-            "llm_temperature": 0.2,
-            "llm_max_tokens": 800,
-            "prompt_strategy": PromptStrategyType.BATCH_ACTION,
-            "screen_parser": ScreenParserType.DROIDBOT,
-            "visitor_type": VisitorType.DETAILED,
-            "max_context_length": 8192
+            "llm_type": LLMType.OLLAMA,
+            "model": "llama3.2",
+            "strategy_type": PromptStrategyType.BATCH_ACTION,
+            "parser_type": ScreenParserType.DROIDBOT,
+            "visitor_type": VisitorType.DETAILED
         },
         "gpt4_standard_basic": {
-            "llm_backend": LLMType.FRONTIER,
-            "llm_model": "gpt-4",
-            "llm_provider": "openai",
-            "llm_temperature": 0.3,
-            "llm_max_tokens": 600,
-            "prompt_strategy": PromptStrategyType.STANDARD,
-            "screen_parser": ScreenParserType.DROIDBOT,
-            "visitor_type": VisitorType.BASIC,
-            "max_context_length": 16384
+            "llm_type": LLMType.OPENAI,
+            "model": "gpt-4",
+            "strategy_type": PromptStrategyType.STANDARD,
+            "parser_type": ScreenParserType.DROIDBOT,
+            "visitor_type": VisitorType.BASIC
         },
-        "claude_context_enhanced": {
-            "llm_backend": LLMType.FRONTIER,
-            "llm_model": "claude-3-5-sonnet-20241022",
-            "llm_provider": "anthropic",
-            "llm_temperature": 0.1,
-            "llm_max_tokens": 1000,
-            "prompt_strategy": PromptStrategyType.STANDARD,
-            "screen_parser": ScreenParserType.UIAUTOMATOR,
-            "visitor_type": VisitorType.DEFAULT,
-            "max_context_length": 32768
-        },
-        "local_llama_fast": {
-            "llm_backend": LLMType.OLLAMA,
-            "llm_model": "llama3.2:1b",
-            "llm_base_url": "http://localhost:11434",
-            "llm_temperature": 0.4,
-            "llm_max_tokens": 400,
-            "prompt_strategy": PromptStrategyType.STANDARD,
-            "screen_parser": ScreenParserType.DROIDBOT,
-            "visitor_type": VisitorType.BASIC,
-            "max_context_length": 4096
-        },
-        "gemini_comprehensive": {
-            "llm_backend": LLMType.FRONTIER,
-            "llm_model": "gemini-pro",
-            "llm_provider": "google",
-            "llm_temperature": 0.2,
-            "llm_max_tokens": 800,
-            "prompt_strategy": PromptStrategyType.BATCH_ACTION,
-            "screen_parser": ScreenParserType.UIAUTOMATOR,
-            "visitor_type": VisitorType.DETAILED,
-            "max_context_length": 16384
+        "ollama_standard_detailed": {
+            "llm_type": LLMType.OLLAMA,
+            "model": "llama3.2",
+            "strategy_type": PromptStrategyType.STANDARD,
+            "parser_type": ScreenParserType.DROIDBOT,
+            "visitor_type": VisitorType.DETAILED
         }
     }
-    
-    def __init__(self):
-        """Initialize the factory with logging."""
-        self.logging_manager = LoggingManager.get_instance()
-        self.logger = self.logging_manager.get_logger(
+
+    @classmethod
+    def get_supported_variants(cls) -> List[str]:
+        """Get list of supported predefined variants."""
+        return list(cls.PREDEFINED_VARIANTS.keys())
+
+    @classmethod
+    def is_variant_supported(cls, variant: str) -> bool:
+        """Check if a variant is supported by the factory."""
+        return variant in cls.PREDEFINED_VARIANTS
+
+    @classmethod
+    @ErrorHandler.handle_errors(
+        component="RvAndroidConfigFactory",
+        operation="create_from_tool_config"
+    )
+    def create_from_tool_config(
+        cls,
+        tool_config,
+        experiment_config: ExperimentConfig
+    ) -> Dict[str, Any]:
+        """
+        Create unified RVAndroid configuration from tool configuration with strategy support.
+        
+        This method creates comprehensive RVAndroid configuration by combining
+        LLM backend configuration with prompt strategy configuration, enabling
+        different approaches to prompt generation and processing.
+        
+        ### Configuration Creation Strategy:
+        1. Determine if variants match predefined configurations
+        2. Create LLM configuration using experiment configuration
+        3. Create prompt configuration with strategy support
+        4. Combine configurations into unified dictionary
+        
+        ### Variant Support:
+        - Predefined variants: 'llama_batch_detailed', 'gpt4_standard_basic'
+        - Strategy variants: 'batch_action', 'standard'
+        - Parser variants: 'droidbot', 'uiautomator'
+        - Visitor variants: 'basic', 'detailed', 'default'
+        
+        Args:
+            tool_config: Tool configuration containing variants and parameters
+            experiment_config: Experiment configuration for LLM config creation
+            
+        Returns:
+            Dictionary containing unified configuration
+            
+        Raises:
+            ConfigurationError: If configuration creation fails
+        """
+        # Initialize logging
+        logging_manager = LoggingManager.get_instance()
+        logger = logging_manager.get_logger(
             "rv_experiment.factories.rvandroid_config_factory",
             {CONTEXT_COMPONENT: "RvAndroidConfigFactory"}
         )
-    
+        
+        # Check for predefined variants
+        predefined_variant = None
+        for variant in tool_config.variants:
+            if cls.is_variant_supported(variant):
+                predefined_variant = variant
+                break
+        
+        if predefined_variant:
+            # Use predefined variant configuration
+            logger.info(f"Using predefined variant: {predefined_variant}")
+            config_dict = cls.create_from_tool_name(
+                tool_name=predefined_variant,
+                tool_config=tool_config,
+                experiment_config=experiment_config
+            )
+        else:
+            # Create configuration from individual variants
+            logger.info("Creating configuration from individual variants")
+            llm_config = experiment_config.get_llm_config(tool_config.name)
+            prompt_config = experiment_config.get_prompt_config(tool_config.name)
+            
+            # Create unified configuration using factory method
+            unified_config = RvAndroidToolConfig.from_experiment_config(
+                experiment_config=experiment_config,
+                tool_name=tool_config.name
+            )
+            
+            config_dict = {
+                "tool_config": unified_config,
+                "llm_config": llm_config,
+                "prompt_config": prompt_config
+            }
+        
+        logger.info(f"Created unified RVAndroid configuration for tool: {tool_config.name}")
+        return config_dict
+
     @classmethod
     @ErrorHandler.handle_errors(
         component="RvAndroidConfigFactory",
@@ -123,280 +205,152 @@ class RvAndroidConfigFactory:
     def create_from_tool_name(
         cls,
         tool_name: str,
-        tool_config: Any,
+        tool_config,
         experiment_config: ExperimentConfig
     ) -> Dict[str, Any]:
         """
-        Create RVAndroid configuration from tool name and configuration.
+        Create unified configuration from tool name with predefined variant support.
         
-        ### Configuration Resolution Strategy:
-        This method implements the hybrid variant system:
-        1. Check if tool_name matches a predefined variant
-        2. If yes, use variant as baseline and apply parameter overrides
-        3. If no, use manual configuration from parameters
-        4. Validate and return complete configuration
+        This method creates configuration from predefined variants or constructs
+        configuration from tool name and parameters, providing flexibility for
+        both predefined and custom configurations.
+        
+        ### Configuration Resolution:
+        1. Check if tool_name matches predefined variant
+        2. Apply predefined configuration if found
+        3. Create LLM and prompt configurations
+        4. Combine into unified RvAndroidToolConfig
+        5. Apply parameter overrides
         
         Args:
-            tool_name: Tool name (may be variant name like "llama_batch_detailed")
-            tool_config: Any with configuration parameters
-            experiment_config: ExperimentConfig for global settings
+            tool_name: Name of the tool or predefined variant
+            tool_config: Tool configuration containing parameters
+            experiment_config: Experiment configuration for config creation
             
         Returns:
-            Dictionary with complete RVAndroid configuration
+            Dictionary containing unified configuration
             
         Raises:
-            RVConfigurationError: If configuration is invalid
+            ConfigurationError: If configuration creation fails
         """
-        factory = cls()
+        # Initialize logging
+        logging_manager = LoggingManager.get_instance()
+        logger = logging_manager.get_logger(
+            "rv_experiment.factories.rvandroid_config_factory",
+            {CONTEXT_COMPONENT: "RvAndroidConfigFactory"}
+        )
         
-        # Determine configuration source
         if tool_name in cls.PREDEFINED_VARIANTS:
-            # Use predefined variant as baseline
-            config = cls._resolve_variant_configuration(tool_name, tool_config, factory)
+            # Use predefined variant configuration
+            variant_config = cls.PREDEFINED_VARIANTS[tool_name]
+            
+            # Create LLM configuration from variant
+            llm_config = LLMConfig(
+                llm_type=variant_config["llm_type"],
+                model=variant_config["model"],
+                base_url=cls._get_base_url_for_llm_type(variant_config["llm_type"]),
+                temperature=0.1,
+                max_tokens=2000
+            )
+            
+            # Create prompt configuration from variant
+            prompt_config = PromptConfig(
+                strategy_type=variant_config["strategy_type"],
+                parser_type=variant_config["parser_type"],
+                visitor_type=variant_config["visitor_type"]
+            )
+            
+            # Apply parameter overrides
+            cls._apply_parameter_overrides(llm_config, prompt_config, tool_config.parameters)
+            
+            # Create unified configuration
+            unified_config = RvAndroidToolConfig(
+                llm_config=llm_config,
+                prompt_config=prompt_config,
+                server_port=tool_config.parameters.get('server_port', 8080),
+                debug_mode=tool_config.parameters.get('debug_mode', False),
+                additional_params=tool_config.parameters
+            )
+            
+            logger.info(f"Created configuration from predefined variant: {tool_name}")
+            
         else:
-            # Use manual configuration from parameters
-            config = cls._resolve_manual_configuration(tool_config, factory)
-        
-        # Apply experiment-level defaults
-        config = cls._apply_experiment_defaults(config, experiment_config, factory)
-        
-        # Validate configuration
-        cls._validate_configuration(config, factory)
-        
-        factory.logger.info(f"Created RVAndroid configuration for tool: {tool_name}")
-        return config
-    
-    @classmethod
-    def _resolve_variant_configuration(
-        cls,
-        tool_name: str,
-        tool_config: Any,
-        factory: 'RvAndroidConfigFactory'
-    ) -> Dict[str, Any]:
-        """
-        Resolve configuration using predefined variant as baseline.
-        
-        Args:
-            tool_name: Variant name
-            tool_config: Any with parameter overrides
-            factory: Factory instance for logging
+            # Create configuration using experiment config methods
+            unified_config = RvAndroidToolConfig.from_experiment_config(
+                experiment_config=experiment_config,
+                tool_name=tool_name
+            )
             
-        Returns:
-            Resolved configuration dictionary
-        """
-        # Start with variant baseline
-        config = cls.PREDEFINED_VARIANTS[tool_name].copy()
+            logger.info(f"Created configuration from experiment config: {tool_name}")
         
-        # Apply parameter overrides
-        if hasattr(tool_config, 'parameters') and tool_config.parameters:
-            config.update(tool_config.parameters)
-        
-        factory.logger.debug(f"Resolved variant configuration for: {tool_name}")
-        return config
-    
-    @classmethod
-    def _resolve_manual_configuration(
-        cls,
-        tool_config: Any,
-        factory: 'RvAndroidConfigFactory'
-    ) -> Dict[str, Any]:
-        """
-        Resolve configuration using manual parameters.
-        
-        Args:
-            tool_config: Any with manual configuration
-            factory: Factory instance for logging
-            
-        Returns:
-            Resolved configuration dictionary
-        """
-        config = {}
-        
-        # Extract configuration from parameters
-        if hasattr(tool_config, 'parameters') and tool_config.parameters:
-            config.update(tool_config.parameters)
-        
-        # Apply defaults for missing parameters
-        defaults = {
-            "llm_backend": LLMType.OLLAMA,
-            "llm_model": "llama3.2:3b",
-            "llm_temperature": 0.2,
-            "llm_max_tokens": 800,
-            "prompt_strategy": PromptStrategyType.STANDARD,
-            "screen_parser": ScreenParserType.DROIDBOT,
-            "visitor_type": VisitorType.DETAILED,
-            "max_context_length": 8192
+        return {
+            "tool_config": unified_config,
+            "llm_config": unified_config.llm_config,
+            "prompt_config": unified_config.prompt_config
         }
-        
-        for key, value in defaults.items():
-            if key not in config:
-                config[key] = value
-        
-        factory.logger.debug("Resolved manual configuration")
-        return config
-    
+
     @classmethod
-    def _apply_experiment_defaults(
-        cls,
-        config: Dict[str, Any],
-        experiment_config: ExperimentConfig,
-        factory: 'RvAndroidConfigFactory'
-    ) -> Dict[str, Any]:
+    def _get_base_url_for_llm_type(cls, llm_type: str) -> str:
+        """Get appropriate base URL for LLM type."""
+        if llm_type == LLMType.OLLAMA:
+            return "http://localhost:11434"
+        elif llm_type == LLMType.OPENAI:
+            return "https://api.openai.com/v1"
+        else:
+            return ""
+
+    @classmethod
+    def _apply_parameter_overrides(
+        cls, 
+        llm_config: LLMConfig, 
+        prompt_config: PromptConfig, 
+        parameters: Dict[str, Any]
+    ) -> None:
+        """Apply parameter overrides to configurations."""
+        # Apply LLM configuration overrides
+        if "model" in parameters:
+            llm_config.model = parameters["model"]
+        if "temperature" in parameters:
+            llm_config.temperature = parameters["temperature"]
+        if "max_tokens" in parameters:
+            llm_config.max_tokens = parameters["max_tokens"]
+        
+        # Apply prompt configuration overrides
+        if "strategy_type" in parameters:
+            prompt_config.strategy_type = parameters["strategy_type"]
+        if "parser_type" in parameters:
+            prompt_config.parser_type = parameters["parser_type"]
+        if "visitor_type" in parameters:
+            prompt_config.visitor_type = parameters["visitor_type"]
+
+    @classmethod
+    @ErrorHandler.handle_errors(
+        component="RvAndroidConfigFactory",
+        operation="validate_configuration"
+    )
+    def validate_configuration(cls, config_dict: Dict[str, Any]) -> bool:
         """
-        Apply experiment-level defaults to configuration.
+        Validate unified configuration dictionary.
         
         Args:
-            config: Configuration dictionary
-            experiment_config: ExperimentConfig for global settings
-            factory: Factory instance for logging
+            config_dict: Configuration dictionary to validate
             
         Returns:
-            Configuration with experiment defaults applied
-        """
-        # Apply global timeout if not specified
-        if "timeout" not in config:
-            config["timeout"] = getattr(experiment_config, 'default_timeout', 3600)
-        
-        # Apply global working directory if not specified
-        if "working_directory" not in config:
-            config["working_directory"] = getattr(experiment_config, 'working_directory', '/tmp')
-        
-        factory.logger.debug("Applied experiment defaults")
-        return config
-    
-    @classmethod
-    def _validate_configuration(
-        cls,
-        config: Dict[str, Any],
-        factory: 'RvAndroidConfigFactory'
-    ) -> None:
-        """
-        Validate configuration parameters.
-        
-        Args:
-            config: Configuration dictionary to validate
-            factory: Factory instance for logging
+            True if configuration is valid
             
         Raises:
-            RVConfigurationError: If configuration is invalid
+            ConfigurationError: If configuration is invalid
         """
-        # Validate required parameters
-        required_params = [
-            "llm_backend", "llm_model", "prompt_strategy",
-            "screen_parser", "visitor_type"
-        ]
+        if "tool_config" not in config_dict:
+            raise ConfigurationError("Missing tool_config in configuration")
         
-        missing_params = [param for param in required_params if param not in config]
-        if missing_params:
-            raise ConfigurationError(
-                f"Missing required parameters: {', '.join(missing_params)}"
-            )
+        tool_config = config_dict["tool_config"]
+        if not isinstance(tool_config, RvAndroidToolConfig):
+            raise ConfigurationError("Invalid tool_config type")
         
-        # Validate enum values
-        if config["llm_backend"] not in LLMType.ALL:
-            raise ConfigurationError(
-                f"Invalid llm_backend: {config['llm_backend']}"
-            )
+        # Validate unified configuration
+        is_valid, error = tool_config.validate()
+        if not is_valid:
+            raise ConfigurationError(f"Configuration validation failed: {error}")
         
-        if config["prompt_strategy"] not in PromptStrategyType.ALL:
-            raise ConfigurationError(
-                f"Invalid prompt_strategy: {config['prompt_strategy']}"
-            )
-        
-        if config["screen_parser"] not in ScreenParserType.ALL:
-            raise ConfigurationError(
-                f"Invalid screen_parser: {config['screen_parser']}"
-            )
-        
-        if config["visitor_type"] not in VisitorType.ALL:
-            raise ConfigurationError(
-                f"Invalid visitor_type: {config['visitor_type']}"
-            )
-        
-        # Validate numeric ranges
-        if "llm_temperature" in config:
-            temp = config["llm_temperature"]
-            if not (0.0 <= temp <= 2.0):
-                raise ConfigurationError(
-                    f"llm_temperature must be between 0.0 and 2.0, got: {temp}"
-                )
-        
-        if "llm_max_tokens" in config:
-            tokens = config["llm_max_tokens"]
-            if not (1 <= tokens <= 4096):
-                raise ConfigurationError(
-                    f"llm_max_tokens must be between 1 and 4096, got: {tokens}"
-                )
-        
-        factory.logger.debug("Configuration validation passed")
-    
-    @classmethod
-    def create_llm_config(cls, config: Dict[str, Any]) -> LLMConfig:
-        """
-        Create LLMConfig from resolved configuration.
-        
-        Args:
-            config: Resolved configuration dictionary
-            
-        Returns:
-            LLMConfig instance
-        """
-        llm_params = {}
-        
-        # Map configuration keys to LLMConfig fields
-        mapping = {
-            "llm_backend": "llm_type",
-            "llm_model": "model",
-            "llm_base_url": "base_url",
-            "llm_temperature": "temperature",
-            "llm_max_tokens": "max_tokens",
-            "llm_provider": "provider",
-            "llm_api_key": "api_key"
-        }
-        
-        for config_key, llm_key in mapping.items():
-            if config_key in config:
-                llm_params[llm_key] = config[config_key]
-        
-        # Add other LLM-specific parameters
-        for key, value in config.items():
-            if key.startswith("llm_") and key not in mapping:
-                llm_params[key] = value
-        
-        return LLMConfig(**llm_params)
-    
-    @classmethod
-    def get_supported_variants(cls) -> List[str]:
-        """
-        Get list of supported predefined variants.
-        
-        Returns:
-            List of supported variant names
-        """
-        return list(cls.PREDEFINED_VARIANTS.keys())
-    
-    @classmethod
-    def get_variant_config(cls, variant_name: str) -> Optional[Dict[str, Any]]:
-        """
-        Get configuration for a specific variant.
-        
-        Args:
-            variant_name: Name of the variant
-            
-        Returns:
-            Configuration dictionary or None if variant not found
-        """
-        return cls.PREDEFINED_VARIANTS.get(variant_name)
-    
-    @classmethod
-    def is_variant_supported(cls, variant_name: str) -> bool:
-        """
-        Check if a variant is supported.
-        
-        Args:
-            variant_name: Name of the variant
-            
-        Returns:
-            True if variant is supported, False otherwise
-        """
-        return variant_name in cls.PREDEFINED_VARIANTS
+        return True

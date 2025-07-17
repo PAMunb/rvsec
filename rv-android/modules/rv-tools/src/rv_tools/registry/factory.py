@@ -1,15 +1,40 @@
 """
-Simplified factory for creating and configuring tool instances.
+Enhanced Tool Factory with Unified Configuration Support
 
-This module provides streamlined tool creation capabilities with focus on
-essential functionality and tool variant support.
+This module provides streamlined tool creation capabilities with special support
+for complex tools like RVAndroid that require unified configuration management,
+while maintaining essential functionality for all tool types.
+
+### Architectural Overview:
+This factory implements intelligent tool creation that provides special handling
+for complex tools like RVAndroid while maintaining simplicity for standard tools,
+enabling unified configuration injection and consistent tool instantiation.
+
+### Key Features:
+- Unified Configuration Support: Special handling for RVAndroid unified configuration
+- Tool Specification Parsing: Supports tool:variant@params format for CLI integration
+- Variant Support: Complex variant handling for sophisticated tools
+- Configuration Injection: Automatic configuration injection based on tool requirements
+- Error Handling: Comprehensive error handling with appropriate recovery strategies
+
+### Design Patterns:
+- Factory Method: Tool creation from specifications
+- Strategy Pattern: Different creation strategies for different tool types
+- Dependency Injection: Configuration injection for complex tools
+- Template Method: Common tool creation workflow
+
+### Integration Strategy:
+- Integrates with ToolRegistry for tool discovery
+- Provides special handling for RVAndroid tool unified configuration
+- Maintains compatibility with existing tool creation patterns
+- Enables dynamic tool creation based on experiment requirements
 """
 
 from typing import Dict, List, Any, Optional, Tuple
 
 from rv_android_core.tools.abstract_tool import AbstractTool
 from rv_android_core.util.error.error_handler import ErrorHandler
-from rv_android_core.util.error.exceptions import ToolNotFoundError, ToolRegistrationError
+from rv_android_core.util.error.exceptions import ToolNotFoundError, ToolRegistrationError, ToolCreationError
 from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
 from rv_android_core.util.logging.manager import LoggingManager
 from rv_tools.registry.registry import ToolRegistry
@@ -17,13 +42,13 @@ from rv_tools.registry.registry import ToolRegistry
 
 class ToolFactory:
     """
-    Simplified factory for creating and configuring tool instances.
+    Enhanced factory for creating and configuring tool instances with unified configuration support.
 
     ### Architectural Decisions:
-    - Focuses on essential tool creation and variant support
+    - Focuses on essential tool creation with special handling for complex tools
     - Maintains tool:variant@params parsing for CLI integration
     - Uses rv-android-core infrastructure for error handling and logging
-    - Removes complex configuration merging while preserving variant functionality
+    - Provides unified configuration injection for RVAndroid tools
     - Supports dynamic tool creation for experiment execution
 
     ### Role in the System:
@@ -35,250 +60,311 @@ class ToolFactory:
 
     ### Key Features:
     - Tool specification parsing (tool:variant@params format)
+    - Unified configuration injection for RVAndroid tools
     - Tool variant support for complex tools (droidbot, rvandroid)
     - Simple configuration merging and parameter override
-    - Integration with simplified ToolRegistry
+    - Integration with ToolRegistry for tool discovery
     - Standardized error handling and logging
+
+    ### Configuration Injection Strategy:
+    - Standard tools: Basic parameter injection
+    - RVAndroid tool: Unified configuration creation and injection
+    - Plugin tools: Configuration through plugin interfaces
     """
+
+    def __init__(self, experiment_config=None):
+        """
+        Initialize tool factory with optional experiment configuration.
+        
+        Args:
+            experiment_config: Optional experiment configuration for unified config creation
+        """
+        self.experiment_config = experiment_config
+        
+        # Initialize logging
+        self.logging_manager = LoggingManager.get_instance()
+        self.logger = self.logging_manager.get_logger(
+            "rv_tools.registry.factory",
+            {CONTEXT_COMPONENT: "ToolFactory"}
+        )
 
     @staticmethod
     @ErrorHandler.handle_errors(
         component="ToolFactory",
-        phase="create_tool_from_spec"
+        operation="create_tool_from_spec"
     )
     def create_tool_from_spec(spec: str, registry: Optional[ToolRegistry] = None) -> AbstractTool:
         """
-        Create a tool from a specification string.
-
-        Format: tool_name[:variant1][:variant2][@param1=value1,param2=value2]
-
-        Examples:
-        - "monkey" - Basic Monkey tool with default configuration
-        - "droidbot:bfs_greedy" - DroidBot with BFS greedy strategy variant
-        - "droidbot:dfs_greedy" - DroidBot with DFS greedy strategy variant
-        - "monkey@event_count=10000" - Monkey with custom event count
-        - "rvandroid:llama:batch@temperature=0.3" - RVAndroid with model and strategy variants
-
+        Create tool instance from specification string.
+        
+        This method parses tool specifications and creates appropriate tool instances
+        with proper configuration injection based on tool requirements.
+        
+        ### Specification Format:
+        - Simple: "tool_name"
+        - With variants: "tool_name:variant1:variant2"
+        - With parameters: "tool_name@param1=value1,param2=value2"
+        - Combined: "tool_name:variant@param1=value1"
+        
         Args:
             spec: Tool specification string
-            registry: Optional registry instance (uses singleton if not provided)
-
+            registry: Optional tool registry for tool discovery
+            
         Returns:
             Configured tool instance
-
+            
         Raises:
-            ToolNotFoundError: If tool specification is invalid or tool not found
-            ToolRegistrationError: If tool creation fails
+            ToolNotFoundError: If tool cannot be found
+            ToolCreationError: If tool creation fails
         """
-        if not registry:
-            registry = ToolRegistry.get_instance()
-
-        # Set up logging
+        # Initialize logging
         logging_manager = LoggingManager.get_instance()
         logger = logging_manager.get_logger(
-            "rv_tools.factory",
+            "rv_tools.registry.factory",
             {CONTEXT_COMPONENT: "ToolFactory"}
         )
+        
+        # Parse tool specification
+        tool_name, variants, params = ToolFactory._parse_tool_spec(spec)
+        
+        # Get registry
+        if registry is None:
+            registry = ToolRegistry()
+        
+        # Create factory instance with experiment config if needed
+        factory = ToolFactory()
+        
+        # Create configured tool
+        tool = factory.create_configured_tool(tool_name, variants, params)
+        
+        logger.info(f"Created tool from spec: {spec}")
+        return tool
 
-        try:
-            logger.debug(f"Creating tool from specification: {spec}")
-
-            # Parse tool specification
-            tool_name, variants, params = ToolFactory._parse_tool_spec(spec)
-            logger.debug(f"Parsed spec - tool: {tool_name}, variants: {variants}, params: {params}")
-
-            # Check if tool exists
-            if not registry.has_tool(tool_name):
-                raise ToolNotFoundError(f"Tool '{tool_name}' not found in registry")
-
-            # Create tool with variants and parameters
-            return ToolFactory._create_configured_tool(
-                tool_name=tool_name,
-                variants=variants,
-                params=params,
-                registry=registry,
-                logger=logger
-            )
-
-        except Exception as e:
-            raise ToolRegistrationError(f"Failed to create tool from spec '{spec}': {e}") from e
-
-    @staticmethod
     @ErrorHandler.handle_errors(
         component="ToolFactory",
-        phase="create_configured_tool"
+        operation="create_configured_tool"
     )
     def create_configured_tool(
-            tool_name: str,
-            variants: List[str] = None,
-            params: Dict[str, Any] = None,
-            registry: Optional[ToolRegistry] = None
+        self,
+        tool_name: str,
+        variants: List[str],
+        params: Dict[str, Any]
     ) -> AbstractTool:
         """
-        Create a configured tool instance.
-
+        Create configured tool instance with unified configuration injection.
+        
+        This method creates tool instances with appropriate configuration injection,
+        providing special handling for complex tools like RVAndroid that require
+        unified configuration management.
+        
+        ### Configuration Injection Strategy:
+        - Standard tools: Basic parameter injection
+        - RVAndroid tool: Unified configuration creation and injection
+        - Plugin tools: Configuration through plugin interfaces
+        
+        ### RVAndroid Special Handling:
+        Creates unified RvAndroidToolConfig combining LLM and prompt configurations
+        based on experiment configuration and tool variants.
+        
         Args:
-            tool_name: Name of the tool
-            variants: List of variant names to apply (in order)
-            params: Additional parameters to override configuration
-            registry: Optional registry instance
-
+            tool_name: Name of the tool to create
+            variants: List of variant specifications
+            params: Tool-specific parameters
+            
         Returns:
-            Configured tool instance
-
+            Configured tool instance ready for execution
+            
         Raises:
-            ToolNotFoundError: If tool not found
-            ToolRegistrationError: If tool creation fails
+            ToolCreationError: If tool creation fails
         """
-        if not registry:
-            registry = ToolRegistry.get_instance()
+        # Create base tool instance
+        tool = self._create_tool_instance(tool_name)
+        
+        # Special handling for RVAndroid tool
+        if tool_name == "rvandroid":
+            try:
+                # Import here to avoid circular dependencies
+                from rvandroid_tool.config.tool_config import RvAndroidToolConfig
+                
+                # Create unified tool configuration if experiment config is available
+                if self.experiment_config:
+                    tool_config = RvAndroidToolConfig.from_experiment_config(
+                        experiment_config=self.experiment_config,
+                        tool_name=tool_name
+                    )
+                    
+                    # Inject unified configuration
+                    params['tool_config'] = tool_config
+                    
+                    self.logger.info(
+                        f"Created unified RVAndroid configuration - "
+                        f"LLM: {tool_config.llm_config.llm_type}:{tool_config.llm_config.model}, "
+                        f"Strategy: {tool_config.prompt_config.strategy_type}"
+                    )
+                else:
+                    self.logger.warning("No experiment config available for RVAndroid tool")
+                    
+            except Exception as e:
+                raise ToolCreationError(f"Failed to create RVAndroid configuration: {e}")
+        
+        # Apply variants and configure tool
+        self._apply_variants(tool, variants)
+        
+        # Configure tool with parameters
+        if hasattr(tool, 'configure'):
+            tool.configure(params)
+        
+        return tool
 
-        # Set up logging
-        logging_manager = LoggingManager.get_instance()
-        logger = logging_manager.get_logger(
-            "rv_tools.factory",
-            {CONTEXT_COMPONENT: "ToolFactory"}
-        )
+    def _create_tool_instance(self, tool_name: str) -> AbstractTool:
+        """
+        Create base tool instance from tool name.
+        
+        Args:
+            tool_name: Name of the tool to create
+            
+        Returns:
+            Base tool instance
+            
+        Raises:
+            ToolNotFoundError: If tool cannot be found
+        """
+        # Get tool registry
+        registry = ToolRegistry()
+        
+        # Get tool class from registry
+        tool_class = registry.get_tool_class(tool_name)
+        if tool_class is None:
+            raise ToolNotFoundError(f"Tool '{tool_name}' not found in registry")
+        
+        # Create tool instance
+        try:
+            tool = tool_class()
+            self.logger.debug(f"Created tool instance: {tool_name}")
+            return tool
+        except Exception as e:
+            raise ToolCreationError(f"Failed to create tool '{tool_name}': {e}")
 
-        return ToolFactory._create_configured_tool(
-            tool_name=tool_name,
-            variants=variants or [],
-            params=params or {},
-            registry=registry,
-            logger=logger
-        )
+    def _apply_variants(self, tool: AbstractTool, variants: List[str]) -> None:
+        """
+        Apply variants to tool instance.
+        
+        Args:
+            tool: Tool instance to configure
+            variants: List of variants to apply
+        """
+        if not variants:
+            return
+        
+        # Apply variants if tool supports them
+        if hasattr(tool, 'apply_variants'):
+            tool.apply_variants(variants)
+            self.logger.debug(f"Applied variants to tool: {variants}")
 
     @staticmethod
     def _parse_tool_spec(spec: str) -> Tuple[str, List[str], Dict[str, Any]]:
         """
-        Parse a tool specification string to tool name, variants, and parameters.
-
-        Format: tool_name[:variant1][:variant2][@param1=value1,param2=value2]
-
+        Parse tool specification string into components.
+        
+        ### Specification Format:
+        - Simple: "tool_name"
+        - With variants: "tool_name:variant1:variant2"
+        - With parameters: "tool_name@param1=value1,param2=value2"
+        - Combined: "tool_name:variant@param1=value1"
+        
         Args:
             spec: Tool specification string
-
+            
         Returns:
-            Tuple of (tool_name, [variants], {params})
-
-        Raises:
-            ValueError: If specification format is invalid
+            Tuple of (tool_name, variants, parameters)
         """
-        try:
-            # Parse parameters if present
-            if '@' in spec:
-                base_part, params_part = spec.split('@', 1)
-                params = {}
-                if params_part:
-                    for param in params_part.split(','):
-                        if '=' in param:
-                            key, value = param.split('=', 1)
-                            params[key.strip()] = value.strip()
-                        else:
-                            # Boolean flag parameter
-                            params[param.strip()] = True
-            else:
-                base_part = spec
-                params = {}
-
-            # Split by colon to get tool name and variants
-            parts = base_part.split(':')
-            tool_name = parts[0].strip()
-            variants = [v.strip() for v in parts[1:] if v.strip()]
-
-            if not tool_name:
-                raise ValueError("Tool name cannot be empty")
-
-            return tool_name, variants, params
-
-        except Exception as e:
-            raise ValueError(f"Invalid tool specification '{spec}': {e}") from e
+        # Split by @ to separate tool/variants from parameters
+        if '@' in spec:
+            tool_part, params_part = spec.split('@', 1)
+            params = ToolFactory._parse_params(params_part)
+        else:
+            tool_part = spec
+            params = {}
+        
+        # Split by : to separate tool name from variants
+        if ':' in tool_part:
+            parts = tool_part.split(':')
+            tool_name = parts[0]
+            variants = parts[1:]
+        else:
+            tool_name = tool_part
+            variants = []
+        
+        return tool_name, variants, params
 
     @staticmethod
-    def _create_configured_tool(
-            tool_name: str,
-            variants: List[str],
-            params: Dict[str, Any],
-            registry: ToolRegistry,
-            logger
-    ) -> AbstractTool:
+    def _parse_params(params_str: str) -> Dict[str, Any]:
         """
-        Internal method to create a configured tool with variants and parameters.
-
+        Parse parameters string into dictionary.
+        
+        ### Parameter Format:
+        - "param1=value1,param2=value2"
+        - Supports string, int, float, and boolean values
+        
         Args:
-            tool_name: Name of the tool
-            variants: List of variant names to apply
-            params: Additional parameters to override
-            registry: Registry instance
-            logger: Logger instance
-
+            params_str: Parameters string
+            
         Returns:
-            Configured tool instance
-
-        Raises:
-            ToolNotFoundError: If tool or variant not found
+            Dictionary of parsed parameters
         """
-        try:
-            # Start with base tool instance
-            if variants:
-                # Apply first variant as primary configuration
-                primary_variant = variants[0]
-                tool_instance = registry.get_tool(tool_name, primary_variant)
-                logger.debug(f"Created tool '{tool_name}' with primary variant '{primary_variant}'")
+        params = {}
+        
+        if not params_str:
+            return params
+        
+        # Split by comma to get individual parameters
+        for param_pair in params_str.split(','):
+            if '=' in param_pair:
+                key, value = param_pair.split('=', 1)
+                key = key.strip()
+                value = value.strip()
                 
-                # Apply additional variants if present
-                for variant in variants[1:]:
-                    if registry.has_variant(tool_name, variant):
-                        variant_config = registry.get_variant_config(tool_name, variant)
-                        if hasattr(tool_instance, 'configure') and callable(tool_instance.configure):
-                            tool_instance.configure(variant_config)
-                            logger.debug(f"Applied additional variant '{variant}' to tool '{tool_name}'")
-                    else:
-                        logger.warning(f"Variant '{variant}' not found for tool '{tool_name}', skipping")
-            else:
-                # Use default configuration
-                tool_instance = registry.get_tool(tool_name)
-                logger.debug(f"Created tool '{tool_name}' with default configuration")
-
-            # Apply additional parameters if provided
-            if params and hasattr(tool_instance, 'configure') and callable(tool_instance.configure):
-                tool_instance.configure(params)
-                logger.debug(f"Applied additional parameters to tool '{tool_name}': {params}")
-
-            return tool_instance
-
-        except Exception as e:
-            raise ToolNotFoundError(f"Failed to create configured tool '{tool_name}': {e}") from e
+                # Try to convert to appropriate type
+                params[key] = ToolFactory._convert_param_value(value)
+        
+        return params
 
     @staticmethod
-    def get_supported_tools(registry: Optional[ToolRegistry] = None) -> List[str]:
+    def _convert_param_value(value: str) -> Any:
         """
-        Get list of all supported tool names.
-
-        Args:
-            registry: Optional registry instance
-
-        Returns:
-            List of tool names
-        """
-        if not registry:
-            registry = ToolRegistry.get_instance()
+        Convert parameter value to appropriate type.
         
-        return registry.get_tool_names()
-
-    @staticmethod
-    def get_tool_variants(tool_name: str, registry: Optional[ToolRegistry] = None) -> List[str]:
-        """
-        Get list of available variants for a specific tool.
-
         Args:
-            tool_name: Name of the tool
-            registry: Optional registry instance
-
+            value: String value to convert
+            
         Returns:
-            List of variant names
+            Converted value
         """
-        if not registry:
-            registry = ToolRegistry.get_instance()
+        # Try boolean
+        if value.lower() in ('true', 'false'):
+            return value.lower() == 'true'
         
-        return registry.get_tool_variants(tool_name)
+        # Try integer
+        try:
+            return int(value)
+        except ValueError:
+            pass
+        
+        # Try float
+        try:
+            return float(value)
+        except ValueError:
+            pass
+        
+        # Return as string
+        return value
+
+    def set_experiment_config(self, experiment_config) -> None:
+        """
+        Set experiment configuration for unified configuration creation.
+        
+        Args:
+            experiment_config: Experiment configuration instance
+        """
+        self.experiment_config = experiment_config
+        self.logger.debug("Set experiment configuration for unified tool creation")

@@ -30,7 +30,7 @@ class LanguageModel(ABC):
     - **Configuration Management**: Provides consistent configuration patterns using
       LLMConfig for all model-specific parameters
     - **Error Handling Integration**: Implements centralized error handling through
-      ErrorHandler for robust failure management and recovery
+      ErrorHandler for failure management and recovery
     - **Performance Monitoring**: Standardizes metrics collection for model performance
       analysis and optimization
     - **Resource Management**: Ensures proper cleanup and resource deallocation through
@@ -44,13 +44,12 @@ class LanguageModel(ABC):
     - **Configuration Controller**: Manages model-specific parameters and behavior
     - **Performance Monitor**: Tracks and reports model usage and performance metrics
     - **Resource Manager**: Handles model lifecycle and resource cleanup
-    - **Error Boundary**: Provides consistent error handling across all model operations
+    - **Error Boundary**: Provides error handling across all model operations
 
     ### Integration Points:
     - **ErrorHandler**: Centralized error handling and recovery strategies
     - **LoggingManager**: Standardized logging with contextual information
     - **LLMConfig**: Type-safe configuration management
-    - **EventBus**: Performance metrics and status event publishing
     - **PromptFramework**: Integration with structured prompt generation
 
     ### Performance Considerations:
@@ -98,10 +97,8 @@ class LanguageModel(ABC):
             {CONTEXT_COMPONENT: f"LanguageModel-{model_name}"}
         )
 
-        # Initialize error handler for robust error management
+        # Initialize error handler for error management
         self.error_handler = ErrorHandler.get_instance()
-
-        self.logger.info(f"Initialized {self.__class__.__name__} with model: {model_name}")
 
     @abstractmethod
     def generate(self,

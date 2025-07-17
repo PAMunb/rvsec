@@ -37,7 +37,7 @@ class ResponseProcessor:
         Initialize the response processor.
 
         Args:
-            config: Component configurator for response processing configuration
+            config: LLM configuration for response processing
         """
         # Get system services
         self.event_bus = EventBus.get_instance()

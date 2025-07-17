@@ -153,9 +153,14 @@ rv_config_2 = RvAndroidConfigFactory.create_from_tool_config(
     experiment_config=experiment_config
 )
 
+# Access configuration components
+llm_config_1 = experiment_config.get_llm_config("rvandroid")
+prompt_config_1 = experiment_config.get_prompt_config("rvandroid")
+
 # Each configuration creates independent tool instances
 print(f"Config 1 LLM: {rv_config_1.llm_config.model}")
 print(f"Config 2 LLM: {rv_config_2.llm_config.model}")
+print(f"Config 1 Strategy: {rv_config_1.prompt_config.strategy_type}")
 ```
 
 ### Programmatic Interface

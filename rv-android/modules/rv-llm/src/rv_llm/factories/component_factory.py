@@ -39,14 +39,14 @@ module scope, without dependencies on external tools or services.
 from typing import Any, Dict, List, Optional, Tuple
 
 from rv_android_core.util.error.error_handler import ErrorHandler
-from rv_android_core.util.logging.manager import LoggingManager
-from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
 from rv_android_core.util.error.exceptions import (
-    ConfigurationError, RVLLMError, RVPromptError, RVLLMConnectionError, 
-    RVLLMModelError, RVLLMProviderError, RVLLMConfigurationError
+    ConfigurationError, RVLLMError, RVPromptError, RVLLMConnectionError,
+    RVLLMModelError, RVLLMConfigurationError
 )
+from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
+from rv_android_core.util.logging.manager import LoggingManager
 from rv_llm.config import LLMConfig, PromptConfig
-from rv_llm.llm.prompt.strategy.base_strategy import PromptStrategy
+from rv_llm.llm.constants import PromptStrategyType
 from rv_llm.llm.language_model import LanguageModel
 from rv_llm.llm.prompt.information.fragment_manager import InformationManager
 from rv_llm.llm.prompt.strategy.base_strategy import PromptStrategy
@@ -93,14 +93,14 @@ class LLMComponentFactory:
     visitor = VisitorFactory.create("enhanced", static_data, activity)
     ```
     """
-    
+
     # Class-level logger for factory operations
     _logger = None
-    
+
     # Internal registry for LLM backends - Phase 5 enhancement
     _llm_registry = {}
     _strategy_registry = {}
-    
+
     @classmethod
     def _get_logger(cls):
         """Get logger instance for factory operations."""
@@ -111,8 +111,7 @@ class LLMComponentFactory:
                 {CONTEXT_COMPONENT: "LLMComponentFactory"}
             )
         return cls._logger
-    
-    
+
     @staticmethod
     @ErrorHandler.handle_errors(
         component="LLMComponentFactory",
@@ -148,120 +147,120 @@ class LLMComponentFactory:
         """
         logger = LLMComponentFactory._get_logger()
         llm_params = config.get_llm_parameters()
-        
+
         try:
             # Check registry first for custom backends
             if config.llm_type in LLMComponentFactory._llm_registry:
                 backend_class = LLMComponentFactory._llm_registry[config.llm_type]
                 llm = backend_class(**llm_params)
-                logger.debug(f"Created custom LLM backend '{config.llm_type}' with model: {config.model}")
+                logger.info(f"Created LLM backend '{config.llm_type}' with model: {config.model}")
                 return llm
-            
+
             # Standard backend creation
             if config.llm_type == "ollama":
                 from rv_llm.llm.ollama_llm import OllamaLLM
-                
+
                 llm = OllamaLLM(
-                    model=config.model,
+                    model_name=config.model,
                     base_url=config.base_url,
                     temperature=config.temperature,
                     max_tokens=config.max_tokens,
                     top_p=config.top_p,
                     top_k=config.top_k
                 )
-                logger.debug(f"Created Ollama LLM with model: {config.model}")
+                logger.info(f"Created Ollama LLM with model: {config.model}")
                 return llm
-                
+
             elif config.llm_type == "openai":
                 from rv_llm.llm.frontier_models import FrontierModel
-                
+
                 if not config.api_key:
                     raise RVLLMConfigurationError(
                         "OpenAI API key is required for OpenAI backend",
                         model_name=config.model,
                         config_field="api_key"
                     )
-                
+
                 llm = FrontierModel.create_openai(
                     model_name=config.model,
                     api_key=config.api_key,
                     temperature=config.temperature,
                     max_tokens=config.max_tokens
                 )
-                logger.debug(f"Created OpenAI LLM with model: {config.model}")
+                logger.info(f"Created OpenAI LLM with model: {config.model}")
                 return llm
-                
+
             elif config.llm_type == "anthropic":
                 from rv_llm.llm.frontier_models import FrontierModel
-                
+
                 if not config.api_key:
                     raise RVLLMConfigurationError(
                         "Anthropic API key is required for Anthropic backend",
                         model_name=config.model,
                         config_field="api_key"
                     )
-                
+
                 llm = FrontierModel.create_anthropic(
                     model_name=config.model,
                     api_key=config.api_key,
                     temperature=config.temperature,
                     max_tokens=config.max_tokens
                 )
-                logger.debug(f"Created Anthropic LLM with model: {config.model}")
+                logger.info(f"Created Anthropic LLM with model: {config.model}")
                 return llm
-                
+
             elif config.llm_type == "google":
                 from rv_llm.llm.frontier_models import FrontierModel
-                
+
                 if not config.api_key:
                     raise RVLLMConfigurationError(
                         "Google API key is required for Google backend",
                         model_name=config.model,
                         config_field="api_key"
                     )
-                
+
                 llm = FrontierModel.create_google(
                     model_name=config.model,
                     api_key=config.api_key,
                     temperature=config.temperature,
                     max_tokens=config.max_tokens
                 )
-                logger.debug(f"Created Google LLM with model: {config.model}")
+                logger.info(f"Created Google LLM with model: {config.model}")
                 return llm
-                
+
             elif config.llm_type == "huggingface":
                 from rv_llm.llm.huggingface_llm import HuggingFaceLLM
-                
+
                 llm = HuggingFaceLLM(
                     model=config.model,
                     temperature=config.temperature,
                     max_tokens=config.max_tokens,
                     **{k: v for k, v in llm_params.items() if k.startswith("hf_")}
                 )
-                logger.debug(f"Created Hugging Face LLM with model: {config.model}")
+                logger.info(f"Created Hugging Face LLM with model: {config.model}")
                 return llm
-                
+
             else:
                 raise RVLLMConfigurationError(
                     f"Unsupported LLM type: {config.llm_type}",
                     model_name=config.model,
                     config_field="llm_type"
                 )
-                
+
         except ImportError as e:
             error_msg = f"Failed to import LLM backend '{config.llm_type}': {e}"
             logger.error(error_msg)
             raise RVLLMModelError(error_msg, model_name=config.model, operation="import") from e
-        
+
         except (RVLLMConfigurationError, RVLLMConnectionError, RVLLMModelError):
             # Re-raise specific LLM errors
             raise
-        
+
         except Exception as e:
             error_msg = f"Failed to create LLM backend '{config.llm_type}': {e}"
             logger.error(error_msg)
             raise RVLLMModelError(error_msg, model_name=config.model, operation="creation") from e
-    
+
     @staticmethod
     @ErrorHandler.handle_errors(
         component="LLMComponentFactory",
@@ -273,55 +272,54 @@ class LLMComponentFactory:
 
         logger = LLMComponentFactory._get_logger()
         strategy_params = config.get_strategy_parameters()
-        
+
         try:
-            if config.strategy_type in ["batch_action", "batch_action_modular"]:
+            if config.strategy_type in ["batch", "batch_action", "batch_action_modular"]:
                 from rv_llm.llm.prompt.strategy.strategies.batch_action_strategy import BatchActionStrategy
-                
+
                 strategy = BatchActionStrategy(
-                    name="batch_action",
+                    name=PromptStrategyType.BATCH_ACTION,
                     information_manager=information_manager,
                     template_repository=template_repository
                 )
-                logger.debug("Created batch action strategy")
-                
+                logger.info(f"Created '{PromptStrategyType.BATCH_ACTION}' strategy")
+
             elif config.strategy_type in ["standard", "single_action", "standard_modular"]:
                 from rv_llm.llm.prompt.strategy.strategies.standard_strategy import StandardStrategy
-                
+
                 strategy = StandardStrategy(
-                    name="standard",
+                    name=PromptStrategyType.STANDARD,
                     information_manager=information_manager,
                     template_repository=template_repository
                 )
-                logger.debug("Created standard strategy")
-                
+                logger.info(f"Created '{PromptStrategyType.STANDARD}' strategy")
+
             else:
                 raise ConfigurationError(f"Unsupported strategy type: {config.strategy_type}")
-            
+
             # Configure strategy with PromptConfig
             strategy.configure_from_config(config)
             logger.debug(f"Configured strategy with parameters: {list(strategy_params.keys())}")
-            
+
             return strategy
-            
+
         except ImportError as e:
             error_msg = f"Failed to import strategy '{config.strategy_type}': {e}"
             logger.error(error_msg)
             raise ImportError(error_msg) from e
-        
+
         except ConfigurationError as e:
             # Strategy configuration error - use RVPromptError
             error_msg = f"Failed to create strategy '{config.strategy_type}': {e}"
             logger.error(error_msg)
             raise RVPromptError(error_msg, config.strategy_type, e) from e
-            
+
         except Exception as e:
             # General LLM error - use RVLLMError
             error_msg = f"Failed to create strategy '{config.strategy_type}': {e}"
             logger.error(error_msg)
             raise RVLLMError(error_msg, config.strategy_type) from e
-    
-    
+
     @staticmethod
     def register_llm_backend(llm_type: str, backend_class) -> None:
         """
@@ -339,12 +337,12 @@ class LLMComponentFactory:
             TypeError: If backend_class doesn't implement LanguageModel interface
         """
         if not hasattr(backend_class, 'generate') or not hasattr(backend_class, 'models'):
-            raise TypeError(f"Backend class must implement LanguageModel interface")
-        
+            raise TypeError("Backend class must implement LanguageModel interface")
+
         LLMComponentFactory._llm_registry[llm_type] = backend_class
         logger = LLMComponentFactory._get_logger()
         logger.debug(f"Registered custom LLM backend: {llm_type}")
-    
+
     @staticmethod
     def get_supported_llm_types() -> List[str]:
         """
@@ -356,7 +354,7 @@ class LLMComponentFactory:
         built_in = ["ollama", "openai", "anthropic", "google", "huggingface"]
         registered = list(LLMComponentFactory._llm_registry.keys())
         return built_in + registered
-    
+
     @staticmethod
     def get_supported_strategy_types() -> List[str]:
         """
@@ -365,10 +363,8 @@ class LLMComponentFactory:
         Returns:
             List of supported strategy type strings
         """
-        from rv_llm.llm.constants import PromptStrategyType
         return PromptStrategyType.ALL
-    
-    
+
     @staticmethod
     def validate_backend_availability(llm_type: str) -> Tuple[bool, Optional[str]]:
         """
@@ -397,14 +393,14 @@ class LLMComponentFactory:
                 from rv_llm.llm.huggingface_llm import HuggingFaceLLM
             else:
                 return False, f"Unsupported LLM type: {llm_type}"
-            
+
             return True, None
-            
+
         except ImportError as e:
             return False, f"Backend '{llm_type}' not available: {e}"
         except Exception as e:
             return False, f"Error checking backend '{llm_type}': {e}"
-    
+
     @staticmethod
     def get_registry_info() -> Dict[str, Any]:
         """

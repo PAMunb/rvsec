@@ -74,7 +74,7 @@ class ActionGenerator:
         Initialize the action generator.
 
         Args:
-            config: Component configurator for action generation configuration
+            config: LLM configuration for action generation
             static_data: Static analysis data for action enrichment
         """
         # Get system services
