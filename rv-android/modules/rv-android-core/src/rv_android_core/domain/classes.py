@@ -372,7 +372,7 @@ class Classes(BaseValidatedModel):
         # Set up logging - use object.__setattr__ to bypass Pydantic validation
         logging_manager = LoggingManager.get_instance()
         logger = logging_manager.get_logger(
-            "domain.classes.Classes",
+            "rvandroid_core.domain.classes.Classes",
             {CONTEXT_COMPONENT: "Classes"}
         )
         object.__setattr__(self, 'logger', logger)

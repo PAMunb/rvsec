@@ -34,6 +34,7 @@ main.py, eliminating complex DI patterns in favor of straightforward execution f
 """
 
 import json
+import logging
 import sys
 import uuid
 from datetime import datetime
@@ -89,6 +90,10 @@ class CLIContext:
             "rv_experiment.cli",
             {CONTEXT_COMPONENT: "CLIContext"}
         )
+
+        # Silence noisy third-party loggers
+        for noisy_logger in ["androguard", "matplotlib", "PIL", "requests", "urllib3", "httpcore", "werkzeug"]:
+            logging.getLogger(noisy_logger).setLevel(logging.ERROR)
         
         # CLI state management
         self.debug = False

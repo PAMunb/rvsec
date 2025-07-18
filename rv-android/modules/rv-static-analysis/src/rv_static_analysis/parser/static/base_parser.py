@@ -48,7 +48,7 @@ class BaseStaticAnalysisParser(ABC):
         # Initialize logging
         self.logging_manager = LoggingManager.get_instance()
         self.logger = self.logging_manager.get_logger(
-            f"parser.static.{parser_name}",
+            f"rv_static_analysis.parser.static.{parser_name}",
             {CONTEXT_COMPONENT: self.__class__.__name__}
         )
 

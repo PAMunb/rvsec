@@ -95,31 +95,6 @@ class MemoryState:
             "interactive_elements_count": self.interactive_elements_count,
             "screenshot_path": self.screenshot_path
         }
-    #
-    # @classmethod
-    # def from_dict(cls, data: Dict[str, Any]) -> 'MemoryState':
-    #     """
-    #     Create from dictionary representation.
-    #
-    #     Args:
-    #         data: Dictionary representation
-    #
-    #     Returns:
-    #         MemoryState instance
-    #     """
-    #     state = cls(data["fingerprint"], data["activity"])
-    #     state.visit_count = data["visit_count"]
-    #     state.first_visit = data["first_visit"]
-    #     state.last_visit = data["last_visit"]
-    #     state.successful_actions = set(data["successful_actions"])
-    #     state.failed_actions = set(data["failed_actions"])
-    #     state.all_actions = set(data["all_actions"])
-    #     state.outgoing_transitions = data["outgoing_transitions"]
-    #     state.incoming_transitions = data["incoming_transitions"]
-    #     state.interactive_elements_count = data.get("interactive_elements_count", 0)
-    #     state.screenshot_path = data.get("screenshot_path")
-    #     return state
-
 
 class MemoryAction:
     """
@@ -203,33 +178,6 @@ class MemoryAction:
             "directly_reaches_mop": self.directly_reaches_mop
         }
 
-    #
-    # @classmethod
-    # def from_dict(cls, data: Dict[str, Any]) -> 'MemoryAction':
-    #     """
-    #     Create from dictionary representation.
-    #
-    #     Args:
-    #         data: Dictionary representation
-    #
-    #     Returns:
-    #         MemoryAction instance
-    #     """
-    #     action = cls(data["id"], data["text"], data["type"])
-    #     action.execution_count = data["execution_count"]
-    #     action.success_count = data["success_count"]
-    #     action.failure_count = data["failure_count"]
-    #     action.state_transitions = defaultdict(list)
-    #
-    #     # Convert state_transitions back to defaultdict
-    #     for from_state, to_states in data["state_transitions"].items():
-    #         action.state_transitions[from_state] = to_states
-    #
-    #     action.element_properties = data.get("element_properties", {})
-    #     action.reaches_mop = data.get("reaches_mop", False)
-    #     action.directly_reaches_mop = data.get("directly_reaches_mop", False)
-    #     return action
-
     @classmethod
     def from_action(cls, action: GeneratedAction) -> 'MemoryAction':
         """
@@ -278,23 +226,21 @@ class LongTermMemory:
     - Supports intelligent exploration through memory-based guidance
     """
 
-    def __init__(self, app_package: str, static_data: Optional[StaticAnalysisData] = None):
+    def __init__(self, static_data: Optional[StaticAnalysisData] = None):
         """
         Initialize the long-term memory system.
         
         Args:
-            app_package: Application package name
             static_data: Optional static analysis data
         """
         # Configure logging
         logging_manager = LoggingManager.get_instance()
         self.logger = logging_manager.get_logger(
-            "core.memory.long_term_memory",
+            "rvandroid_tool.core.memory.long_term_memory",
             {CONTEXT_COMPONENT: "LongTermMemory"}
         )
 
         # Initialize core parameters
-        self.app_package = app_package
         self.static_data = static_data
         self.creation_time = time.time()
 
@@ -312,7 +258,7 @@ class LongTermMemory:
         self.successful_actions = 0  # TODO deprecated
         self.failed_actions = 0  # TODO deprecated
 
-        self.logger.info(f"Initialized long-term memory for {app_package}")
+        self.logger.info(f"Initialized long-term memory")
 
     def record_state(self, state: MemoryState) -> None:
         """

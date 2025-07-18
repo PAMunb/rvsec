@@ -163,7 +163,7 @@ class StaticAnalyzer(BaseValidatedModel, BaseAnalyzer[StaticAnalysisResult]):
         # Initialize structured logging through LoggingManager
         logging_manager = LoggingManager.get_instance()
         self.logger = logging_manager.get_logger(
-            'rv_static_analysis.StaticAnalyzer',
+            'rv_static_analysis.analysis.static.static_analysis.StaticAnalyzer',
             {
                 CONTEXT_COMPONENT: 'StaticAnalyzer',
                 'component_module': 'rv-static-analysis',

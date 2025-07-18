@@ -15,7 +15,7 @@ configuration with prompt strategy configuration through composition.
 - Composition Architecture: Uses composed configurations instead of parameter duplication
 - Strategy Integration: Full support for prompt strategies (BATCH_ACTION, STANDARD)
 - Component Coordination: Orchestrates specialized components with consistent configuration
-- Memory Integration: History-aware decision making through memory systems
+- Memory Integration: History-aware decision-making through memory systems
 
 ### Design Principles:
 - Facade Pattern: Coordinates specialized components through unified interface
@@ -34,17 +34,16 @@ configuration with prompt strategy configuration through composition.
 from typing import Any, Dict, List
 
 from rv_android_core.domain.static import StaticAnalysisData
-from rv_android_core.event.bus import EventBus, EventType, EventChannel
+from rv_android_core.event.bus import EventBus
 from rv_android_core.util.error.error_handler import ErrorHandler
 from rv_android_core.util.error.exceptions import LLMServiceError
 from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
 from rv_android_core.util.logging.manager import LoggingManager
 from rv_android_core.util.performance.performance_monitor import PerformanceMonitor
-from rv_llm.llm.constants import ContextEntry, StateEntry, PromptStrategyType
-from rv_llm.llm.data_structures import LLMMessage, LLMResponse
+from rv_llm.llm.constants import ContextEntry, StateEntry
 from rv_llm.llm.prompt.framework import PromptFramework
 from rvandroid_tool.config.tool_config import RvAndroidToolConfig
-from rvandroid_tool.llm.service.action_generator import ActionGenerator, GeneratedAction
+from rvandroid_tool.llm.service.action_generator import ActionGenerator
 from rvandroid_tool.llm.service.llm_manager import LLMManager
 from rvandroid_tool.llm.service.memory_manager import MemoryManager
 from rvandroid_tool.llm.service.response_processor import ResponseProcessor
@@ -82,19 +81,18 @@ class LLMActionService:
     - Provides unified interface for state processing and action generation
     - Coordinates flow between state analysis, LLM interaction, and action generation
     - Maintains consistent configuration across all specialized components
-    - Enables history-aware decision making through memory integration
+    - Enables history-aware decision-making through memory integration
     """
-    
+
     @ErrorHandler.handle_errors(
         component="LLMActionService",
         operation="__init__"
     )
     def __init__(
-        self,
-        static_data: StaticAnalysisData,
-        tool_config: RvAndroidToolConfig,
-        app_package: str,  # TODO ver como remover
-        **model_kwargs
+            self,
+            static_data: StaticAnalysisData,
+            tool_config: RvAndroidToolConfig,
+            **model_kwargs
     ):
         """
         Initialize LLM action service with unified configuration.
@@ -123,7 +121,6 @@ class LLMActionService:
         Args:
             static_data: Static analysis data for the target application
             tool_config: Unified configuration containing LLM and prompt settings
-            app_package: Package name of the target application
             **model_kwargs: Additional model-specific parameters
             
         Raises:
@@ -135,57 +132,40 @@ class LLMActionService:
             "rvandroid_tool.llm.service.action_service",
             {CONTEXT_COMPONENT: "LLMActionService"}
         )
-        
+        self.logger.info("Initializing LLM Action Service ...")
+
         # Initialize event bus for lifecycle events
         self.event_bus = EventBus.get_instance()
-        
+
         # Initialize performance monitoring
         self.performance_monitor = PerformanceMonitor.get_instance()
-        
-        # Store unified configuration
+
+        # Store parameters
         self.tool_config = tool_config
         self.static_data = static_data
-        self.app_package = app_package
-        
-        # Extract configurations from unified tool config
+
+        # Extract configurations
         self.llm_config = tool_config.llm_config
         self.prompt_config = tool_config.prompt_config
-        
+
         # Initialize LLM manager with backend configuration
         self.llm_manager = LLMManager(self.llm_config, **model_kwargs)
-        
+
         # Initialize prompt framework with strategy configuration
         self.prompt_framework = PromptFramework.create(self.prompt_config)
-        
+
         # Register tool-specific templates with framework
         self.tool_config.register_templates_with_framework(self.prompt_framework)
-        
-        # Initialize specialized processors with unified configuration
-        self.state_enricher = StateEnricher(
-            static_data=static_data,
-            config=self.llm_config  # Use 'config' parameter as expected by StateEnricher
-        )
-        self.response_processor = ResponseProcessor(
-            config=self.llm_config  # Use 'config' parameter for consistency
-        )
-        self.action_generator = ActionGenerator(
-            config=self.llm_config,  # Use 'config' parameter for consistency
-            static_data=static_data
-        )
-        
+
+        # Initialize specialized processors
+        self.state_enricher = StateEnricher(static_data=static_data, config=self.llm_config)
+        self.response_processor = ResponseProcessor(config=self.llm_config)
+        self.action_generator = ActionGenerator(config=self.llm_config, static_data=static_data)
+
         # Initialize coordination components
         self.transition_manager = TransitionManager(static_data)
-        self.memory_manager = MemoryManager(app_package, static_data)
-        
-        # Record service initialization event
-        self.event_bus.publish_experiment_event(
-            EventType.EXPERIMENT_STARTED,
-            experiment_id=app_package,
-            message=f"LLMActionService initialized with unified configuration",
-            source="LLMActionService",
-            channel=EventChannel.LIFECYCLE
-        )
-        
+        self.memory_manager = MemoryManager(static_data)
+
         # Log successful initialization
         self.logger.info(
             f"LLM Action Service initialized - "
@@ -194,7 +174,6 @@ class LLMActionService:
             f"Parser: {self.prompt_config.parser_type}, "
             f"Visitor: {self.prompt_config.visitor_type}"
         )
-
 
     @ErrorHandler.handle_errors(
         component="LLMActionService",
@@ -227,45 +206,56 @@ class LLMActionService:
             try:
                 # Pre-process state with complete enrichment pipeline
                 self._pre_process_state(state)
-                
+
                 # Create prompt context
                 prompt_context = self._create_prompt_context(state)
-                
+
                 # Generate prompt messages using unified framework
                 messages = self.prompt_framework.generate_prompt(state, prompt_context)
-                
+
+
+                print(f"****************** Messages: {len(messages)}")
+                for msg in messages:
+                    print(f"\n *** Message: {msg.role}")
+                    for content in msg.content:
+                        print(f"   - Content:\n{content.text}")
+
+
                 # Process LLM interaction
-                llm_response = self.llm_manager.generate(messages, self.llm_config)
-                
+                llm_response = self.llm_manager.generate(messages)
+
                 # Check if response is valid
                 if not llm_response:
                     self.logger.error("No response from LLM")
                     return []
-                
+
                 # Extract response content
                 response_text = llm_response.content if hasattr(llm_response, 'content') else str(llm_response)
-                
+
                 # Process response into action descriptions
                 actions, errors = self.response_processor.process_response(response_text, state)
-                
+
                 # Report any errors
                 for error in errors:
                     self.logger.warning(f"Response parsing issue: {error}")
-                
+
                 # Generate executable actions
                 generated_actions = self.action_generator.create_actions(actions, state)
-                
+
                 # Update memory with interaction history
                 self.memory_manager.record_actions(state, generated_actions)
-                
+
                 # Log processing results
                 self.logger.info(
                     f"Processed state - Generated {len(generated_actions)} actions "
                     f"using strategy: {self.prompt_config.strategy_type}"
                 )
-                
+
+                # Record LLM event
+                # self.event_bus.publish_llm_event(llm_response, generated_actions)
+
                 return [action.to_droidbot_format() for action in generated_actions]
-                
+
             except Exception as e:
                 self.logger.error(f"State processing failed: {e}")
                 raise LLMServiceError(f"State processing failed: {e}")
@@ -306,7 +296,10 @@ class LLMActionService:
             bool: True if a transition (to other screen) was detected, False otherwise
         """
         self.logger.info(f"Pre-processing state: {state.get(StateEntry.ACTIVITY, 'unknown')}")
-        
+
+        # Initialize state with basic information
+        self._initialize_state(state)
+
         # Enrich state with additional information
         self.state_enricher.enrich_state(state)
 
@@ -324,6 +317,18 @@ class LLMActionService:
         state[StateEntry.TRANSITION_GUIDANCE] = transition_guidance
 
         return transition_detected
+
+    def _initialize_state(self, state: Dict[str, Any]):
+        """Initialize state with basic information.
+
+        Args:
+            state: Current application state
+        """
+        app_package = state.get(StateEntry.PACKAGE_NAME, "unknown")
+        app_activity = state.get(StateEntry.ACTIVITY, "unknown").replace("/", "")
+        state[StateEntry.PACKAGE_NAME] = app_package
+        state[StateEntry.ACTIVITY] = app_activity
+        state[StateEntry.STATIC_DATA] = self.static_data
 
     def _create_prompt_context(self, state: Dict[str, Any]) -> Dict[str, Any]:
         """Create context dictionary for prompt generation.
@@ -351,21 +356,12 @@ class LLMActionService:
             # Clean up specialized components
             if hasattr(self, 'llm_manager'):
                 self.llm_manager.cleanup()
-            
+
             if hasattr(self, 'memory_manager'):
                 self.memory_manager.cleanup()
-            
-            # Record cleanup event
-            self.event_bus.publish_experiment_event(
-                EventType.EXPERIMENT_COMPLETED,
-                experiment_id=self.app_package,
-                message="LLMActionService cleanup completed",
-                source="LLMActionService",
-                channel=EventChannel.LIFECYCLE
-            )
-            
+
             self.logger.info("LLMActionService cleanup completed")
-            
+
         except Exception as e:
             self.logger.error(f"Cleanup failed: {e}")
             raise LLMServiceError(f"Service cleanup failed: {e}")

@@ -270,7 +270,7 @@ class Widget(BaseValidatedModel):
     def model_post_init(self, __context) -> None:
         """Initialize logging after model validation."""
         logging_manager = LoggingManager.get_instance()
-        object.__setattr__(self, 'logger', logging_manager.get_logger("domain.widget.Widget", {
+        object.__setattr__(self, 'logger', logging_manager.get_logger("rvandroid_core.domain.widget.Widget", {
             "widget_id": self.widget_id,
             "widget_type": self.widget_type.name
         }))

@@ -31,10 +31,7 @@ structured text representations that inform future decision making.
 from typing import Any, Dict, Optional
 
 from rv_android_core.util.error.error_handler import ErrorHandler
-from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
-from rv_android_core.util.logging.manager import LoggingManager
 from rv_android_core.util.error.exceptions import RVParsingError
-
 from rv_llm.llm.constants import FragmentType, StateEntry
 from rv_llm.llm.prompt.information.base_fragment import InformationFragment
 
@@ -71,20 +68,10 @@ class HistoryFragment(InformationFragment):
             priority: The priority of the fragment (default: 100).
         """
         super().__init__(name, priority)
-        
-        # Initialize logging infrastructure
-        logging_manager = LoggingManager.get_instance()
-        self.logger = logging_manager.get_logger(
-            "llm.prompt.history_fragment",
-            {CONTEXT_COMPONENT: "HistoryFragment"}
-        )
-        
-        # Initialize error handling
-        self.error_handler = ErrorHandler.get_instance()
-        
+
         # Configuration for history processing
         self.max_history_entries = 5  # Limit history to last N entries
-        
+
         self.logger.debug("Initialized HistoryFragment for memory data processing")
 
     @ErrorHandler.handle_errors(component="HistoryFragment", phase="generation", reraise=True)
@@ -116,7 +103,7 @@ class HistoryFragment(InformationFragment):
         # Process action history from memory management
         if StateEntry.ACTION_HISTORY in state:
             action_history = state[StateEntry.ACTION_HISTORY]
-            
+
             if isinstance(action_history, str) and action_history.strip():
                 # Pre-formatted history from MemoryManager
                 self.logger.debug("Using pre-formatted action history from MemoryManager")
@@ -133,7 +120,7 @@ class HistoryFragment(InformationFragment):
         # Process memory insights if available
         if StateEntry.MEMORY_INSIGHTS in state:
             memory_insights = state[StateEntry.MEMORY_INSIGHTS]
-            
+
             if isinstance(memory_insights, str) and memory_insights.strip():
                 self.logger.debug("Including memory insights in history")
                 history_parts.append(f"\nMemory Insights:\n{memory_insights}")
@@ -178,8 +165,8 @@ class HistoryFragment(InformationFragment):
 
         # Limit to the last N entries to prevent context bloat
         limited_actions = (
-            actions[-self.max_history_entries:] 
-            if len(actions) > self.max_history_entries 
+            actions[-self.max_history_entries:]
+            if len(actions) > self.max_history_entries
             else actions
         )
 
@@ -194,30 +181,30 @@ class HistoryFragment(InformationFragment):
                 if isinstance(action, str):
                     # Pre-formatted string action
                     formatted_parts.append(f"  {i + 1}. {action}")
-                    
+
                 elif hasattr(action, 'text') and hasattr(action, 'action_type'):
                     # Structured action object (GeneratedAction, Iteration, etc.)
                     action_type = getattr(action, 'action_type', 'unknown')
                     text = getattr(action, 'text', '')
                     formatted_parts.append(f"  {i + 1}. {action_type} - {text}")
-                    
+
                 elif isinstance(action, dict):
                     # Dictionary format with action details
                     action_type = action.get("action_type", "unknown")
                     text = action.get("text", "")
                     success = action.get("success", None)
-                    
+
                     result_text = ""
                     if success is not None:
                         result_text = " (succeeded)" if success else " (failed)"
-                    
+
                     formatted_parts.append(f"  {i + 1}. {action_type} - {text}{result_text}")
-                    
+
                 else:
                     # Unknown format, attempt string representation
                     action_str = str(action)[:100]  # Limit length
                     formatted_parts.append(f"  {i + 1}. {action_str}")
-                    
+
             except Exception as e:
                 self.logger.warning(f"Error formatting action {i}: {e}")
                 formatted_parts.append(f"  {i + 1}. [Error formatting action]")
@@ -246,7 +233,7 @@ class HistoryFragment(InformationFragment):
         # Check for action history in state
         if StateEntry.ACTION_HISTORY in state:
             action_history = state[StateEntry.ACTION_HISTORY]
-            
+
             if isinstance(action_history, str) and action_history.strip():
                 self.logger.debug("Including pre-formatted action history")
                 return True
@@ -259,7 +246,7 @@ class HistoryFragment(InformationFragment):
         # Check for memory insights in state
         if StateEntry.MEMORY_INSIGHTS in state:
             memory_insights = state[StateEntry.MEMORY_INSIGHTS]
-            
+
             if isinstance(memory_insights, str) and memory_insights.strip():
                 self.logger.debug("Including memory insights")
                 return True

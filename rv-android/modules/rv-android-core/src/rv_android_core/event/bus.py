@@ -143,7 +143,7 @@ class EventBus:
         )
         self._processing_thread.start()
 
-        self.logger.debug(f"Initialized asynchronous event processing with {worker_threads} workers")
+        self.logger.info(f"Initialized asynchronous event processing with {worker_threads} workers")
 
     def _process_event_queue(self) -> None:
         """Process events from the queue in a separate thread."""
@@ -528,3 +528,4 @@ class EventBus:
             self._processing_thread.join(timeout=2.0)
 
         self.logger.info("EventBus shutdown complete")
+

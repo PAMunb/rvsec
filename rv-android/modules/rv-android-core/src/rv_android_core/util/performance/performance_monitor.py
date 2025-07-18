@@ -122,7 +122,7 @@ class PerformanceMonitor:
         # Set up logging using LoggingManager
         logging_manager = LoggingManager.get_instance()
         self.logger = logging_manager.get_logger(
-            "util.performance_monitor",
+            "rv_android_core.util.performance.performance_monitor",
             {CONTEXT_COMPONENT: "PerformanceMonitor"}
         )
 

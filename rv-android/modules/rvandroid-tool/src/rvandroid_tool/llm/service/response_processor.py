@@ -47,7 +47,7 @@ class ResponseProcessor:
 
         # Configure logging
         self.logger = logging_manager.get_logger(
-            "llm.service.response_processor",
+            "rvandroid_tool.llm.service.response_processor",
             {CONTEXT_COMPONENT: "ResponseProcessor"}
         )
 

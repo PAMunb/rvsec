@@ -48,9 +48,9 @@ class BatchActionStrategy(PromptStrategy):
         Returns:
             True if batch actions should be used, False otherwise.
         """
-        # Check for UI patterns
-        if StateEntry.UI_PATTERNS in state:
-            return True
+        # # Check for UI patterns
+        # if StateEntry.UI_PATTERNS in state:
+        #     return True
 
         # Check for detected pattern
         if StateEntry.DETECTED_PATTERN in state:

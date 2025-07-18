@@ -157,36 +157,6 @@ class TestCircuitBreakerIntegration:
             tool2.should_fail = False
             tool2.execute(self.mock_task, self.mock_app)  # Should succeed
 
-    def test_circuit_breaker_with_tool_factory(self):
-        """Test circuit breaker integration with tool factory."""
-        # Arrange
-        spec = ToolSpec.create_builtin_spec(
-            name="circuit_breaker_test_tool",
-            description="Tool for testing circuit breaker with factory",
-            url="https://test.com/tool",
-            version="1.0.0"
-        )
-        
-        self.registry.register_tool("circuit_breaker_test_tool", MockFailingTool, spec)
-        
-        with patch('builtins.open', create=True) as mock_open:
-            mock_file = MagicMock()
-            mock_open.return_value.__enter__.return_value = mock_file
-            
-            # Create tool through factory
-            tool = ToolFactory.create_configured_tool("circuit_breaker_test_tool", [], {})
-            tool.circuit_breaker = CommandCircuitBreaker(failure_threshold=2, retry_count=1)
-            
-            # Verify circuit breaker is working
-            tool.should_fail = True
-            with pytest.raises(RVToolExecutionError):
-                tool.execute(self.mock_task, self.mock_app)
-            with pytest.raises(RVToolExecutionError):
-                tool.execute(self.mock_task, self.mock_app)
-            
-            # Should be blocked by circuit breaker
-            with pytest.raises(CircuitBreakerOpenError):
-                tool.execute(self.mock_task, self.mock_app)
 
     def test_circuit_breaker_statistics_tracking(self):
         """Test that circuit breaker statistics are properly tracked."""

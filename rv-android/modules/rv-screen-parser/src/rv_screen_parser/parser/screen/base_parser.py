@@ -58,7 +58,7 @@ class BaseScreenParser(Generic[T], ABC):
         # Initialize standardized logging system
         self.logging_manager = LoggingManager.get_instance()
         self.logger = self.logging_manager.get_logger(
-            f"parser.screen.{parser_name}",
+            f"rv_screen_parser.parser.screen.{parser_name}",
             {
                 CONTEXT_COMPONENT: f"screen_parser.{parser_name}"
             }

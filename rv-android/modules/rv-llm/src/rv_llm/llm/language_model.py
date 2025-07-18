@@ -93,7 +93,7 @@ class LanguageModel(ABC):
         # Configure logging with contextual information
         logging_manager = LoggingManager.get_instance()
         self.logger = logging_manager.get_logger(
-            "llm.language_model",
+            "rv_llm.llm.language_model",
             {CONTEXT_COMPONENT: f"LanguageModel-{model_name}"}
         )
 

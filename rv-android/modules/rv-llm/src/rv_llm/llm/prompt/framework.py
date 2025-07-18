@@ -95,15 +95,21 @@ class PromptFramework:
         # Set up logging
         logging_manager = LoggingManager.get_instance()
         self.logger = logging_manager.get_logger(
-            "llm.prompt.framework",
+            "rv_llm.llm.prompt.framework",
             {CONTEXT_COMPONENT: "PromptFramework"}
         )
 
         # Set up error handling
         self.error_handler = ErrorHandler.get_instance()
 
+        self.logger.info("PromptFramework created")
+
     @classmethod
     def create(cls, config: Optional['PromptConfig']) -> 'PromptFramework':
+        logger = LoggingManager.get_instance().get_logger("rv_llm.llm.prompt.framework")
+
+        logger.info("Creating PromptFramework ...")
+
         # Create information manager and fragments
         information_manager = InformationManager()
 

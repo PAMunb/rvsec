@@ -67,7 +67,7 @@ class Jinja2Template:
         # Set up logging
         logging_manager = LoggingManager.get_instance()
         self.logger = logging_manager.get_logger(
-            f"llm.prompt.template.{name}.{role}",
+            f"rv_llm.llm.prompt.template.{name}.{role}",
             {CONTEXT_COMPONENT: f"Jinja2Template:{name}:{role}"}
         )
 
@@ -295,7 +295,7 @@ class FragmentDictLoader(jinja2.BaseLoader):
         # Set up logging
         logging_manager = LoggingManager.get_instance()
         self.logger = logging_manager.get_logger(
-            "llm.prompt.template.fragment_loader",
+            "llm.prompt.template.jinja_template.FragmentDictLoader",
             {CONTEXT_COMPONENT: "FragmentDictLoader"}
         )
 

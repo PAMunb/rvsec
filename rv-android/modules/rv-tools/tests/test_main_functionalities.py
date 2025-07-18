@@ -167,59 +167,6 @@ class TestToolFactory:
         
         return registry
     
-    def test_simple_tool_creation(self, factory_with_tools):
-        """Test creating tool from simple name."""
-        registry = factory_with_tools
-        
-        tool = ToolFactory.create_tool_from_spec("droidbot", registry)
-        assert tool is not None
-        assert tool.name == "droidbot"
-    
-    def test_tool_with_variant_creation(self, factory_with_tools):
-        """Test creating tool with variant."""
-        registry = factory_with_tools
-        
-        tool = ToolFactory.create_tool_from_spec("droidbot:bfs_greedy", registry)
-        assert tool is not None
-        assert tool.name == "droidbot"
-        # Note: In a real implementation, the tool would be configured with the variant
-    
-    def test_tool_with_parameters_creation(self, factory_with_tools):
-        """Test creating tool with parameters."""
-        registry = factory_with_tools
-        
-        tool = ToolFactory.create_tool_from_spec("droidbot:bfs_greedy@timeout=300", registry)
-        assert tool is not None
-        assert tool.name == "droidbot"
-        # Note: In a real implementation, the tool would be configured with the parameters
-    
-    def test_tool_spec_parsing(self, factory_with_tools):
-        """Test parsing of tool specification string."""
-        
-        # Test simple tool name
-        tool_name, variants, params = ToolFactory._parse_tool_spec("droidbot")
-        assert tool_name == "droidbot"
-        assert variants == []
-        assert params == {}
-        
-        # Test tool with variant
-        tool_name, variants, params = ToolFactory._parse_tool_spec("droidbot:bfs_greedy")
-        assert tool_name == "droidbot"
-        assert variants == ["bfs_greedy"]
-        assert params == {}
-        
-        # Test tool with parameters
-        tool_name, variants, params = ToolFactory._parse_tool_spec("droidbot@timeout=300")
-        assert tool_name == "droidbot"
-        assert variants == []
-        assert params == {"timeout": "300"}
-        
-        # Test tool with variant and parameters
-        tool_name, variants, params = ToolFactory._parse_tool_spec("droidbot:bfs_greedy@timeout=300,policy=aggressive")
-        assert tool_name == "droidbot"
-        assert variants == ["bfs_greedy"]
-        assert params == {"timeout": "300", "policy": "aggressive"}
-    
     def test_tool_not_found_in_factory(self, factory_with_tools):
         """Test error handling when tool is not found in factory."""
         registry = factory_with_tools

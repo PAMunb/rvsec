@@ -6,6 +6,7 @@ operations information (previously called security operations) from the applicat
 
 from typing import Any, Dict, List, Optional
 
+from rv_llm.llm.constants import FragmentType
 from rv_llm.llm.prompt.information.base_fragment import InformationFragment
 
 
@@ -16,7 +17,7 @@ class MonitoredOperationsFragment(InformationFragment):
     operations, file access, network calls) that have been detected in the application.
     """
 
-    def __init__(self, name: str = "monitored_operations", priority: int = 300):
+    def __init__(self, name: str = FragmentType.MONITORED_OPERATIONS, priority: int = 300):
         """Initialize the monitored operations fragment.
         
         Args:
@@ -24,6 +25,8 @@ class MonitoredOperationsFragment(InformationFragment):
             priority: The priority of the fragment (default: 300).
         """
         super().__init__(name, priority)
+
+        self.logger.debug("Initialized MonitoredOperationsFragment for structured screen processing")
 
     def generate(self, state: Dict[str, Any], context: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """Generate monitored operations information from the application state.

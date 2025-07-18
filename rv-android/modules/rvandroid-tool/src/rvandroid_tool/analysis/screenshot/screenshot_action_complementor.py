@@ -295,7 +295,7 @@ class ScreenshotActionComplementor(BaseAnalyzer):
         # Initialize logging infrastructure
         logging_manager = LoggingManager.get_instance()
         self.logger = logging_manager.get_logger(
-            "screenshot.action_complementor",
+            "rvandroid_tool.analysis.screenshot.screenshot_action_complementor",
             {CONTEXT_COMPONENT: "ScreenshotActionComplementor"}
         )
 

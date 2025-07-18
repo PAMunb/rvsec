@@ -26,7 +26,7 @@ class AbstractScreenVisitor(ABC):
         # Configure logging
         logging_manager = LoggingManager.get_instance()
         self.logger = logging_manager.get_logger(
-            "parser.screen.visitor",
+            "rv_screen_parser.parser.screen.visitor",
             {
                 CONTEXT_COMPONENT: "AbstractScreenVisitor"
             }

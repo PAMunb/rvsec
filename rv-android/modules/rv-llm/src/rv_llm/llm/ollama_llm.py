@@ -4,7 +4,6 @@ Ollama language model implementation for local AI inference.
 This module provides Ollama integration for local language model operations
 in Android testing experiments and AI-driven analysis workflows.
 """
-import time
 from typing import List, Optional, ClassVar
 
 # Use official ollama library
@@ -13,9 +12,9 @@ from ollama import ChatResponse, Client
 from rv_android_core.util.error.error_handler import ErrorHandler
 from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
 from rv_android_core.util.logging.manager import LoggingManager
+from rv_llm.config.llm_config import LLMConfig
 from rv_llm.llm.data_structures import LLMMessage, LLMResponse
 from rv_llm.llm.language_model import LanguageModel
-from rv_llm.config.llm_config import LLMConfig
 
 
 class OllamaLLM(LanguageModel):
@@ -88,7 +87,7 @@ class OllamaLLM(LanguageModel):
         # Setup logging and error handling
         self.logging_manager = LoggingManager.get_instance()
         self.logger = self.logging_manager.get_logger(
-            "llm.ollama",
+            "rv_llm.llm.ollama",
             {CONTEXT_COMPONENT: self.__class__.__name__}
         )
         self.error_handler = ErrorHandler.get_instance()
@@ -124,9 +123,6 @@ class OllamaLLM(LanguageModel):
         _config = config or self.default_config
 
         try:
-            # Start timing the operation
-            start_time = time.time()
-
             # Format messages for Ollama
             formatted_msgs = []
             for message in messages:
@@ -213,7 +209,3 @@ class OllamaLLM(LanguageModel):
             self._client = None
 
         self.logger.info("Cleaned up Ollama LLM resources")
-
-
-# # Register the model
-# def register():

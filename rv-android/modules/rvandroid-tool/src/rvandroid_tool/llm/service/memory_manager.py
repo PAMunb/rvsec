@@ -54,29 +54,28 @@ class MemoryManager:
         error_handler: Error handler for managing exceptions
     """
 
-    def __init__(self, app_package: str = "unknown", static_data: Optional[StaticAnalysisData] = None,
+    def __init__(self, static_data: Optional[StaticAnalysisData] = None,
                  max_short_term_iterations: int = 10):
         """
         Initialize the memory manager with memory systems.
         
         Args:
-            app_package: Application package name
             static_data: Optional static analysis data
             max_short_term_iterations: Maximum number of iterations in short-term memory
         """
         # Initialize memory systems using the core implementations
         self.short_term = ShortTermMemory(max_iterations=max_short_term_iterations)
-        self.long_term = LongTermMemory(app_package, static_data)
+        self.long_term = LongTermMemory(static_data)
 
         # Set up error handling and logging
         self.error_handler = ErrorHandler.get_instance()
         logging_manager = LoggingManager.get_instance()
         self.logger = logging_manager.get_logger(
-            "llm.service.memory_manager",
+            "rvandroid_tool.llm.service.memory_manager",
             {CONTEXT_COMPONENT: "MemoryManager"}
         )
 
-        self.logger.info(f"Initialized memory manager for {app_package}")
+        self.logger.info("Initialized memory manager")
 
     def update(self, state: Dict[str, Any]) -> None:
         """
@@ -494,3 +493,40 @@ class MemoryManager:
             result["views"] = processed_views
 
         return result
+        
+    def cleanup(self) -> None:
+        """
+        Clean up resources used by the memory manager.
+        
+        This method should be called when the memory manager is no longer needed
+        to ensure proper cleanup of resources.
+        """
+        try:
+            # Clear short-term memory
+            if hasattr(self, 'short_term_memory'):
+                self.short_term_memory.clear()
+                
+            # Clear long-term memory references
+            if hasattr(self, 'long_term_memory'):
+                # The long_term_memory doesn't have a cleanup method yet,
+                # but we can clear its references to help with garbage collection
+                if hasattr(self.long_term_memory, 'states'):
+                    self.long_term_memory.states.clear()
+                if hasattr(self.long_term_memory, 'actions'):
+                    self.long_term_memory.actions.clear()
+                if hasattr(self.long_term_memory, 'activities'):
+                    self.long_term_memory.activities.clear()
+                if hasattr(self.long_term_memory, 'transitions'):
+                    self.long_term_memory.transitions.clear()
+            
+            self.logger.info("Memory manager cleanup completed")
+            
+        except Exception as e:
+            self.logger.error(f"Error during memory manager cleanup: {e}")
+            self.error_handler.handle_error(
+                e,
+                context={
+                    "component": "MemoryManager",
+                    "function": "cleanup"
+                }
+            )

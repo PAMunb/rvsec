@@ -52,7 +52,7 @@ class VisitorFactory:
             raise ValueError(f"Unknown visitor type: {visitor_type}. Options: {list(cls._REGISTRY.keys())}")
 
         visitor_class = cls._REGISTRY[visitor_type]
-        return visitor_class(static_data, activity, **kwargs)
+        return visitor_class(static_data, activity, **kwargs) # TODO rever argumento
 
     @classmethod
     def get_visitor_class(cls, visitor_type: str = "default") -> Type[AbstractScreenVisitor]:
@@ -108,4 +108,4 @@ class VisitorFactory:
         Returns:
             Dictionary of visitor types and their classes
         """
-        return VisitorFactory._REGISTRY.keys()
+        return list(VisitorFactory._REGISTRY.keys())

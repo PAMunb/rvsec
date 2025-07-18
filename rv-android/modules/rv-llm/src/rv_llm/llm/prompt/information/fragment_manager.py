@@ -25,7 +25,7 @@ class InformationManager:
         # Set up logging
         logging_manager = LoggingManager.get_instance()
         self.logger = logging_manager.get_logger(
-            "llm.prompt.information.manager",
+            "rv_llm.llm.prompt.information.fragment_manager",
             {CONTEXT_COMPONENT: "InformationManager"}
         )
 
@@ -34,6 +34,8 @@ class InformationManager:
 
         # Initialize fragment registry
         self.fragments: Dict[str, InformationFragment] = {}
+
+        self.logger.debug("InformationManager created")
 
     @ErrorHandler.handle_errors(
         component="InformationManager",

@@ -23,7 +23,7 @@ class StaticAnalysisParser:
     def __init__(self):
         """Initialize the static analysis parser."""
         self.logging_manager = LoggingManager.get_instance()
-        self.logger = self.logging_manager.get_logger("parser.static.static_analysis_parser")
+        self.logger = self.logging_manager.get_logger("rv_static_analysis.parser.static.static_analysis_parser")
 
         # Create parser instances
         self.reach_parser = ReachParser()
@@ -81,7 +81,7 @@ class StaticAnalysisParser:
         Returns:
             StaticAnalysisData with parsed information
         """
-        logger = self.logging_manager.get_logger("parser.static.static_analysis_parser.read_static_analysis_files", {
+        logger = self.logging_manager.get_logger("rv_static_analysis.parser.static.static_analysis_parser.read_static_analysis_files", {
             "apk": apk,
             "package": package
         })

@@ -49,6 +49,7 @@ from rv_experiment.constants import (
 )
 from rv_instrumentation.config import RVInstrumentationConfig, ConfigurationError as InstrumentationConfigError
 from rv_llm.config.llm_config import LLMConfig
+from rv_llm.config.prompt_config import PromptConfig
 # Configuration class imports for proper type usage
 from rv_monitor_generator.config import RVGeneratorConfig, ConfigurationError as MonitorConfigError
 # Import ToolConfig from rv-platform for unified tool configuration
@@ -128,7 +129,6 @@ class ExperimentConfig(BaseValidatedModel):
     # Continuation support and configuration hierarchy
     resume_mode: bool = Field(default=False, description="Enable experiment continuation mode")
     status_file: Optional[str] = Field(default=None, description="Path to experiment status file for continuation")
-
 
     def model_post_init(self, __context) -> None:
         """Initialize configuration after creation with defaults and validation."""
@@ -512,31 +512,25 @@ class ExperimentConfig(BaseValidatedModel):
         Raises:
             ConfigurationError: If tool configuration is invalid
         """
-        from rv_llm.constants import LLMType, DEFAULT_MODEL, DEFAULT_TEMPERATURE
         from rv_experiment.factories.rvandroid_config_factory import RvAndroidConfigFactory
-        
+
         # Find RVAndroid tool in tool_configs (populated from CLI)
         rvandroid_tools = [tc for tc in self.tool_configs if tc.name == tool_name]
-        
+
         if not rvandroid_tools:
             # Return default configuration using constants
-            return LLMConfig(
-                llm_type=LLMType.OLLAMA,
-                model=DEFAULT_MODEL,
-                temperature=DEFAULT_TEMPERATURE,
-                base_url="http://localhost:11434"
-            )
-        
+            return LLMConfig()
+
         # Use RvAndroidConfigFactory for variant resolution
         tool_config = rvandroid_tools[0]
-        
+
         # Check if any variant is a predefined variant
         variant_name = None
         for variant in tool_config.variants:
             if RvAndroidConfigFactory.is_variant_supported(variant):
                 variant_name = variant
                 break
-        
+
         if variant_name:
             # Use variant as tool_name for factory resolution
             config_dict = RvAndroidConfigFactory.create_from_tool_name(
@@ -551,15 +545,16 @@ class ExperimentConfig(BaseValidatedModel):
                 tool_config=tool_config,
                 experiment_config=self
             )
-        
+
         # Extract LLM-specific configuration
+        # TODO verificar
         llm_config = RvAndroidConfigFactory.create_llm_config(config_dict)
-        
+
         # Validate configuration
         is_valid, errors = llm_config.validate()
         if not is_valid:
             raise ConfigurationError(f"LLM configuration validation failed: {errors}")
-        
+
         return llm_config
 
     @ErrorHandler.handle_errors(
@@ -601,10 +596,10 @@ class ExperimentConfig(BaseValidatedModel):
         from rv_llm.llm.constants import PromptStrategyType
         from rv_llm.config.prompt_config import PromptConfig
         from rv_screen_parser.constants import ScreenParserType, VisitorType
-        
+
         # Find RVAndroid tool in tool_configs
         rvandroid_tools = [tc for tc in self.tool_configs if tc.name == tool_name]
-        
+
         if not rvandroid_tools:
             # Return default prompt configuration using constants
             return PromptConfig(
@@ -612,26 +607,26 @@ class ExperimentConfig(BaseValidatedModel):
                 parser_type=ScreenParserType.DROIDBOT,
                 visitor_type=VisitorType.DETAILED
             )
-        
+
         tool_config = rvandroid_tools[0]
-        
+
         # Parse variants to determine configuration
         strategy_type = PromptStrategyType.STANDARD
         parser_type = ScreenParserType.DROIDBOT
         visitor_type = VisitorType.DETAILED
-        
+
         # Process strategy variants
         if "batch_action" in tool_config.variants:
             strategy_type = PromptStrategyType.BATCH_ACTION
         elif "standard" in tool_config.variants:
             strategy_type = PromptStrategyType.STANDARD
-        
+
         # Process parser variants
         if "uiautomator" in tool_config.variants:
             parser_type = ScreenParserType.UIAUTOMATOR
         elif "droidbot" in tool_config.variants:
             parser_type = ScreenParserType.DROIDBOT
-        
+
         # Process visitor variants
         if "basic" in tool_config.variants:
             visitor_type = VisitorType.BASIC
@@ -639,17 +634,17 @@ class ExperimentConfig(BaseValidatedModel):
             visitor_type = VisitorType.DETAILED
         elif "default" in tool_config.variants:
             visitor_type = VisitorType.DEFAULT
-        
+
         # Apply parameter overrides
         if "strategy_type" in tool_config.parameters:
             strategy_type = tool_config.parameters["strategy_type"]
-        
+
         if "parser_type" in tool_config.parameters:
             parser_type = tool_config.parameters["parser_type"]
-        
+
         if "visitor_type" in tool_config.parameters:
             visitor_type = tool_config.parameters["visitor_type"]
-        
+
         # Create prompt configuration
         prompt_config = PromptConfig(
             strategy_type=strategy_type,
@@ -657,12 +652,12 @@ class ExperimentConfig(BaseValidatedModel):
             visitor_type=visitor_type,
             additional_params=tool_config.parameters
         )
-        
+
         # Validate configuration
         is_valid, errors = prompt_config.validate()
         if not is_valid:
             raise ConfigurationError(f"Prompt configuration validation failed: {errors}")
-        
+
         return prompt_config
 
     def to_dict(self) -> Dict[str, Any]:
@@ -762,11 +757,7 @@ class ExperimentConfig(BaseValidatedModel):
             raise FileNotFoundError(f"Configuration file not found: {file_path}")
 
         with open(path, 'r') as f:
-            if path.suffix.lower() == '.json':
-                data = json.load(f)
-            else:
-                # Assume JSON
-                data = json.load(f)
+            data = json.load(f)
 
         return cls.from_dict(data)
 

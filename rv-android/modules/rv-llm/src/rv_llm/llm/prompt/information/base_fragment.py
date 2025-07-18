@@ -34,7 +34,7 @@ class InformationFragment(abc.ABC):
         # Set up logging
         logging_manager = LoggingManager.get_instance()
         self.logger = logging_manager.get_logger(
-            f"llm.prompt.information.{name}",
+            f"rv_llm.llm.prompt.information.{name}",
             {CONTEXT_COMPONENT: f"InformationFragment:{name}"}
         )
 

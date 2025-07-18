@@ -6,6 +6,7 @@ EXTENSION_JAVA = ".java"
 EXTENSION_JAR = ".jar"
 EXTENSION_MOP = ".mop"
 EXTENSION_RVM = ".rvm"
+EXTENSION_XML = ".xml"
 
 EXTENSION_LOGCAT = ".logcat"
 EXTENSION_TRACE = ".trace"

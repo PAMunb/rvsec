@@ -46,6 +46,7 @@ class ParserFactory:
         from rv_screen_parser.parser.screen.droidbot.droidbot_parser import DroidBotParser
         from rv_screen_parser.parser.screen.uiautomator.uiautomator_parser import UIAutomator2Parser
 
+        # TODO rever tipo do parametro ... usar enum ou str?
         cls.register_parser_type(ScreenParserType.DROIDBOT, DroidBotParser)
         cls.register_parser_type(ScreenParserType.UIAUTOMATOR, UIAutomator2Parser)
 

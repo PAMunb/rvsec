@@ -17,7 +17,7 @@ from rv_android_core.util.logging.manager import LoggingManager
 # Set up logging
 logging_manager = LoggingManager.get_instance()
 logger = logging_manager.get_logger(
-    "llm.prompt.template.xml_utils",
+    "rv_llm.llm.prompt.template.xml_utils",
     {CONTEXT_COMPONENT: "XMLUtils"}
 )
 

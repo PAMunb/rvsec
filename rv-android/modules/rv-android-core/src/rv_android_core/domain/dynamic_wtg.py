@@ -120,7 +120,7 @@ class DynamicTransitionGraph:
 
     def __init__(self):
         logging_manager = LoggingManager.get_instance()
-        self.logger = logging_manager.get_logger("domain.dynamic_wtg")
+        self.logger = logging_manager.get_logger("rv_android_core.domain.dynamic_wtg")
         self.graph = nx.DiGraph()
         self.activities: Dict[str, ActivityNode] = {}
         self.transitions: List[DynamicTransition] = []

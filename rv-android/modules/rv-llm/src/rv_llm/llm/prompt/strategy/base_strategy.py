@@ -49,7 +49,7 @@ class PromptStrategy(abc.ABC):
         # Set up logging
         logging_manager = LoggingManager.get_instance()
         self.logger = logging_manager.get_logger(
-            f"llm.prompt.strategy.{name}",
+            f"rv_llm.llm.prompt.strategy.{name}",
             {CONTEXT_COMPONENT: f"PromptStrategy:{name}"}
         )
 

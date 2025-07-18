@@ -11,6 +11,7 @@ from typing import Any, Dict, List, Optional
 
 import jinja2
 
+from rv_android_core.constants import EXTENSION_XML
 from rv_android_core.util.error.error_handler import ErrorHandler
 from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
 from rv_android_core.util.logging.manager import LoggingManager
@@ -28,17 +29,14 @@ class Jinja2TemplateRepository:
     - Leverages Jinja2's native inheritance for template extension
     - Manages template and fragment loading from file system
     - Provides standardized message generation for LLM interaction
-    - Supports template versioning and organization
 
     ### Key Components:
     - XML-based template structure with Jinja2 content
     - Native Jinja2 inheritance through {% extends %} and {% block %}
     - Template and fragment management with namespaces
     - Comprehensive error handling and logging
-    - LLM message generation with role-based structure
 
     ### Integration Points:
-    - Works with ComponentConfigurator for system configuration
     - Uses Jinja2Template for template rendering
     - Integrates with LLM data structures for message generation
     - Provides services to prompt strategies
@@ -58,7 +56,7 @@ class Jinja2TemplateRepository:
         # Set up logging
         logging_manager = LoggingManager.get_instance()
         self.logger = logging_manager.get_logger(
-            "llm.prompt.template.jinja_repository",
+            "rv_llm.llm.prompt.template.jinja_repository",
             {CONTEXT_COMPONENT: "Jinja2TemplateRepository"}
         )
 
@@ -66,12 +64,10 @@ class Jinja2TemplateRepository:
         self.error_handler = ErrorHandler.get_instance()
 
         # Set template directory
-        self.template_dir = template_dir or os.path.join(
-            os.path.dirname(__file__), "templates")
+        self.template_dir = template_dir or os.path.join(os.path.dirname(__file__), "templates")
 
         # Set fragment directory
-        self.fragment_dir = fragment_dir or os.path.join(
-            os.path.dirname(__file__), "fragments")
+        self.fragment_dir = fragment_dir or os.path.join(os.path.dirname(__file__), "fragments")
 
         # Ensure directories exist
         os.makedirs(self.template_dir, exist_ok=True)
@@ -86,8 +82,9 @@ class Jinja2TemplateRepository:
         self.jinja_env = self._create_jinja_environment()
 
         # Load templates and fragments
-        self._load_templates()
-        self._load_fragments()
+        # self._load_templates()
+        # self._load_fragments()
+        self.logger.debug("Jinja2TemplateRepository created")
 
     def _create_jinja_environment(self) -> jinja2.Environment:
         """Create a Jinja2 environment with custom settings.
@@ -149,14 +146,6 @@ class Jinja2TemplateRepository:
         template_format = config_dict.get('template_format', 'jinja2')
         self.logger.debug(f"Using template format: {template_format}")
 
-        # Apply template validation configuration
-        template_validation = config_dict.get('template_validation', True)
-        if template_validation:
-            self.logger.debug("Template validation enabled")
-
-        # Ensure critical fragments are available
-        self._ensure_critical_fragments()
-
         # Recreate Jinja environment after configuration changes
         self.jinja_env = self._create_jinja_environment()
 
@@ -171,12 +160,6 @@ class Jinja2TemplateRepository:
 
             # Define directories to load templates from
             template_dirs = [self.template_dir]
-
-            # Add RVDroid template directory if it exists
-            rvdroid_template_dir = os.path.join(self.template_dir, "rvdroid")
-            if os.path.exists(rvdroid_template_dir):
-                template_dirs.append(rvdroid_template_dir)
-                self.logger.info(f"Found RVDroid template directory: {rvdroid_template_dir}")
 
             # Load templates from all directories
             for template_dir in template_dirs:
@@ -206,16 +189,10 @@ class Jinja2TemplateRepository:
             template_info = {}
 
             for filename in os.listdir(directory):
-                if filename.endswith(".xml"):
+                if filename.endswith(EXTENSION_XML):
                     template_path = os.path.join(directory, filename)
-                    template_name = filename.replace(".xml", "")
-
-                    # Determine category based on directory
-                    if directory.endswith("rvdroid"):
-                        # For templates in the rvdroid directory, use the "rvdroid:" prefix
-                        template_key = f"rvdroid:{template_name}"
-                    else:
-                        template_key = template_name
+                    template_name = filename.replace(EXTENSION_XML, "")
+                    template_key = template_name
 
                     try:
                         # Load the XML file
@@ -393,29 +370,21 @@ class Jinja2TemplateRepository:
             # Check if the fragment directory exists
             if not os.path.exists(self.fragment_dir):
                 self.logger.warning(f"Fragment directory does not exist: {self.fragment_dir}")
-                self.logger.warning("Creating fragments directory...")
-                os.makedirs(self.fragment_dir, exist_ok=True)
-
-                # Create some default fragments for basic templates
-                self._create_default_fragments()
+                return
 
             # Process the main fragment directory first
-            if os.path.exists(self.fragment_dir):
-                self.logger.info(f"Processing main fragment directory: {self.fragment_dir}")
-                self._load_fragments_from_directory(self.fragment_dir)
+            self.logger.info(f"Processing main fragment directory: {self.fragment_dir}")
+            self._load_fragments_from_directory(self.fragment_dir)
 
-                # Then process subdirectories
-                for subdir_name in os.listdir(self.fragment_dir):
-                    subdir_path = os.path.join(self.fragment_dir, subdir_name)
-                    if os.path.isdir(subdir_path):
-                        self.logger.info(f"Processing fragment subdirectory: {subdir_path}")
-                        self._load_fragments_from_directory(subdir_path)
+            # Then process subdirectories
+            for subdir_name in os.listdir(self.fragment_dir):
+                subdir_path = os.path.join(self.fragment_dir, subdir_name)
+                if os.path.isdir(subdir_path):
+                    self.logger.info(f"Processing fragment subdirectory: {subdir_path}")
+                    self._load_fragments_from_directory(subdir_path)
 
             # Log summary of loaded fragments
             self.logger.info(f"Loaded {len(self.fragments)} fragments")
-
-            # Validate critical fragments
-            self._ensure_critical_fragments()
 
             # Update Jinja environment with loaded fragments
             self.jinja_env = self._create_jinja_environment()
@@ -430,180 +399,6 @@ class Jinja2TemplateRepository:
                 }
             )
 
-    def _create_default_fragments(self) -> None:
-        """Create default fragments for essential functionality."""
-        self.logger.info("Creating default fragments for basic functionality")
-
-        # Ensure ui_patterns directory exists
-        ui_patterns_dir = os.path.join(self.fragment_dir, "ui_patterns")
-        os.makedirs(ui_patterns_dir, exist_ok=True)
-
-        # Define essential fragments and their content
-        default_fragments = {
-            # Basic system fragments
-            "system_intro": """You are an Android testing assistant. Your task is to help test Android applications by recommending the best actions to take based on the current screen state.""",
-            "system_guidelines": """GENERAL GUIDELINES:
-- Focus on thorough exploration of the application
-- Target actions that are most likely to trigger interesting behavior
-- Pay attention to input validation and edge cases
-- Attempt to reach all parts of the application""",
-
-            # Standard prompt fragments
-            "standard_instructions": """Your task is to analyze the current state of an Android application and recommend the single most effective action to take next for testing purposes.""",
-            "standard_format": """RESPONSE FORMAT:
-Your response must be a valid JSON object with the following structure:
-{
-  "action": {
-    "type": "ACTION_TYPE",  // e.g., "CLICK", "SET_TEXT", "LONG_CLICK"
-    "target": "element description or action_id",
-    "value": "text to enter" // only for SET_TEXT actions
-  },
-  "explanation": "Brief explanation of why this action was chosen"
-}""",
-            "standard_guidelines": """IMPORTANT RULES:
-1. SEQUENCE MATTERS - actions must be in a logical order (e.g., fill all form fields BEFORE submitting)
-2. FORM FILLING - when you see a form, ALWAYS fill out all required fields before clicking submit/next buttons
-3. NEVER include a BACK action unless absolutely necessary (only when no other actions are possible)
-4. Prioritize exploring new functionality over revisiting previous screens
-5. For text inputs, provide appropriate values based on the field type (emails, passwords, etc.)
-6. Choose the single most effective action for thorough testing""",
-
-            # Batch action fragments
-            "batch_instructions": """Your task is to analyze the current state of an Android application and recommend a BATCH of effective actions to execute in sequence.""",
-            "batch_format": """RESPONSE FORMAT:
-Your response must be a valid JSON object with the following structure:
-{
-  "actions": [
-    {
-      "type": "ACTION_TYPE",  // e.g., "CLICK", "SET_TEXT", "LONG_CLICK"
-      "target": "element description or action_id",
-      "value": "text to enter" // only for SET_TEXT actions
-    },
-    // Additional actions...
-  ],
-  "explanation": "Brief explanation of this action sequence"
-}""",
-
-            # User fragments
-            "user_base": """I'm testing an Android application and need your guidance on the next action to take.
-
-Current Activity: {{ activity }}
-
-Screen Elements:
-{{ ui_elements }}"""
-        }
-
-        # Write default fragments to files
-        for fragment_name, content in default_fragments.items():
-            fragment_path = os.path.join(self.fragment_dir, f"{fragment_name}.xml")
-
-            try:
-                with open(fragment_path, 'w', encoding='utf-8') as f:
-                    f.write(f"""<?xml version="1.0" encoding="UTF-8"?>
-<fragment name="{fragment_name}">
-  <![CDATA[
-{content}
-  ]]>
-</fragment>""")
-                self.logger.info(f"Created default fragment: {fragment_name}")
-            except Exception as e:
-                self.logger.error(f"Error creating default fragment {fragment_name}: {e}")
-
-        # Create UI pattern fragments
-        ui_patterns = {
-            "form_pattern": """FORM HANDLING GUIDANCE:
-- Identify all required input fields before submission
-- Fill fields with valid data appropriate to their type
-- For login forms, use test credentials
-- Check for validation messages after submission""",
-
-            "list_pattern": """LIST HANDLING GUIDANCE:
-- Explore both scrolling up and down
-- Try selecting items at different positions
-- Check for interactive elements within list items
-- Try to reach the end of the list if possible"""
-        }
-
-        # Write UI pattern fragments
-        for pattern_name, content in ui_patterns.items():
-            pattern_path = os.path.join(ui_patterns_dir, f"{pattern_name}.xml")
-
-            try:
-                with open(pattern_path, 'w', encoding='utf-8') as f:
-                    f.write(f"""<?xml version="1.0" encoding="UTF-8"?>
-<fragment name="{pattern_name}">
-  <![CDATA[
-{content}
-  ]]>
-</fragment>""")
-                self.logger.info(f"Created UI pattern fragment: {pattern_name}")
-            except Exception as e:
-                self.logger.error(f"Error creating UI pattern fragment {pattern_name}: {e}")
-
-    def _ensure_critical_fragments(self) -> None:
-        """Ensure that all critical fragments required by core templates are available."""
-        self.logger.info("Ensuring critical fragments are available")
-
-        # Define the critical fragments and their default contents
-        critical_fragments = {
-            "system_intro": "You are an Android testing assistant. Your task is to help test Android applications by recommending the best actions to take based on the current screen state.",
-
-            "system_guidelines": """GENERAL GUIDELINES:
-- Focus on thorough exploration of the application
-- Target actions that are most likely to trigger interesting behavior
-- Pay attention to input validation and edge cases
-- Attempt to reach all parts of the application""",
-
-            "standard_instructions": """Your task is to analyze the current state of an Android application and recommend the single most effective action to take next for testing purposes.""",
-
-            "standard_format": """RESPONSE FORMAT:
-Your response must be a valid JSON object with the following structure:
-{
-  "action": {
-    "type": "ACTION_TYPE",  // e.g., "CLICK", "SET_TEXT", "LONG_CLICK"
-    "target": "element description or action_id",
-    "value": "text to enter" // only for SET_TEXT actions
-  },
-  "explanation": "Brief explanation of why this action was chosen"
-}""",
-
-            "standard_guidelines": """IMPORTANT RULES:
-1. SEQUENCE MATTERS - actions must be in a logical order (e.g., fill all form fields BEFORE submitting)
-2. FORM FILLING - when you see a form, ALWAYS fill out all required fields before clicking submit/next buttons
-3. NEVER include a BACK action unless absolutely necessary (only when no other actions are possible)
-4. Prioritize exploring new functionality over revisiting previous screens
-5. For text inputs, provide appropriate values based on the field type (emails, passwords, etc.)
-6. Choose the single most effective action for thorough testing""",
-
-            "user_base": """I'm testing an Android application and need your guidance on the next action to take.
-
-Current Activity: {{ activity }}
-
-Screen Elements:
-{{ ui_elements }}"""
-        }
-
-        # Check each critical fragment
-        for fragment_name, default_content in critical_fragments.items():
-            # Check if fragment exists
-            if fragment_name not in self.fragments:
-                # Try with common prefixes
-                prefixed_names = [f"fragments/{fragment_name}", f"ui_patterns/{fragment_name}"]
-                found = False
-
-                for prefixed_name in prefixed_names:
-                    if prefixed_name in self.fragments:
-                        # Found with prefix, register under canonical name too
-                        self.fragments[fragment_name] = self.fragments[prefixed_name]
-                        found = True
-                        break
-
-                # If still not found, inject default content
-                if not found:
-                    self.logger.warning(
-                        f"Critical fragment '{fragment_name}' not found - injecting default content")
-                    self.fragments[fragment_name] = default_content
-
     def _load_fragments_from_directory(self, directory: str) -> None:
         """Load fragments from XML files in the specified directory.
 
@@ -615,9 +410,9 @@ Screen Elements:
         try:
             # Load all XML fragment files
             for filename in os.listdir(directory):
-                if filename.endswith(".xml"):
+                if filename.endswith(EXTENSION_XML):
                     fragment_path = os.path.join(directory, filename)
-                    fragment_name = filename.replace(".xml", "")
+                    fragment_name = filename.replace(EXTENSION_XML, "")
 
                     try:
                         # Load the XML file

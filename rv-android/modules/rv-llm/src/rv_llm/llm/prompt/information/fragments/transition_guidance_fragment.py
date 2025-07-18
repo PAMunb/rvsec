@@ -37,7 +37,7 @@ from rv_android_core.util.error.exceptions import RVParsingError
 
 from rv_llm.llm.constants import StateEntry
 from rv_llm.llm.prompt.information.base_fragment import InformationFragment
-
+from rv_llm.llm.constants import FragmentType, StateEntry
 
 class TransitionGuidanceFragment(InformationFragment):
     """Fragment for formatting transition guidance data for LLM templates.
@@ -60,7 +60,7 @@ class TransitionGuidanceFragment(InformationFragment):
     - Delivers formatted guidance for template-based prompt generation
     """
 
-    def __init__(self, name: str = "transition_guidance", priority: int = 200):
+    def __init__(self, name: str = FragmentType.TRANSITION_GUIDANCE, priority: int = 200):
         """Initialize the transition guidance fragment with comprehensive infrastructure.
         
         Sets up the complete fragment processing pipeline including error handling,
@@ -71,14 +71,7 @@ class TransitionGuidanceFragment(InformationFragment):
             priority: The priority of the fragment (higher values are displayed first)
         """
         super().__init__(name, priority)
-        
-        # Initialize logging infrastructure
-        logging_manager = LoggingManager.get_instance()
-        self.logger = logging_manager.get_logger(
-            "llm.prompt.transition_guidance_fragment",
-            {CONTEXT_COMPONENT: "TransitionGuidanceFragment"}
-        )
-        
+
         # Initialize error handling
         self.error_handler = ErrorHandler.get_instance()
         

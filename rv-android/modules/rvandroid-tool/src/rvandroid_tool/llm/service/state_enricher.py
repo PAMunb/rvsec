@@ -45,7 +45,7 @@ class StateEnricher:
         # Set up logging
         logging_manager = LoggingManager.get_instance()
         self.logger = logging_manager.get_logger(
-            "llm.service.state_enricher",
+            "rvandroid_tool.llm.service.state_enricher",
             {CONTEXT_COMPONENT: "StateEnricher"}
         )
 

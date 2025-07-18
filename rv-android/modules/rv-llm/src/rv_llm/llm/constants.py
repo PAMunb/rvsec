@@ -52,10 +52,6 @@ class PromptStrategyType:
     ALL = [STANDARD, BATCH_ACTION]
 
 
-
-
-
-
 class FragmentType:
     """
     Constants for information fragment types in the modular prompt system.
@@ -72,6 +68,7 @@ class FragmentType:
     MONITORED_OPERATIONS = "monitored_operations"
     UI_PATTERNS = "ui_patterns"
     HISTORY = "history"
+    TRANSITION_GUIDANCE = "transition_guidance"
 
 
 class TemplateRole:

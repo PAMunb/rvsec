@@ -39,7 +39,7 @@ from rv_screen_parser.parser.screen.visitor.model import ScreenItem
 
 from rv_llm.llm.constants import StateEntry
 from rv_llm.llm.prompt.information.base_fragment import InformationFragment
-
+from rv_llm.llm.constants import FragmentType, StateEntry
 
 class ScreenshotFragment(InformationFragment):
     """Fragment for processing and describing screenshots.
@@ -64,7 +64,7 @@ class ScreenshotFragment(InformationFragment):
 
     def __init__(
             self,
-            name: str = "screenshot",
+            name: str = FragmentType.SCREENSHOT,
             priority: int = 600,
             include_image: bool = True
     ):
@@ -79,16 +79,6 @@ class ScreenshotFragment(InformationFragment):
             include_image: Whether to include the actual image (default: True).
         """
         super().__init__(name, priority)
-        
-        # Initialize logging infrastructure
-        logging_manager = LoggingManager.get_instance()
-        self.logger = logging_manager.get_logger(
-            "llm.prompt.screenshot_fragment",
-            {CONTEXT_COMPONENT: "ScreenshotFragment"}
-        )
-        
-        # Initialize error handling
-        self.error_handler = ErrorHandler.get_instance()
         
         # Configuration for screenshot processing
         self.include_image = include_image

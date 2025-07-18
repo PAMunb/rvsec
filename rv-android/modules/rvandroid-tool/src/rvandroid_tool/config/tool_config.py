@@ -98,7 +98,7 @@ class RvAndroidToolConfig(BaseValidatedModel):
     server_port: int = Field(
         default=DEFAULT_SERVER_PORT,
         ge=1024,
-        le=65535,
+        le=49151,
         description="Port for RVAndroid server communication with DroidBot"
     )
     debug_mode: bool = Field(
@@ -116,10 +116,11 @@ class RvAndroidToolConfig(BaseValidatedModel):
     @classmethod
     def validate_server_port(cls, v):
         """Validate server port is within valid range."""
-        if v < 1024 or v > 65535:
-            raise ValueError(f"Server port must be between 1024-65535, got: {v}")
+        if v < 1024 or v > 49151:
+            raise ValueError(f"Server port must be between 1024-49151, got: {v}")
         return v
 
+    # TODO nao pode ser assim ... rv-experiment esta um nivel acima
     @classmethod
     @ErrorHandler.handle_errors(
         component="RvAndroidToolConfig",

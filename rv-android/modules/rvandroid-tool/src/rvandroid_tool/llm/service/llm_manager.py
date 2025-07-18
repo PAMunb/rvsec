@@ -109,7 +109,7 @@ class LLMManager:
 
         # Configure logging with component context
         self.logger = logging_manager.get_logger(
-            "llm.service.llm_manager",
+            "rvandroid_tool.llm.service.llm_manager",
             {CONTEXT_COMPONENT: "LLMManager"}
         )
 
@@ -138,7 +138,7 @@ class LLMManager:
             RuntimeError: If LLM initialization fails
             ImportError: If required LLM backend modules are not available
         """
-        if self.llm is not None:
+        if self.is_initialized():
             return
 
         self.logger.info(f"Initializing {self.config.llm_type} LLM: {self.config.model}")
@@ -165,20 +165,17 @@ class LLMManager:
         component="LLMManager",
         operation="text_generation"
     )
-    def generate(self, messages: List[LLMMessage], config_override: Optional[LLMConfig] = None) -> LLMResponse:
+    def generate(self, messages: List[LLMMessage]) -> LLMResponse:
         """
         Generate text using the LLM with comprehensive performance tracking.
         
         ### Generation Strategy:
         - Ensures LLM is initialized before generation
-        - Applies configuration overrides if provided
         - Tracks performance metrics for analysis and optimization
         - Provides comprehensive error handling and recovery
-        - Publishes events for monitoring and debugging
         
         Args:
             messages: List of LLMMessage objects for generation
-            config_override: Optional configuration overrides for this generation
             
         Returns:
             LLMResponse with generated text and metadata
@@ -190,18 +187,9 @@ class LLMManager:
         if not messages:
             raise ValueError("Messages list cannot be empty for generation")
 
-        # Apply configuration override if provided
-        effective_config = config_override if config_override else self.config
-
-        # Validate override configuration if provided
-        if config_override:
-            is_valid, errors = config_override.validate()
-            if not is_valid:
-                raise RVLLMConfigurationError(f"Invalid override configuration: {', '.join(errors)}")
-
         context = {
-            "llm_type": effective_config.llm_type,
-            "model": effective_config.model,
+            "llm_type": self.config.llm_type,
+            "model": self.config.model,
             "generation_id": str(time.time())
         }
 
@@ -226,15 +214,12 @@ class LLMManager:
         # Perform generation with timing
         start_time = time.time()
         try:
-            # Pass LLMConfig directly to LLM generation
-            response: LLMResponse = self.llm.generate(messages, effective_config)
+            # LLM inference
+            response: LLMResponse = self.llm.generate(messages)
             elapsed_time = time.time() - start_time
 
             # Log successful generation
-            self.logger.info(
-                f"LLM generation completed in {elapsed_time:.2f}s "
-                f"({len(response.content)} tokens)"
-            )
+            self.logger.info(f"LLM generation completed in {elapsed_time:.2f}s")
 
             # Record response metrics
             self._record_response_metrics(response, context, elapsed_time)
@@ -255,53 +240,6 @@ class LLMManager:
             )
 
             raise RVLLMProviderError(error_msg) from e
-
-    @ErrorHandler.handle_errors(
-        component="LLMManager",
-        operation="configuration_update"
-    )
-    def update_configuration(self, new_config: LLMConfig) -> None:
-        """
-        Update the LLM configuration with validation and cleanup.
-        
-        ### Update Strategy:
-        - Validates new configuration before applying changes
-        - Determines if LLM instance needs to be recreated
-        - Performs proper cleanup of existing resources if needed
-        - Publishes configuration change events for monitoring
-        
-        Args:
-            new_config: New LLMConfig instance with updated parameters
-            
-        Raises:
-            ValueError: If new configuration is invalid
-            
-        Note:
-            If the LLM type or model changes, the existing LLM instance will be
-            cleaned up and a new one will be created on the next generation request.
-        """
-        # Validate new configuration
-        is_valid, errors = new_config.validate()
-        if not is_valid:
-            raise ValueError(f"Invalid configuration update: {', '.join(errors)}")
-
-        # Check if LLM instance needs to be recreated
-        llm_changed = (
-                new_config.llm_type != self.config.llm_type or
-                new_config.model != self.config.model
-        )
-
-        self.config = new_config
-
-        # Clean up existing LLM if it needs to be recreated
-        if llm_changed and self.llm:
-            self.logger.info("LLM configuration changed, cleaning up existing instance")
-            self.cleanup()
-
-        self.logger.info(
-            f"Updated LLM configuration: backend={self.config.llm_type}, "
-            f"model={self.config.model}"
-        )
 
     def get_configuration(self) -> LLMConfig:
         """
@@ -324,7 +262,6 @@ class LLMManager:
         - Safely disposes of LLM instance resources
         - Handles cleanup errors gracefully without affecting system
         - Logs cleanup operations for monitoring
-        - Publishes cleanup events for system awareness
         """
         if self.llm:
             try:

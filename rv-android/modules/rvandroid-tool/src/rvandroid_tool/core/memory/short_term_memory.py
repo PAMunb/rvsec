@@ -110,7 +110,7 @@ class ShortTermMemory:
         # Configure logging
         logging_manager = LoggingManager.get_instance()
         self.logger = logging_manager.get_logger(
-            "core.memory.short_term_memory",
+            "rvandroid_tool.core.memory.short_term_memory",
             {CONTEXT_COMPONENT: "ShortTermMemory"}
         )
 

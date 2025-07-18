@@ -85,7 +85,7 @@ class ActionGenerator:
 
         # Configure logging
         self.logger = logging_manager.get_logger(
-            "llm.service.action_generator",
+            "rvandroid_tool.llm.service.action_generator",
             {CONTEXT_COMPONENT: "ActionGenerator"}
         )
 

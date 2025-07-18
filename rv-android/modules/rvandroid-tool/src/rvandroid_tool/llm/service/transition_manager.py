@@ -83,7 +83,7 @@ class TransitionManager:
         self.error_handler = ErrorHandler.get_instance()
         logging_manager = LoggingManager.get_instance()
         self.logger = logging_manager.get_logger(
-            "llm.service.transition_manager",
+            "rvandroid_tool.llm.service.transition_manager",
             {CONTEXT_COMPONENT: "TransitionManager"}
         )
 

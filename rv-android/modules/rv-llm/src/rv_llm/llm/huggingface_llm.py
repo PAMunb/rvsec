@@ -80,7 +80,7 @@ class HuggingFaceLLM(LanguageModel):
         # Setup logging and error handling
         self.logging_manager = LoggingManager.get_instance()
         self.logger = self.logging_manager.get_logger(
-            "llm.huggingface",
+            "rv_llm.llm.huggingface",
             {CONTEXT_COMPONENT: self.__class__.__name__}
         )
         self.error_handler = ErrorHandler.get_instance()

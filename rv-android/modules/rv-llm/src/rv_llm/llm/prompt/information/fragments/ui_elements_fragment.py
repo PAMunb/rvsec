@@ -72,17 +72,7 @@ class UIElementsFragment(InformationFragment):
             priority: The priority of the fragment (default: 500 - highest priority).
         """
         super().__init__(name, priority)
-        
-        # Initialize logging infrastructure
-        logging_manager = LoggingManager.get_instance()
-        self.logger = logging_manager.get_logger(
-            "llm.prompt.ui_elements_fragment",
-            {CONTEXT_COMPONENT: "UIElementsFragment"}
-        )
-        
-        # Initialize error handling
-        self.error_handler = ErrorHandler.get_instance()
-        
+
         self.logger.debug("Initialized UIElementsFragment for structured screen processing")
 
     @ErrorHandler.handle_errors(component="UIElementsFragment", phase="generation", reraise=True)

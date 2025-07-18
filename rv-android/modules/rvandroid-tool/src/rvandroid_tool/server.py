@@ -1,4 +1,3 @@
-import logging
 import time
 from threading import Thread, Lock
 from typing import Optional, Dict, Any
@@ -8,6 +7,8 @@ from flask import Flask, request, jsonify
 from werkzeug.exceptions import NotFound, HTTPException
 from werkzeug.serving import make_server
 
+from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
+from rv_android_core.util.logging.manager import LoggingManager
 from rvandroid_tool.llm.service.action_service import LLMActionService
 
 
@@ -70,7 +71,12 @@ class Server:
         self._lock = Lock()
 
         # Setup logging
-        self._setup_logging()
+        self.logging_manager = LoggingManager.get_instance()
+        self.logger = self.logging_manager.get_logger(
+            'rvandroid_tool.server',
+            {CONTEXT_COMPONENT: 'Server'}
+        )
+        # TODO usar error handler (de exceptions) modules/rv-android-core/src/rv_android_core/util/error/error_handler.py
 
         # Initialize routes and error handlers
         self._setup_error_handlers()
@@ -84,17 +90,6 @@ class Server:
             "restart_count": 0,
             "last_error": None
         }
-
-    def _setup_logging(self) -> None:
-        """Configure server logging"""
-        logging.basicConfig(
-            level=logging.INFO,
-            format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-        )
-        self.logger = logging.getLogger(__name__)
-        # Silence Werkzeug logs
-        werkzeug_logger = logging.getLogger('werkzeug')
-        werkzeug_logger.setLevel(logging.ERROR)  # ou logging.WARNING
 
     def _setup_error_handlers(self) -> None:
         """Configure error handlers"""
@@ -141,7 +136,6 @@ class Server:
             Endpoint to receive application state and return suggested actions.
             Uses the refactored LLMActionService to process state and generate actions.
             """
-            print("\n\n**************************** GENERATING ACTIONS ****************************")
             try:
                 # Get JSON data from request
                 data = request.json
@@ -150,7 +144,6 @@ class Server:
                     return jsonify({"error": "No state data provided"}), 400
 
                 self.logger.info(f"Received request for app: {data.get('package_name')}")
-                print(f"********************* DATA: {data}")
 
                 # Add request timestamp and handling info
                 self.logger.debug(f"State has activity: {data.get('activity')}")
@@ -164,47 +157,11 @@ class Server:
                 # Process state and get actions
                 actions = self.service.process_state(data)
 
-                # # Validate actions format for DroidBot compatibility
-                # validated_actions = self.validate_actions_for_droidbot(actions)
-                #
-                # # Get strategy type and additional metadata
-                # strategy_type = self.service.get_current_strategy_type()
-                # # TODO nao acho que faz aqui ... e sim no enricher e bota no state
-                # pattern_info = self.service.get_detected_pattern_info() if hasattr(self.service, 'get_detected_pattern_info') else None
-
                 # Create response with metadata
                 response_data = {
                     "actions": actions,
                     "status": "success"
                 }
-
-                # # Add batch metadata if multiple actions are returned
-                # # IMPROVED LOGIC: Consider ANY multiple actions as a batch operation
-                # # TODO nao precisa de nenhum tratamento especial ... todas as estrategias devem ser tratadas iguais
-                # if len(validated_actions) > 1:
-                #     # Always set strategy_type to batch when returning multiple actions
-                #     response_data["strategy_type"] = "flow_based_batch_action"
-                #
-                #     # Generate a batch ID if not already present
-                #     import uuid
-                #     batch_id = f"batch_{uuid.uuid4().hex[:8]}"
-                #     response_data["batch_id"] = batch_id
-                #
-                #     # Add pattern metadata if available
-                #     if pattern_info:
-                #         pattern_type = pattern_info.get("type", "unknown")
-                #         # Convert to uppercase if needed to match LLM format
-                #         if isinstance(pattern_type, str) and pattern_type.islower():
-                #             pattern_type = pattern_type.upper()
-                #         response_data["pattern_type"] = pattern_type
-                #         response_data["pattern_confidence"] = pattern_info.get("confidence", 0.5)
-                #     else:
-                #         # Use a default FORM pattern type if no specific pattern detected
-                #         response_data["pattern_type"] = "FORM"
-                #         response_data["pattern_confidence"] = 0.7
-                #
-                #     # Log that we're treating this as a batch operation
-                #     self.logger.info(f"Sending {len(validated_actions)} actions as a batch operation")
 
                 response = jsonify(response_data)
                 self.logger.info(f"Returning {len(actions)} actions")
@@ -215,74 +172,6 @@ class Server:
             except Exception as e:
                 self.logger.error(f"Error processing request: {e}", exc_info=True)
                 return jsonify({"error": str(e)}), 500
-
-        # TODO deprecated
-        # @self.app.route('/api/report_batch_error', methods=['POST'])
-        # def report_batch_error():
-        #     """
-        #     Endpoint to receive batch action execution error reports.
-        #     Used by DroidBot to report errors in batch action execution.
-        #     """
-        #     try:
-        #         # Get JSON data from request
-        #         data = request.json
-        #         if not data:
-        #             return jsonify({"error": "No error data provided"}), 400
-        #
-        #         # Log the error
-        #         batch_id = data.get("batch_id", "unknown")
-        #         action_index = data.get("action_index", -1)
-        #         error_message = data.get("error_message", "Unknown error")
-        #         error_type = data.get("error_type", "Unknown")
-        #
-        #         self.logger.warning(f"Batch action error reported: " +
-        #                       f"batch_id={batch_id}, action_index={action_index}, " +
-        #                       f"error_type={error_type}, message={error_message}")
-        #
-        #         # Forward error to the service if it has a batch error handler
-        #         if hasattr(self.service, 'handle_batch_action_error') and callable(getattr(self.service, 'handle_batch_action_error')):
-        #             self.service.handle_batch_action_error(data)
-        #
-        #         return jsonify({"status": "error_reported"})
-        #
-        #     except Exception as e:
-        #         self.logger.error(f"Error processing batch error report: {e}", exc_info=True)
-        #         return jsonify({"error": str(e)}), 500
-        #
-        # # TODO deprecated
-        # @self.app.route('/api/report_batch_result', methods=['POST'])
-        # def report_batch_result():
-        #     """
-        #     Endpoint to receive batch action execution results.
-        #     Used by DroidBot to report overall batch execution status.
-        #     """
-        #     try:
-        #         # Get JSON data from request
-        #         data = request.json
-        #         if not data:
-        #             return jsonify({"error": "No result data provided"}), 400
-        #
-        #         # Log the result
-        #         batch_id = data.get("batch_id", "unknown")
-        #         total_actions = data.get("total_actions", 0)
-        #         executed_actions = data.get("executed_actions", 0)
-        #         success_rate = data.get("success_rate", 0)
-        #         strategy_type = data.get("strategy_type", "unknown")
-        #         pattern_type = data.get("pattern_type", "unknown")
-        #
-        #         self.logger.info(f"Batch result reported: " +
-        #                    f"batch_id={batch_id}, executed={executed_actions}/{total_actions}, " +
-        #                    f"success_rate={success_rate:.2f}, pattern_type={pattern_type}")
-        #
-        #         # Forward result to the service if it has a batch result handler
-        #         if hasattr(self.service, 'handle_batch_execution_result') and callable(getattr(self.service, 'handle_batch_execution_result')):
-        #             self.service.handle_batch_execution_result(data)
-        #
-        #         return jsonify({"status": "result_recorded"})
-        #
-        #     except Exception as e:
-        #         self.logger.error(f"Error processing batch result report: {e}", exc_info=True)
-        #         return jsonify({"error": str(e)}), 500
 
     def start(self) -> bool:
         """

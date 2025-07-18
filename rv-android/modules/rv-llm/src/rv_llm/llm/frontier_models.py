@@ -71,7 +71,7 @@ class FrontierModel(LanguageModel):
         self.api_key = api_key
         self._client = None
         self.kwargs = kwargs
-        self.logger = logger
+        # self.logger = logger TODO
         self.error_handler = ErrorHandler.get_instance()
 
         # Add provider to kwargs for adapter
