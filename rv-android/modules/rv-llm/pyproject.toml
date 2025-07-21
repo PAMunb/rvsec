@@ -32,9 +32,11 @@ bitsandbytes = "^0.46.0"  # For quantization
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.0.0"
-pytest-cov = "^6.0.0" 
+pytest-cov = "^6.0.0"
+hypothesis = "^6.135.26"
 
 # Sem CLI inicialmente - apenas uso programático
+vulture = "^2.14"
 
 [tool.pytest.ini_options]
 addopts = "--cov=src"

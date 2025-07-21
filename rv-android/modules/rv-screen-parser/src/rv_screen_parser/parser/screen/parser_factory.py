@@ -5,7 +5,6 @@ Provides centralized factory pattern implementation for creating appropriate par
 based on input source type, enabling seamless integration with diverse monitoring tools.
 """
 
-from enum import Enum
 from typing import Dict, Type, Optional
 
 from rv_screen_parser.constants import ScreenParserType
@@ -38,7 +37,7 @@ class ParserFactory:
     """
 
     # Registry of parser types and their implementations
-    _REGISTRY: Dict[ScreenParserType, Type[BaseScreenParser]] = {}
+    _REGISTRY: Dict[str, Type[BaseScreenParser]] = {}
 
     @classmethod
     def register_default_parsers(cls):
@@ -46,14 +45,13 @@ class ParserFactory:
         from rv_screen_parser.parser.screen.droidbot.droidbot_parser import DroidBotParser
         from rv_screen_parser.parser.screen.uiautomator.uiautomator_parser import UIAutomator2Parser
 
-        # TODO rever tipo do parametro ... usar enum ou str?
         cls.register_parser_type(ScreenParserType.DROIDBOT, DroidBotParser)
         cls.register_parser_type(ScreenParserType.UIAUTOMATOR, UIAutomator2Parser)
 
     @classmethod
     def create(
             cls,
-            parser_type: ScreenParserType,
+            parser_type: str,
             visitor_class: Optional[Type[AbstractScreenVisitor]] = None
     ) -> BaseScreenParser:
         """
@@ -77,10 +75,10 @@ class ParserFactory:
             raise ValueError(f"Unknown parser type: {parser_type}")
 
         parser_class = cls._REGISTRY[parser_type]
-        return parser_class(visitor_class)
+        return parser_class(visitor_class=visitor_class)
 
     @staticmethod
-    def get_available_types() -> Dict[ScreenParserType, Type[BaseScreenParser]]:
+    def get_available_types() -> Dict[str, Type[BaseScreenParser]]:
         """
         Get all available parser types.
 
@@ -94,7 +92,7 @@ class ParserFactory:
         return ParserFactory._REGISTRY.copy()
 
     @staticmethod
-    def register_parser_type(parser_type: ScreenParserType, parser_class: Type[BaseScreenParser]) -> None:
+    def register_parser_type(parser_type: str, parser_class: Type[BaseScreenParser]) -> None:
         """
         Register a new parser type.
 
@@ -106,6 +104,6 @@ class ParserFactory:
             TypeError: If parser is not a subclass of BaseScreenParser
         """
         if not issubclass(parser_class, BaseScreenParser):
-            raise TypeError(f"Parser class must be a subclass of BaseScreenParser")
+            raise TypeError("Parser class must be a subclass of BaseScreenParser")
 
         ParserFactory._REGISTRY[parser_type] = parser_class

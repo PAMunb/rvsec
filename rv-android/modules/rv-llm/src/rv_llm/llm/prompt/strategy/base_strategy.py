@@ -173,7 +173,6 @@ class PromptStrategy(abc.ABC):
         self.logger.warning(f"No template specified for strategy {self.name}, using 'standard'")
         return PromptStrategyType.STANDARD
 
-    # TODO deprecated ... deve retornar lista de mensgaens
     @abc.abstractmethod
     def _generate_prompt(
             self,

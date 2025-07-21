@@ -27,12 +27,13 @@ settings. It follows the modern architecture pattern established in the system.
 - **Immutable After Creation**: Configuration validated and frozen after creation
 """
 
-from typing import Dict, Any, List, Optional, Tuple
+from typing import Dict, Any, List, Tuple
+
 from pydantic import Field, field_validator, model_validator
 
 from rv_android_core.util.error.error_handler import ErrorHandler
-from rv_android_core.util.logging.manager import LoggingManager
 from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
+from rv_android_core.util.logging.manager import LoggingManager
 from rv_android_core.util.validation import BaseValidatedModel
 from rv_llm.llm.constants import PromptStrategyType
 from rv_screen_parser.constants import ScreenParserType, VisitorType
@@ -83,31 +84,31 @@ class PromptConfig(BaseValidatedModel):
     is_valid, errors = config.validate()
     ```
     """
-    
+
     # Strategy Configuration
     strategy_type: str = Field(
         default=PromptStrategyType.STANDARD,
         description="Type of prompt strategy for action generation"
     )
-    
+
     # Parser Configuration
     parser_type: str = Field(
         default=ScreenParserType.DROIDBOT,
         description="Type of screen parser for UI analysis"
     )
-    
+
     # Visitor Configuration
     visitor_type: str = Field(
         default=VisitorType.DETAILED,
         description="Type of visitor for screen element extraction"
     )
-    
+
     # Template Configuration
     template_paths: Dict[str, str] = Field(
         default_factory=dict,
         description="Custom template paths for prompt generation"
     )
-    
+
     # Context Management
     max_context_length: int = Field(
         default=8192,
@@ -115,7 +116,7 @@ class PromptConfig(BaseValidatedModel):
         le=32768,
         description="Maximum context length for prompt generation"
     )
-    
+
     # Additional Parameters
     additional_params: Dict[str, Any] = Field(
         default_factory=dict,
@@ -207,23 +208,23 @@ class PromptConfig(BaseValidatedModel):
             ValueError: If tool_config contains invalid parameters
         """
         config_dict = {}
-        
+
         # Extract prompt-specific parameters
         if "strategy_type" in tool_config:
             config_dict["strategy_type"] = tool_config["strategy_type"]
-        
+
         if "parser_type" in tool_config:
             config_dict["parser_type"] = tool_config["parser_type"]
-        
+
         if "visitor_type" in tool_config:
             config_dict["visitor_type"] = tool_config["visitor_type"]
-        
+
         if "template_paths" in tool_config:
             config_dict["template_paths"] = tool_config["template_paths"]
-        
+
         if "max_context_length" in tool_config:
             config_dict["max_context_length"] = tool_config["max_context_length"]
-        
+
         # Extract additional prompt parameters
         prompt_params = {
             k: v for k, v in tool_config.items()
@@ -231,7 +232,7 @@ class PromptConfig(BaseValidatedModel):
         }
         if prompt_params:
             config_dict["additional_params"] = prompt_params
-        
+
         return cls(**config_dict)
 
     @classmethod
@@ -262,21 +263,21 @@ class PromptConfig(BaseValidatedModel):
         """
         if params is None:
             params = {}
-        
+
         config_dict = {}
-        
+
         # Parse strategy variants
         if "standard" in variants:
             config_dict["strategy_type"] = PromptStrategyType.STANDARD
         elif "batch_action" in variants:
             config_dict["strategy_type"] = PromptStrategyType.BATCH_ACTION
-        
+
         # Parse parser variants
         if "droidbot" in variants:
             config_dict["parser_type"] = ScreenParserType.DROIDBOT
         elif "uiautomator" in variants:
             config_dict["parser_type"] = ScreenParserType.UIAUTOMATOR
-        
+
         # Parse visitor variants
         if "basic" in variants:
             config_dict["visitor_type"] = VisitorType.BASIC
@@ -284,10 +285,10 @@ class PromptConfig(BaseValidatedModel):
             config_dict["visitor_type"] = VisitorType.DETAILED
         elif "default" in variants:
             config_dict["visitor_type"] = VisitorType.DEFAULT
-        
+
         # Apply parameter overrides
         config_dict.update(params)
-        
+
         return cls(**config_dict)
 
     @ErrorHandler.handle_errors(

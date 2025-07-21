@@ -20,9 +20,9 @@
       <variable name="response_format_instructions">
         <![CDATA[{% include "batch_format" %}]]>
       </variable>
-      <variable name="additional_guidelines">
-        <![CDATA[{% include "batch_guidelines" %}]]>
-      </variable>
+<!--      <variable name="additional_guidelines">-->
+<!--        <![CDATA[{% include "batch_guidelines" %}]]>-->
+<!--      </variable>-->
     </system>
     <user><![CDATA[
 {% include "user_base" %}

@@ -59,6 +59,8 @@ class ItemAction(BaseValidatedModel):
     directly_reaches_mop: bool = Field(default=False, description="Indicates direct monitor operation reachability")
     target_view: Dict[str, Any] = Field(default_factory=dict, description="Target UI element properties and metadata")
     coordinates: Optional[Tuple[int, int]] = Field(default=None, description="Explicit action coordinates (x, y)")
+    widget_id: Optional[str] = Field(default=None, description="Target widget ID")
+    callback_signature: Optional[str] = Field(default=None, description="Target callback method signature")
 
     @field_validator('coordinates')
     @classmethod

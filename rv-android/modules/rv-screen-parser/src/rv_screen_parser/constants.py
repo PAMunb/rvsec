@@ -19,8 +19,6 @@ to support monitored operations in both JCA cryptography and generic programming
 - Defines clear contracts for parser and visitor types
 """
 
-from rv_screen_parser.parser.screen.visitor.visitor_factory import VisitorFactory
-
 
 class ScreenParserType:
     """
@@ -52,7 +50,7 @@ class VisitorType:
     These constants should be used instead of string literals when configuring
     visitors to ensure type safety and prevent configuration errors.
     """
-    BASIC = VisitorFactory.BASIC
-    DEFAULT = VisitorFactory.DEFAULT
-    DETAILED = VisitorFactory.DETAILED
+    BASIC = "basic"
+    DEFAULT = "default"
+    DETAILED = "detailed"
     ALL = [BASIC, DEFAULT, DETAILED]

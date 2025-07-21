@@ -5,13 +5,15 @@ Your response MUST follow this schema - a JSON object with the following structu
 {
   "actions": [
     {
-      "action_id": "5",  
+      "action_id": "5",
+      "action_text": "CLICK (5)",
       "params": {},  
       "explanation": "Why this action is included in the batch"
     },
     {
-      "action_id": "8",
-      "params": {},
+      "action_id": "2",
+      "action_text": "SET_TEXT (2)",
+      "params": {"text": "test@example.com"},
       "explanation": "Why this action logically follows the previous one"
     }
     // Additional related actions...

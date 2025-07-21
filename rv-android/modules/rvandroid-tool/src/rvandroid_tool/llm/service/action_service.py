@@ -41,7 +41,7 @@ from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
 from rv_android_core.util.logging.manager import LoggingManager
 from rv_android_core.util.performance.performance_monitor import PerformanceMonitor
 from rv_llm.llm.constants import ContextEntry, StateEntry
-from rv_llm.llm.prompt.framework import PromptFramework
+from rvandroid_tool.llm.prompt.rvandroid_framework import RVAndroidPromptFramework
 from rvandroid_tool.config.tool_config import RvAndroidToolConfig
 from rvandroid_tool.llm.service.action_generator import ActionGenerator
 from rvandroid_tool.llm.service.llm_manager import LLMManager
@@ -62,7 +62,7 @@ class LLMActionService:
     ### Architecture Overview:
     The service acts as a coordinator between multiple specialized components:
     - LLM backend management through LLMManager
-    - Prompt generation through PromptFramework
+    - Prompt generation through RVAndroidPromptFramework
     - State processing through specialized processors
     - Action generation through ActionGenerator
     
@@ -103,7 +103,7 @@ class LLMActionService:
         ### Architecture Overview:
         The service acts as a coordinator between multiple specialized components:
         - LLM backend management through LLMManager
-        - Prompt generation through PromptFramework
+        - Prompt generation through RVAndroidPromptFramework
         - State processing through specialized processors
         - Action generation through ActionGenerator
         
@@ -151,11 +151,8 @@ class LLMActionService:
         # Initialize LLM manager with backend configuration
         self.llm_manager = LLMManager(self.llm_config, **model_kwargs)
 
-        # Initialize prompt framework with strategy configuration
-        self.prompt_framework = PromptFramework.create(self.prompt_config)
-
-        # Register tool-specific templates with framework
-        self.tool_config.register_templates_with_framework(self.prompt_framework)
+        # Initialize RVAndroid prompt framework with complete registration
+        self.prompt_framework = RVAndroidPromptFramework.create(self.prompt_config)
 
         # Initialize specialized processors
         self.state_enricher = StateEnricher(static_data=static_data, config=self.llm_config)
@@ -188,7 +185,7 @@ class LLMActionService:
         
         ### Processing Pipeline:
         1. Enrich state with additional information
-        2. Generate context-aware prompt using PromptFramework
+        2. Generate context-aware prompt using RVAndroidPromptFramework
         3. Process LLM response into structured actions
         4. Update memory with interaction history
         5. Return generated actions for execution

@@ -17,12 +17,14 @@ from typing import Dict, List, Any, Optional, Set
 
 from rv_android_core.domain.dynamic_wtg import DynamicTransitionGraph
 from rv_android_core.domain.static import StaticAnalysisData
+from rv_android_core.domain.widget import WidgetEventType
 from rv_android_core.domain.window import Window
 from rv_android_core.domain.wtg import WindowTransitionGraph
 from rv_android_core.util.error.error_handler import ErrorHandler
 from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
 from rv_android_core.util.logging.manager import LoggingManager
 from rv_llm.llm.constants import StateEntry
+from rv_screen_parser.parser.screen.visitor.model import ScreenDescription
 
 
 class TransitionManager:
@@ -234,7 +236,7 @@ class TransitionManager:
             guidance["visited_activities"].sort(key=lambda x: x["visits"], reverse=True)
 
             # Add static transitions if available
-            self._add_static_transitions(guidance, activity)
+            self._add_static_transitions(guidance, activity, state)
 
             # Add dynamic transitions
             self._add_dynamic_transitions(guidance, activity)
@@ -369,7 +371,7 @@ class TransitionManager:
         # Record in dynamic WTG
         self.dynamic_wtg.record_visit(activity)
 
-    def _add_static_transitions(self, guidance: Dict[str, Any], activity: str) -> None:
+    def _add_static_transitions(self, guidance: Dict[str, Any], activity: str, state: Dict[str, Any]) -> None:
         """
         Add static transition information to the guidance dictionary.
         
@@ -392,27 +394,42 @@ class TransitionManager:
         window_transitions = self.static_wtg.get_window_transitions(static_window.id)
 
         for transition in window_transitions:
+            source_id = transition.get("source", "")
             target_id = transition.get("target", "")
+
+            # if source_id == static_window.id:
+            #     continue
+
             target_window = None
 
             # Find the target window
-            for window in self.static_wtg.window_ids:
-                if window == target_id:
-                    target_window = window
-                    break
+            static_window = self.static_data.windows.get_window_by_id(target_id)
+            if static_window:
+                target_window = static_window.activity
+            else:
+                continue
+            # for window in self.static_wtg.window_ids:
+            #     if window == target_id:
+            #         target_window = window
+            #         break
 
-            if target_window:
-                # Check if this transition has been observed in dynamic WTG
-                visited = self.dynamic_wtg.graph.has_edge(activity, target_window)
+            # if target_window:
+            # Check if this transition has been observed in dynamic WTG
+            visited = self.dynamic_wtg.graph.has_edge(activity, target_window)
 
-                # Get widget info
-                widget_id = transition.get("widget_id", "unknown")
+            # Get widget info
+            # widget_id = transition.get("widget_id", "unknown")
+            #
+            screen_description = state[StateEntry.STRUCTURED_SCREEN]
 
-                static_transitions.append({
-                    "target": target_window,
-                    "action_id": str(widget_id),
-                    "visited": visited
-                })
+            item_action = self.get_item_action(transition, screen_description)
+
+            static_transitions.append({
+                "target": target_window,
+                "action_id": item_action.id,
+                "action_text": item_action.text,
+                "visited": visited
+            })
 
         guidance["static_transitions"] = static_transitions
 
@@ -592,3 +609,12 @@ class TransitionManager:
                     return window
 
         return None
+
+    def get_item_action(self, transition, screen_description: ScreenDescription):
+        # Get widget info
+        widget_id = transition.get("widget_id", "unknown")
+        for event in screen_description.events_by_id.values():
+            if event.widget_id == widget_id: # Check if event has WidgetEventType and event.event == WidgetEventType.
+                return event
+        return None
+

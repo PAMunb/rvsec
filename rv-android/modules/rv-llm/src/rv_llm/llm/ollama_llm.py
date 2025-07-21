@@ -6,7 +6,6 @@ in Android testing experiments and AI-driven analysis workflows.
 """
 from typing import List, Optional, ClassVar
 
-# Use official ollama library
 from ollama import ChatResponse, Client
 
 from rv_android_core.util.error.error_handler import ErrorHandler
@@ -82,7 +81,7 @@ class OllamaLLM(LanguageModel):
         super().__init__(model_name, **kwargs)
 
         # Initialize client lazily
-        self._client = None
+        self._client: Optional[Client] = None
 
         # Setup logging and error handling
         self.logging_manager = LoggingManager.get_instance()
@@ -162,7 +161,9 @@ class OllamaLLM(LanguageModel):
                 model=self.model_name,
                 messages=formatted_msgs,
                 options=options,
-                keep_alive=True
+                stream=False,
+                think=True,
+                keep_alive="30s"
             )
 
             print(f"<<< response=\n{response}")

@@ -446,6 +446,8 @@ class AbstractScreenVisitor(ABC):
                 # Check if method reaches or directly reaches MOP
                 action.reaches_mop = self._check_method_reaches_mop(event.signature)
                 action.directly_reaches_mop = self._check_method_directly_reaches_mop(event.signature)
+                action.widget_id = widget.id
+                action.callback_signature = event.signature
                 if action.reaches_mop or action.directly_reaches_mop:
                     self.logger.debug(
                         f"Action {action.id} security info updated: reaches_mop={action.reaches_mop}, directly_reaches_mop={action.directly_reaches_mop}")

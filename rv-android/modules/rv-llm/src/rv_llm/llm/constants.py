@@ -1,23 +1,23 @@
 """
-Constants for the LLM Prompt System - Phase 8 Modern Architecture
+Constants for the LLM Prompt System
 
 ### Architectural Overview:
-This module defines constant values used throughout the modern prompt system to ensure
+This module defines constant values used throughout the prompt system to ensure
 consistency and prevent errors due to string mismatches. These constants are designed
 to support the factory-based architecture and monitored operations framework.
 
-### Key Architectural Decisions:
+### Key Components:
 - **Type Safety**: Centralized constants prevent string mismatches across components
-- **Factory Integration**: Constants designed to work seamlessly with modern factories
-- **Monitored Operations**: Comprehensive support for both JCA crypto and generic specifications
-- **Template Coordination**: Constants support the modular template system
-- **Future Extensibility**: Designed to support new LLM providers and strategy types
+- **Factory Integration**: Constants designed to work seamlessly with component factories
+- **Monitored Operations**: Support for JCA crypto and generic programming specifications
+- **Template System**: Constants for template roles and fragment types
+- **Extensibility**: Support for new LLM providers and strategy types
 
 ### Role in the System:
 - Provides type-safe constants for all LLM and prompt strategy components
 - Enables consistent configuration across different modules
-- Supports both JCA cryptography and generic programming pattern monitoring
-- Maintains compatibility with the modern factory pattern architecture
+- Supports JCA cryptography and generic programming pattern monitoring
+- Maintains compatibility with factory pattern architecture
 - Defines clear contracts for template and fragment systems
 """
 
@@ -54,7 +54,7 @@ class PromptStrategyType:
 
 class FragmentType:
     """
-    Constants for information fragment types in the modular prompt system.
+    Constants for information fragment types in the prompt system.
     
     ### Fragment Types:
     - **UI_ELEMENTS**: UI element descriptions and interactions
@@ -62,6 +62,7 @@ class FragmentType:
     - **MONITORED_OPERATIONS**: Operations being monitored by specifications
     - **UI_PATTERNS**: Detected UI patterns and navigation hints
     - **HISTORY**: Action history and context information
+    - **TRANSITION_GUIDANCE**: Guidance for state transitions and navigation
     """
     UI_ELEMENTS = "ui_elements"
     SCREENSHOT = "screenshot"
@@ -87,7 +88,7 @@ class TemplateRole:
 
 class StateEntry:
     """
-    Constants for state dictionary entries in the modern Android testing framework.
+    Constants for state dictionary entries in the Android testing framework.
     
     ### State Information:
     - **Application Context**: Package name, activity, and navigation information

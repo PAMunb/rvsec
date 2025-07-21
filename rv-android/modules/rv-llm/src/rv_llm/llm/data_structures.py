@@ -10,6 +10,7 @@ from enum import Enum
 from typing import List, Dict, Any, Optional, Union
 
 from pydantic import Field, field_validator
+
 from rv_android_core.util.validation import BaseValidatedModel
 
 
@@ -150,7 +151,7 @@ class LLMMessage(BaseValidatedModel):
             Dictionary representation for API communication
         """
         items = []
-        
+
         # Add text content
         text_content = self.get_text_content()
         if text_content:
@@ -158,7 +159,7 @@ class LLMMessage(BaseValidatedModel):
                 "type": "text",
                 "text": text_content
             })
-        
+
         # Add image content
         for item in self.content:
             if isinstance(item, LLMImageContent):
@@ -166,7 +167,7 @@ class LLMMessage(BaseValidatedModel):
                     "type": "image",
                     "url": item.url
                 })
-        
+
         return {
             "role": self.role.value,
             "content": items

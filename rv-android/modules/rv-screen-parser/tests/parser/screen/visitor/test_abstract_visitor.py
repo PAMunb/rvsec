@@ -330,6 +330,7 @@ class TestAbstractScreenVisitor:
 
         # Setup widget with event that reaches MOP
         mock_widget = MagicMock(spec=Widget)
+        mock_widget.id = "test_widget_id"  # Set id as string
         mock_event = MagicMock()
         mock_event.type = WidgetEventType.CLICK
         mock_event.signature = "test.method.signature"

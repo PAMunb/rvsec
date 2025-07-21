@@ -256,35 +256,6 @@ class RvAndroidToolConfig(BaseValidatedModel):
         from rvandroid_tool.templates import get_template_paths
         return get_template_paths()
     
-    def register_templates_with_framework(self, prompt_framework):
-        """
-        Register tool templates with the PromptFramework.
-        
-        ### Template Registration Strategy:
-        Registers this tool's templates and fragments with the PromptFramework
-        to enable proper template resolution and rendering.
-        
-        Args:
-            prompt_framework: PromptFramework instance from rv-llm
-        """
-        template_paths = self.get_template_paths()
-        
-        # Register fragments directory
-        if "fragments" in template_paths:
-            prompt_framework.register_fragment_directory(template_paths["fragments"])
-        
-        # Register templates directory
-        if "templates" in template_paths:
-            prompt_framework.register_template_directory(template_paths["templates"])
-        
-        # Log template registration
-        logging_manager = LoggingManager.get_instance()
-        logger = logging_manager.get_logger(
-            "rvandroid_tool.config",
-            {CONTEXT_COMPONENT: self.__class__.__name__}
-        )
-        logger.debug(f"Registered templates with PromptFramework: {list(template_paths.keys())}")
-    
     def to_dict(self) -> Dict[str, Any]:
         """
         Convert configuration to dictionary format.

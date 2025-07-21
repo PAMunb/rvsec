@@ -54,7 +54,7 @@ class BaseScreenParser(Generic[T], ABC):
         """
         self.parser_name = parser_name
         self.visitor_class = visitor_class
-        
+
         # Initialize standardized logging system
         self.logging_manager = LoggingManager.get_instance()
         self.logger = self.logging_manager.get_logger(
@@ -63,7 +63,7 @@ class BaseScreenParser(Generic[T], ABC):
                 CONTEXT_COMPONENT: f"screen_parser.{parser_name}"
             }
         )
-        
+
         # Initialize centralized error handling
         self.error_handler = ErrorHandler.get_instance()
 
@@ -88,12 +88,14 @@ class BaseScreenParser(Generic[T], ABC):
             ValueError: If state data is invalid or cannot be parsed
         """
         # Example: Using context manager for scoped error handling during parsing
-        with self.error_handler.error_context(component="ScreenParser", phase="screen_parsing", parser_type=self.parser_name):
+        with self.error_handler.error_context(component="ScreenParser", phase="screen_parsing",
+                                              parser_type=self.parser_name):
             # Common validation logic
             if not self.validate_state_data(state_data):
                 self.logger.error(f"Invalid {self.parser_name} state data: missing required fields")
                 from rv_android_core.util.error.exceptions import RVParsingError
-                raise RVParsingError(f"Invalid {self.parser_name} state data: missing required fields", parser_type=self.parser_name)
+                raise RVParsingError(f"Invalid {self.parser_name} state data: missing required fields",
+                                     parser_type=self.parser_name)
 
             activity = self.get_activity_name(state_data)
             self.logger.info(f"Parsing {self.parser_name} state for activity: {activity}")

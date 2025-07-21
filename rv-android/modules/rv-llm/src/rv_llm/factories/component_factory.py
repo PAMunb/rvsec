@@ -40,13 +40,12 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from rv_android_core.util.error.error_handler import ErrorHandler
 from rv_android_core.util.error.exceptions import (
-    ConfigurationError, RVLLMError, RVPromptError, RVLLMConnectionError,
+    ConfigurationError, RVPromptError, RVLLMConnectionError,
     RVLLMModelError, RVLLMConfigurationError
 )
 from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
 from rv_android_core.util.logging.manager import LoggingManager
 from rv_llm.config import LLMConfig, PromptConfig
-from rv_llm.llm.constants import PromptStrategyType
 from rv_llm.llm.language_model import LanguageModel
 from rv_llm.llm.prompt.information.fragment_manager import InformationManager
 from rv_llm.llm.prompt.strategy.base_strategy import PromptStrategy
@@ -262,6 +261,29 @@ class LLMComponentFactory:
             raise RVLLMModelError(error_msg, model_name=config.model, operation="creation") from e
 
     @staticmethod
+    def register_strategy(strategy_type: str, strategy_class) -> None:
+        """Register a strategy class with the factory.
+        
+        ### Strategy Registration:
+        This method allows external modules to register strategy implementations
+        with the factory. This enables the factory to create strategy instances
+        without having hardcoded imports, supporting extensibility.
+        
+        Args:
+            strategy_type: String identifier for the strategy type
+            strategy_class: Strategy class that implements PromptStrategy interface
+            
+        Raises:
+            TypeError: If strategy_class doesn't implement required interface
+        """
+        if not hasattr(strategy_class, 'generate_prompt'):
+            raise TypeError("Strategy class must implement PromptStrategy interface")
+
+        LLMComponentFactory._strategy_registry[strategy_type] = strategy_class
+        logger = LLMComponentFactory._get_logger()
+        logger.debug(f"Registered strategy: {strategy_type}")
+
+    @staticmethod
     @ErrorHandler.handle_errors(
         component="LLMComponentFactory",
         operation="create_strategy"
@@ -269,56 +291,65 @@ class LLMComponentFactory:
     def create_strategy(config: PromptConfig,
                         information_manager: Optional[InformationManager] = None,
                         template_repository: Optional[Jinja2TemplateRepository] = None) -> PromptStrategy:
-
+        """Create strategy instance using registered strategy classes.
+        
+        ### Strategy Creation Process:
+        1. Look up strategy class in registry using strategy type
+        2. Instantiate strategy with provided dependencies
+        3. Configure strategy using PromptConfig
+        
+        This method eliminates hardcoded imports by using a registry pattern,
+        allowing external modules to register their strategy implementations.
+        
+        Args:
+            config: Configuration containing strategy type and parameters
+            information_manager: Optional information manager for strategy
+            template_repository: Optional template repository for strategy
+            
+        Returns:
+            Configured strategy instance
+            
+        Raises:
+            ConfigurationError: If strategy type is not registered or configuration fails
+            RVPromptError: If strategy creation or configuration fails
+        """
         logger = LLMComponentFactory._get_logger()
         strategy_params = config.get_strategy_parameters()
 
         try:
-            if config.strategy_type in ["batch", "batch_action", "batch_action_modular"]:
-                from rv_llm.llm.prompt.strategy.strategies.batch_action_strategy import BatchActionStrategy
+            # Look up strategy class in registry
+            strategy_class = LLMComponentFactory._strategy_registry.get(config.strategy_type)
 
-                strategy = BatchActionStrategy(
-                    name=PromptStrategyType.BATCH_ACTION,
-                    information_manager=information_manager,
-                    template_repository=template_repository
+            if strategy_class is None:
+                available_strategies = list(LLMComponentFactory._strategy_registry.keys())
+                raise ConfigurationError(
+                    f"Strategy type '{config.strategy_type}' not registered. "
+                    f"Available strategies: {available_strategies}"
                 )
-                logger.info(f"Created '{PromptStrategyType.BATCH_ACTION}' strategy")
 
-            elif config.strategy_type in ["standard", "single_action", "standard_modular"]:
-                from rv_llm.llm.prompt.strategy.strategies.standard_strategy import StandardStrategy
-
-                strategy = StandardStrategy(
-                    name=PromptStrategyType.STANDARD,
-                    information_manager=information_manager,
-                    template_repository=template_repository
-                )
-                logger.info(f"Created '{PromptStrategyType.STANDARD}' strategy")
-
-            else:
-                raise ConfigurationError(f"Unsupported strategy type: {config.strategy_type}")
+            # Create strategy instance
+            strategy = strategy_class(
+                name=config.strategy_type,
+                information_manager=information_manager,
+                template_repository=template_repository
+            )
+            logger.info(f"Created '{config.strategy_type}' strategy")
 
             # Configure strategy with PromptConfig
-            strategy.configure_from_config(config)
-            logger.debug(f"Configured strategy with parameters: {list(strategy_params.keys())}")
+            if hasattr(strategy, 'configure_from_config'):
+                strategy.configure_from_config(config)
+                logger.debug(f"Configured strategy with parameters: {list(strategy_params.keys())}")
 
             return strategy
 
-        except ImportError as e:
-            error_msg = f"Failed to import strategy '{config.strategy_type}': {e}"
-            logger.error(error_msg)
-            raise ImportError(error_msg) from e
+        except ConfigurationError:
+            # Re-raise configuration errors
+            raise
 
-        except ConfigurationError as e:
-            # Strategy configuration error - use RVPromptError
+        except Exception as e:
             error_msg = f"Failed to create strategy '{config.strategy_type}': {e}"
             logger.error(error_msg)
             raise RVPromptError(error_msg, config.strategy_type, e) from e
-
-        except Exception as e:
-            # General LLM error - use RVLLMError
-            error_msg = f"Failed to create strategy '{config.strategy_type}': {e}"
-            logger.error(error_msg)
-            raise RVLLMError(error_msg, config.strategy_type) from e
 
     @staticmethod
     def register_llm_backend(llm_type: str, backend_class) -> None:
@@ -357,13 +388,17 @@ class LLMComponentFactory:
 
     @staticmethod
     def get_supported_strategy_types() -> List[str]:
-        """
-        Get list of supported strategy types.
+        """Get list of supported strategy types.
+        
+        ### Strategy Type Resolution:
+        Returns all strategy types that have been registered with the factory,
+        providing a dynamic list based on actual registrations rather than
+        hardcoded constants.
         
         Returns:
-            List of supported strategy type strings
+            List of registered strategy type strings
         """
-        return PromptStrategyType.ALL
+        return list(LLMComponentFactory._strategy_registry.keys())
 
     @staticmethod
     def validate_backend_availability(llm_type: str) -> Tuple[bool, Optional[str]]:
@@ -403,15 +438,27 @@ class LLMComponentFactory:
 
     @staticmethod
     def get_registry_info() -> Dict[str, Any]:
-        """
-        Get information about registered backends for debugging.
+        """Get information about registered components for debugging.
+        
+        ### Registry Information:
+        Provides comprehensive information about all registered components,
+        including both LLM backends and strategy types. This is useful for
+        debugging registration issues and understanding component availability.
         
         Returns:
-            Dictionary with registry information
+            Dictionary with complete registry information
         """
         return {
-            "llm_backends": list(LLMComponentFactory._llm_registry.keys()),
-            "strategy_backends": list(LLMComponentFactory._strategy_registry.keys()),
-            "built_in_llm_types": ["ollama", "openai", "anthropic", "google", "huggingface"],
-            "built_in_strategy_types": ["standard", "batch_action"]
+            "llm_backends": {
+                "registered": list(LLMComponentFactory._llm_registry.keys()),
+                "built_in": ["ollama", "openai", "anthropic", "google", "huggingface"]
+            },
+            "strategies": {
+                "registered": list(LLMComponentFactory._strategy_registry.keys()),
+                "total_count": len(LLMComponentFactory._strategy_registry)
+            },
+            "registry_status": {
+                "llm_registry_size": len(LLMComponentFactory._llm_registry),
+                "strategy_registry_size": len(LLMComponentFactory._strategy_registry)
+            }
         }

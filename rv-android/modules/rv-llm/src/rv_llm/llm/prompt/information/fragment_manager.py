@@ -37,35 +37,6 @@ class InformationManager:
 
         self.logger.debug("InformationManager created")
 
-    @ErrorHandler.handle_errors(
-        component="InformationManager",
-        phase="configuration"
-    )
-    def configure(self, fragment_configs: Optional[Dict[str, Dict[str, Any]]] = None, **kwargs) -> None:
-        """Configure the InformationManager with direct parameter passing.
-        
-        Args:
-            fragment_configs: Dictionary mapping fragment names to their configuration parameters
-            **kwargs: Additional configuration parameters for manager-level settings
-        """
-        self.logger.debug("Configuring InformationManager")
-        
-        if fragment_configs is None:
-            fragment_configs = {}
-            
-        # Configure all registered fragments
-        for fragment_name, fragment in self.fragments.items():
-            if hasattr(fragment, 'configure'):
-                try:
-                    # Get fragment-specific configuration or use empty dict
-                    fragment_config = fragment_configs.get(fragment_name, {})
-                    fragment.configure(fragment_config)
-                    self.logger.debug(f"Configured fragment: {fragment_name}")
-                except Exception as e:
-                    self.logger.warning(f"Failed to configure fragment {fragment_name}: {e}")
-                    
-        self.logger.debug("InformationManager configuration completed")
-
     def register_fragment(self, fragment: InformationFragment) -> None:
         """Register an information fragment.
         

@@ -85,7 +85,7 @@ class FrontierModel(LanguageModel):
         return "frontier"
 
     # MCP adapter removed in Phase 3 - direct provider API calls
-    
+
     def _format_messages(self, messages: List[LLMMessage]) -> List[Dict[str, str]]:
         """
         Format LLMMessage objects for provider APIs.
@@ -210,7 +210,7 @@ class FrontierModel(LanguageModel):
             # Extract generation parameters
             max_tokens = getattr(_config, 'max_tokens', 800) if _config else 800
             temperature = getattr(_config, 'temperature', 0.7) if _config else 0.7
-            
+
             model_kwargs = {
                 'temperature': temperature
             }
@@ -392,7 +392,7 @@ class FrontierModel(LanguageModel):
             List of model identifiers
         """
         return FrontierModel.MODELS
-    
+
     @classmethod
     def create_openai(cls, model_name: str = GPT_4, api_key: Optional[str] = None, **kwargs) -> 'FrontierModel':
         """
@@ -407,9 +407,10 @@ class FrontierModel(LanguageModel):
             FrontierModel instance configured for OpenAI
         """
         return cls(model_name=model_name, provider="openai", api_key=api_key, **kwargs)
-    
+
     @classmethod
-    def create_anthropic(cls, model_name: str = CLAUDE_SONNET, api_key: Optional[str] = None, **kwargs) -> 'FrontierModel':
+    def create_anthropic(cls, model_name: str = CLAUDE_SONNET, api_key: Optional[str] = None,
+                         **kwargs) -> 'FrontierModel':
         """
         Create Anthropic model instance.
         
@@ -422,7 +423,7 @@ class FrontierModel(LanguageModel):
             FrontierModel instance configured for Anthropic
         """
         return cls(model_name=model_name, provider="anthropic", api_key=api_key, **kwargs)
-    
+
     @classmethod
     def create_google(cls, model_name: str = GEMINI_PRO, api_key: Optional[str] = None, **kwargs) -> 'FrontierModel':
         """
@@ -437,7 +438,7 @@ class FrontierModel(LanguageModel):
             FrontierModel instance configured for Google
         """
         return cls(model_name=model_name, provider="google", api_key=api_key, **kwargs)
-    
+
     @classmethod
     def create_amazon(cls, model_name: str = NOVA_SONNET, **kwargs) -> 'FrontierModel':
         """

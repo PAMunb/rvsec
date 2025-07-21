@@ -113,42 +113,6 @@ class Jinja2TemplateRepository:
 
         return env
 
-    @ErrorHandler.handle_errors(
-        component="Jinja2TemplateRepository",
-        phase="configuration"
-    )
-    def configure(self, config_dict: Optional[Dict[str, Any]] = None) -> None:
-        """Configure the repository with direct parameter passing.
-
-        Args:
-            config_dict: Configuration dictionary containing template and fragment settings
-        """
-        self.logger.info("Configuring Jinja2TemplateRepository")
-
-        if config_dict is None:
-            config_dict = {}
-
-        # Check if custom template directory is specified
-        custom_template_dir = config_dict.get('template_dir')
-        if custom_template_dir:
-            self.logger.info(f"Custom template directory specified: {custom_template_dir}")
-            self.template_dir = custom_template_dir
-            self._load_templates()
-
-        # Check if custom fragment directory is specified
-        custom_fragment_dir = config_dict.get('fragment_dir')
-        if custom_fragment_dir:
-            self.logger.info(f"Custom fragment directory specified: {custom_fragment_dir}")
-            self.fragment_dir = custom_fragment_dir
-            self._load_fragments()
-
-        # Apply template format configuration
-        template_format = config_dict.get('template_format', 'jinja2')
-        self.logger.debug(f"Using template format: {template_format}")
-
-        # Recreate Jinja environment after configuration changes
-        self.jinja_env = self._create_jinja_environment()
-
     def _load_templates(self) -> None:
         """Load templates from XML files in the template directory and RVDroid directory."""
         self.logger.info(f"Loading templates from {self.template_dir}")
@@ -362,6 +326,7 @@ class Jinja2TemplateRepository:
                 self.template_objects[object_key] = template_obj
                 self.logger.debug(f"Created direct template object for {object_key}")
 
+    # TODO deprecated
     def _load_fragments(self) -> None:
         """Load fragments from XML files in the fragment directory and its subdirectories."""
         self.logger.info(f"Loading fragments from {self.fragment_dir}")

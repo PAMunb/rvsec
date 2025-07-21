@@ -172,8 +172,9 @@ class TransitionGuidanceFragment(InformationFragment):
                 if isinstance(transition, dict):
                     target = transition.get("target", "unknown")
                     action_id = transition.get("action_id", "?")
-                    visited = "✓" if transition.get("visited", False) else "✗"
-                    formatted_sections.append(f"- {target} via Action {action_id} [Visited: {visited}]")
+                    action_text = transition.get("action_text", "?")
+                    visited = "yes" if transition.get("visited", False) else "no"
+                    formatted_sections.append(f"- {target} via Action '{action_text}' [Visited: {visited}]")
             
             if len(static_transitions) > 5:
                 formatted_sections.append(f"(+ {len(static_transitions) - 5} more transitions)")

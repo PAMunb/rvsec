@@ -10,9 +10,9 @@ from transformers import AutoTokenizer, AutoModelForCausalLM, BitsAndBytesConfig
 from rv_android_core.util.error.error_handler import ErrorHandler
 from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
 from rv_android_core.util.logging.manager import LoggingManager
+from rv_llm.config.llm_config import LLMConfig
 from rv_llm.llm.data_structures import LLMMessage, LLMResponse
 from rv_llm.llm.language_model import LanguageModel
-from rv_llm.config.llm_config import LLMConfig
 
 
 class HuggingFaceLLM(LanguageModel):

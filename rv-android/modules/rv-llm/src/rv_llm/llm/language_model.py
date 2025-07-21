@@ -12,8 +12,8 @@ from typing import List, Optional
 from rv_android_core.util.error.error_handler import ErrorHandler
 from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
 from rv_android_core.util.logging.manager import LoggingManager
-from .data_structures import LLMMessage, LLMResponse
 from rv_llm.config.llm_config import LLMConfig
+from .data_structures import LLMMessage, LLMResponse
 
 
 class LanguageModel(ABC):

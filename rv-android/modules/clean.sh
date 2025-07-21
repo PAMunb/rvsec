@@ -23,7 +23,6 @@ declare -ra MODULES=(
     "rv-platform"               # Central execution platform for Android experiments
     "rvandroid-tool"            # RVAndroid tool implementation with LLM integration
     "rv-experiment"             # Experiment orchestration and coordination
-#    "rvandroid"                 # Main framework module
 )
 
 # Colors for output (with fallbacks for non-color terminals)
@@ -221,6 +220,8 @@ clean_module() {
         log_error "Failed to enter directory: $module"
         return 1
     fi
+
+    poetry env remove --all
     
     # Clean standard targets
     for target in "${CLEAN_TARGETS[@]}"; do

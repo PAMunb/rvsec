@@ -40,11 +40,11 @@ import os
 from typing import Dict, Any, List, Optional, Tuple
 
 from pydantic import Field, field_validator, model_validator
+
 from rv_android_core.util.error.error_handler import ErrorHandler
-from rv_android_core.util.logging.manager import LoggingManager
-from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
 from rv_android_core.util.validation import BaseValidatedModel
 from rv_llm.llm.constants import LLMType
+
 
 class LLMConfig(BaseValidatedModel):
     """
@@ -82,7 +82,7 @@ class LLMConfig(BaseValidatedModel):
     is_valid, errors = config.validate()
     ```
     """
-    
+
     # LLM Backend Configuration
     llm_type: str = Field(default="ollama", description="Type of LLM provider")
     model: str = Field(default="llama3.2:3b", description="Model name or identifier")
@@ -91,19 +91,19 @@ class LLMConfig(BaseValidatedModel):
     max_tokens: int = Field(default=800, ge=1, le=4096, description="Maximum tokens to generate")
     api_key: Optional[str] = Field(default=None, description="API key for cloud providers")
     provider: Optional[str] = Field(default=None, description="Provider name")
-    
+
     # Generation Parameters
     top_p: float = Field(default=1.0, gt=0.0, le=1.0, description="Top-p sampling parameter")
     top_k: int = Field(default=40, ge=1, le=100, description="Top-k sampling parameter")
     frequency_penalty: float = Field(default=0.0, ge=-2.0, le=2.0, description="Frequency penalty")
     presence_penalty: float = Field(default=0.0, ge=-2.0, le=2.0, description="Presence penalty")
-    
+
     # Context Configuration
     max_context_length: int = Field(default=8192, ge=512, le=32768, description="Maximum context length")
-    
+
     # Parser Configuration - Moved to rvandroid-tool RvAndroidToolConfig
     # Parser and visitor configuration is now handled by individual tools
-    
+
     # Additional Parameters
     kwargs: Dict[str, Any] = Field(default_factory=dict, description="Additional parameters")
 
@@ -125,34 +125,33 @@ class LLMConfig(BaseValidatedModel):
         """Validate LLM type against supported providers including registered backends."""
         # Import here to avoid circular imports
         from rv_llm.factories.component_factory import LLMComponentFactory
-        
+
         # Get supported types including registered backends
         valid_types = LLMComponentFactory.get_supported_llm_types()
         if v not in valid_types:
             raise ValueError(f"llm_type must be one of: {valid_types}")
         return v
-    
-    
+
     # Parser/visitor validation moved to tool-specific configuration classes
-    
+
     @model_validator(mode='after')
     def validate_api_key_dependencies(self) -> 'LLMConfig':
         """Validate API key dependencies for cloud providers."""
         if self.llm_type == LLMType.FRONTIER and not self.api_key:
             raise ValueError(f"api_key is required for {self.llm_type} backend")
-        
+
         if self.llm_type == LLMType.OLLAMA and not self.base_url:
             raise ValueError("base_url is required for ollama backend")
-        
+
         return self
-    
+
     @model_validator(mode='after')
     def validate_model_name(self) -> 'LLMConfig':
         """Validate model name is not empty."""
         if not self.model or not isinstance(self.model, str):
             raise ValueError("model must be a non-empty string")
         return self
-    
+
     @classmethod
     @ErrorHandler.handle_errors(
         component="LLMConfig",
@@ -198,21 +197,21 @@ class LLMConfig(BaseValidatedModel):
         """
         # Start with default configuration
         config_dict = {}
-        
+
         # Parse LLM backend variants
         llm_config = cls._parse_llm_variants(variants)
         config_dict.update(llm_config)
-        
+
         # Strategy configuration moved to PromptConfig
-        
+
         # Parser/UI variants moved to tool-specific configuration classes
-        
+
         # Override with explicit parameters (Pydantic handles type conversion)
         config_dict.update(params)
-        
+
         # Create configuration instance
         return cls(**config_dict)
-    
+
     @classmethod
     def _parse_llm_variants(cls, variants: List[str]) -> Dict[str, Any]:
         """
@@ -231,7 +230,7 @@ class LLMConfig(BaseValidatedModel):
             Dictionary with LLM backend configuration
         """
         config = {}
-        
+
         if "llama" in variants:
             config.update({
                 "llm_type": "ollama",
@@ -250,7 +249,7 @@ class LLMConfig(BaseValidatedModel):
             config.update({
                 "llm_type": "anthropic",
                 "model": "claude-3-5-sonnet-20241022",
-                "provider": "anthropic", 
+                "provider": "anthropic",
                 "api_key": os.getenv("ANTHROPIC_API_KEY")
             })
         elif "gemini" in variants:
@@ -260,13 +259,13 @@ class LLMConfig(BaseValidatedModel):
                 "provider": "google",
                 "api_key": os.getenv("GOOGLE_API_KEY")
             })
-        
+
         return config
-    
+
     # Strategy variant parsing moved to PromptConfig
-    
+
     # _parse_parser_variants moved to tool-specific configuration classes
-    
+
     @ErrorHandler.handle_errors(
         component="LLMConfig",
         operation="validate"
@@ -303,7 +302,7 @@ class LLMConfig(BaseValidatedModel):
             if hasattr(self, 'logger'):
                 self.logger.warning(f"Configuration validation error: {error_msg}")
             return False, [error_msg]
-    
+
     def to_dict(self) -> Dict[str, Any]:
         """
         Convert configuration to dictionary representation.
@@ -316,14 +315,14 @@ class LLMConfig(BaseValidatedModel):
             Dictionary representation of the configuration
         """
         base_dict = self.model_dump(exclude_unset=False)
-        
+
         # Add kwargs, excluding duplicates
         for key, value in self.kwargs.items():
             if key not in base_dict:
                 base_dict[key] = value
-        
+
         return base_dict
-    
+
     def get_llm_parameters(self) -> Dict[str, Any]:
         """
         Get LLM-specific parameters for model initialization.
@@ -347,7 +346,7 @@ class LLMConfig(BaseValidatedModel):
             "api_key": self.api_key,
             **{k: v for k, v in self.kwargs.items() if k.startswith("llm_")}
         }
-    
+
     def get_context_parameters(self) -> Dict[str, Any]:
         """
         Get context-specific parameters for context management.
@@ -364,9 +363,9 @@ class LLMConfig(BaseValidatedModel):
             "max_tokens": self.max_tokens,
             **{k: v for k, v in self.kwargs.items() if k.startswith("context_")}
         }
-    
+
     # get_parser_parameters() moved to tool-specific configuration classes
-    
+
     def __str__(self) -> str:
         """
         String representation of the configuration.
@@ -375,7 +374,7 @@ class LLMConfig(BaseValidatedModel):
             Concise string representation
         """
         return (f"LLMConfig(llm_type={self.llm_type}, model={self.model})")
-    
+
     def __repr__(self) -> str:
         """
         Detailed string representation of the configuration.

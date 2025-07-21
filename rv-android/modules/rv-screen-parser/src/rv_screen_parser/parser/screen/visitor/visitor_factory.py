@@ -6,22 +6,19 @@ from rv_screen_parser.parser.screen.visitor.abstract_visitor import AbstractScre
 from rv_screen_parser.parser.screen.visitor.basic_visitor import BasicTextVisitor
 from rv_screen_parser.parser.screen.visitor.default_visitor import DefaultTextVisitor
 from rv_screen_parser.parser.screen.visitor.enhanced_visitor import EnhancedTextVisitor
-
+from rv_screen_parser.constants import VisitorType
 
 class VisitorFactory:
     """
     Factory for creating screen visitor instances.
     Centralizes the creation of different visitor types.
     """
-    BASIC = "basic"
-    DEFAULT = "default"
-    DETAILED = "detailed"
 
     # Registry of visitor types and their implementations
     _REGISTRY: Dict[str, Type[AbstractScreenVisitor]] = {
-        BASIC: BasicTextVisitor,
-        DEFAULT: DefaultTextVisitor,
-        DETAILED: EnhancedTextVisitor,
+        VisitorType.BASIC: BasicTextVisitor,
+        VisitorType.DEFAULT: DefaultTextVisitor,
+        VisitorType.DETAILED: EnhancedTextVisitor,
         # Add other visitor implementations as needed
     }
 
