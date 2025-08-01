@@ -226,10 +226,13 @@ class ExperimentController:
             # Import tool factory
             from rv_tools import ToolFactory
             
+            # Create ToolFactory instance
+            tool_factory = ToolFactory()
+            
             for tool_config in self.config.tool_configs:
                 try:
-                    # Create tool instance using static method
-                    tool = ToolFactory.create_configured_tool(
+                    # Create tool instance using instance method
+                    tool = tool_factory.create_configured_tool(
                         tool_name=tool_config.name,
                         variants=tool_config.variants,
                         params=tool_config.parameters

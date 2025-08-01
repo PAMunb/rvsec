@@ -47,7 +47,7 @@ rv-android/
 **Prerequisites:**
 - Python 3.12+
 - Java 21+
-- Aspectj 1.9.6
+- Aspectj 1.9.24
 - Android SDK
 - RVSEC environment
 

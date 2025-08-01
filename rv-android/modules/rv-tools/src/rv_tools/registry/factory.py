@@ -129,7 +129,7 @@ class ToolFactory:
         
         # Get registry
         if registry is None:
-            registry = ToolRegistry()
+            registry = ToolRegistry.get_instance()
         
         # Create factory instance with experiment config if needed
         factory = ToolFactory()
@@ -230,7 +230,7 @@ class ToolFactory:
             ToolNotFoundError: If tool cannot be found
         """
         # Get tool registry
-        registry = ToolRegistry()
+        registry = ToolRegistry.get_instance()
         
         # Get tool class from registry
         tool_class = registry.get_tool_class(tool_name)

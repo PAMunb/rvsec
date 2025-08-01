@@ -239,6 +239,24 @@ class ToolRegistry:
         """
         return list(self.tool_classes.keys())
 
+    def get_tool_class(self, tool_name: str) -> Type[AbstractTool]:
+        """
+        Get the tool class for a specific tool.
+
+        Args:
+            tool_name: Name of the tool
+
+        Returns:
+            Tool class type
+            
+        Raises:
+            ToolNotFoundError: If tool is not found
+        """
+        if tool_name not in self.tool_classes:
+            raise ToolNotFoundError(f"Tool class '{tool_name}' not found")
+        
+        return self.tool_classes[tool_name]
+
     def get_tool_spec(self, tool_name: str) -> ToolSpec:
         """
         Get the tool specification for a specific tool.

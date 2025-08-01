@@ -62,116 +62,6 @@ def setup_logging(debug: bool = True):
     return logging_manager.get_logger('teste.rv_experiment')
 
 
-# def tmp_experiment_config_creation():
-#     """Test experiment configuration creation."""
-#     print("\n🔧 Testing ExperimentConfig creation...")
-#
-#     try:
-#         from rv_experiment.config import ExperimentConfig
-#         from rv_platform.config.platform_config import ToolConfig
-#
-#         # Create tool configurations
-#         tools = [
-#             ToolConfig(name="monkey"),
-#             ToolConfig(name="droidbot", variants=["dfs_greedy"], parameters={"count": 1000})
-#         ]
-#
-#         # Create experiment configuration
-#         config = ExperimentConfig(
-#             name="tmp_experiment",
-#             description="Test experiment for validation",
-#             tool_configs=tools,
-#             repetitions=1,
-#             timeouts=[300],
-#             specification_set="jca",
-#             apks_dir="./apks_examples/"
-#         )
-#
-#         print(f"✅ ExperimentConfig created: {config.name}")
-#         print(f"   Tools: {[tc.name for tc in config.tool_configs]}")
-#         print(f"   Specification set: {config.specification_set}")
-#         return True, config
-#
-#     except Exception as e:
-#         print(f"❌ ExperimentConfig creation failed: {e}")
-#         return False, None
-#
-# def tmp_platform_integration():
-#     """Test rv-platform integration through ExecutionController."""
-#     print("\n🚀 Testing rv-platform integration...")
-#
-#     try:
-#         from rv_experiment.experiment.workflow.execution_controller import ExecutionController
-#         from rv_platform.storage.task_storage import TaskStorage
-#         from rv_android_core.event import EventBus
-#
-#         # Create temporary task storage
-#         with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
-#             temp_storage_file = f.name
-#             f.write('{"metadata": {"experiment_id": "test", "start_time": "2024-01-01T00:00:00", "config_checksum": "test"}, "tasks": []}')
-#
-#         try:
-#             # Create components for integration test
-#             task_storage = TaskStorage(temp_storage_file)
-#             event_bus = EventBus.get_instance()
-#
-#             # Test creating ExecutionController (should initialize rv-platform internally)
-#             from rv_experiment.config import ExperimentConfig
-#             from rv_platform.config.platform_config import ToolConfig
-#
-#             config = ExperimentConfig(
-#                 name="integration_test",
-#                 description="Integration test",
-#                 tool_configs=[ToolConfig(name="monkey")],
-#                 repetitions=1,
-#                 timeouts=[60],
-#                 apks_dir="./apks_examples/"
-#             )
-#
-#             execution_controller = ExecutionController(task_storage, config, event_bus)
-#
-#             print("✅ ExecutionController created with rv-platform integration")
-#             print(f"   Platform config: {execution_controller.platform_config is None}")
-#             print(f"   Platform instance: {execution_controller.platform is None}")
-#             return True
-#
-#         finally:
-#             # Cleanup
-#             if os.path.exists(temp_storage_file):
-#                 os.unlink(temp_storage_file)
-#
-#     except Exception as e:
-#         print(f"❌ Platform integration test failed: {e}")
-#         import traceback
-#         traceback.print_exc()
-#         return False
-#
-# def tmp_cli_tool_discovery():
-#     """Test tool discovery through rv-experiment CLI."""
-#     print("\n🔧 Testing CLI tool discovery...")
-#
-#     try:
-#         # Test programmatic tool listing
-#         from rv_tools.registry.registry import ToolRegistry
-#
-#         tool_registry = ToolRegistry.get_instance()
-#         tools = tool_registry.get_all_tools()
-#
-#         print(f"✅ Tool registry initialized")
-#         print(f"   Available tools: {len(tools)}")
-#
-#         if tools:
-#             for tool in tools[:3]:  # Show first 3 tools
-#                 print(f"   - {tool.name}: {getattr(tool, 'description', 'No description')}")
-#         else:
-#             print("   ⚠️ No tools found in registry")
-#
-#         return True
-#
-#     except Exception as e:
-#         print(f"❌ Tool discovery failed: {e}")
-#         return False
-
 def tmp_experiment_controller():
     """Test complete ExperimentController integration with actual execution."""
     print("\nTesting ExperimentController integration...")
@@ -196,8 +86,8 @@ def tmp_experiment_controller():
             apks_dir="./apks_examples/",
             output_dir="./out",  # Temporary artifacts directory
             results_dir = "./results",  # Persistent results directory
-            specification_set="custom",  # Use custom specs from specs_mini
-            custom_specs_dir = "./specs_mini",
+            specification_set="jca", #"custom",  # Use custom specs from specs_mini
+            # custom_specs_dir = "./specs_mini",
             generate_monitors = True,
             instrument_apks = True,
             run_static_analysis = True,
