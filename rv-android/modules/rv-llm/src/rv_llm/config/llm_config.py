@@ -89,6 +89,9 @@ class LLMConfig(BaseValidatedModel):
     base_url: str = Field(default="http://localhost:11434", description="Base URL for local LLM providers")
     temperature: float = Field(default=0.2, ge=0.0, le=2.0, description="Sampling temperature")
     max_tokens: int = Field(default=800, ge=1, le=4096, description="Maximum tokens to generate")
+    vision: bool = Field(default=False, description="Enable vision capabilities")
+    think: bool = Field(default=False, description="Enable thinking capabilities")
+    # Cloud Configuration
     api_key: Optional[str] = Field(default=None, description="API key for cloud providers")
     provider: Optional[str] = Field(default=None, description="Provider name")
 

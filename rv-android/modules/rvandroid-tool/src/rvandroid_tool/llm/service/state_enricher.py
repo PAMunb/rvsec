@@ -97,8 +97,11 @@ class StateEnricher:
             # Process screenshot if available
             self._process_screenshot(state)
 
-            # Detect UI patterns
-            self._detect_ui_patterns(state)
+            # Update SCREEN_DESCRIPTION after screenshot processing
+            self._update_screen_description_text(state)
+
+            # # Detect UI patterns
+            # self._detect_ui_patterns(state)
 
             # Add monitored operations information
             self._add_monitored_operations(state)
@@ -112,7 +115,6 @@ class StateEnricher:
                     "state_id": state.get("id", "unknown")
                 }
             )
-            return state
 
     def _process_screenshot(self, state: Dict[str, Any]) -> None:
         """Process screenshot to extract additional information.
@@ -130,7 +132,7 @@ class StateEnricher:
                 # Use screenshot analyzer to complement ScreenDescription information
                 screen_description = self.screenshot_action_complementor.analyze(state)
 
-                # Update state with screen description´d
+                # Update state with screen description
                 if screen_description:
                     state[StateEntry.STRUCTURED_SCREEN] = screen_description["enhanced_screen"]
                     state[StateEntry.SCREENSHOT_INFO] = screen_description["visual_mapping"]
@@ -145,53 +147,54 @@ class StateEnricher:
                     }
                 )
 
-    def _detect_ui_patterns(self, state: Dict[str, Any]) -> None:
-        """Detect UI patterns in the screen.
-        
-        Args:
-            state: The current application state.
-        """
-        # Skip if pattern detector is not available
-        if not self.pattern_detector:
-            return
-
-        # Skip if screen patterns already present
-        if StateEntry.UI_PATTERNS in state:
-            return
-
-        # Skip if screen description is not present
-        if StateEntry.STRUCTURED_SCREEN not in state:
-            return
-
-        try:
-            self.logger.debug("Detecting UI patterns")
-
-            # Use pattern detector to identify UI patterns
-            screen_description = state[StateEntry.STRUCTURED_SCREEN]
-            patterns = self.pattern_detector.detect_patterns(screen_description, self.static_data)
-
-            # Add detected patterns to state
-            if patterns:
-                state[StateEntry.UI_PATTERNS] = patterns
-
-                # If there's a high confidence pattern, add it as the detected pattern
-                for pattern_name, pattern_info in patterns.items():
-                    if isinstance(pattern_info, dict) and pattern_info.get("confidence", 0) >= 0.7:
-                        # TODO transformar em texto para estar pronto para ser usado em algum template
-                        state[StateEntry.DETECTED_PATTERN] = {
-                            "name": pattern_name,
-                            **pattern_info
-                        }
-                        break
-        except Exception as e:
-            self.logger.error(f"Error detecting UI patterns: {e}", exc_info=True)
-            self.error_handler.handle_error(
-                e,
-                context={
-                    "component": "StateEnricher",
-                    "function": "_detect_ui_patterns"
-                }
-            )
+    # # TODO deprecated
+    # def _detect_ui_patterns(self, state: Dict[str, Any]) -> None:
+    #     """Detect UI patterns in the screen.
+    #
+    #     Args:
+    #         state: The current application state.
+    #     """
+    #     # Skip if pattern detector is not available
+    #     if not self.pattern_detector:
+    #         return
+    #
+    #     # Skip if screen patterns already present
+    #     if StateEntry.UI_PATTERNS in state:
+    #         return
+    #
+    #     # Skip if screen description is not present
+    #     if StateEntry.STRUCTURED_SCREEN not in state:
+    #         return
+    #
+    #     try:
+    #         self.logger.debug("Detecting UI patterns")
+    #
+    #         # Use pattern detector to identify UI patterns
+    #         screen_description = state[StateEntry.STRUCTURED_SCREEN]
+    #         patterns = self.pattern_detector.detect_patterns(screen_description, self.static_data)
+    #
+    #         # Add detected patterns to state
+    #         if patterns:
+    #             state[StateEntry.UI_PATTERNS] = patterns
+    #
+    #             # If there's a high confidence pattern, add it as the detected pattern
+    #             for pattern_name, pattern_info in patterns.items():
+    #                 if isinstance(pattern_info, dict) and pattern_info.get("confidence", 0) >= 0.7:
+    #                     # TODO transformar em texto para estar pronto para ser usado em algum template
+    #                     state[StateEntry.DETECTED_PATTERN] = {
+    #                         "name": pattern_name,
+    #                         **pattern_info
+    #                     }
+    #                     break
+    #     except Exception as e:
+    #         self.logger.error(f"Error detecting UI patterns: {e}", exc_info=True)
+    #         self.error_handler.handle_error(
+    #             e,
+    #             context={
+    #                 "component": "StateEnricher",
+    #                 "function": "_detect_ui_patterns"
+    #             }
+    #         )
 
     def _add_monitored_operations(self, state: Dict[str, Any]) -> None:
         """Add monitored operations information from static analysis.
@@ -280,14 +283,8 @@ class StateEnricher:
                 # Add the complete structured object for other components to use directly
                 state[StateEntry.STRUCTURED_SCREEN] = screen_description
 
-                # Get the string representation for template rendering
-                # This uses the ScreenDescription's own string representation method
-                formatted_text = str(screen_description)
-
-                # Update state with necessary information
-                state[StateEntry.SCREEN_DESCRIPTION] = formatted_text
+                # Extract available action IDs for later use
                 state[StateEntry.AVAILABLE_ACTIONS] = available_actions_map
-                print(f"**** screen_description:\n{formatted_text}")
 
                 self.logger.debug(f"Added ScreenDescription with {len(available_actions_map)} available actions")
             else:
@@ -368,6 +365,28 @@ class StateEnricher:
             formatted_parts.append(f"{i + 1}. {component_type}: {', '.join(details)}")
 
         return "\n".join(formatted_parts)
+
+    def _update_screen_description_text(self, state: Dict[str, Any]) -> None:
+        """Update SCREEN_DESCRIPTION text after screenshot processing.
+        
+        This method generates the string representation of the ScreenDescription
+        after all processing (including screenshot analysis) is complete, ensuring
+        that visual enhancements like [ERR] annotations are included.
+        
+        Args:
+            state: The current application state.
+        """
+        if StateEntry.STRUCTURED_SCREEN in state:
+            screen_description = state[StateEntry.STRUCTURED_SCREEN]
+            if isinstance(screen_description, ScreenDescription):
+                # Generate string representation after all processing
+                formatted_text = str(screen_description)
+                state[StateEntry.SCREEN_DESCRIPTION] = formatted_text
+                self.logger.debug(f"Updated SCREEN_DESCRIPTION after screenshot processing")
+            else:
+                self.logger.warning("STRUCTURED_SCREEN is not a ScreenDescription object")
+        else:
+            self.logger.warning("No STRUCTURED_SCREEN found for text update")
 
     # def _format_screen_description(self, screen_description) -> str:
     #     """Format a ScreenDescription object into detailed text format.

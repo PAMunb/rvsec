@@ -1140,7 +1140,7 @@ google-api-core = {version = ">=1.34.1,<2.0.dev0 || >=2.11.dev0,<3.0.0dev", extr
 google-auth = ">=2.14.1,<2.24.0 || >2.24.0,<2.25.0 || >2.25.0,<3.0.0dev"
 proto-plus = [
     {version = ">=1.25.0,<2.0.0dev", markers = "python_version >= \"3.13\""},
-    {version = ">=1.22.3,<2.0.0dev", markers = "python_version < \"3.13\""},
+    {version = ">=1.22.3,<2.0.0dev"},
 ]
 protobuf = ">=3.20.2,<4.21.0 || >4.21.0,<4.21.1 || >4.21.1,<4.21.2 || >4.21.2,<4.21.3 || >4.21.3,<4.21.4 || >4.21.4,<4.21.5 || >4.21.5,<6.0.0dev"
 
@@ -1163,7 +1163,7 @@ grpcio = {version = ">=1.49.1,<2.0.0", optional = true, markers = "python_versio
 grpcio-status = {version = ">=1.49.1,<2.0.0", optional = true, markers = "python_version >= \"3.11\" and extra == \"grpc\""}
 proto-plus = [
     {version = ">=1.25.0,<2.0.0", markers = "python_version >= \"3.13\""},
-    {version = ">=1.22.3,<2.0.0"},
+    {version = ">=1.22.3,<2.0.0", markers = "python_version < \"3.13\""},
 ]
 protobuf = ">=3.19.5,<3.20.0 || >3.20.0,<3.20.1 || >3.20.1,<4.21.0 || >4.21.0,<4.21.1 || >4.21.1,<4.21.2 || >4.21.2,<4.21.3 || >4.21.3,<4.21.4 || >4.21.4,<4.21.5 || >4.21.5,<7.0.0"
 requests = ">=2.18.0,<3.0.0"
@@ -3683,6 +3683,32 @@ type = "directory"
 url = "modules/rv-coverage"
 
 [[package]]
+name = "rv-evaluator"
+version = "0.1.0"
+description = "Basic LLM models evaluation for RV-Android"
+optional = false
+python-versions = ">=3.12,<4.0"
+groups = ["main"]
+files = []
+develop = true
+
+[package.dependencies]
+matplotlib = "^3.9.0"
+pydantic = "^2.9.0"
+rv-android-core = {path = "../rv-android-core", develop = true}
+rv-coverage = {path = "../rv-coverage", develop = true}
+rv-llm = {path = "../rv-llm", develop = true}
+rv-platform = {path = "../rv-platform", develop = true}
+rv-screen-parser = {path = "../rv-screen-parser", develop = true}
+rv-static-analysis = {path = "../rv-static-analysis", develop = true}
+rv-tools = {path = "../rv-tools", develop = true}
+rvandroid-tool = {path = "../rvandroid-tool", develop = true}
+
+[package.source]
+type = "directory"
+url = "modules/rv-evaluator"
+
+[[package]]
 name = "rv-experiment"
 version = "0.1.0"
 description = "Experiment orchestration and coordination for RV-Android platform"
@@ -3746,7 +3772,7 @@ boto3 = "^1.35.0"
 google-generativeai = "^0.8.0"
 httpx = "^0.27.0"
 jinja2 = "^3.1.0"
-ollama = "^0.5.0"
+ollama = "^0.5.1"
 openai = "^1.56.0"
 pydantic = "^2.9.0"
 requests = "^2.32.0"
@@ -4508,4 +4534,4 @@ watchdog = ["watchdog (>=2.3)"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.12,<4.0"
-content-hash = "c44df1588c61895f9c2e5870ef9e61d77ef0ccd8e12e3ddd287f502c509654c1"
+content-hash = "691a1fdec66a155f0a042ed04933416df6589dbc141a70488a970be875dca09e"

@@ -23,6 +23,7 @@ flask-cors = "^5.0.0"  # Para CORS no servidor
 pytest = "^8.0.0"
 pytest-cov = "^6.0.0" 
 pytest-flask = "*"  # Para testes do servidor Flask
+hypothesis = "^6.135.26"
 
 # Plugin registration for rv-tools
 [tool.poetry.plugins."rv_tools.plugins"]

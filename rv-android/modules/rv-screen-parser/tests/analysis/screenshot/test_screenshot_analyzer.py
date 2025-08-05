@@ -274,8 +274,9 @@ class TestCryptoAppScreenshots:
             assert error.error_type in [ErrorType.VALIDATION_ERROR, ErrorType.VISUAL_INDICATOR], \
                 f"Error {i} should be validation/visual type, got {error.error_type}"
 
-            # Should have reasonable confidence (red icons are obvious)
-            assert error.confidence >= 0.5, f"Error {i} confidence too low: {error.confidence}"
+            # CRITICAL: Clear red error icons should have HIGH confidence (0.8+)
+            # These are obvious validation indicators, not subtle UI elements
+            assert error.confidence >= 0.8, f"Error {i} confidence too low for clear error indicator: {error.confidence} (expected ≥0.8)"
 
             # Should be positioned in the form area (right side of screen based on visual analysis)
             assert error.bbox.x > 400, f"Error {i} should be on right side of form, x={error.bbox.x}"
@@ -672,11 +673,10 @@ class TestCryptoAppScreenshots:
         total_interactive = len(result.interactive_elements) + len(result.buttons)
         assert total_interactive >= 10, f"Expected ≥10 interactive color elements, got {total_interactive}"
         
-        # CRITICAL TEST: Highly colorful interface should have reduced false positive errors
-        # This tests the adaptive threshold algorithm's effectiveness
-        # Note: Color picker with 25 bright colors is an extreme case, some false positives expected
-        assert len(result.error_indicators) <= 10, \
-            f"CRITICAL: Color picker should have controlled false errors, got {len(result.error_indicators)}"
+        # Color picker with 25 bright colors should have minimal false positive errors
+        # Adaptive threshold should distinguish UI colors from error indicators
+        assert len(result.error_indicators) <= 2, \
+            f"Color picker interface should have minimal false errors, got {len(result.error_indicators)} (expected ≤2)"
         
         # Log results for analysis of adaptive threshold effectiveness
         print(f"Color picker detection - Total elements: {result.total_elements}")
@@ -721,11 +721,10 @@ class TestCryptoAppScreenshots:
         total_interactive = len(result.interactive_elements) + len(result.buttons)
         assert total_interactive >= 5, f"Expected ≥5 total interactive elements, got {total_interactive}"
         
-        # CRITICAL TEST: Bright pink UI elements should NOT be detected as excessive errors
-        # This tests the adaptive threshold's ability to distinguish UI colors from error indicators
-        # Note: Some false positives expected due to bright pink colors, but should be controlled
-        assert len(result.error_indicators) <= 25, \
-            f"CRITICAL: Bright UI should have controlled errors (≤25), got {len(result.error_indicators)}"
+        # Bright pink UI elements should not be detected as error indicators
+        # Adaptive threshold should distinguish UI colors from error indicators  
+        assert len(result.error_indicators) <= 3, \
+            f"Bright UI should have minimal false errors, got {len(result.error_indicators)} (expected ≤3)"
         
         print(f"Hourly reminder detection - Total elements: {result.total_elements}")
         print(f"Control elements: {total_controls}")

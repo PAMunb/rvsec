@@ -8,7 +8,7 @@ templates, and information fragments for creating effective LLM prompts.
 # Import base modules for prompt system
 from .framework import PromptFramework
 from .information.fragment_manager import InformationManager
-from .prompt_strategy import PromptStrategy as BasePromptStrategy
+from .strategy.base_strategy import PromptStrategy as BasePromptStrategy
 
 __all__ = [
     "PromptFramework",

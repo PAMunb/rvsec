@@ -37,7 +37,6 @@ from rv_llm.llm.prompt.template.jinja_repository import Jinja2TemplateRepository
 # Import RVAndroid-specific components
 from rvandroid_tool.llm.prompt.fragments.history_fragment import HistoryFragment
 from rvandroid_tool.llm.prompt.fragments.monitored_operations_fragment import MonitoredOperationsFragment
-from rvandroid_tool.llm.prompt.fragments.screenshot_fragment import ScreenshotFragment
 from rvandroid_tool.llm.prompt.fragments.transition_guidance_fragment import TransitionGuidanceFragment
 from rvandroid_tool.llm.prompt.fragments.ui_elements_fragment import UIElementsFragment
 from rvandroid_tool.llm.prompt.strategies.batch_action_strategy import BatchActionStrategy
@@ -164,7 +163,6 @@ class RVAndroidPromptFramework(PromptFramework):
             fragments = [
                 HistoryFragment(),
                 MonitoredOperationsFragment(),
-                ScreenshotFragment(),
                 TransitionGuidanceFragment(),
                 UIElementsFragment()
             ]

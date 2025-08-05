@@ -57,25 +57,22 @@ class HuggingFaceLLM(LanguageModel):
     # Default set of models to use (can be extended/modified via configuration)
     MODELS = [LLAMA, GEMMA, QWEN]
 
-    def __init__(self, model_name: str, device: str = "cuda", **kwargs):
+    def __init__(self, config: LLMConfig, device: str = "cuda"):
         """
         Initialize the HuggingFaceLLM.
 
         Args:
-            model_name: Name of the Hugging Face model
+            config: LLMConfig object containing model-specific parameters
             device: Device to use for inference ('cuda' or 'cpu')
-            **kwargs: Additional model parameters for generation
         """
         # Initialize the language model base class
-        super().__init__(model_name, **kwargs)
+        super().__init__(config)
 
         # Set up model properties
+        self.model_name = self.config.model
         self._model = None
         self._tokenizer = None
         self._device = device
-
-        # Store device in kwargs for consistency
-        self.kwargs["device"] = device
 
         # Setup logging and error handling
         self.logging_manager = LoggingManager.get_instance()
@@ -309,32 +306,3 @@ class HuggingFaceLLM(LanguageModel):
             torch.cuda.empty_cache()
 
         self.logger.info("Model and tokenizer unloaded, resources freed")
-
-    @staticmethod
-    def models() -> List[str]:
-        """
-        Returns a list of available models.
-
-        Returns:
-            List of model identifiers
-        """
-        return HuggingFaceLLM.MODELS
-
-    @property
-    def default_config(self) -> LLMConfig:
-        """
-        Returns the default configuration for this model.
-        
-        Returns:
-            LLMConfig with default settings
-        """
-        return LLMConfig(
-            model_type=self.NAME,
-            model_name=self.model_name,
-            max_tokens=1000,
-            temperature=0.2,
-            top_p=1.0,
-            top_k=40
-        )
-
-# Legacy register function removed - now using LLMFactory for component creation

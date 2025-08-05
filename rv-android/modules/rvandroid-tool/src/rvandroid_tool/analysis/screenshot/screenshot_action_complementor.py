@@ -346,7 +346,7 @@ class ScreenshotActionComplementor(BaseAnalyzer):
                 parser_type="ScreenshotActionComplementor"
             )
 
-        screen_description = state[StateEntry.STRUCTURED_SCREEN]
+        screen_description: ScreenDescription = state[StateEntry.STRUCTURED_SCREEN]
         screenshot_path = state[StateEntry.SCREENSHOT_PATH]
 
         # Validate state component types
@@ -437,6 +437,9 @@ class ScreenshotActionComplementor(BaseAnalyzer):
 
             # Generate enhanced screen description with visual information
             enhanced_screen = self._enhance_screen_description(screen_description, visual_mapping)
+
+            print(f" >>>>> NOVO screen description:\n{str(enhanced_screen)}")
+
 
             # Log processing summary
             total_elements = (len(error_mapping) + len(button_mapping) +
@@ -570,6 +573,12 @@ class ScreenshotActionComplementor(BaseAnalyzer):
                 if "errors" not in associated_item.complement:
                     associated_item.complement["errors"] = []
                 associated_item.complement["errors"].append(error)
+
+                # Add error annotation to element description for high-confidence errors
+                confidence = error.get("confidence", 0)
+                if confidence >= 0.8 and not associated_item.base_description.endswith(" [ERR]"):
+                    associated_item.base_description += " [ERR]"
+                    self.logger.debug(f"Added [ERR] annotation to UI element (confidence: {confidence})")
 
                 # Track error-impacted items
                 self.error_impacted_items.add(associated_item)

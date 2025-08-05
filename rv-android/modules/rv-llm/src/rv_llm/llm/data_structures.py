@@ -46,26 +46,14 @@ class LLMImageContent(BaseValidatedModel):
     Image content in an LLM message.
     
     ### Architectural Overview:
-    This class encapsulates image-based content for multimodal LLM conversations,
-    supporting different image detail levels and URL-based image references.
+    This class encapsulates image-based content for multimodal LLM conversations
     
     ### Role in the System:
     - Handles image content for multimodal LLM interactions
-    - Supports image detail level configuration
     - Provides URL-based image reference system
     """
     url: str = Field(description="URL or path to the image")
-    detail: Optional[str] = Field(default="auto", description="Image detail level")
-
-    @field_validator('detail')
-    @classmethod
-    def validate_detail(cls, v: Optional[str]) -> Optional[str]:
-        """Validate image detail level."""
-        if v is not None:
-            valid_details = {"low", "high", "auto"}
-            if v not in valid_details:
-                raise ValueError(f"detail must be one of: {valid_details}")
-        return v
+    encoded_string: str = Field(description="Encoded string representation of the image")
 
     def __str__(self) -> str:
         return self.url
@@ -139,39 +127,48 @@ class LLMMessage(BaseValidatedModel):
                 text_parts.append(item.text)
         return "\n".join(text_parts)
 
-    def to_message_dict(self) -> Dict[str, Any]:
+    def get_image_content(self) -> List[str]:
         """
-        Convert message to API-compatible dictionary format.
-        
-        ### Serialization Strategy:
-        Creates a dictionary structure compatible with standard LLM APIs,
-        handling both text and image content appropriately.
-        
+        Get image content items from the message.
+
         Returns:
-            Dictionary representation for API communication
+            List of LLMImageContent objects
         """
-        items = []
+        return [item.encoded_string for item in self.content if isinstance(item, LLMImageContent)]
 
-        # Add text content
-        text_content = self.get_text_content()
-        if text_content:
-            items.append({
-                "type": "text",
-                "text": text_content
-            })
-
-        # Add image content
-        for item in self.content:
-            if isinstance(item, LLMImageContent):
-                items.append({
-                    "type": "image",
-                    "url": item.url
-                })
-
-        return {
-            "role": self.role.value,
-            "content": items
-        }
+    # def to_message_dict(self) -> Dict[str, Any]:
+    #     """
+    #     Convert message to API-compatible dictionary format.
+    #
+    #     ### Serialization Strategy:
+    #     Creates a dictionary structure compatible with standard LLM APIs,
+    #     handling both text and image content appropriately.
+    #
+    #     Returns:
+    #         Dictionary representation for API communication
+    #     """
+    #     items = []
+    #
+    #     # Add text content
+    #     text_content = self.get_text_content()
+    #     if text_content:
+    #         items.append({
+    #             "type": "text",
+    #             "text": text_content
+    #         })
+    #
+    #     # Add image content
+    #     for item in self.content:
+    #         if isinstance(item, LLMImageContent):
+    #             items.append({
+    #                 "type": "image",
+    #                 "url": item.url
+    #             })
+    #
+    #     return {
+    #         "role": self.role.value,
+    #         "content": items
+    #     }
 
 
 class LLMResponse(BaseValidatedModel):

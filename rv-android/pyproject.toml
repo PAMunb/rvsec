@@ -23,7 +23,7 @@ rv-tools = {path = "modules/rv-tools", develop = true}
 rv-platform = {path = "modules/rv-platform", develop = true}
 rvandroid-tool = {path = "modules/rvandroid-tool", develop = true}
 rv-experiment = {path = "modules/rv-experiment", develop = true}
-#rvandroid = {path = "modules/rvandroid", develop = true}
+rv-evaluator = {path = "modules/rv-evaluator", develop = true}
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.0.0"

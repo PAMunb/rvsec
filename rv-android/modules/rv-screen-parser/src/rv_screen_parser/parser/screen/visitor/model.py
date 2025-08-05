@@ -258,14 +258,10 @@ class ScreenItem(BaseValidatedModel):
         # View data can be empty but should be a valid dictionary
         return v
 
-    @computed_field
     @property
     def description(self) -> str:
         """
         Generate comprehensive human-readable description of element and actions.
-        
-        Combines base element description with available actions to provide
-        complete element representation for analysis and debugging.
         
         Returns:
             Complete element description with actions
@@ -425,14 +421,10 @@ class ScreenDescription(BaseValidatedModel):
                 action_mapping[action.id] = action
         self.events_by_id = action_mapping
 
-    @computed_field
     @property
     def description(self) -> str:
         """
         Generate comprehensive human-readable screen description.
-        
-        Provides complete screen state representation including all UI elements
-        and their available actions with action IDs for execution reference.
         
         Returns:
             Complete screen description with elements and actions

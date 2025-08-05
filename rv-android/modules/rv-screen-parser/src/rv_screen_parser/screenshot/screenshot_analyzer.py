@@ -52,15 +52,15 @@ from rv_android_core.util.error.exceptions import RVParsingError
 from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
 from rv_android_core.util.logging.manager import LoggingManager
 
-from .models import (
+from rv_screen_parser.screenshot.models import (
     ScreenshotAnalysisResult, ImageDimensions
 )
-from .detectors import (
+from rv_screen_parser.screenshot.detectors import (
     get_text_detector, get_button_detector, get_error_detector, 
     get_interactive_element_detector
 )
-from .preprocessing import get_image_preprocessor
-from .utils import get_geometry_utils
+from rv_screen_parser.screenshot.preprocessing import get_image_preprocessor
+from rv_screen_parser.screenshot.utils import get_geometry_utils
 
 
 class ScreenshotAnalyzer(BaseAnalyzer[ScreenshotAnalysisResult]):
@@ -414,6 +414,10 @@ def main(screenshot_path):
         print("\nAnalysis Results:")
         print(result.to_json())
 
+        print("\nError Indicators:")
+        for error in result.error_indicators:
+            print(f" - Error: {error.confidence} :: {error.text}")
+
     except Exception as e:
         print(f"Error processing screenshot: {e}")
         sys.exit(1)
@@ -421,5 +425,5 @@ def main(screenshot_path):
 
 if __name__ == '__main__':
     # image = "/home/pedro/desenvolvimento/RV_ANDROID/teste_llm/screenshots/cryptoapp.apk/001.png"
-    image = "/home/pedro/desenvolvimento/RV_ANDROID/teste_llm/screenshots/cryptoapp.apk/007.png"
+    image = "/home/pedro/desenvolvimento/RV_ANDROID/teste_llm/screenshots/cryptoapp.apk/009.png"
     main(image)

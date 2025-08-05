@@ -258,7 +258,7 @@ class ErrorDetector:
         """
         Calculate adaptive confidence threshold based on image characteristics.
         
-        Uses simple heuristics to detect colorful interfaces that may produce 
+        Uses heuristics to detect colorful interfaces that may produce 
         false positive error indicators.
         
         Args:
@@ -277,8 +277,10 @@ class ErrorDetector:
             
             # Count highly saturated pixels (indicative of colorful content)
             high_saturation_pixels = np.sum(saturation_channel > 100)
+            very_high_saturation_pixels = np.sum(saturation_channel > 150)
             total_pixels = width * height
             saturation_ratio = high_saturation_pixels / total_pixels
+            very_high_saturation_ratio = very_high_saturation_pixels / total_pixels
             
             # Check for game-like text patterns
             game_keywords = ["player", "turn", "roll", "dice", "score", "level", "game"]
@@ -287,15 +289,39 @@ class ErrorDetector:
                 for text in texts
             )
             
+            # Check for color picker interface patterns
+            color_picker_keywords = ["color", "theme", "regular", "text", "change"]
+            color_picker_detected = sum(
+                1 for text in texts 
+                if any(keyword in text.text.lower() for keyword in color_picker_keywords)
+            ) >= 2  # At least 2 color picker related texts
+            
+            # Check for colorful UI interface patterns (apps with many colored UI elements)
+            colorful_ui_keywords = ["alarm", "reminder", "hourly", "beep", "speech", "ringtone", "custom", "game", "player", "level"]
+            colorful_ui_detected = sum(
+                1 for text in texts 
+                if any(keyword in text.text.lower() for keyword in colorful_ui_keywords)
+            ) >= 3  # At least 3 colorful UI related texts
+            
             # Adaptive threshold logic
             base_threshold = 0.3
             
-            # Very high saturation content suggests highly colorful interface (games, visualizations, color pickers)
-            if saturation_ratio > 0.4:
-                base_threshold = 0.9  # Extremely colorful interfaces (color pickers)
-            elif saturation_ratio > 0.3:
-                base_threshold = 0.8
+            # Color picker interfaces should have very high threshold
+            if color_picker_detected and saturation_ratio > 0.15:
+                base_threshold = 0.95
+            # Colorful UI interfaces (alarm apps, games) should have high threshold
+            elif colorful_ui_detected and saturation_ratio > 0.10:
+                base_threshold = 0.85
+            # Very high overall saturation suggests colorful interfaces (games, visualizations)
+            elif saturation_ratio > 0.35:
+                base_threshold = 0.9
             elif saturation_ratio > 0.25:
+                base_threshold = 0.8
+            # High concentration of very saturated pixels suggests colorful interfaces
+            # But only if it's a significant portion (>20% of pixels)
+            elif very_high_saturation_ratio > 0.20:
+                base_threshold = 0.8
+            elif saturation_ratio > 0.20:
                 base_threshold = 0.7
             
             # Game text is a strong indicator for games
@@ -557,27 +583,52 @@ class ErrorDetector:
 
             confidence = 0.0
 
-            # Factor 1: Color intensity (how "red" or "yellow" is it)
+            # Factor 1: Color intensity analysis
             if color_name == "red":
-                # Look for high saturation and value in red range
-                red_pixels = np.sum((roi[:, :, 1] > 150) & (roi[:, :, 2] > 150))
-                intensity_score = red_pixels / roi.size if roi.size > 0 else 0
-                confidence += intensity_score * 0.4
+                # Red error indicators can be bright red (high value) or dark red (lower value)
+                s_channel = roi[:, :, 1]
+                v_channel = roi[:, :, 2]
+                
+                # For bright red indicators (like validation errors): high saturation + high value
+                bright_red_pixels = np.sum((s_channel > 120) & (v_channel > 200))
+                # For dark red indicators: high saturation + medium value  
+                dark_red_pixels = np.sum((s_channel > 150) & (v_channel > 100) & (v_channel <= 200))
+                
+                total_red_pixels = bright_red_pixels + dark_red_pixels
+                intensity_score = total_red_pixels / roi.size if roi.size > 0 else 0
+                
+                # Bright red indicators get higher confidence (validation errors are typically bright)
+                bright_red_ratio = bright_red_pixels / roi.size
+                
+                # Factor 2: Area relative to screen (error indicators are typically small)
+                area_ratio = area / total_area
+                
+                # Small, bright red elements get highest confidence (typical error indicators)  
+                if bright_red_ratio > 0.20 and area_ratio <= 0.005:  # Small bright red elements (validation errors)
+                    confidence += 0.55  # High confidence for clear validation errors
+                elif bright_red_ratio > 0.15 and area_ratio <= 0.01:  # Small-medium bright red
+                    confidence += 0.5
+                elif bright_red_ratio > 0.10:  # General bright red
+                    confidence += min(intensity_score * 0.45, 0.45)
+                else:
+                    confidence += intensity_score * 0.35  # Standard red detection
+                
             elif color_name in ["orange", "yellow"]:
-                # Look for high saturation
+                # Orange/yellow indicators
                 saturated_pixels = np.sum(roi[:, :, 1] > 100)
                 intensity_score = saturated_pixels / roi.size if roi.size > 0 else 0
                 confidence += intensity_score * 0.3
 
-            # Factor 2: Area relative to screen (not too big, not too small)
+            # Factor 2: Area contribution (already used above for red, add for others)
             area_ratio = area / total_area
-            if 0.001 <= area_ratio <= 0.05:  # 0.1% to 5% of screen
-                confidence += 0.3
-            elif 0.0001 <= area_ratio <= 0.1:  # Broader range with lower score
-                confidence += 0.2
+            if color_name != "red":  # Red already handled above
+                if 0.0005 <= area_ratio <= 0.05:  # 0.05% to 5% of screen (optimal for error indicators)
+                    confidence += 0.35
+                elif 0.0001 <= area_ratio <= 0.1:  # Broader range with lower score
+                    confidence += 0.25
 
-            # Factor 3: Shape characteristics (error indicators often rectangular)
-            confidence += 0.3  # Base shape score
+            # Factor 3: Shape characteristics (error indicators are often circular or rectangular)
+            confidence += 0.25  # Base shape score
 
             return min(confidence, 1.0)
 

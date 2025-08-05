@@ -111,6 +111,7 @@ class UIElementsFragment(InformationFragment):
                 )
                 # Attempt string conversion with error handling
                 try:
+                    print(f" >>>>> ui_elements_fragment:\n{str(screen_description)}")
                     return str(screen_description)
                 except Exception as e:
                     self.logger.error(f"Failed to convert screen description to string: {e}")

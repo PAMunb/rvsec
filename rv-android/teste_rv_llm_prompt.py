@@ -16,8 +16,10 @@ import sys
 from pathlib import Path
 from typing import Dict, Any
 
+from rv_llm import LLMMessage, LLMRole, LLMTextContent, LLMImageContent
 from rv_llm.config import PromptConfig
 from rvandroid_tool.config.tool_config import RvAndroidToolConfig
+from rvandroid_tool.llm.prompt import RVAndroidPromptFramework
 
 # Add the modules to Python path
 project_root = Path(__file__).parent
@@ -84,23 +86,19 @@ def read_droidbot_state(filename: str) -> Dict[str, Any]:
         return json.load(file)
 
 
-def enrich_state(state, static_data: StaticAnalysisData, config: LLMConfig, package_name: str):
-    memory_manager = MemoryManager(
-        app_package=package_name,
-        static_data=static_data
-    )
-    transition_manager = TransitionManager(static_data)
+def enrich_state(state, static_data: StaticAnalysisData, config: RvAndroidToolConfig):
+    memory_manager = MemoryManager(static_data=static_data)
+    transition_manager = TransitionManager(static_data=static_data)
     llm_service = LLMActionService(
         static_data=static_data,
-        config=config,
-        app_package=package_name
+        tool_config=config
     )
 
     # Override service's managers with our instances for testing
     llm_service.memory_manager = memory_manager
     llm_service.transition_manager = transition_manager
 
-    llm_service.pre_process_state(state)
+    llm_service._pre_process_state(state)
     return state
 
 
@@ -135,22 +133,14 @@ def tmp_001(droidbot_state_file, screenshot_path, package, static_data):
         max_context_length=8192
     )
     tool_config = RvAndroidToolConfig(
-        parser_type=ScreenParserType.DROIDBOT,
-        visitor_type=VisitorType.DETAILED,
         llm_config=llm_config,
-        kwargs={
-            "parser_timeout": 30,
-            "visitor_max_depth": 5,
-            "custom_setting": "value"
-        }
+        prompt_config=prompt_config
     )
 
-    framework = PromptFramework.create(prompt_config)
-
-    tool_config.register_templates_with_framework(framework)
+    framework = RVAndroidPromptFramework.create(prompt_config)
 
     basic_state = create_state_from_droidbot_state(droidbot_state_file, screenshot_path, package, static_data)
-    state = enrich_state(basic_state, static_data, llm_config, package)
+    state = enrich_state(basic_state, static_data, tool_config)
 
     prompt = framework.generate_prompt(state)
     print(f"\nprompt={prompt}")
@@ -158,14 +148,37 @@ def tmp_001(droidbot_state_file, screenshot_path, package, static_data):
     for msg in prompt:
         print(f"\n\n*************** ROLE: {msg.role} ::: contents={len(msg.content)}")
         for content in msg.content:
-            print(content.text)
+            print(content)
 
+    return prompt
+
+def save_prompt(prompt: list[LLMMessage], out_dir, prefix):
+    for message in prompt:
+        text = ""
+        image = ""
+        for content in message.content:
+            if isinstance(content, LLMTextContent):
+                text += content.text
+            elif isinstance(content, LLMImageContent):
+                image += content.encoded_string
+
+        if LLMRole.USER == message.role:
+            suffix = "_user.txt"
+        else: # LLMRole.SYSTEM == message.role:
+            suffix = "_system.txt"
+
+        with open(os.path.join(out_dir, prefix + suffix)  , "w") as file:
+            file.write(text)
+
+        if image:
+            with open(os.path.join(out_dir, prefix + "_image.txt")  , "w") as file:
+                file.write(image)
 
 
 if __name__ == '__main__':
     screenshots_folder = "/home/pedro/desenvolvimento/RV_ANDROID/teste_llm/screenshots"
     apk = "cryptoapp.apk"
-    prefix = "001"  # 001, 009, 015
+    prefix = "015"  # 001, 009, 015
     app_folder = os.path.join(screenshots_folder, apk)
     reach_file = os.path.join(app_folder, apk + ".reach")
     gator_file = os.path.join(app_folder, apk + ".wtg")
@@ -179,7 +192,10 @@ if __name__ == '__main__':
 
     static_data = static_analysis_parser.parse(reach_file, gator_file, gesda_file, package)
 
-    tmp_001(droidbot_state_file, screenshot_path, package, static_data)
+    prompt = tmp_001(droidbot_state_file, screenshot_path, package, static_data)
+
+    outdir = "/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec/rv-android/modules/rv-evaluator/src/rv_evaluator/prompts"
+    save_prompt(prompt, outdir, prefix)
 
     # print("=== Testing Template System ===")
     # tmp_template_system()

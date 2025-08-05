@@ -73,7 +73,7 @@ def tmp_experiment_controller():
         from rv_android_core.event import EventBus
 
         tools = [
-            ToolConfig(name="monkey"), #, parameters={"count": 100}),
+            ToolConfig(name="ape"), #, parameters={"count": 100}),
             # ToolConfig(name="ape")
         ]
 

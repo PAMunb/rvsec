@@ -56,7 +56,7 @@ from .llm.frontier_models import FrontierModel
 
 # Prompt framework
 from .llm.prompt.framework import PromptFramework
-from .llm.prompt.prompt_strategy import PromptStrategy as BasePromptStrategy
+from .llm.prompt.strategy.base_strategy import PromptStrategy as BasePromptStrategy
 
 # Configuration
 from .config.llm_config import LLMConfig

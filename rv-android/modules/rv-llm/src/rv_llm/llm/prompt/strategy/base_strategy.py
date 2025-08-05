@@ -12,8 +12,9 @@ from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
 from rv_android_core.util.logging.manager import LoggingManager
 from rv_llm.config import PromptConfig
 from rv_llm.llm.constants import ContextEntry, PromptStrategyType
-from rv_llm.llm.data_structures import LLMMessage, LLMRole, LLMTextContent
-
+from rv_llm.llm.data_structures import LLMMessage, LLMRole, LLMTextContent, LLMImageContent, LLMContentType
+from rv_llm.llm.constants import StateEntry
+import os
 
 class PromptStrategy(abc.ABC):
     """Base class for all prompt generation strategies.
@@ -223,10 +224,46 @@ class PromptStrategy(abc.ABC):
             role = LLMRole(role_value)
 
             # Create LLMMessage object
+            content: list[LLMContentType] = [LLMTextContent(text=content_text)]
+
+            # Add image message (screenshot)
+            if role == LLMRole.USER:
+                image_message = _create_image_message(state)
+                if image_message is not None:
+                    content.append(image_message)
+
             message = LLMMessage(
                 role=role,
-                content=[LLMTextContent(text=content_text)]
+                content=content
             )
             messages.append(message)
 
         return messages
+
+
+def _create_image_message(state: Dict[str, Any]):
+    if StateEntry.SCREENSHOT_PATH in state and state[StateEntry.SCREENSHOT_PATH]:
+        screenshot_path = state[StateEntry.SCREENSHOT_PATH]
+        if os.path.exists(screenshot_path):
+            encoded_string = get_image_base64_local(screenshot_path)
+            if encoded_string is not None:
+                return LLMImageContent(url=screenshot_path, encoded_string=encoded_string)
+    return None
+
+def get_image_base64_local(image_path: str) -> str:
+    # TODO traduzir para ingles
+    """
+    Lê uma imagem de um arquivo local e retorna sua string codificada em base64.
+    """
+    try:
+        with open(image_path, "rb") as image_file:
+            import base64
+            encoded_string = base64.b64encode(image_file.read()).decode('utf-8')
+        return encoded_string
+    # TODO usar error handler
+    except FileNotFoundError:
+        print(f"Erro: O arquivo de imagem não foi encontrado em: {image_path}")
+        return None
+    except Exception as e:
+        print(f"Erro ao ler ou codificar a imagem local: {e}")
+        return None

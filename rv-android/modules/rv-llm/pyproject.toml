@@ -18,7 +18,7 @@ httpx = "^0.27.0"  # Cliente HTTP async moderno
 jinja2 = "^3.1.0"  # Template engine para prompts
 
 # Provider-specific dependencies
-ollama = "^0.5.0"  # Ollama SDK
+ollama = "^0.5.1"  # Ollama SDK
 openai = "^1.56.0"  # OpenAI API
 anthropic = "^0.53.0"  # Anthropic Claude API
 boto3 = "^1.35.0"  # AWS Bedrock

@@ -79,40 +79,34 @@ class LanguageModel(ABC):
     synchronized for concurrent access.
     """
 
-    def __init__(self, model_name: str, **kwargs):
+    def __init__(self, config: LLMConfig):
         """
         Initialize language model with standardized infrastructure integration.
         
         Args:
-            model_name: Name of the specific model to use
-            **kwargs: Additional model-specific parameters
+            config: LLMConfig object containing model-specific parameters
         """
-        self.model_name = model_name
-        self.kwargs = kwargs
+        self.config = config
 
         # Configure logging with contextual information
         logging_manager = LoggingManager.get_instance()
-        self.logger = logging_manager.get_logger(
-            "rv_llm.llm.language_model",
-            {CONTEXT_COMPONENT: f"LanguageModel-{model_name}"}
-        )
+        self.logger = logging_manager.get_logger("rv_llm.llm.language_model")
 
         # Initialize error handler for error management
         self.error_handler = ErrorHandler.get_instance()
 
     @abstractmethod
-    def generate(self,
-                 messages: List[LLMMessage],
-                 config: Optional[LLMConfig] = None) -> LLMResponse:
+    def generate(self, messages: List[LLMMessage], config: Optional[LLMConfig] = None) -> LLMResponse:
         """
         Generate a response synchronously.
         
         Args:
             messages: List of LLMMessage objects representing the conversation
-            config: Optional configuration parameters
+            config: optional LLMConfig object
             
         Returns:
             LLMResponse containing the generated text and performance metrics
+
         """
         pass
 
@@ -163,29 +157,3 @@ class LanguageModel(ABC):
             component=self._get_component_name(),
             phase="resource_cleanup"
         )(func)
-
-    @property
-    def default_config(self) -> LLMConfig:
-        """
-        Returns the default configuration for this model.
-        
-        Returns:
-            LLMConfig with default settings
-        """
-        return LLMConfig(
-            llm_type=self.__class__.NAME,
-            model=self.model_name,
-            max_tokens=800,
-            temperature=0.2
-        )
-
-    @classmethod
-    def models(cls) -> List[str]:
-        """
-        Get a list of available models for this type.
-        
-        Returns:
-            List of available model names
-        """
-        # Default implementation - subclasses should override
-        return getattr(cls, "MODELS", [])

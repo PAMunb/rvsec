@@ -93,7 +93,7 @@ class Jinja2Template:
                 }
             )
             # Create a fallback template that displays the error
-            error_template = f"ERROR COMPILING TEMPLATE: {str(e)}\n\nOriginal template:\n{template_text[:500]}..."
+            error_template = f"ERROR COMPILING TEMPLATE: {str(e)}"
             self.compiled_template = self.jinja_env.from_string(error_template)
 
         # Extract all variables using Jinja2's parser
@@ -158,14 +158,6 @@ class Jinja2Template:
             return variables
         except Exception as e:
             self.logger.error(f"Error extracting variables: {e}", exc_info=True)
-            self.error_handler.handle_error(
-                e,
-                context={
-                    "component": f"Jinja2Template:{self.name}",
-                    "function": "_extract_all_variables",
-                    "template_role": self.role
-                }
-            )
             return set()
 
     def update_fragment_repository(self, fragment_repository: Dict[str, str]) -> None:
@@ -176,8 +168,12 @@ class Jinja2Template:
         """
         if fragment_repository is not None:
             self.fragment_repository = fragment_repository
-            # Recreate the Jinja environment with the new fragment repository
-            self.jinja_env = self._create_jinja_environment()
+            # Update the existing loader with the new fragment repository
+            if isinstance(self.jinja_env.loader, FragmentDictLoader):
+                self.jinja_env.loader.update_fragments(fragment_repository)
+            else:
+                # If the loader is not FragmentDictLoader, recreate the environment
+                self.jinja_env = self._create_jinja_environment()
             self.logger.debug(f"Updated fragment repository with {len(fragment_repository)} fragments")
 
     def render(self, data: Dict[str, Any], external_fragments: Optional[Dict[str, str]] = None) -> str:
@@ -286,12 +282,9 @@ class FragmentDictLoader(jinja2.BaseLoader):
     """
 
     def __init__(self, fragments_dict: Dict[str, str]):
-        """Initialize the loader with a dictionary of fragments.
-
-        Args:
-            fragments_dict: Dictionary mapping fragment names to content.
-        """
+        """Initialize the loader with a dictionary of fragments."""
         self.fragments = fragments_dict
+        print(f"DEBUG: FragmentDictLoader.__init__ - Received fragments: {fragments_dict.keys()}")
         # Set up logging
         logging_manager = LoggingManager.get_instance()
         self.logger = logging_manager.get_logger(
@@ -301,6 +294,11 @@ class FragmentDictLoader(jinja2.BaseLoader):
 
         # Set up error handling
         self.error_handler = ErrorHandler.get_instance()
+
+    def update_fragments(self, new_fragments: Dict[str, str]):
+        """Update the internal fragments dictionary."""
+        self.fragments = new_fragments
+        self.logger.debug(f"FragmentDictLoader updated with {len(new_fragments)} fragments")
 
     def get_source(self, environment: jinja2.Environment, template: str) -> tuple:
         """Get the source of a template.
@@ -319,6 +317,7 @@ class FragmentDictLoader(jinja2.BaseLoader):
         clean_template = template.strip()
 
         # Check direct match first (most common case)
+        print(f"DEBUG: FragmentDictLoader.get_source - Looking for '{clean_template}' in fragments: {self.fragments.keys()}")
         if clean_template in self.fragments:
             self.logger.debug(f"Found fragment '{clean_template}' with direct match")
             return self.fragments[clean_template], None, lambda: True

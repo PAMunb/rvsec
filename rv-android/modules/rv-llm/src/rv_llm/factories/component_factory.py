@@ -159,14 +159,8 @@ class LLMComponentFactory:
             if config.llm_type == "ollama":
                 from rv_llm.llm.ollama_llm import OllamaLLM
 
-                llm = OllamaLLM(
-                    model_name=config.model,
-                    base_url=config.base_url,
-                    temperature=config.temperature,
-                    max_tokens=config.max_tokens,
-                    top_p=config.top_p,
-                    top_k=config.top_k
-                )
+                llm = OllamaLLM(config)
+                # TODO arrumar os outros construtores
                 logger.info(f"Created Ollama LLM with model: {config.model}")
                 return llm
 
@@ -199,12 +193,7 @@ class LLMComponentFactory:
                         config_field="api_key"
                     )
 
-                llm = FrontierModel.create_anthropic(
-                    model_name=config.model,
-                    api_key=config.api_key,
-                    temperature=config.temperature,
-                    max_tokens=config.max_tokens
-                )
+                llm = FrontierModel.create_anthropic(config=config)
                 logger.info(f"Created Anthropic LLM with model: {config.model}")
                 return llm
 

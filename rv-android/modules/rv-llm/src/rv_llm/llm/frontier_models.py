@@ -2,6 +2,7 @@
 import json
 import logging
 import os
+import time
 from typing import List, Dict, Optional, Any
 
 import boto3
@@ -11,7 +12,9 @@ import openai
 from anthropic import Anthropic
 
 from rv_android_core.util.error.error_handler import ErrorHandler
-from rv_llm.llm.data_structures import LLMMessage
+from rv_llm import LLMResponse
+from rv_llm.config.llm_config import LLMConfig
+from rv_llm.llm.data_structures import LLMMessage, LLMRole
 from rv_llm.llm.language_model import LanguageModel
 
 # Configure logger
@@ -48,7 +51,7 @@ class FrontierModel(LanguageModel):
     # All models
     MODELS = ANTHROPIC_MODELS + OPENAI_MODELS + GOOGLE_MODELS + AMAZON_MODELS
 
-    def __init__(self, model_name: str, provider: Optional[str] = None, api_key: Optional[str] = None, **kwargs):
+    def __init__(self, config: LLMConfig, provider: Optional[str] = None, **kwargs):
         """
         Initialize the FrontierModel with a model name and provider.
 
@@ -61,15 +64,16 @@ class FrontierModel(LanguageModel):
         """
         # Determine provider if not specified
         if provider is None:
-            provider = self._infer_provider(model_name)
+            provider = self._infer_provider(config.model)
 
         # Initialize the language model with model_name
-        super().__init__(model_name)
+        super().__init__(config)
 
         # Store provider and API key
         self.provider = provider
-        self.api_key = api_key
+        self.api_key = config.api_key
         self._client = None
+        self.model_name = config.model
         self.kwargs = kwargs
         # self.logger = logger TODO
         self.error_handler = ErrorHandler.get_instance()
@@ -78,7 +82,7 @@ class FrontierModel(LanguageModel):
         self.kwargs["provider"] = provider
 
         # Log initialization
-        self.logger.info(f"Initializing FrontierModel with {provider} provider and model {model_name}")
+        self.logger.info(f"Initializing FrontierModel with {provider} provider and model {config.model}")
 
     def _get_model_type(self) -> str:
         """Get model type string."""
@@ -96,13 +100,24 @@ class FrontierModel(LanguageModel):
         Returns:
             List of message dictionaries for provider APIs
         """
-        formatted = []
-        for msg in messages:
-            formatted.append({
-                "role": msg.role,
-                "content": msg.content
-            })
-        return formatted
+        formatted_msgs = []
+        for message in messages:
+            formatted_msg = self.format_message(message)
+            print(f">>> formatted_msg=\n{formatted_msg} ...")
+            formatted_msgs.append(formatted_msg)
+        return formatted_msgs
+
+    def format_message(self, message):
+        content = message.get_text_content()
+        formatted_msg = {
+            "role": message.role.value,
+            "content": content
+        }
+        if LLMRole.USER == message.role and self.config.vision:
+            images = message.get_image_content()
+            if images and len(images) > 0:
+                formatted_msg["images"] = images
+        return formatted_msg
 
     def _infer_provider(self, model_name: str) -> str:
         """
@@ -133,7 +148,7 @@ class FrontierModel(LanguageModel):
                 return "openai"
             elif model_name.startswith("gemini"):
                 return "google"
-            elif model_name.startswith("anthropic."):
+            elif model_name.startswith("amazon"):
                 return "amazon"
 
             raise ValueError(f"Could not infer provider for model: {model_name}")
@@ -154,6 +169,7 @@ class FrontierModel(LanguageModel):
 
         # Initialize client based on provider
         if self.provider == "anthropic":
+            # TODO ler do .env tambem
             api_key = self.api_key or os.environ.get("ANTHROPIC_API_KEY")
             if not api_key:
                 raise ValueError("Anthropic API key not provided")
@@ -187,9 +203,7 @@ class FrontierModel(LanguageModel):
 
         return self._client
 
-    # Async generation removed in Phase 3 - using synchronous API calls
-
-    def generate(self, messages: List[LLMMessage], config=None) -> LLMMessage:
+    def generate(self, messages: List[LLMMessage], config: Optional[LLMConfig] = None) -> LLMResponse:
         """
         Generate text based on the input messages synchronously.
 
@@ -209,26 +223,30 @@ class FrontierModel(LanguageModel):
 
             # Extract generation parameters
             max_tokens = getattr(_config, 'max_tokens', 800) if _config else 800
-            temperature = getattr(_config, 'temperature', 0.7) if _config else 0.7
+            temperature = getattr(_config, 'temperature', 0.2) if _config else 0.2
 
             model_kwargs = {
                 'temperature': temperature
             }
 
+            start = time.time()
             # Call appropriate provider's generation method
             if self.provider == "anthropic":
-                response_text = self._generate_anthropic(formatted_messages, max_tokens, model_kwargs)
-            elif self.provider == "openai":
-                response_text = self._generate_openai(formatted_messages, max_tokens, model_kwargs)
-            elif self.provider == "google":
-                response_text = self._generate_google(formatted_messages, max_tokens, model_kwargs)
-            elif self.provider == "amazon":
-                response_text = self._generate_amazon(formatted_messages, max_tokens, model_kwargs)
+                response = self._generate_anthropic(formatted_messages, max_tokens, model_kwargs)
+                # elif self.provider == "openai":
+                #     response = self._generate_openai(formatted_messages, max_tokens, model_kwargs)
+                # elif self.provider == "google":
+                #     response = self._generate_google(formatted_messages, max_tokens, model_kwargs)
+                # elif self.provider == "amazon":
+                #     response = self._generate_amazon(formatted_messages, max_tokens, model_kwargs)
             else:
                 raise ValueError(f"Unsupported provider: {self.provider}")
+            end = time.time()
+            tmp = end - start
+            response.total_duration = int(tmp * 1000)
 
-            # Create response LLMMessage
-            return LLMMessage(role="assistant", content=response_text)
+            # return response
+            return response
 
         except Exception as e:
             error_msg = f"Error generating text with {self.provider}: {str(e)}"
@@ -238,7 +256,8 @@ class FrontierModel(LanguageModel):
             self.error_handler.handle_error(error)
             raise
 
-    def _generate_anthropic(self, messages: List[Dict[str, str]], max_tokens: int, model_kwargs: Dict[str, Any]) -> str:
+    def _generate_anthropic(self, messages: List[Dict[str, str]], max_tokens: int,
+                            model_kwargs: Dict[str, Any]) -> LLMResponse:
         """
         Generate text using Anthropic's Claude models.
 
@@ -257,7 +276,16 @@ class FrontierModel(LanguageModel):
                 messages=messages,
                 **model_kwargs
             )
-            return message.content[0].text
+            print(f"message={message}")
+            response = LLMResponse(
+                content=message.content[0].text,
+                role=LLMRole.ASSISTANT,
+                done=True if "turn" in message.stop_reason else False,
+                done_reason=str(message.stop_reason),
+                input_tokens=message.usage.input_tokens,
+                output_tokens=message.usage.output_tokens
+            )
+            return response
         except Exception as e:
             self.logger.error(f"Anthropic API error: {e}")
             raise
@@ -383,16 +411,6 @@ class FrontierModel(LanguageModel):
         self._client = None
         self.logger.info(f"Released {self.provider} client resources")
 
-    @staticmethod
-    def models() -> List[str]:
-        """
-        Returns available models.
-
-        Returns:
-            List of model identifiers
-        """
-        return FrontierModel.MODELS
-
     @classmethod
     def create_openai(cls, model_name: str = GPT_4, api_key: Optional[str] = None, **kwargs) -> 'FrontierModel':
         """
@@ -409,8 +427,7 @@ class FrontierModel(LanguageModel):
         return cls(model_name=model_name, provider="openai", api_key=api_key, **kwargs)
 
     @classmethod
-    def create_anthropic(cls, model_name: str = CLAUDE_SONNET, api_key: Optional[str] = None,
-                         **kwargs) -> 'FrontierModel':
+    def create_anthropic(cls, config: LLMConfig, **kwargs) -> 'FrontierModel':
         """
         Create Anthropic model instance.
         
@@ -422,7 +439,7 @@ class FrontierModel(LanguageModel):
         Returns:
             FrontierModel instance configured for Anthropic
         """
-        return cls(model_name=model_name, provider="anthropic", api_key=api_key, **kwargs)
+        return cls(config=config, provider="anthropic", **kwargs)
 
     @classmethod
     def create_google(cls, model_name: str = GEMINI_PRO, api_key: Optional[str] = None, **kwargs) -> 'FrontierModel':
