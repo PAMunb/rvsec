@@ -69,9 +69,9 @@ if __name__ == '__main__':
     # Cria configuração LLM (sem strategy_type)
     llm_config = LLMConfig(
         llm_type=LLMType.OLLAMA,
-        model="qwen2.5:7b",  # Using string instead of OllamaLLM.QWEN
+        model=OllamaLLM.QWEN,  # Using string instead of OllamaLLM.QWEN
         temperature=0.2,
-        max_tokens=800
+        max_tokens=1200
     )
 
     # Cria configuração de prompt separada
@@ -83,8 +83,7 @@ if __name__ == '__main__':
 
     # Cria configuração da ferramenta
     tool_config = RvAndroidToolConfig(
-        parser_type=ScreenParserType.DROIDBOT,
-        visitor_type=VisitorType.DEFAULT,
+        prompt_config=prompt_config,
         llm_config=llm_config
     )
 
@@ -92,15 +91,13 @@ if __name__ == '__main__':
     print(f"LLM: {llm_config.llm_type}")
     print(f"Modelo: {llm_config.model}")
     print(f"Estratégia: {prompt_config.strategy_type}")
-    print(f"Parser: {tool_config.parser_type}")
-    print(f"Visitor: {tool_config.visitor_type}")
+    print(f"Parser: {prompt_config.parser_type}")
+    print(f"Visitor: {prompt_config.visitor_type}")
     print("================================\n")
 
     # Cria o serviço (com nova assinatura)
     service = LLMActionService(
         static_data=static_data,
-        config=llm_config,
-        app_package=package,
         tool_config=tool_config
     )
 

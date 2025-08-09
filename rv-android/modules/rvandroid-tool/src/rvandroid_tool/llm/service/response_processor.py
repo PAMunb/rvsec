@@ -250,7 +250,7 @@ class ResponseProcessor:
                 action_id_as_int = action_id
                 try:
                     action_id_as_int = int(action_id)
-                    if 1 <= action_id_as_int <= 10:  # A reasonable range for most screens
+                    if 1 <= action_id_as_int <= 1100:  # A reasonable range for most screens
                         self.logger.debug(f"Conditionally accepting action_id {action_id} (no validation list)")
                         # Still valid in this case
                     else:

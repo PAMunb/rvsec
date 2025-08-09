@@ -20,6 +20,7 @@ rvandroid-tool = {path = "../rvandroid-tool", develop = true}
 pydantic = "^2.9.0"
 # Dependências específicas para orquestração
 matplotlib = "^3.9.0"  # Para silenciar logs verbosos no CLI
+pandas = "^2.3.1"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.0.0"

@@ -207,15 +207,15 @@ class LLMResponse(BaseValidatedModel):
     output_tokens: int = Field(default=0, ge=0, description="Number of output tokens generated")
     output_tokens_duration: int = Field(default=0, ge=0, description="Output generation duration in milliseconds")
 
-    @field_validator('done_reason')
-    @classmethod
-    def validate_done_reason(cls, v: str) -> str:
-        """Validate completion reason."""
-        valid_reasons = {"stop", "length", "error", "interrupted", "timeout"}
-        if v not in valid_reasons:
-            # Allow other reasons but log a warning
-            pass
-        return v
+    # @field_validator('done_reason')
+    # @classmethod
+    # def validate_done_reason(cls, v: str) -> str:
+    #     """Validate completion reason."""
+    #     valid_reasons = {"stop", "length", "error", "interrupted", "timeout", "false"}
+    #     if v not in valid_reasons:
+    #         # Allow other reasons but log a warning
+    #         pass
+    #     return v
 
     def total_chars(self) -> int:
         """

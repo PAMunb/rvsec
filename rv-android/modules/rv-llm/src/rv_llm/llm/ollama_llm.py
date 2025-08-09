@@ -54,7 +54,7 @@ class OllamaLLM(LanguageModel):
     LLAMA: ClassVar[str] = "llama3.2:1b"
     DEEPSEEK: ClassVar[str] = "deepseek-r1:1.5B"
     GEMMA: ClassVar[str] = "gemma3:4b"
-    QWEN: ClassVar[str] = "qwen3:1.7b"
+    QWEN: ClassVar[str] = "qwen3:0.6b"
     PHI: ClassVar[str] = "phi4-mini-reasoning:3.8b"
     GRANITE: ClassVar[str] = "granite3.3:2b"
     # MISTRAL: ClassVar[str] = "mistral:7b"
@@ -95,6 +95,7 @@ class OllamaLLM(LanguageModel):
             Ollama Client instance
         """
         if self._client is None:
+            print(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> criando cliente")
             self._client = Client(host=self.config.base_url)
         return self._client
 
@@ -114,7 +115,7 @@ class OllamaLLM(LanguageModel):
             formatted_msgs = []
             for message in messages:
                 formatted_msg = self.format_message(message)
-                print(f">>> formatted_msg=\n{formatted_msg} ...")
+                # print(f">>> formatted_msg=\n{formatted_msg} ...")
                 formatted_msgs.append(formatted_msg)
 
             # Update config
@@ -126,8 +127,8 @@ class OllamaLLM(LanguageModel):
             self.logger.info(f"Calling Ollama with model: {self.config.model}, options: {options}")
             # TODO voltar debug self.logger.debug(f"Calling Ollama with model: {self.model_name}, options: {options}")
 
-            print(f">>> messages=\n{formatted_msgs}")
-            print(f">>> options=\n{options}")
+            # print(f">>> messages=\n{formatted_msgs}")
+            # print(f">>> options=\n{options}")
 
             # Call Ollama chat API synchronously
             response: ChatResponse = self.client.chat(
@@ -136,7 +137,7 @@ class OllamaLLM(LanguageModel):
                 options=options,
                 stream=False,
                 think=self.config.think,
-                keep_alive="60s"
+                keep_alive="20s"
             )
 
             print(f"<<< response=\n{response}")
@@ -171,7 +172,7 @@ class OllamaLLM(LanguageModel):
     def create_response(self, response: ChatResponse):
         llm_response = LLMResponse(content=response.message.content)
         # Add performance metrics from Ollama
-        llm_response.done_reason = response.done_reason
+        llm_response.done_reason = str(response.done_reason).lower()
         llm_response.total_duration = response.total_duration
         llm_response.load_duration = response.load_duration
         llm_response.input_tokens = response.prompt_eval_count

@@ -13,10 +13,12 @@ rv-tools = {path = "../rv-tools", develop = true}
 rv-coverage = {path = "../rv-coverage", develop = true}
 rv-static-analysis = {path = "../rv-static-analysis", develop = true}
 pydantic = "^2.9.0"
+pandas = "^2.3.1"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.0.0"
-pytest-cov = "^6.0.0" 
+pytest-cov = "^6.0.0"
+hypothesis = "^6.135.26"
 
 [tool.poetry.scripts]
 rv-platform = "rv_platform.__main__:main"

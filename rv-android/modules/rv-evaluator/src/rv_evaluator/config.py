@@ -36,13 +36,13 @@ from rv_llm.llm.constants import LLMType
 # ===== EXECUTION SETTINGS =====
 
 # Number of repetitions per configuration for statistical significance
-REPETITIONS_PER_CONFIG = 2
+REPETITIONS_PER_CONFIG = 5
 
 # Number of warm-up runs to discard (not counted in results)
-WARMUP_RUNS = 2
+WARMUP_RUNS = 3
 
 # Timeout for each LLM generation call (seconds)
-GENERATION_TIMEOUT = 30
+GENERATION_TIMEOUT = 60
 
 # Default prompts directory (can be overridden)
 DEFAULT_PROMPTS_DIR = os.path.join(os.path.dirname(__file__), "prompts")
@@ -57,28 +57,76 @@ class ModelToTest:
         self.think = think
 
 
-# Models to evaluate (considering 8GB GPU constraint)
+# Models to evaluate (considering 16GB GPU constraint)
 # Prioritizing smaller, efficient models that fit in VRAM
 MODELS_TO_TEST = [
-    ModelToTest("", False, False),
-    ModelToTest("gemma3:1b", vision=True),
-    ModelToTest("llama3.2:1b")
-    # TODO colocar o resto dos modelos
+    # ModelToTest("", False, False),
+    # ModelToTest("llama3.2:1b"),
+    # ModelToTest("llama3.2:3b"),
+    ModelToTest("llama3.2-vision:11b", vision=True),
+    ModelToTest("gemma3:4b", vision=True),
+    ModelToTest("gemma3:12b", vision=True),
+    ModelToTest("llava:7b", vision=True),
+    ModelToTest("llava-llama3:8b", vision=True),
+    ModelToTest("llava-phi3:3.8b", vision=True),
+    # ModelToTest("granite3.2-vision:2b", vision=True),
+    # ModelToTest("qwen3:0.6b", think=True),
+    # ModelToTest("qwen3:1.7b", think=True),
+    # ModelToTest("qwen3:4b", think=True),
+    # ModelToTest("qwen3:8b", think=True),
+    # ModelToTest("qwen3:14b", think=True),
+    # ModelToTest("phi4-mini-reasoning:3.8b"),
+    # ModelToTest("phi4-reasoning:14b"),
+    # ModelToTest("deepseek-r1:1.5b", think=True),
+    # ModelToTest("deepseek-r1:7b", think=True),
+    # ModelToTest("deepseek-r1:8b", think=True),
+    # ModelToTest("moondream:1.8b", vision=True)
 ]
 
 # ===== PARAMETER RANGES =====
 
 # Temperature values for testing randomness vs consistency
-TEMPERATURE_VALUES = [0.1, 0.2, 0.3, 0.7]
+TEMPERATURE_VALUES = [0.1, 0.5, 0.9]
 
 # Top-p (nucleus sampling) values for token selection
-TOP_P_VALUES = [0.7, 0.9, 1.0]
+# O top_p (também conhecido como amostragem de núcleo) controla a diversidade do texto gerado de uma maneira diferente da temperatura.
+#
+# O que faz: Em vez de selecionar apenas a palavra mais provável, o modelo considera um conjunto de palavras cuja probabilidade acumulada atinja o valor de top_p.
+#
+# Valores baixos (como 0.1) restringem a seleção a um pequeno grupo de palavras mais prováveis.
+#
+# Valores altos (como 0.9) permitem que o modelo escolha entre um grupo maior de palavras, resultando em mais diversidade.
+#
+# Faixa de valores: De 0.0 a 1.0.
+#
+# Valor padrão: Geralmente 0.9. É uma boa opção para balancear diversidade e relevância.
+TOP_P_VALUES = [0.3, 0.9] #[0.1, 0.5, 0.9]
 
 # Maximum tokens to generate
-MAX_TOKENS_VALUES = [300, 500, 800]
+# O max_tokens define o limite máximo de tokens (palavras, pontuações, etc.) que o modelo pode gerar na resposta.
+#
+# O que faz: Ele basicamente controla o tamanho máximo da sua resposta. Se a resposta atinge esse limite, o modelo para de gerar texto, mesmo que a frase não esteja completa.
+#
+# É útil para evitar que o modelo gere respostas extremamente longas e para controlar os custos (se aplicável) e o tempo de resposta.
+#
+# Faixa de valores: De 1 a qualquer número inteiro positivo. O limite exato pode depender do modelo em uso e da sua máquina.
+#
+# Valor padrão: Varia, mas um valor comum pode ser 128.
+MAX_TOKENS_VALUES = [300, 500] #[300, 500, 800, 1500]
 
 # Top-k values for token selection (0 means disabled)
-TOP_K_VALUES = [0, 20, 40, 80]
+# O top_k limita o conjunto de palavras que o modelo pode escolher para a próxima palavra.
+#
+# O que faz: O modelo só considera as k palavras mais prováveis para continuar a frase.
+#
+# Se top_k é 1, o modelo sempre escolhe a palavra mais provável (igual a uma temperatura de 0).
+#
+# Se top_k é 40, ele considera as 40 palavras mais prováveis.
+#
+# Faixa de valores: De 1 a qualquer número inteiro positivo (mas valores acima de algumas centenas geralmente não são úteis).
+#
+# Valor padrão: Geralmente 40.
+TOP_K_VALUES = [10, 40]
 
 # ===== OUTPUT CONFIGURATION =====
 
@@ -171,43 +219,3 @@ def generate_all_configurations() -> List[LLMConfig]:
                         configurations.append(config)
 
     return configurations
-
-
-# ===== METRICS CONFIGURATION =====
-
-# Metrics to calculate and export
-METRICS_TO_COLLECT = [
-    # Performance metrics
-    "total_duration_ms",
-    "load_duration_ms",
-    "input_tokens",
-    "input_tokens_duration_ms",
-    "output_tokens",
-    "output_tokens_duration_ms",
-
-    # Derived metrics
-    "tokens_per_second",
-    "input_output_ratio",
-    "generation_latency_ms",
-
-    # Quality metrics
-    "parsing_success",
-    "response_length_chars",
-    "actions_count",
-    "explanation_quality_score",
-
-    # Error metrics
-    "error_occurred",
-    "error_type",
-    "timeout_occurred"
-]
-
-# Statistical metrics to calculate for summary
-SUMMARY_STATISTICS = [
-    "mean",
-    "median",
-    "std_dev",
-    "min",
-    "max",
-    "success_rate"
-]

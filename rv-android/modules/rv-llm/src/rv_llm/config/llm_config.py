@@ -88,7 +88,7 @@ class LLMConfig(BaseValidatedModel):
     model: str = Field(default="llama3.2:3b", description="Model name or identifier")
     base_url: str = Field(default="http://localhost:11434", description="Base URL for local LLM providers")
     temperature: float = Field(default=0.2, ge=0.0, le=2.0, description="Sampling temperature")
-    max_tokens: int = Field(default=800, ge=1, le=4096, description="Maximum tokens to generate")
+    max_tokens: int = Field(default=800, ge=1, le=131072, description="Maximum tokens to generate")
     vision: bool = Field(default=False, description="Enable vision capabilities")
     think: bool = Field(default=False, description="Enable thinking capabilities")
     # Cloud Configuration
@@ -97,12 +97,12 @@ class LLMConfig(BaseValidatedModel):
 
     # Generation Parameters
     top_p: float = Field(default=1.0, gt=0.0, le=1.0, description="Top-p sampling parameter")
-    top_k: int = Field(default=40, ge=1, le=100, description="Top-k sampling parameter")
+    top_k: int = Field(default=40, ge=0, le=500, description="Top-k sampling parameter")
     frequency_penalty: float = Field(default=0.0, ge=-2.0, le=2.0, description="Frequency penalty")
     presence_penalty: float = Field(default=0.0, ge=-2.0, le=2.0, description="Presence penalty")
 
     # Context Configuration
-    max_context_length: int = Field(default=8192, ge=512, le=32768, description="Maximum context length")
+    max_context_length: int = Field(default=8192, ge=300, le=131072, description="Maximum context length")
 
     # Parser Configuration - Moved to rvandroid-tool RvAndroidToolConfig
     # Parser and visitor configuration is now handled by individual tools

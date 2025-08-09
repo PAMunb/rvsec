@@ -1,37 +1,18 @@
-# rvandroid/llm/evaluator/evaluator.py
+# rv_evaluator/evaluator.py
 """
-Main LLM evaluation system for comparing model configurations.
+Provides the main LLM evaluation engine.
 
-This module provides the core evaluation engine for systematically testing
-different LLM models, strategies, and parameters using fixed prompts.
-
-### Architectural Decisions:
-- Implements a systematic evaluation framework for LLM configuration comparison
-- Leverages existing RV-Android components (OllamaLLM, ComponentConfigurator, ResponseProcessor)
-- Provides isolated testing environment independent of full testing framework
-- Uses hardcoded configuration for simplicity and reproducibility
-- Groups execution by model to minimize GPU memory management overhead
-- Implements comprehensive error handling and timeout mechanisms
-
-### Role in the System:
-- Acts as the primary evaluation engine for LLM configuration optimization
-- Provides systematic comparison of models, strategies, and parameters
-- Generates comprehensive metrics for performance and quality analysis
-- Serves as a preliminary screening tool before full framework evaluation
-- Enables data-driven selection of optimal LLM configurations
-
-### Key Considerations:
-- GPU memory constraint (8GB) requires careful model sequencing
-- Statistical significance achieved through multiple repetitions per configuration
-- Warm-up runs ensure consistent performance measurement
-- Timeout mechanisms prevent hanging on problematic configurations
-- Comprehensive error tracking enables debugging of configuration issues
-- Results exported for detailed analysis and decision making
+This module contains the LLMEvaluator class, which orchestrates the systematic
+testing of different LLM configurations (models, parameters, prompts). It manages
+the evaluation lifecycle, from configuration generation to results collection
+and summary reporting.
 """
 
 import time
 from concurrent.futures import ThreadPoolExecutor, TimeoutError
 from typing import Dict, List, Any, Optional, Tuple
+
+from anyio import sleep
 
 from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
 from rv_android_core.util.logging.manager import LoggingManager
@@ -48,104 +29,86 @@ from .metrics import MetricsCollector, StatisticsCalculator
 
 class LLMEvaluator:
     """
-    Main LLM evaluation system for comprehensive configuration testing.
+    Coordinates the systematic evaluation of LLM configurations.
 
-    Coordinates the systematic evaluation of different LLM configurations
-    including models, strategies, parameters, and prompts. Provides statistical
-    analysis and comprehensive reporting of results.
+    This class manages the entire evaluation process, including setting up test
+    runs, executing them, collecting performance and success metrics, and
+    generating final reports.
     """
 
     def __init__(self, prompts_dir: str = "./prompts", output_dir: str = "."):
         """
-        Initialize the LLM evaluator.
+        Initializes the LLMEvaluator.
 
         Args:
-            prompts_dir: Directory containing prompt files (optional)
-            output_dir: Directory for output files
+            prompts_dir: The directory where prompt files are located.
+            output_dir: The directory where results and reports will be saved.
         """
-        # Set up logging
         logging_manager = LoggingManager.get_instance()
         self.logger = logging_manager.get_logger(
             "llm.evaluator",
             {CONTEXT_COMPONENT: "LLMEvaluator"}
         )
 
-        # Initialize configuration
         self.prompts_dir = prompts_dir
         self.output_dir = output_dir
 
-        # Initialize components
         self.metrics_collector = MetricsCollector()
         self.statistics_calculator = StatisticsCalculator()
         self.results_exporter = ResultsExporter(output_dir)
 
-        # Load prompt pairs
         try:
             self.prompt_pairs = get_prompt_pairs(prompts_dir)
-            self.logger.info(f"Loaded {len(self.prompt_pairs)} prompt pairs")
+            self.logger.info(f"Loaded {len(self.prompt_pairs)} prompt pairs.")
         except Exception as e:
-            self.logger.error(f"Failed to load prompts: {e}")
+            self.logger.error(f"Failed to load prompts: {e}", exc_info=True)
             raise
 
-        # Storage for results
         self.detailed_results: List[Dict[str, Any]] = []
         self.summary_results: List[Dict[str, Any]] = []
+        self.llm: Optional[LanguageModel] = None
+        self.current_response_processor = None
 
-        # Current model state
-        # self.current_model = None
-        self.llm: LanguageModel = None
-        # self.config = None
-        # self.current_response_processor = None
-
-        self.logger.info("LLM Evaluator initialized successfully")
+        self.logger.info("LLM Evaluator initialized successfully.")
 
     def run_evaluation(self) -> Tuple[str, str, str]:
         """
-        Run the complete evaluation process.
-
-        Executes systematic evaluation of all configurations and generates
-        comprehensive results including detailed data, summaries, and analysis.
+        Runs the complete evaluation across all configured models and prompts.
 
         Returns:
-            Tuple of (detailed_file_path, summary_file_path, analysis_file_path)
+            A tuple containing the file paths for the detailed results,
+            summary results, and the analysis report.
         """
-        self.logger.info("Starting comprehensive LLM evaluation")
+        self.logger.info("Starting comprehensive LLM evaluation.")
         start_time = time.time()
 
         try:
-            # Generate all configurations to test
             configurations = generate_all_configurations()
-            print(f"configurations={configurations}")
             total_configs = len(configurations)
             total_runs = total_configs * len(self.prompt_pairs) * REPETITIONS_PER_CONFIG
 
-            self.logger.info(f"Evaluation plan:")
-            self.logger.info(f"  - {len(MODELS_TO_TEST)} models")
-            self.logger.info(f"  - {total_configs} total configurations")
-            self.logger.info(f"  - {len(self.prompt_pairs)} prompt pairs")
-            self.logger.info(f"  - {REPETITIONS_PER_CONFIG} repetitions per config")
-            self.logger.info(f"  - {total_runs} total runs (excluding warm-up)")
+            self.logger.info("Evaluation Plan:")
+            self.logger.info(f"  - Models: {len(MODELS_TO_TEST)}")
+            self.logger.info(f"  - Total Configurations: {total_configs}")
+            self.logger.info(f"  - Prompt Pairs: {len(self.prompt_pairs)}")
+            self.logger.info(f"  - Repetitions per Config: {REPETITIONS_PER_CONFIG}")
+            self.logger.info(f"  - Total Runs: {total_runs} (excluding warm-up)")
 
-            # Group configurations by model for efficient execution
             model_groups = self._group_configurations_by_model(configurations)
 
-            # Execute evaluation by model groups
             for model_name, model_configs in model_groups.items():
                 self._evaluate_model_group(model_name, model_configs)
 
-            # Calculate summary statistics
             self._calculate_summary_statistics()
 
-            # Export results
             file_paths = self.results_exporter.export_all_results(
                 self.detailed_results, self.summary_results
             )
 
-            # Log completion
             elapsed_time = time.time() - start_time
-            self.logger.info(f"Evaluation completed in {elapsed_time:.1f} seconds")
-            self.logger.info(f"Generated {len(self.detailed_results)} detailed results")
-            self.logger.info(f"Generated {len(self.summary_results)} summary results")
+            self.logger.info(f"Evaluation completed in {elapsed_time:.1f} seconds.")
+            self.logger.info(f"Generated {len(self.detailed_results)} detailed results.")
+            self.logger.info(f"Generated {len(self.summary_results)} summary results.")
 
             return file_paths
 
@@ -153,48 +116,37 @@ class LLMEvaluator:
             self.logger.error(f"Evaluation failed: {e}", exc_info=True)
             raise
         finally:
-            # Clean up current model if loaded
             self._cleanup_current_model()
 
     def _group_configurations_by_model(self, configurations: List[LLMConfig]) -> Dict[str, List[LLMConfig]]:
-        """
-        Group configurations by model to minimize model loading overhead.
-
-        Args:
-            configurations: List of all configurations
-
-        Returns:
-            Dictionary mapping model names to their configurations
-        """
+        """Groups configurations by model to minimize model loading overhead."""
         model_groups = {}
-
         for config in configurations:
             model = config.model
             if model not in model_groups:
                 model_groups[model] = []
             model_groups[model].append(config)
-
         return model_groups
 
     def _evaluate_model_group(self, model_name: str, configurations: List[LLMConfig]) -> None:
         """
-        Evaluate all configurations for a specific model.
+        Evaluates all configurations for a single model.
 
         Args:
-            model_name: Name of the model to evaluate
-            configurations: List of configurations for this model
+            model_name: The name of the model to evaluate.
+            configurations: The list of configurations for this model.
         """
         self.logger.info(f"Starting evaluation for model: {model_name}")
-        self.logger.info(f"  - {len(configurations)} configurations to test")
+        self.logger.info(f"  - {len(configurations)} configurations to test.")
 
         try:
-            # Initialize model and components
             self._initialize_model(model_name)
-
-            # Perform warm-up runs
             self._perform_warmup(configurations[0])
+            print("************* dormindo 5sec ...")
+            time.sleep(5.0)
+            print("************* acordou!!!")
 
-            # Evaluate each configuration
+
             for i, config in enumerate(configurations, 1):
                 self.logger.info(f"Evaluating configuration {i}/{len(configurations)}: {self._format_config(config)}")
                 self._evaluate_configuration(config)
@@ -202,177 +154,163 @@ class LLMEvaluator:
         except Exception as e:
             self.logger.error(f"Error evaluating model {model_name}: {e}", exc_info=True)
         finally:
-            # Clean up model resources
             self._cleanup_current_model()
+            print("************* dormindo 40sec ...")
+            time.sleep(40.0)
+            print("************* acordou!!!")
 
     def _initialize_model(self, model_name: str) -> None:
         """
-        Initialize model and associated components.
+        Initializes the language model and associated components.
 
         Args:
-            model_name: Name of the model to initialize
+            model_name: The name of the model to initialize.
         """
         self.logger.info(f"Initializing model: {model_name}")
-
         try:
-            # Create config for this model
             config = LLMConfig(
                 llm_type=LLMType.OLLAMA,
                 model=model_name,
-                temperature=0.2,
-                max_tokens=800
+                temperature=0.2, # Default, will be overridden by specific config
+                max_tokens=800 # Default, will be overridden
             )
-
             self.llm = LLMComponentFactory.create_llm(config)
 
-            # # Create response processor
-            # self.current_response_processor = ResponseProcessor(self.current_configurator)
-            #
-            # self.current_model = model_name
-            self.logger.info(f"Model {model_name} initialized successfully")
+            from rvandroid_tool.llm.service.response_processor import ResponseProcessor
+            self.current_response_processor = ResponseProcessor(config=config)
+            self.logger.info(f"Model {model_name} initialized successfully.")
 
         except Exception as e:
-            self.logger.error(f"Failed to initialize model {model_name}: {e}")
+            self.logger.error(f"Failed to initialize model {model_name}: {e}", exc_info=True)
             raise
 
     def _perform_warmup(self, sample_config: LLMConfig) -> None:
         """
-        Perform warm-up runs to stabilize model performance.
+        Performs warm-up runs to stabilize model performance measurements.
 
         Args:
-            sample_config: Sample configuration for warm-up
+            sample_config: A sample configuration to use for the warm-up.
         """
-        self.logger.info(f"Performing {WARMUP_RUNS} warm-up runs")
-
+        self.logger.info(f"Performing {WARMUP_RUNS} warm-up runs.")
         if not self.prompt_pairs:
-            self.logger.warning("No prompts available for warm-up")
+            self.logger.warning("No prompts available for warm-up, skipping.")
             return
 
-        # Use first prompt pair for warm-up
         prompt_id, system_file, user_file, image_file = self.prompt_pairs[0]
 
         for i in range(WARMUP_RUNS):
             try:
                 self._execute_single_run(sample_config, prompt_id, system_file, user_file, image_file, is_warmup=True)
-                self.logger.debug(f"Warm-up run {i + 1}/{WARMUP_RUNS} completed")
+                self.logger.debug(f"Warm-up run {i + 1}/{WARMUP_RUNS} completed.")
             except Exception as e:
                 self.logger.warning(f"Warm-up run {i + 1} failed: {e}")
 
     def _evaluate_configuration(self, config: LLMConfig) -> None:
         """
-        Evaluate a single configuration across all prompts and repetitions.
+        Evaluates a single configuration across all prompts and repetitions.
 
         Args:
-            config: Configuration dictionary to evaluate
+            config: The LLM configuration to evaluate.
         """
-        config_results = []
-
-        # Test each prompt pair
         for prompt_id, system_file, user_file, image_file in self.prompt_pairs:
-            self.logger.debug(f"Testing prompt {prompt_id}")
+            self.logger.debug(f"Testing prompt {prompt_id} with config: {self._format_config(config)}")
 
-            # Run multiple repetitions for statistical significance
             for run_number in range(1, REPETITIONS_PER_CONFIG + 1):
                 try:
                     result = self._execute_single_run(config, prompt_id, system_file, user_file, image_file, run_number)
-                    config_results.append(result)
-                    self.detailed_results.append(result)
-
+                    if result:
+                        self.detailed_results.append(result)
                 except Exception as e:
                     self.logger.error(
-                        f"Run failed for config {self._format_config(config)}, prompt {prompt_id}, run {run_number}: {e}")
-
-                    # Create error result
+                        f"Run failed for config {self._format_config(config)}, prompt {prompt_id}, run {run_number}: {e}",
+                        exc_info=True
+                    )
                     error_result = self._create_error_result(config, prompt_id, run_number, str(e))
-                    config_results.append(error_result)
                     self.detailed_results.append(error_result)
-
-        self.logger.debug(f"Configuration completed: {len(config_results)} results collected")
 
     def _execute_single_run(self,
                             config: LLMConfig,
                             prompt_id: str,
                             system_file: str,
                             user_file: str,
-                            image_file: str,
+                            image_file: Optional[str],
                             run_number: int = 1,
                             is_warmup: bool = False) -> Optional[Dict[str, Any]]:
         """
-        Execute a single evaluation run.
+        Executes a single evaluation run and collects metrics.
 
         Args:
-            config: Configuration to test
-            prompt_id: Prompt identifier
-            system_file: Path to system prompt file
-            user_file: Path to user prompt file
-            run_number: Run number for this configuration
-            is_warmup: Whether this is a warm-up run
+            config: The configuration to test.
+            prompt_id: The identifier for the prompt being used.
+            system_file: Path to the system prompt file.
+            user_file: Path to the user prompt file.
+            image_file: Path to the image file (optional).
+            run_number: The repetition number for this run.
+            is_warmup: Flag indicating if this is a warm-up run.
 
         Returns:
-            Result dictionary or None for warm-up runs
+            A dictionary with the results, or None for warm-up runs.
         """
         start_time = time.time()
+        self.logger.debug(f"Starting single run for prompt {prompt_id}")
+        response, parsed_actions, parsing_errors, error_info = None, [], [], None
 
         try:
-            # Load prompts
             system_prompt, user_prompt, image_prompt = self._load_prompts(system_file, user_file, image_file)
 
-            # Create messages
             messages = [
                 LLMMessage(role=LLMRole.SYSTEM, content=[LLMTextContent(text=system_prompt)]),
                 LLMMessage(role=LLMRole.USER, content=[LLMTextContent(text=user_prompt)])
             ]
+            if config.vision and image_prompt:
+                messages = [
+                    LLMMessage(role=LLMRole.SYSTEM, content=[LLMTextContent(text=system_prompt)]),
+                    LLMMessage(role=LLMRole.USER, content=[LLMTextContent(text=user_prompt),
+                                                           LLMImageContent(url=image_file, encoded_string=image_prompt)])
+                ]
 
-            if config.vision:
-                messages.append(LLMMessage(role=LLMRole.USER, content=[LLMImageContent(url=image_file, encoded_string=image_prompt)]))
+            response, parsed_actions, parsing_errors, error_info = self._execute_with_timeout(messages, config)
 
-            # Execute with timeout
-            response, parsed_actions, parsing_errors = self._execute_with_timeout(messages, config)
-
-            execution_time = time.time() - start_time
-
-            # Don't collect metrics for warm-up runs
-            if is_warmup:
-                return None
-
-            # Collect metrics
-            metrics = self.metrics_collector.collect_run_metrics(
-                response=response,
-                parsed_actions=parsed_actions,
-                parsing_errors=parsing_errors,
-                execution_time=execution_time
-            )
-
-            # Add configuration information
-            result = {
-                **config,
-                'prompt_id': prompt_id,
-                'run_number': run_number,
-                **metrics
-            }
-
-            return result
+            if response:
+                self.logger.debug(f"LLM response received: tokens_in={response.input_tokens}, tokens_out={response.output_tokens}, total_duration={response.total_duration}")
 
         except Exception as e:
-            execution_time = time.time() - start_time
-            self.logger.error(f"Single run execution failed: {e}")
+            self.logger.error(f"Single run execution failed: {e}", exc_info=True)
+            error_info = {"type": "execution_error", "timeout": False, "message": str(e)}
 
-            if is_warmup:
-                return None
+        execution_time = time.time() - start_time
+        self.logger.debug(f"Single run completed in {execution_time:.3f}s")
 
-            # Return error result for non-warm-up runs
-            return self._create_error_result(config, prompt_id, run_number, str(e), execution_time)
+        if is_warmup:
+            return None
 
-    def _load_prompts(self, system_file: str, user_file: str, image_file: str) -> Tuple[str, str, str]:
+        metrics = self.metrics_collector.collect_run_metrics(
+            response=response,
+            parsed_actions=parsed_actions,
+            parsing_errors=parsing_errors,
+            error_info=error_info,
+            execution_time=execution_time
+        )
+
+        result = {
+            **config.to_dict(),
+            'prompt_id': prompt_id,
+            'run_number': run_number,
+            **metrics
+        }
+        return result
+
+    def _load_prompts(self, system_file: str, user_file: str, image_file: Optional[str]) -> Tuple[str, str, Optional[str]]:
         """
-        Load system and user prompts from files.
+        Loads prompt content from files.
 
         Args:
-            system_file: Path to system prompt file
-            user_file: Path to user prompt file
+            system_file: Path to the system prompt file.
+            user_file: Path to the user prompt file.
+            image_file: Path to the image file (optional).
 
         Returns:
-            Tuple of (system_prompt, user_prompt)
+            A tuple of (system_prompt, user_prompt, image_data).
         """
         try:
             with open(system_file, 'r', encoding='utf-8') as f:
@@ -385,57 +323,42 @@ class LLMEvaluator:
                 image_prompt = f.read().strip()
 
             return system_prompt, user_prompt, image_prompt
-
         except Exception as e:
-            self.logger.error(f"Failed to load prompts from {system_file}, {user_file}: {e}")
+            self.logger.error(f"Failed to load prompts: {e}", exc_info=True)
             raise
 
     def _execute_with_timeout(self, messages: List[LLMMessage], config: LLMConfig) -> Tuple[
-        Optional[LLMResponse], List[Dict[str, Any]], List[str]]:
+        Optional[LLMResponse], List[Dict[str, Any]], List[str], Optional[Dict[str, Any]]]:
         """
-        Execute LLM generation with timeout protection.
+        Executes the LLM generation and parsing with a timeout.
 
         Args:
-            messages: List of messages to send to LLM
+            messages: The list of messages to send to the LLM.
+            config: The LLM configuration for this run.
 
         Returns:
-            Tuple of (response, parsed_actions, parsing_errors)
+            A tuple of (response, parsed_actions, parsing_errors, error_info).
         """
+        def _generate_and_process():
+            response = self.llm.generate(messages, config)
+            parsed_actions, parsing_errors = self.current_response_processor.process_response(
+                response.content, {}
+            )
+            return response, parsed_actions, parsing_errors, None
 
-        def _generate():
-            try:
-                # Create LLM instance and generate response
-                response = self.llm.generate(messages, config)
-
-                # Process response
-                parsed_actions, parsing_errors = self.current_response_processor.process_response(
-                    response.content, {}  # Empty state for parsing
-                )
-
-                return response, parsed_actions, parsing_errors
-
-            except Exception as e:
-                self.logger.error(f"Generation error: {e}")
-                raise
-
-        # Execute with timeout
         with ThreadPoolExecutor(max_workers=1) as executor:
-            future = executor.submit(_generate)
-
+            future = executor.submit(_generate_and_process)
             try:
-                result = future.result(timeout=GENERATION_TIMEOUT)
-                return result
-
+                return future.result(timeout=GENERATION_TIMEOUT)
             except TimeoutError:
-                self.logger.warning(f"Generation timed out after {GENERATION_TIMEOUT} seconds")
-
-                # Create timeout error info
-                error_info = {"type": "timeout", "timeout": True}
-                return None, [], [f"Generation timed out after {GENERATION_TIMEOUT} seconds"]
-
+                msg = f"Generation timed out after {GENERATION_TIMEOUT} seconds."
+                self.logger.warning(msg)
+                error_info = {"type": "timeout", "timeout": True, "message": msg}
+                return None, [], [msg], error_info
             except Exception as e:
-                self.logger.error(f"Generation failed: {e}")
-                return None, [], [f"Generation failed: {str(e)}"]
+                self.logger.error(f"Generation or parsing failed: {e}", exc_info=True)
+                error_info = {"type": "generation_error", "timeout": False, "message": str(e)}
+                return None, [], [str(e)], error_info
 
     def _create_error_result(self,
                              config: LLMConfig,
@@ -444,40 +367,28 @@ class LLMEvaluator:
                              error_message: str,
                              execution_time: float = 0.0) -> Dict[str, Any]:
         """
-        Create a result dictionary for failed runs.
+        Creates a result dictionary for a failed run.
 
         Args:
-            config: Configuration that failed
-            prompt_id: Prompt identifier
-            run_number: Run number
-            error_message: Error message
-            execution_time: Time taken before failure
+            config: The configuration that failed.
+            prompt_id: The prompt identifier.
+            run_number: The repetition number.
+            error_message: The captured error message.
+            execution_time: The time elapsed before the failure.
 
         Returns:
-            Error result dictionary
+            A dictionary representing the error result.
         """
-        # Determine error type
         error_type = "unknown"
-        timeout_occurred = False
-
         if "timeout" in error_message.lower():
             error_type = "timeout"
-            timeout_occurred = True
-        elif "memory" in error_message.lower():
-            error_type = "memory"
-        elif "model" in error_message.lower():
-            error_type = "model_error"
-        elif "parsing" in error_message.lower():
-            errr_type = "parsing"
 
-        # Create error info
         error_info = {
             "type": error_type,
-            "timeout": timeout_occurred,
+            "timeout": error_type == "timeout",
             "message": error_message
         }
 
-        # Collect metrics for error case
         metrics = self.metrics_collector.collect_run_metrics(
             response=None,
             parsed_actions=[],
@@ -486,111 +397,53 @@ class LLMEvaluator:
             execution_time=execution_time
         )
 
-        # Create result
-        result = {
+        return {
             **config.to_dict(),
             'prompt_id': prompt_id,
             'run_number': run_number,
             **metrics
         }
 
-        return result
-
     def _calculate_summary_statistics(self) -> None:
-        """Calculate summary statistics for each unique configuration."""
-        self.logger.info("Calculating summary statistics")
-
-        # Group results by configuration
+        """Calculates summary statistics for each unique configuration."""
+        self.logger.info("Calculating summary statistics.")
         config_groups = {}
 
+        # Define the keys that identify a unique configuration
+        config_keys = ['model', 'temperature', 'top_p', 'max_tokens', 'top_k', 'prompt_id']
+
         for result in self.detailed_results:
-            # Create configuration key
-            config_key = (
-                result['model'],
-                result['prompt_id'],
-                result['temperature'],
-                result['top_p'],
-                result['max_tokens'],
-                result['top_k']
-            )
+            # Create a tuple of configuration values as the key
+            # Use .get() to handle cases where a key might be missing
+            config_values = tuple(result.get(key) for key in config_keys)
 
-            if config_key not in config_groups:
-                config_groups[config_key] = []
-            config_groups[config_key].append(result)
+            if config_values not in config_groups:
+                config_groups[config_values] = []
+            config_groups[config_values].append(result)
 
-        # Calculate statistics for each group
-        for config_key, runs in config_groups.items():
+        for config_values, runs in config_groups.items():
             summary = self.statistics_calculator.calculate_summary_statistics(runs)
 
-            # Add configuration information
-            summary.update({
-                'model': config_key[0],
-                'prompt_id': config_key[1],
-                'temperature': config_key[2],
-                'top_p': config_key[3],
-                'max_tokens': config_key[4],
-                'top_k': config_key[5],
-                'total_runs': len(runs)
-            })
+            # Add configuration information back to the summary
+            config_dict = dict(zip(config_keys, config_values))
+            summary.update(config_dict)
+            summary['total_runs'] = len(runs)
 
             self.summary_results.append(summary)
 
-        self.logger.info(f"Generated {len(self.summary_results)} configuration summaries")
+        self.logger.info(f"Generated {len(self.summary_results)} configuration summaries.")
 
     def _cleanup_current_model(self) -> None:
-        """Clean up current model resources."""
+        """Cleans up resources used by the current language model."""
         if self.llm:
             try:
                 self.llm.cleanup()
+                self.logger.info(f"Model {self.llm.config.model} cleaned up.")
             except Exception as e:
                 self.logger.warning(f"Error cleaning up model: {e}")
-
-        self.current_model = None
-        self.config = None
-        # self.current_response_processor = None
+        self.llm = None
+        self.current_response_processor = None
 
     def _format_config(self, config: LLMConfig) -> str:
-        """
-        Format configuration for logging.
-
-        Args:
-            config: Configuration dictionary
-
-        Returns:
-            Formatted configuration string
-        """
-        return f"{config['model']}|{config['strategy']}|T={config['temperature']}|p={config['top_p']}|max={config['max_tokens']}"
-
-    def get_evaluation_summary(self) -> Dict[str, Any]:
-        """
-        Get a summary of the evaluation results.
-
-        Returns:
-            Summary dictionary with key statistics
-        """
-        if not self.summary_results:
-            return {"status": "no_results"}
-
-        # Sort by overall score
-        sorted_results = sorted(self.summary_results,
-                                key=lambda x: x.get('overall_score', 0),
-                                reverse=True)
-
-        best_config = sorted_results[0]
-
-        return {
-            "status": "completed",
-            "total_configurations": len(self.summary_results),
-            "total_runs": len(self.detailed_results),
-            "best_configuration": {
-                "model": best_config.get('model'),
-                "strategy": best_config.get('strategy'),
-                "temperature": best_config.get('temperature'),
-                "overall_score": best_config.get('overall_score', 0),
-                "success_rate": best_config.get('overall_success_rate', 0)
-            },
-            "average_success_rate": sum(r.get('overall_success_rate', 0) for r in self.summary_results) / len(
-                self.summary_results),
-            "models_tested": list(set(r.get('model') for r in self.summary_results)),
-            "strategies_tested": list(set(r.get('strategy') for r in self.summary_results))
-        }
+        """Formats a configuration dictionary for readable logging."""
+        return f"{config.model}|T={config.temperature}|p={config.top_p}|max={config.max_tokens}"
