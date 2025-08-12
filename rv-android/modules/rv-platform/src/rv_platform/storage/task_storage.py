@@ -566,7 +566,7 @@ class TaskStorage(ITaskStorage):
         Returns:
             List of matching tasks
         """
-        return [task for task in self.get_tasks() if task.config.tool_name == tool_name]
+        return [task for task in self.get_tasks() if task.config.tool_config.tool_name == tool_name]
 
     def count_tasks_by_state(self) -> Dict[str, int]:
         """

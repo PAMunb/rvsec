@@ -356,62 +356,119 @@ class ScreenDescription(BaseValidatedModel):
             {CONTEXT_COMPONENT: 'ScreenDescription'}
         )
         
-        # Add standard back action if not present
-        self._ensure_standard_back_action()
+        # Add standard system actions for consistent navigation
+        self._ensure_standard_system_actions()
         
         # Build action lookup mapping for efficient resolution
         self._build_action_mapping()
 
-    @ErrorHandler.handle_errors(component="ScreenDescription", phase="back_action_injection")
-    def _ensure_standard_back_action(self) -> None:
+    def _get_max_action_id(self) -> int:
+        """Get maximum action ID from all actions in all items."""
+        if not self.items:
+            return 0
+        return max((action.id for item in self.items for action in item.actions), default=0)
+
+    def _add_system_action(self, action: ItemAction):
+        """Adds a system action as a new ScreenItem."""
+        system_item = ScreenItem(
+            view=action.target_view,
+            base_description=f"System action: {action.text}",
+            actions=[action]
+        )
+        self.items.append(system_item)
+        self._logger.debug(f"Injecting system action: {action.text}")
+
+    def _ensure_standard_system_actions(self) -> None:
         """
-        Ensure screen has standard back action for consistent navigation.
+        Inject standard system actions for consistent navigation capabilities.
         
-        Automatically injects a standard back action if one doesn't exist,
-        ensuring all screens provide basic navigation capabilities.
+        ### System Action Strategy:
+        - Automatically provides BACK and RESTART actions for every screen
+        - Creates virtual target views with system action markers
+        - Uses null coordinates to indicate system-level operations
+        - Assigns incremental IDs to avoid conflicts with UI elements
+        
+        ### Integration Points:
+        - Called during screen processing to ensure action availability
+        - Coordinates with ActionGenerator for proper action resolution
+        - Supports LLM decision-making with consistent system options
         """
-        # Find maximum action ID across all items
-        max_action_id = 0
-        has_back_action = False
+        from rv_screen_parser.constants import SystemActionType
         
-        for item in self.items:
-            for action in item.actions:
-                max_action_id = max(max_action_id, action.id)
-                if "BACK" in action.text.upper():
-                    has_back_action = True
+        max_action_id = self._get_max_action_id()
         
-        # Inject standard back action if not present
-        if not has_back_action:
-            self._logger.debug("Injecting standard back action for consistent navigation")
-            
-            # Create virtual view for back action
-            back_view = {
-                "content_description": "Back",
-                "class": "BackAction",
-                "resource_id": "standard_back_action",
-                "bounds": [[0, 0], [0, 0]]  # Virtual bounds
-            }
-            
-            # Create back action with next available ID
+        # Inject BACK action if not already present
+        if not self._has_action_by_type(SystemActionType.BACK):
             back_action = ItemAction(
                 id=max_action_id + 1,
-                text=f"BACK ({max_action_id + 1})",
+                text=f"SYSTEM_BACK ({max_action_id + 1})",
                 event=WidgetEventType.KEY,
                 reaches_mop=False,
                 directly_reaches_mop=False,
-                target_view=back_view,
-                coordinates=None
+                target_view=self._create_system_action_view(SystemActionType.BACK),
+                coordinates=None  # System actions use null coordinates
             )
-            
-            # Create screen item for back action
-            back_item = ScreenItem(
-                view=back_view,
-                base_description="Standard back action for navigation",
-                actions=[back_action]
+            self._add_system_action(back_action)
+            max_action_id += 1 # Increment max_id after use
+    
+        # Inject RESTART action if not already present
+        if not self._has_action_by_type(SystemActionType.RESTART):
+            restart_action = ItemAction(
+                id=max_action_id + 1,
+                text=f"RESTART_APP ({max_action_id + 1})",
+                event=WidgetEventType.KEY,
+                reaches_mop=False,
+                directly_reaches_mop=False,
+                target_view=self._create_system_action_view(SystemActionType.RESTART),
+                coordinates=None  # System actions use null coordinates
             )
+            self._add_system_action(restart_action)
+
+    def _create_system_action_view(self, action_type: 'SystemActionType') -> Dict[str, Any]:
+        """
+        Create virtual view representation for system actions.
+        
+        ### Virtual View Strategy:
+        - Provides consistent view structure for system operations
+        - Includes system_action flag for action type identification
+        - Uses ActionType enum for proper classification
+        - Maintains compatibility with existing action processing pipeline
+        
+        Args:
+            action_type: System action type from SystemActionType enum
             
-            # Add to items list
-            self.items.append(back_item)
+        Returns:
+            Dictionary representing virtual view for system action
+        """
+        from rv_screen_parser.constants import ActionType
+        
+        return {
+            "content_description": f"System {action_type.value} Action",
+            "class": f"SystemAction_{action_type.name}",
+            "resource_id": f"system_{action_type.name.lower()}_action",
+            "bounds": [[0, 0], [0, 0]],  # Virtual bounds for system actions
+            "action_type": ActionType.SYSTEM_ACTION,
+            "system_action_type": action_type,
+            "system_action": True  # Compatibility flag for existing code
+        }
+
+    def _has_action_by_type(self, system_action_type: 'SystemActionType') -> bool:
+        """
+        Check if screen already contains specific system action type.
+        
+        Args:
+            system_action_type: System action type to check
+            
+        Returns:
+            True if action type already exists in screen actions
+        """
+        for item in self.items:
+            for action in item.actions:
+                if (hasattr(action, 'target_view') and 
+                    action.target_view and 
+                    action.target_view.get('system_action_type') == system_action_type):
+                    return True
+        return False
 
     def _build_action_mapping(self) -> None:
         """Build efficient action ID to action mapping for lookup operations."""

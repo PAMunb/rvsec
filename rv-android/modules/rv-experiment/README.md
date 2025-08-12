@@ -16,6 +16,7 @@ The RV-Experiment module serves as the orchestrator for monitored operations exp
 - **Multi-Instance Support**: Factory components for independent tool configurations
 - **Monitored Operations**: Support for JCA crypto and generic specification monitoring
 - **CLI Interface**: Four core commands (run, config, list-tools, validate)
+- **Variant System**: Tool variant support with predefined configurations and flexible parameter overrides
 
 ## Architecture
 
@@ -31,6 +32,7 @@ The RV-Experiment module serves as the orchestrator for monitored operations exp
 - **ExperimentConfig**: Primary configuration class with validation and sub-module config
 - **ToolConfiguration**: Individual tool configuration with variant and parameter support
 - **Template Generation**: Pre-built configurations for basic, advanced, and research scenarios
+- **Variant Resolution**: Automatic resolution of tool variants with parameter merging
 
 #### Factory System
 - **RvAndroidConfigFactory**: Factory for creating RVAndroid tool configurations with multi-instance support
@@ -82,10 +84,10 @@ poetry install
 # Run experiment with default configuration
 poetry run rv-experiment run --app /path/to/app.apk
 
-# Run with specific tools
+# Run with specific tools and variants
 poetry run rv-experiment run \
     --app /path/to/app.apk \
-    --tools "droidbot:dfs_greedy,monkey:random" \
+    --tools "droidbot:dfs_greedy,ape:sata,rvandroid:default" \
     --timeout 300
 
 # Run with custom configuration
@@ -97,9 +99,9 @@ poetry run rv-experiment run \
 ### Configuration Management
 
 ```bash
-# Generate configuration template
+# Generate configuration template with variants
 poetry run rv-experiment config basic \
-    --tools "droidbot:dfs_greedy,rvandroid:llama_batch_detailed" \
+    --tools "droidbot:dfs_greedy,ape:sata,rvandroid:default" \
     --output config.json
 
 # Validate configuration
@@ -321,7 +323,7 @@ poetry run rv-experiment run [OPTIONS]
 
 Options:
   --app PATH               APK file path (required)
-  --tools TEXT            Tool specifications (e.g., "droidbot:dfs_greedy,rvandroid:llama_batch_detailed")
+  --tools TEXT            Tool specifications with variants (e.g., "droidbot:dfs_greedy,ape:sata,rvandroid:default")
   --config PATH           Configuration file path
   --results-dir PATH      Results directory
   --timeout INTEGER       Experiment timeout in seconds

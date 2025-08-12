@@ -44,17 +44,17 @@ from typing import Dict, Any, Optional
 import click
 
 from rv_android_core.util.error.error_handler import ErrorHandler
-from rv_android_core.util.logging.manager import LoggingManager
-from rv_android_core.util.logging.constants import CONTEXT_COMPONENT, LOG_START, LOG_COMPLETE
 from rv_android_core.util.error.exceptions import ConfigurationError
-from rv_tools.registry.registry import ToolRegistry
+from rv_android_core.util.logging.constants import CONTEXT_COMPONENT, LOG_START, LOG_COMPLETE
+from rv_android_core.util.logging.manager import LoggingManager
 from rv_experiment.config import ExperimentConfig
-from rv_platform.config.platform_config import ToolConfig
-from rv_experiment.experiment.experiment_controller import execute_with_config
 from rv_experiment.constants import (
     DEFAULT_APKS_DIR, DEFAULT_TIMEOUT, DEFAULT_REPETITIONS,
     DEFAULT_SPEC_SET, RESULTS_DIR
 )
+from rv_experiment.experiment.experiment_controller import execute_with_config
+from rv_experiment.tools.experiment_tools import ExperimentToolRegistry
+from rv_platform.config.platform_config import ToolConfig
 
 
 class CLIContext:
@@ -90,16 +90,12 @@ class CLIContext:
             "rv_experiment.cli",
             {CONTEXT_COMPONENT: "CLIContext"}
         )
-
-        # Silence noisy third-party loggers
-        for noisy_logger in ["androguard", "matplotlib", "PIL", "requests", "urllib3", "httpcore", "werkzeug"]:
-            logging.getLogger(noisy_logger).setLevel(logging.ERROR)
         
         # CLI state management
         self.debug = False
         
         # Initialize tool registry for specification parsing
-        self.tool_registry = ToolRegistry.get_instance()
+        self.tool_registry = ExperimentToolRegistry.get_instance()
         self._register_available_tools()
         
         self.logger.info("CLI context initialized successfully")
@@ -137,9 +133,9 @@ class CLIContext:
             file_level=logging.DEBUG,
             console_format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
         )
-        
-        # Silence noisy third-party loggers for clean CLI output
-        for noisy_logger in ["androguard", "matplotlib", "PIL", "requests", "urllib3"]:
+
+        # Silence noisy third-party loggers
+        for noisy_logger in ["androguard", "matplotlib", "PIL", "requests", "urllib3", "httpcore", "werkzeug", "httpx"]:
             logging.getLogger(noisy_logger).setLevel(logging.ERROR)
         
         self.debug = debug
@@ -166,7 +162,8 @@ class CLIContext:
             # Builtin tools are auto-registered through rv-tools import
             # This includes: monkey, droidbot, ape, fastbot, etc.
             
-            # Note: RVAndroid tool registration available when LLM configuration is needed
+            #RVAndroid tool registration
+            self.tool_registry.register_external_tools()
             
             # Log successful tool registration
             registered_tools = self.tool_registry.get_all_tools()
@@ -504,7 +501,7 @@ def config(ctx: CLIContext, template_type: str, output: Optional[str], output_fo
     
     try:
         # Create template configuration based on type
-        template_config = _create_template_configuration(template_type)
+        template_config: ExperimentConfig = _create_template_configuration(template_type)
         
         # Convert to specified format
         if output_format == 'json':
@@ -953,5 +950,16 @@ def main():
         sys.exit(1)
 
 
+def run_local():
+    ctx = CLIContext()
+    ctx.configure_logging(True)
+
+    # for tool in ctx.tool_registry.get_all_tools():
+    #     print(f"Tool: {tool.name}")
+
+    config("basic", "/home/pedro/tmp/basic._config.json", "json")
+
+
 if __name__ == '__main__':
-    main()
+    # main()
+    run_local()

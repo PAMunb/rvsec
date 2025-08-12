@@ -57,27 +57,149 @@ class TaskState(Enum):
     CANCELED = "canceled"
 
 
-@validated_model(['apk_name', 'repetition', 'timeout', 'tool_name'])
+@validated_model(['tool_name'])
+class ToolConfig(BaseValidatedModel):
+    """
+    Tool configuration for tasks including variant information.
+    
+    ### Architectural Overview:
+    This class encapsulates tool identification and configuration parameters,
+    enabling proper tool instantiation with variant support and parameter overrides.
+    
+    ### Key Features:
+    - Tool Identification: Name and variant for precise tool selection
+    - Parameter Override: Additional parameters from experiment configuration
+    - Task ID Generation: Unique identification including variant information
+    - Configuration Flow: Clean separation between tool selection and configuration
+    
+    ### Tool Variant System Integration:
+    - tool_name: Base tool identifier (e.g., "droidbot", "ape", "rvandroid")
+    - variant: Specific variant name (defaults to "default" if not specified)
+    - additional_params: Parameter overrides for experiment-specific customization
+    - Full tool specification: Enables ToolFactory to create configured tool instances
+    """
+    tool_name: str = Field(..., description="Base tool name for identification")
+    variant: str = Field(default="default", description="Tool variant name for configuration")
+    additional_params: Dict[str, Any] = Field(
+        default_factory=dict,
+        description="Additional parameters for tool configuration"
+    )
+    
+    def get_full_tool_name(self) -> str:
+        """
+        Get full tool identification string including variant.
+        
+        ### Usage in Task ID Generation:
+        This method provides the complete tool specification that includes
+        variant information, enabling unique task identification for experiment
+        continuation and result analysis.
+        
+        Returns:
+            Full tool name in format "tool_name:variant" or "tool_name" if default variant
+        """
+        if self.variant and self.variant != "default":
+            return f"{self.tool_name}:{self.variant}"
+        return self.tool_name
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """
+        Convert tool configuration to dictionary for serialization.
+        
+        Returns:
+            Dictionary representation
+        """
+        return {
+            "tool_name": self.tool_name,
+            "variant": self.variant,
+            "additional_params": self.additional_params
+        }
+    
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> 'ToolConfig':
+        """
+        Create tool configuration from dictionary.
+        
+        Args:
+            data: Dictionary representation
+            
+        Returns:
+            ToolConfig instance
+        """
+        return cls(
+            tool_name=data.get("tool_name", ""),
+            variant=data.get("variant", "default"),
+            additional_params=data.get("additional_params", {})
+        )
+    
+    @classmethod
+    def from_tool_specification(cls, tool_spec: str, additional_params: Dict[str, Any] = None) -> 'ToolConfig':
+        """
+        Create tool configuration from CLI-style tool specification.
+        
+        ### Tool Specification Parsing:
+        Supports both formats for backward compatibility:
+        - "tool_name" -> ToolConfig(tool_name="tool_name", variant="default")
+        - "tool_name:variant" -> ToolConfig(tool_name="tool_name", variant="variant")
+        
+        Args:
+            tool_spec: Tool specification string (e.g., "droidbot:dfs_greedy" or "ape")
+            additional_params: Additional parameters for tool configuration
+            
+        Returns:
+            ToolConfig instance with parsed tool name and variant
+        """
+        additional_params = additional_params or {}
+        
+        # Parse tool specification
+        if ":" in tool_spec:
+            tool_name, variant = tool_spec.split(":", 1)
+        else:
+            tool_name = tool_spec
+            variant = "default"
+        
+        return cls(
+            tool_name=tool_name.strip(),
+            variant=variant.strip(),
+            additional_params=additional_params
+        )
+    
+    def __str__(self) -> str:
+        """String representation for debugging."""
+        return f"ToolConfig(tool={self.tool_name}, variant={self.variant})"
+    
+    def __repr__(self):
+        return f"ToolConfig({self.tool_name}, {self.variant})"
+
+
+@validated_model(['apk_name', 'repetition', 'timeout', 'tool_config'])
 class TaskConfiguration(BaseValidatedModel):
     """
-    Configuration parameters for a task.
+    Configuration parameters for a task with tool variant support.
     
     ### Architectural Decisions:
-    - Uses dataclass for concise definition and automatic implementation of common methods
-    - Provides clear separation between required and optional parameters
+    - Replaces tool_name with ToolConfig for comprehensive tool specification
+    - Supports tool variants with parameter overrides for flexible configuration
+    - Enables unique task identification including variant information
+    - Maintains backward compatibility through factory methods
     - Uses explicit types for all fields for better code comprehension
     - Implements string representation for improved debugging
     
     ### Role in the System:
     - Defines the complete set of parameters needed to execute a task
-    - Provides defaults for optional parameters
-    - Enables serialization and deserialization of task configuration
-    - Supports reproducible task execution
+    - Provides tool configuration with variant support for precise tool instantiation
+    - Enables unique task identification for experiment continuation
+    - Supports reproducible task execution with variant-specific parameters
+    - Facilitates clean configuration flow from experiment to tool execution
+    
+    ### Tool Variant Integration:
+    - tool_config: Complete tool specification with variant and parameters
+    - Unique task IDs: Include variant information for proper experiment continuation
+    - Configuration flow: Clean separation between tool selection and parameter overrides
     """
     apk_name: str = Field(..., description="Name of the APK to be processed")
     repetition: int = Field(..., description="Repetition number for this task")
     timeout: int = Field(..., description="Timeout in seconds for task execution")
-    tool_name: str = Field(..., description="Name of the testing tool to use")
+    tool_config: ToolConfig = Field(..., description="Tool configuration with variant support")
 
     # Optional configuration with defaults
     no_window: bool = Field(default=False, description="Run in headless mode")
@@ -94,10 +216,10 @@ class TaskConfiguration(BaseValidatedModel):
             String representation
         """
         return (f"TaskConfiguration(apk={self.apk_name}, rep={self.repetition}, "
-                f"timeout={self.timeout}, tool={self.tool_name})")
+                f"timeout={self.timeout}, tool={self.tool_config.get_full_tool_name()})")
 
     def __repr__(self):
-        return f"TaskConfiguration({self.apk_name}, {self.repetition}, {self.timeout}, {self.tool_name})"
+        return f"TaskConfiguration({self.apk_name}, {self.repetition}, {self.timeout}, {self.tool_config})"
 
     def to_dict(self) -> Dict[str, Any]:
         """
@@ -110,7 +232,7 @@ class TaskConfiguration(BaseValidatedModel):
             "apk_name": self.apk_name,
             "repetition": self.repetition,
             "timeout": self.timeout,
-            "tool_name": self.tool_name,
+            "tool_config": self.tool_config.to_dict(),
             "no_window": self.no_window,
             "clean_logcat": self.clean_logcat,
             "skip_installation": self.skip_installation,
@@ -129,16 +251,67 @@ class TaskConfiguration(BaseValidatedModel):
         Returns:
             TaskConfiguration instance
         """
+        # Handle both new format (tool_config) and legacy format (tool_name) for backward compatibility
+        if "tool_config" in data:
+            tool_config = ToolConfig.from_dict(data["tool_config"])
+        elif "tool_name" in data:
+            # Legacy format - create ToolConfig from tool_name
+            tool_config = ToolConfig.from_tool_specification(data["tool_name"])
+        else:
+            tool_config = ToolConfig.from_tool_specification("")
+        
         return cls(
             apk_name=data.get("apk_name", ""),
             repetition=data.get("repetition", 1),
             timeout=data.get("timeout", 60),
-            tool_name=data.get("tool_name", ""),
+            tool_config=tool_config,
             no_window=data.get("no_window", False),
             clean_logcat=data.get("clean_logcat", True),
             skip_installation=data.get("skip_installation", False),
             device_id=data.get("device_id", "emulator-5554"),
             export_to_csv=data.get("export_to_csv", True)
+        )
+    
+    @classmethod
+    def create_from_tool_spec(
+        cls,
+        apk_name: str,
+        repetition: int,
+        timeout: int,
+        tool_spec: str,
+        additional_params: Dict[str, Any] = None,
+        **kwargs
+    ) -> 'TaskConfiguration':
+        """
+        Create task configuration from tool specification string.
+        
+        ### Backward Compatibility Factory:
+        This method provides clean migration from string-based tool names
+        to ToolConfig-based specification while supporting variant syntax.
+        
+        Args:
+            apk_name: APK name
+            repetition: Repetition number
+            timeout: Timeout in seconds
+            tool_spec: Tool specification (e.g., "droidbot:dfs_greedy" or "ape")
+            additional_params: Additional parameters for tool configuration
+            **kwargs: Other task configuration parameters
+            
+        Returns:
+            TaskConfiguration with parsed tool configuration
+        """
+        tool_config = ToolConfig.from_tool_specification(tool_spec, additional_params)
+        
+        return cls(
+            apk_name=apk_name,
+            repetition=repetition,
+            timeout=timeout,
+            tool_config=tool_config,
+            no_window=kwargs.get("no_window", False),
+            clean_logcat=kwargs.get("clean_logcat", True),
+            skip_installation=kwargs.get("skip_installation", False),
+            device_id=kwargs.get("device_id", "emulator-5554"),
+            export_to_csv=kwargs.get("export_to_csv", True)
         )
 
 
@@ -360,7 +533,7 @@ class Task:
                 {
                     'task_id': self.id,
                     'apk_name': self.config.apk_name,
-                    'tool_name': self.config.tool_name
+                    'tool_name': self.config.tool_config.get_full_tool_name()
                 }
             )
         else:
@@ -502,8 +675,8 @@ class Task:
         self.results_dir = app_results_dir
         os.makedirs(app_results_dir, exist_ok=True)
 
-        # Generate output file paths
-        base_name = f"{self.config.apk_name}__{self.config.repetition}__{self.config.timeout}__{self.config.tool_name}"
+        # Generate output file paths with variant information
+        base_name = f"{self.config.apk_name}__{self.config.repetition}__{self.config.timeout}__{self.config.tool_config.get_full_tool_name()}"
         self.result.logcat_file = os.path.join(app_results_dir, f"{base_name}.logcat")
         self.result.trace_file = os.path.join(app_results_dir, f"{base_name}.trace")
 

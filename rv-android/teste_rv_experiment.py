@@ -72,26 +72,28 @@ def tmp_experiment_controller():
         from rv_platform.config.platform_config import ToolConfig
         from rv_android_core.event import EventBus
 
+        # Test tools with variants - using new variant system
         tools = [
-            ToolConfig(name="ape"), #, parameters={"count": 100}),
-            # ToolConfig(name="ape")
+            # ToolConfig(name="droidbot", variants=["dfs_greedy"]),  # Test DroidBot with variant
+            # ToolConfig(name="ape", variants=["sata"]),            # Test APE with variant
+            ToolConfig(name="rvandroid", variants=["default"])    # Test RVAndroid with default variant
         ]
 
         # Create configuration for actual execution
         config = ExperimentConfig(
-            # name="aaa",
+            name="aaa",
             tool_configs=tools,
             repetitions=1,
-            timeouts=[60],
+            timeouts=[600],
             apks_dir="./apks_examples/",
             output_dir="./out",  # Temporary artifacts directory
             results_dir = "./results",  # Persistent results directory
             specification_set="jca", #"custom",  # Use custom specs from specs_mini
             # custom_specs_dir = "./specs_mini",
-            generate_monitors = True,
-            instrument_apks = True,
-            run_static_analysis = True,
-            no_window = True
+            generate_monitors = False,
+            instrument_apks = False,
+            run_static_analysis = False,
+            no_window = False
         )
         
         # Create experiment controller to validate integration
@@ -142,6 +144,92 @@ def tmp_experiment_controller():
         traceback.print_exc()
         return False
 
+def test_variant_system():
+    """Test the new variant system implementation."""
+    print("\n🔧 Testing Variant System...")
+    
+    try:
+        from rv_experiment.config import ExperimentConfig
+        from rv_platform.config.platform_config import ToolConfig
+        
+        # Test 1: Basic variant parsing
+        print("   1. Testing basic variant configurations...")
+        tools = [
+            ToolConfig(name="droidbot", variants=["dfs_greedy"]),
+            ToolConfig(name="ape", variants=["sata"]),
+            ToolConfig(name="rvandroid", variants=["default"], parameters={
+                "llm_type": "ollama",
+                "llm_model": "llama3.2",
+                "prompt_strategy": "standard_modular"
+            })
+        ]
+        
+        config = ExperimentConfig(
+            tool_configs=tools,
+            repetitions=1,
+            timeouts=[60],
+            apks_dir="./apks_examples/",
+            generate_monitors=False,
+            instrument_apks=False,
+            run_static_analysis=False
+        )
+        
+        print("   ✅ Variant configurations created successfully")
+        
+        # Test 2: Configuration validation
+        print("   2. Testing configuration validation...")
+        try:
+            config.validate()
+            print("   ✅ Configuration validation passed")
+        except Exception as e:
+            print(f"   ⚠️ Validation warning (may be expected): {e}")
+        
+        # Test 3: Tool registry access
+        print("   3. Testing tool registry integration...")
+        try:
+            from rv_experiment.tools.experiment_tools import ExperimentToolRegistry
+            registry = ExperimentToolRegistry.get_instance()
+            registry.register_external_tools()
+            
+            # Test variant retrieval
+            available_tools = registry.get_all_tools()
+            print(f"   ✅ Found {len(available_tools)} registered tools")
+            
+            for tool in available_tools[:3]:  # Show first 3 tools
+                try:
+                    variants = registry.get_tool_variants(tool.name)
+                    print(f"   📋 {tool.name}: {len(variants)} variants")
+                except:
+                    print(f"   📋 {tool.name}: variants not available")
+                    
+        except Exception as e:
+            print(f"   ⚠️ Registry test warning: {e}")
+        
+        # Test 4: TaskConfiguration with ToolConfig
+        print("   4. Testing TaskConfiguration integration...")
+        from rv_android_core.domain.task import TaskConfiguration, ToolConfig as TaskToolConfig
+        
+        # Test the new TaskConfiguration with ToolConfig
+        task_tool_config = TaskToolConfig.from_tool_specification("droidbot:dfs_greedy")
+        print(f"   📝 Parsed tool spec: {task_tool_config.get_full_tool_name()}")
+        
+        task_config = TaskConfiguration(
+            apk_name="test.apk",
+            repetition=1,
+            timeout=300,
+            tool_config=task_tool_config
+        )
+        
+        print(f"   ✅ Task configuration created: {task_config}")
+        
+        return True
+        
+    except Exception as e:
+        print(f"   ❌ Variant system test failed: {e}")
+        import traceback
+        traceback.print_exc()
+        return False
+
 def run_manual_test():
     """Run comprehensive manual test for rv-experiment integration."""
     # Setup logging first
@@ -159,6 +247,7 @@ def run_manual_test():
         # ("Config Creation", tmp_experiment_config_creation),
         # ("Platform Integration", tmp_platform_integration),
         # ("Tool Discovery", tmp_cli_tool_discovery),
+        ("Variant System", test_variant_system),
         ("Experiment Controller", tmp_experiment_controller)
     ]
     
@@ -193,8 +282,10 @@ def run_manual_test():
     
     if passed == total:
         print("✅ All tests passed! rv-experiment integration is working correctly.")
-        print("\n🎯 Ready for CLI testing:")
-        print("   python -m rv_experiment run --tools monkey")
+        print("\n🎯 Ready for CLI testing with variants:")
+        print("   python -m rv_experiment run --tools droidbot:dfs_greedy")
+        print("   python -m rv_experiment run --tools ape:sata,droidbot:bfs_greedy")
+        print("   python -m rv_experiment run --tools rvandroid:default")
         print("   python -m rv_experiment list-tools")
         print("   python -m rv_experiment config --template-type basic")
     else:

@@ -184,15 +184,12 @@ class HuggingFaceLLM(LanguageModel):
             start_time = time.time()
             load_start_time = start_time
 
-            # Format messages for HuggingFace
+            # Format messages for HuggingFace with multimodal support
             hf_messages = []
             for message in messages:
-                content = message.get_text_content()
-                hf_messages.append({
-                    "role": message.role.value,
-                    "content": content
-                    # "content": message.to_message_dict()
-                })
+                # Use base class multimodal formatting for HuggingFace
+                formatted_msg = self.format_message_with_multimodal_support(message, "huggingface")
+                hf_messages.append(formatted_msg)
 
             # Extract generation parameters from config
             max_new_tokens = _config.max_tokens if _config and _config.max_tokens is not None else 1000

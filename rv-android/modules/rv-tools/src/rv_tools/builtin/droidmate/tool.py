@@ -96,6 +96,49 @@ class DroidMateTool(AbstractTool):
 
         self.logger.info("Initialized DroidMate tool for systematic exploration")
 
+    @classmethod
+    def get_tool_spec(cls):
+        """Get tool specification for registration."""
+        return cls.TOOL_SPEC
+    
+    @classmethod
+    def get_variants(cls) -> Dict[str, Dict[str, Any]]:
+        """Get available DroidMate variants with different exploration strategies."""
+        return {
+            "default": {
+                "exploration_timeout": 600,
+                "exploration_strategy": "systematic",
+                "reset_every_nth_exploration": 0,
+                "time_limit_for_each_action": 3000,
+                "api_logs_enabled": True,
+                "debug_mode": False
+            },
+            "systematic": {
+                "exploration_timeout": 1200,
+                "exploration_strategy": "systematic",
+                "reset_every_nth_exploration": 5,
+                "time_limit_for_each_action": 5000,
+                "api_logs_enabled": True,
+                "debug_mode": True
+            },
+            "quick": {
+                "exploration_timeout": 300,
+                "exploration_strategy": "quick",
+                "reset_every_nth_exploration": 0,
+                "time_limit_for_each_action": 1500,
+                "api_logs_enabled": False,
+                "debug_mode": False
+            },
+            "research": {
+                "exploration_timeout": 1800,
+                "exploration_strategy": "research",
+                "reset_every_nth_exploration": 10,
+                "time_limit_for_each_action": 6000,
+                "api_logs_enabled": True,
+                "debug_mode": True
+            }
+        }
+
     def configure(self, config: Dict[str, Any]) -> None:
         """
         Configure DroidMate-specific parameters.

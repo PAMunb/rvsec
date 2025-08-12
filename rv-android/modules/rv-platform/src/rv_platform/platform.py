@@ -139,12 +139,27 @@ class Platform:
                 for variant in tool_variants:
                     for repetition in range(1, self.config.repetitions + 1):
                         for timeout in self.config.timeouts:
-                            # Create task configuration
+                            # Create task configuration with ToolConfig
+                            from rv_android_core.domain.task import ToolConfig as TaskToolConfig
+                            
+                            # Parse tool specification to extract tool name and variant
+                            if ":" in variant:
+                                tool_name, variant_name = variant.split(":", 1)
+                            else:
+                                tool_name, variant_name = variant, "default"
+                            
+                            # Create ToolConfig for this task
+                            tool_config = TaskToolConfig(
+                                tool_name=tool_name,
+                                variant=variant_name,
+                                additional_params={}
+                            )
+                            
                             task_config = TaskConfiguration(
                                 apk_name=apk_name,
                                 repetition=repetition,
                                 timeout=timeout,
-                                tool_name=variant,
+                                tool_config=tool_config,
                                 no_window=self.config.no_window
                             )
 
@@ -190,7 +205,7 @@ class Platform:
 
             try:
                 # Load tool
-                tool = self._load_tool(task.config.tool_name)
+                tool = self._load_tool(task.config.tool_config)
 
                 # Create task executor with TaskStorage
                 executor = TaskExecutor(task, tool, self.event_bus, self.task_storage)
@@ -217,7 +232,7 @@ class Platform:
                 result = {
                     "task_id": task.id,
                     "apk_name": task.config.apk_name,
-                    "tool_name": task.config.tool_name,
+                    "tool_name": task.config.tool_config.get_full_tool_name(),
                     "repetition": task.config.repetition,
                     "timeout": task.config.timeout,
                     "success": success,
@@ -241,7 +256,7 @@ class Platform:
                 result = {
                     "task_id": task.id,
                     "apk_name": task.config.apk_name,
-                    "tool_name": task.config.tool_name,
+                    "tool_name": task.config.tool_config.get_full_tool_name(),
                     "repetition": task.config.repetition,
                     "timeout": task.config.timeout,
                     "success": False,
@@ -292,39 +307,47 @@ class Platform:
         # Fallback to the original exception message
         return str(exception)
 
-    def _load_tool(self, tool_name: str):
+    def _load_tool(self, tool_config):
         """
-        Load a tool by name.
+        Load and configure a tool using ToolConfig specification.
+        
+        ### Breaking Change - Variant System Integration:
+        This method now accepts ToolConfig instead of tool_name string to enable
+        proper variant resolution and tool configuration with parameter overrides.
+        
+        ### Architecture Overview:
+        - Accepts ToolConfig with tool_name, variant, and additional_params
+        - Uses ToolFactory.create_tool() with resolved tool configuration
+        - Eliminates platform-level tool configuration duplication
+        - Enables clean configuration flow from experiment to tool execution
         
         Args:
-            tool_name: Name of the tool to load
+            tool_config: ToolConfig instance with tool name, variant, and parameters
             
         Returns:
-            Tool instance
+            Configured tool instance with variant-specific parameters
+            
+        Raises:
+            ValueError: If tool loading or configuration fails
         """
+        from rv_android_core.domain.task import ToolConfig
+        
         try:
-            # Find tool configuration for the requested tool
-            tool_config = None
-            for config in self.config.tools:
-                if config.name == tool_name:
-                    tool_config = config
-                    break
-
-            if not tool_config:
-                raise ValueError(f"Tool configuration not found for '{tool_name}'")
-
-            # Create tool parameters including device_id
-            tool_params = tool_config.parameters.copy()
-            # Note: device_id will be set during emulator session in TaskExecutor
-
-            # Use ToolFactory to create configured tool with parameters
-            return self.tool_factory.create_configured_tool(
-                tool_name=tool_config.name,
-                variants=tool_config.variants,
-                params=tool_params
-            )
+            # Ensure we have a ToolConfig instance
+            if isinstance(tool_config, str):
+                # Legacy string format - convert to ToolConfig for backward compatibility
+                tool_config = ToolConfig.from_tool_specification(tool_config)
+            elif not isinstance(tool_config, ToolConfig):
+                raise ValueError(f"Expected ToolConfig instance, got {type(tool_config)}")
+            
+            # Use ToolFactory with new variant-based approach
+            # The factory handles variant resolution, parameter merging, and tool configuration
+            return self.tool_factory.create_tool(tool_config)
+            
         except Exception as e:
-            raise ValueError(f"Failed to load tool '{tool_name}': {e}")
+            tool_name = getattr(tool_config, 'tool_name', str(tool_config))
+            variant = getattr(tool_config, 'variant', 'unknown')
+            raise ValueError(f"Failed to load tool '{tool_name}:{variant}': {e}")
 
     def _generate_summary(self, results: List[Dict[str, Any]]) -> Dict[str, Any]:
         """

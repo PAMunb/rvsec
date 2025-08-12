@@ -191,16 +191,12 @@ class OllamaLLM(LanguageModel):
         return options
 
     def format_message(self, message):
-        content = message.get_text_content()
-        formatted_msg = {
-            "role": message.role.value,
-            "content": content
-        }
-        if LLMRole.USER == message.role and self.config.vision:
-            images = message.get_image_content()
-            if images and len(images) > 0:
-                formatted_msg["images"] = images
-        return formatted_msg
+        """
+        Format message for Ollama API using shared multimodal support.
+        
+        Uses the base class multimodal formatting with Ollama-specific format.
+        """
+        return self.format_message_with_multimodal_support(message, "ollama")
 
     def cleanup(self):
         """

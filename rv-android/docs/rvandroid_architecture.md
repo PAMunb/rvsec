@@ -10,29 +10,29 @@ This document details the architecture, components, and execution flow of the RV
 
 RVAndroid addresses several key challenges in Android application testing:
 
-1. **Intelligent Action Selection**: Improving upon random or heuristic-based testing by using LLMs to understand application context and select meaningful test actions
-2. **Pattern Recognition**: Identifying common UI patterns (forms, lists, tabs) and applying appropriate testing strategies
-3. **Systematic Exploration**: Exploring application functionality more thoroughly than traditional techniques
-4. **Monitored Operation Coverage**: Focusing testing efforts on paths that lead to monitored operations
-5. **Human-like Testing**: Simulating how a human tester might interact with the application
+1.  **Intelligent Action Selection**: Improving upon random or heuristic-based testing by using LLMs to understand application context and select meaningful test actions
+2.  **Pattern Recognition**: Identifying common UI patterns (forms, lists, tabs) and applying appropriate testing strategies
+3.  **Systematic Exploration**: Exploring application functionality more thoroughly than traditional techniques
+4.  **Monitored Operation Coverage**: Focusing testing efforts on paths that lead to monitored operations
+5.  **Human-like Testing**: Simulating how a human tester might interact with the application
 
-The system achieves these goals through a sophisticated architecture that integrates DroidBot's state exploration capabilities with LLM-based decision making.
+The system achieves these goals through an architecture that integrates DroidBot's state exploration capabilities with LLM-based decision making.
 
 ### 1.2 Relationship to Other Components
 
 RVAndroid fits into the broader RV-Android ecosystem as follows:
 
-1. **RV-Android Platform**: The parent platform that provides the foundation for runtime verification, including instrumentation, property specification, and result collection.
+1.  **RV-Android Platform**: The parent platform that provides the foundation for runtime verification, including instrumentation, property specification, and result collection.
 
-2. **DroidBot**: The underlying testing framework that RVAndroid enhances. DroidBot handles device interaction, state exploration, and action execution, while RVAndroid provides the intelligence for action selection.
+2.  **DroidBot**: The underlying testing framework that RVAndroid enhances. DroidBot handles device interaction, state exploration, and action execution, while RVAndroid provides the intelligence for action selection.
 
-3. **RVDroid**: A separate testing tool that uses UIAutomator instead of DroidBot, with its own architecture and approach to LLM integration. While RVAndroid works by extending DroidBot's policy mechanism, RVDroid operates as a standalone tool.
+3.  **RVDroid**: A separate testing tool that uses UIAutomator instead of DroidBot, with its own architecture and approach to LLM integration. While RVAndroid works by extending DroidBot's policy mechanism, RVDroid operates as a standalone tool.
 
-4. **Test Framework**: A system for evaluating and comparing different testing approaches, which can be used to assess RVAndroid's effectiveness against other tools.
+4.  **Test Framework**: A system for evaluating and comparing different testing approaches, which can be used to assess RVAndroid's effectiveness against other tools.
 
 RVAndroid is specifically designed to leverage DroidBot's capabilities while adding an LLM-driven decision layer for improved testing effectiveness.
 
-For detailed information about the LLM integration architecture, please refer to [docs/llm_system_documentation.md](llm_system_documentation.md).
+For detailed information about the LLM integration architecture, please refer to [docs/rv_llm_architecture.md](rv_llm_architecture.md).
 
 ## 2. System Architecture
 
@@ -84,32 +84,32 @@ RVAndroid follows a client-server architecture where a custom DroidBot policy se
 
 RVAndroid comprises several key components:
 
-1. **RVAndroid Policy (DroidBot Side)**: A custom DroidBot policy that communicates with the RVAndroid server.
+1.  **RVAndroid Policy (DroidBot Side)**: A custom DroidBot policy that communicates with the RVAndroid server.
 
-2. **Server Component**: A REST API server that receives state information from DroidBot and returns action decisions.
+2.  **Server Component**: A REST API server that receives state information from DroidBot and returns action decisions.
 
-3. **Screen Parser**: Processes DroidBot state data into a structured representation of the application UI (ScreenDescription).
+3.  **Screen Parser**: Processes DroidBot state data into a structured representation of the application UI (ScreenDescription).
 
-4. **State Enricher**: Enhances the state with additional information, such as detected UI patterns and monitored operations.
+4.  **State Enricher**: Enhances the state with additional information, such as detected UI patterns and monitored operations.
 
-5. **LLM Action Service**: Orchestrates the process of generating and selecting testing actions based on the current state.
+5.  **LLM Action Service**: Orchestrates the process of generating and selecting testing actions based on the current state.
 
-6. **Prompt Framework**: Manages the generation of prompts for the language model, using templates and information fragments.
+6.  **Prompt Framework**: Manages the generation of prompts for the language model, using templates and information fragments.
 
-7. **Language Model**: Interfaces with various LLM providers to generate action decisions based on prompts.
+7.  **Language Model**: Interfaces with various LLM providers to generate action decisions based on prompts.
 
-Each component is designed to be modular and extensible, allowing for easy customization and improvement of the testing process.
+Each component is designed to be modular and extensible, allowing for customization and improvement of the testing process.
 
 ## 3. Execution Flow
 
 ### 3.1 Overview
 
 The RVAndroid execution flow follows a cyclic pattern where each cycle involves:
-1. DroidBot explores a state
-2. State information is sent to RVAndroid
-3. RVAndroid processes the state and generates action recommendations
-4. DroidBot executes the recommended actions
-5. The cycle repeats with the new state
+1.  DroidBot explores a state
+2.  State information is sent to RVAndroid
+3.  RVAndroid processes the state and generates action recommendations
+4.  DroidBot executes the recommended actions
+5.  The cycle repeats with the new state
 
 This cycle continues until testing criteria are met or a time limit is reached.
 
@@ -121,19 +121,19 @@ The following sections detail each step of the execution flow, explaining the da
 
 The execution cycle begins with DroidBot exploring the Android application:
 
-1. **Application Launch**: DroidBot starts the application under test on the emulator or device.
+1.  **Application Launch**: DroidBot starts the application under test on the emulator or device.
 
-2. **Initial State Capture**: DroidBot captures the initial application state, including:
-   - Current activity name
-   - UI hierarchy (view tree)
-   - Screenshots
-   - Available actions on UI elements
+2.  **Initial State Capture**: DroidBot captures the initial application state, including:
+    *   Current activity name
+    *   UI hierarchy (view tree)
+    *   Screenshots
+    *   Available actions on UI elements
 
-3. **State Preparation**: DroidBot's RVAndroid policy preprocesses the state data, including:
-   - Creating a unique state identifier
-   - Extracting basic UI element properties
-   - Identifying possible actions for each UI element
-   - Packaging the state data for transmission
+3.  **State Preparation**: DroidBot's RVAndroid policy preprocesses the state data, including:
+    *   Creating a unique state identifier
+    *   Extracting basic UI element properties
+    *   Identifying possible actions for each UI element
+    *   Packaging the state data for transmission
 
 ```python
 # Pseudocode from RVAndroid Policy in DroidBot
@@ -162,11 +162,11 @@ def generate(self, current_state):
 
 The DroidBot policy transmits state data to the RVAndroid server:
 
-1. **HTTP Request Preparation**: The state data is formatted as a JSON payload.
+1.  **HTTP Request Preparation**: The state data is formatted as a JSON payload.
 
-2. **REST API Call**: An HTTP POST request is sent to the RVAndroid server's `/api/state` endpoint.
+2.  **REST API Call**: An HTTP POST request is sent to the RVAndroid server's `/api/state` endpoint.
 
-3. **Synchronous Communication**: DroidBot waits for the RVAndroid server's response before proceeding.
+3.  **Synchronous Communication**: DroidBot waits for the RVAndroid server's response before proceeding.
 
 The state data contains comprehensive information about the current application state, including:
 - Activity name
@@ -222,80 +222,80 @@ Example state data JSON:
 
 When the RVAndroid server receives state data, it processes it through several stages:
 
-1. **Request Handling**:
-   ```python
-   @app.route('/api/state', methods=['POST'])
-   def process_state():
-       """Process the state and return action recommendations."""
-       state_data = request.json
-       actions = action_service.process_state(state_data)
-       return jsonify(actions)
-   ```
+1.  **Request Handling**:
+    ```python
+    @app.route('/api/state', methods=['POST'])
+    def process_state():
+        """Process the state and return action recommendations."""
+        state_data = request.json
+        actions = action_service.process_state(state_data)
+        return jsonify(actions)
+    ```
 
-2. **Screen Parsing**: The raw state data is parsed into a structured ScreenDescription object:
-   ```python
-   # Screen parsing
-   parser = ParserFactory.create(ParserType.DROIDBOT, BasicTextVisitor)
-   screen_description = parser.parse(state_data, static_data)
-   state_data[StateEntry.STRUCTURED_SCREEN] = screen_description
-   ```
+2.  **Screen Parsing**: The raw state data is parsed into a structured ScreenDescription object:
+    ```python
+    # Screen parsing
+    parser = ParserFactory.create(ParserType.DROIDBOT, BasicTextVisitor)
+    screen_description = parser.parse(state_data, static_data)
+    state_data[StateEntry.STRUCTURED_SCREEN] = screen_description
+    ```
 
-3. **State Enrichment**: The StateEnricher adds additional context to the state:
-   ```python
-   # State enrichment
-   enriched_state = state_enricher.enrich_state(state_data)
-   ```
+3.  **State Enrichment**: The StateEnricher adds additional context to the state:
+    ```python
+    # State enrichment
+    enriched_state = state_enricher.enrich_state(state_data)
+    ```
 
-   This enrichment includes:
-   - Adding screen descriptions
-   - Processing screenshots for additional insights
-   - Detecting UI patterns (forms, lists, etc.)
-   - Adding monitored operations information based on static analysis
+    This enrichment includes:
+    - Adding screen descriptions
+    - Processing screenshots for additional insights
+    - Detecting UI patterns (forms, lists, etc.)
+    - Adding monitored operations information based on static analysis
 
-4. **Action Generation**: The LLMActionService generates action recommendations:
-   ```python
-   # Action generation
-   actions = llm_action_service.generate_actions(enriched_state)
-   ```
+4.  **Action Generation**: The LLMActionService generates action recommendations:
+    ```python
+    # Action generation
+    actions = llm_action_service.generate_actions(enriched_state)
+    ```
 
 #### 3.2.4 Prompt Generation and LLM Consultation
 
 The core of RVAndroid's intelligence lies in its interaction with the language model:
 
-1. **Strategy Selection**: The system selects an appropriate prompt strategy based on the current state:
-   ```python
-   strategy = self.strategy_registry.get_strategy(self.determine_strategy(state))
-   ```
+1.  **Strategy Selection**: The system selects an appropriate prompt strategy based on the current state:
+    ```python
+    strategy = self.strategy_registry.get_strategy(self.determine_strategy(state))
+    ```
 
-2. **Prompt Assembly**: The selected strategy assembles a prompt using:
-   - UI element information
-   - Detected patterns
-   - Action history
-   - Application context
-   - Monitored operations (if present)
+2.  **Prompt Assembly**: The selected strategy assembles a prompt using:
+    - UI element information
+    - Detected patterns
+    - Action history
+    - Application context
+    - Monitored operations (if present)
 
-   ```python
-   # Information gathering
-   information = self.information_manager.compose_information(state, context)
-   
-   # Template selection
-   template_name = self.get_template_name(context) or self.DEFAULT_TEMPLATE
-   
-   # Prompt generation
-   messages = self.template_repository.create_messages(template_name, {**information, **context})
-   ```
+    ```python
+    # Information gathering
+    information = self.information_manager.compose_information(state, context)
+    
+    # Template selection
+    template_name = self.get_template_name(context) or self.DEFAULT_TEMPLATE
+    
+    # Prompt generation
+    messages = self.template_repository.create_messages(template_name, {**information, **context})
+    ```
 
-3. **LLM Consultation**: The assembled prompt is sent to the language model:
-   ```python
-   # Send prompt to LLM
-   response = self.language_model.generate(messages)
-   ```
+3.  **LLM Consultation**: The assembled prompt is sent to the language model:
+    ```python
+    # Send prompt to LLM
+    response = self.language_model.generate(messages)
+    ```
 
-4. **Response Processing**: The LLM's response is parsed to extract action decisions:
-   ```python
-   # Parse response
-   actions = self.response_parser.parse(response, available_actions)
-   ```
+4.  **Response Processing**: The LLM's response is parsed to extract action decisions:
+    ```python
+    # Parse response
+    actions = self.response_parser.parse(response, available_actions)
+    ```
 
 The prompt includes detailed information about the application state and testing context, enabling the LLM to make informed decisions:
 
@@ -323,26 +323,26 @@ User: Based on the current screen, select the SINGLE most effective testing acti
 
 After consulting the LLM, RVAndroid selects and formats the final action recommendations:
 
-1. **Action Validation**: Ensure selected actions are valid and executable:
-   ```python
-   validated_actions = self.validate_actions(raw_actions, available_actions)
-   ```
+1.  **Action Validation**: Ensure selected actions are valid and executable:
+    ```python
+    validated_actions = self.validate_actions(raw_actions, available_actions)
+    ```
 
-2. **Action Prioritization**: Prioritize actions based on their relevance to testing goals:
-   ```python
-   prioritized_actions = self.prioritize_actions(validated_actions, state)
-   ```
+2.  **Action Prioritization**: Prioritize actions based on their relevance to testing goals:
+    ```python
+    prioritized_actions = self.prioritize_actions(validated_actions, state)
+    ```
 
-3. **Response Preparation**: Format the actions for return to DroidBot:
-   ```python
-   response = {
-       'actions': prioritized_actions,
-       'metadata': {
-           'strategy': strategy_name,
-           'reasoning': reasoning
-       }
-   }
-   ```
+3.  **Response Preparation**: Format the actions for return to DroidBot:
+    ```python
+    response = {
+        'actions': prioritized_actions,
+        'metadata': {
+            'strategy': strategy_name,
+            'reasoning': reasoning
+        }
+    }
+    ```
 
 The response includes the selected actions along with metadata explaining the decision:
 
@@ -379,48 +379,48 @@ Example response:
 
 Finally, DroidBot executes the recommended actions:
 
-1. **Response Parsing**: The DroidBot policy parses the RVAndroid server response:
-   ```python
-   def parse_response(self, response, current_state):
-       """Parse the response from RVAndroid server."""
-       if not response or 'actions' not in response:
-           return None
+1.  **Response Parsing**: The DroidBot policy parses the RVAndroid server response:
+    ```python
+    def parse_response(self, response, current_state):
+        """Parse the response from RVAndroid server."""
+        if not response or 'actions' not in response:
+            return None
            
-       # Get the first action to execute
-       action_data = response['actions'][0]
+        # Get the first action to execute
+        action_data = response['actions'][0]
        
-       # Convert to DroidBot action
-       return self.convert_to_droidbot_action(action_data, current_state)
-   ```
+        # Convert to DroidBot action
+        return self.convert_to_droidbot_action(action_data, current_state)
+    ```
 
-2. **Action Execution**: DroidBot executes the action on the device:
-   ```python
-   # In DroidBot core
-   def execute(self, action):
-       """Execute an action on the device."""
-       self.logger.info("Executing %s" % action)
-       action.execute()
-       self.last_event_time = time.time()
-       self.last_event = action
-   ```
+2.  **Action Execution**: DroidBot executes the action on the device:
+    ```python
+    # In DroidBot core
+    def execute(self, action):
+        """Execute an action on the device."""
+        self.logger.info("Executing %s" % action)
+        action.execute()
+        self.last_event_time = time.time()
+        self.last_event = action
+    ```
 
-3. **New State Capture**: After execution, DroidBot captures the new application state:
-   ```python
-   # In DroidBot core
-   def explore(self):
-       """Start exploring the app."""
-       while not self.stopped:
-           # Get current state
-           current_state = self.get_current_state()
+3.  **New State Capture**: After execution, DroidBot captures the new application state:
+    ```python
+    # In DroidBot core
+    def explore(self):
+        """Start exploring the app."""
+        while not self.stopped:
+            # Get current state
+            current_state = self.get_current_state()
            
-           # Get next action
-           action = self.policy.generate(current_state)
+            # Get next action
+            action = self.policy.generate(current_state)
            
-           # Execute action
-           self.execute(action)
-   ```
+            # Execute action
+            self.execute(action)
+    ```
 
-4. **Cycle Continuation**: The cycle begins again with the new state, forming a continuous testing loop.
+4.  **Cycle Continuation**: The cycle begins again with the new state, forming a continuous testing loop.
 
 ### 3.3 Implementation Details
 
@@ -460,13 +460,13 @@ The RVAndroid server is implemented using Flask, providing a RESTful API for Dro
 
 ```python
 from flask import Flask, request, jsonify
-from rvandroid.llm.service.action_service import LLMActionService
-from rvandroid.config.component_configurator import ComponentConfigurator
+from rvandroid_tool.llm.service.action_service import LLMActionService
+from rvandroid_tool.config.tool_config import RvAndroidToolConfig
 
 app = Flask(__name__)
 
 # Initialize components
-config = ComponentConfigurator()
+config = RvAndroidToolConfig()
 action_service = LLMActionService(config=config)
 
 @app.route('/api/state', methods=['POST'])
@@ -569,13 +569,13 @@ class StateEnricher:
         
         # Try to initialize optional components
         try:
-            from rvandroid.analysis.screenshot.screenshot_action_complementor import ScreenshotActionComplementor
+            from rvandroid_tool.analysis.screenshot.screenshot_action_complementor import ScreenshotActionComplementor
             self.screenshot_analyzer = ScreenshotActionComplementor(static_data=self.static_data)
         except ImportError:
             self.logger.warning("Screenshot analyzer not available")
             
         try:
-            from rvandroid.analysis.patterns.pattern_detector import UIPatternDetectorManager
+            from rvandroid_tool.analysis.patterns.pattern_detector import UIPatternDetectorManager
             self.pattern_detector = UIPatternDetectorManager()
         except ImportError:
             self.logger.warning("UI pattern detector not available")
@@ -775,10 +775,10 @@ DroidBot                                  RVAndroid Server
 ```
 
 Key interactions:
-1. DroidBot's RVAndroid policy sends the current state to the RVAndroid server
-2. The server processes the state and returns action recommendations
-3. DroidBot executes the recommended actions
-4. The cycle repeats with the new state
+1.  DroidBot's RVAndroid policy sends the current state to the RVAndroid server
+2.  The server processes the state and returns action recommendations
+3.  DroidBot executes the recommended actions
+4.  The cycle repeats with the new state
 
 ### 5.2 Screen Parser and State Enricher
 
@@ -815,12 +815,12 @@ The screen parser and state enricher transform raw state data into actionable in
 ```
 
 Key interactions:
-1. The screen parser converts raw state data into a structured ScreenDescription
-2. The state enricher coordinates multiple analyzers to enrich the state
-3. The pattern detector identifies UI patterns in the screen
-4. The screenshot analyzer processes visual information
-5. The MOP analyzer adds monitored operation information
-6. The enriched state is passed to the LLM Action Service
+1.  The screen parser converts raw state data into a structured ScreenDescription
+2.  The state enricher coordinates multiple analyzers to enrich the state
+3.  The pattern detector identifies UI patterns in the screen
+4.  The screenshot analyzer processes visual information
+5.  The MOP analyzer adds monitored operation information
+6.  The enriched state is passed to the LLM Action Service
 
 ### 5.3 LLM Action Service and Prompt Framework
 
@@ -881,13 +881,13 @@ The LLM Action Service and Prompt Framework collaborate to generate intelligent 
 ```
 
 Key interactions:
-1. The LLM Action Service selects an appropriate strategy based on the state
-2. The selected strategy coordinates the prompt generation process
-3. The information manager collects relevant information from fragments
-4. The template repository provides prompt templates
-5. The prompt framework assembles the final prompt
-6. The language model generates a response
-7. The response is parsed into action recommendations
+1.  The LLM Action Service selects an appropriate strategy based on the state
+2.  The selected strategy coordinates the prompt generation process
+3.  The information manager collects relevant information from fragments
+4.  The template repository provides prompt templates
+5.  The prompt framework assembles the final prompt
+6.  The language model generates a response
+7.  The response is parsed into action recommendations
 
 ## 6. Integration with DroidBot
 
@@ -895,12 +895,12 @@ Key interactions:
 
 DroidBot follows an event-based architecture with several key components:
 
-1. **DeviceBridge**: Interfaces with the Android device (real or emulated)
-2. **App**: Represents the application under test
-3. **Policy**: Implements the testing strategy
-4. **InputManager**: Handles input event generation and execution
-5. **StateManager**: Tracks and manages application states
-6. **EventManager**: Coordinates event generation and execution
+1.  **DeviceBridge**: Interfaces with the Android device (real or emulated)
+2.  **App**: Represents the application under test
+3.  **Policy**: Implements the testing strategy
+4.  **InputManager**: Handles input event generation and execution
+5.  **StateManager**: Tracks and manages application states
+6.  **EventManager**: Coordinates event generation and execution
 
 ### 6.2 RVAndroid Policy Integration
 
@@ -947,7 +947,7 @@ RVAndroid integrates with DroidBot through a custom policy implementation:
                                                                └─────────────────────┘
 ```
 
-The RVAndroid policy is seamlessly integrated into DroidBot's policy framework, allowing it to be selected and used like any other policy:
+The RVAndroid policy is integrated into DroidBot's policy framework, allowing it to be selected and used like any other policy:
 
 ```python
 # Command line usage:
@@ -983,98 +983,98 @@ class RVAndroidPolicy(Policy):
 
 Key Methods:
 
-1. **Generate Method**: Produces the next action to execute
-   ```python
-   def generate(self, current_state):
-       """Generate the next action based on the current state."""
-       if current_state is None:
-           return None
+1.  **Generate Method**: Produces the next action to execute
+    ```python
+    def generate(self, current_state):
+        """Generate the next action based on the current state."""
+        if current_state is None:
+            return None
            
-       # Get state and process with RVAndroid
-       state_data = self.prepare_state_data(current_state)
-       response = self.send_state_to_server(state_data)
-       action = self.parse_response(response, current_state)
+        # Get state and process with RVAndroid
+        state_data = self.prepare_state_data(current_state)
+        response = self.send_state_to_server(state_data)
+        action = self.parse_response(response, current_state)
        
-       # Fall back to random if RVAndroid fails
-       if action is None:
-           self.logger.warning("Falling back to random action selection")
-           return self.random_policy.generate(current_state)
+        # Fall back to random if RVAndroid fails
+        if action is None:
+            self.logger.warning("Falling back to random action selection")
+            return self.random_policy.generate(current_state)
            
-       return action
-   ```
+        return action
+    ```
 
-2. **State Preparation**: Formats the state for the server
-   ```python
-   def prepare_state_data(self, state):
-       """Prepare the state data for sending to the server."""
-       views = state.views or []
-       enabled_actions = self.get_enabled_actions(state)
+2.  **State Preparation**: Formats the state for the server
+    ```python
+    def prepare_state_data(self, state):
+        """Prepare the state data for sending to the server."""
+        views = state.views or []
+        enabled_actions = self.get_enabled_actions(state)
        
-       # Basic state data
-       state_data = {
-           'state_id': state.state_id,
-           'package_name': self.app.package_name,
-           'activity': state.foreground_activity,
-           'views': views,
-           'enabled_actions': enabled_actions,
-           'timestamp': time.time()
-       }
+        # Basic state data
+        state_data = {
+            'state_id': state.state_id,
+            'package_name': self.app.package_name,
+            'activity': state.foreground_activity,
+            'views': views,
+            'enabled_actions': enabled_actions,
+            'timestamp': time.time()
+        }
        
-       # Add screenshot if available
-       if state.screenshot_path:
-           state_data['screenshot_path'] = state.screenshot_path
+        # Add screenshot if available
+        if state.screenshot_path:
+            state_data['screenshot_path'] = state.screenshot_path
            
-       return state_data
-   ```
+        return state_data
+    ```
 
-3. **Server Communication**: Handles the interaction with the RVAndroid server
-   ```python
-   def send_state_to_server(self, state_data):
-       """Send the state data to the RVAndroid server."""
-       try:
-           response = self.session.post(
-               f"{self.server_url}/api/state",
-               json=state_data,
-               timeout=30
-           )
+3.  **Server Communication**: Handles the interaction with the RVAndroid server
+    ```python
+    def send_state_to_server(self, state_data):
+        """Send the state data to the RVAndroid server."""
+        try:
+            response = self.session.post(
+                f"{self.server_url}/api/state",
+                json=state_data,
+                timeout=30
+            )
            
-           if response.status_code == 200:
-               return response.json()
+            if response.status_code == 200:
+                return response.json()
                
-           self.logger.warning(
-               "RVAndroid server returned status code %d: %s",
-               response.status_code,
-               response.text
-           )
-           return None
-       except Exception as e:
-           self.logger.error("Error communicating with RVAndroid server: %s", str(e))
-           return None
-   ```
+            self.logger.warning(
+                "RVAndroid server returned status code %d: %s",
+                response.status_code,
+                response.text
+            )
+            return None
+        except Exception as e:
+            self.logger.error("Error communicating with RVAndroid server: %s", str(e))
+            return None
+    ```
 
-4. **Response Parsing**: Converts server responses into DroidBot actions
-   ```python
-   def parse_response(self, response, current_state):
-       """Parse the response from the RVAndroid server."""
-       if not response or 'actions' not in response or not response['actions']:
-           return None
+4.  **Response Parsing**: Converts server responses into DroidBot actions
+    ```python
+    def parse_response(self, response, current_state):
+        """Parse the response from the RVAndroid server."""
+        if not response or 'actions' not in response or not response['actions']:
+            return None
            
-       try:
-           # Get the first action (DroidBot executes one at a time)
-           action_data = response['actions'][0]
-           action_id = action_data.get('action_id')
+        try:
+            # Get the first action (DroidBot executes one at a time)
+            action_data = response['actions'][0]
+            action_id = action_data.get('action_id')
            
-           # Find the corresponding action in enabled actions
-           for action in current_state.get_possible_input():
-               if hasattr(action, 'action_id') and action.action_id == action_id:
-                   return action
+            # Find the corresponding action in enabled actions
+            for action in current_state.get_possible_input():
+                if hasattr(action, 'action_id') and action.action_id == action_id:
+                    return action
                    
-           # If not found, try to create a new action
-           return self.create_action_from_data(action_data, current_state)
-       except Exception as e:
-           self.logger.error("Error parsing response: %s", str(e))
-           return None
-   ```
+            # If not found, try to create a new action
+            return self.create_action_from_data(action_data, current_state)
+        except Exception as e:
+            self.logger.error("Error parsing response: %s", str(e))
+            return None
+    ```
 
 ## 7. Configuration System
 
@@ -1082,38 +1082,38 @@ Key Methods:
 
 RVAndroid can be configured through several mechanisms:
 
-1. **JSON Configuration File**: Primary configuration method
-2. **Command Line Arguments**: Overrides for file-based configuration
-3. **Environment Variables**: System-wide settings
+1.  **JSON Configuration File**: Primary configuration method
+2.  **Command Line Arguments**: Overrides for file-based configuration
+3.  **Environment Variables**: System-wide settings
 
 Main configuration options include:
 
-1. **Server Settings**:
-   - `server.host`: Host address for the RVAndroid server
-   - `server.port`: Port number for the RVAndroid server
-   - `server.log_level`: Logging level for server operations
+1.  **Server Settings**:
+    - `server.host`: Host address for the RVAndroid server
+    - `server.port`: Port number for the RVAndroid server
+    - `server.log_level`: Logging level for server operations
 
-2. **LLM Configuration**:
-   - `llm.provider`: LLM provider (ollama, huggingface, etc.)
-   - `llm.model`: Model name to use (llama3, etc.)
-   - `llm.temperature`: Temperature for generation
-   - `llm.max_tokens`: Maximum tokens to generate
-   - `llm.api_key`: API key for cloud-based providers
+2.  **LLM Configuration**:
+    - `llm.provider`: LLM provider (ollama, huggingface, etc.)
+    - `llm.model`: Model name to use (llama3, etc.)
+    - `llm.temperature`: Temperature for generation
+    - `llm.max_tokens`: Maximum tokens to generate
+    - `llm.api_key`: API key for cloud-based providers
 
-3. **Strategy Settings**:
-   - `strategy.default`: Default prompt strategy to use
-   - `strategy.use_batch`: Whether to use batch action strategies
-   - `strategy.min_batch_size`: Minimum actions in a batch
-   - `strategy.max_batch_size`: Maximum actions in a batch
+3.  **Strategy Settings**:
+    - `strategy.default`: Default prompt strategy to use
+    - `strategy.use_batch`: Whether to use batch action strategies
+    - `strategy.min_batch_size`: Minimum actions in a batch
+    - `strategy.max_batch_size`: Maximum actions in a batch
 
-4. **Parser Configuration**:
-   - `parser.type`: Parser type to use (droidbot, uiautomator)
-   - `parser.visitor`: Visitor class for text generation
+4.  **Parser Configuration**:
+    - `parser.type`: Parser type to use (droidbot, uiautomator)
+    - `parser.visitor`: Visitor class for text generation
 
-5. **Enrichment Options**:
-   - `enrichment.use_screenshots`: Whether to use screenshot analysis
-   - `enrichment.use_patterns`: Whether to use UI pattern detection
-   - `enrichment.use_mop`: Whether to use monitored operations information
+5.  **Enrichment Options**:
+    - `enrichment.use_screenshots`: Whether to use screenshot analysis
+    - `enrichment.use_patterns`: Whether to use UI pattern detection
+    - `enrichment.use_mop`: Whether to use monitored operations information
 
 ### 7.2 Configuration Example
 
@@ -1153,94 +1153,7 @@ A typical configuration file might look like:
 
 ### 7.3 Component Configurator
 
-The configuration is managed through the ComponentConfigurator class, which provides a central point for component configuration:
-
-```python
-class ComponentConfigurator:
-    """Configures components based on loaded configuration."""
-    
-    def __init__(self, config_path=None, static_data=None):
-        """Initialize the component configurator."""
-        self.logger = logging.getLogger(self.__class__.__name__)
-        self.static_data = static_data
-        self.config = {}
-        
-        # Load configuration
-        if config_path:
-            self._load_config(config_path)
-        else:
-            self._load_default_config()
-            
-        # Initialize visitor class
-        visitor_name = self.get_value("parser.visitor", "basic")
-        self.visitor_class = self._get_visitor_class(visitor_name)
-        
-    def _load_config(self, config_path):
-        """Load configuration from a file."""
-        try:
-            with open(config_path, 'r') as f:
-                self.config = json.load(f)
-            self.logger.info(f"Loaded configuration from {config_path}")
-        except Exception as e:
-            self.logger.error(f"Error loading configuration: {e}")
-            self._load_default_config()
-            
-    def _load_default_config(self):
-        """Load default configuration."""
-        self.config = {
-            "server": {
-                "host": "0.0.0.0",
-                "port": 5000,
-                "log_level": "INFO"
-            },
-            "llm": {
-                "provider": "ollama",
-                "model": "llama3",
-                "temperature": 0.3,
-                "max_tokens": 800
-            },
-            # Default configuration for other components
-        }
-        self.logger.info("Loaded default configuration")
-        
-    def get_value(self, path, default=None):
-        """Get a configuration value by dot-notation path."""
-        parts = path.split('.')
-        value = self.config
-        
-        try:
-            for part in parts:
-                value = value[part]
-            return value
-        except (KeyError, TypeError):
-            return default
-            
-    def set_value(self, path, value):
-        """Set a configuration value by dot-notation path."""
-        parts = path.split('.')
-        config = self.config
-        
-        for part in parts[:-1]:
-            if part not in config:
-                config[part] = {}
-            config = config[part]
-            
-        config[parts[-1]] = value
-        
-    def set_llm(self, llm_type, model, **kwargs):
-        """Set LLM configuration."""
-        llm_config = {
-            "provider": llm_type,
-            "model": model,
-            **kwargs
-        }
-        self.config["llm"] = llm_config
-        
-    def configure_component(self, component):
-        """Configure a component with the current configuration."""
-        if hasattr(component, 'configure'):
-            component.configure(self)
-```
+The configuration is managed through the `RvAndroidToolConfig` class, which provides a central point for component configuration.
 
 ## 8. Deployment
 
@@ -1248,19 +1161,19 @@ class ComponentConfigurator:
 
 To deploy and run RVAndroid, follow these steps:
 
-1. **Start the RVAndroid Server**:
-   ```bash
-   # Start the server
-   python -m rvandroid.server --port 5000
-   ```
+1.  **Start the RVAndroid Server**:
+    ```bash
+    # Start the server
+    python -m rvandroid_tool.server --port 5000
+    ```
 
-2. **Run DroidBot with RVAndroid Policy**:
-   ```bash
-   # Run DroidBot with RVAndroid policy
-   python -m droidbot -a app.apk -o output_dir -policy rvandroid -server_url http://localhost:5000
-   ```
+2.  **Run DroidBot with RVAndroid Policy**:
+    ```bash
+    # Run DroidBot with RVAndroid policy
+    python -m droidbot -a app.apk -o output_dir -policy rvandroid -server_url http://localhost:5000
+    ```
 
-3. **View Results**: DroidBot will generate results in the specified output directory.
+3.  **View Results**: DroidBot will generate results in the specified output directory.
 
 ### 8.2 Docker Deployment
 
@@ -1282,8 +1195,8 @@ RVAndroid integrates with the RV-Android platform through the tools registry:
 
 ```python
 # Register RVAndroid tool
-from rvandroid.tools.registry import ToolRegistry
-from rvandroid.tools.rvandroid.tool import RVAndroidTool
+from rv_android.tools.registry import ToolRegistry
+from rvandroid_tool.tools.rvandroid.tool import RVAndroidTool
 
 ToolRegistry.register(RVAndroidTool())
 ```
@@ -1292,8 +1205,42 @@ This allows RVAndroid to be used as a testing tool within the RV-Android platfor
 
 ## 9. Conclusion
 
-RVAndroid represents a significant advancement in Android application testing, combining the exploratory capabilities of DroidBot with the intelligent decision-making of large language models. By structuring application state information and providing it to LLMs in a consistent format, RVAndroid enables more effective testing that can identify issues traditional testing tools might miss.
+RVAndroid represents an advancement in Android application testing, combining the exploratory capabilities of DroidBot with the intelligent decision-making of large language models. By structuring application state information and providing it to LLMs in a consistent format, RVAndroid enables more effective testing that can identify issues traditional testing tools might miss.
 
 The system's modular architecture allows for easy extension and improvement, while its integration with DroidBot ensures compatibility with existing testing workflows. As LLM capabilities continue to advance, RVAndroid is well-positioned to leverage these improvements for even more effective application testing.
 
-For more detailed information about the LLM integration architecture, please refer to [docs/llm_system_documentation.md](llm_system_documentation.md).
+For more detailed information about the LLM integration architecture, please refer to [docs/rv_llm_architecture.md](rv_llm_architecture.md).
+
+## Appendix: DroidBot Integration
+
+The integration between `rvandroid-tool` and DroidBot is facilitated by a custom DroidBot policy, `RVAndroidPolicy`. This policy acts as a client to the `rvandroid-tool` server, enabling LLM-driven test generation within the DroidBot framework.
+
+### `RVAndroidPolicy`
+
+The `RVAndroidPolicy` is a subclass of DroidBot's `UtgBasedInputPolicy`. Its primary responsibility is to override the `generate_event` method. Instead of using a local strategy to decide the next action, it communicates with the `rvandroid-tool` server.
+
+The policy performs the following steps:
+
+1.  **State Preparation**: It captures the current state of the application from DroidBot and prepares it in a JSON format that the `rvandroid-tool` server can understand. This includes the view hierarchy, foreground activity, and other relevant information.
+
+2.  **Server Communication**: It sends the prepared state to the `/api/get_actions` endpoint of the `rvandroid-tool` server via an HTTP POST request.
+
+3.  **Response Handling**: It receives a list of recommended actions from the server. The policy is designed to handle both single-action and batch-action responses.
+
+4.  **Event Generation**: It converts the received action(s) into DroidBot `InputEvent` objects. If the server returns a batch of actions, the policy creates a `CompoundEvent` that wraps all the individual events.
+
+5.  **Fallback Mechanism**: If the communication with the server fails, or if the server returns no valid actions, the policy falls back to a default DroidBot policy, such as `UtgGreedySearchPolicy`.
+
+### Server-Side Handling
+
+The `rvandroid-tool` server, implemented in `rvandroid_tool/server.py`, listens for requests from the `RVAndroidPolicy`. When a request is received at the `/api/get_actions` endpoint, the server delegates the processing to the `LLMActionService`. This service uses the prompt framework and the configured LLM to analyze the state and generate a list of actions, which are then sent back to the `RVAndroidPolicy`.
+
+### Running with DroidBot
+
+To use the `RVAndroidPolicy`, DroidBot must be started with the `-policy rvandroid` command-line argument. The URL of the `rvandroid-tool` server can be specified with the `-server_url` argument. For example:
+
+```bash
+python -m droidbot.start -a <path_to_apk> -o <output_dir> -policy rvandroid -server_url http://localhost:5000/api/get_actions
+```
+
+This command instructs DroidBot to use the `RVAndroidPolicy`, which will then communicate with the `rvandroid-tool` server at the specified URL to get its testing actions.

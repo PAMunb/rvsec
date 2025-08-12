@@ -189,7 +189,7 @@ class PerformanceProcessorComponent:
             apk_name = config.apk_name
             repetition = config.repetition
             timeout = config.timeout
-            tool_name = config.tool_name
+            tool_name = config.tool_config.get_full_tool_name()
             task_id = task.id
 
             # Get performance metrics from the monitor
@@ -264,7 +264,7 @@ class PerformanceProcessorComponent:
             apk_name = config.apk_name
             repetition = config.repetition
             timeout = config.timeout
-            tool_name = config.tool_name
+            tool_name = config.tool_config.get_full_tool_name()
 
             # Get basic execution metrics
             execution_time = getattr(task.result, 'execution_time_seconds', 0)

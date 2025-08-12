@@ -102,6 +102,18 @@ class LLMServiceError(RVAndroidError):
     pass
 
 
+class ServerLifecycleError(RVAndroidError):
+    """Error raised during server lifecycle management operations."""
+    
+    def __init__(self, message: str, server_port: Optional[int] = None, cause: Optional[Exception] = None):
+        super().__init__(message, cause)
+        self.server_port = server_port
+    
+    def __str__(self):
+        port_info = f" (Port: {self.server_port})" if self.server_port else ""
+        return f"{super().__str__()}{port_info}"
+
+
 class ToolCreationError(RVAndroidError):
     """Error raised when tool creation fails."""
     pass

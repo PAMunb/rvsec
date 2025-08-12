@@ -68,95 +68,109 @@ class APETool(AbstractTool):
         'sata', 'bfs', 'dfs', 'random'
     ]
 
-    def __init__(self, name: str = None, description: str = None, process_pattern: str = None):
+    def __init__(self):
         """
         Initialize the APE tool with rv-android-core infrastructure.
         """
+        # Initialize base class with tool spec parameters
+        tool_spec = self.get_tool_spec()
         super().__init__(
-            name=name or self.TOOL_SPEC.name,
-            description=description or self.TOOL_SPEC.description,
-            process_pattern=process_pattern or self.TOOL_SPEC.process_pattern
+            name=tool_spec.name,
+            description=tool_spec.description,
+            process_pattern=tool_spec.process_pattern
         )
-
+        
         # Initialize rv-android-core infrastructure components
-        logging_manager = LoggingManager.get_instance()
-        self.logger = logging_manager.get_logger(
-            "rv_tools.builtin.ape",
-            {CONTEXT_COMPONENT: "APETool"}
-        )
         self.jar_resolver = JarResolver()
 
-        # Default APE configuration
-        self.config = {
-            "strategy": "sata",              # Exploration strategy
-            "running_minutes": 5,            # Execution time in minutes
-            "device_serial": "emulator-5554", # Device serial number
-            "ape_jar_path": None,            # Path to APE jar file
-            "debug_mode": True,              # Enable debug mode
-            "output_dir": None               # Output directory for results
-        }
+        # Configuration will be set through configure() method
+        self.config = {}
 
         self.logger.info("Initialized APE tool for systematic exploration")
 
+    @classmethod
+    def get_tool_spec(cls):
+        """
+        Get tool specification for registration.
+        
+        Returns:
+            ToolSpec instance with tool metadata
+        """
+        return cls.TOOL_SPEC
+
+    @classmethod
+    def get_variants(cls) -> Dict[str, Dict[str, Any]]:
+        """
+        Get available APE variants with exploration strategy configurations.
+        
+        Returns:
+            Dictionary mapping variant names to APE configuration parameters
+        """
+        return {
+            "default": {
+                "strategy": "sata",
+                "running_minutes": 5,
+                "debug_mode": True
+            },
+            "sata": {
+                "strategy": "sata",
+                "running_minutes": 10,
+                "debug_mode": False
+            },
+            "bfs": {
+                "strategy": "bfs",
+                "running_minutes": 5,
+                "debug_mode": False
+            },
+            "dfs": {
+                "strategy": "dfs", 
+                "running_minutes": 5,
+                "debug_mode": False
+            },
+            "random": {
+                "strategy": "random",
+                "running_minutes": 5,
+                "debug_mode": False
+            }
+        }
+        
     def configure(self, config: Dict[str, Any]) -> None:
         """
-        Configure APE-specific parameters.
-
-        Supported configuration options:
-        - strategy: Exploration strategy (sata, bfs, dfs, random)
-        - running_minutes: Execution time limit in minutes
-        - device_serial: Device serial number
-        - ape_jar_path: Path to APE jar file
-        - debug_mode: Enable debug mode
-        - output_dir: Output directory for results
-
+        Configure APE tool with resolved variant parameters.
+        
         Args:
-            config: Configuration dictionary with APE parameters
+            config: Configuration dictionary with APE-specific parameters
+            
+        Raises:
+            ConfigurationError: If configuration is invalid
         """
-        if not config:
-            return
-
-        # Update exploration strategy
-        if 'strategy' in config:
-            strategy = config['strategy']
-            if strategy not in self.AVAILABLE_STRATEGIES:
-                self.logger.warning(f"Invalid strategy '{strategy}'. Using default 'sata'")
-                self.logger.warning(f"Available strategies: {self.AVAILABLE_STRATEGIES}")
-            else:
-                self.config['strategy'] = strategy
-                self.logger.debug(f"Set APE strategy to: {strategy}")
-
-        # Update running minutes
-        if 'running_minutes' in config:
-            try:
-                minutes = int(config['running_minutes'])
-                if minutes > 0:
-                    self.config['running_minutes'] = minutes
-                    self.logger.debug(f"Set APE running minutes to: {minutes}")
-                else:
-                    self.logger.warning("Running minutes must be positive")
-            except (ValueError, TypeError):
-                self.logger.warning(f"Invalid running_minutes value: {config['running_minutes']}")
-
-        # Update device serial
-        if 'device_serial' in config:
-            self.config['device_serial'] = config['device_serial']
-            self.logger.debug(f"Set APE device serial to: {config['device_serial']}")
-
-        # Update APE jar path
-        if 'ape_jar_path' in config:
-            self.config['ape_jar_path'] = config['ape_jar_path']
-            self.logger.debug(f"Set APE jar path to: {config['ape_jar_path']}")
-
-        # Update boolean flags
-        if 'debug_mode' in config:
-            self.config['debug_mode'] = bool(config['debug_mode'])
-            self.logger.debug(f"Set APE debug_mode to: {self.config['debug_mode']}")
-
-        # Update output directory
-        if 'output_dir' in config:
-            self.config['output_dir'] = config['output_dir']
-            self.logger.debug(f"Set APE output directory to: {config['output_dir']}")
+        from rv_android_core.util.error.exceptions import ConfigurationError
+        
+        # Validate required strategy
+        if "strategy" not in config:
+            raise ConfigurationError("APE tool requires 'strategy' parameter")
+        
+        if config["strategy"] not in self.AVAILABLE_STRATEGIES:
+            raise ConfigurationError(
+                f"Invalid APE strategy '{config['strategy']}'. "
+                f"Available strategies: {self.AVAILABLE_STRATEGIES}"
+            )
+        
+        # Set configuration with defaults
+        self.config = {
+            "strategy": config["strategy"],
+            "running_minutes": config.get("running_minutes", 5),
+            "device_serial": config.get("device_serial", "emulator-5554"),
+            "debug_mode": config.get("debug_mode", True),
+            "output_dir": config.get("output_dir", None),
+            "ape_jar_path": config.get("ape_jar_path", None),
+            **config  # Include any additional parameters
+        }
+        
+        self.logger.info(
+            f"Configured APE tool - Strategy: {self.config['strategy']}, "
+            f"Duration: {self.config['running_minutes']}min"
+        )
 
     @ErrorHandler.handle_errors(
         component="APETool",
@@ -374,22 +388,3 @@ class APETool(AbstractTool):
         })
         return info
 
-
-# Function to register APE variants
-def register_ape_variants(registry):
-    """
-    Register APE variants in the tool registry.
-    
-    Args:
-        registry: ToolRegistry instance
-    """
-    # Register exploration strategy variants
-    variants = {
-        "sata": {"strategy": "sata"},
-        "bfs": {"strategy": "bfs"},
-        "dfs": {"strategy": "dfs"},
-        "random": {"strategy": "random"}
-    }
-    
-    for variant_name, config in variants.items():
-        registry.register_variant("ape", variant_name, config)

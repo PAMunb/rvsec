@@ -101,6 +101,61 @@ class HumanoidTool(AbstractTool):
 
         self.logger.info("Initialized Humanoid tool for human-like exploration")
 
+    @classmethod
+    def get_tool_spec(cls):
+        """Get tool specification for registration."""
+        return cls.TOOL_SPEC
+    
+    @classmethod
+    def get_variants(cls) -> Dict[str, Dict[str, Any]]:
+        """Get available Humanoid variants with different interaction modes."""
+        return {
+            "default": {
+                "interaction_mode": "hybrid",
+                "timeout": 1800,
+                "debug_mode": False,
+                "visual_threshold": 0.8,
+                "nlp_model": "default",
+                "interaction_delay": 2.0,
+                "screenshot_interval": 1.0,
+                "max_iterations": 1000,
+                "enable_learning": True
+            },
+            "visual": {
+                "interaction_mode": "visual",
+                "timeout": 1200,
+                "debug_mode": False,
+                "visual_threshold": 0.9,
+                "interaction_delay": 1.5,
+                "screenshot_interval": 0.5,
+                "max_iterations": 800,
+                "enable_learning": False
+            },
+            "nlp": {
+                "interaction_mode": "nlp",
+                "timeout": 2400,
+                "debug_mode": True,
+                "nlp_model": "advanced",
+                "interaction_delay": 3.0,
+                "screenshot_interval": 2.0,
+                "max_iterations": 600,
+                "enable_learning": True,
+                "context_window": 10
+            },
+            "hybrid": {
+                "interaction_mode": "hybrid",
+                "timeout": 3000,
+                "debug_mode": True,
+                "visual_threshold": 0.85,
+                "nlp_model": "advanced",
+                "interaction_delay": 2.5,
+                "screenshot_interval": 1.5,
+                "max_iterations": 1200,
+                "enable_learning": True,
+                "context_window": 7
+            }
+        }
+
     def configure(self, config: Dict[str, Any]) -> None:
         """
         Configure Humanoid-specific parameters.

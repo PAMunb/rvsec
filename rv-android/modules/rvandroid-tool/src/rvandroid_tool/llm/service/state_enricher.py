@@ -117,35 +117,59 @@ class StateEnricher:
             )
 
     def _process_screenshot(self, state: Dict[str, Any]) -> None:
-        """Process screenshot to extract additional information.
+        """Process screenshot to extract additional information and prepare for multimodal LLM processing.
+        
+        ### Screenshot Processing Strategy:
+        - Reads screenshot file from temporary path provided by server
+        - Creates LLMImageContent with base64 encoding for multimodal LLM processing
+        - Optionally enhances screen description using screenshot analyzer
+        - Adds screenshot image content to state for prompt generation
         
         Args:
-            state: The current application state.
+            state: The current application state with optional screenshot_path
         """
-        if not self.screenshot_action_complementor:
+        screenshot_path = state.get(StateEntry.SCREENSHOT_PATH)
+        if not screenshot_path:
+            self.logger.debug("No screenshot path provided in state")
             return
-
-        if StateEntry.SCREENSHOT_PATH in state and state[StateEntry.SCREENSHOT_PATH]:
-            try:
-                self.logger.debug(f"Processing screenshot: {state[StateEntry.SCREENSHOT_PATH]}")
-
-                # Use screenshot analyzer to complement ScreenDescription information
-                screen_description = self.screenshot_action_complementor.analyze(state)
-
-                # Update state with screen description
-                if screen_description:
-                    state[StateEntry.STRUCTURED_SCREEN] = screen_description["enhanced_screen"]
-                    state[StateEntry.SCREENSHOT_INFO] = screen_description["visual_mapping"]
-            except Exception as e:
-                self.logger.error(f"Error processing screenshot: {e}", exc_info=True)
-                self.error_handler.handle_error(
-                    e,
-                    context={
-                        "component": "StateEnricher",
-                        "function": "_process_screenshot",
-                        "screenshot_path": state.get(StateEntry.SCREENSHOT_PATH, "unknown")
-                    }
-                )
+            
+        try:
+            self.logger.debug(f"Processing screenshot: {screenshot_path}")
+            
+            # Verify screenshot file exists
+            import os
+            if not os.path.exists(screenshot_path):
+                self.logger.warning(f"Screenshot file not found: {screenshot_path}")
+                return
+            
+            # Create LLMImageContent for multimodal processing
+            image_content = self._create_llm_image_content(screenshot_path)
+            if image_content:
+                state['screenshot_image'] = image_content
+                self.logger.debug("Screenshot processed and added to state for multimodal LLM processing")
+            
+            # Use screenshot analyzer to complement ScreenDescription information (if available)
+            if self.screenshot_action_complementor:
+                try:
+                    screen_description = self.screenshot_action_complementor.analyze(state)
+                    if screen_description:
+                        state[StateEntry.STRUCTURED_SCREEN] = screen_description["enhanced_screen"]
+                        state[StateEntry.SCREENSHOT_INFO] = screen_description["visual_mapping"]
+                        self.logger.debug("Screen description enhanced with screenshot analysis")
+                except Exception as analyzer_error:
+                    self.logger.warning(f"Screenshot analyzer failed: {analyzer_error}")
+                    # Continue processing even if analyzer fails
+                    
+        except Exception as e:
+            self.logger.error(f"Error processing screenshot: {e}", exc_info=True)
+            self.error_handler.handle_error(
+                e,
+                context={
+                    "component": "StateEnricher",
+                    "function": "_process_screenshot",
+                    "screenshot_path": state.get(StateEntry.SCREENSHOT_PATH, "unknown")
+                }
+            )
 
     # # TODO deprecated
     # def _detect_ui_patterns(self, state: Dict[str, Any]) -> None:
@@ -465,3 +489,44 @@ class StateEnricher:
     #                 lines.append(f"  Input type appears to be: {input_type}{hint}")
     #
     #     return "\n".join(lines)
+
+    def _create_llm_image_content(self, screenshot_path: str):
+        """
+        Create LLMImageContent from screenshot file for multimodal LLM processing.
+        
+        ### Image Processing Strategy:
+        - Reads image file from temporary path
+        - Encodes image as base64 string for LLM transmission
+        - Creates LLMImageContent object with proper URL and encoding
+        - Handles various image formats (PNG, JPG, JPEG)
+        
+        Args:
+            screenshot_path: Path to temporary screenshot file
+            
+        Returns:
+            LLMImageContent object or None if processing failed
+        """
+        try:
+            import base64
+            from rv_llm.llm.data_structures import LLMImageContent
+            
+            # Read and encode image file
+            with open(screenshot_path, 'rb') as image_file:
+                image_data = image_file.read()
+                encoded_string = base64.b64encode(image_data).decode('utf-8')
+            
+            # Create LLMImageContent with proper format
+            image_content = LLMImageContent(
+                url=screenshot_path,  # Keep original path as reference
+                encoded_string=encoded_string
+            )
+            
+            self.logger.debug(f"Successfully created LLMImageContent from {screenshot_path}")
+            return image_content
+            
+        except ImportError as e:
+            self.logger.error(f"Failed to import required modules for image processing: {e}")
+            return None
+        except Exception as e:
+            self.logger.error(f"Failed to create LLMImageContent from {screenshot_path}: {e}")
+            return None

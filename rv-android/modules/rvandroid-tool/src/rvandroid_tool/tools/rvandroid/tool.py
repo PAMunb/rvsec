@@ -1,348 +1,319 @@
-"""
-RVAndroid Tool Implementation with Unified Configuration Support
-
-This module provides AI-guided exploration of Android applications using large
-language models for intelligent action generation and monitored operations detection,
-with unified configuration management for consistent tool behavior.
-
-### Architectural Overview:
-This tool provides AI-guided exploration of Android applications using unified
-configuration that combines LLM backend settings with prompt strategy configuration,
-ensuring consistent behavior across all tool components.
-
-### Key Components:
-- LLMActionService: Processes application states and generates actions
-- Server: REST API for DroidBot integration
-- RvAndroidToolConfig: Unified configuration management
-- DroidBot Integration: Executes generated actions on Android emulator
-
-### Execution Flow:
-1. Configure with unified RvAndroidToolConfig
-2. Initialize LLMActionService with unified configuration
-3. Start server for DroidBot communication
-4. Execute DroidBot with rvandroid policy
-5. Process states and generate actions through LLM
-6. Clean up resources and stop server
-
-### Configuration Support:
-- Unified Configuration: Single configuration object for all components
-- Multiple LLM backends (Ollama, OpenAI, etc.)
-- Configurable prompt strategies (BATCH_ACTION, STANDARD)
-- Parser and visitor type selection through composition
-- Multi-instance support with independent configurations
-"""
-
-import os
-from typing import Dict, Any, Optional
-
-from rv_android_core.domain.app import App
-from rv_android_core.commands.command import Command
-from rv_android_core.domain.task import Task
-from rv_android_core.util.error.error_handler import ErrorHandler
-from rv_android_core.util.logging.manager import LoggingManager
-from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
-from rv_android_core.util.error.exceptions import RVAndroidToolError, ConfigurationError
+# modules/rvandroid-tool/src/rvandroid_tool/tools/rvandroid/tool.py
 from rv_android_core.tools.abstract_tool import AbstractTool
 from rv_android_core.tools.tool_spec import ToolSpec
-from rvandroid_tool.constants import DEFAULT_SERVER_PORT
+from rv_android_core.util.error.error_handler import ErrorHandler
+from rv_android_core.util.error.exceptions import RVAndroidToolError
+from rv_android_core.util.logging.manager import LoggingManager
+from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
+from rv_llm import OllamaLLM
+from rvandroid_tool.llm.service.action_service import LLMActionService
+from rv_android_core.domain.app import App
+from rv_android_core.domain.task import Task
+from rv_android_core.commands.command import Command
+from typing import Dict, List, Any, Optional, Tuple
+import os
 from rvandroid_tool.config.tool_config import RvAndroidToolConfig
-
+from rvandroid_tool.constants import RVANDROID_TOOL_NAME, RVANDROID_DESCRIPTION
+from rvandroid_tool.constants import DEFAULT_SERVER_PORT
+from rvandroid_tool.server.lifecycle import ServerLifecycleManager
 
 class RVAndroidTool(AbstractTool):
     """
-    RVAndroid tool implementation with unified configuration support.
+    LLM-based Android testing tool with DroidBot integration for monitored operations testing.
     
-    ### Architectural Overview:
-    This tool provides AI-guided exploration of Android applications using unified
-    configuration that combines LLM backend settings with prompt strategy configuration,
-    ensuring consistent behavior across all tool components.
+    ### Architectural Role:
+    - Implements AbstractTool interface for seamless platform integration
+    - Coordinates LLM service, HTTP server, and DroidBot policy execution
+    - Manages application state analysis and action generation pipeline
+    - Provides configurable LLM backends and prompt strategies
     
-    ### Key Components:
-    - LLMActionService: Processes application states and generates actions
-    - Server: REST API for DroidBot integration
-    - RvAndroidToolConfig: Unified configuration management
-    - DroidBot Integration: Executes generated actions on Android emulator
+    ### System Integration:
+    - Registered via rv-experiment module respecting module hierarchy
+    - Uses rv-android-core error handling and logging infrastructure
+    - Integrates with rv-llm for language model backends
+    - Connects with rv-screen-parser for UI state analysis
     
-    ### Execution Flow:
-    1. Configure with unified RvAndroidToolConfig
-    2. Initialize LLMActionService with unified configuration
-    3. Start server for DroidBot communication
-    4. Execute DroidBot with rvandroid policy
-    5. Process states and generate actions through LLM
-    6. Clean up resources and stop server
-    
-    ### Configuration Support:
-    - Unified Configuration: Single configuration object for all components
-    - Multiple LLM backends (Ollama, OpenAI, etc.)
-    - Configurable prompt strategies (BATCH_ACTION, STANDARD)
-    - Parser and visitor type selection through composition
-    - Multi-instance support with independent configurations
+    ### Tool Execution Flow:
+    1. Initialize LLM service with configured backend and strategy
+    2. Start HTTP server for DroidBot communication
+    3. Launch DroidBot with RVAndroid policy pointing to server
+    4. Process state requests and generate testing actions via LLM
+    5. Handle server lifecycle and cleanup on completion
     """
+    
+    # Required by AbstractTool interface
+    TOOL_SPEC = ToolSpec(
+        name=RVANDROID_TOOL_NAME,
+        description=RVANDROID_DESCRIPTION,
+        url="https://github.com/rv-android/rvandroid-tool",
+        version="1.0.0",
+        process_pattern="rvandroid_tool"
+    )
 
     def __init__(self):
-        """Initialize RVAndroid tool with unified configuration support."""
-        super().__init__()
+        """
+        Initialize RVAndroid tool with LLM-based testing capabilities.
         
-        # Initialize logging
-        self.logging_manager = LoggingManager.get_instance()
-        self.logger = self.logging_manager.get_logger(
-            "rvandroid_tool.tools.rvandroid.tool",
+        ### Initialization Strategy:
+        - Inherits from AbstractTool for consistent tool behavior
+        - Sets up logging with component-specific context
+        - Prepares for configuration-based LLM and server setup
+        """
+        # Initialize base class with tool spec parameters
+        tool_spec = self.get_tool_spec()
+        super().__init__(
+            name=tool_spec.name,
+            description=tool_spec.description,
+            process_pattern=tool_spec.process_pattern
+        )
+        
+        # Initialize component logging
+        logging_manager = LoggingManager.get_instance()
+        self.logger = logging_manager.get_logger(
+            "rvandroid_tool.tools.rvandroid",
             {CONTEXT_COMPONENT: "RVAndroidTool"}
         )
-
-        # Tool configuration (will be populated via configure())
-        self.config = {
-            "server_port": DEFAULT_SERVER_PORT,
-            "debug_mode": False,
-            "timeout": 600
-        }
-
-        # Unified configuration (injected via configure())
+        
+        # Configuration will be set through configure() method
         self._tool_config: Optional[RvAndroidToolConfig] = None
-        self._llm_config = None
-        self._prompt_config = None
+        self._server_port = DEFAULT_SERVER_PORT
+        self._debug_mode = False
+        
+        self.logger.info("RVAndroid tool initialized")
 
-        self.logger.info("RVAndroid tool initialized successfully")
+    @classmethod
+    def get_tool_spec(cls):
+        """
+        Get tool specification for registration.
+        
+        Returns:
+            ToolSpec instance with tool metadata
+        """
+        return cls.TOOL_SPEC
 
-    @ErrorHandler.handle_errors(
-        component="RVAndroidTool",
-        operation="configure"
-    )
+    @classmethod
+    def get_variants(cls) -> Dict[str, Dict[str, Any]]:
+        """
+        Get available RVAndroid variants with LLM and prompt strategy configurations.
+        
+        ### RVAndroid Variants Overview:
+        Each variant represents a complete configuration for LLM backend, prompt strategy,
+        and tool-specific parameters optimized for different testing scenarios.
+        
+        ### Variant Categories:
+        - default: Balanced configuration for general-purpose testing
+        - llama_batch_detailed: LLaMA model with batch action strategy and detailed analysis
+        - gpt4_standard_basic: GPT-4 model with standard strategy and basic configuration
+        - ollama_standard_detailed: Ollama backend with standard strategy and detailed visitor
+        
+        Returns:
+            Dictionary mapping variant names to RVAndroid configuration parameters
+        """
+        from rv_llm.llm.constants import LLMType, PromptStrategyType
+        from rv_screen_parser.constants import ScreenParserType, VisitorType
+        
+        return {
+            "default": {
+                "llm_type": LLMType.OLLAMA,
+                "llm_model": OllamaLLM.GEMMA,
+                "temperature": 0.2,
+                "top_p": 0.9,
+                "max_tokens": 800,
+                "vision": True,
+                "prompt_strategy": PromptStrategyType.STANDARD,
+                "parser_type": ScreenParserType.DROIDBOT,
+                "visitor_type": VisitorType.DETAILED,
+                "server_port": DEFAULT_SERVER_PORT,
+                "debug_mode": False
+            },
+            "llama_batch_detailed": {
+                "llm_type": LLMType.OLLAMA,
+                "llm_model": "llama3.1:70b",
+                "temperature": 0.05,
+                "top_p": 0.95,
+                "max_tokens": 4096,
+                "prompt_strategy": PromptStrategyType.BATCH_ACTION,
+                "parser_type": ScreenParserType.DROIDBOT,
+                "visitor_type": VisitorType.DETAILED,
+                "server_port": DEFAULT_SERVER_PORT,
+                "debug_mode": True
+            },
+            "gpt4_standard_basic": {
+                "llm_type": LLMType.FRONTIER,
+                "llm_model": "gpt-4",
+                "temperature": 0.2,
+                "top_p": 0.8,
+                "max_tokens": 3000,
+                "prompt_strategy": PromptStrategyType.STANDARD,
+                "parser_type": ScreenParserType.DROIDBOT,
+                "visitor_type": VisitorType.BASIC,
+                "server_port": DEFAULT_SERVER_PORT,
+                "debug_mode": False
+            },
+            "ollama_standard_detailed": {
+                "llm_type": LLMType.OLLAMA,
+                "llm_model": "mixtral:8x7b",
+                "temperature": 0.15,
+                "top_p": 0.9,
+                "max_tokens": 3500,
+                "prompt_strategy": PromptStrategyType.STANDARD,
+                "parser_type": ScreenParserType.DROIDBOT,
+                "visitor_type": VisitorType.DETAILED,
+                "server_port": DEFAULT_SERVER_PORT,
+                "debug_mode": False
+            }
+        }
+        
     def configure(self, config: Dict[str, Any]) -> None:
         """
-        Configure RVAndroid tool with unified configuration.
+        Configure RVAndroid tool with resolved variant parameters.
         
-        This method configures the tool instance with unified configuration
-        containing both LLM and prompt settings, ensuring consistent behavior
-        across all tool components.
-        
-        ### Configuration Strategy:
-        The method expects a unified RvAndroidToolConfig instance containing
-        all necessary configuration for tool execution, eliminating the need
-        for separate configuration parameters.
-        
-        ### Configuration Validation:
-        - Validates presence of required configuration
-        - Checks configuration consistency
-        - Prepares tool for execution with validated settings
+        ### Configuration Architecture:
+        This method handles both typed RvAndroidToolConfig instances and
+        dictionary-based configurations from variant resolution, providing
+        flexibility for different configuration sources.
         
         Args:
-            config: Configuration dictionary containing unified tool configuration
+            config: Either RvAndroidToolConfig instance or configuration dictionary
             
         Raises:
             ConfigurationError: If configuration is invalid or incomplete
         """
-        if not config:
-            return
-
-        try:
-            # Extract unified tool configuration
-            if 'tool_config' in config:
-                self._tool_config = config['tool_config']
-                
-                # Validate configuration
-                if not isinstance(self._tool_config, RvAndroidToolConfig):
-                    raise ConfigurationError("Invalid tool configuration type")
-                
-                # Store configuration components for easy access
-                self._llm_config = self._tool_config.llm_config
-                self._prompt_config = self._tool_config.prompt_config
-                
-                # Configure tool-specific settings
-                self.config.update({
-                    'server_port': self._tool_config.server_port,
-                    'debug_mode': self._tool_config.debug_mode,
-                    **self._tool_config.additional_params
-                })
-                
-                # Validate server port against constants
-                if self._tool_config.server_port < 1024 or self._tool_config.server_port > 65535:
-                    raise ConfigurationError(f"Invalid server port: {self._tool_config.server_port}")
-                
-                self.logger.info(
-                    f"RVAndroid tool configured with unified configuration - "
-                    f"LLM: {self._llm_config.llm_type}:{self._llm_config.model}, "
-                    f"Strategy: {self._prompt_config.strategy_type}, "
-                    f"Parser: {self._prompt_config.parser_type}, "
-                    f"Visitor: {self._prompt_config.visitor_type}, "
-                    f"Server Port: {self._tool_config.server_port}"
+        from rv_android_core.util.error.exceptions import ConfigurationError
+        
+        if isinstance(config, RvAndroidToolConfig):
+            # Direct typed configuration
+            self._tool_config = config
+        elif isinstance(config, dict):
+            # Create typed configuration from dictionary
+            try:
+                self._tool_config = RvAndroidToolConfig.create_from_variant(config)
+            except Exception as e:
+                raise ConfigurationError(
+                    f"Failed to create RvAndroidToolConfig from variant: {e}"
                 )
-                
-            else:
-                # Legacy configuration support (deprecated)
-                self.logger.warning("Using legacy configuration format - consider upgrading to unified configuration")
-                
-                # Extract individual configuration components
-                if 'llm_config' in config:
-                    self._llm_config = config['llm_config']
-                
-                # Update basic configuration
-                self.config.update({
-                    'server_port': config.get('server_port', DEFAULT_SERVER_PORT),
-                    'debug_mode': config.get('debug_mode', False),
-                    'timeout': config.get('timeout', 600)
-                })
-                
-                self.logger.info(
-                    f"RVAndroid tool configured with legacy configuration - "
-                    f"LLM: {self._llm_config.llm_type if self._llm_config else 'None'}, "
-                    f"Server Port: {self.config['server_port']}"
-                )
-
-        except Exception as e:
-            self.logger.error(f"Configuration failed: {e}")
-            raise ConfigurationError(f"Tool configuration failed: {e}")
-
-    @ErrorHandler.handle_errors(
-        component="RVAndroidTool",
-        operation="execute"
-    )
-    def execute(self, app: App, task: Task) -> Any:
-        """
-        Execute RVAndroid tool with unified configuration.
-        
-        This method executes the tool with unified configuration, ensuring
-        consistent behavior across all components.
-        
-        ### Execution Strategy:
-        1. Validate unified configuration
-        2. Initialize LLMActionService with unified configuration
-        3. Start server for DroidBot communication
-        4. Execute DroidBot with rvandroid policy
-        5. Process states and generate actions through LLM
-        6. Clean up resources and stop server
-        
-        Args:
-            app: Application instance to test
-            task: Task instance with execution parameters
-            
-        Returns:
-            Execution results
-            
-        Raises:
-            RVAndroidToolError: If execution fails
-        """
-        if not self._tool_config:
-            raise RVAndroidToolError("Tool not configured - call configure() first")
-        
-        self.logger.info(f"Executing RVAndroid tool for app: {app.package_name}")
-        
-        try:
-            # Initialize LLMActionService with unified configuration
-            from rvandroid_tool.llm.service.action_service import LLMActionService
-            
-            service = LLMActionService(
-                static_data=app.static_data,
-                tool_config=self._tool_config,
-                app_package=app.package_name
+        else:
+            raise ConfigurationError(
+                f"Invalid configuration type: {type(config)}. "
+                f"Expected RvAndroidToolConfig or Dict[str, Any]"
             )
-            
-            # Execute tool with unified configuration
-            results = self._execute_with_service(app, task, service)
-            
-            # Cleanup service
-            service.cleanup()
-            
-            self.logger.info(f"RVAndroid tool execution completed for app: {app.package_name}")
-            return results
-            
-        except Exception as e:
-            self.logger.error(f"Execution failed: {e}")
-            raise RVAndroidToolError(f"Tool execution failed: {e}")
+        
+        # Extract tool-specific parameters
+        self._server_port = self._tool_config.server_port
+        self._debug_mode = self._tool_config.debug_mode
+        
+        # Validate configuration
+        is_valid, error_msg = self._tool_config.validate()
+        if not is_valid:
+            raise ConfigurationError(f"Invalid RVAndroid configuration: {error_msg}")
+        
+        self.logger.info(
+            f"Configured RVAndroid tool - LLM: {self._tool_config.llm_config.llm_type}, "
+            f"Strategy: {self._tool_config.prompt_config.strategy_type}, "
+            f"Port: {self._server_port}"
+        )
 
-    def _execute_with_service(self, app: App, task: Task, service) -> Any:
+    @classmethod
+    def create_tool_config(
+        cls,
+        variant_config: Dict[str, Any],
+        override_params: Dict[str, Any] = None
+    ) -> RvAndroidToolConfig:
         """
-        Execute tool with LLM service.
+        Create typed RvAndroidToolConfig from variant configuration.
+        
+        ### Factory Method Architecture:
+        This class method provides clean typed configuration creation for RVAndroid tool,
+        enabling proper integration with the variant system while maintaining type safety.
         
         Args:
-            app: Application instance
-            task: Task instance
-            service: LLMActionService instance
+            variant_config: Base configuration from variant registry
+            override_params: Parameter overrides from experiment configuration
             
         Returns:
-            Execution results
-        """
-        # Implementation details would go here
-        # This is a placeholder for the actual execution logic
-        
-        self.logger.info(f"Executing tool with service configuration:")
-        self.logger.info(f"  - LLM Backend: {self._llm_config.llm_type}:{self._llm_config.model}")
-        self.logger.info(f"  - Prompt Strategy: {self._prompt_config.strategy_type}")
-        self.logger.info(f"  - Parser: {self._prompt_config.parser_type}")
-        self.logger.info(f"  - Visitor: {self._prompt_config.visitor_type}")
-        self.logger.info(f"  - Server Port: {self._tool_config.server_port}")
-        
-        # Return placeholder results
-        return {
-            "status": "completed",
-            "app_package": app.package_name,
-            "configuration": {
-                "llm_backend": f"{self._llm_config.llm_type}:{self._llm_config.model}",
-                "prompt_strategy": self._prompt_config.strategy_type,
-                "parser_type": self._prompt_config.parser_type,
-                "visitor_type": self._prompt_config.visitor_type,
-                "server_port": self._tool_config.server_port
-            }
-        }
-
-    @ErrorHandler.handle_errors(
-        component="RVAndroidTool",
-        operation="get_configuration_info"
-    )
-    def get_configuration_info(self) -> Dict[str, Any]:
-        """
-        Get current tool configuration information.
-        
-        Returns:
-            Dictionary containing configuration details
-        """
-        if not self._tool_config:
-            return {"status": "not_configured"}
-        
-        return {
-            "status": "configured",
-            "llm_backend": f"{self._llm_config.llm_type}:{self._llm_config.model}",
-            "prompt_strategy": self._prompt_config.strategy_type,
-            "parser_type": self._prompt_config.parser_type,
-            "visitor_type": self._prompt_config.visitor_type,
-            "server_port": self._tool_config.server_port,
-            "debug_mode": self._tool_config.debug_mode
-        }
-
-    @ErrorHandler.handle_errors(
-        component="RVAndroidTool",
-        operation="validate_configuration"
-    )
-    def validate_configuration(self) -> bool:
-        """
-        Validate current tool configuration.
-        
-        Returns:
-            True if configuration is valid
+            Configured RvAndroidToolConfig instance
             
         Raises:
-            ConfigurationError: If configuration is invalid
+            ConfigurationError: If configuration creation fails
         """
-        if not self._tool_config:
-            raise ConfigurationError("Tool not configured")
-        
-        # Validate unified configuration
-        is_valid, error = self._tool_config.validate()
-        if not is_valid:
-            raise ConfigurationError(f"Configuration validation failed: {error}")
-        
-        return True
+        return RvAndroidToolConfig.create_from_variant(variant_config, override_params)
 
-    def get_tool_spec(self) -> ToolSpec:
-        """Get tool specification for registry."""
-        return ToolSpec(
-            name="rvandroid",
-            description="AI-driven Android application testing tool",
-            version="1.0.0",
-            supported_variants=["batch_action", "standard", "detailed", "basic"],
-            configuration_schema={
-                "tool_config": "RvAndroidToolConfig",
-                "server_port": "int",
-                "debug_mode": "bool"
-            }
+    @ErrorHandler.handle_errors(
+        component="RVAndroidTool",
+        operation="execute_tool_specific_logic"
+    )
+    def execute_tool_specific_logic(self, task: Task, app: App) -> None:
+        """
+        Execute RVAndroid tool with LLM-guided testing approach.
+        
+        ### Execution Architecture:
+        - Follows AbstractTool interface contract for consistent behavior
+        - Implements complete LLM + Server + DroidBot coordination
+        - Manages server lifecycle with context manager pattern
+        - Handles external navigation and system actions
+        
+        ### Key Components:
+        - LLMActionService: Coordinates LLM-based action generation
+        - ServerLifecycleManager: Manages HTTP server for DroidBot communication
+        - DroidBot: Executes generated actions on target application
+        
+        Args:
+            task: Task configuration with execution parameters
+            app: Target application information
+        """
+        self.logger.info(f"Starting RVAndroid execution for app: {app.package_name}")
+        
+        # Validate configuration before execution
+        if not self._tool_config:
+            raise RVAndroidToolError("Tool configuration required - call configure() first")
+        
+        # Use static port as planned
+        actual_port = self._server_port
+        self.logger.info(f"Using server port: {actual_port}")
+        
+        # LLMActionService initialization (preserved)
+        service = LLMActionService(
+            static_data=task.static_data,
+            tool_config=self._tool_config,
+            app_package=app.package_name
         )
+        
+        # Context Manager for robust server lifecycle
+        with ServerLifecycleManager(service, actual_port) as server:
+            # Build and execute DroidBot command following AbstractTool pattern
+            command = self._build_droidbot_command(task, app, actual_port)
+            self._execute_and_check_command(command)
+        
+        self.logger.info("RVAndroid execution completed")
+
+    def _build_droidbot_command(self, task: Task, app: App, server_port: int) -> Command:
+        """
+        Build DroidBot command with RVAndroid policy configuration.
+        
+        ### Command Construction Strategy:
+        - Uses task configuration for DroidBot parameters
+        - Configures RVAndroid policy with server URL and LLM settings
+        - Includes app-specific targeting and output directory setup
+        
+        Args:
+            task: Task execution configuration
+            app: Target application details
+            server_port: HTTP server port for communication
+            
+        Returns:
+            Command object for DroidBot execution
+        """
+        cmd_args = [
+            "run", "droidbot",
+            "-a", str(app.path),
+            "-policy", "rvandroid",
+            "-o", os.path.join(task.results_dir, "rvandroid_output"),
+            "-timeout", str(task.config.timeout),
+            "--rvandroid_url", f"http://localhost:{server_port}"
+        ]
+        
+        # Add task-specific parameters
+        if hasattr(task, 'device_serial') and task.device_serial:
+            cmd_args.extend(["-d", task.device_serial])
+            
+        return Command("poetry", cmd_args, task.config.timeout)

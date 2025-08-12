@@ -157,3 +157,108 @@ class LanguageModel(ABC):
             component=self._get_component_name(),
             phase="resource_cleanup"
         )(func)
+
+    def supports_multimodal(self) -> bool:
+        """
+        Check if this language model supports multimodal input (text + images).
+        
+        ### Multimodal Support Detection Strategy:
+        - Checks if model configuration enables vision capabilities
+        - Provides base implementation for multimodal capability detection
+        - Can be overridden by subclasses for provider-specific detection
+        
+        Returns:
+            True if model supports text and image input, False otherwise
+        """
+        return hasattr(self.config, 'vision') and self.config.vision
+
+    def extract_image_data_for_provider(self, messages: List[LLMMessage]) -> List[str]:
+        """
+        Extract encoded image data from messages for provider-specific formatting.
+        
+        ### Image Extraction Strategy:
+        - Iterates through all messages to find image content
+        - Extracts base64 encoded image strings for LLM transmission
+        - Provides standardized image data extraction across providers
+        - Returns empty list if no images found or multimodal not supported
+        
+        Args:
+            messages: List of LLMMessage objects potentially containing images
+            
+        Returns:
+            List of base64 encoded image strings ready for provider APIs
+        """
+        if not self.supports_multimodal():
+            return []
+        
+        image_data = []
+        for message in messages:
+            images = message.get_image_content()
+            if images:
+                image_data.extend(images)
+        
+        return image_data
+
+    def format_message_with_multimodal_support(self, message: LLMMessage, provider_format: str = "ollama") -> dict:
+        """
+        Format a message with multimodal content for provider-specific APIs.
+        
+        ### Provider Format Support:
+        - "ollama": Ollama API format with "images" field
+        - "anthropic": Anthropic Claude format with content array
+        - "openai": OpenAI GPT-4 Vision format
+        - "huggingface": Hugging Face transformers format
+        
+        ### Multimodal Message Formatting Strategy:
+        - Extracts text content from message
+        - Adds image content in provider-specific format
+        - Maintains message role information
+        - Provides fallback for text-only content
+        
+        Args:
+            message: LLMMessage object with potential multimodal content
+            provider_format: Target provider format specification
+            
+        Returns:
+            Dictionary formatted for specific provider API
+        """
+        base_formatted = {
+            "role": message.role.value,
+            "content": message.get_text_content()
+        }
+        
+        # Add images if this is a user message and multimodal is supported
+        if message.role.value == "user" and self.supports_multimodal():
+            images = message.get_image_content()
+            if images:
+                if provider_format.lower() == "ollama":
+                    base_formatted["images"] = images
+                elif provider_format.lower() == "anthropic":
+                    # Anthropic Claude format: content is array of text and image objects
+                    content_array = [{"type": "text", "text": message.get_text_content()}]
+                    for img in images:
+                        content_array.append({
+                            "type": "image",
+                            "source": {
+                                "type": "base64",
+                                "media_type": "image/png",
+                                "data": img
+                            }
+                        })
+                    base_formatted["content"] = content_array
+                elif provider_format.lower() == "openai":
+                    # OpenAI GPT-4 Vision format: content is array with text and image_url
+                    content_array = [{"type": "text", "text": message.get_text_content()}]
+                    for img in images:
+                        content_array.append({
+                            "type": "image_url",
+                            "image_url": {
+                                "url": f"data:image/png;base64,{img}"
+                            }
+                        })
+                    base_formatted["content"] = content_array
+                elif provider_format.lower() == "huggingface":
+                    # Hugging Face format: separate images field
+                    base_formatted["images"] = images
+        
+        return base_formatted

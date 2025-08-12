@@ -7,6 +7,7 @@ monitored operations testing tools.
 
 import os
 from abc import ABC, abstractmethod
+from typing import Dict, Any
 
 from rv_android_core.domain.app import App
 from rv_android_core.commands.circuit_breaker import CommandCircuitBreaker
@@ -93,6 +94,112 @@ class AbstractTool(ABC):
 
         super().__init__()
 
+    @classmethod
+    @abstractmethod
+    def get_variants(cls) -> Dict[str, Dict[str, Any]]:
+        """
+        Get available variants for this tool.
+        
+        Every tool must provide at least a 'default' variant configuration.
+        Variants define tool-specific parameter sets that can be referenced
+        by name in experiment configurations.
+        
+        ### Architectural Overview:
+        This method enables the variant system by providing predefined configurations
+        that can be referenced by name in experiment specifications. Each variant
+        represents a complete configuration for the tool with specific parameters.
+        
+        ### Implementation Requirements:
+        - Must include at least a 'default' variant
+        - Variant names should be descriptive and meaningful
+        - Parameters should be complete for tool execution
+        - Avoid complex nested structures for simplicity
+        
+        Returns:
+            Dictionary mapping variant names to configuration parameters
+            
+        Example:
+            {
+                "default": {"policy": "dfs_naive", "timeout": 300},
+                "greedy": {"policy": "dfs_greedy", "count": 5000, "timeout": 600}
+            }
+        """
+        pass
+    
+    @classmethod
+    def register_variants(cls, registry) -> None:
+        """
+        Register all variants for this tool with the registry.
+        
+        This method is called automatically during tool registration
+        to populate the registry with available variants. Tools should
+        not override this method unless custom registration logic is required.
+        
+        ### Automatic Registration Process:
+        1. Gets tool specification from get_tool_spec()
+        2. Retrieves variants from get_variants()
+        3. Registers each variant with the registry
+        4. Provides error handling for registration failures
+        
+        Args:
+            registry: ToolRegistry instance to register variants with
+            
+        Raises:
+            ConfigurationError: If variant registration fails
+        """
+        tool_spec = cls.get_tool_spec()
+        tool_name = tool_spec.name
+        
+        try:
+            for variant_name, config in cls.get_variants().items():
+                registry.register_variant(tool_name, variant_name, config)
+        except Exception as e:
+            from rv_android_core.util.error.exceptions import ConfigurationError
+            raise ConfigurationError(f"Failed to register variants for {tool_name}: {e}")
+    
+    @abstractmethod
+    def configure(self, config: Dict[str, Any]) -> None:
+        """
+        Configure tool with resolved variant parameters.
+        
+        This method receives configuration resolved from variant registration
+        and experiment parameters. Implementation must prepare the tool for
+        execution with the provided configuration.
+        
+        ### Configuration Resolution Flow:
+        1. ToolFactory resolves variant configuration from registry
+        2. Applies parameter overrides from experiment configuration
+        3. Calls this method with final configuration dictionary
+        4. Tool prepares internal state for execution
+        
+        ### Implementation Guidelines:
+        - Store configuration in instance variables for execution
+        - Validate required parameters and provide clear error messages
+        - Prepare any tool-specific setup required for execution
+        - Do not perform heavy operations - defer to execution phase
+        
+        Args:
+            config: Configuration dictionary with tool-specific parameters
+            
+        Raises:
+            ConfigurationError: If configuration is invalid or incomplete
+        """
+        pass
+
+    @classmethod
+    @abstractmethod
+    def get_tool_spec(cls):
+        """
+        Get tool specification for registration.
+        
+        This method must be implemented by all tools to provide
+        specification information for registry registration.
+        
+        Returns:
+            ToolSpec instance with tool metadata
+        """
+        pass
+    
     @abstractmethod
     def execute_tool_specific_logic(self, task: Task, app: App) -> None:
         """

@@ -12,7 +12,7 @@ from rv_android_core.util.error.exceptions import (
     RVValidationError, CommandValidationError, LogcatValidationError,
     EventProcessingError, ConfigurationError, RVCommandTimeoutError, JarNotFoundError,
     CircuitBreakerOpenError, RVLLMConnectionError, RVLLMModelError, RVLLMProviderError,
-    RVLLMConfigurationError, RVLLMTemplateError, LLMServiceError, ToolCreationError
+    RVLLMConfigurationError, RVLLMTemplateError, LLMServiceError, ServerLifecycleError, ToolCreationError
 )
 from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
 from rv_android_core.util.logging.manager import LoggingManager
@@ -788,6 +788,22 @@ class ErrorHandler:
         
         return False  # Allow propagation for higher-level handling
 
+    def _handle_server_lifecycle_error(self, error: ServerLifecycleError, context: Optional[Dict[str, Any]] = None) -> bool:
+        """Handle server lifecycle errors with appropriate logging and recovery."""
+        self._logger.error(f"Server lifecycle error: {error.message}")
+        
+        # Log port information if available
+        if error.server_port:
+            self._logger.error(f"Server port: {error.server_port}")
+        
+        # Log context if available
+        if context:
+            component = context.get('component', 'unknown')
+            operation = context.get('operation', 'unknown')
+            self._logger.error(f"Component: {component}, Operation: {operation}")
+        
+        return False  # Allow propagation for higher-level handling
+
     def _handle_tool_creation_error(self, error: ToolCreationError, context: Optional[Dict[str, Any]] = None) -> bool:
         """Handle tool creation errors with appropriate logging and recovery."""
         self._logger.error(f"Tool creation error: {error.message}")
@@ -960,6 +976,9 @@ def _register_new_exception_handlers():
     
     # Register LLMServiceError handler
     handler.register_handler(LLMServiceError, handler._handle_llm_service_error)
+    
+    # Register ServerLifecycleError handler
+    handler.register_handler(ServerLifecycleError, handler._handle_server_lifecycle_error)
     
     # Register ToolCreationError handler
     handler.register_handler(ToolCreationError, handler._handle_tool_creation_error)

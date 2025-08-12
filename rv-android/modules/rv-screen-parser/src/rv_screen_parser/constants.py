@@ -1,23 +1,8 @@
 """
-Constants for the rv-screen-parser module.
-
-### Architectural Overview:
-This module defines constant values used throughout the screen parser system to ensure
-consistency and prevent errors due to string mismatches. These constants are designed
-to support monitored operations in both JCA cryptography and generic programming patterns.
-
-### Key Architectural Decisions:
-- **Type Safety**: Centralized constants prevent string mismatches across components
-- **Factory Integration**: Constants designed to work seamlessly with parser factories
-- **Monitored Operations**: Support for both JCA crypto and generic specifications
-- **Clean Separation**: Parser and visitor constants properly separated by responsibility
-
-### Role in the System:
-- Provides type-safe constants for screen parser and visitor components
-- Enables consistent configuration across different modules
-- Maintains compatibility with the modern factory pattern architecture
-- Defines clear contracts for parser and visitor types
+Constants for screen parsing and action classification.
 """
+
+from enum import Enum
 
 
 class ScreenParserType:
@@ -54,3 +39,32 @@ class VisitorType:
     DEFAULT = "default"
     DETAILED = "detailed"
     ALL = [BASIC, DEFAULT, DETAILED]
+
+class ActionType(Enum):
+    """
+    Classification of action types for coordinate conflict resolution.
+    
+    ### Architectural Purpose:
+    - Distinguishes between UI actions requiring coordinates and system actions
+    - Enables proper handling of [0,0] coordinates for system operations
+    - Supports action validation and processing pipeline decisions
+    
+    ### Usage Context:
+    - UI_ACTION: Standard widget interactions requiring screen coordinates
+    - SYSTEM_ACTION: Platform-level operations not tied to specific UI elements
+    """
+    UI_ACTION = "ui_action"
+    SYSTEM_ACTION = "system_action"
+
+class SystemActionType(Enum):
+    """
+    Specific system action operations supported by the platform.
+    
+    ### Supported Operations:
+    - BACK: Android system back navigation
+    - RESTART: Application restart operation
+    - HOME: Return to launcher (future extension)
+    """
+    BACK = "SYSTEM_BACK"
+    RESTART = "RESTART_APP"
+    HOME = "SYSTEM_HOME"  # Reserved for future use

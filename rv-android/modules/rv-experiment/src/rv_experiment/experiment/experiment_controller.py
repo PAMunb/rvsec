@@ -231,12 +231,18 @@ class ExperimentController:
             
             for tool_config in self.config.tool_configs:
                 try:
-                    # Create tool instance using instance method
-                    tool = tool_factory.create_configured_tool(
+                    # Create tool configuration and tool instance
+                    from rv_android_core.domain.task import ToolConfig as TaskToolConfig
+                    
+                    # Use first variant for tool creation
+                    variant = tool_config.variants[0] if tool_config.variants else "default"
+                    task_tool_config = TaskToolConfig(
                         tool_name=tool_config.name,
-                        variants=tool_config.variants,
-                        params=tool_config.parameters
+                        variant=variant,
+                        additional_params=tool_config.parameters
                     )
+                    
+                    tool = tool_factory.create_tool(task_tool_config)
                     tools.append(tool)
                     self.logger.debug(f"Configured tool: {tool_config.name}")
                     

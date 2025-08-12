@@ -1,27 +1,21 @@
 """
-RVAndroid Tool Constants
-
-This module provides constants specific to the RVAndroid tool module,
-including server configuration and tool-specific parameters.
-
-### Tool-Specific Constants:
-- Server configuration for DroidBot policy communication
-- Tool execution parameters
-- Default values for RVAndroid tool configuration
-
-### Integration Strategy:
-- Used by RVAndroidTool for server port configuration
-- Imported by RvAndroidToolConfig for default values
-- Supports tool-specific configuration validation
+Constants for RVAndroid tool configuration and operation.
 """
 
-# Server Configuration
-DEFAULT_SERVER_PORT = 8080  # Port for RVAndroid server communication with DroidBot
+# Tool identification
+RVANDROID_TOOL_NAME = "rvandroid"
+RVANDROID_DESCRIPTION = "LLM-based Android testing tool with DroidBot integration"
 
-# Tool Execution Parameters
-DEFAULT_TOOL_TIMEOUT = 600  # Default timeout for tool execution in seconds
-DEFAULT_DEBUG_MODE = False  # Default debug mode setting
+# Server configuration
+DEFAULT_SERVER_PORT = 5000
+SERVER_STARTUP_TIMEOUT = 30
+SERVER_SHUTDOWN_TIMEOUT = 10
 
-# Tool Configuration
-DEFAULT_MAX_RETRIES = 3  # Maximum retry attempts for tool operations
-DEFAULT_RETRY_DELAY = 1  # Delay between retry attempts in seconds
+# External navigation limits
+# TODO sincronizar com as alteracoes no droidbot e verificar a necessidade de tunar o prompt
+MAX_EXTERNAL_ATTEMPTS = 3
+EXTERNAL_NAVIGATION_RESET_THRESHOLD = 1
+
+# Action processing
+ACTION_GENERATION_TIMEOUT = 60
+MAX_RETRIES_PER_ACTION = 3 # TODO rever: esta sendo usado? e como?

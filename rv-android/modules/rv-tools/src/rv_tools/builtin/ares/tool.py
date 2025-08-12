@@ -91,6 +91,32 @@ class AresTool(AbstractTool):
 
         self.logger.info("Initialized Ares tool for Docker-based exploration")
 
+    @classmethod
+    def get_tool_spec(cls):
+        """Get tool specification for registration."""
+        return cls.TOOL_SPEC
+    
+    @classmethod
+    def get_variants(cls) -> Dict[str, Dict[str, Any]]:
+        """Get available Ares variants with different Docker configurations."""
+        return {
+            "default": {
+                "timeout": 600,
+                "debug_mode": False,
+                "cleanup_container": True
+            },
+            "debug": {
+                "timeout": 1200,
+                "debug_mode": True,
+                "cleanup_container": False
+            },
+            "fast": {
+                "timeout": 300,
+                "debug_mode": False,
+                "cleanup_container": True
+            }
+        }
+
     def configure(self, config: Dict[str, Any]) -> None:
         """
         Configure Ares-specific parameters.

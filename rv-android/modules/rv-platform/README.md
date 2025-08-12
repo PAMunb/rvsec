@@ -16,6 +16,7 @@ The RV-Platform module provides a standalone execution engine for Android testin
 - **Static Analysis Integration**: Loads pre-generated static analysis files for coverage calculation
 - **Emulator Management**: Fresh emulator instances per task with lifecycle management
 - **CLI Interface**: Standalone command-line interface for independent execution
+- **Variant System**: Tool variant support with automatic resolution and configuration management
 
 ## Architecture
 
@@ -39,6 +40,7 @@ The RV-Platform module provides a standalone execution engine for Android testin
 #### Configuration Management
 - **PlatformConfig**: Configuration class with validation, tool configuration, and execution parameters
 - **ToolConfig**: Tool configuration with variants, parameters, and validation support
+- **Variant Resolution**: Automatic resolution of tool variants with merged parameter configurations
 
 ### Integration Points
 
@@ -106,8 +108,8 @@ poetry install --extras dev
 # Simple experiment with single tool
 rv-platform run --tools monkey
 
-# Multi-tool experiment with configuration
-rv-platform run --tools monkey,droidbot --repetitions 3 --timeout 600
+# Multi-tool experiment with variants
+rv-platform run --tools "monkey:default,droidbot:dfs_greedy" --repetitions 3 --timeout 600
 
 # Custom APK directory and results
 rv-platform run --tools monkey --apks-dir ./my_apks --results-dir ./my_results
@@ -154,10 +156,10 @@ rv-platform list-tools --detailed
 from rv_platform.config.platform_config import PlatformConfig, ToolConfig
 from rv_platform.platform import Platform
 
-# Create tool configurations
+# Create tool configurations with variants
 tools = [
-    ToolConfig(name="monkey", variants=[], parameters={}),
-    ToolConfig(name="droidbot", variants=[], parameters={"count": 1000})
+    ToolConfig(name="monkey", variants=["default"], parameters={}),
+    ToolConfig(name="droidbot", variants=["dfs_greedy"], parameters={"count": 1000})
 ]
 
 # Create platform configuration
@@ -226,7 +228,7 @@ results = platform.run()
   "tools": [
     {
       "name": "monkey",
-      "variants": [],
+      "variants": ["default"],
       "parameters": {}
     }
   ],
@@ -246,7 +248,7 @@ results = platform.run()
   "tools": [
     {
       "name": "monkey",
-      "variants": [],
+      "variants": ["default"],
       "parameters": {
         "event_count": 1000,
         "seed": 42
@@ -254,7 +256,7 @@ results = platform.run()
     },
     {
       "name": "droidbot",
-      "variants": [],
+      "variants": ["dfs_greedy"],
       "parameters": {
         "count": 500
       }

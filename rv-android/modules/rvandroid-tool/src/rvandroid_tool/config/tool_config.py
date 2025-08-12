@@ -120,87 +120,72 @@ class RvAndroidToolConfig(BaseValidatedModel):
             raise ValueError(f"Server port must be between 1024-49151, got: {v}")
         return v
 
-    # TODO nao pode ser assim ... rv-experiment esta um nivel acima
+    # REMOVED: from_experiment_config() method - created circular dependency with ExperimentConfig
+    # Configuration will be created directly by RVAndroid tool using create_from_variant() method
+
     @classmethod
-    @ErrorHandler.handle_errors(
-        component="RvAndroidToolConfig",
-        operation="from_experiment_config"
-    )
-    def from_experiment_config(
+    def create_from_variant(
         cls,
-        experiment_config,
-        tool_name: str = "rvandroid"
+        variant_config: Dict[str, Any],
+        override_params: Dict[str, Any] = None
     ) -> 'RvAndroidToolConfig':
         """
-        Create unified tool configuration from experiment configuration.
+        Create RvAndroidToolConfig from variant configuration and parameter overrides.
         
-        This method serves as the primary factory for creating RvAndroidToolConfig
-        instances from experiment-level configuration, ensuring consistent
-        configuration patterns across the system.
+        This factory method creates typed configuration objects from variant
+        specifications, enabling clean separation between predefined variants
+        and experiment-specific parameter overrides.
         
-        ### Configuration Resolution Strategy:
-        1. Extract tool configuration from experiment tool_configs
-        2. Create LLMConfig using experiment configuration
-        3. Create PromptConfig from tool variants and parameters
-        4. Combine configurations into unified tool configuration
-        
-        ### Variant Processing:
-        - Strategy variants: 'standard', 'batch_action' → strategy_type
-        - Parser variants: 'droidbot', 'uiautomator' → parser_type
-        - Visitor variants: 'basic', 'detailed', 'default' → visitor_type
+        ### Configuration Resolution:
+        1. Create LLMConfig from variant LLM parameters
+        2. Create PromptConfig from variant prompt parameters  
+        3. Apply parameter overrides for dynamic configuration
+        4. Combine into unified RvAndroidToolConfig instance
         
         Args:
-            experiment_config: Experiment configuration containing tool specifications
-            tool_name: Name of the tool to configure (default: "rvandroid")
+            variant_config: Base configuration from variant registry
+            override_params: Parameter overrides from experiment configuration
             
         Returns:
-            Unified RvAndroidToolConfig instance
+            Configured RvAndroidToolConfig instance
             
         Raises:
-            ConfigurationError: If tool configuration cannot be created
+            ConfigurationError: If configuration creation fails
         """
-        # Initialize logging
-        logging_manager = LoggingManager.get_instance()
-        logger = logging_manager.get_logger(
-            "rvandroid_tool.config.tool_config",
-            {CONTEXT_COMPONENT: "RvAndroidToolConfig"}
-        )
+        from rv_llm.llm.constants import LLMType, PromptStrategyType
+        from rv_screen_parser.constants import ScreenParserType, VisitorType
         
-        # Find tool configuration in experiment
-        tool_configs = [tc for tc in experiment_config.tool_configs if tc.name == tool_name]
-        if not tool_configs:
-            raise ConfigurationError(f"Tool '{tool_name}' not found in experiment configuration")
+        override_params = override_params or {}
         
-        tool_config = tool_configs[0]
+        # Merge variant config with overrides
+        final_config = {**variant_config, **override_params}
         
         # Create LLM configuration
-        llm_config = experiment_config.get_llm_config(tool_name)
+        llm_config = LLMConfig(
+            llm_type=final_config.get("llm_type", LLMType.OLLAMA),
+            model=final_config.get("llm_model", "llama3.2"),
+            temperature=final_config.get("temperature", 0.1),
+            top_p=final_config.get("top_p", 0.9),
+            max_tokens=final_config.get("max_tokens", 2048),
+            vision=final_config.get("vision", False),
+            think=final_config.get("think", False)
+        )
         
-        # Create prompt configuration from variants
-        prompt_config = experiment_config.get_prompt_config(tool_name)
+        # Create prompt configuration  
+        prompt_config = PromptConfig(
+            strategy_type=final_config.get("prompt_strategy", PromptStrategyType.STANDARD),
+            parser_type=final_config.get("parser_type", ScreenParserType.DROIDBOT),
+            visitor_type=final_config.get("visitor_type", VisitorType.DETAILED)
+        )
         
-        # Extract tool-specific parameters
-        server_port = tool_config.parameters.get('server_port', DEFAULT_SERVER_PORT)
-        debug_mode = tool_config.parameters.get('debug_mode', False)
-        
-        # Create unified configuration
-        unified_config = cls(
+        # Create tool configuration
+        return cls(
             llm_config=llm_config,
             prompt_config=prompt_config,
-            server_port=server_port,
-            debug_mode=debug_mode,
-            additional_params=tool_config.parameters
+            server_port=final_config.get("server_port", DEFAULT_SERVER_PORT),
+            debug_mode=final_config.get("debug_mode", False),
+            additional_params=override_params
         )
-        
-        logger.info(
-            f"Created unified RVAndroid configuration - "
-            f"LLM: {llm_config.llm_type}:{llm_config.model}, "
-            f"Strategy: {prompt_config.strategy_type}, "
-            f"Parser: {prompt_config.parser_type}, "
-            f"Server Port: {server_port}"
-        )
-        
-        return unified_config
 
     @ErrorHandler.handle_errors(
         component="RvAndroidToolConfig",

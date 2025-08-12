@@ -307,9 +307,8 @@ def mock_plugin():
     Returns:
         Mock: Configured plugin mock with realistic plugin behavior
     """
-    from rv_tools.interfaces.plugin_interface import ToolPlugin
-    
-    mock_plugin = Mock(spec=ToolPlugin)
+    # Plugin system has been removed - using basic mock instead
+    mock_plugin = Mock()
     mock_plugin.get_plugin_name.return_value = "mock_plugin"
     mock_plugin.get_plugin_version.return_value = "1.0.0"
     mock_plugin.get_tool_names.return_value = ["plugin_tool_1", "plugin_tool_2"]

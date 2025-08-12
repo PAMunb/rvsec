@@ -14,6 +14,7 @@ The RVAndroid-Tool module provides an AI-driven testing implementation that comb
 - **Action Generation**: Context-aware Android action generation with constraint handling, semantic understanding, and goal-oriented planning
 - **State Analysis**: UI state understanding with transition planning, pattern recognition, and testing strategies
 - **Tool Configuration**: Flexible configuration system with parser, visitor, and LLM settings separation
+- **Variant System**: Predefined variants with different LLM and prompt configurations for various testing scenarios
 
 ## Architecture
 
@@ -36,6 +37,7 @@ The RVAndroid-Tool module provides an AI-driven testing implementation that comb
 - **RvAndroidToolConfig**: Configuration through composition of LLMConfig and PromptConfig
 - **Template Management**: Tool-specific template registration with PromptFramework
 - **Multi-instance Support**: Independent configuration for parallel tool execution
+- **Variant Management**: Predefined variants with automatic configuration resolution
 
 ### Integration Points
 
@@ -120,6 +122,67 @@ state = {
 }
 
 actions = service.process_state(state)
+```
+
+### Variant System Usage
+
+```python
+from rvandroid_tool.tools.rvandroid.tool import RVAndroidTool
+
+# Get available variants
+variants = RVAndroidTool.get_variants()
+print("Available variants:")
+for variant_name, variant_config in variants.items():
+    print(f"  {variant_name}: {variant_config}")
+
+# Create tool with variant using factory
+from rv_tools.registry.factory import ToolFactory
+from rv_android_core.domain.task import ToolConfig
+
+tool_config = ToolConfig(
+    tool_name="rvandroid",
+    variant="default",  # or "openai_gpt4", "multimodal", etc.
+    additional_params={"custom_param": "value"}
+)
+
+factory = ToolFactory()
+rvandroid_tool = factory.create_tool(tool_config)
+
+# Configuration created from variant
+tool_config = rvandroid_tool.tool_config
+print(f"LLM Type: {tool_config.llm_config.llm_type}")
+print(f"Model: {tool_config.llm_config.model}")
+print(f"Strategy: {tool_config.prompt_config.strategy_type}")
+```
+
+### Predefined Variants
+
+The RVAndroid tool includes several predefined variants:
+
+```python
+VARIANTS = {
+    "default": {
+        "llm_type": "ollama",
+        "llm_model": "llama3.2",
+        "prompt_strategy": "standard_modular",
+        "temperature": 0.2,
+        "max_tokens": 1000
+    },
+    "openai_gpt4": {
+        "llm_type": "openai", 
+        "llm_model": "gpt-4",
+        "prompt_strategy": "batch_action_modular",
+        "temperature": 0.1,
+        "max_tokens": 1500
+    },
+    "multimodal": {
+        "llm_type": "ollama",
+        "llm_model": "llava",
+        "prompt_strategy": "multimodal_modular",
+        "temperature": 0.3,
+        "max_tokens": 800
+    }
+}
 ```
 
 ### Tool Configuration
@@ -260,22 +323,24 @@ from rv_llm.config import LLMConfig, PromptConfig
 from rv_llm.llm.constants import LLMType, PromptStrategyType
 from rv_screen_parser.constants import ScreenParserType, VisitorType
 
-# Create from experiment configuration
+# Create configuration from variant
+tool_config = RvAndroidToolConfig.create_from_variant(
+    variant_name="default",
+    additional_params={"temperature": 0.2}
+)
+
+# Create configuration from experiment with variant
 from rv_experiment.config import ExperimentConfig
+from rv_platform.config.platform_config import ToolConfig
 
 experiment_config = ExperimentConfig(
     app_path="/path/to/app.apk",
-    tools=[{
-        "name": "rvandroid",
-        "variants": ["batch_action"],
-        "parameters": {"temperature": "0.2"}
-    }]
+    tool_configs=[
+        ToolConfig(name="rvandroid", variants=["default"], parameters={"temperature": "0.2"})
+    ]
 )
 
-tool_config = RvAndroidToolConfig.from_experiment_config(
-    experiment_config=experiment_config,
-    tool_name="rvandroid"
-)
+# Configuration created automatically through variant resolution
 
 # Access configuration components
 strategy_type = tool_config.get_strategy_type()

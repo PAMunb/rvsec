@@ -10,6 +10,7 @@ from rv_android_core.util.logging.manager import LoggingManager
 from rv_android_core.util.performance.performance_monitor import PerformanceMonitor
 from rv_llm import LLMConfig
 from rv_llm.llm.constants import StateEntry
+from rv_screen_parser.constants import SystemActionType
 from rv_screen_parser.parser.screen.visitor.model import ScreenDescription, ItemAction
 
 
@@ -26,8 +27,8 @@ class GeneratedAction:
         self.target_view = item.target_view
         self.params = params
         self.coordinates = coordinates
-        self.target = target  # deprecated
-        self.explanation = explanation
+        self.target = target  # TODO deprecated
+        self.explanation = explanation  # TODO deprecated
 
     def to_droidbot_format(self):
         return {
@@ -35,7 +36,7 @@ class GeneratedAction:
             "coordinates": self.coordinates,
             "params": self.params,
             "target": self.target,  # TODO deprecated
-            "explanation": self.explanation
+            "explanation": self.explanation # TODO deprecated
         }
 
     def to_dict(self):
@@ -46,7 +47,7 @@ class GeneratedAction:
             "params": self.params,
             "reaches_mop": self.reaches_mop,
             "directly_reaches_mop": self.directly_reaches_mop,
-            "explanation": self.explanation
+            "explanation": self.explanation # TODO deprecated
         }
 
 
@@ -78,8 +79,8 @@ class ActionGenerator:
             static_data: Static analysis data for action enrichment
         """
         # Get system services
-        self.event_bus = EventBus.get_instance()
-        self.performance_monitor = PerformanceMonitor.get_instance()
+        self.event_bus = EventBus.get_instance() # TODO deprecated
+        self.performance_monitor = PerformanceMonitor.get_instance()  # TODO deprecated
         self.error_handler = ErrorHandler.get_instance()
         logging_manager = LoggingManager.get_instance()
 
@@ -195,7 +196,6 @@ class ActionGenerator:
                 break
             self._extract_clickable_elements(child, actions, max_elements)
 
-    # TODO renomear e converter em outro lugar
     def _convert_to_droidbot_format(self,
                                     actions: List[Dict[str, Any]],
                                     state: Dict[str, Any]) -> List[GeneratedAction]:
@@ -259,39 +259,6 @@ class ActionGenerator:
 
         return droidbot_actions
 
-    # def _extract_action_type(self, action_text: str) -> str:
-    #     """
-    #     Extract the action type from the action text description.
-    #
-    #     Args:
-    #         action_text: Text description of the action
-    #
-    #     Returns:
-    #         Action type string for DroidBot
-    #     """
-    #     if action_text.startswith("CLICK"):
-    #         return "click"
-    #     elif action_text.startswith("LONG_CLICK"):
-    #         return "long_click"
-    #     elif action_text.startswith("SCROLL"):
-    #         # Extract direction if present
-    #         if "UP" in action_text:
-    #             return "scroll_up"
-    #         elif "DOWN" in action_text:
-    #             return "scroll_down"
-    #         elif "LEFT" in action_text:
-    #             return "scroll_left"
-    #         elif "RIGHT" in action_text:
-    #             return "scroll_right"
-    #         return "scroll"
-    #     elif action_text.startswith("SET_TEXT"):
-    #         return "set_text"
-    #     elif action_text.startswith("CHECK") or action_text.startswith("UNCHECK"):
-    #         return "click"  # Checkbox actions are clicks
-    #     elif action_text.startswith("BACK"):
-    #         return "key_event"
-    #     return "unknown"
-
     def _get_target(self, item_action, state: Dict[str, Any]) -> str:
         """
         Get the target for an action from the associated view data.
@@ -341,7 +308,7 @@ class ActionGenerator:
         if action_type == "set_text":
             if "text" not in processed_params or not processed_params["text"]:
                 processed_params["text"] = "test input"
-                self.logger.debug(f"Added default text parameter to SET_TEXT action")
+                self.logger.debug("Added default text parameter to SET_TEXT action")
 
         # Handle KEY_EVENT action type
         elif action_type == "key_event":
@@ -358,13 +325,110 @@ class ActionGenerator:
 
         return processed_params
 
-    def _resolve_coordinates(self,
-                             item_action: ItemAction,
-                             view_data,
-                             state: Dict[str, Any],
-                             action_id: str) -> Optional[Tuple[int, int]]:
+    @ErrorHandler.handle_errors(
+        component="ActionGenerator",
+        operation="resolve_coordinates"
+    )
+    def _resolve_coordinates(self, item_action: ItemAction, view_data, state: Dict[str, Any], action_id: str) -> Optional[Tuple[int, int]]:
         """
-        Resolve coordinates for an action using multiple strategies.
+        Resolve coordinates for action execution with system action support.
+        
+        ### Coordinate Resolution Strategy:
+        - System actions return None coordinates (handled by policy layer)
+        - UI actions use multiple resolution strategies for robustness
+        - Fallback mechanisms ensure action execution when possible
+        - Proper error handling and logging for debugging
+        
+        ### System Action Detection:
+        - Checks target_view for system action markers
+        - Uses ActionType enum for proper classification
+        - Supports both new enum-based and legacy flag-based detection
+        
+        Args:
+            item_action: Action to resolve coordinates for
+            view_data: Screen view hierarchy data
+            state: Current application state
+            action_id: Action identifier for logging
+            
+        Returns:
+            Tuple of (x, y) coordinates or None for system actions
+        """
+        # Check for system action first
+        if self._is_system_action(item_action):
+            system_action_type = self._get_system_action_type(item_action)
+            self.logger.debug(
+                f"System action detected: {system_action_type} for action_id: {action_id}, "
+                f"no coordinates needed"
+            )
+            return None
+        
+        # Standard UI action coordinate resolution
+        return self._resolve_ui_action_coordinates(item_action, view_data, state, action_id)
+
+    def _is_system_action(self, item_action: ItemAction) -> bool:
+        """
+        Determine if action is a system-level operation.
+        
+        ### Detection Strategy:
+        - Primary: Check ActionType enum in target_view
+        - Secondary: Check system_action boolean flag (legacy)
+        - Fallback: Parse action text for system action patterns
+        
+        Args:
+            item_action: Action to classify
+            
+        Returns:
+            True if action is system-level operation
+        """
+        from rv_screen_parser.constants import ActionType, SystemActionType
+        
+        if hasattr(item_action, 'target_view') and item_action.target_view:
+            # Primary detection via ActionType enum
+            action_type = item_action.target_view.get('action_type')
+            if action_type == ActionType.SYSTEM_ACTION:
+                return True
+                
+            # Legacy detection via boolean flag
+            if item_action.target_view.get('system_action', False):
+                return True
+        
+        # Fallback text-based detection
+        action_text = item_action.text.upper()
+        return any(system_type.value in action_text for system_type in SystemActionType)
+
+    def _get_system_action_type(self, item_action: ItemAction) -> Optional[SystemActionType]:
+        """
+        Extract specific system action type from action data.
+        
+        Args:
+            item_action: System action to classify
+            
+        Returns:
+            SystemActionType enum value or None if not system action
+        """
+        from rv_screen_parser.constants import SystemActionType
+        
+        if hasattr(item_action, 'target_view') and item_action.target_view:
+            # This is the preferred way
+            system_action_type = item_action.target_view.get('system_action_type')
+            if system_action_type:
+                return system_action_type
+        
+        # Fallback text-based detection
+        action_text = item_action.text.upper()
+        for system_type in SystemActionType:
+            if system_type.value in action_text:
+                return system_type
+                
+        return None
+
+    def _resolve_ui_action_coordinates(self,
+                                     item_action: ItemAction,
+                                     view_data,
+                                     state: Dict[str, Any],
+                                     action_id: str) -> Optional[Tuple[int, int]]:
+        """
+        Resolve coordinates for a UI action using multiple strategies.
 
         Args:
             item_action: The ItemAction object
@@ -375,7 +439,7 @@ class ActionGenerator:
         Returns:
             Tuple of (x, y) coordinates or None if not found
         """
-        self.logger.debug(f"Resolving coordinates for action_id: {action_id}")
+        self.logger.debug(f"Resolving UI coordinates for action_id: {action_id}")
 
         # Method 1: Use coordinates from ItemAction if available
         if hasattr(item_action, 'coordinates') and item_action.coordinates:
@@ -416,7 +480,7 @@ class ActionGenerator:
                 x, y = int(parts[0]), int(parts[1])
                 return x, y
 
-        self.logger.warning(f"Failed to resolve coordinates for action_id: {action_id}")
+        self.logger.warning(f"Failed to resolve UI coordinates for action_id: {action_id}")
         return None
 
     def _find_coordinates_for_resource_id(self,

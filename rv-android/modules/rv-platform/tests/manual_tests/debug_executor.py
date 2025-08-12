@@ -5,11 +5,19 @@ from rv_platform.execution.executor import TaskExecutor
 from rv_android_core.domain.app import App
 
 # Create basic config
+from rv_android_core.domain.task import ToolConfig as TaskToolConfig
+
+tool_config = TaskToolConfig(
+    tool_name="monkey",
+    variant="default", 
+    additional_params={}
+)
+
 config = TaskConfiguration(
     apk_name="test.apk",
     repetition=1,
     timeout=60,
-    tool_name="monkey"
+    tool_config=tool_config
 )
 
 # Create task with app

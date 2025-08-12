@@ -1,4 +1,7 @@
+import os
+import tempfile
 import time
+import uuid
 from threading import Thread, Lock
 from typing import Optional, Dict, Any
 
@@ -6,6 +9,7 @@ import requests
 from flask import Flask, request, jsonify
 from werkzeug.exceptions import NotFound, HTTPException
 from werkzeug.serving import make_server
+from werkzeug.datastructures import FileStorage
 
 from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
 from rv_android_core.util.logging.manager import LoggingManager
@@ -134,20 +138,46 @@ class Server:
         def get_actions():
             """
             Endpoint to receive application state and return suggested actions.
-            Uses the refactored LLMActionService to process state and generate actions.
+            
+            Supports both JSON and multipart requests with screenshot files.
+            Screenshots are temporarily saved, processed by LLM, then cleaned up.
             """
+            screenshot_path = None
             try:
-                # Get JSON data from request
-                data = request.json
-                if not data:
-                    self.logger.info("No data provided in the request.")
-                    return jsonify({"error": "No state data provided"}), 400
+                # Handle different request types
+                if request.is_json:
+                    # JSON request without screenshot
+                    data = request.json
+                    if not data:
+                        self.logger.info("No data provided in the request.")
+                        return jsonify({"error": "No state data provided"}), 400
+                elif request.content_type and 'multipart/form-data' in request.content_type:
+                    # Multipart request with potential screenshot
+                    try:
+                        data = request.get_json(force=True) if request.form.get('state') else request.json
+                        if not data and 'state' in request.form:
+                            import json
+                            data = json.loads(request.form['state'])
+                        if not data:
+                            return jsonify({"error": "No state data provided"}), 400
+                    except Exception as json_error:
+                        self.logger.error(f"Failed to parse state data: {json_error}")
+                        return jsonify({"error": "Invalid state data format"}), 400
+                else:
+                    return jsonify({"error": "Unsupported content type"}), 400
 
                 self.logger.info(f"Received request for app: {data.get('package_name')}")
-
-                # Add request timestamp and handling info
                 self.logger.debug(f"State has activity: {data.get('activity')}")
                 self.logger.debug(f"Processing request at {time.strftime('%Y-%m-%d %H:%M:%S')}")
+
+                # Handle screenshot if present
+                if 'screenshot' in request.files:
+                    screenshot_file = request.files['screenshot']
+                    if screenshot_file and screenshot_file.filename:
+                        screenshot_path = self._save_screenshot_to_temp(screenshot_file)
+                        if screenshot_path:
+                            data['screenshot_path'] = screenshot_path
+                            self.logger.debug(f"Screenshot saved to: {screenshot_path}")
 
                 # Ensure service is initialized
                 if not self.service:
@@ -172,6 +202,14 @@ class Server:
             except Exception as e:
                 self.logger.error(f"Error processing request: {e}", exc_info=True)
                 return jsonify({"error": str(e)}), 500
+            finally:
+                # Cleanup temporary screenshot file
+                if screenshot_path and os.path.exists(screenshot_path):
+                    try:
+                        os.remove(screenshot_path)
+                        self.logger.debug(f"Cleaned up temporary screenshot: {screenshot_path}")
+                    except Exception as cleanup_error:
+                        self.logger.warning(f"Failed to cleanup screenshot {screenshot_path}: {cleanup_error}")
 
     def start(self) -> bool:
         """
@@ -258,6 +296,15 @@ class Server:
                 self.logger.error(f"Error stopping server: {e}", exc_info=True)
                 return False
 
+    def is_running(self) -> bool:
+        """
+        Check if the server is currently running.
+        
+        Returns:
+            bool: True if server is running, False otherwise
+        """
+        return self._is_running
+
     def is_healthy(self) -> bool:
         """
         Check if the server is healthy.
@@ -270,3 +317,42 @@ class Server:
             return response.status_code == 200
         except:
             return False
+
+    def _save_screenshot_to_temp(self, screenshot_file: FileStorage) -> Optional[str]:
+        """
+        Save uploaded screenshot file to temporary directory.
+        
+        ### Screenshot Processing Strategy:
+        - Creates unique temporary file with proper extension
+        - Saves screenshot data to temporary location  
+        - Returns file path for processing by StateEnricher
+        - File will be cleaned up after LLM processing completes
+        
+        Args:
+            screenshot_file: FileStorage object containing screenshot data
+            
+        Returns:
+            Path to temporary screenshot file or None if save failed
+        """
+        try:
+            # Generate unique temporary filename
+            file_extension = '.png'  # Default to PNG
+            if screenshot_file.filename:
+                # Extract extension from original filename
+                _, ext = os.path.splitext(screenshot_file.filename)
+                if ext.lower() in ['.png', '.jpg', '.jpeg']:
+                    file_extension = ext.lower()
+            
+            # Create temporary file with unique name
+            temp_filename = f"rvandroid_screenshot_{uuid.uuid4().hex}{file_extension}"
+            temp_path = os.path.join(tempfile.gettempdir(), temp_filename)
+            
+            # Save screenshot data to temporary file
+            screenshot_file.save(temp_path)
+            
+            self.logger.debug(f"Screenshot saved to temporary file: {temp_path}")
+            return temp_path
+            
+        except Exception as e:
+            self.logger.error(f"Failed to save screenshot to temporary file: {e}")
+            return None

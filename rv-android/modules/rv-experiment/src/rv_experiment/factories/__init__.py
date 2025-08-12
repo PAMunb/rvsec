@@ -27,9 +27,7 @@ component creation with just-in-time configuration and DI-ready design.
 """
 
 from .configuration_factory import ConfigurationFactory
-from .rvandroid_config_factory import RvAndroidConfigFactory
 
 __all__ = [
-    'ConfigurationFactory',
-    'RvAndroidConfigFactory'
+    'ConfigurationFactory'
 ]

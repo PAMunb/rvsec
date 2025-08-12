@@ -178,7 +178,7 @@ class ResultProcessorComponent:
             apk_name = config.apk_name
             repetition = config.repetition
             timeout = config.timeout
-            tool_name = config.tool_name
+            tool_name = config.tool_config.get_full_tool_name()
             
             # Get repository data if available
             if hasattr(task, 'repository') and task.repository:
@@ -296,7 +296,7 @@ class ResultProcessorComponent:
             apk_name = config.apk_name
             repetition = config.repetition
             timeout = config.timeout
-            tool_name = config.tool_name
+            tool_name = config.tool_config.get_full_tool_name()
             
             # Get repository data if available
             if hasattr(task, 'repository') and task.repository:
@@ -377,7 +377,7 @@ class ResultProcessorComponent:
             apk_name = config.apk_name
             repetition = config.repetition
             timeout = config.timeout
-            tool_name = config.tool_name
+            tool_name = config.tool_config.get_full_tool_name()
             
             # Get final metrics from task result
             if hasattr(task, 'result') and hasattr(task.result, 'coverage_metrics'):
@@ -436,7 +436,7 @@ class ResultProcessorComponent:
                 apk_name = task.config.apk_name
                 rep = task.config.repetition
                 timeout = task.config.timeout
-                tool_name = task.config.tool_name
+                tool_name = task.config.tool_config.get_full_tool_name()
                 
                 # Initialize nested structure
                 if apk_name not in results_data:
@@ -593,7 +593,7 @@ class ResultProcessorComponent:
                             config.apk_name,
                             config.repetition,
                             config.timeout,
-                            config.tool_name,
+                            config.tool_config.get_full_tool_name(),
                             getattr(task.result, 'execution_time_seconds', 0),
                             getattr(task.result, 'state', 'unknown'),
                             False,  # monitoring was disabled/failed

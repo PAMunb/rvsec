@@ -104,7 +104,7 @@ class TaskExecutor:
         return {
             "task_id": self.task.id,
             "apk_name": self.task.config.apk_name,
-            "tool_name": self.task.config.tool_name,
+            "tool_name": self.task.config.tool_config.get_full_tool_name(),
             "repetition": self.task.config.repetition,
             "timeout": self.task.config.timeout
         }
@@ -412,7 +412,7 @@ class TaskExecutor:
                 "apk_name": self.task.config.apk_name,
                 "repetition": self.task.config.repetition,
                 "timeout": self.task.config.timeout,
-                "tool_name": self.task.config.tool_name
+                "tool_name": self.task.config.tool_config.get_full_tool_name()
             },
             source="TaskExecutor",
             channel=EventChannel.LIFECYCLE
@@ -427,7 +427,7 @@ class TaskExecutor:
                 "apk_name": self.task.config.apk_name,
                 "repetition": self.task.config.repetition,
                 "timeout": self.task.config.timeout,
-                "tool_name": self.task.config.tool_name
+                "tool_name": self.task.config.tool_config.get_full_tool_name()
             },
             source="TaskExecutor",
             channel=EventChannel.LIFECYCLE
@@ -447,7 +447,7 @@ class TaskExecutor:
                 "apk_name": self.task.config.apk_name,
                 "repetition": self.task.config.repetition,
                 "timeout": self.task.config.timeout,
-                "tool_name": self.task.config.tool_name
+                "tool_name": self.task.config.tool_config.get_full_tool_name()
             },
             details={
                 "error": error_message
@@ -468,7 +468,7 @@ class TaskExecutor:
             task_id=self.task.id,
             task_config={
                 "apk_name": self.task.config.apk_name,
-                "tool_name": self.task.config.tool_name
+                "tool_name": self.task.config.tool_config.get_full_tool_name()
             },
             details={
                 "tool_execution_start": self.task.result.tool_execution_start.isoformat() if self.task.result.tool_execution_start else None,

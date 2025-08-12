@@ -7,10 +7,8 @@ managing tools in the RV-Android framework.
 
 from .registry import ToolRegistry
 from .factory import ToolFactory
-from .plugin_loader import PluginLoader
 
 __all__ = [
     "ToolRegistry",
-    "ToolFactory", 
-    "PluginLoader"
+    "ToolFactory"
 ]

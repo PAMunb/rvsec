@@ -105,6 +105,75 @@ class QTestingTool(AbstractTool):
 
         self.logger.info("Initialized QTesting tool for RL-based exploration")
 
+    @classmethod
+    def get_tool_spec(cls):
+        """Get tool specification for registration."""
+        return cls.TOOL_SPEC
+    
+    @classmethod
+    def get_variants(cls) -> Dict[str, Dict[str, Any]]:
+        """Get available QTesting variants with different RL algorithms."""
+        return {
+            "default": {
+                "algorithm": "qlearning",
+                "max_episodes": 1000,
+                "timeout": 3600,
+                "debug_mode": False,
+                "learning_rate": 0.1,
+                "discount_factor": 0.95,
+                "epsilon": 0.1,
+                "epsilon_decay": 0.995,
+                "cleanup_container": True,
+                "save_model": True,
+                "load_pretrained": False
+            },
+            "qlearning": {
+                "algorithm": "qlearning",
+                "max_episodes": 1500,
+                "timeout": 2700,
+                "debug_mode": False,
+                "learning_rate": 0.15,
+                "discount_factor": 0.9,
+                "epsilon": 0.2,
+                "epsilon_decay": 0.99,
+                "cleanup_container": True,
+                "save_model": True,
+                "load_pretrained": False
+            },
+            "dqn": {
+                "algorithm": "dqn",
+                "max_episodes": 2000,
+                "timeout": 5400,
+                "debug_mode": True,
+                "learning_rate": 0.001,
+                "discount_factor": 0.99,
+                "epsilon": 0.1,
+                "epsilon_decay": 0.995,
+                "batch_size": 64,
+                "memory_size": 20000,
+                "update_frequency": 50,
+                "cleanup_container": True,
+                "save_model": True,
+                "load_pretrained": False
+            },
+            "ddqn": {
+                "algorithm": "ddqn",
+                "max_episodes": 2500,
+                "timeout": 7200,
+                "debug_mode": True,
+                "learning_rate": 0.0005,
+                "discount_factor": 0.99,
+                "epsilon": 0.05,
+                "epsilon_decay": 0.999,
+                "batch_size": 128,
+                "memory_size": 50000,
+                "update_frequency": 25,
+                "cleanup_container": False,
+                "save_model": True,
+                "load_pretrained": True
+            }
+        }
+
     def configure(self, config: Dict[str, Any]) -> None:
         """
         Configure QTesting-specific parameters.

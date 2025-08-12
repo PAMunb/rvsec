@@ -96,6 +96,41 @@ class MonkeyTool(AbstractTool):
 
         self.logger.info("Initialized Monkey tool for random event generation")
 
+    @classmethod
+    def get_tool_spec(cls):
+        """Get tool specification for registration."""
+        return cls.TOOL_SPEC
+    
+    @classmethod
+    def get_variants(cls) -> Dict[str, Dict[str, Any]]:
+        """Get available Monkey variants with different configurations."""
+        return {
+            "default": {
+                "event_count": 1000,
+                "seed": None,
+                "throttle": 0,
+                "verbosity": 2,
+                "ignore_crashes": False,
+                "ignore_timeouts": False
+            },
+            "fast": {
+                "event_count": 500,
+                "seed": 12345,
+                "throttle": 0,
+                "verbosity": 1,
+                "ignore_crashes": True,
+                "ignore_timeouts": True
+            },
+            "stress": {
+                "event_count": 10000,
+                "seed": None,
+                "throttle": 0,
+                "verbosity": 3,
+                "ignore_crashes": False,
+                "ignore_timeouts": False
+            }
+        }
+
     def configure(self, config: Dict[str, Any]) -> None:
         """
         Configure Monkey-specific parameters.

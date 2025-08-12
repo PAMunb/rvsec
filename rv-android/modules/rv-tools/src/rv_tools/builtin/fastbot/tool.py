@@ -103,6 +103,57 @@ class FastBotTool(AbstractTool):
 
         self.logger.info("Initialized FastBot tool for model-based exploration")
 
+    @classmethod
+    def get_tool_spec(cls):
+        """Get tool specification for registration."""
+        return cls.TOOL_SPEC
+    
+    @classmethod
+    def get_variants(cls) -> Dict[str, Dict[str, Any]]:
+        """Get available FastBot variants with different learning strategies."""
+        return {
+            "default": {
+                "max_step": 10000,
+                "strategy": "balanced",
+                "throttle": 500,
+                "debug_mode": False,
+                "timeout": 3600,
+                "learning_rate": 0.1,
+                "exploration_rate": 0.2,
+                "model_update_frequency": 100
+            },
+            "conservative": {
+                "max_step": 5000,
+                "strategy": "conservative",
+                "throttle": 1000,
+                "debug_mode": False,
+                "timeout": 1800,
+                "learning_rate": 0.05,
+                "exploration_rate": 0.1,
+                "model_update_frequency": 200
+            },
+            "aggressive": {
+                "max_step": 20000,
+                "strategy": "aggressive",
+                "throttle": 200,
+                "debug_mode": True,
+                "timeout": 5400,
+                "learning_rate": 0.2,
+                "exploration_rate": 0.4,
+                "model_update_frequency": 50
+            },
+            "balanced": {
+                "max_step": 15000,
+                "strategy": "balanced",
+                "throttle": 300,
+                "debug_mode": False,
+                "timeout": 4200,
+                "learning_rate": 0.15,
+                "exploration_rate": 0.25,
+                "model_update_frequency": 75
+            }
+        }
+
     def configure(self, config: Dict[str, Any]) -> None:
         """
         Configure FastBot-specific parameters.

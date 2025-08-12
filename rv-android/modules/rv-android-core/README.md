@@ -47,11 +47,12 @@ The RV-Android-Core module serves as the fundamental infrastructure layer for th
 - **UI Components**: Window, widget, and navigation graph models
 
 #### Tool Infrastructure
-- **AbstractTool**: Base abstraction for all testing tool implementations providing centralized error handling, unified command execution, and automatic circuit breaker protection
+- **AbstractTool**: Base abstraction for all testing tool implementations providing centralized error handling, unified command execution, and automatic circuit breaker protection. Includes variant system integration.
 - **Command**: Command execution infrastructure with timeout handling, failure detection, and comprehensive logging support
 - **CommandCircuitBreaker**: Resilience pattern implementation preventing cascading failures through command-specific failure tracking and automatic recovery testing
 - **JarResolver**: Centralized JAR file resolution utility providing standardized search patterns and comprehensive error handling for JAR-dependent tools
 - **ToolSpec**: Tool specification and metadata management system enabling tool discovery and configuration
+- **Variant System**: Tool variant management with predefined configurations and automatic registry integration
 
 #### Utility Components
 - **Configuration Management**: Type-safe configuration with validation and environment-controlled settings
@@ -275,23 +276,64 @@ model2 = CustomModel("test", 42)  # Positional arguments work too
 from rv_android_core.tools.abstract_tool import AbstractTool
 from rv_android_core.commands.command import Command
 from rv_android_core.util.jar_resolver import JarResolver
+from typing import Dict, Any
 
 class MyTool(AbstractTool):
-    """Custom testing tool implementation."""
+    """Custom testing tool implementation with variant support."""
     
-    def __init__(self):
-        super().__init__(
-            name="mytool",
-            description="Custom monitored operations testing tool",
-            process_pattern="com.mytool"
-        )
+    def __init__(self, tool_spec=None):
+        super().__init__(tool_spec or {
+            "name": "mytool",
+            "description": "Custom monitored operations testing tool",
+            "process_pattern": "com.mytool"
+        })
         self.jar_resolver = JarResolver()
+    
+    @classmethod
+    def get_variants(cls) -> Dict[str, Dict[str, Any]]:
+        """Define tool variants with different configurations."""
+        return {
+            "default": {
+                "timeout_multiplier": 1.0,
+                "verbose": False,
+                "additional_args": []
+            },
+            "debug": {
+                "timeout_multiplier": 2.0,
+                "verbose": True,
+                "additional_args": ["--debug", "--trace"]
+            },
+            "fast": {
+                "timeout_multiplier": 0.5,
+                "verbose": False,
+                "additional_args": ["--fast-mode"]
+            }
+        }
+    
+    def configure(self, variant_config: Dict[str, Any]) -> None:
+        """Configure tool with variant-specific parameters."""
+        self.timeout_multiplier = variant_config.get("timeout_multiplier", 1.0)
+        self.verbose = variant_config.get("verbose", False)
+        self.additional_args = variant_config.get("additional_args", [])
+        
+        if self.verbose:
+            self.logger.info(f"Tool configured with variant parameters: {variant_config}")
+    
+    def get_tool_spec(self) -> Dict[str, Any]:
+        """Return tool specification for registry."""
+        return {
+            "name": self.name,
+            "description": self.description,
+            "process_pattern": self.process_pattern,
+            "supported_platforms": ["android"],
+            "requires_emulator": True
+        }
     
     def execute_tool_specific_logic(self, task, app):
         """Implement tool-specific execution logic."""
         self.logger.info(f"Starting {self.name} execution for {app.package_name}")
         
-        # Build tool command
+        # Build tool command with variant-specific configuration
         command = self._build_tool_command(task, app)
         
         # Execute with centralized error handling and automatic circuit breaker protection
@@ -306,8 +348,41 @@ class MyTool(AbstractTool):
         self.logger.info(f"{self.name} execution completed successfully")
     
     def _build_tool_command(self, task, app):
-        """Build tool-specific command."""
-        return Command("mytool", [app.apk_path], timeout=task.config.timeout)
+        """Build tool-specific command with variant configuration."""
+        # Adjust timeout based on variant configuration
+        adjusted_timeout = int(task.config.timeout * self.timeout_multiplier)
+        
+        # Build command with additional arguments from variant
+        args = [app.apk_path] + self.additional_args
+        
+        return Command("mytool", args, timeout=adjusted_timeout)
+```
+
+### Variant System Usage
+
+```python
+from rv_tools.registry import ToolRegistry
+
+# Register tool with automatic variant registration
+registry = ToolRegistry.get_instance()
+registry.register_tool_class(MyTool)
+
+# Query available variants
+variants = registry.get_tool_variants("mytool")
+print(f"Available variants: {list(variants.keys())}")
+
+# Get specific variant configuration
+debug_config = registry.get_variant_config("mytool", "debug")
+print(f"Debug variant config: {debug_config}")
+
+# Create tool with variant
+from rv_tools.registry import ToolFactory
+factory = ToolFactory()
+tool = factory.create_tool({
+    "name": "mytool",
+    "variant": "debug",
+    "additional_params": {"custom_setting": "value"}
+})
 ```
 
 ## Circuit Breaker Protection

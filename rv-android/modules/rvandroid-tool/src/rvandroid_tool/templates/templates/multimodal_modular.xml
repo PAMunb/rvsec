@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<template name="multimodal_modular" version="1.0" extends="system_base">
+  <metadata>
+    <description>Template for generating batches of testing actions (modular version)</description>
+    <created>2023-05-04</created>
+    <author>RV-Android Team</author>
+    <updated>2023-05-06</updated>
+  </metadata>
+  <variables>
+    <required>ui_elements</required>
+    <optional>additional_guidelines</optional>
+    <optional>monitored_operations</optional>
+    <optional>testing_history</optional>
+  </variables>
+  <roles>
+    <system>
+      <variable name="strategy_specific_instructions">
+        <![CDATA[{% include "batch_instructions" %}]]>
+      </variable>
+      <variable name="response_format_instructions">
+        <![CDATA[{% include "batch_format" %}]]>
+      </variable>
+<!--      <variable name="additional_guidelines">-->
+<!--        <![CDATA[{% include "batch_guidelines" %}]]>-->
+<!--      </variable>-->
+    </system>
+    <user><![CDATA[
+{% include "user_base" %}
+
+{% if workflow_guidance is defined and workflow_guidance %}
+{{ workflow_guidance }}
+{% endif %}
+
+CRITICAL TASK: Analyze the current UI, identify the primary UI pattern present, and generate a batch of related actions that efficiently test this pattern.
+
+{% if additional_guidelines is defined and additional_guidelines %}
+{{ additional_guidelines }}
+{% endif %}
+    ]]></user>
+  </roles>
+</template>

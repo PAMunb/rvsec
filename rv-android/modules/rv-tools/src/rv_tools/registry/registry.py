@@ -81,7 +81,7 @@ class ToolRegistry:
         self.tool_specs: Dict[str, ToolSpec] = {}
         self.variants: Dict[str, Dict[str, Dict[str, Any]]] = {}
 
-        self.logger.info("Simplified tool registry initialized")
+        self.logger.info("Tool registry initialized")
 
     @ErrorHandler.handle_errors(
         component="ToolRegistry",
@@ -121,22 +121,42 @@ class ToolRegistry:
     )
     def register_tool_class(self, tool_class: Type[AbstractTool]) -> None:
         """
-        Register a tool class using its TOOL_SPEC attribute.
+        Register a tool class and automatically register its variants.
+        
+        This method performs complete tool registration including:
+        - Tool class registration with specification
+        - Automatic variant registration for the tool
+        - Validation of variant configuration
+        
+        ### Architectural Changes:
+        The updated registration process now includes automatic variant registration
+        through the AbstractTool.register_variants() method, enabling the complete
+        variant system functionality without manual variant registration calls.
 
         Args:
             tool_class: Tool class to register
             
         Raises:
-            ToolRegistrationError: If tool class registration fails
+            ToolRegistrationError: If tool class registration or variant registration fails
         """
         try:
-            if not hasattr(tool_class, 'TOOL_SPEC'):
-                raise ToolRegistrationError(f"Tool class {tool_class.__name__} must have TOOL_SPEC attribute")
+            # Get tool specification using new method
+            tool_spec = tool_class.get_tool_spec()
+            tool_name = tool_spec.name
             
-            tool_spec = tool_class.TOOL_SPEC
-            self.register_tool(tool_spec.name, tool_class, tool_spec)
+            # Register tool class (existing logic)
+            self.register_tool(tool_name, tool_class, tool_spec)
+            
+            # NEW: Automatic variant registration
+            try:
+                tool_class.register_variants(self)
+                self.logger.info(f"Registered variants for tool: {tool_name}")
+            except Exception as e:
+                raise ToolRegistrationError(f"Failed to register variants for {tool_name}: {e}")
             
         except Exception as e:
+            import traceback
+            traceback.print_exc()
             raise ToolRegistrationError(f"Failed to register tool class '{tool_class.__name__}': {e}") from e
 
     @ErrorHandler.handle_errors(
@@ -191,12 +211,9 @@ class ToolRegistry:
             tool_class = self.tool_classes[tool_name]
             tool_spec = self.tool_specs[tool_name]
 
-            # Create tool instance using spec data
-            tool_instance = tool_class(
-                name=tool_spec.name,
-                description=tool_spec.description,
-                process_pattern=tool_spec.process_pattern
-            )
+            # Create tool instance with parameterless constructor
+            # Tool spec data is handled internally by tool classes now
+            tool_instance = tool_class()
 
             # Apply variant configuration if available
             if variant != "default" and tool_name in self.variants:
@@ -211,6 +228,8 @@ class ToolRegistry:
             return tool_instance
 
         except Exception as e:
+            import traceback
+            traceback.print_exc()
             raise ToolNotFoundError(f"Failed to create tool instance '{tool_name}': {e}") from e
 
     def get_all_tools(self) -> List[AbstractTool]:
@@ -300,6 +319,78 @@ class ToolRegistry:
             True if tool is registered, False otherwise
         """
         return tool_name in self.tool_classes
+
+    def get_variant_config(self, tool_name: str, variant_name: str) -> Dict[str, Any]:
+        """
+        Get configuration for a specific tool variant.
+        
+        This method provides access to variant-specific configuration parameters
+        for use in tool instantiation and configuration processes.
+        
+        Args:
+            tool_name: Name of the tool
+            variant_name: Name of the variant
+            
+        Returns:
+            Configuration dictionary for the variant
+            
+        Raises:
+            ConfigurationError: If tool or variant not found
+        """
+        from rv_android_core.util.error.exceptions import ConfigurationError
+        
+        if tool_name not in self.variants:
+            raise ConfigurationError(f"Tool '{tool_name}' not found in registry")
+            
+        if variant_name not in self.variants[tool_name]:
+            available = list(self.variants[tool_name].keys())
+            raise ConfigurationError(
+                f"Variant '{variant_name}' not found for tool '{tool_name}'. "
+                f"Available variants: {available}"
+            )
+        
+        return self.variants[tool_name][variant_name].copy()
+    
+    def validate_tool_variant(self, tool_name: str, variant_name: str) -> bool:
+        """
+        Validate that a tool variant combination exists and is properly configured.
+        
+        This method provides validation capabilities for experiment configuration
+        validation and CLI argument checking.
+        
+        Args:
+            tool_name: Name of the tool
+            variant_name: Name of the variant
+            
+        Returns:
+            True if variant is valid and available, False otherwise
+        """
+        try:
+            self.get_variant_config(tool_name, variant_name)
+            return True
+        except:
+            return False
+    
+    def is_tool_registered(self, tool_name: str) -> bool:
+        """
+        Check if a tool is registered in the registry.
+        
+        Args:
+            tool_name: Name of the tool to check
+            
+        Returns:
+            True if tool is registered, False otherwise
+        """
+        return tool_name in self.tool_classes
+    
+    def get_all_tool_names(self) -> List[str]:
+        """
+        Get names of all registered tools.
+        
+        Returns:
+            List of all registered tool names
+        """
+        return list(self.tool_classes.keys())
 
     def has_variant(self, tool_name: str, variant_name: str) -> bool:
         """

@@ -67,137 +67,123 @@ class DroidBotTool(AbstractTool):
         'random', 'monkey', 'none', 'manual'
     ]
 
-    def __init__(self, name: str = None, description: str = None, process_pattern: str = None):
+    def __init__(self):
         """
         Initialize the DroidBot tool with rv-android-core infrastructure.
         """
+        # Initialize base class with tool spec parameters
+        tool_spec = self.get_tool_spec()
         super().__init__(
-            name=name or self.TOOL_SPEC.name,
-            description=description or self.TOOL_SPEC.description,
-            process_pattern=process_pattern or self.TOOL_SPEC.process_pattern
+            name=tool_spec.name,
+            description=tool_spec.description,
+            process_pattern=tool_spec.process_pattern
         )
 
-        # Initialize rv-android-core infrastructure components
-        logging_manager = LoggingManager.get_instance()
-        self.logger = logging_manager.get_logger(
-            "rv_tools.builtin.droidbot",
-            {CONTEXT_COMPONENT: "DroidBotTool"}
-        )
+        # Configuration will be set through configure() method
+        self.config = {}
 
-        # Default DroidBot configuration
-        self.config = {
-            "policy": "dfs_naive",  # Exploration policy
-            "count": 1000,  # Number of events to generate
-            "timeout": 3600,  # Timeout in seconds
-            "interval": 3,  # Interval between events
-            "device_serial": None,  # Device serial number
-            "keep_app": False,  # Keep app installed after testing
-            "keep_env": False,  # Keep environment after testing
-            "debug_mode": False,  # Enable debug mode
-            "random_input": False,  # Enable random input generation
-            "script_path": None,  # Path to script for guided testing
-            "profiling_method": "none",  # Profiling method
-            "grant_perm": True,  # Grant permissions automatically
-            "enable_accessibility_hard": False,  # Enable accessibility service
-            "master": None,  # Master device for distributed testing
-            "humanoid": None,  # Humanoid model for input generation
-            "ignore_ad": True,  # Ignore advertisement elements
-            "replay_output": None  # Replay output directory
+        self.logger.info("Initialized DroidBot tool for lightweight test input generation")
+
+    @classmethod
+    def get_tool_spec(cls):
+        """
+        Get tool specification for registration.
+        
+        Returns:
+            ToolSpec instance with tool metadata
+        """
+        return cls.TOOL_SPEC
+
+    @classmethod
+    def get_variants(cls) -> Dict[str, Dict[str, Any]]:
+        """
+        Get available DroidBot variants with exploration policy configurations.
+        
+        Returns:
+            Dictionary mapping variant names to DroidBot configuration parameters
+        """
+        return {
+            "default": {
+                "policy": "dfs_naive",
+                "count": 1000,
+                "interval": 3,
+                "ignore_ad": True
+            },
+            "dfs_greedy": {
+                "policy": "dfs_greedy",
+                "count": 10000000000,
+                "interval": 3,
+                "ignore_ad": True
+            },
+            "bfs_greedy": {
+                "policy": "bfs_greedy", 
+                "count": 10000000000,
+                "interval": 3,
+                "ignore_ad": True
+            },
+            "dfs_naive": {
+                "policy": "dfs_naive",
+                "count": 1000,
+                "interval": 3,
+                "ignore_ad": True
+            },
+            "bfs_naive": {
+                "policy": "bfs_naive",
+                "count": 1000,
+                "interval": 3,
+                "ignore_ad": True
+            },
+            "random": {
+                "policy": "random",
+                "count": 1000,
+                "interval": 3,
+                "ignore_ad": True
+            }
         }
-
-        self.logger.info("Initialized DroidBot tool for UI exploration")
-
+        
     def configure(self, config: Dict[str, Any]) -> None:
         """
-        Configure DroidBot-specific parameters.
-        
-        Supported configuration options:
-        - policy: Exploration policy (dfs_naive, dfs_greedy, bfs_naive, bfs_greedy, random)
-        - count: Number of events to generate
-        - timeout: Timeout in seconds
-        - interval: Interval between events
-        - device_serial: Device serial number
-        - keep_app: Keep app installed after testing
-        - keep_env: Keep environment after testing
-        - debug_mode: Enable debug mode
-        - random_input: Enable random input generation
-        - grant_perm: Grant permissions automatically
-        - ignore_ad: Ignore advertisement elements
+        Configure DroidBot tool with resolved variant parameters.
         
         Args:
-            config: Configuration dictionary with DroidBot parameters
+            config: Configuration dictionary with DroidBot-specific parameters
+            
+        Raises:
+            ConfigurationError: If configuration is invalid
         """
-        if not config:
-            return
-
-        # Update exploration policy
-        if 'policy' in config:
-            policy = config['policy']
-            if policy not in self.AVAILABLE_POLICIES:
-                self.logger.warning(f"Invalid policy '{policy}'. Using default 'dfs_naive'")
-                self.logger.warning(f"Available policies: {self.AVAILABLE_POLICIES}")
-            else:
-                self.config['policy'] = policy
-                self.logger.debug(f"Set DroidBot policy to: {policy}")
-
-        # Update event count
-        if 'count' in config:
-            try:
-                count = int(config['count'])
-                if count > 0:
-                    self.config['count'] = count
-                    self.logger.debug(f"Set DroidBot event count to: {count}")
-                else:
-                    self.logger.warning("Event count must be positive")
-            except (ValueError, TypeError):
-                self.logger.warning(f"Invalid count value: {config['count']}")
-
-        # Update timeout
-        if 'timeout' in config:
-            try:
-                timeout = int(config['timeout'])
-                if timeout > 0:
-                    self.config['timeout'] = timeout
-                    self.logger.debug(f"Set DroidBot timeout to: {timeout}s")
-                else:
-                    self.logger.warning("Timeout must be positive")
-            except (ValueError, TypeError):
-                self.logger.warning(f"Invalid timeout value: {config['timeout']}")
-
-        # Update interval
-        if 'interval' in config:
-            try:
-                interval = int(config['interval'])
-                if interval >= 0:
-                    self.config['interval'] = interval
-                    self.logger.debug(f"Set DroidBot interval to: {interval}s")
-                else:
-                    self.logger.warning("Interval must be non-negative")
-            except (ValueError, TypeError):
-                self.logger.warning(f"Invalid interval value: {config['interval']}")
-
-        # Update device serial
-        if 'device_serial' in config:
-            self.config['device_serial'] = config['device_serial']
-            self.logger.debug(f"Set DroidBot device serial to: {config['device_serial']}")
-
-        # Update boolean flags
-        boolean_flags = [
-            'keep_app', 'keep_env', 'debug_mode', 'random_input',
-            'grant_perm', 'enable_accessibility_hard', 'ignore_ad'
-        ]
-
-        for flag in boolean_flags:
-            if flag in config:
-                self.config[flag] = bool(config[flag])
-                self.logger.debug(f"Set DroidBot {flag} to: {self.config[flag]}")
-
-        # Update string parameters
-        string_params = ['script_path', 'profiling_method', 'master', 'humanoid', 'replay_output']
-        for param in string_params:
-            if param in config:
-                self.config[param] = config[param]
-                self.logger.debug(f"Set DroidBot {param} to: {config[param]}")
+        from rv_android_core.util.error.exceptions import ConfigurationError
+        
+        # Validate required policy
+        if "policy" not in config:
+            raise ConfigurationError("DroidBot tool requires 'policy' parameter")
+        
+        if config["policy"] not in self.AVAILABLE_POLICIES:
+            raise ConfigurationError(
+                f"Invalid DroidBot policy '{config['policy']}'. "
+                f"Available policies: {self.AVAILABLE_POLICIES}"
+            )
+        
+        # Set configuration with defaults
+        self.config = {
+            "policy": config["policy"],
+            "count": config.get("count", 1000),
+            "timeout": config.get("timeout", 3600),
+            "interval": config.get("interval", 3),
+            "device_serial": config.get("device_serial", None),
+            "keep_app": config.get("keep_app", False),
+            "keep_env": config.get("keep_env", False),
+            "debug_mode": config.get("debug_mode", False),
+            "random_input": config.get("random_input", False),
+            "script_path": config.get("script_path", None),
+            "profiling_method": config.get("profiling_method", "none"),
+            "ignore_ad": config.get("ignore_ad", True),
+            **config  # Include any additional parameters
+        }
+        
+        self.logger.info(
+            f"Configured DroidBot tool - Policy: {self.config['policy']}, "
+            f"Count: {self.config['count']}, Interval: {self.config['interval']}s"
+        )
 
     @ErrorHandler.handle_errors(
         component="DroidBotTool",
@@ -259,7 +245,7 @@ class DroidBotTool(AbstractTool):
         Constructs DroidBot command for UI exploration with policy-based testing,
         device targeting, and emulator-specific configurations.
         
-        Command format: droidbot -d emulator-5554 -a <apk> -policy <policy> -count 10000000000 -timeout <timeout> -ignore_ad -is_emulator
+        Command format: poetry run droidbot -d emulator-5554 -a <apk> -policy <policy> -count 10000000000 -timeout <timeout> -ignore_ad -is_emulator
         
         Args:
             app: Application under test containing APK path and metadata
@@ -269,6 +255,7 @@ class DroidBotTool(AbstractTool):
             Configured Command object for DroidBot execution
         """
         cmd_args = [
+            "run", "droidbot",
             "-d", "emulator-5554",  # Target device specification
             "-a", app.path,
             "-policy", self.config["policy"],  # Exploration policy configuration
@@ -278,7 +265,7 @@ class DroidBotTool(AbstractTool):
             "-is_emulator"  # Emulator-specific optimizations
         ]
 
-        return Command("droidbot", cmd_args, timeout_seconds)
+        return Command("poetry", cmd_args, timeout_seconds)
 
     def get_available_policies(self) -> List[str]:
         """
@@ -309,22 +296,3 @@ class DroidBotTool(AbstractTool):
         return info
 
 
-# Função para registrar variantes do DroidBot
-def register_droidbot_variants(registry):
-    """
-    Register DroidBot variants in the tool registry.
-    
-    Args:
-        registry: ToolRegistry instance
-    """
-    # Register common exploration policy variants
-    variants = {
-        "bfs_greedy": {"policy": "bfs_greedy"},
-        "dfs_greedy": {"policy": "dfs_greedy"},
-        "bfs_naive": {"policy": "bfs_naive"},
-        "dfs_naive": {"policy": "dfs_naive"},
-        "random": {"policy": "random"}
-    }
-
-    for variant_name, config in variants.items():
-        registry.register_variant("droidbot", variant_name, config)

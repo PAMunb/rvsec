@@ -16,11 +16,19 @@ class TestToolExecutionComponent:
     @pytest.fixture
     def basic_config(self):
         """Fixture providing a basic task configuration"""
+        from rv_android_core.domain.task import ToolConfig as TaskToolConfig
+        
+        tool_config = TaskToolConfig(
+            tool_name="monkey",
+            variant="default",
+            additional_params={}
+        )
+        
         return TaskConfiguration(
             apk_name="test.apk",
             repetition=1,
             timeout=60,
-            tool_name="monkey"
+            tool_config=tool_config
         )
 
     @pytest.fixture

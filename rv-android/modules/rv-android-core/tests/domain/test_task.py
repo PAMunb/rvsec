@@ -361,7 +361,8 @@ class TestTask:
         assert restored_task is not None
         assert restored_task.id == original_task.id
         assert restored_task.config.apk_name == original_task.config.apk_name
-        assert restored_task.config.tool_name == original_task.config.tool_name
+        assert restored_task.config.tool_config.tool_name == original_task.config.tool_config.tool_name
+        assert restored_task.config.tool_config.variant == original_task.config.tool_config.variant
 
     def test_string_representation(self, basic_config):
         """Test task string representation"""

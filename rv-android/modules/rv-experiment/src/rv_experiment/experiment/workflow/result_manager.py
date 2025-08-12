@@ -165,7 +165,7 @@ class ResultManager:
             # Calculate basic statistics
             total_tasks = len(completed_tasks)
             unique_apks = len(set(task.config.apk_name for task in completed_tasks))
-            unique_tools = len(set(task.config.tool_name for task in completed_tasks))
+            unique_tools = len(set(task.config.tool_config.get_full_tool_name() for task in completed_tasks))
             
             # Store metadata for logging
             self.experiment_metadata = {

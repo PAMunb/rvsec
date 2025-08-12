@@ -2,69 +2,81 @@
 
 ## 1. Introduction
 
-RV-Android is a comprehensive platform for testing Android applications using runtime verification techniques. The platform combines static analysis, dynamic testing, and formal verification to detect potential issues in Android applications, leveraging JavaMOP (Monitoring-Oriented Programming) and RV-Monitor for property verification.
+RV-Android is a platform for testing Android applications using runtime verification techniques. The platform is built on a modular architecture using Poetry, with each module residing in the `modules` directory. This modularization promotes maintainability, scalability, and clarity of the system's structure. The platform combines static analysis, dynamic testing, and formal verification to detect potential issues in Android applications, leveraging JavaMOP (Monitoring-Oriented Programming) and RV-Monitor for property verification.
 
-This document details the current architecture of the RV-Android platform, focusing on the modern component-based task execution system, advanced memory management, and LLM-guided testing capabilities.
+This document details the architecture of the RV-Android platform, focusing on its modular structure, the component-based task execution system, memory management, and LLM-guided testing capabilities.
 
 ### 1.1 Core Design Principles
 
 The RV-Android architecture is built on several key principles:
 
-1. **Component-Based Architecture**: Modular components with clear interfaces enable flexible system composition
-2. **Event-Driven Communication**: Decoupled components communicate through a robust event bus system
-3. **Advanced Memory Management**: Sophisticated memory systems support complex exploration and decision-making
-4. **LLM Integration**: Deep integration with Language Learning Models for intelligent test generation
-5. **Comprehensive Error Handling**: Robust error handling and recovery mechanisms ensure system reliability
+1.  **Modular Architecture**: The system is divided into independent, reusable modules managed by Poetry. Each module has a well-defined responsibility, improving separation of concerns and simplifying development and maintenance.
+2.  **Component-Based Architecture**: Within modules, a component-based approach with clear interfaces enables flexible system composition.
+3.  **Event-Driven Communication**: Decoupled components communicate through an event bus system.
+4.  **Memory Management**: Memory systems support complex exploration and decision-making.
+5.  **LLM Integration**: Integration with Language Learning Models for intelligent test generation.
+6.  **Error Handling**: Error handling and recovery mechanisms ensure system reliability.
 
 ## 2. High-Level System Architecture
 
-The RV-Android platform consists of several interconnected subsystems:
+The RV-Android platform is composed of a set of interconnected modules, each responsible for a specific part of the testing process.
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                              RV-Android Platform                            │
 │                                                                             │
-│  ┌──────────────────┐    ┌──────────────────┐    ┌──────────────────────┐  │
-│  │                  │    │                  │    │                      │  │
-│  │  Experiment      │    │  Task Execution  │    │  Analysis & Results  │  │
-│  │  Management      │◄───┤  Engine          │◄───┤  Processing          │  │
-│  │  System          │    │                  │    │                      │  │
-│  │                  │    │                  │    │                      │  │
-│  └──────────────────┘    └──────────────────┘    └──────────────────────┘  │
-│                                                                             │
 │  ┌─────────────────────────────────────────────────────────────────────┐  │
-│  │                     Testing Tools Integration                        │  │
+│  │                              Core Modules                             │  │
 │  │                                                                     │  │
-│  │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐ │  │
-│  │  │             │  │             │  │             │  │             │ │  │
-│  │  │  RVDroid    │  │  RVAndroid  │  │  Standard   │  │  Test       │ │  │
-│  │  │  (Advanced  │  │  (DroidBot  │  │  Tools      │  │  Framework  │ │  │
-│  │  │   LLM)      │  │  Enhanced)  │  │  (Monkey,   │  │  (Analysis) │ │  │
-│  │  │             │  │             │  │   etc.)     │  │             │ │  │
-│  │  └─────────────┘  └─────────────┘  └─────────────┘  └─────────────┘ │  │
-│  │                                                                     │  │
+│  │  ┌──────────────────┐    ┌──────────────────┐    ┌──────────────────┐  │
+│  │  │ rv-android-core  │    │   rv-platform    │    │     rv-tools     │  │
+│  │  └──────────────────┘    └──────────────────┘    └──────────────────┘  │
 │  └─────────────────────────────────────────────────────────────────────┘  │
 │                                                                             │
 │  ┌─────────────────────────────────────────────────────────────────────┐  │
-│  │                     Core Infrastructure                              │  │
+│  │                           Testing Modules                             │  │
 │  │                                                                     │  │
-│  │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐ │  │
-│  │  │             │  │             │  │             │  │             │ │  │
-│  │  │  Event      │  │  Memory     │  │  LLM        │  │  Error      │ │  │
-│  │  │  System     │  │  Management │  │  Services   │  │  Handling   │ │  │
-│  │  │             │  │             │  │             │  │             │ │  │
-│  │  └─────────────┘  └─────────────┘  └─────────────┘  └─────────────┘ │  │
+│  │  ┌──────────────────┐    ┌──────────────────┐    ┌──────────────────┐  │
+│  │  │  rv-instrument.. │    │ rv-static-analy… │    │  rv-monitor-gen… │  │
+│  │  └──────────────────┘    └──────────────────┘    └──────────────────┘  │
+│  │  ┌──────────────────┐    ┌──────────────────┐    ┌──────────────────┐  │
+│  │  │   rv-coverage    │    │   rv-evaluator   │    │   rv-experiment  │  │
+│  │  └──────────────────┘    └──────────────────┘    └──────────────────┘  │
+│  └─────────────────────────────────────────────────────────────────────┘  │
+│                                                                             │
+│  ┌─────────────────────────────────────────────────────────────────────┐  │
+│  │                       LLM and UI Modules                            │  │
 │  │                                                                     │  │
+│  │  ┌──────────────────┐    ┌──────────────────┐    ┌──────────────────┐  │
+│  │  │      rv-llm      │    │ rv-screen-parser │    │  rvandroid-tool  │  │
+│  │  └──────────────────┘    └──────────────────┘    └──────────────────┘  │
 │  └─────────────────────────────────────────────────────────────────────┘  │
 │                                                                             │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-## 3. Task Execution Engine
+## 3. Modules Description
 
-The task execution engine is the heart of the RV-Android platform, responsible for orchestrating individual testing tasks with a sophisticated component-based architecture.
+The RV-Android platform is organized into the following modules:
 
-### 3.0 Workflow Execution and Data Flow
+*   **rv-android-core**: Provides the core domain models, utilities, and interfaces used by all other modules. It is the foundation of the platform.
+*   **rv-platform**: Manages the execution of tests, including device management, task scheduling, and result collection.
+*   **rv-tools**: Contains a collection of tools and scripts for interacting with the Android ecosystem, such as `adb`, `aapt`, and `apksigner`.
+*   **rv-instrumentation**: Handles the instrumentation of Android applications to enable runtime verification.
+*   **rv-static-analysis**: Performs static analysis of Android applications to extract information about their structure and behavior.
+*   **rv-monitor-generator**: Generates monitoring code from formal specifications.
+*   **rv-coverage**: Measures the code coverage of tests.
+|*   **rv-evaluator**: Evaluates the results of tests and generates reports.
+*   **rv-experiment**: Manages the execution of experiments, which are collections of tests.
+*   **rv-llm**: Provides an interface to Large Language Models (LLMs) for use in testing.
+*   **rv-screen-parser**: Parses the UI of Android applications to extract information about their components.
+*   **rvandroid-tool**: A high-level tool that integrates many of the other modules to provide a complete testing solution.
+
+## 4. Task Execution Engine
+
+The task execution engine orchestrates individual testing tasks using a component-based architecture.
+
+### 4.0 Workflow Execution and Data Flow
 
 The RV-Android platform follows a structured workflow execution pattern that ensures proper data flow and component coordination:
 
@@ -95,9 +107,9 @@ The RV-Android platform follows a structured workflow execution pattern that ens
 └──────────────────────────────────────────────────────────────────────────────┘
 ```
 
-#### 3.0.1 Data Flow Architecture
+#### 4.0.1 Data Flow Architecture
 
-The data flow architecture ensures proper component coordination without singleton dependencies:
+The data flow architecture ensures component coordination without singleton dependencies:
 
 ```python
 # 1. ExperimentController creates core infrastructure
@@ -119,7 +131,7 @@ class ExperimentController:
 # 2. WorkflowFactory ensures proper dependency injection
 class WorkflowFactory:
     def create_result_manager(self, results_dir: str) -> ResultManager:
-        # ResultManager receives TaskStorage reference - no singleton needed
+        # ResultManager receives TaskStorage reference
         return ResultManager(results_dir, self.storage, self.event_bus)
     
     def create_post_processor(self, results_dir: str) -> PostProcessor:
@@ -130,11 +142,11 @@ class WorkflowFactory:
 # 3. PostProcessor uses injected ResultManager
 class PostProcessor:
     def _analyze_results(self):
-        # Use the configured ResultManager instead of creating new instances
+        # Use the configured ResultManager
         if self.result_manager:
-            self.result_manager.generate_reports()  # Direct usage, no function calls
+            self.result_manager.generate_reports()
 
-# 4. TaskExecutor coordinates component execution with proper emulator lifecycle
+# 4. TaskExecutor coordinates component execution with emulator lifecycle
 class TaskExecutor:
     def _execute_coordinated_components(self, context: Dict[str, Any]) -> None:
         # Phase 1: Load static data
@@ -143,7 +155,7 @@ class TaskExecutor:
         # Phase 2: Initialize coverage tracking  
         coverage_component.execute(context)
         
-        # Phase 3: Emulator session with proper lifecycle management
+        # Phase 3: Emulator session with lifecycle management
         with emulator_component.start_emulator("RVSec") as android:
             # Install app
             emulator_component.install_app(android, self.task.app)
@@ -161,17 +173,17 @@ class TaskExecutor:
             logcat_component.stop_capture()
 ```
 
-#### 3.0.2 Key Architectural Features
+#### 4.0.2 Key Architectural Features
 
-The current implementation provides several key architectural features:
+The implementation provides several key architectural features:
 
-1. **Dependency Injection**: Components receive dependencies through constructors ensuring clear ownership
-2. **Emulator Lifecycle Management**: TaskExecutor properly manages emulator startup/shutdown around tool execution
-3. **Direct Repository Usage**: Direct LogcatRepository usage provides optimal performance and simplified data flow
-4. **Integrated Result Processing**: PostProcessor uses injected ResultManager for streamlined result generation
-5. **Optimized Execution Flow**: Single ResultManager execution ensures efficient data processing
+1.  **Dependency Injection**: Components receive dependencies through constructors.
+2.  **Emulator Lifecycle Management**: The TaskExecutor manages emulator startup and shutdown.
+3.  **Direct Repository Usage**: Direct use of LogcatRepository for performance and simplified data flow.
+4.  **Integrated Result Processing**: The PostProcessor uses an injected ResultManager for result generation.
+5.  **Optimized Execution Flow**: A single ResultManager execution for efficient data processing.
 
-#### 3.0.3 Component Coordination Flow
+#### 4.0.3 Component Coordination Flow
 
 The coordinated execution ensures proper data flow:
 
@@ -182,14 +194,14 @@ Repository Export → ResultManager Generate → CSV/JSON Output
 ```
 
 This flow guarantees that:
-- Static analysis data is loaded before coverage initialization
-- Coverage tracking runs during tool execution  
-- Coverage data flows from task execution to result processing
-- Results are properly exported through the unified ResultManager
+- Static analysis data is loaded before coverage initialization.
+- Coverage tracking runs during tool execution.
+- Coverage data flows from task execution to result processing.
+- Results are exported through the ResultManager.
 
-### 3.1 Task Model and Lifecycle
+### 4.1 Task Model and Lifecycle
 
-Tasks in RV-Android follow a comprehensive lifecycle with detailed state tracking:
+Tasks in RV-Android follow a lifecycle with detailed state tracking:
 
 ```
 ┌──────────────┐  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐
@@ -212,26 +224,20 @@ Tasks in RV-Android follow a comprehensive lifecycle with detailed state trackin
 └──────────────┘                   └──────────────┘
 ```
 
-#### 3.1.1 Advanced Task Model
+#### 4.1.1 Task Model
 
-The `Task` class provides a comprehensive model with:
+The `Task` class provides a model with:
 
-- **UUID-based Identification**: Modern task identification using UUIDs instead of sequential IDs
-- **Rich Configuration**: Detailed task configuration including APK information, tool parameters, and execution settings
-- **State Transition Tracking**: Complete history of state transitions with timestamps
-- **Result Management**: Comprehensive result storage including metrics, errors, and coverage data
-- **Repository Integration**: Optional integration with coverage and error repositories
+- **UUID-based Identification**: Task identification using UUIDs.
+- **Configuration**: Task configuration including APK information, tool parameters, and execution settings.
+- **State Transition Tracking**: History of state transitions with timestamps.
+- **Result Management**: Result storage including metrics, errors, and coverage data.
+- **Repository Integration**: Integration with coverage and error repositories.
 
 ```python
 class Task(ITask):
     """
     Represents a single testing task within an experiment.
-    
-    Architectural Features:
-    - UUID-based task identification
-    - Comprehensive state transition tracking
-    - Rich result and metrics storage
-    - Optional repository integration for coverage data
     """
     def __init__(self, config: TaskConfiguration):
         self.id = str(uuid.uuid4())
@@ -241,7 +247,7 @@ class Task(ITask):
         self.repository: Optional[LogcatRepository] = None
         
     def update_state(self, state: TaskState, error_message: Optional[str] = None) -> None:
-        """Update task state with comprehensive transition tracking."""
+        """Update task state with transition tracking."""
         self.result.add_state_transition(state)
         
         if state == TaskState.RUNNING:
@@ -252,22 +258,16 @@ class Task(ITask):
                 self.result.error_message = error_message
 ```
 
-### 3.2 Component-Based Task Execution
+### 4.2 Component-Based Task Execution
 
-The task execution system uses a sophisticated component-based architecture where each aspect of task execution is handled by specialized components.
+The task execution system uses a component-based architecture where each aspect of task execution is handled by specialized components.
 
-#### 3.2.1 TaskExecutor Architecture
+#### 4.2.1 TaskExecutor Architecture
 
 ```python
 class TaskExecutor(ITaskExecutor):
     """
     Manages the execution of individual tasks using a component-based architecture.
-    
-    Key Features:
-    - Component registry for modular execution
-    - Comprehensive error handling
-    - Performance monitoring
-    - Event-driven communication
     """
     
     def __init__(self, task: ITask, tool: AbstractTool, event_bus: Optional[EventBus] = None):
@@ -279,7 +279,7 @@ class TaskExecutor(ITaskExecutor):
         self.error_handler = ErrorHandler.get_instance()
         
     def execute(self) -> bool:
-        """Execute task with comprehensive monitoring and error handling."""
+        """Execute task with monitoring and error handling."""
         try:
             self.task.update_state(TaskState.RUNNING)
             self._publish_task_started_event()
@@ -310,25 +310,20 @@ class TaskExecutor(ITaskExecutor):
             return False
 ```
 
-#### 3.2.2 Task Components
+#### 4.2.2 Task Components
 
 The system includes several specialized components:
 
-1. **EmulatorComponent**: Manages emulator lifecycle and configuration
-2. **LogcatComponent**: Handles logcat capture and analysis
-3. **ToolExecutionComponent**: Executes testing tools on the device
-4. **CoverageComponent**: Tracks and analyzes coverage metrics
-5. **StaticAnalysisComponent**: Performs static analysis integration
+1.  **EmulatorComponent**: Manages emulator lifecycle and configuration.
+2.  **LogcatComponent**: Handles logcat capture and analysis.
+3.  **ToolExecutionComponent**: Executes testing tools on the device.
+4.  **CoverageComponent**: Tracks and analyzes coverage metrics.
+5.  **StaticAnalysisComponent**: Performs static analysis integration.
 
 ```python
 class BaseTaskComponent(ITaskComponent):
     """
     Base implementation for task execution components.
-    
-    Provides:
-    - Standardized component lifecycle
-    - Built-in error handling and logging
-    - Event-based communication
     """
     
     def initialize(self, context: Dict[str, Any]) -> bool:
@@ -347,20 +342,14 @@ class BaseTaskComponent(ITaskComponent):
         return True
 ```
 
-### 3.3 Task Storage and Management
+### 4.3 Task Storage and Management
 
-The platform includes a sophisticated task storage system with transaction support and atomic operations.
+The platform includes a task storage system with transaction support and atomic operations.
 
 ```python
 class TaskStorage(ITaskStorage):
     """
     Manages task persistence with atomic operations and transaction support.
-    
-    Features:
-    - Atomic file operations for data integrity
-    - Transaction support for multi-step operations
-    - Thread-safe concurrent access
-    - Flexible task querying and filtering
     """
     
     def save(self) -> bool:
@@ -388,13 +377,117 @@ class TaskStorage(ITaskStorage):
                 return False
 ```
 
-## 4. Advanced Testing Tools
+## 5. Testing Tools and Variant System
 
-### 4.1 RVDroid - Advanced LLM-Guided Testing
+### 5.1 Tool Variant Architecture
 
-RVDroid represents the most sophisticated testing tool in the platform, featuring advanced LLM integration and memory systems.
+RV-Android implements a comprehensive tool variant system that enables precise tool configuration and selection. Each tool supports multiple variants that represent different operational modes and parameter sets.
 
-#### 4.1.1 RVDroid Architecture
+#### 5.1.1 Variant System Components
+
+```python
+class AbstractTool:
+    @classmethod
+    def get_variants(cls) -> Dict[str, Dict[str, Any]]:
+        """Return available variants with their configurations."""
+        return {
+            "default": {...},  # Base configuration
+            "variant1": {...}, # Specialized configuration
+            "variant2": {...}  # Alternative configuration
+        }
+    
+    @classmethod  
+    def get_tool_spec(cls) -> ToolSpec:
+        """Return tool specification for registration."""
+        return cls.TOOL_SPEC
+        
+    def configure(self, config: Dict[str, Any]) -> None:
+        """Apply variant configuration to tool instance."""
+        pass
+```
+
+#### 5.1.2 Tool Configuration Flow
+
+The variant system follows a structured configuration flow:
+
+```
+CLI Input → ToolConfig Creation → Registry Validation → 
+Variant Resolution → Configuration Merge → Tool Creation → Execution
+```
+
+This flow supports both predefined variants and custom configurations:
+
+- **Predefined Variants**: Tools define standard variants in `get_variants()`
+- **Custom Variants**: Users can override parameters while inheriting base configuration
+- **Parameter Merging**: Base variant configuration + user overrides = final configuration
+
+#### 5.1.3 Available Tool Variants
+
+The platform includes the following tools with their variant support:
+
+**APE Tool** (5 variants):
+- `default`: Standard systematic exploration
+- `sata`: State-aware testing approach
+- `bfs`: Breadth-first search strategy
+- `dfs`: Depth-first search strategy  
+- `random`: Random exploration mode
+
+**DroidBot Tool** (6 variants):
+- `default`: Balanced exploration strategy
+- `dfs_greedy`: Depth-first with greedy selection
+- `bfs_greedy`: Breadth-first with greedy selection
+- `dfs_naive`: Simple depth-first approach
+- `bfs_naive`: Simple breadth-first approach
+- `random`: Random action selection
+
+**RVAndroid Tool** (4 variants):
+- `default`: Standard LLM configuration
+- `llama_batch_detailed`: Llama model with batch processing
+- `gpt4_standard_basic`: GPT-4 with standard prompts
+- `ollama_standard_detailed`: Ollama with detailed context
+
+**Additional Tools** (3-4 variants each):
+- **Monkey**: default, fast, stress variants
+- **Ares**: default, debug, fast variants
+- **DroidMate**: default, systematic, quick, research variants
+- **FastBot**: default, conservative, aggressive, balanced variants
+- **Humanoid**: default, visual, nlp, hybrid variants
+- **QTesting**: default, qlearning, dqn, ddqn variants
+
+#### 5.1.4 CLI Usage Examples
+
+```bash
+# Use default variant
+python -m rv_experiment run --tools droidbot
+
+# Use specific variant  
+python -m rv_experiment run --tools droidbot:dfs_greedy
+
+# Multiple tools with variants
+python -m rv_experiment run --tools ape:sata,droidbot:bfs_greedy,rvandroid:default
+
+# Custom variant with parameter overrides in configuration
+{
+  "tool_configs": [
+    {
+      "name": "rvandroid",
+      "variants": ["custom"],
+      "parameters": {
+        "llm_model": "qwen2.5:7b",
+        "temperature": 0.2,
+        "llm_type": "ollama",
+        "prompt_strategy": "standard_modular"
+      }
+    }
+  ]
+}
+```
+
+### 5.2 RVAndroid - LLM-Guided Testing
+
+RVAndroid provides LLM-enhanced testing through integration with multiple language model backends.
+
+#### 5.1.1 RVDroid Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
@@ -429,20 +522,14 @@ RVDroid represents the most sophisticated testing tool in the platform, featurin
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-#### 4.1.2 Advanced Memory System
+#### 5.1.2 Memory System
 
-RVDroid includes a sophisticated memory system for intelligent test generation:
+RVDroid includes a memory system for test generation:
 
 ```python
 class MemorySystem:
     """
-    Comprehensive memory system for RVDroid testing.
-    
-    Components:
-    - Short-term memory for immediate context
-    - Long-term memory for persistent learning
-    - Pattern recognition for behavioral insights
-    - State fingerprinting for efficient exploration
+    Memory system for RVDroid testing.
     """
     
     def __init__(self):
@@ -475,20 +562,14 @@ class MemorySystem:
         )
 ```
 
-#### 4.1.3 Strategy Framework
+#### 5.1.3 Strategy Framework
 
-RVDroid employs an advanced strategy framework for adaptive testing:
+RVDroid employs a strategy framework for adaptive testing:
 
 ```python
 class AdaptiveStrategyManager:
     """
     Manages adaptive testing strategies for RVDroid.
-    
-    Features:
-    - Dynamic strategy selection based on context
-    - Performance-based strategy balancing
-    - Goal-oriented testing approaches
-    - Visual-aware interaction strategies
     """
     
     def __init__(self):
@@ -501,7 +582,7 @@ class AdaptiveStrategyManager:
         self.strategy_balancer = StrategyBalancer()
         
     def select_strategy(self, context: MemoryContext, current_metrics: Dict[str, Any]) -> Strategy:
-        """Select optimal strategy based on current context and performance."""
+        """Select strategy based on current context and performance."""
         # Analyze current context
         context_analysis = self._analyze_context(context)
         
@@ -516,7 +597,7 @@ class AdaptiveStrategyManager:
         return self.strategies[selected_strategy]
 ```
 
-### 4.2 RVAndroid - DroidBot Integration
+### 5.3 RVAndroid - DroidBot Integration
 
 RVAndroid provides LLM-enhanced testing by integrating with DroidBot:
 
@@ -524,12 +605,6 @@ RVAndroid provides LLM-enhanced testing by integrating with DroidBot:
 class RVAndroidTool(AbstractTool):
     """
     RVAndroid tool that enhances DroidBot with LLM guidance.
-    
-    Features:
-    - DroidBot integration for state exploration
-    - LLM-guided action selection
-    - Screen parsing and analysis
-    - Prompt-based decision making
     """
     
     def execute(self, timeout: int, repetition: int, no_window: bool = False, **kwargs) -> bool:
@@ -552,11 +627,11 @@ class RVAndroidTool(AbstractTool):
                 server_process.terminate()
 ```
 
-## 5. LLM Integration and Services
+## 6. LLM Integration and Services
 
-### 5.1 LLM Service Architecture
+### 6.1 LLM Service Architecture
 
-The platform provides comprehensive LLM integration through a modular service architecture:
+The platform provides LLM integration through a modular service architecture:
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
@@ -586,20 +661,14 @@ The platform provides comprehensive LLM integration through a modular service ar
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-#### 5.1.1 Advanced Prompt Framework
+#### 6.1.1 Prompt Framework
 
-The platform includes a sophisticated prompt generation system:
+The platform includes a prompt generation system:
 
 ```python
 class PromptFramework:
     """
-    Advanced prompt generation framework with modular template system.
-    
-    Features:
-    - Jinja2-based template engine
-    - Information fragment composition
-    - Strategy-based prompt generation
-    - Context-aware prompt construction
+    Prompt generation framework with a modular template system.
     """
     
     def __init__(self):
@@ -628,7 +697,7 @@ class PromptFramework:
         return prompt
 ```
 
-#### 5.1.2 Multi-Provider LLM Support
+#### 6.1.2 Multi-Provider LLM Support
 
 The system supports multiple LLM providers through a unified adapter pattern:
 
@@ -636,11 +705,6 @@ The system supports multiple LLM providers through a unified adapter pattern:
 class LLMManager:
     """
     Manages multiple LLM providers through a unified interface.
-    
-    Supported Providers:
-    - Ollama (local models)
-    - HuggingFace (hosted models)
-    - Frontier Models (OpenAI, Anthropic, etc.)
     """
     
     def __init__(self, config: LLMConfig):
@@ -670,22 +734,16 @@ class LLMManager:
             raise
 ```
 
-## 6. Event-Driven Architecture
+## 7. Event-Driven Architecture
 
-### 6.1 Event Bus System
+### 7.1 Event Bus System
 
-The platform uses a sophisticated event bus for decoupled component communication:
+The platform uses an event bus for decoupled component communication:
 
 ```python
 class EventBus:
     """
-    Advanced event bus supporting typed events, channels, and filtering.
-    
-    Features:
-    - Type-safe event handling
-    - Channel-based event routing
-    - Event filtering and transformation
-    - Asynchronous event processing
+    Event bus supporting typed events, channels, and filtering.
     """
     
     # Channel definitions
@@ -716,9 +774,9 @@ class EventBus:
         self._process_event(event, channel)
 ```
 
-### 6.2 Event Types and Handlers
+### 7.2 Event Types and Handlers
 
-The system defines comprehensive event types for different aspects of operation:
+The system defines event types for different aspects of operation:
 
 ```python
 class EventType(Enum):
@@ -750,22 +808,16 @@ class EventType(Enum):
     STRATEGY_CHANGED = "strategy_changed"
 ```
 
-## 7. Error Handling and Recovery
+## 8. Error Handling and Recovery
 
-### 7.1 Comprehensive Error Management
+### 8.1 Error Management
 
-The platform includes a robust error handling system with classification and recovery strategies:
+The platform includes an error handling system with classification and recovery strategies:
 
 ```python
 class ErrorHandler:
     """
-    Comprehensive error handling with classification and recovery strategies.
-    
-    Features:
-    - Error classification and categorization
-    - Context-aware error handling
-    - Recovery strategy execution
-    - Error metrics and reporting
+    Error handling with classification and recovery strategies.
     """
     
     def __init__(self):
@@ -794,7 +846,7 @@ class ErrorHandler:
         return self._default_error_handling(error, context)
 ```
 
-### 7.2 Recovery Strategies
+### 8.2 Recovery Strategies
 
 Different error types have specialized recovery strategies:
 
@@ -817,31 +869,24 @@ class EmulatorRecoveryStrategy(RecoveryStrategy):
         return False
 ```
 
-## 8. Coverage Analysis System
+## 9. Coverage Analysis System
 
-### 8.1 Direct Repository Architecture
+### 9.1 Repository Architecture
 
-The RV-Android platform implements a streamlined coverage analysis system with direct repository integration for optimal performance and data flow.
+The RV-Android platform implements a coverage analysis system with direct repository integration.
 
-#### 8.1.1 Coverage Tracker Design
+#### 9.1.1 Coverage Tracker Design
 
-The `CoverageTracker` now uses direct LogcatRepository integration:
+The `CoverageTracker` uses direct LogcatRepository integration:
 
 ```python
 class CoverageTracker:
     """
     Tracks code coverage with direct repository integration.
-    
-    ### Architectural Improvements:
-    - Direct LogcatRepository usage provides optimal performance and simplicity
-    - Thread-safe operation for concurrent logcat processing
-    - Real-time metric calculation with change detection
-    - Event-driven updates for decoupled communication
     """
     
     def __init__(self, logcat_file: str, static_data: Optional[StaticAnalysisData] = None):
-        # Initialize LogcatRepository directly for optimal performance
-        # Direct repository usage provides better performance and simpler data flow
+        # Initialize LogcatRepository directly
         self.repository = LogcatRepository()
         
         # Initialize with static analysis data if available
@@ -858,19 +903,19 @@ class CoverageTracker:
             self.repository.register_method_call(coverage_log)
 ```
 
-#### 8.1.2 Repository Integration Benefits
+#### 9.1.2 Repository Integration Benefits
 
 The direct LogcatRepository integration provides several benefits:
 
-1. **Performance Optimization**: Direct method calls eliminate unnecessary delegation overhead
-2. **Simplified Data Flow**: Coverage data flows directly from tracker to repository without intermediate layers
-3. **Reduced Complexity**: Fewer abstraction layers mean easier debugging and maintenance
-4. **Method Availability**: All LogcatRepository methods are directly accessible without delegation issues
-5. **Memory Efficiency**: Direct object usage without intermediate layers
+1.  **Performance**: Direct method calls eliminate delegation overhead.
+2.  **Simplified Data Flow**: Coverage data flows directly from tracker to repository.
+3.  **Reduced Complexity**: Fewer abstraction layers mean easier debugging and maintenance.
+4.  **Method Availability**: All LogcatRepository methods are directly accessible.
+5.  **Memory Efficiency**: Direct object usage without intermediate layers.
 
-#### 8.1.3 Coverage Data Flow
+#### 9.1.3 Coverage Data Flow
 
-The streamlined coverage data flow ensures efficient processing:
+The coverage data flow ensures efficient processing:
 
 ```
 Static Analysis → LogcatRepository Initialization → 
@@ -880,12 +925,12 @@ CSV/JSON Export
 ```
 
 This direct flow provides:
-- Optimal performance with direct method calls
-- Data consistency through single source of truth
-- Complete method availability without delegation
-- Efficient memory usage with direct object access
+- Performance with direct method calls.
+- Data consistency through a single source of truth.
+- Complete method availability.
+- Efficient memory usage.
 
-#### 8.1.4 Task Repository Integration
+#### 9.1.4 Task Repository Integration
 
 The coverage data is preserved through the task execution lifecycle:
 
@@ -906,27 +951,21 @@ class CoverageComponent:
 ```
 
 This ensures that:
-- Coverage data persists beyond component cleanup
-- ResultManager can access complete coverage information
-- Data consistency is maintained throughout the experiment lifecycle
-- All repository methods are available for result processing
+- Coverage data persists beyond component cleanup.
+- ResultManager can access complete coverage information.
+- Data consistency is maintained throughout the experiment lifecycle.
+- All repository methods are available for result processing.
 
-## 9. Performance Monitoring and Metrics
+## 10. Performance Monitoring and Metrics
 
-### 9.1 Performance Monitoring System
+### 10.1 Performance Monitoring System
 
-The platform includes comprehensive performance monitoring:
+The platform includes performance monitoring:
 
 ```python
 class PerformanceMonitor:
     """
-    Comprehensive performance monitoring system.
-    
-    Features:
-    - Time measurement with context
-    - Resource usage tracking
-    - Metric aggregation and analysis
-    - Performance trend analysis
+    Performance monitoring system.
     """
     
     def __init__(self):
@@ -960,22 +999,16 @@ class PerformanceMonitor:
             )
 ```
 
-## 10. Configuration and Extensibility
+## 11. Configuration and Extensibility
 
-### 10.1 Component Configurator
+### 11.1 Component Configurator
 
-The platform uses a sophisticated configuration system:
+The platform uses a configuration system:
 
 ```python
 class ComponentConfigurator:
     """
-    Advanced component configuration system.
-    
-    Features:
-    - Dynamic component loading
-    - Configuration validation
-    - Environment-specific settings
-    - Runtime reconfiguration support
+    Component configuration system.
     """
     
     def __init__(self, config_file: str):
@@ -996,22 +1029,16 @@ class ComponentConfigurator:
         return LLMManager(llm_config)
 ```
 
-## 11. Testing and Validation
+## 12. Testing and Validation
 
-### 11.1 Test Framework Integration
+### 12.1 Test Framework Integration
 
-The platform includes a comprehensive test framework for validation:
+The platform includes a test framework for validation:
 
 ```python
 class TestFramework:
     """
-    Comprehensive testing framework for RV-Android validation.
-    
-    Features:
-    - Automated test suite execution
-    - Comparative analysis between tools
-    - Performance benchmarking
-    - Regression testing
+    Testing framework for RV-Android validation.
     """
     
     def __init__(self, config: TestFrameworkConfig):
@@ -1021,7 +1048,7 @@ class TestFramework:
         self.visualizer = ResultVisualizer()
         
     def run_comprehensive_test(self, test_configurations: List[TestConfig]) -> TestResults:
-        """Run comprehensive testing across multiple configurations."""
+        """Run testing across multiple configurations."""
         results = []
         
         for config in test_configurations:
@@ -1053,19 +1080,6 @@ class TestFramework:
         )
 ```
 
-## 12. Conclusion
+## 13. Conclusion
 
-The RV-Android platform represents a sophisticated, modern architecture for Android application testing with runtime verification. Key architectural achievements include:
-
-1. **Component-Based Design**: Modular, extensible architecture with clear separation of concerns
-2. **Advanced Memory Systems**: Sophisticated memory management for intelligent exploration
-3. **LLM Integration**: Deep integration with multiple LLM providers for intelligent testing
-4. **Event-Driven Communication**: Robust event system for decoupled component interaction
-5. **Comprehensive Error Handling**: Advanced error management with recovery strategies
-6. **Performance Monitoring**: Detailed performance tracking and analysis
-7. **UUID-Based Task Management**: Modern task identification and lifecycle management
-8. **Transaction-Safe Storage**: Atomic operations for data integrity
-9. **Streamlined Coverage System**: Direct repository integration for optimal performance
-10. **Optimized Data Flow**: Efficient single-execution patterns and coordinated component interaction
-
-The platform provides a robust and efficient foundation for Android application verification and testing research, with continuous evolution in LLM integration, memory systems, and testing strategies.
+The RV-Android platform provides a modular and extensible architecture for testing Android applications with runtime verification. Its key features include a component-based design, LLM integration, event-driven communication, and comprehensive error handling. The platform is a robust foundation for research and development in Android application testing and verification.
