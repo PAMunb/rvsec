@@ -23,8 +23,6 @@ from droidbot.device_state import DeviceState
 from droidbot.input_event import CompoundEvent
 from droidbot.rvandroid_policy import RVAndroidPolicy
 
-HOST = "http://localhost:11434"
-MODEL = "llama3.2:1b"
 DEFAULT_SERVER_URL = "http://localhost:5000/api/get_actions"
 
 # Parse command line arguments to enable selecting the strategy
@@ -35,7 +33,7 @@ def parse_args():
     return parser.parse_args()
 
 
-def execute(app_path, output_dir=None, use_batch_strategy=True, server_url=DEFAULT_SERVER_URL):
+def execute(app_path, output_dir=None, server_url=DEFAULT_SERVER_URL):
     print("🔧 Setting up device and app...")
     device = create_device(output_dir=output_dir)
     app = App(app_path, output_dir=output_dir)
@@ -43,16 +41,6 @@ def execute(app_path, output_dir=None, use_batch_strategy=True, server_url=DEFAU
     print(f"📡 Initializing RVAndroid policy with server: {server_url}")
     # Initialize policy with the specified server URL
     policy = RVAndroidPolicy(device, app, True, server_url=server_url)
-    
-    # Log strategy mode
-    if use_batch_strategy:
-        print("*" * 50)
-        print("USING BATCH ACTION STRATEGY")
-        print("*" * 50)
-    else:
-        print("*" * 50)
-        print("USING SINGLE ACTION STRATEGY")
-        print("*" * 50)
 
     cont = 1
     try:

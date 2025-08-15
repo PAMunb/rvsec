@@ -294,6 +294,7 @@ class RVAndroidTool(AbstractTool):
         - Uses task configuration for DroidBot parameters
         - Configures RVAndroid policy with server URL and LLM settings
         - Includes app-specific targeting and output directory setup
+        - Passes screenshot flag based on LLM multimodal capabilities
         
         Args:
             task: Task execution configuration
@@ -311,6 +312,14 @@ class RVAndroidTool(AbstractTool):
             "-timeout", str(task.config.timeout),
             "--rvandroid_url", f"http://localhost:{server_port}"
         ]
+        
+        # Add screenshot flag based on LLM multimodal capabilities
+        if self._tool_config and hasattr(self._tool_config.llm_config, 'vision') and self._tool_config.llm_config.vision:
+            cmd_args.extend(["--rvandroid_screenshots", "true"])
+            self.logger.info("Enabling screenshots for multimodal LLM")
+        else:
+            cmd_args.extend(["--rvandroid_screenshots", "false"])
+            self.logger.info("Disabling screenshots for text-only LLM")
         
         # Add task-specific parameters
         if hasattr(task, 'device_serial') and task.device_serial:

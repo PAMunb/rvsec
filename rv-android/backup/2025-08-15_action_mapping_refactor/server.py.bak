@@ -188,7 +188,6 @@ class Server:
                 try:
                     actions = self.service.process_state(data)
                     status = "success"
-                    self.logger.info(f"LLM service generated {len(actions)} actions")
                 except Exception as e:
                     self.logger.warning(f"LLM processing failed: {e}, using fallback actions")
                     # Generate fallback actions when LLM processing fails
@@ -200,11 +199,6 @@ class Server:
                     self.logger.warning("Actions is None, generating emergency fallback")
                     actions = self._generate_emergency_fallback()
                     status = "emergency_fallback"
-
-                # Log action details for debugging
-                if actions:
-                    for i, action in enumerate(actions):
-                        self.logger.debug(f"Action {i}: {action}")
 
                 # Create response with metadata
                 response_data = {

@@ -51,7 +51,7 @@ if __name__ == '__main__':
     apk = "cryptoapp.apk"
     app_folder = screenshots_folder + "/" + apk
 
-    app = App(os.path.join(app_folder, apk))
+    app = App(app_path=os.path.join(app_folder, apk))
     package = app.package_name
 
     # Carrega análise estática
@@ -65,12 +65,12 @@ if __name__ == '__main__':
         "llm_type": LLMType.OLLAMA,
         "llm_model": OllamaLLM.GEMMA,
         "temperature": 0.2,
-        "top_p": 0.9,
-        "max_tokens": 800,
+        "top_p": 0.7,
+        "max_tokens": 500,
         "vision": True,
         "prompt_strategy": PromptStrategyType.STANDARD,
         "parser_type": ScreenParserType.DROIDBOT,
-        "visitor_type": VisitorType.DETAILED,
+        "visitor_type": VisitorType.DEFAULT,
         "server_port": 5000,
         "debug_mode": True
     })
@@ -79,8 +79,8 @@ if __name__ == '__main__':
     print(f"LLM: {tool_config.llm_config.llm_type}")
     print(f"Modelo: {tool_config.llm_config.model}")
     print(f"Estratégia: {tool_config.prompt_config.strategy_type}")
-    print(f"Parser: {tool_config.parser_config.parser_type}")
-    print(f"Visitor: {tool_config.parser_config.visitor_type}")
+    print(f"Parser: {tool_config.prompt_config.parser_type}")
+    print(f"Visitor: {tool_config.prompt_config.visitor_type}")
     print("================================\n")
 
     service = LLMActionService(

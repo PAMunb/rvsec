@@ -62,6 +62,13 @@ def main():
             dest="rvandroid_url",
             default="http://localhost:5000/api/get_actions",
             help="URL of the RV-Android server")
+        
+        parser.add_argument(
+            "--rvandroid_screenshots",
+            dest="rvandroid_screenshots",
+            default="false",
+            choices=["true", "false"],
+            help="Enable screenshots for multimodal LLM (true/false)")
 
         # for distributed DroidBot
         parser.add_argument("-distributed", action="store", dest="distributed", choices=["master", "worker"],
@@ -175,7 +182,8 @@ def main():
             humanoid=opts.humanoid,
             ignore_ad=opts.ignore_ad,
             replay_output=opts.replay_output,
-            rvandroid_url=opts.rvandroid_url
+            rvandroid_url=opts.rvandroid_url,
+            rvandroid_screenshots=opts.rvandroid_screenshots
         )
         droidbot.start()
     return

@@ -32,17 +32,13 @@ rather than duplication, ensuring single source of truth for all configuration.
 """
 
 from typing import Dict, Any, Optional
+
 from pydantic import Field, field_validator
 
-from rv_android_core.util.validation import BaseValidatedModel
 from rv_android_core.util.error.error_handler import ErrorHandler
-from rv_android_core.util.error.exceptions import ConfigurationError
-from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
-from rv_android_core.util.logging.manager import LoggingManager
+from rv_android_core.util.validation import BaseValidatedModel
 from rv_llm.config.llm_config import LLMConfig
 from rv_llm.config.prompt_config import PromptConfig
-from rv_llm.llm.constants import PromptStrategyType
-from rv_screen_parser.constants import ScreenParserType, VisitorType
 from rvandroid_tool.constants import DEFAULT_SERVER_PORT
 
 
@@ -64,28 +60,8 @@ class RvAndroidToolConfig(BaseValidatedModel):
     - Composition over Inheritance: Uses PromptConfig instead of duplicating fields
     - Validation: Comprehensive parameter validation using Pydantic
     - Type Safety: Strong typing with appropriate field validators
-    
-    ### Usage Examples:
-    ```python
-    # Create from experiment configuration
-    tool_config = RvAndroidToolConfig.from_experiment_config(
-        experiment_config=experiment_config,
-        tool_name="rvandroid"
-    )
-    
-    # Access composed configurations
-    llm_config = tool_config.llm_config
-    prompt_config = tool_config.prompt_config
-    
-    # Use in LLM service
-    service = LLMActionService(
-        static_data=static_data,
-        tool_config=tool_config,
-        app_package=app_package
-    )
-    ```
     """
-    
+
     # Composed Configuration Objects
     llm_config: LLMConfig = Field(
         description="LLM backend configuration for language model interaction"
@@ -93,7 +69,7 @@ class RvAndroidToolConfig(BaseValidatedModel):
     prompt_config: PromptConfig = Field(
         description="Prompt strategy and template configuration"
     )
-    
+
     # Tool-Specific Configuration
     server_port: int = Field(
         default=DEFAULT_SERVER_PORT,
@@ -105,7 +81,7 @@ class RvAndroidToolConfig(BaseValidatedModel):
         default=False,
         description="Enable debug mode for detailed logging and tracing"
     )
-    
+
     # Additional Parameters
     additional_params: Dict[str, Any] = Field(
         default_factory=dict,
@@ -120,14 +96,11 @@ class RvAndroidToolConfig(BaseValidatedModel):
             raise ValueError(f"Server port must be between 1024-49151, got: {v}")
         return v
 
-    # REMOVED: from_experiment_config() method - created circular dependency with ExperimentConfig
-    # Configuration will be created directly by RVAndroid tool using create_from_variant() method
-
     @classmethod
     def create_from_variant(
-        cls,
-        variant_config: Dict[str, Any],
-        override_params: Dict[str, Any] = None
+            cls,
+            variant_config: Dict[str, Any],
+            override_params: Dict[str, Any] = None
     ) -> 'RvAndroidToolConfig':
         """
         Create RvAndroidToolConfig from variant configuration and parameter overrides.
@@ -154,12 +127,12 @@ class RvAndroidToolConfig(BaseValidatedModel):
         """
         from rv_llm.llm.constants import LLMType, PromptStrategyType
         from rv_screen_parser.constants import ScreenParserType, VisitorType
-        
+
         override_params = override_params or {}
-        
+
         # Merge variant config with overrides
         final_config = {**variant_config, **override_params}
-        
+
         # Create LLM configuration
         llm_config = LLMConfig(
             llm_type=final_config.get("llm_type", LLMType.OLLAMA),
@@ -170,14 +143,14 @@ class RvAndroidToolConfig(BaseValidatedModel):
             vision=final_config.get("vision", False),
             think=final_config.get("think", False)
         )
-        
+
         # Create prompt configuration  
         prompt_config = PromptConfig(
             strategy_type=final_config.get("prompt_strategy", PromptStrategyType.STANDARD),
             parser_type=final_config.get("parser_type", ScreenParserType.DROIDBOT),
-            visitor_type=final_config.get("visitor_type", VisitorType.DETAILED)
+            visitor_type=final_config.get("visitor_type", VisitorType.DEFAULT)
         )
-        
+
         # Create tool configuration
         return cls(
             llm_config=llm_config,
@@ -202,16 +175,16 @@ class RvAndroidToolConfig(BaseValidatedModel):
         llm_valid, llm_error = self.llm_config.validate()
         if not llm_valid:
             return False, f"LLM configuration error: {llm_error}"
-        
+
         # Validate prompt configuration
         prompt_valid, prompt_error = self.prompt_config.validate()
         if not prompt_valid:
             return False, f"Prompt configuration error: {prompt_error}"
-        
+
         # Validate server port
         if self.server_port < 1024 or self.server_port > 65535:
             return False, f"Invalid server port: {self.server_port}"
-        
+
         return True, None
 
     def get_strategy_type(self) -> str:
@@ -225,7 +198,7 @@ class RvAndroidToolConfig(BaseValidatedModel):
     def get_visitor_type(self) -> str:
         """Get the visitor type from composed configuration."""
         return self.prompt_config.visitor_type
-    
+
     def get_template_paths(self) -> Dict[str, str]:
         """
         Get template directory paths for registration with PromptFramework.
@@ -240,7 +213,7 @@ class RvAndroidToolConfig(BaseValidatedModel):
         """
         from rvandroid_tool.templates import get_template_paths
         return get_template_paths()
-    
+
     def to_dict(self) -> Dict[str, Any]:
         """
         Convert configuration to dictionary format.
@@ -249,8 +222,10 @@ class RvAndroidToolConfig(BaseValidatedModel):
             Dictionary representation of the configuration
         """
         return {
-            "llm_config": self.llm_config.to_dict() if hasattr(self.llm_config, 'to_dict') else self.llm_config.model_dump(),
-            "prompt_config": self.prompt_config.to_dict() if hasattr(self.prompt_config, 'to_dict') else self.prompt_config.model_dump(),
+            "llm_config": self.llm_config.to_dict() if hasattr(self.llm_config,
+                                                               'to_dict') else self.llm_config.model_dump(),
+            "prompt_config": self.prompt_config.to_dict() if hasattr(self.prompt_config,
+                                                                     'to_dict') else self.prompt_config.model_dump(),
             "server_port": self.server_port,
             "debug_mode": self.debug_mode,
             "additional_params": self.additional_params

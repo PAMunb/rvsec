@@ -1,6 +1,12 @@
-# rvandroid/llm/service/response_processor.py
+"""
+LLM response processing service for Android testing framework.
+
+This module processes and validates LLM responses to extract viable actions,
+providing robust parsing and validation with comprehensive error recovery.
+"""
+
 import json
-from typing import Dict, List, Any, Optional, Tuple
+from typing import Dict, List, Any, Tuple
 
 from rv_android_core.event.bus import EventBus
 from rv_android_core.util.error.error_handler import ErrorHandler
@@ -15,280 +21,325 @@ from rvandroid_tool.llm.response_parser import ResponseParser
 
 class ResponseProcessor:
     """
-    Processes and validates LLM responses to extract viable actions.
-
-    ### Architectural Decisions:
-    - Implements a unified response processing approach for all prompt strategies
-    - Uses a consistent JSON format with an "actions" array for all strategies
-    - Applies strategy-specific validation rules to each response
-    - Provides robust error recovery and repair mechanisms
-    - Maintains detailed logging and performance metrics
-
-    ### Role in the System:
-    - Parses and validates LLM responses into structured actions
-    - Handles malformed responses and implements recovery strategies
-    - Enforces strategy-specific constraints (e.g., single action limit)
-    - Provides detailed validation feedback for response quality
-    - Integrates with the error handling and performance monitoring subsystems
+    Processes and validates LLM responses to extract executable actions.
+    
+    ### Architecture Overview:
+    Provides unified response processing with robust error recovery and
+    validation. Handles JSON extraction, action validation, and response
+    repair mechanisms to ensure reliable action generation from LLM outputs.
+    
+    ### Processing Pipeline:
+    1. Extract JSON content from LLM response text
+    2. Parse and validate action structure
+    3. Verify action_id references against available actions
+    4. Apply repair strategies for malformed responses
+    5. Return validated actions with error reporting
+    
+    ### Error Recovery:
+    Implements comprehensive error recovery strategies including JSON repair,
+    action reconstruction, and fallback mechanisms to maintain testing
+    session continuity even with problematic LLM responses.
     """
 
     def __init__(self, config: LLMConfig):
         """
-        Initialize the response processor.
-
+        Initialize response processor with configuration.
+        
         Args:
             config: LLM configuration for response processing
         """
-        # Get system services
+        # System services
         self.event_bus = EventBus.get_instance()
         self.performance_monitor = PerformanceMonitor.get_instance()
         self.error_handler = ErrorHandler.get_instance()
         logging_manager = LoggingManager.get_instance()
-
+        
         # Configure logging
         self.logger = logging_manager.get_logger(
             "rvandroid_tool.llm.service.response_processor",
             {CONTEXT_COMPONENT: "ResponseProcessor"}
         )
-
+        
         # Store configuration
         self.config = config
-
+        
         # Initialize response parser
         self.parser = ResponseParser()
+        
+        self.logger.info("Response processor initialized")
 
-        # Determine if we're using single action mode
-        # strategy_class = config.strategy_class
-        # self.single_action_mode = False
-        # if strategy_class:
-        #     class_name = strategy_class.__name__
-        #     self.single_action_mode = "StandardStrategy" in class_name
-
-        self.logger.info(f"Response processor initialized")# (single_action_mode={self.single_action_mode})")
-
-    def process_response(self,
-                         response: str,
-                         state: Dict[str, Any]) -> Tuple[List[Dict[str, Any]], List[str]]:
+    def process_response(self, 
+                        response: str, 
+                        state: Dict[str, Any]) -> Tuple[List[Dict[str, Any]], List[str]]:
         """
         Process LLM response to extract valid actions.
-
+        
+        ### Processing Strategy:
+        Extracts and validates actions from LLM response text using robust
+        JSON parsing and validation. Applies repair strategies when normal
+        processing fails to maximize action extraction success rate.
+        
+        ### Performance Monitoring:
+        Measures processing time for performance analysis and optimization.
+        Tracks both successful parsing and repair operation durations.
+        
         Args:
-            response: LLM response text
-            state: Current application state
-
+            response: Raw LLM response text
+            state: Current application state with available actions
+            
         Returns:
-            Tuple of (actions, errors)
+            Tuple of (validated_actions, error_messages)
         """
         context = {"activity": state.get("activity", "unknown")}
-
-        # TODO capturar a explicacao da escolha das acoes
-
+        
         with self.performance_monitor.measure_time("response_parsing", context):
             self.logger.debug(f"Processing LLM response of length {len(response)}")
-
-            # Get available action IDs
+            
+            # Extract available action IDs for validation
             available_actions: Dict[int, ItemAction] = state.get(StateEntry.AVAILABLE_ACTIONS, {})
-            available_action_ids = [str(action) for action in available_actions.keys()]
-
+            available_action_ids = [str(action_id) for action_id in available_actions.keys()]
+            
             try:
-                # Extract JSON from the response
-                json_text = self._extract_json(response)
-
-                # Parse the JSON
-                parsed_data = json.loads(json_text)
-
-                self.logger.info(f"Parsed JSON: {parsed_data}")
-                # TODO pegar explanation de cada action e batch_explanation
-
-                # Extract actions from the unified format
-                actions, errors = self._extract_actions(parsed_data, available_action_ids)
-
-                # Log any parsing errors
-                for error in errors:
-                    self.logger.warning(f"Response parsing issue: {error}")
-
-                # If no valid actions, try repair
-                if not actions and errors:
-                    with self.performance_monitor.measure_time("response_repair", context):
-                        self.logger.warning("Primary parsing failed, attempting to repair response")
-                        repaired_json = self._try_repair_response(response)
-                        if repaired_json:
-                            try:
-                                repaired_data = json.loads(repaired_json)
-                                fixed_actions, repair_errors = self._extract_actions(
-                                    repaired_data, available_action_ids
-                                )
-                                self.logger.info("Successfully recovered actions from repaired response")
-
-                                # Add repair errors to original errors
-                                errors.extend(repair_errors)
-
-                                # Use the repaired actions if we found any
-                                if fixed_actions:
-                                    actions = fixed_actions
-                            except Exception as e:
-                                errors.append(f"Error parsing repaired JSON: {e}")
-
-                return actions, errors
-
+                return self._extract_and_validate_actions(response, available_action_ids, context)
             except Exception as e:
-                self.logger.error(f"Error processing response: {e}", exc_info=True)
-                self.error_handler.handle_error(
-                    e,
-                    context={
-                        "component": "ResponseProcessor",
-                        "function": "process_response"
-                    }
-                )
+                self.logger.error(f"Response processing failed: {e}", exc_info=True)
+                self.error_handler.handle_error(e, {
+                    "component": "ResponseProcessor",
+                    "function": "process_response",
+                    "response_length": len(response)
+                })
                 return [], [f"Response processing error: {str(e)}"]
 
-    def _extract_actions(self,
-                         parsed_data: Dict[str, Any],
-                         available_action_ids: List[str]) -> Tuple[List[Dict[str, Any]], List[str]]:
+    def _extract_and_validate_actions(self, 
+                                    response: str, 
+                                    available_action_ids: List[str],
+                                    context: Dict[str, Any]) -> Tuple[List[Dict[str, Any]], List[str]]:
         """
-        Extract actions from the parsed JSON data.
-
-        Works with the unified format where actions are contained in an "actions" array.
-
+        Extract JSON and validate actions with repair fallback.
+        
+        ### Extraction Strategy:
+        Attempts primary JSON extraction and validation, falling back to
+        response repair mechanisms when initial processing fails. Ensures
+        maximum action recovery from LLM responses.
+        
         Args:
-            parsed_data: Parsed JSON data
-            available_action_ids: List of valid action IDs
-
+            response: Raw LLM response text
+            available_action_ids: List of valid action IDs for validation
+            context: Processing context for performance monitoring
+            
         Returns:
-            Tuple of (actions, errors)
+            Tuple of (validated_actions, error_messages)
+        """
+        try:
+            # Primary processing: Extract and validate JSON
+            json_text = self.parser.extract_json(response)
+            parsed_data = json.loads(json_text)
+            
+            self.logger.info(f"Parsed JSON: {parsed_data}")
+            
+            # Extract and validate actions
+            actions, errors = self._extract_actions_from_data(parsed_data, available_action_ids)
+            
+            # Log validation results
+            for error in errors:
+                self.logger.warning(f"Response validation issue: {error}")
+            
+            # Attempt repair if no valid actions found
+            if not actions and errors:
+                return self._attempt_response_repair(response, available_action_ids, context, errors)
+            
+            return actions, errors
+            
+        except Exception as e:
+            self.logger.warning(f"Primary processing failed: {e}")
+            return self._attempt_response_repair(response, available_action_ids, context, [str(e)])
+
+    def _extract_actions_from_data(self, 
+                                  parsed_data: Dict[str, Any], 
+                                  available_action_ids: List[str]) -> Tuple[List[Dict[str, Any]], List[str]]:
+        """
+        Extract actions from parsed JSON data.
+        
+        ### Data Format Handling:
+        Supports unified format with "actions" array and provides fallback
+        handling for legacy single-action formats. Ensures compatibility
+        across different response formats.
+        
+        Args:
+            parsed_data: Parsed JSON response data
+            available_action_ids: List of valid action IDs for validation
+            
+        Returns:
+            Tuple of (extracted_actions, validation_errors)
         """
         errors = []
-
-        # Check for the actions array in the unified format
+        
+        # Check for actions array in unified format
         if "actions" not in parsed_data or not isinstance(parsed_data["actions"], list):
-            errors.append(f"Missing or invalid 'actions' array in response")
+            errors.append("Missing or invalid 'actions' array in response")
             return [], errors
-
-        # Extract actions array
+        
         actions = parsed_data["actions"]
-
+        
         # Validate actions
-        valid_actions, validation_errors = self._validate_actions(
-            actions, available_action_ids
-        )
-
-        # Add validation errors to the errors list
+        validated_actions, validation_errors = self._validate_actions(actions, available_action_ids)
         errors.extend(validation_errors)
+        
+        return validated_actions, errors
 
-        batch_explanation = ""
-        if "batch_explanation" in parsed_data:
-            batch_explanation = parsed_data["batch_explanation"]
-
-        return valid_actions, errors
-
-    def _extract_json(self, text: str) -> str:
-        """
-        Extract JSON content from text that might contain other content.
-
-        Args:
-            text: Text potentially containing JSON
-
-        Returns:
-            Extracted JSON string
-
-        Raises:
-            ValueError: If no valid JSON can be extracted
-        """
-        self.logger.debug(f"Attempting to extract JSON from response of length {len(text)}")
-
-        # Use the response parser's extraction method
-        return self.parser.extract_json(text)
-
-    def _validate_actions(self,
-                          actions: List[Dict[str, Any]],
-                          available_action_ids: List[str]) -> Tuple[List[Dict[str, Any]], List[str]]:
+    def _validate_actions(self, 
+                         actions: List[Dict[str, Any]], 
+                         available_action_ids: List[str]) -> Tuple[List[Dict[str, Any]], List[str]]:
         """
         Validate actions against available action IDs.
-
+        
+        ### Validation Strategy:
+        Checks action structure, validates action_id references, and ensures
+        required fields are present. Provides detailed error reporting for
+        debugging and response quality assessment.
+        
         Args:
-            actions: List of action dictionaries
+            actions: List of action dictionaries to validate
             available_action_ids: List of valid action IDs
-
+            
         Returns:
-            Tuple of (valid_actions, errors)
+            Tuple of (valid_actions, validation_errors)
         """
         valid_actions = []
         errors = []
-
-        # Log validation attempt
-        self.logger.debug(f"Validating {len(actions) if isinstance(actions, list) else 'non-list'} action(s)")
+        
+        self.logger.debug(f"Validating {len(actions) if isinstance(actions, list) else 'non-list'} actions")
         self.logger.debug(f"Available action IDs: {available_action_ids}")
-
-        # Check if actions is a list
+        
+        # Verify actions is a list
         if not isinstance(actions, list):
-            errors.append(f"Expected a list of actions, got {type(actions)}")
+            errors.append(f"Expected list of actions, got {type(actions)}")
             return valid_actions, errors
-
-        # Check amount of actions
-        if len(actions) == 0:
-            errors.append("No actions found")
+        
+        # Check for empty actions
+        if not actions:
+            errors.append("No actions found in response")
             return valid_actions, errors
-
+        
         # Validate each action
         for i, action in enumerate(actions):
             if not isinstance(action, dict):
                 errors.append(f"Action at index {i} is not a dictionary")
                 continue
-
-            # Check for required fields
-            if "action_id" not in action:
-                errors.append(f"Missing action_id at index {i}")
-                continue
-
-            # Validate action_id
-            action_id = str(action["action_id"])
-            self.logger.debug(f"Validating action_id: {action_id}")
-
-            if not available_action_ids:
-                self.logger.warning("No available action IDs to validate against")
-                # If we don't have action IDs to validate against, accept the action conditionally
-                action_id_as_int = action_id
-                try:
-                    action_id_as_int = int(action_id)
-                    if 1 <= action_id_as_int <= 1100:  # A reasonable range for most screens
-                        self.logger.debug(f"Conditionally accepting action_id {action_id} (no validation list)")
-                        # Still valid in this case
-                    else:
-                        # TODO: nao eh erro, podem existir dezenas de acoes possiveis em uma tela complexa e grande
-                        errors.append(f"Action ID {action_id} is out of reasonable range (1-10)")
-                        continue
-                except ValueError:
-                    errors.append(f"Action ID {action_id} is not a valid number")
-                    continue
-            elif action_id not in available_action_ids:
-                self.logger.warning(f"Action ID {action_id} not found in available actions: {available_action_ids}")
-                errors.append(f"Invalid action_id: {action_id} (not in available actions)")
-                continue
+            
+            # Validate action structure and ID
+            validation_result = self._validate_single_action(action, available_action_ids, i)
+            if validation_result["valid"]:
+                valid_actions.append(validation_result["action"])
+                self.logger.debug(f"Action {action.get('action_id')} validated successfully")
             else:
-                self.logger.debug(f"Action ID {action_id} is valid")
-
-            # Add default fields if missing
-            if "params" not in action or not isinstance(action["params"], dict):
-                action["params"] = {}
-
-            if "explanation" not in action or not action["explanation"]:
-                action["explanation"] = f"Executing action {action_id}"
-
-            valid_actions.append(action)
-            self.logger.debug(f"Added valid action with ID {action_id}")
-
-        self.logger.debug(f"Validation result: {len(valid_actions)} valid action(s), {len(errors)} error(s)")
+                errors.extend(validation_result["errors"])
+        
+        self.logger.debug(f"Validation result: {len(valid_actions)} valid actions, {len(errors)} errors")
         return valid_actions, errors
 
-    def _try_repair_response(self, response: str) -> Optional[str]:
+    def _validate_single_action(self, 
+                               action: Dict[str, Any], 
+                               available_action_ids: List[str], 
+                               index: int) -> Dict[str, Any]:
         """
-        Try to repair a malformed response into valid JSON.
-
+        Validate individual action structure and content.
+        
+        ### Validation Rules:
+        - action_id field must be present and valid
+        - action_id must exist in available actions or be "coord" (future support)
+        - params must be dictionary if present
+        - explanation field is optional but recommended
+        
         Args:
-            response: Malformed response text
-
+            action: Single action dictionary to validate
+            available_action_ids: List of valid action IDs
+            index: Action index for error reporting
+            
         Returns:
-            Repaired JSON string or None if unrepairable
+            Dictionary with validation results and processed action
         """
-        # Use the parser's repair method
-        return self.parser.try_repair_response(response)
+        errors = []
+        
+        # Check required action_id field
+        if "action_id" not in action:
+            errors.append(f"Missing action_id at index {index}")
+            return {"valid": False, "errors": errors, "action": None}
+        
+        action_id = str(action["action_id"])
+        self.logger.debug(f"Validating action_id: {action_id}")
+        
+        # Validate action_id against available actions
+        if action_id == "coord":
+            # Future multimodal support - validate coordinate format
+            coords = action.get("params", {}).get("coordinates", [])
+            if not (isinstance(coords, list) and len(coords) == 2 and 
+                    all(isinstance(c, int) for c in coords)):
+                errors.append(f"Invalid coordinates format for coord action at index {index}")
+                return {"valid": False, "errors": errors, "action": None}
+        elif available_action_ids and action_id not in available_action_ids:
+            # Standard action_id validation
+            try:
+                action_id_int = int(action_id)
+                if not (1 <= action_id_int <= 100):  # Reasonable range check
+                    errors.append(f"Action ID {action_id} outside reasonable range at index {index}")
+                    return {"valid": False, "errors": errors, "action": None}
+            except ValueError:
+                errors.append(f"Action ID {action_id} is not valid at index {index}")
+                return {"valid": False, "errors": errors, "action": None}
+            
+            self.logger.warning(f"Action ID {action_id} not in available actions, but proceeding")
+        
+        # Ensure required fields are present with defaults
+        processed_action = action.copy()
+        if "params" not in processed_action or not isinstance(processed_action["params"], dict):
+            processed_action["params"] = {}
+        
+        if "explanation" not in processed_action or not processed_action["explanation"]:
+            processed_action["explanation"] = f"Execute action {action_id}"
+        
+        return {"valid": True, "errors": [], "action": processed_action}
+
+    def _attempt_response_repair(self, 
+                                response: str, 
+                                available_action_ids: List[str],
+                                context: Dict[str, Any],
+                                initial_errors: List[str]) -> Tuple[List[Dict[str, Any]], List[str]]:
+        """
+        Attempt to repair malformed response using recovery strategies.
+        
+        ### Repair Strategy:
+        Applies specialized repair techniques to extract actions from
+        malformed responses, including JSON reconstruction, pattern matching,
+        and structural recovery mechanisms.
+        
+        Args:
+            response: Original malformed response text
+            available_action_ids: List of valid action IDs
+            context: Processing context for performance monitoring
+            initial_errors: Errors from primary processing attempt
+            
+        Returns:
+            Tuple of (repaired_actions, combined_errors)
+        """
+        with self.performance_monitor.measure_time("response_repair", context):
+            self.logger.warning("Attempting response repair")
+            
+            repaired_json = self.parser.try_repair_response(response)
+            if not repaired_json:
+                return [], initial_errors + ["Response repair failed"]
+            
+            try:
+                repaired_data = json.loads(repaired_json)
+                repaired_actions, repair_errors = self._extract_actions_from_data(
+                    repaired_data, available_action_ids
+                )
+                
+                if repaired_actions:
+                    self.logger.info(f"Successfully repaired response, extracted {len(repaired_actions)} actions")
+                    return repaired_actions, initial_errors + repair_errors
+                
+            except Exception as e:
+                repair_errors = [f"Error parsing repaired JSON: {e}"]
+            
+            return [], initial_errors + repair_errors

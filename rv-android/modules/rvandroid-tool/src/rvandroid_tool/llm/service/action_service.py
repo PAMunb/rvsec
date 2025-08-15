@@ -215,7 +215,13 @@ class LLMActionService:
                 for msg in messages:
                     print(f"\n *** Message: {msg.role}")
                     for content in msg.content:
-                        print(f"   - Content:\n{content.text}")
+                        from rv_llm.llm.data_structures import LLMImageContent, LLMTextContent
+                        if isinstance(content, LLMTextContent):
+                            print(f"   - Text Content:\n{content.text}")
+                        elif isinstance(content, LLMImageContent):
+                            print(f"   - Image Content: {content.url}")
+                        else:
+                            print(f"   - Content: {content}")
 
 
                 # Process LLM interaction

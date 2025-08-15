@@ -31,7 +31,7 @@ class InputManager(object):
     def __init__(self, device, app, policy_name, random_input,
                  event_count, event_interval,
                  script_path=None, profiling_method=None, master=None,
-                 replay_output=None):
+                 replay_output=None, rvandroid_url=None, rvandroid_screenshots=False):
         """
         manage input event sent to the target device
         :param device: instance of Device
@@ -52,6 +52,8 @@ class InputManager(object):
         self.event_count = event_count
         self.event_interval = event_interval
         self.replay_output = replay_output
+        self.rvandroid_url = rvandroid_url
+        self.rvandroid_screenshots = rvandroid_screenshots
 
         self.monkey = None
 
@@ -80,7 +82,11 @@ class InputManager(object):
         #     from .input_policy3 import LLM_Guided_Policy
         #     input_policy = LLM_Guided_Policy(device, app, self.random_input)
         elif self.policy_name == POLICY_RVANDROID:
-            input_policy = RVAndroidPolicy(device, app, self.random_input)
+            input_policy = RVAndroidPolicy(
+                device, app, self.random_input, 
+                server_url=self.rvandroid_url or "http://localhost:5000/api/get_actions",
+                include_screenshots=self.rvandroid_screenshots
+            )
         elif self.policy_name == POLICY_REPLAY:
             input_policy = UtgReplayPolicy(device, app, self.replay_output)
         elif self.policy_name == POLICY_MANUAL:
