@@ -148,7 +148,7 @@ class PlatformConfig(BaseValidatedModel):
         config_file.parent.mkdir(parents=True, exist_ok=True)
         
         with open(config_file, 'w', encoding='utf-8') as f:
-            json.dump(self.dict(), f, indent=2, ensure_ascii=False)
+            json.dump(self.model_dump(), f, indent=2, ensure_ascii=False)
 
     def get_total_tasks(self) -> int:
         """

@@ -269,26 +269,49 @@ class ResponseProcessor:
         action_id = str(action["action_id"])
         self.logger.debug(f"Validating action_id: {action_id}")
         
+        # Import constants for validation
+        from rvandroid_tool.constants import (
+            CUSTOM_COORDINATE_ACTION_ID,
+            COORDINATE_VALIDATION_MIN,
+            COORDINATE_VALIDATION_MAX,
+            ACTION_ID_RANGE_MIN,
+            ACTION_ID_RANGE_MAX
+        )
+        
         # Validate action_id against available actions
-        if action_id == "coord":
-            # Future multimodal support - validate coordinate format
+        if action_id == CUSTOM_COORDINATE_ACTION_ID:
+            # Validate custom coordinate action format
             coords = action.get("params", {}).get("coordinates", [])
-            if not (isinstance(coords, list) and len(coords) == 2 and 
-                    all(isinstance(c, int) for c in coords)):
-                errors.append(f"Invalid coordinates format for coord action at index {index}")
-                return {"valid": False, "errors": errors, "action": None}
-        elif available_action_ids and action_id not in available_action_ids:
-            # Standard action_id validation
-            try:
-                action_id_int = int(action_id)
-                if not (1 <= action_id_int <= 100):  # Reasonable range check
-                    errors.append(f"Action ID {action_id} outside reasonable range at index {index}")
-                    return {"valid": False, "errors": errors, "action": None}
-            except ValueError:
-                errors.append(f"Action ID {action_id} is not valid at index {index}")
+            
+            # Check coordinate format
+            if not isinstance(coords, list) or len(coords) != 2:
+                errors.append(f"Invalid coordinates format for coord action at index {index}: expected [x, y] list")
                 return {"valid": False, "errors": errors, "action": None}
             
-            self.logger.warning(f"Action ID {action_id} not in available actions, but proceeding")
+            # Validate coordinate values
+            try:
+                x, y = int(coords[0]), int(coords[1])
+                if not (COORDINATE_VALIDATION_MIN <= x <= COORDINATE_VALIDATION_MAX and
+                        COORDINATE_VALIDATION_MIN <= y <= COORDINATE_VALIDATION_MAX):
+                    errors.append(f"Coordinates out of valid range at index {index}: ({x}, {y})")
+                    return {"valid": False, "errors": errors, "action": None}
+            except (ValueError, TypeError):
+                errors.append(f"Non-numeric coordinates for coord action at index {index}: {coords}")
+                return {"valid": False, "errors": errors, "action": None}
+            
+            self.logger.debug(f"Validated custom coordinate action at ({x}, {y})")
+        elif available_action_ids and action_id not in available_action_ids:
+            # Standard action_id validation using constants
+            try:
+                action_id_int = int(action_id)
+                if not (ACTION_ID_RANGE_MIN <= action_id_int <= ACTION_ID_RANGE_MAX):
+                    errors.append(f"Action ID {action_id} outside valid range ({ACTION_ID_RANGE_MIN}-{ACTION_ID_RANGE_MAX}) at index {index}")
+                    return {"valid": False, "errors": errors, "action": None}
+            except ValueError:
+                errors.append(f"Action ID {action_id} is not a valid integer at index {index}")
+                return {"valid": False, "errors": errors, "action": None}
+            
+            self.logger.warning(f"Action ID {action_id} not in available actions, but proceeding with validation")
         
         # Ensure required fields are present with defaults
         processed_action = action.copy()

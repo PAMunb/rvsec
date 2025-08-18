@@ -980,6 +980,7 @@ networkx = "*"
 Pillow = "*"
 requests = "*"
 setuptools = "*"
+telnetlib3 = "*"
 
 [package.source]
 type = "directory"
@@ -4118,6 +4119,7 @@ rv-screen-parser = {path = "../rv-screen-parser", develop = true}
 rv-static-analysis = {path = "../rv-static-analysis", develop = true}
 rv-tools = {path = "../rv-tools", develop = true}
 rvandroid-tool = {path = "../rvandroid-tool", develop = true}
+rvdroid-tool = {path = "../rvdroid-tool", develop = true}
 
 [package.source]
 type = "directory"
@@ -4295,6 +4297,29 @@ rv-tools = {path = "../rv-tools", develop = true}
 [package.source]
 type = "directory"
 url = "modules/rvandroid-tool"
+
+[[package]]
+name = "rvdroid-tool"
+version = "0.1.0"
+description = "RVdroid testing tool with uiautomator and LLM guidance"
+optional = false
+python-versions = ">=3.12,<4.0"
+groups = ["main"]
+files = []
+develop = true
+
+[package.dependencies]
+flask = "^3.0.0"
+flask-cors = "^5.0.0"
+pydantic = "^2.9.0"
+rv-android-core = {path = "../rv-android-core", develop = true}
+rv-llm = {path = "../rv-llm", develop = true}
+rv-screen-parser = {path = "../rv-screen-parser", develop = true}
+rv-tools = {path = "../rv-tools", develop = true}
+
+[package.source]
+type = "directory"
+url = "modules/rvdroid-tool"
 
 [[package]]
 name = "s3transfer"
@@ -4540,6 +4565,18 @@ mpmath = ">=1.1.0,<1.4"
 
 [package.extras]
 dev = ["hypothesis (>=6.70.0)", "pytest (>=7.1.0)"]
+
+[[package]]
+name = "telnetlib3"
+version = "2.0.4"
+description = "Python 3 asyncio Telnet server and client Protocol library"
+optional = false
+python-versions = ">=3.7"
+groups = ["main"]
+files = [
+    {file = "telnetlib3-2.0.4-py2.py3-none-any.whl", hash = "sha256:b3c0f984a7fb1b6ee16e6fdaa410c56389b0dc492174a99c6661b1ba4c9d457d"},
+    {file = "telnetlib3-2.0.4.tar.gz", hash = "sha256:dbcbc16456a0e03a62431be7cfefff00515ab2f4ce2afbaf0d3a0e51a98c948d"},
+]
 
 [[package]]
 name = "tokenizers"
@@ -5026,4 +5063,4 @@ watchdog = ["watchdog (>=2.3)"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.12,<4.0"
-content-hash = "fed3abae2e010b7f68e71b2386786ac34c35436f26351cda82e2bb843f2b1119"
+content-hash = "41d7de7d59d45f19fbcd6d29bd68d7902577ad33d61f01bd92850114108a426b"

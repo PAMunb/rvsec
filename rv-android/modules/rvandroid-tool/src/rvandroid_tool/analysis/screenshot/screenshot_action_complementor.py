@@ -46,6 +46,7 @@ from rv_screen_parser.screenshot.models import (
     ErrorType, DetectionMethod
 )
 from rv_llm.llm.constants import StateEntry
+from rvandroid_tool.config.tool_config import RvAndroidToolConfig
 
 
 class AssociationStrategy:
@@ -356,12 +357,18 @@ class ScreenshotActionComplementor(BaseAnalyzer):
                 field_name="structured_screen"
             )
 
+        find_buttons = True
+        if StateEntry.TOOL_CONFIG in state and isinstance(state[StateEntry.TOOL_CONFIG], RvAndroidToolConfig):
+            tool_config: RvAndroidToolConfig = state[StateEntry.TOOL_CONFIG]
+            find_buttons = not tool_config.llm_config.vision
+
+
         # Generate visual element associations
-        return self.complement_screen_actions(screen_description, screenshot_path)
+        return self.complement_screen_actions(screen_description, screenshot_path, find_buttons)
 
     @ErrorHandler.handle_errors(component="ScreenshotActionComplementor", phase="complement_generation", reraise=True)
     def complement_screen_actions(self, screen_description: ScreenDescription,
-                                  screenshot_path: str) -> Dict[str, Any]:
+                                  screenshot_path: str, find_buttons = True) -> Dict[str, Any]:
         """
         Generate comprehensive screen action complementation with visual analysis.
 
@@ -378,6 +385,9 @@ class ScreenshotActionComplementor(BaseAnalyzer):
         Raises:
             RVParsingError: If screenshot analysis fails
         """
+
+        print(f">>>>>>>>>>>>>>>>>>> complement_screen_actions={find_buttons}")
+
         try:
             # Reset analysis state for new processing
             self.visual_to_ui_associations.clear()
@@ -399,11 +409,13 @@ class ScreenshotActionComplementor(BaseAnalyzer):
                 screen_description
             )
 
-            button_mapping = self._process_visual_buttons(
-                analysis_result.get("buttons", []),
-                ui_elements_map,
-                screen_description
-            )
+            button_mapping = []
+            if find_buttons:
+                button_mapping = self._process_visual_buttons(
+                    analysis_result.get("buttons", []),
+                    ui_elements_map,
+                    screen_description
+                )
 
             text_mapping = self._process_text_elements(
                 analysis_result.get("texts", []),

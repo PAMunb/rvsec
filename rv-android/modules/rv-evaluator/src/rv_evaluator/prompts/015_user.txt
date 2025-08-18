@@ -29,6 +29,8 @@ The current screen has the following UI views and corresponding actions, with ac
  - Text view with text 'Initialization Vector (IV)'.
  - Text view with no text. Actions: CLICK (21)
  - System back button. Actions: BACK (22)
+ - System action: SYSTEM_BACK (23). Actions: SYSTEM_BACK (23)
+ - System action: RESTART_APP (24). Actions: RESTART_APP (24)
  - Virtual button detected through screenshot analysis. Actions: CLICK Virtual Button (1002)
  - Virtual button detected through screenshot analysis. Actions: CLICK Virtual Button (1004)
  - Virtual button detected through screenshot analysis. Actions: CLICK Virtual Button (1006)
@@ -40,7 +42,7 @@ No recent actions on this screen.
 
 Memory insights:
 - This screen has been visited 0 times
-- You have interacted with 0 of 30 elements on this screen
+- You have interacted with 0 of 32 elements on this screen
 - Consider exploring: br.unb.cic.cryptoapp.generated.CryptographyActivity (visited 1 times)
 
 NAVIGATION GUIDANCE:
@@ -53,7 +55,28 @@ br.unb.cic.cryptoapp.generated.CryptographyActivity
 ### Potential Transitions (Static Analysis)
 - br.unb.cic.cryptoapp.generated.CryptographyActivity via Action 'CLICK (17) [M]' [Visited: no]
 
+**CRITICAL UI INTERACTION PATTERNS:**
+
+**SPINNERS/DROPDOWNS** (Two-stage interaction):
+1. First click: Opens dropdown/dialog with options
+2. Second click: Select option from expanded list (new state)
+3. Result: Dialog closes, returns to original screen with selection
+
+**FORMS**: Fill required fields systematically before submitting
+- Validate input formats (email, phone, etc.)
+- Test error states with invalid inputs
+- Complete logical field sequences
+
+**LISTS**: Test both navigation and interaction patterns
+- Scroll to reveal more items when applicable
+- Select items to test detail views or actions
+
+**NAVIGATION**: Follow logical user workflow patterns
+- Complete current screen interactions before navigating
+- Prioritize unvisited screens for coverage expansion
 
 CRITICAL TASK: Analyze the current UI, identify the primary UI pattern present, and generate a batch of related actions that efficiently test this pattern.
+
+REMEMBER: For Spinners/Dropdowns, ONLY click to open in current batch. Options will appear in the NEXT interaction state.
 
 Generate 1-5 test actions in JSON format. Focus on exploring unique functionality and potential monitored operations features. Ensure each action is specific and executable by an automated testing system.

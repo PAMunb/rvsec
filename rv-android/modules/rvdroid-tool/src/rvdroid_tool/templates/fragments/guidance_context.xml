@@ -1,0 +1,10 @@
+<guidance_context>
+CURRENT STATE: {{ current_state }}
+OBJECTIVE: {{ test_objective }}
+STRATEGY: {{ current_strategy }}
+PERFORMANCE: {{ strategy_performance }}
+COVERAGE: {{ coverage_status }}
+PROGRESS: {{ recent_progress }}
+{% if bottlenecks %}BOTTLENECKS: {{ bottlenecks|join(', ') }}{% endif %}
+{% if history_summary %}HISTORY: {{ history_summary }}{% endif %}
+</guidance_context>

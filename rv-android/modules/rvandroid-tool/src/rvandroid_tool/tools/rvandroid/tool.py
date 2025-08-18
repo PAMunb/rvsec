@@ -103,8 +103,9 @@ class RVAndroidTool(AbstractTool):
         ### Variant Categories:
         - default: Balanced configuration for general-purpose testing
         - llama_batch_detailed: LLaMA model with batch action strategy and detailed analysis
-        - gpt4_standard_basic: GPT-4 model with standard strategy and basic configuration
-        - ollama_standard_detailed: Ollama backend with standard strategy and detailed visitor
+        - gpt4_standard_basic: GPT-4 model with single action strategy and basic configuration
+        - ollama_standard_detailed: Ollama backend with single action strategy and detailed visitor
+        - vision: Optimized vision strategy with coordinate support and compact prompts
         
         Returns:
             Dictionary mapping variant names to RVAndroid configuration parameters
@@ -120,7 +121,7 @@ class RVAndroidTool(AbstractTool):
                 "top_p": 0.9,
                 "max_tokens": 800,
                 "vision": True,
-                "prompt_strategy": PromptStrategyType.STANDARD,
+                "prompt_strategy": PromptStrategyType.SINGLE,
                 "parser_type": ScreenParserType.DROIDBOT,
                 "visitor_type": VisitorType.DETAILED,
                 "server_port": DEFAULT_SERVER_PORT,
@@ -132,7 +133,7 @@ class RVAndroidTool(AbstractTool):
                 "temperature": 0.05,
                 "top_p": 0.95,
                 "max_tokens": 4096,
-                "prompt_strategy": PromptStrategyType.BATCH_ACTION,
+                "prompt_strategy": PromptStrategyType.BATCH,
                 "parser_type": ScreenParserType.DROIDBOT,
                 "visitor_type": VisitorType.DETAILED,
                 "server_port": DEFAULT_SERVER_PORT,
@@ -144,7 +145,7 @@ class RVAndroidTool(AbstractTool):
                 "temperature": 0.2,
                 "top_p": 0.8,
                 "max_tokens": 3000,
-                "prompt_strategy": PromptStrategyType.STANDARD,
+                "prompt_strategy": PromptStrategyType.SINGLE,
                 "parser_type": ScreenParserType.DROIDBOT,
                 "visitor_type": VisitorType.BASIC,
                 "server_port": DEFAULT_SERVER_PORT,
@@ -156,7 +157,20 @@ class RVAndroidTool(AbstractTool):
                 "temperature": 0.15,
                 "top_p": 0.9,
                 "max_tokens": 3500,
-                "prompt_strategy": PromptStrategyType.STANDARD,
+                "prompt_strategy": PromptStrategyType.SINGLE,
+                "parser_type": ScreenParserType.DROIDBOT,
+                "visitor_type": VisitorType.DETAILED,
+                "server_port": DEFAULT_SERVER_PORT,
+                "debug_mode": False
+            },
+            "vision": {
+                "llm_type": LLMType.OLLAMA,
+                "llm_model": OllamaLLM.GEMMA,
+                "temperature": 0.3,
+                "top_p": 0.9,
+                "max_tokens": 1200,
+                "vision": True,
+                "prompt_strategy": PromptStrategyType.VISION,
                 "parser_type": ScreenParserType.DROIDBOT,
                 "visitor_type": VisitorType.DETAILED,
                 "server_port": DEFAULT_SERVER_PORT,

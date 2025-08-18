@@ -327,19 +327,21 @@ class RVAndroidPolicy(UtgBasedInputPolicy):
         Convert complete action specification to DroidBot InputEvent.
         
         ### Action Format Processing:
-        Processes complete action format from RVAndroid server containing:
-        - action_type: Standardized action type string
-        - coordinates: Screen coordinates for action execution
-        - params: Action-specific parameters
-        - target: Target identifier for debugging
-        - explanation: Human-readable action description
+        Processes complete action format from RVAndroid server with support for
+        three action types: standard UI actions, text input actions, and custom
+        coordinate-based actions for multimodal interaction scenarios.
+        
+        ### Action Type Support:
+        - Standard UI Actions: Target specific UI elements via coordinates
+        - Text Input Actions: Include text parameters for form completion
+        - Custom Coordinate Actions: Screenshot-based interaction for games/canvas
         
         ### Event Type Mapping:
         Maps action types to appropriate DroidBot InputEvent classes with
-        proper parameter handling for reliable device interaction.
+        comprehensive parameter handling and validation for reliable execution.
         
         Args:
-            action: Complete action dictionary from server
+            action: Complete action dictionary from RVAndroid server
             
         Returns:
             InputEvent object for device execution or None if conversion fails
@@ -348,18 +350,30 @@ class RVAndroidPolicy(UtgBasedInputPolicy):
         coordinates = action.get("coordinates", [])
         params = action.get("params", {})
         explanation = action.get("explanation", "")
+        target = action.get("target", "")
         
-        self.logger.debug(f"Converting action: {action_type} at {coordinates}")
+        self.logger.debug(f"Converting action: {action_type} at {coordinates} (target: {target})")
         
         try:
-            # Validate coordinates
+            # Handle coordinate validation for all action types
             if coordinates and len(coordinates) >= 2:
                 x, y = int(coordinates[0]), int(coordinates[1])
+                
+                # Validate coordinate range for safety
+                if not (0 <= x <= 4096 and 0 <= y <= 4096):
+                    self.logger.warning(f"Coordinates out of safe range: ({x}, {y})")
+                    return None
+                    
             else:
-                self.logger.warning(f"Invalid coordinates for action: {action}")
+                self.logger.warning(f"Invalid coordinates format for action: {action}")
                 return None
             
-            # Map action types to InputEvent objects
+            # Detect custom coordinate actions
+            is_custom_action = target.startswith("custom:") if target else False
+            if is_custom_action:
+                self.logger.info(f"Processing custom coordinate action: {explanation}")
+            
+            # Map action types to InputEvent objects with enhanced support
             if action_type == "click":
                 return TouchEvent(x=x, y=y)
             
@@ -368,22 +382,38 @@ class RVAndroidPolicy(UtgBasedInputPolicy):
             
             elif action_type in ["set_text", "text_change"]:
                 text = params.get("text", "")
+                if not text and not is_custom_action:
+                    self.logger.warning(f"No text provided for text action: {action}")
+                    return None
                 return SetTextEvent(x=x, y=y, text=text)
             
             elif action_type.startswith("scroll"):
-                direction = params.get("direction", "DOWN")
-                return ScrollEvent(x=x, y=y, direction=direction.upper())
+                direction = params.get("direction", "DOWN").upper()
+                if direction not in ["UP", "DOWN", "LEFT", "RIGHT"]:
+                    self.logger.warning(f"Invalid scroll direction: {direction}")
+                    direction = "DOWN"
+                return ScrollEvent(x=x, y=y, direction=direction)
             
             elif action_type == "key_event":
-                key_name = params.get("name", "BACK")
-                return KeyEvent(name=key_name.upper())
+                key_name = params.get("name", "BACK").upper()
+                return KeyEvent(name=key_name)
+            
+            # Handle additional action types for custom coordinate actions
+            elif action_type in ["tap", "touch"]:
+                # Alternative names for click in custom actions
+                return TouchEvent(x=x, y=y)
+            
+            elif action_type == "long_tap":
+                # Alternative name for long click in custom actions  
+                return LongTouchEvent(x=x, y=y)
             
             else:
-                self.logger.warning(f"Unknown action type: {action_type}")
-                return None
+                self.logger.warning(f"Unknown action type: {action_type}, defaulting to click")
+                # Default to click for unknown action types in multimodal scenarios
+                return TouchEvent(x=x, y=y)
                 
         except (ValueError, TypeError) as e:
-            self.logger.error(f"Error converting action {action}: {e}")
+            self.logger.error(f"Error converting action {action}: {e}", exc_info=True)
             return None
 
     def _handle_server_error(self) -> Optional[InputEvent]:

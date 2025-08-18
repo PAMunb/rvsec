@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<fragment name="ui_patterns_guide">
+  <![CDATA[
+**CRITICAL UI INTERACTION PATTERNS:**
+
+**SPINNERS/DROPDOWNS** (Two-stage interaction):
+1. First click: Opens dropdown/dialog with options
+2. Second click: Select option from expanded list (new state)
+3. Result: Dialog closes, returns to original screen with selection
+
+**FORMS**: Fill required fields systematically before submitting
+- Validate input formats (email, phone, etc.)
+- Test error states with invalid inputs
+- Complete logical field sequences
+
+**LISTS**: Test both navigation and interaction patterns
+- Scroll to reveal more items when applicable
+- Select items to test detail views or actions
+
+**NAVIGATION**: Follow logical user workflow patterns
+- Complete current screen interactions before navigating
+- Prioritize unvisited screens for coverage expansion
+  ]]>
+</fragment>

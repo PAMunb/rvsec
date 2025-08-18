@@ -39,36 +39,63 @@ class GeneratedAction:
     """
     
     def __init__(self, 
-                 item_action: ItemAction,
-                 coordinates: Tuple[int, int],
-                 params: Dict[str, Any],
-                 target: str,
-                 explanation: str):
+                 item_action: Optional[ItemAction] = None,
+                 coordinates: Tuple[int, int] = (0, 0),
+                 params: Optional[Dict[str, Any]] = None,
+                 target: str = "",
+                 explanation: str = "",
+                 custom_action_type: Optional[str] = None,
+                 action_id: Optional[str] = None):
         """
         Initialize action with complete execution metadata.
         
+        ### Initialization Strategy:
+        Supports both standard UI element actions via ItemAction references
+        and custom coordinate-based actions for advanced interaction scenarios.
+        Provides unified interface for all action types.
+        
         Args:
-            item_action: UI element action definition
+            item_action: UI element action definition (None for custom actions)
             coordinates: Screen coordinates for action execution
             params: Action-specific parameters (text, direction, etc.)
             target: Target identifier (resource_id or coordinate string)
             explanation: Human-readable action description
+            custom_action_type: Action type for custom coordinate actions
+            action_id: Action identifier for custom actions
         """
-        # Core action properties
-        self.item = item_action
-        self.id = item_action.id
-        self.action_type = item_action.event.name.lower()
-        self.text = item_action.text
+        from rvandroid_tool.constants import ACTION_TYPE_CLICK
         
-        # Monitoring metadata
-        self.reaches_mop = item_action.reaches_mop
-        self.directly_reaches_mop = item_action.directly_reaches_mop
+        # Determine if this is a custom coordinate action
+        self.is_custom = item_action is None
+        
+        # Core action properties
+        if self.is_custom:
+            # Custom coordinate action
+            self.item = None
+            self.id = action_id or "coord"
+            self.action_type = custom_action_type or ACTION_TYPE_CLICK
+            self.text = ""
+            
+            # Custom actions don't have monitoring metadata
+            self.reaches_mop = False
+            self.directly_reaches_mop = False
+        else:
+            # Standard UI element action
+            self.item = item_action
+            self.id = item_action.id
+            self.action_type = item_action.event.name.lower()
+            self.text = item_action.text
+            
+            # Monitoring metadata from ItemAction
+            self.reaches_mop = item_action.reaches_mop
+            self.directly_reaches_mop = item_action.directly_reaches_mop
         
         # Execution details
         self.coordinates = coordinates
-        self.params = params
+        self.params = params or {}
         self.target = target
         self.explanation = explanation
+        self.custom_action_type = custom_action_type
 
     def to_droidbot_format(self) -> Dict[str, Any]:
         """
@@ -249,11 +276,10 @@ class ActionGenerator:
         """
         Convert single action_id reference to GeneratedAction.
         
-        ### Conversion Process:
-        1. Extract action_id and locate ItemAction
-        2. Resolve coordinates from UI element bounds
-        3. Process action-specific parameters
-        4. Create complete GeneratedAction object
+        ### Conversion Strategy:
+        Handles both standard UI element actions and custom coordinate actions.
+        Standard actions use action_map lookup while custom actions process
+        coordinate parameters directly for multimodal interaction scenarios.
         
         Args:
             action_data: Single action dictionary with action_id
@@ -263,24 +289,35 @@ class ActionGenerator:
         Returns:
             GeneratedAction object or None if conversion fails
         """
+        from rvandroid_tool.constants import (
+            CUSTOM_COORDINATE_ACTION_ID,
+            ACTION_TYPE_CLICK,
+            COORDINATE_VALIDATION_MIN,
+            COORDINATE_VALIDATION_MAX
+        )
+        
         action_id = str(action_data["action_id"])
         params = action_data.get("params", {})
         explanation = action_data.get("explanation", f"Execute action {action_id}")
         
-        # Locate ItemAction
+        # Handle custom coordinate actions
+        if action_id == CUSTOM_COORDINATE_ACTION_ID:
+            return self._create_custom_coordinate_action(action_data, params, explanation)
+        
+        # Handle standard UI element actions
         if action_id not in action_map:
             self.logger.warning(f"Action ID {action_id} not found in available actions")
             return None
             
         item_action, view_data = action_map[action_id]
         
-        # Resolve coordinates
+        # Resolve coordinates for UI element action
         coordinates = self._resolve_coordinates(item_action, view_data)
         if not coordinates:
             self.logger.warning(f"Could not resolve coordinates for action {action_id}")
             return None
             
-        # Process parameters
+        # Process parameters for standard action
         processed_params = self._process_parameters(item_action.event.name.lower(), params)
         
         # Generate target identifier
@@ -293,6 +330,116 @@ class ActionGenerator:
             target=target,
             explanation=explanation
         )
+
+    def _create_custom_coordinate_action(self,
+                                       action_data: Dict[str, Any],
+                                       params: Dict[str, Any],
+                                       explanation: str) -> Optional[GeneratedAction]:
+        """
+        Create custom coordinate action for multimodal interactions.
+        
+        ### Custom Action Processing:
+        Processes coordinate-based actions generated from screenshot analysis,
+        enabling interaction with UI elements not captured in standard UI
+        descriptions. Validates coordinate parameters and creates complete
+        action specification for DroidBot execution.
+        
+        Args:
+            action_data: Action data dictionary with coordinate parameters
+            params: Action parameters including coordinates
+            explanation: Action explanation for debugging
+            
+        Returns:
+            GeneratedAction for custom coordinate interaction or None if invalid
+        """
+        from rvandroid_tool.constants import (
+            ACTION_TYPE_CLICK,
+            COORDINATE_VALIDATION_MIN,
+            COORDINATE_VALIDATION_MAX,
+            CUSTOM_COORDINATE_ACTION_ID
+        )
+        
+        # Extract and validate coordinates
+        coordinates_list = params.get("coordinates", [])
+        
+        if not isinstance(coordinates_list, list) or len(coordinates_list) != 2:
+            self.logger.error(f"Invalid coordinates format: {coordinates_list}")
+            return None
+            
+        try:
+            x, y = int(coordinates_list[0]), int(coordinates_list[1])
+        except (ValueError, TypeError) as e:
+            self.logger.error(f"Non-numeric coordinates: {coordinates_list}, error: {e}")
+            return None
+            
+        # Validate coordinate range
+        if not (COORDINATE_VALIDATION_MIN <= x <= COORDINATE_VALIDATION_MAX and
+                COORDINATE_VALIDATION_MIN <= y <= COORDINATE_VALIDATION_MAX):
+            self.logger.error(f"Coordinates out of valid range: ({x}, {y})")
+            return None
+            
+        # Determine action type from parameters or default to click
+        action_type = params.get("action_type", ACTION_TYPE_CLICK)
+        
+        # Process additional parameters based on action type
+        processed_params = self._process_custom_parameters(action_type, params)
+        
+        # Generate target identifier for custom action
+        target = f"custom:{x},{y}"
+        
+        # Create custom coordinate action
+        custom_action = GeneratedAction(
+            item_action=None,
+            coordinates=(x, y),
+            params=processed_params,
+            target=target,
+            explanation=explanation,
+            custom_action_type=action_type,
+            action_id=CUSTOM_COORDINATE_ACTION_ID
+        )
+        
+        self.logger.debug(f"Created custom coordinate action at ({x}, {y}) with type {action_type}")
+        return custom_action
+
+    def _process_custom_parameters(self, action_type: str, params: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Process parameters for custom coordinate actions.
+        
+        ### Parameter Processing Strategy:
+        Handles action-type specific parameters for custom coordinate actions,
+        ensuring compatibility with DroidBot execution while maintaining
+        parameter validation and default value assignment.
+        
+        Args:
+            action_type: Type of custom action being processed
+            params: Raw parameters from LLM response
+            
+        Returns:
+            Processed parameter dictionary
+        """
+        from rvandroid_tool.constants import ACTION_TYPE_SET_TEXT, ACTION_TYPE_TEXT_CHANGE
+        
+        processed_params = {}
+        
+        # Copy coordinates for DroidBot compatibility
+        if "coordinates" in params:
+            processed_params["coordinates"] = params["coordinates"]
+        
+        # Handle text input for custom actions
+        if action_type in [ACTION_TYPE_SET_TEXT, ACTION_TYPE_TEXT_CHANGE]:
+            text = params.get("text", "")
+            if text:
+                processed_params["text"] = text
+                self.logger.debug(f"Added text parameter for custom action: {text}")
+        
+        # Handle scroll direction for custom scroll actions
+        if "scroll" in action_type.lower():
+            direction = params.get("direction", "DOWN").upper()
+            if direction in ["UP", "DOWN", "LEFT", "RIGHT"]:
+                processed_params["direction"] = direction
+                self.logger.debug(f"Added direction parameter for custom scroll: {direction}")
+        
+        return processed_params
 
     def _resolve_coordinates(self, 
                            item_action: ItemAction, 

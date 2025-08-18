@@ -144,7 +144,7 @@ tool_config_2 = ToolConfig(
     parameters={
         "llm_backend": "ollama",
         "llm_model": "qwen2.5:7b",
-        "prompt_strategy": "standard_modular",
+        "prompt_strategy": "single",
         "visitor_type": "basic",
         "temperature": "0.7"
     }
@@ -291,21 +291,21 @@ RVANDROID_VARIANTS = {
     "llama_batch_detailed": {
         "llm_backend": "ollama",
         "llm_model": "llama3.2:3b",
-        "prompt_strategy": "batch_action_modular",
+        "prompt_strategy": "batch",
         "visitor_type": "detailed",
         "screen_parser": "droidbot"
     },
     "gpt4_standard_basic": {
         "llm_backend": "openai",
         "llm_model": "gpt-4",
-        "prompt_strategy": "standard_modular",
+        "prompt_strategy": "single",
         "visitor_type": "basic",
         "screen_parser": "droidbot"
     },
     "claude_context_enhanced": {
         "llm_backend": "anthropic",
         "llm_model": "claude-3-5-sonnet-20241022",
-        "prompt_strategy": "standard_modular",
+        "prompt_strategy": "single",
         "visitor_type": "enhanced",
         "screen_parser": "droidbot"
     }

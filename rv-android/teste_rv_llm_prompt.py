@@ -122,14 +122,15 @@ def tmp_001(droidbot_state_file, screenshot_path, package, static_data):
 
     llm_config = LLMConfig(
         llm_type=LLMType.OLLAMA,
-        model=OllamaLLM.QWEN,
+        model=OllamaLLM.GEMMA,
+        vision=True,
         temperature=0.3,
         max_tokens=800
     )
     prompt_config = PromptConfig(
-        strategy_type=PromptStrategyType.BATCH_ACTION,
+        strategy_type=PromptStrategyType.VISION,
         parser_type=ScreenParserType.DROIDBOT,
-        visitor_type=VisitorType.DETAILED,
+        visitor_type=VisitorType.DEFAULT,
         max_context_length=8192
     )
     tool_config = RvAndroidToolConfig(
@@ -178,7 +179,7 @@ def save_prompt(prompt: list[LLMMessage], out_dir, prefix):
 if __name__ == '__main__':
     screenshots_folder = "/home/pedro/desenvolvimento/RV_ANDROID/teste_llm/screenshots"
     apk = "cryptoapp.apk"
-    prefix = "015"  # 001, 009, 015
+    prefix = "009"  # 001, 009, 015
     app_folder = os.path.join(screenshots_folder, apk)
     reach_file = os.path.join(app_folder, apk + ".reach")
     gator_file = os.path.join(app_folder, apk + ".wtg")
@@ -194,8 +195,8 @@ if __name__ == '__main__':
 
     prompt = tmp_001(droidbot_state_file, screenshot_path, package, static_data)
 
-    outdir = "/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec/rv-android/modules/rv-evaluator/src/rv_evaluator/prompts"
-    save_prompt(prompt, outdir, prefix)
+    # outdir = "/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec/rv-android/modules/rv-evaluator/src/rv_evaluator/prompts"
+    # save_prompt(prompt, outdir, prefix)
 
     # print("=== Testing Template System ===")
     # tmp_template_system()

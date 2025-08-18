@@ -164,21 +164,21 @@ VARIANTS = {
     "default": {
         "llm_type": "ollama",
         "llm_model": "llama3.2",
-        "prompt_strategy": "standard_modular",
+        "prompt_strategy": "single",
         "temperature": 0.2,
         "max_tokens": 1000
     },
     "openai_gpt4": {
         "llm_type": "openai", 
         "llm_model": "gpt-4",
-        "prompt_strategy": "batch_action_modular",
+        "prompt_strategy": "batch",
         "temperature": 0.1,
         "max_tokens": 1500
     },
     "multimodal": {
         "llm_type": "ollama",
         "llm_model": "llava",
-        "prompt_strategy": "multimodal_modular",
+        "prompt_strategy": "vision",
         "temperature": 0.3,
         "max_tokens": 800
     }

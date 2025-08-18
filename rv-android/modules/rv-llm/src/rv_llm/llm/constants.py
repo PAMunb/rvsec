@@ -42,16 +42,16 @@ class PromptStrategyType:
     Constants for prompt strategy types supported by the factory system.
     
     ### Strategy Types:
-    - **STANDARD**: Single-action generation
-    - **BATCH_ACTION**: Multi-action generation
-    - **MULTIMODAL**: Multi-modal generation
+    - **SINGLE**: Single-action generation
+    - **BATCH**: Multi-action generation  
+    - **VISION**: Multi-modal generation with visual support
     - **DEFAULT**: Default strategy for new configurations
     """
-    STANDARD = "standard_modular"
-    BATCH_ACTION = "batch_action_modular"
-    MULTIMODAL = "multimodal_modular"
-    DEFAULT = BATCH_ACTION
-    ALL = [STANDARD, BATCH_ACTION, MULTIMODAL]
+    SINGLE = "single"
+    BATCH = "batch" 
+    VISION = "vision"
+    DEFAULT = BATCH
+    ALL = [SINGLE, BATCH, VISION]
 
 
 class FragmentType:
@@ -120,6 +120,7 @@ class StateEntry:
     NAVIGATION_PATH = "navigation_path"
     ACTIVITY_VISITS = "activity_visits"
     RECENT_ITERATIONS = "recent_iterations"
+    TOOL_CONFIG = "tool_config"
 
 
 class ComponentType:

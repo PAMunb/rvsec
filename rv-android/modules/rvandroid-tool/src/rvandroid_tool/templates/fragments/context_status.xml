@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<fragment name="context_status">
+  <![CDATA[
+Activity: {{ activity }}{% if activity_visits is defined %} (visits: {{ activity_visits }}){% endif %}
+{% if mop_current is defined and mop_total is defined -%}
+MOP Coverage: {{ mop_current }}/{{ mop_total }}{% if mop_errors is defined %} | Errors: {{ mop_errors }}{% endif %}
+{% endif -%}
+{% if recent_history is defined and recent_history -%}
+Last Actions: {{ recent_history }}
+{% endif -%}
+{% if available_transitions is defined and available_transitions -%}
+Transitions: {{ available_transitions }}
+{% endif -%}
+  ]]>
+</fragment>

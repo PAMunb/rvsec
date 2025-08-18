@@ -1,13 +1,17 @@
 import os
 import sys
 
-from rvandroid.app import App
-from rvandroid.config.component_configurator import ComponentConfigurator
-from rvandroid.domain.static import StaticAnalysisData
-from rvandroid.llm.ollama_llm import OllamaLLM
-from rvandroid.parser.static import static_analysis_parser
-from rvandroid.rvdroid import RVDroidService
-from rvandroid.util.logging.manager import LoggingManager
+from rv_android_core.domain.app import App
+from rv_android_core.domain.static import StaticAnalysisData
+from rv_llm import OllamaLLM
+from rv_static_analysis.parser.static import static_analysis_parser
+from rvdroid_tool.tools.tool import RVDroidTool
+from rv_android_core.util.logging.manager import LoggingManager
+from rvdroid_tool.config.tool_config import RVDroidToolConfig
+from rv_llm.config.llm_config import LLMConfig
+from rv_llm.config.prompt_config import PromptConfig
+from rv_llm.llm.constants import LLMType, PromptStrategyType
+from rv_android_core.domain.task import Task
 
 
 def setup_logging(debug: bool = False):
@@ -30,11 +34,11 @@ def setup_logging(debug: bool = False):
 def main(app: App, static_data: StaticAnalysisData):
     device = "emulator-5554"
     timeout = 1200
-    use_llm = False
+    use_llm = True # Set to True to test LLM guidance
 
     # Set up logging
     logger = setup_logging(False)
-    logger.info("Starting RVDroid runner")
+    logger.info("Starting RVDroid test script")
     logger.info(f"App: {app.name}")
     logger.info(f"Package: {app.package_name}")
     logger.info(f"Device: {device}")
@@ -42,38 +46,44 @@ def main(app: App, static_data: StaticAnalysisData):
     logger.info(f"LLM guidance: {'Enabled' if use_llm else 'Disabled'}")
 
     try:
-        # Initialize service
-        service = RVDroidService(device_id=device, static_data=static_data, use_llm=use_llm, preferred_strategy="SystematicStrategy")
-
-        # Start testing
-        logger.info(f"Starting testing of {app.package_name}")
-        result = service.start_testing(
-            package_name=app.package_name,
-            activity=app.apk.get_main_activity(),
-            timeout=timeout,
-            llm_guidance=use_llm
+        # Create RVDroidToolConfig
+        tool_config = RVDroidToolConfig(
+            device_id=device,
+            execution_timeout=timeout,
+            llm_enabled=use_llm,
+            # Configure LLM and Prompt if LLM is enabled
+            llm_config=LLMConfig(
+                llm_type=LLMType.OLLAMA,
+                llm_model=OllamaLLM.GEMMA,
+                temperature=0.2,
+                top_p=0.9,
+                max_tokens=800,
+                vision=True
+            ),
+            prompt_config=PromptConfig(
+                strategy_type=PromptStrategyType.STANDARD # Our GuidanceStrategy
+            )
         )
 
-        if not result:
-            logger.error("Failed to start testing")
-            return 1
+        # Create a dummy Task object
+        # In a real scenario, Task would come from the experiment framework
+        task = Task(
+            id="test_task_1",
+            name="Manual RVDroid Test",
+            app=app,
+            static_data=static_data,  # Add static data to task
+            config={"activity": app.apk.get_main_activity(), "timeout": timeout},
+            results_dir="./rvdroid_manual_results" # Placeholder results directory
+        )
 
-        # Execute testing loop
-        logger.info("Executing testing loop")
-        results = service.execute_testing_loop()
+        # Initialize RVDroidTool
+        rvdroid_tool = RVDroidTool()
+        rvdroid_tool.configure(tool_config)
 
-        # Process and display results
-        logger.info("Testing completed")
-        logger.info(f"Actions executed: {results.get('actions_executed', 0)}")
-        logger.info(f"New states discovered: {results.get('new_states', 0)}")
-        logger.info(f"Elapsed time: {results.get('elapsed_time', 0):.2f} seconds")
+        # Execute the tool's logic
+        rvdroid_tool.execute_tool_specific_logic(task, app)
 
-        if use_llm:
-            logger.info(f"LLM guidance count: {results.get('llm_guidance_count', 0)}")
-
-        # Clean up
-        service.cleanup()
-
+        logger.info("RVDroid test script completed.")
         return 0
 
     except KeyboardInterrupt:
@@ -85,27 +95,25 @@ def main(app: App, static_data: StaticAnalysisData):
         return 1
 
 
-def get_ollama(static_data: StaticAnalysisData) -> ComponentConfigurator:
-    configurator = ComponentConfigurator(static_data)
-    configurator.set_llm(
-        llm_type=OllamaLLM.NAME,
-        model=OllamaLLM.GEMMA,
-        base_url="http://localhost:11434"
-    )
-    configurator.set_strategy("single_action")
-    configurator.set_parser("uiautomator")
-    configurator.set_visitor("enhanced")
-    return configurator
-
-
 if __name__ == "__main__":
-    screenshots_folder = "/home/pedro/desenvolvimento/RV_ANDROID/teste_llm/screenshots"
-    apk = "cryptoapp.apk"
-    app_folder = screenshots_folder + "/" + apk
+    screenshots_folder = "/home/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec/rv-android/apks_examples/cryptoapp" # Assuming cryptoapp is a folder
+    apk_name = "cryptoapp.apk"
+    apk_path = os.path.join(screenshots_folder, apk_name)
 
-    application = App(os.path.join(app_folder, apk))
+    # Ensure the APK exists
+    if not os.path.exists(apk_path):
+        print(f"Error: APK not found at {apk_path}")
+        sys.exit(1)
+
+    application = App(apk_path)
     package = application.package_name
 
-    static = static_analysis_parser.read_static_analysis_files(app_folder, apk, package)
+    static = static_analysis_parser.read_static_analysis_files(screenshots_folder, apk_name, package)
 
     sys.exit(main(application, static))
+
+
+
+
+# Legacy function - remove in future versions
+# This function is not used in the new architecture

@@ -113,7 +113,7 @@ from rv_screen_parser.constants import ScreenParserType, VisitorType
 
 # Create prompt configuration
 prompt_config = PromptConfig(
-    strategy_type=PromptStrategyType.BATCH_ACTION,
+    strategy_type=PromptStrategyType.BATCH,
     parser_type=ScreenParserType.DROIDBOT,
     visitor_type=VisitorType.DETAILED
 )
@@ -158,7 +158,7 @@ llm_config = LLMConfig(
 
 # Create prompt configuration
 prompt_config = PromptConfig(
-    strategy_type=PromptStrategyType.STANDARD,
+    strategy_type=PromptStrategyType.SINGLE,
     parser_type=ScreenParserType.DROIDBOT,
     visitor_type=VisitorType.DETAILED
 )
@@ -182,7 +182,7 @@ llm_config = LLMConfig(llm_type="ollama", model="llama3.2:3b")
 llm = LLMComponentFactory.create_llm(llm_config)
 
 # Create prompt strategy
-prompt_config = PromptConfig(strategy_type="batch_action")
+prompt_config = PromptConfig(strategy_type="batch")
 strategy = LLMComponentFactory.create_strategy(prompt_config)
 
 # Check supported backends
@@ -218,7 +218,7 @@ from rv_llm.llm.constants import PromptStrategyType
 from rv_screen_parser.constants import ScreenParserType, VisitorType
 
 config = PromptConfig(
-    strategy_type=PromptStrategyType.BATCH_ACTION,  # Prompt strategy
+    strategy_type=PromptStrategyType.BATCH,  # Prompt strategy
     parser_type=ScreenParserType.DROIDBOT,         # Screen parser type
     visitor_type=VisitorType.DETAILED,             # Visitor type
     max_context_length=8192                        # Context limit

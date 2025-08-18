@@ -39,9 +39,9 @@ from rvandroid_tool.llm.prompt.fragments.history_fragment import HistoryFragment
 from rvandroid_tool.llm.prompt.fragments.monitored_operations_fragment import MonitoredOperationsFragment
 from rvandroid_tool.llm.prompt.fragments.transition_guidance_fragment import TransitionGuidanceFragment
 from rvandroid_tool.llm.prompt.fragments.ui_elements_fragment import UIElementsFragment
-from rvandroid_tool.llm.prompt.strategies.batch_action_strategy import BatchActionStrategy
-from rvandroid_tool.llm.prompt.strategies.standard_strategy import StandardStrategy
-from rvandroid_tool.llm.prompt.strategies.multimodal_strategy import MultimodalStrategy
+from rvandroid_tool.llm.prompt.strategies.batch_strategy import BatchStrategy
+from rvandroid_tool.llm.prompt.strategies.single_strategy import SingleStrategy
+from rvandroid_tool.llm.prompt.strategies.vision_strategy import VisionStrategy
 
 
 class RVAndroidPromptFramework(PromptFramework):
@@ -140,9 +140,9 @@ class RVAndroidPromptFramework(PromptFramework):
             from rv_llm.factories.component_factory import LLMComponentFactory
 
             # Register strategies using constants
-            LLMComponentFactory.register_strategy(PromptStrategyType.BATCH_ACTION, BatchActionStrategy)
-            LLMComponentFactory.register_strategy(PromptStrategyType.STANDARD, StandardStrategy)
-            LLMComponentFactory.register_strategy(PromptStrategyType.MULTIMODAL, MultimodalStrategy)
+            LLMComponentFactory.register_strategy(PromptStrategyType.BATCH, BatchStrategy)
+            LLMComponentFactory.register_strategy(PromptStrategyType.SINGLE, SingleStrategy)
+            LLMComponentFactory.register_strategy(PromptStrategyType.VISION, VisionStrategy)
 
             logger.info("Registered RVAndroid strategies with component factory")
 

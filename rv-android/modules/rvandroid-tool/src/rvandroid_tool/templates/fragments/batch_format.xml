@@ -15,14 +15,28 @@ Your response MUST follow this schema - a JSON object with the following structu
     {
       "action_id": "5",
       "action_text": "CLICK (5)",
-      "params": {}
+      "params": {},
+      "explanation": "Opening dropdown to reveal options"
     },
     {
       "action_id": "2",
       "action_text": "SET_TEXT (2)",
-      "params": {"text": "test@example.com"}
+      "params": {"text": "test@example.com"},
+      "explanation": "Filling email field with valid format"
     }
     // Additional related actions...
+  ]
+}
+
+SPINNER EXAMPLE - Only open dropdown in current batch:
+{
+  "actions": [
+    {
+      "action_id": "3",
+      "action_text": "CLICK (3)",
+      "params": {},
+      "explanation": "Opening language spinner - options will be available in next interaction"
+    }
   ]
 }
 

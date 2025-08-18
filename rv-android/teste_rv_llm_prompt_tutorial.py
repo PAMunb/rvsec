@@ -202,7 +202,7 @@ def tutorial_section_1():
     # Create prompt configuration
     print("\nCreating prompt configuration...")
     prompt_config = PromptConfig(
-        strategy_type=PromptStrategyType.BATCH_ACTION,
+        strategy_type=PromptStrategyType.BATCH,
         parser_type=ScreenParserType.DROIDBOT,
         visitor_type=VisitorType.DETAILED,
         max_context_length=8192
@@ -493,7 +493,7 @@ def tutorial_section_3():
     
     # Standard configuration
     standard_config = PromptConfig(
-        strategy_type=PromptStrategyType.STANDARD,
+        strategy_type=PromptStrategyType.SINGLE,
         parser_type=ScreenParserType.DROIDBOT,
         visitor_type=VisitorType.BASIC,
         max_context_length=4096
@@ -501,7 +501,7 @@ def tutorial_section_3():
 
     # Batch action configuration
     batch_config = PromptConfig(
-        strategy_type=PromptStrategyType.BATCH_ACTION,
+        strategy_type=PromptStrategyType.BATCH,
         parser_type=ScreenParserType.DROIDBOT,
         visitor_type=VisitorType.DETAILED,
         max_context_length=8192
@@ -525,8 +525,8 @@ def tutorial_section_3():
         print(f"  - {strategy}")
 
     print("\nStrategy characteristics:")
-    print(f"  - {PromptStrategyType.STANDARD}: Single action generation")
-    print(f"  - {PromptStrategyType.BATCH_ACTION}: Multiple action generation")
+    print(f"  - {PromptStrategyType.SINGLE}: Single action generation")
+    print(f"  - {PromptStrategyType.BATCH}: Multiple action generation")
     print(f"  - Default: {PromptStrategyType.DEFAULT}")
 
     print("\n3.3: Parser and Visitor Configuration")
@@ -560,8 +560,9 @@ def tutorial_section_3():
     print("4. Jinja2 renders template with variables")
 
     print("\nTemplate resolution process:")
-    print("- standard_modular → templates/standard_modular.xml")
-    print("- batch_action_modular → templates/batch_action_modular.xml")
+    print("- single → templates/single.xml")
+    print("- batch → templates/batch.xml")
+    print("- vision → templates/vision.xml")
     print("- Custom strategies can use custom templates")
 
     print("\n3.5: Configuration Validation")
@@ -572,7 +573,7 @@ def tutorial_section_3():
     try:
         # Valid configuration
         valid_config = PromptConfig(
-            strategy_type=PromptStrategyType.STANDARD,
+            strategy_type=PromptStrategyType.SINGLE,
             parser_type=ScreenParserType.DROIDBOT,
             visitor_type=VisitorType.DETAILED
         )
@@ -1375,8 +1376,8 @@ for llm_cfg, tool_cfg in configs:
     print(f"  - {LLMType.FRONTIER}: Commercial APIs")
 
     print("\nStrategy Types:")
-    print(f"  - {PromptStrategyType.STANDARD}: Single action")
-    print(f"  - {PromptStrategyType.BATCH_ACTION}: Multiple actions")
+    print(f"  - {PromptStrategyType.SINGLE}: Single action")
+    print(f"  - {PromptStrategyType.BATCH}: Multiple actions")
 
     print("\nParser Types:")
     print(f"  - {ScreenParserType.DROIDBOT}: DroidBot parser")

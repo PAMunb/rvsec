@@ -171,8 +171,8 @@ class PromptStrategy(abc.ABC):
             return self.DEFAULT_TEMPLATE
 
         # Fallback
-        self.logger.warning(f"No template specified for strategy {self.name}, using 'standard'")
-        return PromptStrategyType.STANDARD
+        self.logger.warning(f"No template specified for strategy {self.name}, using 'single'")
+        return PromptStrategyType.SINGLE
 
     @abc.abstractmethod
     def _generate_prompt(

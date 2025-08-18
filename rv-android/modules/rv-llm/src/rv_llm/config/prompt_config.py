@@ -87,7 +87,7 @@ class PromptConfig(BaseValidatedModel):
 
     # Strategy Configuration
     strategy_type: str = Field(
-        default=PromptStrategyType.STANDARD,
+        default=PromptStrategyType.SINGLE,
         description="Type of prompt strategy for action generation"
     )
 

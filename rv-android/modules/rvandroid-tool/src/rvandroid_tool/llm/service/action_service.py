@@ -332,6 +332,7 @@ class LLMActionService:
         state[StateEntry.PACKAGE_NAME] = app_package
         state[StateEntry.ACTIVITY] = app_activity
         state[StateEntry.STATIC_DATA] = self.static_data
+        state[StateEntry.TOOL_CONFIG] = self.tool_config
 
     def _create_prompt_context(self, state: Dict[str, Any]) -> Dict[str, Any]:
         """Create context dictionary for prompt generation.

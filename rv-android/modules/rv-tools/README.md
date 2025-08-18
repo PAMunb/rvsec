@@ -144,7 +144,7 @@ rvandroid_config = ToolConfig(
     additional_params={
         "llm_type": "ollama",
         "llm_model": "llama3.2",
-        "prompt_strategy": "standard_modular"
+        "prompt_strategy": "single"
     }
 )
 rvandroid_tool = factory.create_tool(rvandroid_config)

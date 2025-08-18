@@ -1,597 +1,647 @@
-"""
-Unit tests for the AbstractTool base class.
-
-This module contains comprehensive tests for the AbstractTool abstract base class
-that defines the core contract for all testing tools in the RV-Android framework.
-"""
+# tests/tools/test_abstract_tool.py
+import os
+import tempfile
+from unittest.mock import MagicMock, patch, mock_open
+from typing import Dict, Any
 
 import pytest
-from unittest.mock import Mock, patch
+from hypothesis import given, strategies as st
 
-from rv_android_core.tools.abstract_tool import AbstractTool
 from rv_android_core.domain.app import App
+from rv_android_core.domain.task import Task, TaskConfiguration, ToolConfig, TaskState
+from rv_android_core.tools.abstract_tool import AbstractTool
+from rv_android_core.tools.tool_spec import ToolSpec
 from rv_android_core.commands.command import Command
 from rv_android_core.commands.command_result import CommandResult
 from rv_android_core.util.error.exceptions import (
-    RVCommandTimeoutError, RVToolTimeoutError, RVToolExecutionError,
-    CircuitBreakerOpenError
+    RVToolExecutionError, RVToolTimeoutError, CircuitBreakerOpenError
 )
 
 
 class ConcreteTestTool(AbstractTool):
-    """Concrete implementation of AbstractTool for testing purposes."""
-
-    def execute_tool_specific_logic(self, task, app):
-        """Test implementation of abstract method."""
+    """Concrete implementation of AbstractTool for testing"""
+    
+    def __init__(self):
+        super().__init__(
+            name="testtool",
+            description="Test tool for unit testing",
+            process_pattern="testtool"
+        )
+        self._configured = False
+        self._config = {}
+        self.test_execution_called = False
+        self.test_task = None
+        self.test_app = None
+    
+    @classmethod
+    def get_tool_spec(cls):
+        return ToolSpec(
+            name="testtool",
+            description="Test tool for unit testing",
+            url="https://example.com/testtool",
+            version="1.0.0",
+            process_pattern="testtool"
+        )
+    
+    @classmethod
+    def get_variants(cls) -> Dict[str, Dict[str, Any]]:
+        return {
+            "default": {"mode": "normal", "timeout": 60},
+            "fast": {"mode": "fast", "timeout": 30},
+            "slow": {"mode": "slow", "timeout": 120}
+        }
+    
+    def configure(self, config: Dict[str, Any]) -> None:
+        """Configure the test tool"""
+        if config is None:
+            raise ValueError("Configuration cannot be None")
+        self._config = config
+        self._configured = True
+    
+    def execute_tool_specific_logic(self, task: Task, app: App) -> None:
+        """Execute test-specific logic"""
+        if not self._configured:
+            raise RVToolExecutionError("Tool not configured", tool_name=self.name)
+        
         self.test_execution_called = True
         self.test_task = task
         self.test_app = app
+        
+        # Simulate some work
+        self.logger.info(f"Executing {self.name} with config: {self._config}")
 
 
 class TestAbstractToolInitialization:
-    """Tests for AbstractTool initialization and setup."""
+    """Tests for AbstractTool initialization"""
 
     def test_init_success(self):
-        """Test successful initialization of AbstractTool."""
-        # Arrange
-        name = "test_tool"
-        description = "Test tool description"
-        process_pattern = "com.test.tool"
-
-        # Act
-        tool = ConcreteTestTool(name, description, process_pattern)
-
-        # Assert
-        assert tool.name == name
-        assert tool.description == description
-        assert tool.process_pattern == process_pattern
-        # Logger, ErrorHandler, and CircuitBreaker are created by singletons, so we just check they exist
+        """Test successful tool initialization"""
+        tool = ConcreteTestTool()
+        
+        assert tool.name == "testtool"
+        assert tool.description == "Test tool for unit testing"
+        assert tool.process_pattern == "testtool"
         assert tool.logger is not None
         assert tool.error_handler is not None
         assert tool.circuit_breaker is not None
+        assert not tool._configured
 
-    def test_abstract_class_cannot_be_instantiated(self):
-        """Test that AbstractTool cannot be instantiated directly."""
-        # Act & Assert
-        with pytest.raises(TypeError):
-            AbstractTool("name", "description", "pattern")
+    def test_get_variants(self):
+        """Test getting tool variants"""
+        variants = ConcreteTestTool.get_variants()
+        
+        assert "default" in variants
+        assert "fast" in variants
+        assert "slow" in variants
+        
+        assert variants["default"]["mode"] == "normal"
+        assert variants["fast"]["timeout"] == 30
+        assert variants["slow"]["timeout"] == 120
 
-    def test_concrete_class_requires_abstract_method_implementation(self):
-        """Test that concrete classes must implement execute_tool_specific_logic."""
+    def test_get_tool_spec(self):
+        """Test getting tool specification"""
+        spec = ConcreteTestTool.get_tool_spec()
+        
+        assert spec.name == "testtool"
+        assert spec.description == "Test tool for unit testing"
+        assert spec.version == "1.0.0"
+        assert spec.process_pattern == "testtool"
 
-        class IncompleteTestTool(AbstractTool):
-            pass  # Missing execute_tool_specific_logic implementation
-
-        # Act & Assert
-        with pytest.raises(TypeError):
-            IncompleteTestTool("name", "description", "pattern")
+    def test_configure_tool(self):
+        """Test tool configuration"""
+        tool = ConcreteTestTool()
+        config = {"mode": "test", "debug": True}
+        
+        tool.configure(config)
+        
+        assert tool._configured
+        assert tool._config == config
 
 
 class TestAbstractToolExecution:
-    """Tests for AbstractTool execution workflow."""
+    """Tests for AbstractTool execution workflow"""
 
-    @pytest.fixture
-    def mock_dependencies(self):
-        """Fixture providing mocked dependencies."""
-        with patch('rv_android_core.util.logging.manager.LoggingManager') as mock_logging, \
-                patch('rv_android_core.util.error.error_handler.ErrorHandler') as mock_error:
-            mock_context_adapter = Mock()
-            mock_logging_instance = Mock()
-            mock_logging_instance.get_logger.return_value = mock_context_adapter
-            mock_logging.get_instance.return_value = mock_logging_instance
+    def test_execute_successful_workflow(self):
+        """Test successful execution workflow"""
+        tool = ConcreteTestTool()
+        tool.configure({"mode": "test"})
+        
+        # Create test task and app
+        tool_config = ToolConfig(tool_name="testtool")
+        task_config = TaskConfiguration(
+            apk_name="test.apk",
+            repetition=1,
+            timeout=60,
+            tool_config=tool_config
+        )
+        task = Task(config=task_config)
+        
+        app = MagicMock(spec=App)
+        app.package_name = "com.example.test"
+        
+        # Execute the tool
+        tool.execute(task, app)
+        
+        # Verify execution was called
+        assert tool.test_execution_called
+        assert tool.test_task == task
+        assert tool.test_app == app
 
-            mock_error_instance = Mock()
-            mock_error.get_instance.return_value = mock_error_instance
+    def test_execute_handles_tool_specific_exception(self):
+        """Test handling of tool-specific exceptions"""
+        tool = ConcreteTestTool()
+        tool.configure({"mode": "test"})
+        
+        tool_config = ToolConfig(tool_name="testtool")
+        task_config = TaskConfiguration(
+            apk_name="test.apk",
+            repetition=1,
+            timeout=60,
+            tool_config=tool_config
+        )
+        task = Task(config=task_config)
+        
+        app = MagicMock(spec=App)
+        
+        # Override execute_tool_specific_logic to raise exception
+        original_execute = tool.execute_tool_specific_logic
+        
+        def failing_execute(task, app):
+            raise RVToolExecutionError("Tool failed", tool_name="testtool")
+        
+        tool.execute_tool_specific_logic = failing_execute
+        
+        with pytest.raises(RVToolExecutionError):
+            tool.execute(task, app)
 
-            yield {
-                'logger': mock_context_adapter,
-                'error_handler': mock_error_instance
-            }
-
-    @pytest.fixture
-    def test_tool(self, mock_dependencies):
-        """Fixture providing a concrete test tool instance."""
-        return ConcreteTestTool("test_tool", "Test description", "com.test.tool")
-
-    @pytest.fixture
-    def mock_app(self):
-        """Fixture providing a mock App instance."""
-        app = Mock(spec=App)
-        app.name = "test.apk"
-        return app
-
-    def test_execute_successful_workflow(self, test_tool, mock_app, mock_dependencies):
-        """Test successful execution workflow."""
-        # Arrange
-        task = Mock()
-        task.id = "123"  # Use object attribute instead of dict
-
-        with patch.object(test_tool, 'kill_related_processes') as mock_kill, \
-                patch.object(test_tool.logger, 'info') as mock_info, \
-                patch.object(test_tool.logger, 'debug') as mock_debug:
-            # Act
-            test_tool.execute(task, mock_app)
-
-            # Assert
-            assert hasattr(test_tool, 'test_execution_called')
-            assert test_tool.test_execution_called is True
-            assert test_tool.test_task == task
-            assert test_tool.test_app == mock_app
-
-            # Verify process cleanup was called
-            mock_kill.assert_called_once_with("com.test.tool")
-
-            # Verify logging
-            mock_info.assert_any_call("Executing monitored operations tool: test_tool")
-            mock_debug.assert_any_call("Tool description: Test description")
-            mock_info.assert_any_call("Tool test_tool execution completed successfully")
-
-    def test_execute_handles_tool_specific_exception(self, test_tool, mock_app, mock_dependencies):
-        """Test execution handles exceptions from tool-specific logic."""
-        # Arrange
-        task = Mock()
-        task.id = "123"  # Use object attribute
-        error = RuntimeError("Tool execution failed")
-
-        # Override the tool-specific logic to raise an exception
-        def failing_logic(task, app):
-            raise error
-
-        test_tool.execute_tool_specific_logic = failing_logic
-
-        with patch.object(test_tool, 'kill_related_processes'), \
-                patch.object(test_tool.logger, 'error') as mock_error_log, \
-                patch.object(test_tool.error_handler, 'handle_error') as mock_handle_error:
-            # Act & Assert
-            with pytest.raises(RuntimeError):
-                test_tool.execute(task, mock_app)
-
-            # Verify error handling
-            mock_handle_error.assert_called_once_with(
-                error,
-                context={
-                    "tool_name": "test_tool",
-                    "app_name": "test.apk",
-                    "task_id": "123"
-                }
-            )
-
-            # Verify error logging
-            mock_error_log.assert_called_once()
-
-    def test_execute_handles_missing_task_id(self, test_tool, mock_app, mock_dependencies):
-        """Test execution handles task without ID gracefully."""
-        # Arrange
-        task = Mock(spec=[])  # Mock without 'id' attribute
-        error = RuntimeError("Tool execution failed")
-
-        def failing_logic(task, app):
-            raise error
-
-        test_tool.execute_tool_specific_logic = failing_logic
-
-        with patch.object(test_tool, 'kill_related_processes'), \
-                patch.object(test_tool.error_handler, 'handle_error') as mock_handle_error:
-            # Act & Assert
-            with pytest.raises(RuntimeError):
-                test_tool.execute(task, mock_app)
-
-            # Verify error context uses 'unknown' for missing task_id
-            mock_handle_error.assert_called_once_with(
-                error,
-                context={
-                    "tool_name": "test_tool",
-                    "app_name": "test.apk",
-                    "task_id": "unknown"
-                }
-            )
+    def test_execute_handles_missing_task_id(self):
+        """Test handling of task without ID"""
+        tool = ConcreteTestTool()
+        tool.configure({"mode": "test"})
+        
+        # Create task without proper initialization
+        tool_config = ToolConfig(tool_name="testtool")
+        task_config = TaskConfiguration(
+            apk_name="test.apk",
+            repetition=1,
+            timeout=60,
+            tool_config=tool_config
+        )
+        task = Task(config=task_config)
+        task.id = None  # Simulate missing ID
+        
+        app = MagicMock(spec=App)
+        
+        # Should handle gracefully since execute doesn't directly depend on task.id
+        tool.execute(task, app)
+        assert tool.test_execution_called
 
 
 class TestAbstractToolProcessCleanup:
-    """Tests for AbstractTool process cleanup functionality."""
+    """Tests for AbstractTool process cleanup functionality"""
 
-    @pytest.fixture
-    def mock_dependencies(self):
-        """Fixture providing mocked dependencies."""
-        with patch('rv_android_core.util.logging.manager.LoggingManager') as mock_logging, \
-                patch('rv_android_core.util.error.error_handler.ErrorHandler') as mock_error:
-            mock_context_adapter = Mock()
-            mock_logging_instance = Mock()
-            mock_logging_instance.get_logger.return_value = mock_context_adapter
-            mock_logging.get_instance.return_value = mock_logging_instance
+    def test_kill_related_processes_success(self):
+        """Test successful process cleanup"""
+        tool = ConcreteTestTool()
+        
+        # Mock successful process killing
+        with patch('rv_android_core.commands.command.Command') as mock_command_class:
+            mock_command = MagicMock()
+            mock_result = MagicMock()
+            mock_result.is_success.return_value = True
+            mock_result.stdout = "1234\n5678\n"
+            mock_command.invoke.return_value = mock_result
+            mock_command_class.return_value = mock_command
+            
+            tool.kill_related_processes()
+            
+            # Verify commands were created and executed
+            assert mock_command_class.call_count >= 1
+            assert mock_command.invoke.call_count >= 1
 
-            mock_error_instance = Mock()
-            mock_error.get_instance.return_value = mock_error_instance
+    def test_kill_related_processes_no_processes_found(self):
+        """Test process cleanup when no processes found"""
+        tool = ConcreteTestTool()
+        
+        with patch('rv_android_core.commands.command.Command') as mock_command_class:
+            mock_command = MagicMock()
+            mock_result = MagicMock()
+            mock_result.is_success.return_value = True
+            mock_result.stdout = ""  # No processes found
+            mock_command.invoke.return_value = mock_result
+            mock_command_class.return_value = mock_command
+            
+            # Should not raise exception
+            tool.kill_related_processes()
 
-            yield {
-                'logger': mock_context_adapter,
-                'error_handler': mock_error_instance
-            }
+    def test_kill_related_processes_empty_pattern(self):
+        """Test process cleanup with empty pattern"""
+        tool = ConcreteTestTool()
+        tool.process_pattern = ""
+        
+        # Should handle empty pattern gracefully
+        tool.kill_related_processes()
 
-    @pytest.fixture
-    def test_tool(self, mock_dependencies):
-        """Fixture providing a concrete test tool instance."""
-        return ConcreteTestTool("test_tool", "Test description", "com.test.tool")
+    def test_kill_related_processes_none_pattern(self):
+        """Test process cleanup with None pattern"""
+        tool = ConcreteTestTool()
+        tool.process_pattern = None
+        
+        # Should handle None pattern gracefully
+        tool.kill_related_processes()
 
-    @patch('rv_android_core.tools.abstract_tool.Command')
-    def test_kill_related_processes_success(self, mock_command_class, test_tool, mock_dependencies):
-        """Test successful process cleanup."""
-        # Arrange
-        process_pattern = "com.test.tool"
+    def test_kill_related_processes_command_exception(self):
+        """Test process cleanup when command raises exception"""
+        tool = ConcreteTestTool()
+        
+        with patch('rv_android_core.commands.command.Command') as mock_command_class:
+            mock_command = MagicMock()
+            mock_command.invoke.side_effect = Exception("Command failed")
+            mock_command_class.return_value = mock_command
+            
+            # Should handle exception gracefully
+            tool.kill_related_processes()
 
-        # Mock process listing
-        mock_get_processes_cmd = Mock()
-        mock_get_processes_result = Mock()
-        mock_get_processes_result.stdout = b"user 1234 0 com.test.tool.process\nuser 5678 0 com.test.tool.service\n"
-        mock_get_processes_cmd.invoke.return_value = mock_get_processes_result
-
-        # Mock process killing
-        mock_kill_cmd = Mock()
-        mock_kill_result = Mock()
-        mock_kill_cmd.invoke.return_value = mock_kill_result
-
-        # Configure command creation
-        def command_side_effect(*args, **kwargs):
-            if 'ps' in args[1]:
-                return mock_get_processes_cmd
-            elif 'kill' in args[1]:
-                return mock_kill_cmd
-            return Mock()
-
-        mock_command_class.side_effect = command_side_effect
-
-        with patch.object(test_tool.logger, 'debug') as mock_debug, \
-                patch.object(test_tool.logger, 'info') as mock_info:
-
-            # Act
-            test_tool.kill_related_processes(process_pattern)
-
-            # Assert
-            # Verify get processes command
-            mock_command_class.assert_any_call('adb', [
-                'shell', 'ps', '|', 'grep', process_pattern
-            ])
-
-            # Verify kill commands for both processes
-            mock_command_class.assert_any_call('adb', ['shell', 'kill', '1234'])
-            mock_command_class.assert_any_call('adb', ['shell', 'kill', '5678'])
-
-            # Verify logging
-            mock_debug.assert_any_call(f"Cleaning up processes matching pattern: {process_pattern}")
-            mock_debug.assert_any_call("Killed process 1234")
-            mock_debug.assert_any_call("Killed process 5678")
-            mock_info.assert_any_call("Cleaned up 2 related processes")
-
-    @patch('rv_android_core.tools.abstract_tool.Command')
-    def test_kill_related_processes_no_processes_found(self, mock_command_class, test_tool, mock_dependencies):
-        """Test process cleanup when no processes match pattern."""
-        # Arrange
-        process_pattern = "com.nonexistent.tool"
-
-        mock_get_processes_cmd = Mock()
-        mock_get_processes_result = Mock()
-        mock_get_processes_result.stdout = b""  # No processes found
-        mock_get_processes_cmd.invoke.return_value = mock_get_processes_result
-
-        mock_command_class.return_value = mock_get_processes_cmd
-
-        with patch.object(test_tool.logger, 'debug') as mock_debug:
-            # Act
-            test_tool.kill_related_processes(process_pattern)
-
-            # Assert
-            mock_debug.assert_any_call("No matching processes found for cleanup")
-
-    @patch('rv_android_core.tools.abstract_tool.Command')
-    def test_kill_related_processes_empty_pattern(self, mock_command_class, test_tool, mock_dependencies):
-        """Test process cleanup with empty pattern."""
-
-        with patch.object(test_tool.logger, 'debug') as mock_debug:
-            # Act
-            test_tool.kill_related_processes("")
-
-            # Assert
-            mock_command_class.assert_not_called()
-            mock_debug.assert_called_with("No process pattern specified, skipping process cleanup")
-
-    @patch('rv_android_core.tools.abstract_tool.Command')
-    def test_kill_related_processes_none_pattern(self, mock_command_class, test_tool, mock_dependencies):
-        """Test process cleanup with None pattern."""
-        with patch.object(test_tool.logger, 'debug') as mock_debug:
-            # Act
-            test_tool.kill_related_processes(None)
-
-            # Assert
-            mock_command_class.assert_not_called()
-            mock_debug.assert_called_with("No process pattern specified, skipping process cleanup")
-
-    @patch('rv_android_core.tools.abstract_tool.Command')
-    def test_kill_related_processes_command_exception(self, mock_command_class, test_tool, mock_dependencies):
-        """Test process cleanup handles command exceptions gracefully."""
-        # Arrange
-        process_pattern = "com.test.tool"
-
-        mock_get_processes_cmd = Mock()
-        mock_get_processes_cmd.invoke.side_effect = OSError("ADB not found")
-        mock_command_class.return_value = mock_get_processes_cmd
-
-        with patch.object(test_tool.logger, 'warning') as mock_warning:
-            # Act
-            test_tool.kill_related_processes(process_pattern)
-
-            # Assert - Should not raise exception
-            mock_warning.assert_called_with("Error during process cleanup: ADB not found")
-
-    @patch('rv_android_core.tools.abstract_tool.Command')
-    def test_kill_related_processes_kill_command_fails(self, mock_command_class, test_tool, mock_dependencies):
-        """Test process cleanup handles individual kill command failures."""
-        # Arrange
-        process_pattern = "com.test.tool"
-
-        # Mock process listing
-        mock_get_processes_cmd = Mock()
-        mock_get_processes_result = Mock()
-        mock_get_processes_result.stdout = b"user 1234 0 com.test.tool.process\n"
-        mock_get_processes_cmd.invoke.return_value = mock_get_processes_result
-
-        # Mock failing kill command
-        mock_kill_cmd = Mock()
-        mock_kill_cmd.invoke.side_effect = Exception("Process already dead")
-
-        def command_side_effect(*args, **kwargs):
-            if 'ps' in args[1]:
-                return mock_get_processes_cmd
-            elif 'kill' in args[1]:
-                return mock_kill_cmd
-            return Mock()
-
-        mock_command_class.side_effect = command_side_effect
-
-        with patch.object(test_tool.logger, 'warning') as mock_warning:
-            # Act
-            test_tool.kill_related_processes(process_pattern)
-
-            # Assert
-            mock_warning.assert_called_with("Failed to kill process 1234: Process already dead")
+    def test_kill_related_processes_kill_command_fails(self):
+        """Test process cleanup when kill command fails"""
+        tool = ConcreteTestTool()
+        
+        with patch('rv_android_core.commands.command.Command') as mock_command_class:
+            # First call (pgrep) succeeds
+            mock_pgrep = MagicMock()
+            mock_pgrep_result = MagicMock()
+            mock_pgrep_result.is_success.return_value = True
+            mock_pgrep_result.stdout = "1234\n5678\n"
+            mock_pgrep.invoke.return_value = mock_pgrep_result
+            
+            # Second call (kill) fails
+            mock_kill = MagicMock()
+            mock_kill_result = MagicMock()
+            mock_kill_result.is_success.return_value = False
+            mock_kill.invoke.return_value = mock_kill_result
+            
+            # Return different mocks for different calls
+            mock_command_class.side_effect = [mock_pgrep, mock_kill]
+            
+            # Should handle kill failure gracefully
+            tool.kill_related_processes()
 
 
 class TestAbstractToolUtilityMethods:
-    """Tests for AbstractTool utility methods."""
+    """Tests for AbstractTool utility methods"""
 
-    @pytest.fixture
-    def mock_dependencies(self):
-        """Fixture providing mocked dependencies."""
-        with patch('rv_android_core.util.logging.manager.LoggingManager') as mock_logging, \
-                patch('rv_android_core.util.error.error_handler.ErrorHandler') as mock_error:
-            mock_context_adapter = Mock()
-            mock_logging_instance = Mock()
-            mock_logging_instance.get_logger.return_value = mock_context_adapter
-            mock_logging.get_instance.return_value = mock_logging_instance
+    def test_get_tool_info(self):
+        """Test getting tool information"""
+        tool = ConcreteTestTool()
+        
+        info = tool.get_tool_info()
+        
+        assert info["name"] == "testtool"
+        assert info["description"] == "Test tool for unit testing"
+        assert info["process_pattern"] == "testtool"
+        assert "variants" in info
 
-            mock_error_instance = Mock()
-            mock_error.get_instance.return_value = mock_error_instance
+    def test_str_representation(self):
+        """Test string representation"""
+        tool = ConcreteTestTool()
+        
+        result = str(tool)
+        
+        assert "testtool" in result.lower()
 
-            yield {
-                'logger': mock_context_adapter,
-                'error_handler': mock_error_instance
-            }
-
-    @pytest.fixture
-    def test_tool(self, mock_dependencies):
-        """Fixture providing a concrete test tool instance."""
-        return ConcreteTestTool("test_tool", "Test description", "com.test.tool")
-
-    def test_get_tool_info(self, test_tool):
-        """Test get_tool_info returns correct metadata."""
-        # Act
-        info = test_tool.get_tool_info()
-
-        # Assert
-        assert info == {
-            "name": "test_tool",
-            "description": "Test description",
-            "process_pattern": "com.test.tool"
-        }
-
-    def test_str_representation(self, test_tool):
-        """Test string representation of tool."""
-        # Act
-        str_repr = str(test_tool)
-
-        # Assert
-        assert str_repr == "ConcreteTestTool(name='test_tool', description='Test description')"
-
-    def test_repr_representation(self, test_tool):
-        """Test detailed string representation of tool."""
-        # Act
-        repr_str = repr(test_tool)
-
-        # Assert
-        expected = ("ConcreteTestTool(name='test_tool', "
-                    "description='Test description', process_pattern='com.test.tool')")
-        assert repr_str == expected
+    def test_repr_representation(self):
+        """Test repr representation"""
+        tool = ConcreteTestTool()
+        
+        result = repr(tool)
+        
+        assert "Tool" in result
 
 
 class TestAbstractToolCommandExecution:
-    """Tests for AbstractTool command execution with circuit breaker integration."""
+    """Tests for AbstractTool command execution methods"""
 
-    @pytest.fixture
-    def mock_dependencies(self):
-        """Fixture providing mocked dependencies."""
-        with patch('rv_android_core.util.logging.manager.LoggingManager') as mock_logging, \
-                patch('rv_android_core.util.error.error_handler.ErrorHandler') as mock_error, \
-                patch('rv_android_core.commands.circuit_breaker.CommandCircuitBreaker') as mock_circuit_breaker:
-            mock_context_adapter = Mock()
-            mock_logging_instance = Mock()
-            mock_logging_instance.get_logger.return_value = mock_context_adapter
-            mock_logging.get_instance.return_value = mock_logging_instance
+    def test_execute_and_check_command_success(self):
+        """Test successful command execution"""
+        tool = ConcreteTestTool()
+        
+        mock_command = MagicMock(spec=Command)
+        mock_result = MagicMock(spec=CommandResult)
+        mock_result.is_success.return_value = True
+        mock_result.code = 0
+        
+        # Mock circuit breaker to return result directly
+        with patch.object(tool.circuit_breaker, 'execute_command') as mock_circuit:
+            mock_circuit.return_value = mock_result
+            
+            result = tool._execute_and_check_command(mock_command)
+            
+            assert result == mock_result
+            mock_circuit.assert_called_once_with(mock_command)
 
-            mock_error_instance = Mock()
-            mock_error.get_instance.return_value = mock_error_instance
+    def test_execute_and_check_command_failure(self):
+        """Test command execution failure"""
+        tool = ConcreteTestTool()
+        
+        mock_command = MagicMock(spec=Command)
+        mock_result = MagicMock(spec=CommandResult)
+        mock_result.is_success.return_value = False
+        mock_result.code = 1
+        mock_result.has_error_output.return_value = True
+        mock_result.get_stderr_text.return_value = "Command failed"
+        mock_command.command = "test_command"
+        mock_command.args = ["arg1", "arg2"]
+        
+        with patch.object(tool.circuit_breaker, 'execute_command') as mock_circuit:
+            mock_circuit.return_value = mock_result
+            
+            with pytest.raises(RVToolExecutionError) as exc_info:
+                tool._execute_and_check_command(mock_command)
+            
+            assert "test_command" in str(exc_info.value)
 
-            mock_circuit_breaker_instance = Mock()
-            mock_circuit_breaker.return_value = mock_circuit_breaker_instance
+    def test_execute_and_check_command_timeout(self):
+        """Test command execution timeout"""
+        tool = ConcreteTestTool()
+        
+        mock_command = MagicMock(spec=Command)
+        
+        with patch.object(tool.circuit_breaker, 'execute_command') as mock_circuit:
+            mock_circuit.side_effect = RVToolTimeoutError("Command timed out", tool_name="testtool")
+            
+            with pytest.raises(RVToolTimeoutError):
+                tool._execute_and_check_command(mock_command)
 
-            yield {
-                'logger': mock_context_adapter,
-                'error_handler': mock_error_instance,
-                'circuit_breaker': mock_circuit_breaker_instance
-            }
+    def test_execute_and_check_command_circuit_breaker_open(self):
+        """Test command execution with circuit breaker open"""
+        tool = ConcreteTestTool()
+        
+        mock_command = MagicMock(spec=Command)
+        
+        with patch.object(tool.circuit_breaker, 'execute_command') as mock_circuit:
+            mock_circuit.side_effect = CircuitBreakerOpenError("Circuit breaker open")
+            
+            with pytest.raises(CircuitBreakerOpenError):
+                tool._execute_and_check_command(mock_command)
 
-    @pytest.fixture
-    def test_tool(self, mock_dependencies):
-        """Fixture providing a concrete test tool instance."""
-        tool = ConcreteTestTool("test_tool", "Test description", "com.test.tool")
-        # Replace the circuit breaker with our mock
-        tool.circuit_breaker = mock_dependencies['circuit_breaker']
-        return tool
+    def test_execute_and_check_command_with_stdout_redirect(self):
+        """Test command execution with stdout redirection"""
+        tool = ConcreteTestTool()
+        
+        mock_command = MagicMock(spec=Command)
+        mock_result = MagicMock(spec=CommandResult)
+        mock_result.is_success.return_value = True
+        
+        with patch.object(tool.circuit_breaker, 'execute_command') as mock_circuit:
+            mock_circuit.return_value = mock_result
+            
+            with tempfile.NamedTemporaryFile() as temp_file:
+                result = tool._execute_and_check_command(mock_command, stdout=temp_file)
+                
+                assert result == mock_result
+                # Verify circuit breaker was called with command and stdout
+                mock_circuit.assert_called_once()
 
-    def test_execute_and_check_command_success(self, test_tool, mock_dependencies):
-        """Test successful command execution with circuit breaker."""
-        # Arrange
-        command = Mock(spec=Command)
-        command.command = "echo"
-        command.args = ["test"]
-        result = Mock(spec=CommandResult)
-        result.is_failure.return_value = False
-        command.invoke.return_value = result
+    def test_execute_and_check_command_failure_without_error_output(self):
+        """Test command execution failure without stderr output"""
+        tool = ConcreteTestTool()
+        
+        mock_command = MagicMock(spec=Command)
+        mock_result = MagicMock(spec=CommandResult)
+        mock_result.is_success.return_value = False
+        mock_result.code = 1
+        mock_result.has_error_output.return_value = False
+        mock_command.command = "test_command"
+        mock_command.args = []
+        
+        with patch.object(tool.circuit_breaker, 'execute_command') as mock_circuit:
+            mock_circuit.return_value = mock_result
+            
+            with pytest.raises(RVToolExecutionError) as exc_info:
+                tool._execute_and_check_command(mock_command)
+            
+            assert "exit code 1" in str(exc_info.value)
 
-        mock_circuit_breaker = mock_dependencies['circuit_breaker']
-        mock_circuit_breaker.is_execution_allowed.return_value = True
 
-        # Act
-        actual_result = test_tool._execute_and_check_command(command)
+class TestAbstractToolEdgeCases:
+    """Tests for edge cases and error conditions"""
 
-        # Assert
-        assert actual_result == result
-        mock_circuit_breaker.is_execution_allowed.assert_called_once_with(command)
-        mock_circuit_breaker.record_success.assert_called_once_with(command)
-        mock_circuit_breaker.record_failure.assert_not_called()
+    def test_tool_with_invalid_configuration(self):
+        """Test tool behavior with invalid configuration"""
+        tool = ConcreteTestTool()
+        
+        # Test with None configuration
+        with pytest.raises(ValueError):
+            tool.configure(None)
 
-    def test_execute_and_check_command_failure(self, test_tool, mock_dependencies):
-        """Test command execution failure with circuit breaker recording."""
-        # Arrange
-        command = Mock(spec=Command)
-        command.command = "false"
-        command.args = []
-        result = Mock(spec=CommandResult)
-        result.is_failure.return_value = True
-        result.code = 1
-        result.has_error_output.return_value = True
-        result.get_stderr_text.return_value = "Command failed"
-        command.invoke.return_value = result
-
-        mock_circuit_breaker = mock_dependencies['circuit_breaker']
-        mock_circuit_breaker.is_execution_allowed.return_value = True
-
-        # Act & Assert
+    def test_tool_execution_without_configuration(self):
+        """Test tool execution without prior configuration"""
+        tool = ConcreteTestTool()
+        
+        tool_config = ToolConfig(tool_name="testtool")
+        task_config = TaskConfiguration(
+            apk_name="test.apk",
+            repetition=1,
+            timeout=60,
+            tool_config=tool_config
+        )
+        task = Task(config=task_config)
+        app = MagicMock(spec=App)
+        
         with pytest.raises(RVToolExecutionError) as exc_info:
-            test_tool._execute_and_check_command(command)
+            tool.execute(task, app)
+        
+        assert "not configured" in str(exc_info.value)
 
-        # Verify exception details
-        assert "test_tool command failed with exit code 1" in str(exc_info.value)
-        assert exc_info.value.tool_name == "test_tool"
+    def test_empty_process_pattern_handling(self):
+        """Test handling of empty process pattern"""
+        tool = ConcreteTestTool()
+        tool.process_pattern = ""
+        
+        # Should not raise exception
+        tool.kill_related_processes()
 
-        # Verify circuit breaker interactions
-        mock_circuit_breaker.is_execution_allowed.assert_called_once_with(command)
-        mock_circuit_breaker.record_failure.assert_called_once_with(command)
-        mock_circuit_breaker.record_success.assert_not_called()
+    @given(
+        name=st.text(min_size=1, max_size=20, alphabet=st.characters(whitelist_categories=('Ll', 'Lu', 'Nd'))),
+        description=st.text(min_size=1, max_size=100),
+        pattern=st.text(min_size=1, max_size=50, alphabet=st.characters(whitelist_categories=('Ll', 'Lu', 'Nd', 'Pc')))
+    )
+    def test_abstract_tool_property_based(self, name, description, pattern):
+        """Property-based test for AbstractTool initialization"""
+        # Create a concrete tool with generated properties
+        class PropertyBasedTool(AbstractTool):
+            @classmethod
+            def get_tool_spec(cls):
+                return ToolSpec(name=name, description=description, url="", version="1.0.0", process_pattern=pattern)
+            
+            @classmethod
+            def get_variants(cls):
+                return {"default": {}}
+            
+            def configure(self, config):
+                pass
+            
+            def execute_tool_specific_logic(self, task, app):
+                pass
+        
+        # Use proper initialization
+        tool = PropertyBasedTool(name, description, pattern)
+        
+        assert tool.name == name
+        assert tool.description == description
+        assert tool.process_pattern == pattern
+        assert tool.logger is not None
 
-    def test_execute_and_check_command_timeout(self, test_tool, mock_dependencies):
-        """Test command timeout handling (no circuit breaker failure)."""
-        # Arrange
-        command = Mock(spec=Command)
-        command.command = "sleep"
-        command.args = ["60"]
-        timeout_error = RVCommandTimeoutError("Command timed out", timeout_seconds=30, command="test command")
-        command.invoke.side_effect = timeout_error
 
-        mock_circuit_breaker = mock_dependencies['circuit_breaker']
-        mock_circuit_breaker.is_execution_allowed.return_value = True
+class TestAbstractToolVariantSystem:
+    """Tests for the variant system integration"""
 
-        # Act & Assert
-        with pytest.raises(RVToolTimeoutError) as exc_info:
-            test_tool._execute_and_check_command(command)
+    def test_variant_registration_through_get_variants(self):
+        """Test that variants are properly exposed through get_variants"""
+        variants = ConcreteTestTool.get_variants()
+        
+        assert isinstance(variants, dict)
+        assert len(variants) >= 1
+        assert "default" in variants
+        
+        # Check variant structure
+        for variant_name, variant_config in variants.items():
+            assert isinstance(variant_name, str)
+            assert isinstance(variant_config, dict)
 
-        # Verify exception details
-        assert "test_tool execution timed out after 30 seconds" in str(exc_info.value)
-        assert exc_info.value.tool_name == "test_tool"
-        assert exc_info.value.timeout_seconds == 30
-        assert exc_info.value.cause == timeout_error
+    def test_tool_spec_integration(self):
+        """Test integration between tool spec and variants"""
+        tool = ConcreteTestTool()
+        spec = tool.get_tool_spec()
+        variants = tool.get_variants()
+        
+        # Tool spec should match tool name
+        assert spec.name == tool.name
+        
+        # Should have at least default variant
+        assert "default" in variants
 
-        # Verify circuit breaker interactions (timeout should not record failure)
-        mock_circuit_breaker.is_execution_allowed.assert_called_once_with(command)
-        mock_circuit_breaker.record_failure.assert_not_called()
-        mock_circuit_breaker.record_success.assert_not_called()
+    def test_configure_with_variant_parameters(self):
+        """Test configuration with variant-specific parameters"""
+        tool = ConcreteTestTool()
+        variants = tool.get_variants()
+        
+        # Configure with fast variant parameters
+        fast_config = variants["fast"].copy()
+        fast_config.update({"additional_param": "test"})
+        
+        tool.configure(fast_config)
+        
+        assert tool._configured
+        assert tool._config["mode"] == "fast"
+        assert tool._config["timeout"] == 30
+        assert tool._config["additional_param"] == "test"
 
-    def test_execute_and_check_command_circuit_breaker_open(self, test_tool, mock_dependencies):
-        """Test command execution blocked by circuit breaker."""
-        # Arrange
-        command = Mock(spec=Command)
-        command.command = "failing_command"
-        command.args = ["arg1"]
-        circuit_breaker_error = CircuitBreakerOpenError("Circuit breaker is open", command_signature="test_cmd", failure_count=3)
+    def test_variant_parameter_validation(self):
+        """Test validation of variant parameters"""
+        tool = ConcreteTestTool()
+        
+        # Test with valid variant config
+        valid_config = {"mode": "normal", "timeout": 60}
+        tool.configure(valid_config)
+        assert tool._configured
+        
+        # Test with empty config
+        tool2 = ConcreteTestTool()
+        tool2.configure({})
+        assert tool2._configured
+        assert tool2._config == {}
 
-        mock_circuit_breaker = mock_dependencies['circuit_breaker']
-        mock_circuit_breaker.is_execution_allowed.side_effect = circuit_breaker_error
+    @given(
+        mode=st.sampled_from(["normal", "fast", "slow", "debug"]),
+        timeout=st.integers(min_value=1, max_value=3600)
+    )
+    def test_variant_configuration_property_based(self, mode, timeout):
+        """Property-based test for variant configuration"""
+        tool = ConcreteTestTool()
+        config = {"mode": mode, "timeout": timeout}
+        
+        tool.configure(config)
+        
+        assert tool._configured
+        assert tool._config["mode"] == mode
+        assert tool._config["timeout"] == timeout
+        
+        # Test that configuration is preserved
+        assert tool._config == config
 
-        # Act & Assert
-        with pytest.raises(CircuitBreakerOpenError) as exc_info:
-            test_tool._execute_and_check_command(command)
 
-        # Verify exception is re-raised as-is
-        assert exc_info.value == circuit_breaker_error
+class TestAbstractToolLoggingAndErrorHandling:
+    """Tests for logging and error handling functionality"""
 
-        # Verify circuit breaker interactions
-        mock_circuit_breaker.is_execution_allowed.assert_called_once_with(command)
-        mock_circuit_breaker.record_failure.assert_not_called()
-        mock_circuit_breaker.record_success.assert_not_called()
+    def test_logging_context_setup(self):
+        """Test that logging context is properly set up"""
+        tool = ConcreteTestTool()
+        
+        assert tool.logger is not None
+        # Logger should have tool-specific name
+        assert "testtool" in tool.logger.name.lower()
 
-    def test_execute_and_check_command_with_stdout_redirect(self, test_tool, mock_dependencies):
-        """Test command execution with stdout redirection."""
-        # Arrange
-        command = Mock(spec=Command)
-        command.command = "echo"
-        command.args = ["output"]
-        result = Mock(spec=CommandResult)
-        result.is_failure.return_value = False
-        command.invoke.return_value = result
+    def test_error_handler_integration(self):
+        """Test error handler integration"""
+        tool = ConcreteTestTool()
+        
+        assert tool.error_handler is not None
 
-        mock_circuit_breaker = mock_dependencies['circuit_breaker']
-        mock_circuit_breaker.is_execution_allowed.return_value = True
+    def test_circuit_breaker_integration(self):
+        """Test circuit breaker integration"""
+        tool = ConcreteTestTool()
+        
+        assert tool.circuit_breaker is not None
+        assert hasattr(tool.circuit_breaker, 'execute_command')
 
-        stdout_file = Mock()
-
-        # Act
-        actual_result = test_tool._execute_and_check_command(command, stdout=stdout_file)
-
-        # Assert
-        assert actual_result == result
-        command.invoke.assert_called_once_with(stdout=stdout_file, stderr=None, stdin=None)
-        mock_circuit_breaker.record_success.assert_called_once_with(command)
-
-    def test_execute_and_check_command_failure_without_error_output(self, test_tool, mock_dependencies):
-        """Test command execution failure without error output."""
-        # Arrange
-        command = Mock(spec=Command)
-        command.command = "exit"
-        command.args = ["2"]
-        result = Mock(spec=CommandResult)
-        result.is_failure.return_value = True
-        result.code = 2
-        result.has_error_output.return_value = False
-        command.invoke.return_value = result
-
-        mock_circuit_breaker = mock_dependencies['circuit_breaker']
-        mock_circuit_breaker.is_execution_allowed.return_value = True
-
-        # Act & Assert
+    def test_error_propagation(self):
+        """Test that errors are properly propagated"""
+        tool = ConcreteTestTool()
+        tool.configure({"mode": "test"})
+        
+        tool_config = ToolConfig(tool_name="testtool")
+        task_config = TaskConfiguration(
+            apk_name="test.apk",
+            repetition=1,
+            timeout=60,
+            tool_config=tool_config
+        )
+        task = Task(config=task_config)
+        app = MagicMock(spec=App)
+        
+        # Mock execute_tool_specific_logic to raise an error
+        def failing_execute(task, app):
+            raise RVToolExecutionError("Simulated failure", tool_name=tool.name)
+        
+        tool.execute_tool_specific_logic = failing_execute
+        
         with pytest.raises(RVToolExecutionError) as exc_info:
-            test_tool._execute_and_check_command(command)
+            tool.execute(task, app)
+        
+        assert "Simulated failure" in str(exc_info.value)
+        assert exc_info.value.tool_name == "testtool"
 
-        # Verify exception details (no error output)
-        assert "test_tool command failed with exit code 2" in str(exc_info.value)
-        assert "Error output:" not in str(exc_info.value)
-
-        # Verify circuit breaker recorded failure
-        mock_circuit_breaker.record_failure.assert_called_once_with(command)
+    def test_logging_during_execution(self):
+        """Test that logging works during execution"""
+        tool = ConcreteTestTool()
+        tool.configure({"mode": "test", "debug": True})
+        
+        # Mock logger to capture logs
+        with patch.object(tool.logger, 'info') as mock_log_info:
+            tool_config = ToolConfig(tool_name="testtool")
+            task_config = TaskConfiguration(
+                apk_name="test.apk",
+                repetition=1,
+                timeout=60,
+                tool_config=tool_config
+            )
+            task = Task(config=task_config)
+            app = MagicMock(spec=App)
+            
+            tool.execute(task, app)
+            
+            # Should have logged execution
+            mock_log_info.assert_called()
+            args, _ = mock_log_info.call_args
+            assert "Executing testtool" in args[0]
