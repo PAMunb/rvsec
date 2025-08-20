@@ -14,7 +14,7 @@ class TestPromptConfigInitialization:
     def test_default_initialization(self):
         """Test that PromptConfig can be initialized with default values."""
         config = PromptConfig()
-        assert config.strategy_type == PromptStrategyType.STANDARD
+        assert config.strategy_type == PromptStrategyType.SINGLE
         assert config.parser_type == ScreenParserType.DROIDBOT
         assert config.visitor_type == VisitorType.DETAILED
         assert config.template_paths == {}
@@ -72,7 +72,7 @@ class TestFromToolConfig:
     def test_from_tool_config_extraction(self):
         """Test that parameters are correctly extracted from a tool_config dict."""
         tool_config = {
-            "strategy_type": PromptStrategyType.BATCH_ACTION,
+            "strategy_type": PromptStrategyType.BATCH,
             "parser_type": ScreenParserType.UIAUTOMATOR,
             "visitor_type": VisitorType.BASIC,
             "template_paths": {"system": "path/to/system.xml"},
@@ -82,7 +82,7 @@ class TestFromToolConfig:
         }
         config = PromptConfig.from_tool_config(tool_config)
 
-        assert config.strategy_type == PromptStrategyType.BATCH_ACTION
+        assert config.strategy_type == PromptStrategyType.BATCH
         assert config.parser_type == ScreenParserType.UIAUTOMATOR
         assert config.visitor_type == VisitorType.BASIC
         assert config.template_paths == {"system": "path/to/system.xml"}
@@ -92,7 +92,7 @@ class TestFromToolConfig:
     def test_from_tool_config_defaults(self):
         """Test that default values are used when parameters are missing."""
         config = PromptConfig.from_tool_config({})
-        assert config.strategy_type == PromptStrategyType.STANDARD
+        assert config.strategy_type == PromptStrategyType.SINGLE
         assert config.parser_type == ScreenParserType.DROIDBOT
         assert config.visitor_type == VisitorType.DETAILED
 
@@ -101,8 +101,8 @@ class TestFromVariants:
     """Tests for the from_variants class method."""
 
     @pytest.mark.parametrize("variants, expected_strategy", [
-        (["standard"], PromptStrategyType.STANDARD),
-        (["batch_action"], PromptStrategyType.BATCH_ACTION)
+        (["standard"], PromptStrategyType.SINGLE),
+        (["batch_action"], PromptStrategyType.BATCH)
     ])
     def test_strategy_variants(self, variants, expected_strategy):
         config = PromptConfig.from_variants(variants)
@@ -110,9 +110,9 @@ class TestFromVariants:
 
     def test_parameter_override(self):
         """Test that explicit parameters override variant defaults."""
-        params = {"strategy_type": PromptStrategyType.STANDARD}
+        params = {"strategy_type": PromptStrategyType.SINGLE}
         config = PromptConfig.from_variants(["batch_action"], params=params)
-        assert config.strategy_type == PromptStrategyType.STANDARD
+        assert config.strategy_type == PromptStrategyType.SINGLE
 
 
 class TestPromptConfigMethods:
@@ -121,23 +121,23 @@ class TestPromptConfigMethods:
     def test_get_strategy_parameters(self):
         """Test that get_strategy_parameters extracts the correct subset of parameters."""
         config = PromptConfig(
-            strategy_type=PromptStrategyType.BATCH_ACTION,
+            strategy_type=PromptStrategyType.BATCH,
             additional_params={"prompt_specific": True, "other": "data"}
         )
         strategy_params = config.get_strategy_parameters()
 
-        assert strategy_params["strategy_type"] == PromptStrategyType.BATCH_ACTION
+        assert strategy_params["strategy_type"] == PromptStrategyType.BATCH
         assert strategy_params["prompt_specific"] is True
         assert strategy_params["other"] == "data"
 
     def test_to_dict(self):
         """Test that to_dict serializes the config correctly."""
-        config = PromptConfig(strategy_type=PromptStrategyType.BATCH_ACTION)
+        config = PromptConfig(strategy_type=PromptStrategyType.BATCH)
         config_dict = config.to_dict()
-        assert config_dict["strategy_type"] == PromptStrategyType.BATCH_ACTION
+        assert config_dict["strategy_type"] == PromptStrategyType.BATCH
 
     def test_string_representations(self):
         """Test the __str__ and __repr__ methods."""
         config = PromptConfig()
-        assert "PromptConfig(strategy_type=standard_modular" in str(config)
-        assert "strategy_type='standard_modular'" in repr(config)
+        assert "PromptConfig(strategy_type=single" in str(config)
+        assert "strategy_type='single'" in repr(config)

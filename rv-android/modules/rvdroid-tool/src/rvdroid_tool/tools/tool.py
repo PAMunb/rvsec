@@ -171,7 +171,7 @@ class RVDroidTool(AbstractTool):
                 "top_p": 0.9,
                 "max_tokens": 400,  # Compact for guidance
                 "vision": True,
-                "prompt_strategy": PromptStrategyType.STANDARD,  # Will use guidance strategy
+                "prompt_strategy": PromptStrategyType.SINGLE,  # Will use guidance strategy
                 "device_id": DEFAULT_DEVICE_ID,
                 "execution_timeout": DEFAULT_EXECUTION_TIMEOUT,
                 "preferred_strategy": "llm_guided"
@@ -184,7 +184,7 @@ class RVDroidTool(AbstractTool):
                 "top_p": 0.95,
                 "max_tokens": 600,  # Slightly larger for Llama
                 "vision": False,
-                "prompt_strategy": PromptStrategyType.STANDARD,  # Will use guidance strategy
+                "prompt_strategy": PromptStrategyType.SINGLE,  # Will use guidance strategy
                 "device_id": DEFAULT_DEVICE_ID,
                 "execution_timeout": DEFAULT_EXECUTION_TIMEOUT,
                 "preferred_strategy": "llm_guided"
@@ -197,7 +197,7 @@ class RVDroidTool(AbstractTool):
                 "top_p": 0.9,
                 "max_tokens": 500,
                 "vision": True,
-                "prompt_strategy": PromptStrategyType.STANDARD,  # Will use guidance strategy
+                "prompt_strategy": PromptStrategyType.SINGLE,  # Will use guidance strategy
                 "device_id": DEFAULT_DEVICE_ID,
                 "execution_timeout": DEFAULT_EXECUTION_TIMEOUT,
                 "preferred_strategy": "visual_guided"

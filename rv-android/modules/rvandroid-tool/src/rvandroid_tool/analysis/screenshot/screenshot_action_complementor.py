@@ -304,7 +304,7 @@ class ScreenshotActionComplementor(BaseAnalyzer):
         self.error_handler = ErrorHandler.get_instance()
 
         # Action ID counter for generated visual elements
-        self.counter = Counter(1000)
+        self.counter = Counter(value=1000)
 
         # Analysis state tracking
         self.visual_to_ui_associations = {}
@@ -361,7 +361,6 @@ class ScreenshotActionComplementor(BaseAnalyzer):
         if StateEntry.TOOL_CONFIG in state and isinstance(state[StateEntry.TOOL_CONFIG], RvAndroidToolConfig):
             tool_config: RvAndroidToolConfig = state[StateEntry.TOOL_CONFIG]
             find_buttons = not tool_config.llm_config.vision
-
 
         # Generate visual element associations
         return self.complement_screen_actions(screen_description, screenshot_path, find_buttons)

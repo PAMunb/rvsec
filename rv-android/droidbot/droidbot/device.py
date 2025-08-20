@@ -876,6 +876,9 @@ class Device(object):
     def key_press(self, key_code):
         self.adb.press(key_code)
 
+    def back(self):
+        self.adb.press("4")
+
     def shutdown(self):
         self.adb.shell("reboot -p")
 

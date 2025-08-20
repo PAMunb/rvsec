@@ -2,14 +2,48 @@
 <fragment name="context_status">
   <![CDATA[
 Activity: {{ activity }}{% if activity_visits is defined %} (visits: {{ activity_visits }}){% endif %}
-{% if mop_current is defined and mop_total is defined -%}
-MOP Coverage: {{ mop_current }}/{{ mop_total }}{% if mop_errors is defined %} | Errors: {{ mop_errors }}{% endif %}
+{% if coverage_metrics is defined and coverage_metrics -%}
+Coverage: Methods {{ coverage_metrics.method_coverage|round(1) }}% | Activities {{ coverage_metrics.activity_coverage|round(1) }}% | MOP {{ coverage_metrics.mop_method_coverage|round(1) }}%{% if coverage_metrics.unique_errors > 0 %} | **MOP Violations: {{ coverage_metrics.unique_errors }}**{% endif %}
 {% endif -%}
-{% if recent_history is defined and recent_history -%}
+{% if mop_recent_errors is defined and mop_recent_errors -%}
+**RECENT MOP VIOLATIONS:**
+{%- for error in mop_recent_errors %}
+- {{ error.spec }}: {{ error.class_full_name }}.{{ error.method }} - {{ error.message }}
+{%- endfor %}
+{% endif -%}
+{% if recent_iterations is defined and recent_iterations -%}
+{# RICH context mode - show sliding window of recent iterations #}
+**RECENT INTERACTIONS:**
+{%- for iteration in recent_iterations %}
+--- Iteration {{ iteration['iteration_number'] }} ---
+{%- if iteration.get('screen_description_summary') %}
+Screen: {{ iteration['screen_description_summary'] }}
+{%- elif iteration.get('screen_description') %}
+Screen: {{ iteration['screen_description'][:200] }}{% if iteration['screen_description']|length > 200 %}...{% endif %}
+{%- endif %}
+Actions: {% for action in iteration.get('actions_executed', []) -%}
+  {{ action.get('action_type', 'unknown') }}({{ action.get('target', 'unknown') }}){% if not loop.last %}, {% endif %}
+{%- endfor %}
+{%- if iteration.get('coverage_progress') %}
+Coverage: M={{ iteration['coverage_progress'].get('method_coverage', 0)|round(1) }}% A={{ iteration['coverage_progress'].get('activity_coverage', 0)|round(1) }}%
+{%- endif %}
+{% endfor -%}
+{% else -%}
+{# STATELESS context mode - show traditional history sections #}
+{%- if action_history is defined and action_history %}
+{{ action_history }}
+{%- elif recent_history is defined and recent_history %}
 Last Actions: {{ recent_history }}
-{% endif -%}
-{% if available_transitions is defined and available_transitions -%}
+{%- endif %}
+{%- if memory_insights is defined and memory_insights %}
+{{ memory_insights }}
+{%- endif %}
+{%- if navigation_path is defined and navigation_path %}
+Navigation Path: {{ navigation_path|join(' → ') }}
+{%- endif %}
+{%- if available_transitions is defined and available_transitions %}
 Transitions: {{ available_transitions }}
-{% endif -%}
+{%- endif %}
+{%- endif %}
   ]]>
 </fragment>

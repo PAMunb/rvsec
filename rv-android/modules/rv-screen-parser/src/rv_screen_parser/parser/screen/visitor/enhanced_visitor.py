@@ -762,32 +762,7 @@ class EnhancedTextVisitor(AbstractScreenVisitor):
 
         # Handle check/uncheck actions with priority if needed
         if prioritize_check and node.checkable:
-            if node.checked:
-                action = ItemAction(
-                    id=counter.increment(),
-                    text=f"UNCHECK ({counter.get_current()})",
-                    event=WidgetEventType.CLICK,
-                    reaches_mop=False,
-                    directly_reaches_mop=False,
-                    target_view=node_data,
-                    coordinates=coordinates
-                )
-                # Update security information
-                self._update_action_mop_related_info(action, node)
-                actions.append(action)
-            else:
-                action = ItemAction(
-                    id=counter.increment(),
-                    text=f"CHECK ({counter.get_current()})",
-                    event=WidgetEventType.CLICK,
-                    reaches_mop=False,
-                    directly_reaches_mop=False,
-                    target_view=node_data,
-                    coordinates=coordinates
-                )
-                # Update security information
-                self._update_action_mop_related_info(action, node)
-                actions.append(action)
+            self.create_checked_action(actions, coordinates, counter, node, node_data)
 
         # Handle click actions
         elif (node.clickable or inherit_click) and not (prioritize_check and node.checkable):

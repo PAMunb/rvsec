@@ -153,16 +153,28 @@ class Server:
                         return jsonify({"error": "No state data provided"}), 400
                 elif request.content_type and 'multipart/form-data' in request.content_type:
                     # Multipart request with potential screenshot
+                    self.logger.debug("Processing multipart/form-data request")
                     try:
-                        data = request.get_json(force=True) if request.form.get('state') else request.json
-                        if not data and 'state' in request.form:
+                        # Check if state data is in form field
+                        if 'state' in request.form:
                             import json
-                            data = json.loads(request.form['state'])
+                            state_json = request.form['state']
+                            self.logger.debug(f"Found state in form field, length: {len(state_json)}")
+                            data = json.loads(state_json)
+                        else:
+                            self.logger.error("No 'state' field found in multipart form data")
+                            return jsonify({"error": "No state data provided in form"}), 400
+                        
                         if not data:
-                            return jsonify({"error": "No state data provided"}), 400
-                    except Exception as json_error:
-                        self.logger.error(f"Failed to parse state data: {json_error}")
-                        return jsonify({"error": "Invalid state data format"}), 400
+                            self.logger.error("Parsed state data is empty")
+                            return jsonify({"error": "State data is empty"}), 400
+                            
+                    except json.JSONDecodeError as json_error:
+                        self.logger.error(f"Invalid JSON in state field: {json_error}")
+                        return jsonify({"error": f"Invalid JSON format: {str(json_error)}"}), 400
+                    except Exception as e:
+                        self.logger.error(f"Failed to parse multipart state data: {e}")
+                        return jsonify({"error": "Failed to parse multipart request"}), 400
                 else:
                     return jsonify({"error": "Unsupported content type"}), 400
 

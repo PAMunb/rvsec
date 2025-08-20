@@ -89,6 +89,7 @@ class TemplateRole:
 
 
 class StateEntry:
+    # TODO rever os campos ... tem muitos que nao sao usados ou duplicados ... talvez seja melhor criar uma classe e deixar formal (tipado)
     """
     Constants for state dictionary entries in the Android testing framework.
     
@@ -121,25 +122,62 @@ class StateEntry:
     ACTIVITY_VISITS = "activity_visits"
     RECENT_ITERATIONS = "recent_iterations"
     TOOL_CONFIG = "tool_config"
-
-
-class ComponentType:
-    """
-    Constants for component types in the modern factory system.
     
-    ### Component Types:
-    - **LLM**: Language model components created by LLMFactory
-    - **PROMPT_STRATEGY**: Prompt strategy components created by PromptStrategyFactory
-    - **PARSER**: Screen parser components from rv-screen-parser
-    - **VISITOR**: Visitor pattern components for screen analysis
+    # Coverage metrics integration for real-time testing guidance
+    COVERAGE_METRICS = "coverage_metrics"
+    METHOD_COVERAGE = "method_coverage"           # Percentage of methods called
+    ACTIVITY_COVERAGE = "activity_coverage"       # Percentage of activities visited  
+    CLASS_COVERAGE = "class_coverage"             # Percentage of classes instantiated
+    MOP_COVERAGE_CURRENT = "mop_coverage_current" # Number of MOP methods reached
+    MOP_COVERAGE_TOTAL = "mop_coverage_total"     # Total MOP methods available
+    MOP_ERRORS_COUNT = "mop_errors_count"         # Number of unique MOP violations
+    MOP_RECENT_ERRORS = "mop_recent_errors"       # Recent MOP error details for context
+
+
+class ContextMode:
     """
-    LLM = "llm"
-    PROMPT_STRATEGY = "strategy"
-    PARSER = "parser"
-    VISITOR = "visitor"
+    Constants for context enrichment modes in prompt generation.
+    
+    ### Context Modes:
+    - **STATELESS**: Complete context inline with each prompt (default)
+    - **RICH**: Extended context with sliding window and compression
+    - **DEFAULT**: Default mode for new configurations
+    
+    ### Context Configuration:
+    - **WINDOW_SIZE_DEFAULT**: Default sliding window size for rich context mode
+    - **WINDOW_SIZE_MIN**: Minimum allowed window size
+    - **WINDOW_SIZE_MAX**: Maximum allowed window size for performance
+    - **COMPRESSION_DEFAULT**: Default compression setting for older iterations
+    """
+    STATELESS = "stateless"
+    RICH = "rich"
+    DEFAULT = STATELESS
+    
+    # Context window configuration
+    WINDOW_SIZE_DEFAULT = 10
+    WINDOW_SIZE_MIN = 1
+    WINDOW_SIZE_MAX = 20
+    COMPRESSION_DEFAULT = True
+
+
+# class ComponentType:
+#     """
+#     Constants for component types in the modern factory system.
+#
+#     ### Component Types:
+#     - **LLM**: Language model components created by LLMFactory
+#     - **PROMPT_STRATEGY**: Prompt strategy components created by PromptStrategyFactory
+#     - **PARSER**: Screen parser components from rv-screen-parser
+#     - **VISITOR**: Visitor pattern components for screen analysis
+#     """
+#     LLM = "llm"
+#     PROMPT_STRATEGY = "strategy"
+#     PARSER = "parser"
+#     VISITOR = "visitor"
 
 
 class ContextEntry:
+    # TODO verificar como esta sendo usado ... diferencas com StateEntry ... quando usar um ou outro?
     """
     Constants for context dictionary entries in the modern prompt system.
     
@@ -159,3 +197,9 @@ class ContextEntry:
     VISITOR = "visitor"
     TESTING_HISTORY = "testing_history"
     ADDITIONAL_GUIDELINES = "additional_guidelines"
+    
+    # Context mode configuration
+    CONTEXT_MODE = "context_mode"
+    CONTEXT_WINDOW_SIZE = "context_window_size"
+    CONTEXT_COMPRESSION = "context_compression"
+    INCLUDE_COVERAGE_TIMELINE = "include_coverage_timeline"

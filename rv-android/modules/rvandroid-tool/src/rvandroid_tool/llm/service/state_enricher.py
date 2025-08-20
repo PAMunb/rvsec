@@ -10,7 +10,7 @@ from rv_android_core.domain.static import StaticAnalysisData
 from rv_android_core.util.error.error_handler import ErrorHandler
 from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
 from rv_android_core.util.logging.manager import LoggingManager
-from rv_llm.config.llm_config import LLMConfig
+from rv_llm.config import PromptConfig
 from rv_llm.llm.constants import StateEntry
 from rv_screen_parser.parser.screen.visitor.default_visitor import DefaultTextVisitor
 from rv_screen_parser.parser.screen.visitor.model import ScreenDescription, ItemAction
@@ -30,7 +30,7 @@ class StateEnricher:
     def __init__(
             self,
             static_data: StaticAnalysisData = None,
-            config: Optional[LLMConfig] = None
+            config: Optional[PromptConfig] = None
     ):
         """Initialize the state enricher with parser support.
         
@@ -54,11 +54,13 @@ class StateEnricher:
 
         # Initialize screen parser for generating ScreenDescription objects
         try:
-            from rv_screen_parser.parser.screen.parser_factory import ParserFactory, ParserType
+            from rv_screen_parser.parser.screen.parser_factory import ParserFactory
+            from rv_screen_parser.constants import ScreenParserType
             visitor_class = DefaultTextVisitor
-            if config is not None and config.visitor_class:
-                visitor_class = config.visitor_class
-            self.parser = ParserFactory.create(ParserType.DROIDBOT, visitor_class)
+            if config is not None and config.visitor_type:
+                from rv_screen_parser.parser.screen.visitor.visitor_factory import VisitorFactory
+                visitor_class = VisitorFactory.get_visitor_class(config.visitor_type)
+            self.parser = ParserFactory.create(ScreenParserType.DROIDBOT, visitor_class)
             self.logger.info(
                 f"Initialized screen parser: {self.parser.__class__.__name__} with visitor: {visitor_class.__name__}")
         except ImportError:
@@ -76,11 +78,11 @@ class StateEnricher:
         except ImportError:
             self.logger.warning("Screenshot Action Complementor not available")
 
-        try:
-            from rv_android_core.analysis.ui_pattern_detector import UIPatternDetector
-            self.pattern_detector = UIPatternDetector()
-        except ImportError:
-            self.logger.warning("UIPatternDetector not available")
+        # try:
+        #     from rv_android_core.analysis.ui_pattern_detector import UIPatternDetector
+        #     self.pattern_detector = UIPatternDetector()
+        # except ImportError:
+        #     self.logger.warning("UIPatternDetector not available")
 
     def enrich_state(self, state: Dict[str, Any]):
         """Add additional information to state before prompt generation.
@@ -306,6 +308,7 @@ class StateEnricher:
 
                 # Add the complete structured object for other components to use directly
                 state[StateEntry.STRUCTURED_SCREEN] = screen_description
+                # TODO setar o SCREEN_DESCRIPTION tbm? quando cada um eh usado?
 
                 # Extract available action IDs for later use
                 state[StateEntry.AVAILABLE_ACTIONS] = available_actions_map
@@ -313,6 +316,7 @@ class StateEnricher:
                 self.logger.debug(f"Added ScreenDescription with {len(available_actions_map)} available actions")
             else:
                 # If parsing failed, use simple fallback
+                # TODO rever
                 self.logger.warning("Failed to create ScreenDescription, using text fallback")
                 state[StateEntry.SCREEN_DESCRIPTION] = ""
                 if StateEntry.SCREEN_PATTERNS in state:

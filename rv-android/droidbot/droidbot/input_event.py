@@ -4,6 +4,7 @@ import random
 import time
 from abc import abstractmethod
 
+from droidbot.app import App
 import droidbot.device_state as device_state_module
 
 from . import utils
@@ -379,6 +380,51 @@ class KillAppEvent(InputEvent):
     def get_event_str(self, state):
         return "%s()" % self.__class__.__name__
 
+
+class BackEvent(InputEvent):
+    """
+    an system BACK event
+    """
+
+    def __init__(self):
+        super().__init__()            
+
+    @staticmethod
+    def get_random_instance(device, app):
+        return None
+
+    def send(self, device):
+        print(" >>>>>>>>>>>>>>> Sending BACK event...")
+        device.key_press("BACK")
+
+    def get_event_str(self, state):
+        return "%s()" % self.__class__.__name__
+    
+class RestartEvent(InputEvent):
+    """
+    an system RESTART event
+    """
+
+    def __init__(self, app: App):
+        super().__init__()    
+        self.app = app        
+
+    @staticmethod
+    def get_random_instance(device, app):
+        return None
+
+    def send(self, device):
+        print(" >>>>>>>>>>>>>>> Sending RESTART event...")
+        # Stop application
+        stop_intent = self.app.get_stop_intent()
+        device.send_intent(stop_intent)
+        time.sleep(2)
+        
+        # Start application
+        device.start_app(self.app)
+
+    def get_event_str(self, state):
+        return "%s()" % self.__class__.__name__    
 
 class KeyEvent(InputEvent):
     """

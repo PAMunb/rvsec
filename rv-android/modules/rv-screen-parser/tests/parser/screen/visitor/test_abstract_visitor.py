@@ -187,7 +187,7 @@ class TestAbstractScreenVisitor:
         assert isinstance(description, ScreenDescription)
         assert description.activity == visitor.activity
         # The base implementation should return exactly the items we provided
-        assert len(description.items) == 3 # back button is inserted by default
+        assert len(description.items) == 2  # No back button is inserted anymore
         assert description.items[0] == item1
         assert description.items[1] == item2
 

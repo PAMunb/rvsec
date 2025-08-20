@@ -39,7 +39,7 @@ class AbstractScreenVisitor(ABC):
         self.system_navigation_bounds = {}
 
         # Device info
-        self.device_info = {}
+        self.device_info = {} # TODO deprecated
 
         # Initialize window info if static info is available
         if static_info and static_info.windows:
@@ -286,8 +286,8 @@ class AbstractScreenVisitor(ABC):
 
         # Extract coordinates from node
         coordinates = None
-        if hasattr(node, 'get_center_coordinates'):
-            coordinates = node.get_center_coordinates()
+        if hasattr(node, 'center_coordinates'):
+            coordinates = node.center_coordinates
         elif 'bounds' in node_data:
             bounds = node_data['bounds']
             if bounds and len(bounds) == 2:
@@ -332,7 +332,6 @@ class AbstractScreenVisitor(ABC):
             action = ItemAction(
                 id=counter.increment(),
                 text=f"CLICK ({counter.get_current()})",
-                # text=f"CLICK ({counter.get_current()}){text_suffix}",
                 event=WidgetEventType.CLICK,
                 reaches_mop=False,
                 directly_reaches_mop=False,
@@ -363,30 +362,7 @@ class AbstractScreenVisitor(ABC):
 
         # Handle check/uncheck actions with normal priority
         if not prioritize_check and node.checkable:
-            if node.checked:
-                action = ItemAction(
-                    id=counter.increment(),
-                    text=f"UNCHECK ({counter.get_current()})",
-                    event=WidgetEventType.CLICK,
-                    reaches_mop=False,
-                    directly_reaches_mop=False,
-                    target_view=node_data,
-                    coordinates=coordinates
-                )
-                self._update_action_mop_related_info(action, node)
-                actions.append(action)
-            else:
-                action = ItemAction(
-                    id=counter.increment(),
-                    text=f"CHECK ({counter.get_current()})",
-                    event=WidgetEventType.CLICK,
-                    reaches_mop=False,
-                    directly_reaches_mop=False,
-                    target_view=node_data,
-                    coordinates=coordinates
-                )
-                self._update_action_mop_related_info(action, node)
-                actions.append(action)
+            self.create_checked_action(actions, coordinates, counter, node, node_data)
 
         # Handle scroll actions with better description
         if node.scrollable:
@@ -428,6 +404,32 @@ class AbstractScreenVisitor(ABC):
 
         return actions
 
+    def create_checked_action(self, actions, coordinates, counter, node, node_data):
+        if node.checked:
+            action = ItemAction(
+                id=counter.increment(),
+                text=f"UNCHECK ({counter.get_current()})",
+                event=WidgetEventType.CLICK,
+                reaches_mop=False,
+                directly_reaches_mop=False,
+                target_view=node_data,
+                coordinates=coordinates
+            )
+            self._update_action_mop_related_info(action, node)
+            actions.append(action)
+        else:
+            action = ItemAction(
+                id=counter.increment(),
+                text=f"CHECK ({counter.get_current()})",
+                event=WidgetEventType.CLICK,
+                reaches_mop=False,
+                directly_reaches_mop=False,
+                target_view=node_data,
+                coordinates=coordinates
+            )
+            self._update_action_mop_related_info(action, node)
+            actions.append(action)
+
     def _update_action_mop_related_info(self, action: ItemAction, node: Node) -> None:
         """
         Update an action with monitored operations information from static analysis.
@@ -450,7 +452,7 @@ class AbstractScreenVisitor(ABC):
                 action.callback_signature = event.signature
                 if action.reaches_mop or action.directly_reaches_mop:
                     self.logger.debug(
-                        f"Action {action.id} security info updated: reaches_mop={action.reaches_mop}, directly_reaches_mop={action.directly_reaches_mop}")
+                        f"Action {action.id} MOP info updated: reaches_mop={action.reaches_mop}, directly_reaches_mop={action.directly_reaches_mop}")
                     if action.directly_reaches_mop:
                         action.text += " [DM]"
                     elif action.reaches_mop:

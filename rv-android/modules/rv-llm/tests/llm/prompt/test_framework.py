@@ -51,7 +51,7 @@ class TestPromptFramework:
     def mock_prompt_config(self):
         """Create a mock PromptConfig."""
         config = Mock(spec=PromptConfig)
-        config.strategy_type = PromptStrategyType.STANDARD
+        config.strategy_type = PromptStrategyType.SINGLE
         return config
 
     @pytest.fixture
@@ -200,7 +200,7 @@ class TestPromptFramework:
         with patch('rv_llm.factories.component_factory.LLMComponentFactory') as mock_factory:
             mock_factory.create_strategy.return_value = mock_strategy
 
-            result = prompt_framework.get_strategy(PromptStrategyType.BATCH_ACTION)
+            result = prompt_framework.get_strategy(PromptStrategyType.BATCH)
 
             assert result == mock_strategy
             mock_factory.create_strategy.assert_called_once_with(
@@ -212,7 +212,7 @@ class TestPromptFramework:
     def test_get_strategy_without_explicit_name_uses_config(self, prompt_framework):
         """Test get_strategy without explicit name uses strategy type from config."""
         mock_strategy = Mock()
-        expected_strategy_type = PromptStrategyType.BATCH_ACTION
+        expected_strategy_type = PromptStrategyType.BATCH
         prompt_framework.config.strategy_type = expected_strategy_type
 
         with patch('rv_llm.factories.component_factory.LLMComponentFactory') as mock_factory:
@@ -364,7 +364,7 @@ class TestPromptFramework:
     def test_generate_prompt_uses_correct_strategy_name(self, prompt_framework):
         """Test that generate_prompt uses the correct strategy name from config."""
         test_state = {"activity": "MainActivity"}
-        expected_strategy_type = PromptStrategyType.BATCH_ACTION
+        expected_strategy_type = PromptStrategyType.BATCH
         prompt_framework.config.strategy_type = expected_strategy_type
 
         mock_strategy = Mock()
@@ -464,7 +464,7 @@ class TestPromptFramework:
     def test_generate_prompt_debug_logging(self, prompt_framework):
         """Test debug logging during prompt generation."""
         test_state = {"activity": "MainActivity"}
-        strategy_type = PromptStrategyType.STANDARD
+        strategy_type = PromptStrategyType.SINGLE
         prompt_framework.config.strategy_type = strategy_type
 
         mock_strategy = Mock()
@@ -558,8 +558,8 @@ class TestPromptFrameworkPropertyBased:
 
     @given(strategy_name=st.one_of(
         st.none(),
-        st.just(PromptStrategyType.STANDARD),
-        st.just(PromptStrategyType.BATCH_ACTION),
+        st.just(PromptStrategyType.SINGLE),
+        st.just(PromptStrategyType.BATCH),
         st.text(min_size=1, max_size=30)
     ))
     @settings(max_examples=30)
@@ -589,7 +589,7 @@ class TestPromptFrameworkEdgeCases:
         mock_manager = Mock(spec=InformationManager)
         mock_repo = Mock(spec=Jinja2TemplateRepository)
         mock_config = Mock(spec=PromptConfig)
-        mock_config.strategy_type = PromptStrategyType.STANDARD  # Fix: Add required attribute
+        mock_config.strategy_type = PromptStrategyType.SINGLE  # Fix: Add required attribute
 
         with patch('rv_llm.llm.prompt.framework.LoggingManager') as mock_logging:
             # Simulate logger creation failure
@@ -605,7 +605,7 @@ class TestPromptFrameworkEdgeCases:
         mock_manager = Mock(spec=InformationManager)
         mock_repo = Mock(spec=Jinja2TemplateRepository)
         mock_config = Mock(spec=PromptConfig)
-        mock_config.strategy_type = PromptStrategyType.STANDARD  # Fix: Add required attribute
+        mock_config.strategy_type = PromptStrategyType.SINGLE  # Fix: Add required attribute
 
         with patch('rv_llm.llm.prompt.framework.LoggingManager'):
             with patch('rv_llm.llm.prompt.framework.ErrorHandler'):
@@ -647,7 +647,7 @@ class TestPromptFrameworkEdgeCases:
         mock_manager = Mock(spec=InformationManager)
         mock_repo = Mock(spec=Jinja2TemplateRepository)
         mock_config = Mock(spec=PromptConfig)
-        mock_config.strategy_type = PromptStrategyType.STANDARD  # Fix: Add required attribute
+        mock_config.strategy_type = PromptStrategyType.SINGLE  # Fix: Add required attribute
 
         with patch('rv_llm.llm.prompt.framework.LoggingManager'):
             with patch('rv_llm.llm.prompt.framework.ErrorHandler'):
@@ -684,7 +684,7 @@ class TestPromptFrameworkEdgeCases:
         mock_manager = Mock(spec=InformationManager)
         mock_repo = Mock(spec=Jinja2TemplateRepository)
         mock_config = Mock(spec=PromptConfig)
-        mock_config.strategy_type = PromptStrategyType.STANDARD  # Fix: Add required attribute
+        mock_config.strategy_type = PromptStrategyType.SINGLE  # Fix: Add required attribute
 
         with patch('rv_llm.llm.prompt.framework.LoggingManager'):
             with patch('rv_llm.llm.prompt.framework.ErrorHandler'):
@@ -703,7 +703,7 @@ class TestPromptFrameworkEdgeCases:
         mock_manager = Mock(spec=InformationManager)
         mock_repo = Mock(spec=Jinja2TemplateRepository)
         mock_config = Mock(spec=PromptConfig)
-        mock_config.strategy_type = PromptStrategyType.STANDARD  # Fix: Add required attribute
+        mock_config.strategy_type = PromptStrategyType.SINGLE  # Fix: Add required attribute
 
         with patch('rv_llm.llm.prompt.framework.LoggingManager'):
             with patch('rv_llm.llm.prompt.framework.ErrorHandler'):
@@ -734,7 +734,7 @@ class TestPromptFrameworkIntegration:
 
         # Use real PromptConfig
         config = PromptConfig(
-            strategy_type=PromptStrategyType.STANDARD,
+            strategy_type=PromptStrategyType.SINGLE,
             max_context_length=1024
         )
 
@@ -773,7 +773,7 @@ class TestPromptFrameworkIntegration:
         """Test complete workflow from creation to prompt generation."""
         from rv_llm.config.prompt_config import PromptConfig
 
-        config = PromptConfig(strategy_type=PromptStrategyType.BATCH_ACTION)
+        config = PromptConfig(strategy_type=PromptStrategyType.BATCH)
 
         with patch('rv_llm.llm.prompt.framework.LoggingManager'):
             with patch('rv_llm.llm.prompt.framework.ErrorHandler'):

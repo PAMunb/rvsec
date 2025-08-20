@@ -201,6 +201,7 @@ class ExperimentController:
                 repetitions=self.config.repetitions,
                 timeouts=self.config.timeouts,
                 tools=tools,
+                tool_configs=self.config.tool_configs,  # Add original tool configs for variant info
                 no_window=getattr(self.config, 'no_window', False),
                 results_dir=self.results_dir
             )

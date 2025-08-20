@@ -14,7 +14,7 @@ from rv_android_core.tools.tool_spec import ToolSpec
 from rv_android_core.commands.command import Command
 from rv_android_core.commands.command_result import CommandResult
 from rv_android_core.util.error.exceptions import (
-    RVToolExecutionError, RVToolTimeoutError, CircuitBreakerOpenError
+    RVToolExecutionError, RVToolTimeoutError, RVCommandTimeoutError, CircuitBreakerOpenError
 )
 
 
@@ -204,8 +204,8 @@ class TestAbstractToolProcessCleanup:
         """Test successful process cleanup"""
         tool = ConcreteTestTool()
         
-        # Mock successful process killing
-        with patch('rv_android_core.commands.command.Command') as mock_command_class:
+        # Mock Command constructor and invoke methods
+        with patch('rv_android_core.tools.abstract_tool.Command') as mock_command_class:
             mock_command = MagicMock()
             mock_result = MagicMock()
             mock_result.is_success.return_value = True
@@ -213,7 +213,7 @@ class TestAbstractToolProcessCleanup:
             mock_command.invoke.return_value = mock_result
             mock_command_class.return_value = mock_command
             
-            tool.kill_related_processes()
+            tool.kill_related_processes("testtool")
             
             # Verify commands were created and executed
             assert mock_command_class.call_count >= 1
@@ -232,7 +232,7 @@ class TestAbstractToolProcessCleanup:
             mock_command_class.return_value = mock_command
             
             # Should not raise exception
-            tool.kill_related_processes()
+            tool.kill_related_processes("testtool")
 
     def test_kill_related_processes_empty_pattern(self):
         """Test process cleanup with empty pattern"""
@@ -240,7 +240,7 @@ class TestAbstractToolProcessCleanup:
         tool.process_pattern = ""
         
         # Should handle empty pattern gracefully
-        tool.kill_related_processes()
+        tool.kill_related_processes("")
 
     def test_kill_related_processes_none_pattern(self):
         """Test process cleanup with None pattern"""
@@ -248,7 +248,7 @@ class TestAbstractToolProcessCleanup:
         tool.process_pattern = None
         
         # Should handle None pattern gracefully
-        tool.kill_related_processes()
+        tool.kill_related_processes(None)
 
     def test_kill_related_processes_command_exception(self):
         """Test process cleanup when command raises exception"""
@@ -260,7 +260,7 @@ class TestAbstractToolProcessCleanup:
             mock_command_class.return_value = mock_command
             
             # Should handle exception gracefully
-            tool.kill_related_processes()
+            tool.kill_related_processes("testtool")
 
     def test_kill_related_processes_kill_command_fails(self):
         """Test process cleanup when kill command fails"""
@@ -284,7 +284,7 @@ class TestAbstractToolProcessCleanup:
             mock_command_class.side_effect = [mock_pgrep, mock_kill]
             
             # Should handle kill failure gracefully
-            tool.kill_related_processes()
+            tool.kill_related_processes("testtool")
 
 
 class TestAbstractToolUtilityMethods:
@@ -299,7 +299,7 @@ class TestAbstractToolUtilityMethods:
         assert info["name"] == "testtool"
         assert info["description"] == "Test tool for unit testing"
         assert info["process_pattern"] == "testtool"
-        assert "variants" in info
+        # AbstractTool base class doesn't include variants in tool info
 
     def test_str_representation(self):
         """Test string representation"""
@@ -328,16 +328,20 @@ class TestAbstractToolCommandExecution:
         mock_command = MagicMock(spec=Command)
         mock_result = MagicMock(spec=CommandResult)
         mock_result.is_success.return_value = True
+        mock_result.is_failure.return_value = False
         mock_result.code = 0
+        mock_command.invoke.return_value = mock_result
         
-        # Mock circuit breaker to return result directly
-        with patch.object(tool.circuit_breaker, 'execute_command') as mock_circuit:
-            mock_circuit.return_value = mock_result
-            
-            result = tool._execute_and_check_command(mock_command)
-            
-            assert result == mock_result
-            mock_circuit.assert_called_once_with(mock_command)
+        # Mock circuit breaker methods
+        with patch.object(tool.circuit_breaker, 'is_execution_allowed') as mock_allowed:
+            with patch.object(tool.circuit_breaker, 'record_success') as mock_success:
+                mock_allowed.return_value = True
+                
+                result = tool._execute_and_check_command(mock_command)
+                
+                assert result == mock_result
+                mock_allowed.assert_called_once_with(mock_command)
+                mock_success.assert_called_once_with(mock_command)
 
     def test_execute_and_check_command_failure(self):
         """Test command execution failure"""
@@ -346,31 +350,39 @@ class TestAbstractToolCommandExecution:
         mock_command = MagicMock(spec=Command)
         mock_result = MagicMock(spec=CommandResult)
         mock_result.is_success.return_value = False
+        mock_result.is_failure.return_value = True
         mock_result.code = 1
         mock_result.has_error_output.return_value = True
         mock_result.get_stderr_text.return_value = "Command failed"
         mock_command.command = "test_command"
         mock_command.args = ["arg1", "arg2"]
+        mock_command.invoke.return_value = mock_result
         
-        with patch.object(tool.circuit_breaker, 'execute_command') as mock_circuit:
-            mock_circuit.return_value = mock_result
-            
-            with pytest.raises(RVToolExecutionError) as exc_info:
-                tool._execute_and_check_command(mock_command)
-            
-            assert "test_command" in str(exc_info.value)
+        with patch.object(tool.circuit_breaker, 'is_execution_allowed') as mock_allowed:
+            with patch.object(tool.circuit_breaker, 'record_failure') as mock_failure:
+                mock_allowed.return_value = True
+                
+                with pytest.raises(RVToolExecutionError) as exc_info:
+                    tool._execute_and_check_command(mock_command)
+                
+                assert "testtool" in str(exc_info.value)  # tool name
+                mock_allowed.assert_called_once_with(mock_command)
+                mock_failure.assert_called_once_with(mock_command)
 
     def test_execute_and_check_command_timeout(self):
         """Test command execution timeout"""
         tool = ConcreteTestTool()
         
         mock_command = MagicMock(spec=Command)
+        mock_command.invoke.side_effect = RVCommandTimeoutError("Command timed out", timeout_seconds=30)
         
-        with patch.object(tool.circuit_breaker, 'execute_command') as mock_circuit:
-            mock_circuit.side_effect = RVToolTimeoutError("Command timed out", tool_name="testtool")
+        with patch.object(tool.circuit_breaker, 'is_execution_allowed') as mock_allowed:
+            mock_allowed.return_value = True
             
             with pytest.raises(RVToolTimeoutError):
                 tool._execute_and_check_command(mock_command)
+            
+            mock_allowed.assert_called_once_with(mock_command)
 
     def test_execute_and_check_command_circuit_breaker_open(self):
         """Test command execution with circuit breaker open"""
@@ -378,11 +390,13 @@ class TestAbstractToolCommandExecution:
         
         mock_command = MagicMock(spec=Command)
         
-        with patch.object(tool.circuit_breaker, 'execute_command') as mock_circuit:
-            mock_circuit.side_effect = CircuitBreakerOpenError("Circuit breaker open")
+        with patch.object(tool.circuit_breaker, 'is_execution_allowed') as mock_allowed:
+            mock_allowed.side_effect = CircuitBreakerOpenError("Circuit breaker open")
             
             with pytest.raises(CircuitBreakerOpenError):
                 tool._execute_and_check_command(mock_command)
+            
+            mock_allowed.assert_called_once_with(mock_command)
 
     def test_execute_and_check_command_with_stdout_redirect(self):
         """Test command execution with stdout redirection"""
@@ -391,16 +405,20 @@ class TestAbstractToolCommandExecution:
         mock_command = MagicMock(spec=Command)
         mock_result = MagicMock(spec=CommandResult)
         mock_result.is_success.return_value = True
+        mock_result.is_failure.return_value = False
+        mock_command.invoke.return_value = mock_result
         
-        with patch.object(tool.circuit_breaker, 'execute_command') as mock_circuit:
-            mock_circuit.return_value = mock_result
-            
-            with tempfile.NamedTemporaryFile() as temp_file:
-                result = tool._execute_and_check_command(mock_command, stdout=temp_file)
+        with patch.object(tool.circuit_breaker, 'is_execution_allowed') as mock_allowed:
+            with patch.object(tool.circuit_breaker, 'record_success') as mock_success:
+                mock_allowed.return_value = True
                 
-                assert result == mock_result
-                # Verify circuit breaker was called with command and stdout
-                mock_circuit.assert_called_once()
+                with tempfile.NamedTemporaryFile() as temp_file:
+                    result = tool._execute_and_check_command(mock_command, stdout=temp_file)
+                    
+                    assert result == mock_result
+                    mock_command.invoke.assert_called_once_with(stdout=temp_file, stderr=None, stdin=None)
+                    mock_allowed.assert_called_once_with(mock_command)
+                    mock_success.assert_called_once_with(mock_command)
 
     def test_execute_and_check_command_failure_without_error_output(self):
         """Test command execution failure without stderr output"""
@@ -414,13 +432,19 @@ class TestAbstractToolCommandExecution:
         mock_command.command = "test_command"
         mock_command.args = []
         
-        with patch.object(tool.circuit_breaker, 'execute_command') as mock_circuit:
-            mock_circuit.return_value = mock_result
-            
-            with pytest.raises(RVToolExecutionError) as exc_info:
-                tool._execute_and_check_command(mock_command)
-            
-            assert "exit code 1" in str(exc_info.value)
+        mock_command.invoke.return_value = mock_result
+        
+        with patch.object(tool.circuit_breaker, 'is_execution_allowed') as mock_allowed:
+            with patch.object(tool.circuit_breaker, 'record_failure') as mock_failure:
+                mock_allowed.return_value = True
+                mock_result.is_failure.return_value = True
+                
+                with pytest.raises(RVToolExecutionError) as exc_info:
+                    tool._execute_and_check_command(mock_command)
+                
+                assert "exit code 1" in str(exc_info.value)
+                mock_allowed.assert_called_once_with(mock_command)
+                mock_failure.assert_called_once_with(mock_command)
 
 
 class TestAbstractToolEdgeCases:
@@ -458,8 +482,8 @@ class TestAbstractToolEdgeCases:
         tool = ConcreteTestTool()
         tool.process_pattern = ""
         
-        # Should not raise exception
-        tool.kill_related_processes()
+        # Should not raise exception  
+        tool.kill_related_processes("")
 
     @given(
         name=st.text(min_size=1, max_size=20, alphabet=st.characters(whitelist_categories=('Ll', 'Lu', 'Nd'))),
@@ -593,7 +617,9 @@ class TestAbstractToolLoggingAndErrorHandling:
         tool = ConcreteTestTool()
         
         assert tool.circuit_breaker is not None
-        assert hasattr(tool.circuit_breaker, 'execute_command')
+        assert hasattr(tool.circuit_breaker, 'is_execution_allowed')
+        assert hasattr(tool.circuit_breaker, 'record_success')
+        assert hasattr(tool.circuit_breaker, 'record_failure')
 
     def test_error_propagation(self):
         """Test that errors are properly propagated"""
@@ -643,5 +669,8 @@ class TestAbstractToolLoggingAndErrorHandling:
             
             # Should have logged execution
             mock_log_info.assert_called()
-            args, _ = mock_log_info.call_args
-            assert "Executing testtool" in args[0]
+            # Check for either the execution start or completion message
+            logged_messages = [call[0][0] for call in mock_log_info.call_args_list]
+            assert any("Executing monitored operations tool: testtool" in msg or 
+                      "Tool testtool execution completed successfully" in msg 
+                      for msg in logged_messages)

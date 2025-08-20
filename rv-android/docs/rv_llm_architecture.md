@@ -1,29 +1,29 @@
 # RV-LLM Architecture
 
-This document provides an overview of the `rv-llm` module, which is responsible for integrating Large Language Models (LLMs) into the RV-Android system.
+This document provides an overview of the `rv-llm` module, which handles language model integration for the RV-Android system.
 
 ## 1. Introduction
 
-The `rv-llm` module provides a flexible framework for generating prompts and interacting with LLMs. It is a self-contained module with dependencies on `rv-android-core` and `rv-screen-parser`.
+The `rv-llm` module provides a framework for generating prompts and interacting with language models. It is a self-contained module with dependencies on `rv-android-core` and `rv-screen-parser`.
 
-The key features of the `rv-llm` module are:
+Key features include:
 
-*   **Three-Layer Architecture**: A separation of concerns between information gathering, template management, and prompt generation strategies.
-*   **Configuration Management**: Type-safe configuration for LLMs and prompt generation using Pydantic models.
-*   **Extensibility**: The ability to add new information fragments, prompt strategies, and templates.
-*   **Jinja2-Based Templates**: Templating using the Jinja2 engine.
+*   **Three-Layer Architecture**: Separation of concerns between information gathering, template management, and prompt generation strategies
+*   **Configuration Management**: Type-safe configuration for LLMs and prompt generation using Pydantic models
+*   **Extensibility**: Support for new information fragments, prompt strategies, and templates
+*   **Jinja2-Based Templates**: Template system using Jinja2 engine
 
 ## 2. Core Concepts
 
-The `rv-llm` module is built around a few core concepts:
+The `rv-llm` module is built around core concepts:
 
-*   **Information Fragments**: These are responsible for collecting and formatting specific pieces of information from the application state, such as UI elements, screenshots, and monitored operations.
-*   **Information Manager**: This component coordinates the information fragments and composes the final information to be used in the prompt.
-*   **Templates**: These define the structure of the prompt using Jinja2 syntax.
-*   **Template Repository**: This component manages the templates, loading them from XML files and making them available to the prompt strategies.
-*   **Prompt Strategies**: These define the logic for generating the prompt, including which information to include and which template to use.
-*   **Prompt Framework**: This is the main entry point for the `rv-llm` module. It coordinates all the other components and provides an interface for generating prompts.
-*   **Language Model**: This is an abstraction layer for interacting with different LLM backends, such as Ollama, OpenAI, and Anthropic.
+*   **Information Fragments**: Components responsible for collecting and formatting specific information from application state, such as UI elements, screenshots, and monitored operations
+*   **Information Manager**: Coordinates information fragments and composes final information for prompt generation
+*   **Templates**: Define prompt structure using Jinja2 syntax
+*   **Template Repository**: Manages templates, loading from XML files and providing access to prompt strategies
+*   **Prompt Strategies**: Define logic for generating prompts, including information selection and template usage
+*   **Prompt Framework**: Main entry point coordinating all components and providing prompt generation interface
+*   **Language Model**: Abstraction layer for different LLM backends (Ollama, OpenAI, Anthropic)
 
 ## 3. Architecture
 
@@ -37,7 +37,7 @@ The `rv-llm` module follows a three-layer architecture:
 ┌───────────────────────────────▼─────────────────────────────────────┐
 │                         Strategy Layer                              │
 │ ┌────────────────────┐  ┌────────────────────┐  ┌────────────────┐  │
-│ │  StandardStrategy  │  │ BatchActionStrategy│  │ Other          │  │
+│ │  SingleStrategy    │  │   BatchStrategy    │  │  VisionStrategy│  │
 │ │                    │  │                    │  │ Strategies     │  │
 │ └────────────────────┘  └────────────────────┘  └────────────────┘  │
 └───────────────────────────────┬─────────────────────────────────────┘
@@ -61,17 +61,17 @@ The `rv-llm` module follows a three-layer architecture:
 
 ### 3.1. Information Layer
 
-The Information Layer is responsible for collecting and formatting the information that will be used in the prompt. It consists of the following components:
+The Information Layer handles collecting and formatting information for prompt generation. Components include:
 
-*   **`InformationFragment`**: An abstract base class for all information fragments. Each fragment is responsible for a specific piece of information.
-*   **`InformationManager`**: This class manages the information fragments, including registering, prioritizing, and composing the information from all the fragments.
+*   **`InformationFragment`**: Abstract base class for all information fragments, each handling specific information types
+*   **`InformationManager`**: Manages information fragments including registration, prioritization, and information composition
 
 #### 3.1.1. `InformationFragment`
 
-The `InformationFragment` is an abstract base class that defines the interface for all information fragments. It has two main methods:
+The `InformationFragment` abstract base class defines the interface for all information fragments with two main methods:
 
-*   `generate`: This method is responsible for generating the formatted information from the given state and context.
-*   `should_include`: This method determines whether the fragment should be included in the current prompt.
+*   `generate`: Generates formatted information from given state and context
+*   `should_include`: Determines whether the fragment should be included in the current prompt
 
 Here is an example of an information fragment:
 
@@ -91,10 +91,10 @@ class AppInfoFragment(InformationFragment):
 
 #### 3.1.2. `InformationManager`
 
-The `InformationManager` is responsible for managing the information fragments. It has the following main methods:
+The `InformationManager` manages information fragments with main methods:
 
-*   `register_fragment`: This method registers a new information fragment.
-*   `compose_information`: This method composes the information from all the registered fragments.
+*   `register_fragment`: Registers a new information fragment
+*   `compose_information`: Composes information from all registered fragments
 
 Here is an example of how to use the `InformationManager`:
 
@@ -117,14 +117,14 @@ print(info)
 
 ### 3.2. Template Layer
 
-The Template Layer is responsible for defining the structure of the prompt. It uses Jinja2 for templating. The main components are:
+The Template Layer defines prompt structure using Jinja2 templating. Main components are:
 
-*   **`Jinja2Template`**: This class represents a single Jinja2 template. It is responsible for rendering the template with the provided data.
-*   **`Jinja2TemplateRepository`**: This class manages the templates, loading them from XML files and making them available to the prompt strategies. It also manages template fragments.
+*   **`Jinja2Template`**: Represents a single Jinja2 template and handles rendering with provided data
+*   **`Jinja2TemplateRepository`**: Manages templates by loading from XML files and providing access to prompt strategies, including template fragment management
 
 #### 3.2.1. `Jinja2Template`
 
-The `Jinja2Template` class is a wrapper around a Jinja2 template. It provides a `render` method that takes a dictionary of variables and returns the rendered template.
+The `Jinja2Template` class wraps a Jinja2 template and provides a `render` method that accepts a dictionary of variables and returns the rendered template.
 
 Here is an example of a Jinja2 template:
 
@@ -162,8 +162,9 @@ for message in messages:
 The Strategy Layer is responsible for defining the logic for generating the prompt. It uses the information from the Information Layer and the templates from the Template Layer to create the final prompt. The main components are:
 
 *   **`PromptStrategy`**: An abstract base class for all prompt strategies.
-*   **`StandardStrategy`**: A strategy that generates a single action per prompt.
-*   **`BatchActionStrategy`**: A strategy that generates a batch of actions per prompt.
+*   **`SingleStrategy`**: A strategy that generates a single action per prompt.
+*   **`BatchStrategy`**: A strategy that generates multiple actions per prompt.
+*   **`VisionStrategy`**: A strategy that uses multimodal capabilities for screenshot analysis and coordinate-based actions.
 
 #### 3.3.1. `PromptStrategy`
 
@@ -171,13 +172,17 @@ The `PromptStrategy` is an abstract base class that defines the interface for al
 
 *   `_generate_prompt`: This method is responsible for generating the prompt from the given state and context.
 
-#### 3.3.2. `StandardStrategy`
+#### 3.3.2. `SingleStrategy`
 
-The `StandardStrategy` is a strategy that generates a single action per prompt. It uses a standard template to generate the prompt.
+The `SingleStrategy` generates a single action per prompt, suitable for focused testing scenarios. It uses compact templates optimized for single-action generation.
 
-#### 3.3.3. `BatchActionStrategy`
+#### 3.3.3. `BatchStrategy`
 
-The `BatchActionStrategy` is a strategy that generates a batch of actions per prompt. It uses a batch action template to generate the prompt.
+The `BatchStrategy` generates multiple related actions per prompt, ideal for completing workflows like form submission or navigation sequences.
+
+#### 3.3.4. `VisionStrategy`
+
+The `VisionStrategy` utilizes multimodal LLM capabilities to analyze screenshots alongside UI descriptions. It supports three action types: standard UI actions, text input, and custom coordinate-based actions for elements not described in the UI tree.
 
 Here is an example of how to use a prompt strategy:
 
@@ -219,17 +224,17 @@ variants = {
     "default": {
         "llm_type": "ollama",
         "llm_model": "llama3.2",
-        "prompt_strategy": "standard_modular"
+        "prompt_strategy": "single"
     },
     "openai_gpt4": {
-        "llm_type": "openai", 
+        "llm_type": "frontier", 
         "llm_model": "gpt-4",
-        "prompt_strategy": "batch_action_modular"
+        "prompt_strategy": "batch"
     },
-    "multimodal": {
+    "vision": {
         "llm_type": "ollama",
-        "llm_model": "llava",
-        "prompt_strategy": "multimodal_modular"
+        "llm_model": "gemma",
+        "prompt_strategy": "vision"
     }
 }
 ```
@@ -238,7 +243,7 @@ Users can then specify variants in experiment configurations:
 ```bash
 # CLI usage with variants
 poetry run python -m rv_experiment run --tools "rvandroid:openai_gpt4"
-poetry run python -m rv_experiment run --tools "rvandroid:multimodal"
+poetry run python -m rv_experiment run --tools "rvandroid:vision"
 ```
 
 #### Configuration Creation Flow
@@ -422,7 +427,7 @@ The `rvandroid-tool` module provides a concrete implementation of the prompt fra
 
 The `RVAndroidPromptFramework` class serves as the entry point for the prompt generation system in `rvandroid-tool`. Its `create` method orchestrates the initialization of the framework, including:
 
-*   **Strategy Registration**: The `StandardStrategy` and `BatchActionStrategy` are registered with the `LLMComponentFactory`. This allows the framework to create instances of these strategies without being tightly coupled to their implementations.
+*   **Strategy Registration**: The `SingleStrategy`, `BatchStrategy`, and `VisionStrategy` are registered with the `LLMComponentFactory`. This allows the framework to create instances of these strategies without being tightly coupled to their implementations.
 *   **Fragment Registration**: A set of Android-specific information fragments are registered with the `InformationManager`. These fragments are responsible for extracting data from the testing environment, such as UI elements (`UIElementsFragment`), testing history (`HistoryFragment`), monitored operations (`MonitoredOperationsFragment`), and transition guidance (`TransitionGuidanceFragment`).
 *   **Template Registration**: The framework registers the directories containing the Jinja2 templates and template fragments. This allows the `Jinja2TemplateRepository` to load and manage the templates used by the prompt strategies.
 
@@ -438,13 +443,14 @@ The `rvandroid-tool` implementation includes several specialized information fra
 
 ### Prompt Strategies
 
-The framework implements two main prompt strategies:
+The framework implements three main prompt strategies:
 
-*   **`StandardStrategy`**: This strategy generates a prompt that asks the LLM for a single action to execute.
-*   **`BatchActionStrategy`**: This strategy generates a prompt that asks the LLM for a batch of actions to execute. This is useful for testing scenarios that involve a sequence of related actions, such as filling out a form.
+*   **`SingleStrategy`**: This strategy generates a prompt that asks the LLM for a single action to execute.
+*   **`BatchStrategy`**: This strategy generates a prompt that asks the LLM for multiple related actions to execute. This is useful for testing scenarios that involve a sequence of related actions, such as filling out a form.
+*   **`VisionStrategy`**: This strategy leverages multimodal LLM capabilities to analyze screenshots and generate actions based on visual analysis, including custom coordinate-based actions for elements not described in the UI tree.
 
 ### Templates
 
 The `rvandroid-tool` uses a modular system of Jinja2 templates and template fragments. The templates are defined in XML files and can include other fragments. This allows for a high degree of flexibility and reuse in the construction of prompts.
 
-The `batch_action_modular.xml` template, for example, extends a base template (`system_base.xml`) and includes several fragments to construct a prompt for the `BatchActionStrategy`.
+The templates use a fragment-based architecture where `single.xml`, `batch.xml`, and `vision.xml` templates extend a base template (`system_base.xml`) and include strategy-specific fragments to construct prompts for their respective strategies.

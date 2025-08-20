@@ -108,16 +108,13 @@ class FrontierModel(LanguageModel):
         return formatted_msgs
 
     def format_message(self, message):
-        content = message.get_text_content()
-        formatted_msg = {
-            "role": message.role.value,
-            "content": content
-        }
-        if LLMRole.USER == message.role and self.config.vision:
-            images = message.get_image_content()
-            if images and len(images) > 0:
-                formatted_msg["images"] = images
-        return formatted_msg
+        """
+        Format message for provider-specific API using unified multimodal support.
+        
+        Uses the base class multimodal formatting with provider-specific format
+        based on the inferred provider type (anthropic, openai, etc.).
+        """
+        return self.format_message_with_multimodal_support(message, self.provider)
 
     def _infer_provider(self, model_name: str) -> str:
         """

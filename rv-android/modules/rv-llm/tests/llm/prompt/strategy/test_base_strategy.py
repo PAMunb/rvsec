@@ -81,7 +81,7 @@ class TestBasicFunctionality:
                 strategy = SimpleTestStrategy("test")
 
                 result = strategy.get_template_name()
-                assert result == PromptStrategyType.STANDARD
+                assert result == PromptStrategyType.SINGLE
 
     def test_generate_prompt_basic(self):
         """Test generate_prompt basic functionality."""
@@ -133,7 +133,7 @@ class TestErrorPaths:
                 strategy = SimpleTestStrategy("test")
 
                 mock_config = Mock(spec=PromptConfig)
-                mock_config.strategy_type = PromptStrategyType.STANDARD
+                mock_config.strategy_type = PromptStrategyType.SINGLE
                 mock_config.get_strategy_parameters.side_effect = Exception("Test error")
 
                 # The actual implementation might handle this differently
@@ -151,7 +151,7 @@ class TestErrorPaths:
                 # Set config to non-dict object
                 strategy.config = "not_a_dict"
                 result = strategy.get_template_name()
-                assert result == PromptStrategyType.STANDARD
+                assert result == PromptStrategyType.SINGLE
 
     def test_template_name_config_none_template_name(self):
         """Test get_template_name when config has None template_name."""
@@ -161,7 +161,7 @@ class TestErrorPaths:
 
                 strategy.config = {"template_name": None, "strategy_name": "test"}
                 result = strategy.get_template_name()
-                assert result == PromptStrategyType.STANDARD
+                assert result == PromptStrategyType.SINGLE
 
     def test_generate_prompt_invalid_role(self):
         """Test generate_prompt with invalid role."""
@@ -272,7 +272,7 @@ class TestTemplateNameResolution:
 
                 result = strategy.get_template_name()
 
-                assert result == PromptStrategyType.STANDARD
+                assert result == PromptStrategyType.SINGLE
 
     def test_template_name_warning_logged_for_fallback(self):
         """Test that warning is logged when falling back to STANDARD."""
@@ -287,7 +287,7 @@ class TestTemplateNameResolution:
 
                 result = strategy.get_template_name()
 
-                assert result == PromptStrategyType.STANDARD
+                assert result == PromptStrategyType.SINGLE
                 strategy.logger.warning.assert_called()
 
 

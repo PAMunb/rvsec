@@ -2,20 +2,19 @@
 
 ## 1. Introduction
 
-RV-Android is a platform for testing Android applications using runtime verification techniques. The platform is built on a modular architecture using Poetry, with each module residing in the `modules` directory. This modularization promotes maintainability, scalability, and clarity of the system's structure. The platform combines static analysis, dynamic testing, and formal verification to detect potential issues in Android applications, leveraging JavaMOP (Monitoring-Oriented Programming) and RV-Monitor for property verification.
+RV-Android is a platform for Android application testing using runtime verification techniques with AI-driven testing capabilities. The platform uses a modular Poetry-based architecture with modules in the `modules` directory. The platform combines static analysis, dynamic testing, formal verification, and LLM-guided exploration to detect issues in Android applications, leveraging JavaMOP (Monitoring-Oriented Programming) and RV-Monitor for property verification.
 
-This document details the architecture of the RV-Android platform, focusing on its modular structure, the component-based task execution system, memory management, and LLM-guided testing capabilities.
+This document details the architecture of the RV-Android platform, focusing on its modular structure, component-based task execution system, and LLM-guided testing capabilities.
 
 ### 1.1 Core Design Principles
 
 The RV-Android architecture is built on several key principles:
 
-1.  **Modular Architecture**: The system is divided into independent, reusable modules managed by Poetry. Each module has a well-defined responsibility, improving separation of concerns and simplifying development and maintenance.
+1.  **Modular Architecture**: The system is divided into independent, reusable modules managed by Poetry. Each module has a well-defined responsibility and clear separation of concerns.
 2.  **Component-Based Architecture**: Within modules, a component-based approach with clear interfaces enables flexible system composition.
 3.  **Event-Driven Communication**: Decoupled components communicate through an event bus system.
-4.  **Memory Management**: Memory systems support complex exploration and decision-making.
-5.  **LLM Integration**: Integration with Language Learning Models for intelligent test generation.
-6.  **Error Handling**: Error handling and recovery mechanisms ensure system reliability.
+4.  **LLM Integration**: Integration with language models for intelligent test generation.
+5.  **Error Handling**: Comprehensive error handling and recovery mechanisms.
 
 ## 2. High-Level System Architecture
 
@@ -59,18 +58,26 @@ The RV-Android platform is composed of a set of interconnected modules, each res
 
 The RV-Android platform is organized into the following modules:
 
-*   **rv-android-core**: Provides the core domain models, utilities, and interfaces used by all other modules. It is the foundation of the platform.
-*   **rv-platform**: Manages the execution of tests, including device management, task scheduling, and result collection.
-*   **rv-tools**: Contains a collection of tools and scripts for interacting with the Android ecosystem, such as `adb`, `aapt`, and `apksigner`.
-*   **rv-instrumentation**: Handles the instrumentation of Android applications to enable runtime verification.
-*   **rv-static-analysis**: Performs static analysis of Android applications to extract information about their structure and behavior.
-*   **rv-monitor-generator**: Generates monitoring code from formal specifications.
-*   **rv-coverage**: Measures the code coverage of tests.
-|*   **rv-evaluator**: Evaluates the results of tests and generates reports.
-*   **rv-experiment**: Manages the execution of experiments, which are collections of tests.
-*   **rv-llm**: Provides an interface to Large Language Models (LLMs) for use in testing.
-*   **rv-screen-parser**: Parses the UI of Android applications to extract information about their components.
-*   **rvandroid-tool**: A high-level tool that integrates many of the other modules to provide a complete testing solution.
+### Core Infrastructure:
+*   **rv-android-core**: Foundation module providing domain models, utilities, and interfaces for all other modules
+*   **rv-platform**: Task execution orchestration, device management, and result collection
+*   **rv-tools**: Testing tool registry and plugin system with factory patterns
+
+### Analysis and Processing:
+*   **rv-instrumentation**: APK instrumentation with monitor weaving capabilities  
+*   **rv-static-analysis**: Static analysis tools (GATOR, GESDA, REACH) for Android applications
+*   **rv-monitor-generator**: JavaMOP/RV-Monitor integration for generating runtime verification monitors
+*   **rv-coverage**: Coverage analysis and tracking for monitored operations
+*   **rv-screen-parser**: Android UI parsing with visitor patterns for state analysis
+
+### AI and LLM Integration:
+*   **rv-llm**: Language model integration framework with multiple backend support
+*   **rvandroid-tool**: AI-driven testing tool with LLM integration and server interface
+*   **rvdroid-tool**: Alternative testing tool implementation
+
+### Experiment Orchestration:  
+*   **rv-experiment**: Experiment orchestration and coordination system
+*   **rv-evaluator**: Result evaluation and report generation
 
 ## 4. Task Execution Engine
 
@@ -440,11 +447,12 @@ The platform includes the following tools with their variant support:
 - `bfs_naive`: Simple breadth-first approach
 - `random`: Random action selection
 
-**RVAndroid Tool** (4 variants):
-- `default`: Standard LLM configuration
-- `llama_batch_detailed`: Llama model with batch processing
-- `gpt4_standard_basic`: GPT-4 with standard prompts
-- `ollama_standard_detailed`: Ollama with detailed context
+**RVAndroid Tool** (5 variants):
+- `default`: Ollama Gemma with single action strategy and vision support
+- `llama_batch_detailed`: LLaMA 3.1 70B with batch action strategy
+- `gpt4_standard_basic`: GPT-4 with single action strategy and basic visitor
+- `ollama_standard_detailed`: Mixtral 8x7B with single action strategy
+- `vision`: Gemma with vision strategy for multimodal testing and coordinate actions
 
 **Additional Tools** (3-4 variants each):
 - **Monkey**: default, fast, stress variants
@@ -476,7 +484,7 @@ python -m rv_experiment run --tools ape:sata,droidbot:bfs_greedy,rvandroid:defau
         "llm_model": "qwen2.5:7b",
         "temperature": 0.2,
         "llm_type": "ollama",
-        "prompt_strategy": "standard_modular"
+        "prompt_strategy": "single"
       }
     }
   ]
@@ -487,114 +495,136 @@ python -m rv_experiment run --tools ape:sata,droidbot:bfs_greedy,rvandroid:defau
 
 RVAndroid provides LLM-enhanced testing through integration with multiple language model backends.
 
-#### 5.1.1 RVDroid Architecture
+#### 5.2.1 RVAndroid Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                                RVDroid                                      │
+│                               RVAndroid Tool                                │
 │                                                                             │
 │  ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────────────┐  │
 │  │                 │    │                 │    │                         │  │
-│  │  State Manager  │◄───┤  Core Service   │◄───┤  LLM Service Manager   │  │
+│  │ Action Service  │◄───┤     Server      │◄───┤    LLM Manager         │  │
 │  │                 │    │                 │    │                         │  │
 │  └─────────────────┘    └─────────────────┘    └─────────────────────────┘  │
 │           │                       │                          │              │
 │           ▼                       ▼                          ▼              │
 │  ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────────────┐  │
 │  │                 │    │                 │    │                         │  │
-│  │  Memory System  │    │  Action Manager │    │  Strategy Framework    │  │
-│  │  - Short Term   │    │                 │    │  - Adaptive Strategies │  │
-│  │  - Long Term    │    │                 │    │  - Visual Awareness    │  │
-│  │  - Pattern Rec. │    │                 │    │  - Goal Orientation    │  │
+│  │ State Enricher  │    │ Action Generator│    │  Prompt Framework      │  │
+│  │                 │    │                 │    │  - Template System     │  │
+│  │                 │    │                 │    │  - Strategy Manager    │  │
+│  │                 │    │                 │    │  - Fragment Manager    │  │
 │  │                 │    │                 │    │                         │  │
 │  └─────────────────┘    └─────────────────┘    └─────────────────────────┘  │
 │           │                       │                          │              │
 │           ▼                       ▼                          ▼              │
 │  ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────────────┐  │
 │  │                 │    │                 │    │                         │  │
-│  │  UI Adapter     │    │  Action Executor│    │  Analysis Components   │  │
-│  │  (UIAutomator2) │    │                 │    │  - Context Analysis    │  │
-│  │                 │    │                 │    │  - Opportunity Detect. │  │
-│  │                 │    │                 │    │  - Progress Tracking   │  │
+│  │ Memory Manager  │    │Response Processor│    │ Transition Manager     │  │
+│  │                 │    │                 │    │                         │  │
+│  │                 │    │                 │    │                         │  │
+│  │                 │    │                 │    │                         │  │
 │  │                 │    │                 │    │                         │  │
 │  └─────────────────┘    └─────────────────┘    └─────────────────────────┘  │
 │                                                                             │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-#### 5.1.2 Memory System
+#### 5.2.2 LLM Action Service
 
-RVDroid includes a memory system for test generation:
+The LLMActionService coordinates AI-driven action generation:
 
 ```python
-class MemorySystem:
+class LLMActionService:
     """
-    Memory system for RVDroid testing.
+    Orchestrates AI-driven test action generation using unified configuration.
     """
     
-    def __init__(self):
-        self.short_term = ShortTermMemory()
-        self.long_term = LongTermMemory()
-        self.pattern_recognition = PatternRecognition()
-        self.state_fingerprinter = StateFingerprinter()
+    def __init__(self, static_data: StaticAnalysisData, tool_config: RvAndroidToolConfig):
+        self.tool_config = tool_config
+        self.static_data = static_data
+        self.llm_config = tool_config.llm_config
+        self.prompt_config = tool_config.prompt_config
         
-    def process_state(self, state_info: Dict[str, Any]) -> MemoryContext:
-        """Process current state through all memory components."""
-        # Generate state fingerprint
-        fingerprint = self.state_fingerprinter.generate_fingerprint(state_info)
+        # Initialize LLM manager and prompt framework
+        self.llm_manager = LLMManager(self.llm_config)
+        self.prompt_framework = RVAndroidPromptFramework.create(self.prompt_config)
         
-        # Update short-term memory
-        self.short_term.add_state(state_info, fingerprint)
+        # Initialize specialized processors
+        self.state_enricher = StateEnricher(static_data=static_data, config=self.prompt_config)
+        self.response_processor = ResponseProcessor(config=self.llm_config)
+        self.action_generator = ActionGenerator(config=self.llm_config, static_data=static_data)
         
-        # Check for patterns
-        patterns = self.pattern_recognition.analyze_state(state_info)
+        # Initialize coordination components
+        self.transition_manager = TransitionManager(static_data)
+        self.memory_manager = MemoryManager(static_data)
         
-        # Update long-term memory if significant
-        if self._is_significant_state(state_info, patterns):
-            self.long_term.store_state(state_info, fingerprint, patterns)
+    def process_state(self, state: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """Process application state and generate testing actions."""
+        # Enrich state with additional information
+        self.state_enricher.enrich_state(state)
         
-        return MemoryContext(
-            current_state=state_info,
-            fingerprint=fingerprint,
-            short_term_context=self.short_term.get_context(),
-            relevant_patterns=patterns,
-            long_term_insights=self.long_term.get_relevant_insights(fingerprint)
-        )
+        # Generate context-aware prompt
+        prompt_context = self._create_prompt_context(state)
+        messages = self.prompt_framework.generate_prompt(state, prompt_context)
+        
+        # Process LLM interaction
+        llm_response = self.llm_manager.generate(messages)
+        response_text = llm_response.content if hasattr(llm_response, 'content') else str(llm_response)
+        
+        # Process response into actions
+        actions, errors = self.response_processor.process_response(response_text, state)
+        generated_actions = self.action_generator.create_actions(actions, state)
+        
+        # Update memory with interaction history
+        self.memory_manager.record_actions(state, generated_actions)
+        
+        return [action.to_droidbot_format() for action in generated_actions]
 ```
 
-#### 5.1.3 Strategy Framework
+#### 5.2.3 Event Bus Integration
 
-RVDroid employs a strategy framework for adaptive testing:
+RVAndroid integrates with the event bus for real-time coverage and error tracking:
 
 ```python
-class AdaptiveStrategyManager:
-    """
-    Manages adaptive testing strategies for RVDroid.
-    """
-    
-    def __init__(self):
-        self.strategies = {
-            'exploration': ExplorationStrategy(),
-            'goal_oriented': GoalOrientedStrategy(),
-            'visual_aware': VisualAwareStrategy(),
-            'coverage_focused': CoverageFocusedStrategy()
-        }
-        self.strategy_balancer = StrategyBalancer()
-        
-    def select_strategy(self, context: MemoryContext, current_metrics: Dict[str, Any]) -> Strategy:
-        """Select strategy based on current context and performance."""
-        # Analyze current context
-        context_analysis = self._analyze_context(context)
-        
-        # Get strategy performance history
-        strategy_performance = self.strategy_balancer.get_performance_metrics()
-        
-        # Select best strategy for current situation
-        selected_strategy = self.strategy_balancer.select_optimal_strategy(
-            context_analysis, strategy_performance, current_metrics
+class LLMActionService:
+    def subscribe_to_event_bus(self):
+        """Subscribe to coverage and error events for prompt context."""
+        from rv_android_core.event.models import EventType
+        self.event_bus.subscribe(
+            EventType.COVERAGE_UPDATED,
+            self._on_coverage_updated,
+            filter_fn=lambda event: hasattr(event, 'source') and event.source == "CoverageTracker"
+        )
+        self.event_bus.subscribe(
+            EventType.MOP_ERROR_DETECTED,
+            self._on_mop_error_detected,
+            filter_fn=lambda event: hasattr(event, 'source') and event.source == "CoverageTracker"
         )
         
-        return self.strategies[selected_strategy]
+    def _on_coverage_updated(self, event) -> None:
+        """Handle coverage updates from CoverageTracker."""
+        try:
+            self.current_coverage_metrics = event.data.coverage_metrics
+        except Exception as e:
+            self.logger.warning(f"Error processing coverage update: {e}")
+
+    def _on_mop_error_detected(self, event) -> None:
+        """Handle MOP error detection events from CoverageTracker."""
+        try:
+            error_data = event.data.error_log
+            error_context = {
+                **error_data,
+                "detected_at": datetime.datetime.now().isoformat()
+            }
+            
+            # Add to recent errors list for prompt context
+            self.recent_mop_errors.append(error_context)
+            if len(self.recent_mop_errors) > 5:
+                self.recent_mop_errors.pop(0)
+                
+        except Exception as e:
+            self.logger.error(f"Error processing MOP error detection: {e}", exc_info=True)
 ```
 
 ### 5.3 RVAndroid - DroidBot Integration

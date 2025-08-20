@@ -132,23 +132,27 @@ class RvAndroidToolConfig(BaseValidatedModel):
 
         # Merge variant config with overrides
         final_config = {**variant_config, **override_params}
+        
 
         # Create LLM configuration
         llm_config = LLMConfig(
             llm_type=final_config.get("llm_type", LLMType.OLLAMA),
-            model=final_config.get("llm_model", "llama3.2"),
-            temperature=final_config.get("temperature", 0.1),
-            top_p=final_config.get("top_p", 0.9),
-            max_tokens=final_config.get("max_tokens", 2048),
+            model=final_config.get("llm_model", "llama3.2:1b"),
+            temperature=final_config.get("temperature", 0.2),
+            top_p=final_config.get("top_p", 0.7),
+            top_k=final_config.get("top_k", 40),
+            max_tokens=final_config.get("max_tokens", 800),
             vision=final_config.get("vision", False),
             think=final_config.get("think", False)
         )
 
         # Create prompt configuration  
+        strategy_value = final_config.get("prompt_strategy", PromptStrategyType.BATCH)
+        visitor_value = final_config.get("visitor_type", VisitorType.DEFAULT)
         prompt_config = PromptConfig(
-            strategy_type=final_config.get("prompt_strategy", PromptStrategyType.STANDARD),
+            strategy_type=strategy_value,
             parser_type=final_config.get("parser_type", ScreenParserType.DROIDBOT),
-            visitor_type=final_config.get("visitor_type", VisitorType.DEFAULT)
+            visitor_type=visitor_value
         )
 
         # Create tool configuration
@@ -182,7 +186,7 @@ class RvAndroidToolConfig(BaseValidatedModel):
             return False, f"Prompt configuration error: {prompt_error}"
 
         # Validate server port
-        if self.server_port < 1024 or self.server_port > 65535:
+        if self.server_port < 1024 or self.server_port > 49151:
             return False, f"Invalid server port: {self.server_port}"
 
         return True, None
@@ -222,10 +226,10 @@ class RvAndroidToolConfig(BaseValidatedModel):
             Dictionary representation of the configuration
         """
         return {
-            "llm_config": self.llm_config.to_dict() if hasattr(self.llm_config,
-                                                               'to_dict') else self.llm_config.model_dump(),
-            "prompt_config": self.prompt_config.to_dict() if hasattr(self.prompt_config,
-                                                                     'to_dict') else self.prompt_config.model_dump(),
+            "llm_config": self.llm_config.to_dict() if hasattr(self.llm_config, 'to_dict')
+                                                    else self.llm_config.model_dump(),
+            "prompt_config": self.prompt_config.to_dict() if hasattr(self.prompt_config, 'to_dict')
+                                                    else self.prompt_config.model_dump(),
             "server_port": self.server_port,
             "debug_mode": self.debug_mode,
             "additional_params": self.additional_params

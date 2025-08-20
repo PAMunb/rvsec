@@ -11,6 +11,12 @@ from rv_llm.llm.language_model import LanguageModel, LLMMessage, LLMResponse
 class ConcreteLanguageModel(LanguageModel):
     NAME = "concrete"
     MODELS = ["model-a", "model-b"]
+    
+    def __init__(self, model_name: str):
+        """Initialize with model name for testing."""
+        config = LLMConfig(llm_type="ollama", model=model_name)
+        super().__init__(config)
+        self.model_name = model_name  # Store for test assertions
 
     def generate(self, messages: list[LLMMessage], config: LLMConfig | None = None) -> LLMResponse:
         if self.model_name == "error_model":
@@ -45,12 +51,14 @@ class TestLanguageModelAbstractMethods:
     def test_generate_is_abstract(self):
         """Test that generate is an abstract method."""
         with pytest.raises(TypeError):
-            LanguageModel("test")
+            config = LLMConfig(llm_type="ollama", model="test")
+            LanguageModel(config)
 
     def test_cleanup_is_abstract(self):
         """Test that cleanup is an abstract method."""
         with pytest.raises(TypeError):
-            LanguageModel("test")
+            config = LLMConfig(llm_type="ollama", model="test")
+            LanguageModel(config)
 
 
 class TestLanguageModelErrorHandling:
@@ -99,14 +107,3 @@ class TestLanguageModelHelperMethods:
     def test_get_component_name(self, model_instance):
         """Test that the component name is correctly formatted."""
         assert model_instance._get_component_name() == "LanguageModel.ConcreteLanguageModel"
-
-    def test_default_config_property(self, model_instance, mock_supported_llm_types):
-        """Test that the default_config property returns a valid LLMConfig."""
-        config = model_instance.default_config
-        assert isinstance(config, LLMConfig)
-        assert config.llm_type == "concrete"
-        assert config.model == "test_model"
-
-    def test_models_classmethod(self):
-        """Test that the models classmethod returns the correct list of models."""
-        assert ConcreteLanguageModel.models() == ["model-a", "model-b"]

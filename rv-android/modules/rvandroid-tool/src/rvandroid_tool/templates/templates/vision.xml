@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<template name="vision" version="1.0">
+<template name="vision" version="2.0">
   <metadata>
-    <description>Vision-based template with screenshot analysis and custom coordinate action generation</description>
+    <description>Optimized vision template with consolidated instructions and reduced redundancy</description>
     <created>2025-08-15</created>
     <author>RV-Android Team</author>
-    <updated>2025-08-18</updated>
+    <updated>2025-08-19</updated>
   </metadata>
   <variables>
     <required>ui_elements</required>
@@ -19,21 +19,10 @@
   </variables>
   <roles>
     <system><![CDATA[
-{% include "vision_system_intro" %}
-
-
-{% include "vision_instructions" %}
-
-
-{% include "vision_format" %}
-
-
-{% include "vision_guidelines" %}
-
+{% include "vision_system_consolidated" %}
 
 {% if additional_guidelines %}
-ADDITIONAL STRATEGY GUIDANCE:
-{{ additional_guidelines }}
+ADDITIONAL GUIDANCE: {{ additional_guidelines }}
 {% endif %}]]>
     </system>
     <user><![CDATA[
@@ -42,12 +31,7 @@ ADDITIONAL STRATEGY GUIDANCE:
 UI Actions:
 {{ ui_elements }}
 
-{% if additional_guidelines %}
-ADDITIONAL GUIDELINES:
-{{ additional_guidelines }}
-{% endif %}
-
-Screenshot shows current app state. Generate 1-5 strategic actions that form a logical sequence:
+Screenshot shows current app state. Generate 1-5 strategic actions:
     ]]></user>
   </roles>
 </template>

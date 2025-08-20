@@ -224,13 +224,13 @@ class TestScreenDescription:
         screen = ScreenDescription(activity=activity, items=items)
 
         assert screen.activity == activity
-        # Note: ScreenDescription automatically adds a BACK action, so items count will be different
-        assert len(screen.items) == 3  # 2 original + 1 back action
+        # ScreenDescription no longer automatically adds a BACK action
+        assert len(screen.items) == 2  # 2 original items
         assert 1 in screen.events_by_id
         assert screen.events_by_id[1].text == "CLICK (1)"
 
     def test_add_standard_back_action(self):
-        """Test that a standard BACK action is added if not present"""
+        """Test that ScreenDescription no longer automatically adds a BACK action"""
         activity = "com.example.TestActivity"
         items = [
             ScreenItem(
@@ -242,7 +242,7 @@ class TestScreenDescription:
 
         screen = ScreenDescription(activity=activity, items=items)
 
-        # Find the back action
+        # Verify no automatic back action is added
         back_action = None
         for item in screen.items:
             for action in item.actions:
@@ -252,8 +252,10 @@ class TestScreenDescription:
             if back_action:
                 break
 
-        assert back_action is not None
-        assert back_action.event == WidgetEventType.KEY
+        # Back action should NOT be present anymore
+        assert back_action is None
+        # Only the original item should be present
+        assert len(screen.items) == 1
 
     def test_no_duplicate_back_action(self):
         """Test that back action is not duplicated if already present"""

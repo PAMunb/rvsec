@@ -35,7 +35,7 @@ from rv_android_core.util.error.error_handler import ErrorHandler
 from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
 from rv_android_core.util.logging.manager import LoggingManager
 from rv_android_core.util.validation import BaseValidatedModel
-from rv_llm.llm.constants import PromptStrategyType
+from rv_llm.llm.constants import PromptStrategyType, ContextMode
 from rv_screen_parser.constants import ScreenParserType, VisitorType
 
 
@@ -118,6 +118,29 @@ class PromptConfig(BaseValidatedModel):
         description="Maximum context length for prompt generation"
     )
 
+    # Context Mode Configuration
+    context_mode: str = Field(
+        default=ContextMode.STATELESS,
+        description="Context enrichment mode for prompt generation"
+    )
+    
+    context_window_size: int = Field(
+        default=ContextMode.WINDOW_SIZE_DEFAULT,
+        ge=ContextMode.WINDOW_SIZE_MIN,
+        le=ContextMode.WINDOW_SIZE_MAX,
+        description="Size of sliding window for rich context mode"
+    )
+    
+    context_compression: bool = Field(
+        default=True,
+        description="Enable compression for older context entries"
+    )
+    
+    include_coverage_timeline: bool = Field(
+        default=False,
+        description="Include coverage progression timeline in rich context"
+    )
+
     # Additional Parameters
     additional_params: Dict[str, Any] = Field(
         default_factory=dict,
@@ -166,6 +189,15 @@ class PromptConfig(BaseValidatedModel):
         valid_visitors = VisitorType.ALL
         if v not in valid_visitors:
             raise ValueError(f"visitor_type must be one of: {valid_visitors}")
+        return v
+
+    @field_validator('context_mode')
+    @classmethod
+    def validate_context_mode(cls, v: str) -> str:
+        """Validate context mode against supported modes."""
+        valid_modes = [ContextMode.STATELESS, ContextMode.RICH]
+        if v not in valid_modes:
+            raise ValueError(f"context_mode must be one of: {valid_modes}")
         return v
 
     @model_validator(mode='after')
@@ -268,10 +300,11 @@ class PromptConfig(BaseValidatedModel):
         config_dict = {}
 
         # Parse strategy variants
+        # TODO arrumar
         if "standard" in variants:
-            config_dict["strategy_type"] = PromptStrategyType.STANDARD
+            config_dict["strategy_type"] = PromptStrategyType.SINGLE
         elif "batch_action" in variants:
-            config_dict["strategy_type"] = PromptStrategyType.BATCH_ACTION
+            config_dict["strategy_type"] = PromptStrategyType.BATCH
 
         # Parse parser variants
         if "droidbot" in variants:

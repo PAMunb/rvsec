@@ -79,7 +79,8 @@ class ExecutionController:
         phase="setup"
     )
     def setup(self, apks: List[App], repetitions: int, timeouts: List[int],
-              tools: List[AbstractTool], no_window: bool = False, results_dir: str = None):
+              tools: List[AbstractTool], tool_configs: List = None, 
+              no_window: bool = False, results_dir: str = None):
         """
         Set up experiment execution by configuring rv-platform integration.
 
@@ -88,6 +89,7 @@ class ExecutionController:
             repetitions: Number of repetitions for each task
             timeouts: List of timeout values for task execution
             tools: List of testing tools for experiment execution
+            tool_configs: List of original tool configurations with variant info
             no_window: Whether to run emulator in headless mode
             results_dir: Directory for storing results
         """
@@ -103,7 +105,7 @@ class ExecutionController:
 
             # Create platform configuration from experiment parameters
             self.platform_config = self._create_platform_config(
-                apks, repetitions, timeouts, tools, no_window, results_dir
+                apks, repetitions, timeouts, tools, tool_configs, no_window, results_dir
             )
 
             # Initialize platform with event bus coordination
@@ -165,7 +167,8 @@ class ExecutionController:
     )
     def _create_platform_config(self, apks: List[App], repetitions: int, 
                                timeouts: List[int], tools: List[AbstractTool], 
-                               no_window: bool, results_dir: str = None) -> PlatformConfig:
+                               tool_configs: List = None, no_window: bool = False, 
+                               results_dir: str = None) -> PlatformConfig:
         """
         Create platform configuration from experiment parameters.
 
@@ -174,6 +177,7 @@ class ExecutionController:
             repetitions: Number of execution repetitions
             timeouts: List of timeout values
             tools: List of testing tools
+            tool_configs: List of original tool configurations with variant info
             no_window: Headless execution flag
             results_dir: Directory for storing results
 
@@ -192,13 +196,26 @@ class ExecutionController:
 
         # Convert experiment tools to platform tool configurations
         platform_tools = []
-        for tool in tools:
-            tool_config = ToolConfig(
-                name=tool.name,
-                variants=getattr(tool, 'variants', []),
-                parameters=getattr(tool, 'parameters', {})
-            )
-            platform_tools.append(tool_config)
+        
+        # FIXED: Support multiple tool configs with same name
+        # Instead of using tool instances, directly convert tool_configs to platform configs
+        if tool_configs:
+            for original_config in tool_configs:
+                tool_config = ToolConfig(
+                    name=original_config.name,
+                    variants=original_config.variants,
+                    parameters=original_config.parameters
+                )
+                platform_tools.append(tool_config)
+        else:
+            # Fallback: Use tool instances if no original configs available
+            for tool in tools:
+                tool_config = ToolConfig(
+                    name=tool.name,
+                    variants=getattr(tool, 'variants', []),
+                    parameters=getattr(tool, 'parameters', {})
+                )
+                platform_tools.append(tool_config)
 
         # Create platform configuration
         platform_config = PlatformConfig(

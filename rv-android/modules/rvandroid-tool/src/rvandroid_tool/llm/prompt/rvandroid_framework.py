@@ -96,7 +96,7 @@ class RVAndroidPromptFramework(PromptFramework):
             "rvandroid_tool.llm.prompt.rvandroid_framework",
             {CONTEXT_COMPONENT: "RVAndroidPromptFramework"}
         )
-        logger.info("Creating RVAndroidPromptFramework with complete registration")
+        logger.info("Creating RVAndroidPromptFramework")
 
         # Register strategies with the component factory
         cls._register_strategies()
@@ -158,6 +158,7 @@ class RVAndroidPromptFramework(PromptFramework):
         contextual data for Android testing scenarios. Each fragment specializes
         in extracting specific types of information from the testing environment.
         """
+        self.logger.logger.name = "rvandroid_tool.llm.prompt.rvandroid_framework"
         self.logger.debug("Registering Android-specific information fragments")
 
         try:

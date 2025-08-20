@@ -19,7 +19,9 @@ class TestWidgetEventType:
         assert WidgetEventType.TEXT_CHANGE.value == 9
         assert WidgetEventType.GESTURE.value == 10
         assert WidgetEventType.SELECTION.value == 11
-        assert WidgetEventType.OTHER.value == 12
+        assert WidgetEventType.BACK.value == 12
+        assert WidgetEventType.RESTART.value == 13
+        assert WidgetEventType.OTHER.value == 14
 
 
 class TestWidgetEvent:

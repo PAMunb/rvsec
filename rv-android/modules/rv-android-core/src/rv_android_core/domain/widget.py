@@ -27,7 +27,9 @@ class WidgetEventType(Enum):
     TEXT_CHANGE = 9
     GESTURE = 10
     SELECTION = 11
-    OTHER = 12
+    BACK = 12
+    RESTART = 13
+    OTHER = 14
 
 
 @validated_model(['event_type', 'clazz', 'method', 'signature'])

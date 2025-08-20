@@ -110,12 +110,17 @@ class TestDefaultTextVisitor:
 
         description = visitor.get_screen_description()
 
-        # The method should add a BACK action, making a total of 3 items
+        # The method should add system actions, making a total of 3 items
         assert isinstance(description, ScreenDescription)
         assert description.activity == visitor.activity
         assert len(description.items) == 3
-        assert "System back button" in description.items[2].base_description
-        assert description.items[2].actions[0].event == WidgetEventType.KEY
+        # System actions are now added as a single item with multiple actions
+        assert description.items[2].base_description == "System"
+        # Check that system actions include BACK and RESTART
+        system_actions = description.items[2].actions
+        assert len(system_actions) == 2
+        assert system_actions[0].event == WidgetEventType.BACK
+        assert system_actions[1].event == WidgetEventType.RESTART
 
     def test_visit_node_not_actionable(self, visitor, node):
         """Test visit_node method with a non-actionable node."""

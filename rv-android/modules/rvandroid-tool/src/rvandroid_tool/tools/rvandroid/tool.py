@@ -113,7 +113,7 @@ class RVAndroidTool(AbstractTool):
         from rv_llm.llm.constants import LLMType, PromptStrategyType
         from rv_screen_parser.constants import ScreenParserType, VisitorType
         
-        return {
+        variants = {
             "default": {
                 "llm_type": LLMType.OLLAMA,
                 "llm_model": OllamaLLM.GEMMA,
@@ -166,17 +166,20 @@ class RVAndroidTool(AbstractTool):
             "vision": {
                 "llm_type": LLMType.OLLAMA,
                 "llm_model": OllamaLLM.GEMMA,
-                "temperature": 0.3,
-                "top_p": 0.9,
-                "max_tokens": 1200,
+                "temperature": 0.2,
+                "top_p": 0.7,
+                "max_tokens": 500,
                 "vision": True,
                 "prompt_strategy": PromptStrategyType.VISION,
                 "parser_type": ScreenParserType.DROIDBOT,
-                "visitor_type": VisitorType.DETAILED,
+                "visitor_type": VisitorType.DEFAULT,
                 "server_port": DEFAULT_SERVER_PORT,
                 "debug_mode": False
             }
         }
+        
+        
+        return variants
         
     def configure(self, config: Dict[str, Any]) -> None:
         """
@@ -324,7 +327,7 @@ class RVAndroidTool(AbstractTool):
             "-policy", "rvandroid",
             "-o", os.path.join(task.results_dir, "rvandroid_output"),
             "-timeout", str(task.config.timeout),
-            "--rvandroid_url", f"http://localhost:{server_port}"
+            "--rvandroid_url", f"http://localhost:{server_port}/api/get_actions"
         ]
         
         # Add screenshot flag based on LLM multimodal capabilities

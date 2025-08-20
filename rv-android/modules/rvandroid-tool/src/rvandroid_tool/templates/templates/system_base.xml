@@ -20,21 +20,17 @@
 {% include "system_intro" %}
 {% endblock %}
 
-
 {% block strategy_specific_instructions %}
 {{ strategy_specific_instructions }}
 {% endblock %}
-
 
 {% block response_format_instructions %}
 {{ response_format_instructions }}
 {% endblock %}
 
-
 {% block system_guidelines %}
 {% include "system_guidelines" %}
 {% endblock %}
-
 
 {% if additional_guidelines %}
 {% block additional_guidelines %}

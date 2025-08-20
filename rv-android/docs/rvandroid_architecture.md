@@ -1,36 +1,36 @@
-# RVAndroid Architecture
+# RVAndroid Tool Architecture
 
 ## 1. Introduction
 
-RVAndroid is a specialized tool within the RV-Android ecosystem designed to enhance Android application testing through the integration of Large Language Models (LLMs). It works in conjunction with the DroidBot testing tool to provide intelligent, context-aware testing actions that systematically explore application functionality and trigger runtime monitors.
+RVAndroid is an AI-driven Android testing tool within the RV-Android ecosystem that integrates language models with DroidBot to provide intelligent, context-aware testing actions. The tool systematically explores application functionality and triggers runtime monitors through LLM-guided decision making.
 
-This document details the architecture, components, and execution flow of the RVAndroid system, focusing on the integration between DroidBot and LLM-based decision making.
+This document details the architecture, components, and execution flow of the RVAndroid tool, focusing on DroidBot and LLM integration.
 
 ### 1.1 Purpose and Goals
 
-RVAndroid addresses several key challenges in Android application testing:
+RVAndroid addresses key challenges in Android application testing:
 
-1.  **Intelligent Action Selection**: Improving upon random or heuristic-based testing by using LLMs to understand application context and select meaningful test actions
-2.  **Pattern Recognition**: Identifying common UI patterns (forms, lists, tabs) and applying appropriate testing strategies
-3.  **Systematic Exploration**: Exploring application functionality more thoroughly than traditional techniques
-4.  **Monitored Operation Coverage**: Focusing testing efforts on paths that lead to monitored operations
-5.  **Human-like Testing**: Simulating how a human tester might interact with the application
+1.  **Intelligent Action Selection**: Uses LLMs to understand application context and select meaningful test actions
+2.  **Pattern Recognition**: Identifies common UI patterns (forms, lists, tabs) and applies appropriate testing strategies
+3.  **Systematic Exploration**: Explores application functionality more thoroughly than traditional techniques
+4.  **Monitored Operation Coverage**: Focuses testing efforts on paths that lead to monitored operations
+5.  **Context-Aware Testing**: Considers application state and user interaction patterns
 
-The system achieves these goals through an architecture that integrates DroidBot's state exploration capabilities with LLM-based decision making.
+The system achieves these goals through architecture that integrates DroidBot's state exploration capabilities with LLM-based decision making.
 
 ### 1.2 Relationship to Other Components
 
-RVAndroid fits into the broader RV-Android ecosystem as follows:
+RVAndroid fits into the broader RV-Android ecosystem:
 
-1.  **RV-Android Platform**: The parent platform that provides the foundation for runtime verification, including instrumentation, property specification, and result collection.
+1.  **RV-Android Platform**: Parent platform providing runtime verification foundation, including instrumentation, property specification, and result collection
 
-2.  **DroidBot**: The underlying testing framework that RVAndroid enhances. DroidBot handles device interaction, state exploration, and action execution, while RVAndroid provides the intelligence for action selection.
+2.  **DroidBot**: Underlying testing framework that RVAndroid enhances. DroidBot handles device interaction, state exploration, and action execution, while RVAndroid provides intelligence for action selection
 
-3.  **RVDroid**: A separate testing tool that uses UIAutomator instead of DroidBot, with its own architecture and approach to LLM integration. While RVAndroid works by extending DroidBot's policy mechanism, RVDroid operates as a standalone tool.
+3.  **RVDroid Tool**: Alternative testing tool with different architecture approach
 
-4.  **Test Framework**: A system for evaluating and comparing different testing approaches, which can be used to assess RVAndroid's effectiveness against other tools.
+4.  **rv-llm Module**: Provides LLM integration framework used by RVAndroid for prompt generation and language model interaction
 
-RVAndroid is specifically designed to leverage DroidBot's capabilities while adding an LLM-driven decision layer for improved testing effectiveness.
+RVAndroid leverages DroidBot's capabilities while adding an LLM-driven decision layer for testing effectiveness.
 
 For detailed information about the LLM integration architecture, please refer to [docs/rv_llm_architecture.md](rv_llm_architecture.md).
 
@@ -82,23 +82,23 @@ RVAndroid follows a client-server architecture where a custom DroidBot policy se
 
 ### 2.2 Core Components
 
-RVAndroid comprises several key components:
+RVAndroid comprises key components:
 
-1.  **RVAndroid Policy (DroidBot Side)**: A custom DroidBot policy that communicates with the RVAndroid server.
+1.  **RVAndroid Policy (DroidBot Side)**: Custom DroidBot policy that communicates with the RVAndroid server
 
-2.  **Server Component**: A REST API server that receives state information from DroidBot and returns action decisions.
+2.  **Server Component**: REST API server that receives state information from DroidBot and returns action decisions
 
-3.  **Screen Parser**: Processes DroidBot state data into a structured representation of the application UI (ScreenDescription).
+3.  **Screen Parser**: Processes DroidBot state data into structured UI representation (ScreenDescription)
 
-4.  **State Enricher**: Enhances the state with additional information, such as detected UI patterns and monitored operations.
+4.  **State Enricher**: Enhances state with additional information such as detected UI patterns and monitored operations
 
-5.  **LLM Action Service**: Orchestrates the process of generating and selecting testing actions based on the current state.
+5.  **LLM Action Service**: Orchestrates the process of generating and selecting testing actions based on current state
 
-6.  **Prompt Framework**: Manages the generation of prompts for the language model, using templates and information fragments.
+6.  **Prompt Framework**: Manages prompt generation for language models using templates and information fragments
 
-7.  **Language Model**: Interfaces with various LLM providers to generate action decisions based on prompts.
+7.  **Language Model Interface**: Interfaces with various LLM providers to generate action decisions based on prompts
 
-Each component is designed to be modular and extensible, allowing for customization and improvement of the testing process.
+Each component is modular and extensible, allowing for customization and testing process improvements.
 
 ## 3. Execution Flow
 
@@ -262,9 +262,9 @@ When the RVAndroid server receives state data, it processes it through several s
 
 The core of RVAndroid's intelligence lies in its interaction with the language model:
 
-1.  **Strategy Selection**: The system selects an appropriate prompt strategy based on the current state:
+1.  **Strategy Selection**: The system selects an appropriate prompt strategy based on the current state and configuration:
     ```python
-    strategy = self.strategy_registry.get_strategy(self.determine_strategy(state))
+    strategy = self.strategy_registry.get_strategy(self.prompt_config.strategy_type)
     ```
 
 2.  **Prompt Assembly**: The selected strategy assembles a prompt using:
@@ -369,7 +369,7 @@ Example response:
     }
   ],
   "metadata": {
-    "strategy": "form_filling",
+    "strategy": "batch",
     "reasoning": "Filled form fields with test data and submitted the form to test login functionality."
   }
 }
@@ -1134,7 +1134,7 @@ A typical configuration file might look like:
     "base_url": "http://localhost:11434"
   },
   "strategy": {
-    "default": "standard",
+    "default": "single",
     "use_batch": true,
     "min_batch_size": 3,
     "max_batch_size": 10
@@ -1205,9 +1205,9 @@ This allows RVAndroid to be used as a testing tool within the RV-Android platfor
 
 ## 9. Conclusion
 
-RVAndroid represents an advancement in Android application testing, combining the exploratory capabilities of DroidBot with the intelligent decision-making of large language models. By structuring application state information and providing it to LLMs in a consistent format, RVAndroid enables more effective testing that can identify issues traditional testing tools might miss.
+RVAndroid combines DroidBot's exploratory capabilities with language model decision-making for Android application testing. By structuring application state information and providing it to LLMs in a consistent format, RVAndroid enables testing that can identify issues traditional testing tools might miss.
 
-The system's modular architecture allows for easy extension and improvement, while its integration with DroidBot ensures compatibility with existing testing workflows. As LLM capabilities continue to advance, RVAndroid is well-positioned to leverage these improvements for even more effective application testing.
+The system's modular architecture allows for extension and improvement, while its integration with DroidBot ensures compatibility with existing testing workflows. The tool is positioned to leverage improvements in language model capabilities for application testing.
 
 For more detailed information about the LLM integration architecture, please refer to [docs/rv_llm_architecture.md](rv_llm_architecture.md).
 

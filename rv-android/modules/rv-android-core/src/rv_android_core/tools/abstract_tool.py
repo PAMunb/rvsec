@@ -7,7 +7,10 @@ monitored operations testing tools.
 
 import os
 from abc import ABC, abstractmethod
-from typing import Dict, Any
+from typing import Dict, Any, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from rv_tools.registry.registry import ToolRegistry
 
 from rv_android_core.domain.app import App
 from rv_android_core.commands.circuit_breaker import CommandCircuitBreaker
@@ -127,7 +130,7 @@ class AbstractTool(ABC):
         pass
     
     @classmethod
-    def register_variants(cls, registry) -> None:
+    def register_variants(cls, registry: 'ToolRegistry') -> None:
         """
         Register all variants for this tool with the registry.
         
@@ -147,14 +150,23 @@ class AbstractTool(ABC):
         Raises:
             ConfigurationError: If variant registration fails
         """
+        from rv_android_core.util.logging.manager import LoggingManager
+        
         tool_spec = cls.get_tool_spec()
         tool_name = tool_spec.name
         
         try:
-            for variant_name, config in cls.get_variants().items():
+            variants = cls.get_variants()
+            
+            for variant_name, config in variants.items():
                 registry.register_variant(tool_name, variant_name, config)
+                
         except Exception as e:
             from rv_android_core.util.error.exceptions import ConfigurationError
+            logger = LoggingManager.get_instance().get_logger(f"{cls.__module__}.{cls.__name__}")
+            logger.error(f"Failed to register variants for {tool_name}: {e}")
+            import traceback
+            traceback.print_exc()
             raise ConfigurationError(f"Failed to register variants for {tool_name}: {e}")
     
     @abstractmethod

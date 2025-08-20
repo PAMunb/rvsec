@@ -72,19 +72,69 @@ def tmp_experiment_controller():
         from rv_platform.config.platform_config import ToolConfig
         from rv_android_core.event import EventBus
 
-        # Test tools with variants - using new variant system
+        # Test tools with variants - Test context modes
+        # 🔧 QUICK TESTING: Uncomment the configuration you want to test
+        
         tools = [
-            # ToolConfig(name="droidbot", variants=["dfs_greedy"]),  # Test DroidBot with variant
-            # ToolConfig(name="ape", variants=["sata"]),            # Test APE with variant
-            ToolConfig(name="rvandroid", variants=["default"])    # Test RVAndroid with default variant
+            # ═══════════════════════════════════════════════════════════════════
+            # 📋 CONTEXT MODE TESTING OPTIONS
+            # ═══════════════════════════════════════════════════════════════════
+            
+            # Option 1: STATELESS context mode (uses MemoryManager, TransitionManager)
+            # Shows: action_history, memory_insights, navigation_path, available_transitions
+            # ToolConfig(name="rvandroid", variants=["vision"], parameters={
+            #     "context_mode": "stateless",
+            #     "context_window_size": 10,
+            #     "llm_type": "ollama",
+            #     "llm_model": "llama3.2"
+            # }),
+            
+            # Option 2: RICH context mode (uses sliding window with compression) ⭐ CURRENTLY ACTIVE
+            # Shows: recent_iterations with screen descriptions and actions from last N interactions
+            ToolConfig(name="rvandroid", variants=["vision"], parameters={
+                "context_mode": "rich",
+                "context_window_size": 10,        # Number of iterations to keep in sliding window
+                "context_compression": True,       # Compress older iterations (recommended)
+                "include_coverage_timeline": True, # Include coverage progression over time
+                "llm_type": "ollama",
+                "llm_model": "gemma3:4b"
+            }),
+            
+            # ═══════════════════════════════════════════════════════════════════
+            # 🎯 STRATEGY COMPARISON WITH CONTEXT MODES
+            # ═══════════════════════════════════════════════════════════════════
+            
+            # Option 3: Single strategy with RICH context
+            # ToolConfig(name="rvandroid", variants=["default"], parameters={     
+            #     "context_mode": "rich",
+            #     "context_window_size": 8,
+            #     "context_compression": True
+            # }),
+            
+            # Option 4: Batch strategy with STATELESS context
+            # ToolConfig(name="rvandroid", variants=["llama_batch_detailed"], parameters={  
+            #     "context_mode": "stateless",
+            #     "context_window_size": 10
+            # }),
+            
+            # Option 5: Compare both modes side by side (uncomment both)
+            # ToolConfig(name="rvandroid", variants=["vision"], parameters={
+            #     "context_mode": "stateless",
+            #     "context_window_size": 10
+            # }),
+            # ToolConfig(name="rvandroid", variants=["vision"], parameters={
+            #     "context_mode": "rich", 
+            #     "context_window_size": 10,
+            #     "context_compression": True
+            # })
         ]
 
         # Create configuration for actual execution
         config = ExperimentConfig(
-            name="aaa",
+            # name="aaa",
             tool_configs=tools,
             repetitions=1,
-            timeouts=[600],
+            timeouts=[60],
             apks_dir="./apks_examples/",
             output_dir="./out",  # Temporary artifacts directory
             results_dir = "./results",  # Persistent results directory
@@ -144,7 +194,80 @@ def tmp_experiment_controller():
         traceback.print_exc()
         return False
 
-def test_variant_system():
+def tmp_context_modes():
+    """Test the new context mode system implementation."""
+    print("\n🔧 Testing Context Mode System...")
+    
+    try:
+        from rv_experiment.config import ExperimentConfig
+        from rv_platform.config.platform_config import ToolConfig
+        
+        # Test 1: STATELESS context mode
+        print("   1. Testing STATELESS context mode...")
+        stateless_config = ToolConfig(
+            name="rvandroid", 
+            variants=["vision"],
+            parameters={
+                "context_mode": "stateless",
+                "context_window_size": 10,
+                "llm_type": "ollama",
+                "llm_model": "llama3.2"
+            }
+        )
+        print(f"   ✅ STATELESS config: {stateless_config.parameters.get('context_mode')}")
+        
+        # Test 2: RICH context mode
+        print("   2. Testing RICH context mode...")
+        rich_config = ToolConfig(
+            name="rvandroid",
+            variants=["vision"],
+            parameters={
+                "context_mode": "rich",
+                "context_window_size": 10,
+                "context_compression": True,
+                "include_coverage_timeline": False,
+                "llm_type": "ollama",
+                "llm_model": "llama3.2"
+            }
+        )
+        print(f"   ✅ RICH config: {rich_config.parameters.get('context_mode')} (window_size: {rich_config.parameters.get('context_window_size')})")
+        
+        # Test 3: Different strategies with context modes
+        print("   3. Testing different strategies with context modes...")
+        tmp_configs = [
+            ToolConfig(name="rvandroid", variants=["vision"], parameters={"context_mode": "rich"}),
+            ToolConfig(name="rvandroid", variants=["default"], parameters={"context_mode": "stateless"}),
+            # ToolConfig(name="rvandroid", variants=["llama_batch_detailed"], parameters={"context_mode": "rich"})
+        ]
+        
+        for config in tmp_configs:
+            mode = config.parameters.get('context_mode', 'default')
+            strategy = config.variants[0] if config.variants else 'unknown'
+            print(f"   📝 {strategy} strategy with {mode} context mode")
+        
+        # Test 4: Create experiment config with context modes
+        print("   4. Testing experiment config with context modes...")
+        experiment_config = ExperimentConfig(
+            tool_configs=[rich_config],  # Use RICH mode for testing
+            repetitions=1,
+            timeouts=[60],
+            apks_dir="./apks_examples/",
+            generate_monitors=False,
+            instrument_apks=False,
+            run_static_analysis=False
+        )
+        
+        print("   ✅ Experiment config created with context modes")
+        
+        return True
+        
+    except Exception as e:
+        print(f"   ❌ Context mode test failed: {e}")
+        import traceback
+        traceback.print_exc()
+        return False
+
+def tmp_variant_system():
     """Test the new variant system implementation."""
     print("\n🔧 Testing Variant System...")
     
@@ -247,7 +370,8 @@ def run_manual_test():
         # ("Config Creation", tmp_experiment_config_creation),
         # ("Platform Integration", tmp_platform_integration),
         # ("Tool Discovery", tmp_cli_tool_discovery),
-        ("Variant System", test_variant_system),
+        # ("Variant System", tmp_variant_system),
+        ("Context Mode System", tmp_context_modes),
         ("Experiment Controller", tmp_experiment_controller)
     ]
     
@@ -282,10 +406,36 @@ def run_manual_test():
     
     if passed == total:
         print("✅ All tests passed! rv-experiment integration is working correctly.")
-        print("\n🎯 Ready for CLI testing with variants:")
+        print("\n🎯 Ready for CLI testing with context modes:")
+        print("\n📋 Context Mode Configuration Examples:")
+        print("   # STATELESS mode (traditional enrichment with MemoryManager, TransitionManager)")
+        print("   ToolConfig(name='rvandroid', variants=['vision'], parameters={")
+        print("       'context_mode': 'stateless',")
+        print("       'context_window_size': 10")
+        print("   })")
+        print()
+        print("   # RICH mode (sliding window with raw iteration history)")
+        print("   ToolConfig(name='rvandroid', variants=['vision'], parameters={")
+        print("       'context_mode': 'rich',")
+        print("       'context_window_size': 10,")
+        print("       'context_compression': True,")
+        print("       'include_coverage_timeline': False")
+        print("   })")
+        print()
+        print("🚀 Context Mode Testing Commands:")
+        print("   # Test RICH context mode with vision strategy")
+        print("   python -m rv_experiment run --tools rvandroid:vision --config rich_context.json")
+        print()
+        print("   # Test STATELESS context mode with different strategies")
+        print("   python -m rv_experiment run --tools rvandroid:default --config stateless_context.json")
+        print()
+        print("📊 Differences between Context Modes:")
+        print("   STATELESS: Uses action_history, memory_insights, navigation_path, available_transitions")
+        print("   RICH:      Uses recent_iterations with sliding window of screen descriptions and actions")
+        print()
+        print("🔧 Additional CLI testing:")
         print("   python -m rv_experiment run --tools droidbot:dfs_greedy")
         print("   python -m rv_experiment run --tools ape:sata,droidbot:bfs_greedy")
-        print("   python -m rv_experiment run --tools rvandroid:default")
         print("   python -m rv_experiment list-tools")
         print("   python -m rv_experiment config --template-type basic")
     else:

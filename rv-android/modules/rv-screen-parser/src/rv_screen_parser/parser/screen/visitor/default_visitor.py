@@ -1,10 +1,11 @@
 # rvandroid/parser/visitor/text_visitor.py
-from typing import Optional, Set
+from typing import Optional, Set, Dict, Any
 
 from rv_android_core.domain.static import StaticAnalysisData
 from rv_android_core.domain.widget import WidgetEventType
 from rv_screen_parser.parser.screen.visitor.abstract_visitor import AbstractScreenVisitor
 from rv_screen_parser.parser.screen.visitor.model import ItemAction, ScreenItem, ScreenDescription, Node
+from rv_screen_parser.constants import SystemActionType, ActionType
 
 
 class DefaultTextVisitor(AbstractScreenVisitor):
@@ -19,34 +20,19 @@ class DefaultTextVisitor(AbstractScreenVisitor):
         """
         super().__init__(static_info, activity)
         self.processed_parents: Set[str] = set()  # Track processed parent nodes
-        self.logger.debug(f"Initialized EnhancedTextVisitor for activity: {activity}")
+        self.logger.debug(f"Initialized DefaultTextVisitor for activity: {activity}")
 
     def get_screen_description(self) -> ScreenDescription:
         """
-        Create and return a complete screen description with a BACK action added.
+        Create and return a complete screen description with system actions.
 
         Returns:
-            ScreenDescription object containing all parsed items
+            ScreenDescription object containing all parsed items with system actions
         """
-        # Add a default BACK action to the screen description
-        back_action = ItemAction(
-            self.counter.increment(),
-            f"BACK ({self.counter.get_current()})",
-            WidgetEventType.KEY,
-            False,
-            False
-        )
-
-        # Create a back button item
-        back_item = ScreenItem(
-            {"special": "back_button"},  # dummy data
-            "System back button",
-            [back_action]
-        )
-
-        self.items.append(back_item)
+        # Add standard system actions for consistent navigation
+        self._ensure_standard_system_actions()
+        
         self.logger.info(f"Generated screen description with {len(self.items)} items")
-
         return ScreenDescription(self.activity, self.items)
 
     def visit_node(self, node: Node) -> None:
@@ -186,7 +172,7 @@ class DefaultTextVisitor(AbstractScreenVisitor):
         parent_clickable = False
         if not is_actionable:
             parent_clickable = self.is_parent_clickable(node)
-            is_actionable = parent_clickable
+            is_actionable = parent_clickable # TODO
 
         actions = self.get_possible_actions(node, self.counter, inherit_click=parent_clickable)
 
@@ -266,7 +252,7 @@ class DefaultTextVisitor(AbstractScreenVisitor):
         parent_clickable = False
         if not is_actionable:
             parent_clickable = self.is_parent_clickable(node)
-            is_actionable = parent_clickable
+            is_actionable = parent_clickable # TODO
 
         actions = self.get_possible_actions(node, self.counter, inherit_click=parent_clickable)
 
@@ -462,6 +448,117 @@ class DefaultTextVisitor(AbstractScreenVisitor):
         item = ScreenItem(node.data, text, actions)
         self.items.append(item)
         self.window_info["interactive_elements"] += 1
+
+    def _get_max_action_id(self) -> int:
+        """Get maximum action ID from all actions in all items."""
+        if not self.items:
+            return 0
+        return max((action.id for item in self.items for action in item.actions), default=0)
+
+    def _add_system_action(self, actions: list[ItemAction]):
+        """Adds a system action as a new ScreenItem."""
+        system_item = ScreenItem(
+            view=self._create_system_action_view(SystemActionType.BACK),
+            base_description="System",
+            actions=actions
+        )
+        self.items.append(system_item)
+        self.logger.debug(f"Adding system actions: {len(actions)}")
+
+    def _ensure_standard_system_actions(self) -> None:
+        """
+        Inject standard system actions for consistent navigation capabilities.
+        
+        ### System Action Strategy:
+        - Automatically provides SYSTEM_BACK and RESTART actions for every screen
+        - Creates virtual target views with system action markers
+        - Uses null coordinates to indicate system-level operations
+        - Assigns incremental IDs to avoid conflicts with UI elements
+        
+        ### Integration Points:
+        - Called during screen processing to ensure action availability
+        - Coordinates with ActionGenerator for proper action resolution
+        - Supports LLM decision-making with consistent system options
+        """
+        max_action_id = self._get_max_action_id()
+        actions = []
+        
+        # Inject SYSTEM_BACK action if not already present
+        if not self._has_action_by_type(SystemActionType.BACK):
+            back_action = ItemAction(
+                id=max_action_id + 1,
+                text=f"SYSTEM_BACK ({max_action_id + 1})",
+                event=WidgetEventType.BACK,
+                reaches_mop=False,
+                directly_reaches_mop=False,
+                target_view=self._create_system_action_view(SystemActionType.BACK),
+                coordinates=None  # System actions use null coordinates
+            )
+            actions.append(back_action)
+            # self._add_system_action(back_action)
+            max_action_id += 1 # Increment max_id after use
+    
+        # Inject RESTART action if not already present
+        if not self._has_action_by_type(SystemActionType.RESTART):
+            restart_action = ItemAction(
+                id=max_action_id + 1,
+                text=f"RESTART_APP ({max_action_id + 1})",
+                event=WidgetEventType.RESTART,
+                reaches_mop=False,
+                directly_reaches_mop=False,
+                target_view=self._create_system_action_view(SystemActionType.RESTART),
+                coordinates=None  # System actions use null coordinates
+            )
+            actions.append(restart_action)
+            # self._add_system_action(restart_action)
+
+        if (len(actions) > 0):
+            self._add_system_action(actions)
+
+    def _create_system_action_view(self, action_type: SystemActionType) -> Dict[str, Any]:
+        """
+        Create virtual view representation for system actions.
+        
+        ### Virtual View Strategy:
+        - Provides consistent view structure for system operations
+        - Includes system_action flag for action type identification
+        - Uses ActionType enum for proper classification
+        - Maintains compatibility with existing action processing pipeline
+        
+        Args:
+            action_type: System action type from SystemActionType enum
+            
+        Returns:
+            Dictionary representing virtual view for system action
+        """
+        return {
+            "content_description": f"System {action_type.value} Action",
+            "class": f"SystemAction_{action_type.name}",
+            "resource_id": f"system_{action_type.name.lower()}_action",
+            "bounds": [[0, 0], [0, 0]],  # Virtual bounds for system actions
+            "action_type": ActionType.SYSTEM_ACTION,
+            "system_action_type": action_type,
+            "system_action": True  # Compatibility flag for existing code
+        }
+
+    def _has_action_by_type(self, system_action_type: SystemActionType) -> bool:
+        """
+        Check if screen already contains specific system action type.
+        
+        Args:
+            system_action_type: System action type to check
+            
+        Returns:
+            True if action type already exists in screen actions
+        """
+        # TODO
+        for item in self.items:
+            for action in item.actions:
+                if (hasattr(action, 'target_view') and 
+                    action.target_view and 
+                    action.target_view.get('system_action_type') == system_action_type):
+                    return True
+        return False
 
     def __default_message(self, node: Node, prefix: str) -> str:
         """

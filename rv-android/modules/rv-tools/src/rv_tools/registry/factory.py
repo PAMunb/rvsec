@@ -79,6 +79,7 @@ class ToolFactory:
             "rv_tools.registry.factory",
             {CONTEXT_COMPONENT: "ToolFactory"}
         )
+        
 
     @ErrorHandler.handle_errors(
         component="ToolFactory",

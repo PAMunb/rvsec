@@ -69,6 +69,8 @@ class HistoryFragment(InformationFragment):
         """
         super().__init__(name, priority)
 
+        self.logger.logger.name = "rvandroid_tool.llm.prompt.history_fragment"
+
         # Configuration for history processing
         self.max_history_entries = 5  # Limit history to last N entries
 

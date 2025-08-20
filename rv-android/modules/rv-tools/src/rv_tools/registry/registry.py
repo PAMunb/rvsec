@@ -81,7 +81,6 @@ class ToolRegistry:
         self.tool_specs: Dict[str, ToolSpec] = {}
         self.variants: Dict[str, Dict[str, Dict[str, Any]]] = {}
 
-        self.logger.info("Tool registry initialized")
 
     @ErrorHandler.handle_errors(
         component="ToolRegistry",
@@ -143,6 +142,7 @@ class ToolRegistry:
             # Get tool specification using new method
             tool_spec = tool_class.get_tool_spec()
             tool_name = tool_spec.name
+            
             
             # Register tool class (existing logic)
             self.register_tool(tool_name, tool_class, tool_spec)

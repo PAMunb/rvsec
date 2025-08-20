@@ -134,32 +134,32 @@ class Platform:
             app = App(str(apk_path))
 
             for tool_config in self.config.tools:
-                tool_variants = tool_config.variants if tool_config.variants else [tool_config.name]
+                # tool_config is rv_platform.ToolConfig with name="rvandroid", variants=["vision"]
+                tool_name = tool_config.name  # Extract tool name (e.g., "rvandroid")
+                tool_variants = tool_config.variants if tool_config.variants else ["default"]
+                
 
-                for variant in tool_variants:
+                for variant_name in tool_variants:  # variant_name is "vision", not a tool specification
                     for repetition in range(1, self.config.repetitions + 1):
                         for timeout in self.config.timeouts:
                             # Create task configuration with ToolConfig
                             from rv_android_core.domain.task import ToolConfig as TaskToolConfig
                             
-                            # Parse tool specification to extract tool name and variant
-                            if ":" in variant:
-                                tool_name, variant_name = variant.split(":", 1)
-                            else:
-                                tool_name, variant_name = variant, "default"
-                            
-                            # Create ToolConfig for this task
-                            tool_config = TaskToolConfig(
+                            # Create TaskToolConfig correctly:
+                            # - tool_name from tool_config.name (e.g., "rvandroid")
+                            # - variant_name from variants list (e.g., "vision")
+                            task_tool_config = TaskToolConfig(
                                 tool_name=tool_name,
                                 variant=variant_name,
-                                additional_params={}
+                                additional_params=tool_config.parameters
                             )
+                            
                             
                             task_config = TaskConfiguration(
                                 apk_name=apk_name,
                                 repetition=repetition,
                                 timeout=timeout,
-                                tool_config=tool_config,
+                                tool_config=task_tool_config,
                                 no_window=self.config.no_window
                             )
 
