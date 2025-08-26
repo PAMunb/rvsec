@@ -42,6 +42,7 @@ from rv_llm.llm.prompt.framework import PromptFramework
 from rv_screen_parser.constants import ScreenParserType, VisitorType
 from rv_llm.config.llm_config import LLMConfig
 from rv_llm.llm.constants import LLMType, PromptStrategyType, ContextMode
+from rv_screen_parser.constants import VisitorType
 from rv_llm.llm.ollama_llm import OllamaLLM
 from rv_android_core.domain.static import StaticAnalysisData
 from rvandroid_tool.llm.service.memory_manager import MemoryManager
@@ -185,6 +186,90 @@ def create_mock_iterations():
     ]
 
 
+def tmp_mop_vision_strategy(droidbot_state_file: str, screenshot_path: str, package: str, static_data: StaticAnalysisData):
+    """Test MOP Vision strategy specifically."""
+    print("============================================================")
+    print("🧪 TESTING MOP VISION STRATEGY")
+    print("============================================================")
+    
+    # Create MOP Vision prompt config
+    prompt_config = PromptConfig(
+        strategy_type=PromptStrategyType.MOP_VISION,  # Use MOP_VISION strategy
+        parser_type=ScreenParserType.DROIDBOT,
+        visitor_type=VisitorType.DEFAULT,
+        max_context_length=8192,
+        context_mode=ContextMode.STATELESS,
+        context_window_size=10,
+        context_compression=True,
+        include_coverage_timeline=False
+    )
+    
+    # Create LLM config
+    llm_config = LLMConfig(
+        llm_type=LLMType.OLLAMA,
+        model=OllamaLLM.GEMMA,  # Use multimodal GEMMA model
+        temperature=0.7
+    )
+    
+    # Create tool config
+    tool_config = RvAndroidToolConfig(
+        llm_config=llm_config,
+        prompt_config=prompt_config,
+        debug_mode=True
+    )
+    
+    # Initialize framework
+    framework = RVAndroidPromptFramework.create(prompt_config)
+    
+    # Parse state file using existing method
+    from rv_screen_parser.parser.screen.visitor.default_visitor import DefaultTextVisitor
+    state = create_state_from_droidbot_state(
+        droidbot_state_file, screenshot_path, package, static_data, DefaultTextVisitor
+    )
+    
+    # Add MOP-specific data for verification
+    print(f"🔧 MOP Strategy Configuration:")
+    print(f"  • Strategy Type: {prompt_config.strategy_type}")
+    print(f"  • LLM Model: {llm_config.model}")
+    print(f"  • Context Mode: {prompt_config.context_mode}")
+    
+    # Generate prompt
+    print(f"\n🚀 Generating prompt with MOP Vision strategy...")
+    messages = framework.generate_prompt(state, {})
+    
+    print(f"✅ SUCCESS: Generated {len(messages)} messages using MOP_VISION strategy")
+    print(f"📋 Strategy: {prompt_config.strategy_type}")
+    print(f"📊 State keys: {list(state.keys())}")
+    
+    # Verify MOP-specific template was used
+    for i, message in enumerate(messages, 1):
+        print(f"\n📄 MESSAGE {i}: {message.role}")
+        for j, content in enumerate(message.content, 1):
+            if hasattr(content, 'text'):
+                # Check if MOP-specific instructions are present
+                if 'monitored operations' in content.text.lower() or 'mop' in content.text.lower() or '[dm]' in content.text.lower():
+                    print(f"  ✅ Content {j}: Contains MOP-specific instructions")
+                else:
+                    print(f"  📝 Content {j}: Standard content ({len(content.text)} chars)")
+            elif hasattr(content, 'url'):
+                print(f"  🖼️ Content {j}: Image - {content.url}")
+    
+    print(f"\n🔍 Generated prompt: {len(messages)} messages\n")
+    
+    # Display messages with detailed formatting
+    for i, message in enumerate(messages, 1):
+        print("─" * 40)
+        print(f"MESSAGE {i}: {message.role} ({len(message.content)} content items)")
+        print("─" * 40)
+        
+        for content in message.content:
+            if hasattr(content, 'text'):
+                print(f"[TEXT: {content.text[:500]}...]" if len(content.text) > 500 else f"[TEXT: {content.text}]")
+            elif hasattr(content, 'url'):
+                print(f"[IMAGE: {content.url}]")
+    
+    return messages
+
 def tmp_context_mode(droidbot_state_file, screenshot_path, package, static_data, context_mode: str):
     """Test prompt generation with specific context mode."""
     print(f"\n{'='*60}")
@@ -203,8 +288,8 @@ def tmp_context_mode(droidbot_state_file, screenshot_path, package, static_data,
     prompt_config = PromptConfig(
         strategy_type=PromptStrategyType.VISION,
         parser_type=ScreenParserType.DROIDBOT,
-        visitor_type=VisitorType.DEFAULT,
-        max_context_length=8192,
+        visitor_type=VisitorType.BASIC,
+        max_context_length=500,
         # Context mode configuration
         context_mode=context_mode,
         context_window_size=5,
@@ -336,6 +421,235 @@ def tmp_both_context_modes(droidbot_state_file, screenshot_path, package, static
     
     return stateless_prompt, rich_prompt
 
+def tmp_all_optimization_scenarios(droidbot_state_file, screenshot_path, package, static_data):
+    """
+    Comprehensive test of ALL strategies, visitors, and context modes to validate prompt optimizations.
+    This function tests every possible combination to ensure our optimizations work correctly.
+    """
+    print("🚀 COMPREHENSIVE OPTIMIZATION VALIDATION TEST")
+    print("=" * 80)
+    print("Testing ALL strategies, visitors, and context modes")
+    print("Validating: BasicTextVisitor optimization, Memory format, Templates XML")
+    print("=" * 80)
+    
+    # All available strategies
+    strategies = [
+        PromptStrategyType.SINGLE,
+        PromptStrategyType.BATCH, 
+        PromptStrategyType.VISION,
+        PromptStrategyType.MOP_VISION
+    ]
+    
+    # All available visitors 
+    visitors = [
+        (VisitorType.BASIC, BasicTextVisitor, "BASIC (Optimized)"),
+        (VisitorType.DEFAULT, DefaultTextVisitor, "DEFAULT"),
+        # Note: DETAILED visitor may not exist in current system
+    ]
+    
+    # All available context modes
+    context_modes = [
+        (ContextMode.STATELESS, "STATELESS"),
+        (ContextMode.RICH, "RICH")
+    ]
+    
+    results = []
+    tmp_count = 0
+    success_count = 0
+    
+    for strategy in strategies:
+        for visitor_type, visitor_class, visitor_name in visitors:
+            for context_mode, context_name in context_modes:
+                tmp_count += 1
+                
+                print(f"\n🧪 TEST {tmp_count}: {strategy} + {visitor_name} + {context_name}")
+                print("-" * 60)
+                
+                try:
+                    # Create configurations
+                    llm_config = LLMConfig(
+                        llm_type=LLMType.OLLAMA,
+                        model=OllamaLLM.GEMMA,
+                        vision=True,
+                        temperature=0.3,
+                        max_tokens=800
+                    )
+                    
+                    prompt_config = PromptConfig(
+                        strategy_type=strategy,
+                        parser_type=ScreenParserType.DROIDBOT,
+                        visitor_type=visitor_type,
+                        max_context_length=8192,
+                        context_mode=context_mode,
+                        context_window_size=5,
+                        context_compression=True,
+                        include_coverage_timeline=True
+                    )
+                    
+                    tool_config = RvAndroidToolConfig(
+                        llm_config=llm_config,
+                        prompt_config=prompt_config,
+                        debug_mode=True
+                    )
+                    
+                    # Create state with specific visitor
+                    state = create_state_from_droidbot_state(
+                        droidbot_state_file, screenshot_path, package, static_data, visitor_class
+                    )
+                    
+                    # Add rich context data if needed
+                    if context_mode == ContextMode.RICH:
+                        state[StateEntry.RECENT_ITERATIONS] = create_mock_iterations()
+                        state[StateEntry.COVERAGE_METRICS] = {
+                            'method_coverage': 42.8,
+                            'activity_coverage': 75.0,
+                            'mop_method_coverage': 25.3,
+                            'unique_errors': 2
+                        }
+                        state[StateEntry.MOP_RECENT_ERRORS] = [
+                            {
+                                'spec': 'CryptoSpec',
+                                'class_full_name': 'com.example.crypto.CipherManager',
+                                'method': 'createCipher',
+                                'message': 'Weak cipher algorithm used',
+                                'detected_at': '2025-08-25T10:30:00'
+                            }
+                        ]
+                    
+                    # Enrich state
+                    state = enrich_state(state, static_data, tool_config)
+                    
+                    # Generate prompt
+                    framework = RVAndroidPromptFramework.create(prompt_config)
+                    messages = framework.generate_prompt(state, {})
+                    
+                    # Analyze results
+                    total_text = ""
+                    total_chars = 0
+                    has_mop_content = False
+                    has_optimized_format = False
+                    
+                    for message in messages:
+                        for content in message.content:
+                            if hasattr(content, 'text'):
+                                text = content.text
+                                total_text += text
+                                total_chars += len(text)
+                                
+                                # Check for MOP-specific content
+                                if any(marker in text.lower() for marker in ['[dm]', '[m]', 'monitored operations', 'javamop']):
+                                    has_mop_content = True
+                                
+                                # Check for optimized formats (compact BasicTextVisitor)
+                                if visitor_type == VisitorType.BASIC:
+                                    # Look for compact format: Button {text}, Text field {placeholder}
+                                    if any(pattern in text for pattern in ['Button {', 'Text field', 'Text {', 'Checkbox (', 'Switch (']):
+                                        has_optimized_format = True
+                    
+                    result = {
+                        'strategy': strategy,
+                        'visitor': visitor_name,
+                        'context_mode': context_name,
+                        'success': True,
+                        'messages': len(messages),
+                        'total_chars': total_chars,
+                        'has_mop_content': has_mop_content,
+                        'has_optimized_format': has_optimized_format,
+                        'error': None
+                    }
+                    
+                    results.append(result)
+                    success_count += 1
+                    
+                    # Print summary
+                    print(f"✅ SUCCESS")
+                    print(f"   Messages: {len(messages)}")
+                    print(f"   Total characters: {total_chars:,}")
+                    print(f"   MOP content detected: {'✅' if has_mop_content else '❌'}")
+                    if visitor_type == VisitorType.BASIC:
+                        print(f"   Optimized format detected: {'✅' if has_optimized_format else '❌'}")
+                    
+                    # Show sample content for key optimizations
+                    if visitor_type == VisitorType.BASIC and has_optimized_format:
+                        print(f"   🎯 OPTIMIZATION VERIFIED: BasicTextVisitor using compact format")
+                        
+                except Exception as e:
+                    result = {
+                        'strategy': strategy,
+                        'visitor': visitor_name, 
+                        'context_mode': context_name,
+                        'success': False,
+                        'messages': 0,
+                        'total_chars': 0,
+                        'has_mop_content': False,
+                        'has_optimized_format': False,
+                        'error': str(e)
+                    }
+                    
+                    results.append(result)
+                    print(f"❌ FAILED: {e}")
+    
+    # Generate comprehensive summary
+    print(f"\n{'='*80}")
+    print("📊 COMPREHENSIVE OPTIMIZATION VALIDATION RESULTS")  
+    print(f"{'='*80}")
+    print(f"Total tests: {tmp_count}")
+    print(f"Successful: {success_count}")
+    print(f"Failed: {tmp_count - success_count}")
+    print(f"Success rate: {(success_count/tmp_count)*100:.1f}%")
+    
+    # Analyze optimization effectiveness
+    basic_visitor_tests = [r for r in results if 'BASIC' in r['visitor'] and r['success']]
+    default_visitor_tests = [r for r in results if 'DEFAULT' in r['visitor'] and r['success']]
+    
+    if basic_visitor_tests and default_visitor_tests:
+        avg_basic_chars = sum(r['total_chars'] for r in basic_visitor_tests) / len(basic_visitor_tests)
+        avg_default_chars = sum(r['total_chars'] for r in default_visitor_tests) / len(default_visitor_tests)
+        
+        if avg_default_chars > 0:
+            reduction = (avg_default_chars - avg_basic_chars) / avg_default_chars * 100
+            print(f"\n🎯 BASICVISITOR OPTIMIZATION IMPACT:")
+            print(f"   Average chars (DEFAULT visitor): {avg_default_chars:,.0f}")
+            print(f"   Average chars (BASIC visitor): {avg_basic_chars:,.0f}")
+            print(f"   Character reduction: {reduction:+.1f}%")
+            
+            if reduction > 0:
+                print(f"   ✅ OPTIMIZATION CONFIRMED: BasicTextVisitor reduces prompt size")
+            else:
+                print(f"   ⚠️  OPTIMIZATION ISSUE: BasicTextVisitor not reducing size as expected")
+    
+    # Strategy-specific analysis
+    print(f"\n📋 STRATEGY BREAKDOWN:")
+    for strategy in strategies:
+        strategy_results = [r for r in results if r['strategy'] == strategy and r['success']]
+        if strategy_results:
+            avg_chars = sum(r['total_chars'] for r in strategy_results) / len(strategy_results)
+            mop_coverage = sum(1 for r in strategy_results if r['has_mop_content'])
+            print(f"   {strategy}: {len(strategy_results)}/{len([r for r in results if r['strategy'] == strategy])} tests passed")
+            print(f"      Average chars: {avg_chars:,.0f}")
+            print(f"      MOP content: {mop_coverage}/{len(strategy_results)} tests")
+    
+    # Template optimization validation
+    mop_vision_results = [r for r in results if r['strategy'] == PromptStrategyType.MOP_VISION and r['success']]
+    if mop_vision_results:
+        print(f"\n🎯 TEMPLATE OPTIMIZATION (MOP_VISION):")
+        avg_chars = sum(r['total_chars'] for r in mop_vision_results) / len(mop_vision_results)
+        print(f"   Tests passed: {len(mop_vision_results)}")
+        print(f"   Average chars: {avg_chars:,.0f}")
+        print(f"   All had MOP content: {all(r['has_mop_content'] for r in mop_vision_results)}")
+    
+    # Failed tests analysis
+    failed_results = [r for r in results if not r['success']]
+    if failed_results:
+        print(f"\n❌ FAILED TESTS ANALYSIS:")
+        for result in failed_results:
+            print(f"   {result['strategy']} + {result['visitor']} + {result['context_mode']}: {result['error']}")
+    
+    print(f"\n✅ OPTIMIZATION VALIDATION COMPLETE!")
+    print(f"   Results show impact of optimizations across all strategies and configurations")
+    
+    return results
+
 def save_prompt(prompt: list[LLMMessage], out_dir, prefix):
     for message in prompt:
         text = ""
@@ -365,10 +679,10 @@ if __name__ == '__main__':
     # Hardcoded test configuration - easy to modify for different tests
     screenshots_folder = "/home/pedro/desenvolvimento/RV_ANDROID/teste_llm/screenshots"
     apk = "cryptoapp.apk"
-    prefix = "009"  # Options: 001, 009, 015 - change this to test different states
+    prefix = "004"  # Options: 001, 009, 015 - change this to test different states
     
-    # Test mode selection - change this to test different scenarios
-    TEST_MODE = "STATELESS"  # Options: "STATELESS", "RICH", "BOTH"
+    # Test mode selection - comprehensive optimization validation
+    TEST_MODE = "STATELESS"  # Options: "STATELESS", "RICH", "BOTH", "MOP_VISION", "ALL_STRATEGIES"
     
     # File paths (hardcoded for easy testing)
     app_folder = os.path.join(screenshots_folder, apk)
@@ -393,7 +707,13 @@ if __name__ == '__main__':
     print(f"  • State file: {droidbot_state_file}")
 
     # Run tests based on mode
-    if TEST_MODE == "BOTH":
+    if TEST_MODE == "ALL_STRATEGIES":
+        # Comprehensive optimization validation
+        results = tmp_all_optimization_scenarios(
+            droidbot_state_file, screenshot_path, package, static_data
+        )
+        
+    elif TEST_MODE == "BOTH":
         stateless_prompt, rich_prompt = tmp_both_context_modes(
             droidbot_state_file, screenshot_path, package, static_data
         )
@@ -415,9 +735,14 @@ if __name__ == '__main__':
             ContextMode.RICH
         )
         
+    elif TEST_MODE == "MOP_VISION":
+        prompt = tmp_mop_vision_strategy(
+            droidbot_state_file, screenshot_path, package, static_data
+        )
+        
     else:
         print(f"❌ Invalid TEST_MODE: {TEST_MODE}")
-        print("Valid options: STATELESS, RICH, BOTH")
+        print("Valid options: STATELESS, RICH, BOTH, MOP_VISION, ALL_STRATEGIES")
         
     print("\n🎉 Context mode testing completed!")
     print("💡 TIP: Modify TEST_MODE, apk, or prefix variables to test different scenarios")

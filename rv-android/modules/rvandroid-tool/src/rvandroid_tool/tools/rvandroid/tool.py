@@ -5,7 +5,8 @@ from rv_android_core.util.error.error_handler import ErrorHandler
 from rv_android_core.util.error.exceptions import RVAndroidToolError
 from rv_android_core.util.logging.manager import LoggingManager
 from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
-from rv_llm import OllamaLLM
+from rv_llm import OllamaLLM, FrontierModel
+from rv_llm.llm.constants import ContextMode
 from rvandroid_tool.llm.service.action_service import LLMActionService
 from rv_android_core.domain.app import App
 from rv_android_core.domain.task import Task
@@ -127,53 +128,48 @@ class RVAndroidTool(AbstractTool):
                 "server_port": DEFAULT_SERVER_PORT,
                 "debug_mode": False
             },
-            "llama_batch_detailed": {
-                "llm_type": LLMType.OLLAMA,
-                "llm_model": "llama3.1:70b",
-                "temperature": 0.05,
-                "top_p": 0.95,
-                "max_tokens": 4096,
-                "prompt_strategy": PromptStrategyType.BATCH,
-                "parser_type": ScreenParserType.DROIDBOT,
-                "visitor_type": VisitorType.DETAILED,
-                "server_port": DEFAULT_SERVER_PORT,
-                "debug_mode": True
-            },
-            "gpt4_standard_basic": {
+            "claude": {
                 "llm_type": LLMType.FRONTIER,
-                "llm_model": "gpt-4",
+                "llm_model": FrontierModel.CLAUDE_SONNET,
                 "temperature": 0.2,
                 "top_p": 0.8,
                 "max_tokens": 3000,
                 "prompt_strategy": PromptStrategyType.SINGLE,
                 "parser_type": ScreenParserType.DROIDBOT,
-                "visitor_type": VisitorType.BASIC,
-                "server_port": DEFAULT_SERVER_PORT,
-                "debug_mode": False
-            },
-            "ollama_standard_detailed": {
-                "llm_type": LLMType.OLLAMA,
-                "llm_model": "mixtral:8x7b",
-                "temperature": 0.15,
-                "top_p": 0.9,
-                "max_tokens": 3500,
-                "prompt_strategy": PromptStrategyType.SINGLE,
-                "parser_type": ScreenParserType.DROIDBOT,
-                "visitor_type": VisitorType.DETAILED,
-                "server_port": DEFAULT_SERVER_PORT,
+                "visitor_type": VisitorType.DEFAULT,
+                "context_mode": ContextMode.RICH,
+                "context_window_size": ContextMode.WINDOW_SIZE_DEFAULT,
+                "context_compression": True,
                 "debug_mode": False
             },
             "vision": {
                 "llm_type": LLMType.OLLAMA,
                 "llm_model": OllamaLLM.GEMMA,
-                "temperature": 0.2,
-                "top_p": 0.7,
+                "temperature": 0.3,
+                "top_p": 0.9,
                 "max_tokens": 500,
                 "vision": True,
                 "prompt_strategy": PromptStrategyType.VISION,
                 "parser_type": ScreenParserType.DROIDBOT,
                 "visitor_type": VisitorType.DEFAULT,
                 "server_port": DEFAULT_SERVER_PORT,
+                "context_mode": ContextMode.STATELESS,
+                "debug_mode": False
+            },
+            "vision_ctx": {
+                "llm_type": LLMType.OLLAMA,
+                "llm_model": OllamaLLM.GEMMA,
+                "temperature": 0.3,
+                "top_p": 0.9,
+                "max_tokens": 500,
+                "vision": True,
+                "prompt_strategy": PromptStrategyType.VISION,
+                "parser_type": ScreenParserType.DROIDBOT,
+                "visitor_type": VisitorType.DEFAULT,
+                "server_port": DEFAULT_SERVER_PORT,
+                "context_mode": ContextMode.RICH,
+                "context_window_size": ContextMode.WINDOW_SIZE_DEFAULT,
+                "context_compression": True,
                 "debug_mode": False
             }
         }
@@ -284,9 +280,16 @@ class RVAndroidTool(AbstractTool):
         if not self._tool_config:
             raise RVAndroidToolError("Tool configuration required - call configure() first")
         
-        # Use static port as planned
-        actual_port = self._server_port
-        self.logger.info(f"Using server port: {actual_port}")
+        # Use dynamic server_port for parallel execution if available
+        actual_port = self._server_port  # default
+        
+        if (hasattr(task.config.tool_config, 'additional_params') and 
+            task.config.tool_config.additional_params and
+            'server_port' in task.config.tool_config.additional_params):
+            actual_port = task.config.tool_config.additional_params['server_port']
+            self.logger.info(f"Using dynamic server port: {actual_port}")
+        else:
+            self.logger.info(f"Using default server port: {actual_port}")
         
         # LLMActionService initialization (preserved)
         service = LLMActionService(
@@ -338,8 +341,20 @@ class RVAndroidTool(AbstractTool):
             cmd_args.extend(["--rvandroid_screenshots", "false"])
             self.logger.info("Disabling screenshots for text-only LLM")
         
-        # Add task-specific parameters
-        if hasattr(task, 'device_serial') and task.device_serial:
-            cmd_args.extend(["-d", task.device_serial])
+        # Add dynamic device_serial for parallel execution
+        device_serial = None
+        
+        # First check if device_serial is in additional_params (parallel execution)
+        if (hasattr(task.config.tool_config, 'additional_params') and 
+            task.config.tool_config.additional_params and
+            'device_serial' in task.config.tool_config.additional_params):
+            device_serial = task.config.tool_config.additional_params['device_serial']
+        # Fallback to task.device_serial if available
+        elif hasattr(task, 'device_serial') and task.device_serial:
+            device_serial = task.device_serial
+            
+        if device_serial:
+            cmd_args.extend(["-d", device_serial])
+            self.logger.info(f"Using device serial: {device_serial}")
             
         return Command("poetry", cmd_args, task.config.timeout)

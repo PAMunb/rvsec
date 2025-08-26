@@ -83,13 +83,16 @@ class TaskExecutor:
             }
         )
 
-        # Component registry - simplified for MVP
+        # Component registry for coordinated task execution
+        # Components are initialized and executed in specific order for proper lifecycle
         self.components: List[Any] = []
 
-        # Performance monitoring
+        # Performance monitoring for execution metrics collection
+        # Integrates with test framework for strategy comparison analysis
         self.performance_monitor = PerformanceMonitor.get_instance()
 
-        # Execution hooks
+        # Execution hooks for extension points
+        # Allow task customization and monitoring integration
         self.pre_execution_hooks: List[Callable[[Task], None]] = []
         self.post_execution_hooks: List[Callable[[Task, bool], None]] = []
 
@@ -166,6 +169,8 @@ class TaskExecutor:
         """
         self.logger.info(LOG_START.format(phase=f"execution of task {self.task}"))
 
+        # Validate task has required app instance for execution
+        # App instance contains APK path, package info, and static analysis data
         if not self.task.app:
             error_msg = "Task has no app instance set"
             self.task.update_state(TaskState.ERROR, error_msg)

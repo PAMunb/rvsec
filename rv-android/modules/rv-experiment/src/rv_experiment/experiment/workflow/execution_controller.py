@@ -59,7 +59,8 @@ class ExecutionController:
         self.config = config
         self.event_bus = event_bus
 
-        # Configure logging and error handling using rv-android-core infrastructure
+        # Configure logging and error handling using unified rv-android-core infrastructure
+        # Ensures consistent logging context across experiment and platform layers
         self.logging_manager = LoggingManager.get_instance()
         self.error_handler = ErrorHandler.get_instance()
         self.logger = self.logging_manager.get_logger(
@@ -67,7 +68,8 @@ class ExecutionController:
             {CONTEXT_COMPONENT: 'ExecutionController'}
         )
 
-        # Platform integration state
+        # Platform integration state for clean coordination
+        # Platform instance handles all task execution and result processing
         self.platform = None
         self.platform_config = None
         self.has_errors = False

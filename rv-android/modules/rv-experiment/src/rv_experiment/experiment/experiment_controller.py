@@ -57,19 +57,21 @@ class ExperimentController:
         self.config = config
         self.experiment_id = experiment_id or datetime.now().strftime("%Y%m%d_%H%M%S")
 
-        # Setup results directory using proper naming logic
-        # Use config.results_dir as base directory (defaults to "./results")
+        # Setup results directory structure for experiment data storage
+        # Base directory contains multiple experiment results (./results/ by default)
         results_base_dir = config.results_dir or f"./{rv_cte.RESULTS_DIR}"
         
+        # Determine experiment-specific folder name
         if config.name and config.name.strip():
-            # Use experiment name if specified
+            # Use explicit experiment name for organized results
             experiment_folder = config.name.strip()
         else:
-            # Use timestamp-based name as fallback
+            # Generate timestamp-based name for automatic experiments
             experiment_folder = f"experiment_{self.experiment_id}"
             self.config.name = self.experiment_id
         
-        # Create full results directory path
+        # Create full results directory path for this experiment
+        # Contains all pre-processing, execution, and post-processing outputs
         self.results_dir = os.path.join(results_base_dir, experiment_folder)
         os.makedirs(self.results_dir, exist_ok=True)
 

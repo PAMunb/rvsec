@@ -96,7 +96,7 @@ class EmulatorComponent:
 
     def start_emulator(self, avd_name: str = "RVSec"):
         """
-        Start the emulator and return a context manager.
+        Start the emulator with dynamic port allocation for parallel execution.
 
         Args:
             avd_name: Name of the AVD to start
@@ -104,14 +104,26 @@ class EmulatorComponent:
         Returns:
             Context manager for emulator session
         """
-        with self.logger.with_context(avd_name=avd_name, phase="start_emulator"):
+        # Extract dynamic port allocation from task configuration for parallel execution
+        # Each parallel task gets unique emulator port (5554, 5556, 5558, etc.)
+        # Set by ParallelManager during task distribution to prevent port conflicts
+        device_port = 5554  # default fallback port
+        if (hasattr(self.task.config, 'tool_config') and 
+            hasattr(self.task.config.tool_config, 'additional_params') and 
+            self.task.config.tool_config.additional_params):
+            device_port = self.task.config.tool_config.additional_params.get('device_port', 5554)
+            
+        with self.logger.with_context(avd_name=avd_name, device_port=device_port, phase="start_emulator"):
             try:
-                self.logger.info(LOG_START.format(phase=f"emulator {avd_name}"))
+                self.logger.info(LOG_START.format(phase=f"emulator {avd_name} (port {device_port})"))
 
-                # Get emulator context manager
+                # Start emulator with dynamic port for true parallel execution
+                # EmulatorManager creates isolated emulator instance on specified port
+                # This enables multiple concurrent tasks without port conflicts
                 emulator_context = self.emulator_manager.start_emulator(
                     avd_name,
-                    self.task.config.no_window
+                    self.task.config.no_window,
+                    device_port  # Unique port for this parallel task
                 )
 
                 # Publish event
@@ -156,8 +168,15 @@ class EmulatorComponent:
                 return True
 
             try:
-                self.logger.info(LOG_START.format(phase=f"installing app {app.name}"))
-                self.emulator_manager.install_app(app)
+                # Get device_serial from additional_params for installation
+                device_serial = "emulator-5554"  # default
+                if (hasattr(self.task.config, 'tool_config') and 
+                    hasattr(self.task.config.tool_config, 'additional_params') and 
+                    self.task.config.tool_config.additional_params):
+                    device_serial = self.task.config.tool_config.additional_params.get('device_serial', device_serial)
+                
+                self.logger.info(LOG_START.format(phase=f"installing app {app.name} on {device_serial}"))
+                self.emulator_manager.install_app(app, device_serial=device_serial)
                 self.logger.info(LOG_COMPLETE.format(phase=f"installing app {app.name}"))
 
                 # Publish event

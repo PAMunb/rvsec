@@ -65,28 +65,31 @@ class GeneratedAction:
         """
         from rvandroid_tool.constants import ACTION_TYPE_CLICK
         
-        # Determine if this is a custom coordinate action
+        # Determine action initialization path based on source type
+        # UI element actions use ItemAction metadata, custom actions use direct parameters
         self.is_custom = item_action is None
         
-        # Core action properties
+        # Initialize action properties based on source type
         if self.is_custom:
-            # Custom coordinate action
+            # Custom coordinate-based actions (manual screen targeting)
             self.item = None
             self.id = action_id or "coord"
             self.action_type = custom_action_type or ACTION_TYPE_CLICK
             self.text = ""
             
-            # Custom actions don't have monitoring metadata
+            # Custom actions don't have monitored operations metadata
+            # because they bypass UI element analysis that provides MOP annotations
             self.reaches_mop = False
             self.directly_reaches_mop = False
         else:
-            # Standard UI element action
+            # UI element actions (derived from screen parser visitor patterns)
             self.item = item_action
-            self.id = item_action.id
-            self.action_type = item_action.event.name.lower()
+            self.id = item_action.id  # From visitor-generated ItemAction
+            self.action_type = item_action.event.name.lower()  # WidgetEventType enum
             self.text = item_action.text
             
-            # Monitoring metadata from ItemAction
+            # Monitored operations metadata from static analysis integration
+            # These flags indicate if the action targets methods under runtime verification
             self.reaches_mop = item_action.reaches_mop
             self.directly_reaches_mop = item_action.directly_reaches_mop
         
@@ -198,11 +201,13 @@ class ActionGenerator:
             return self._generate_fallback_actions(state)
 
         try:
+            # Convert parsed action dictionaries to executable GeneratedAction objects
+            # Maps action_id values to UI elements from ScreenDescription visitor analysis
             return self._convert_actions(actions, state)
         except Exception as e:
             self.logger.error(f"Action conversion failed: {e}", exc_info=True)
             self.error_handler.handle_error(e, {
-                "component": "ActionGenerator",
+                "component": "ActionGenerator", 
                 "function": "create_actions",
                 "actions_count": len(actions)
             })

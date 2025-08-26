@@ -29,6 +29,7 @@ torch = "^2.5.0"  # PyTorch for HuggingFace models
 transformers = "^4.47.0"  # HuggingFace transformers
 accelerate = "^1.7.0"  # For model optimization
 bitsandbytes = "^0.46.0"  # For quantization
+python-dotenv = "^1.1.1"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.0.0"

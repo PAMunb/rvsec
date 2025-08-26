@@ -62,72 +62,92 @@ class Android:
                     # Don't re-raise cleanup errors, as they might mask the original exception
 
     @classmethod
-    def start_emulator(cls, avd_name: str, no_window: bool):
+    def start_emulator(cls, avd_name: str, no_window: bool, device_port: int = 5554):
         """
         Start an Android emulator with specific configuration parameters.
+        
+        Enhanced for parallel execution support with device port assignment.
 
         Args:
             avd_name (str): Name of the Android Virtual Device to launch (RVSec)
             no_window (bool): Flag to determine whether to run emulator without a graphical window
+            device_port (int): Port for emulator (enables parallel execution, default: 5554)
 
         Returns:
             The emulator process that was started as a daemon
 
         Notes:
-            Configures emulator with optimized settings for testing:
-            - Writable system image
-            - Wiped user data
+            Configures emulator with settings optimized for parallel testing:
+            - Port assignment for parallel execution
+            - Read-only mode for multiple AVD instances
+            - No cache to prevent conflicts
             - Disabled boot animation
             - No audio
             - No snapshot saving
             - Delayed ADB communication
         """
-        logging.info('Starting emulator')
+        device_name = f"emulator-{device_port}"
+        logging.info(f'Starting emulator on {device_name}')
 
         args = ['-avd', avd_name,
-                '-writable-system',  # make system & vendor image writable after 'adb remount'
-                '-wipe-data',  # reset the user data image (copy it from initdata)
-                '-no-boot-anim',  # disable animation for faster boot
-                '-noaudio',  # disable audio support
-                '-no-snapshot-save',  # do not auto-save to snapshot on exit: abandon changed state
-                '-delay-adb']  # delay adb communication till boot completes
+                '-port', str(device_port),    # CRITICAL: Port assignment for parallel execution
+                '-read-only',                 # CRITICAL: Allows multiple instances of same AVD
+                '-no-cache',                  # CRITICAL: Prevents cache conflicts between instances
+                '-no-boot-anim',             # disable animation for faster boot
+                '-noaudio',                  # disable audio support
+                '-no-snapshot-save',         # do not auto-save to snapshot on exit: abandon changed state
+                '-delay-adb']                # delay adb communication till boot completes
         if no_window:
             args.append('-no-window')  # disable graphical window display
 
         start_emulator_cmd = Command('emulator', args)
+        
+        # CHANGED: Using invoke_as_process instead of invoke_as_deamon to prevent process duplication
+        # The invoke_as_deamon method was causing fork-based process duplication in parallel execution,
+        # leading to multiple emulator processes on the same port. invoke_as_process uses subprocess.Popen
+        # with process groups to avoid this duplication issue.
+        # TESTING: Reverting to invoke_as_deamon to check if hanging issue is related to process management
         emulator_proc = start_emulator_cmd.invoke_as_deamon()
 
-        cls._wait_for_boot()
+        cls._wait_for_boot(device_name)
 
     @classmethod
-    def kill_emulator(cls, avd_name):
+    def kill_emulator(cls, avd_name, device_name: str = "emulator-5554"):
         """
         Forcefully terminate an Android emulator and clean up associated resources.
+        
+        Enhanced for parallel execution support with device-specific targeting.
 
         Args:
             avd_name (str): The name of the Android Virtual Device (AVD) to be killed.
+            device_name (str): Device name for targeting specific emulator (default: "emulator-5554")
 
         Notes:
             This method performs the following actions:
-            - Sends a kill command to the running emulator
-            - Stops the ADB server
+            - Sends a kill command to the specific running emulator
+            - Stops the ADB server for the specific device
             - Removes lock files associated with the specified AVD
             - Introduces a 10-second delay to ensure complete termination
         """
-        logging.info("Killing emulator ...")
-        kill_emulator_cmd = Command('adb', ['-s', 'emulator-5554', 'emu', 'kill'])
+        logging.info(f"Killing emulator {device_name}...")
+        kill_emulator_cmd = Command('adb', ['-s', device_name, 'emu', 'kill'])
         kill_emulator_cmd.invoke()
-        kill_server_cmd = Command('adb', ['-s', 'emulator-5554', 'kill-server'])
+        kill_server_cmd = Command('adb', ['-s', device_name, 'kill-server'])
         kill_server_cmd.invoke()
         kill_locks_cmd = Command('rm', ['~/.android/avd/{}.avd/*.lock'.format(avd_name)])
         kill_locks_cmd.invoke()
         time.sleep(10)
-        logging.info('Emulator has been killed')
+        logging.info(f'Emulator {device_name} has been killed')
 
     @staticmethod
-    def _wait_for_boot():
+    def _wait_for_boot(device_name: str = "emulator-5554"):
         """
         Wait for an Android emulator to fully boot and become ready.
+        
+        Enhanced for parallel execution support with device-specific targeting.
+
+        Args:
+            device_name (str): Device name to wait for boot (default: "emulator-5554")
 
         This method performs a series of checks to ensure the emulator has completely booted:
         - Waits for the boot animation to stop
@@ -140,30 +160,30 @@ class Android:
         """
         timeout = 120  # seconds
         start = time.time()
-        logging.info('Waiting for emulator to boot')
-        check_emulator_cmd = Command('adb', ['-s', 'emulator-5554', 'shell', 'getprop', 'init.svc.bootanim'], timeout)
+        logging.info(f'Waiting for {device_name} to boot')
+        check_emulator_cmd = Command('adb', ['-s', device_name, 'shell', 'getprop', 'init.svc.bootanim'], timeout)
         check_result = check_emulator_cmd.invoke()
         while check_result.stdout.strip().decode('ascii') != 'stopped':
             time.sleep(5)
-            logging.info('Waiting for emulator to boot')
+            logging.info(f'Waiting for {device_name} to boot')
             check_result = check_emulator_cmd.invoke()
-        wait_emulator_cmd = Command('adb', ['wait-for-device', 'shell',
+        wait_emulator_cmd = Command('adb', ['-s', device_name, 'wait-for-device', 'shell',
                                             "'while [[ -z $(getprop sys.boot_completed) ]]; do sleep 1; done;'"],
                                     timeout)
         wait_emulator_cmd.invoke()
 
-        root_cmd = Command('adb', ['wait-for-device', 'root'], timeout)
+        root_cmd = Command('adb', ['-s', device_name, 'wait-for-device', 'root'], timeout)
         while root_cmd.invoke().stderr.strip().decode('ascii'):
             time.sleep(5)
 
-        adb_remount = Command('adb', ['wait-for-device', 'remount'], timeout)
+        adb_remount = Command('adb', ['-s', device_name, 'wait-for-device', 'remount'], timeout)
         while adb_remount.invoke().stderr.strip().decode('ascii'):
             time.sleep(5)
 
-        logging.info('Emulator booted!')
+        logging.info(f'{device_name} booted!')
         end = time.time()
         elapsed = end - start
-        logging.info('Emulator took {0} to boot'.format(utils.to_readable_time(elapsed)))
+        logging.info(f'{device_name} took {utils.to_readable_time(elapsed)} to boot')
 
     @classmethod
     def simulate_reboot(cls):
@@ -180,20 +200,20 @@ class Android:
         cls._wait_for_boot()
 
     @classmethod
-    def install_with_permissions(cls, app: App):
-        cls.install_apk(app)
-        cls.grant_permissions(app)
+    def install_with_permissions(cls, app: App, device_name: str = "emulator-5554"):
+        cls.install_apk(app, device_name)
+        cls.grant_permissions(app, device_name)
 
     @classmethod
-    def install_apk(cls, app: App):
-        logging.info("Installing APK: {0}".format(app.name))
-        root_cmd = Command('adb', ['root'])
+    def install_apk(cls, app: App, device_name: str = "emulator-5554"):
+        logging.info("Installing APK: {0} on {1}".format(app.name, device_name))
+        root_cmd = Command('adb', ['-s', device_name, 'root'])
         result = root_cmd.invoke()
         readlink_cmd = Command('readlink', ['-f', app.path])
         readlink_result = readlink_cmd.invoke()
         install_cmd = Command('adb', [
             '-s',
-            'emulator-5554',
+            device_name,
             'install',
             '-r',
             readlink_result.stdout.strip().decode('ascii')
@@ -201,16 +221,16 @@ class Android:
         install_cmd.invoke()
 
     @classmethod
-    def uninstall_apk(cls, app: App):
-        logging.info("Uninstalling APK: {}".format(app.name))
-        uninstall_cmd = Command('adb', ['-s', 'emulator-5554', 'uninstall', app.package_name])
+    def uninstall_apk(cls, app: App, device_name: str = "emulator-5554"):
+        logging.info("Uninstalling APK: {} from {}".format(app.name, device_name))
+        uninstall_cmd = Command('adb', ['-s', device_name, 'uninstall', app.package_name])
         uninstall_cmd.invoke()
 
     @classmethod
-    def grant_permissions(cls, app: App):
+    def grant_permissions(cls, app: App, device_name: str = "emulator-5554"):
         for permission in app.permissions:
-            logging.info("Granting permission {}".format(permission))
-            grant_cmd = Command('adb', ['shell', 'pm', 'grant', app.package_name, permission])
+            logging.info("Granting permission {} on {}".format(permission, device_name))
+            grant_cmd = Command('adb', ['-s', device_name, 'shell', 'pm', 'grant', app.package_name, permission])
             grant_cmd.invoke()
 
     # @staticmethod

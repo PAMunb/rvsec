@@ -63,7 +63,9 @@ class ResponseProcessor:
         # Store configuration
         self.config = config
         
-        # Initialize response parser
+        # Initialize strategy-specific response parser
+        # Parser handles different LLM response formats based on prompt strategy
+        # (JSON for BATCH_ACTION, XML for vision strategies, structured text for STANDARD)
         self.parser = ResponseParser()
         
         self.logger.info("Response processor initialized")

@@ -115,9 +115,9 @@ class CommandCircuitBreaker:
         Returns:
             Unique string signature for the command
         """
-        # Create signature from command and arguments
+        # Create signature from command and arguments using SHA-256
         signature_data = f"{command.command}:{':'.join(command.args)}"
-        return hashlib.md5(signature_data.encode()).hexdigest()[:16]
+        return hashlib.sha256(signature_data.encode()).hexdigest()[:16]
     
     def _get_circuit_state(self, command_signature: str) -> CircuitBreakerState:
         """

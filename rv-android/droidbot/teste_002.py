@@ -179,4 +179,4 @@ if __name__ == "__main__":
     print()
     
     # Run DroidBot with the appropriate strategy
-    execute(apk_path, out_dir, use_batch_strategy=args.batch, server_url=args.server_url)
+    execute(apk_path, out_dir, server_url=args.server_url)

@@ -74,7 +74,7 @@ class MonkeyTool(AbstractTool):
             "event_count": 1_000_000_000,    # Number of events to generate
             "seed": None,                     # Random seed for reproducibility
             "throttle": 0,                    # Delay between events (ms)
-            "device_id": "emulator-5554",     # Target device
+            "device_id": "emulator-5554",     # Target device (fallback default)
             "verbosity": 2,                   # Verbosity level (0-3)
             "ignore_crashes": False,          # Continue after crashes
             "ignore_timeouts": False,         # Continue after ANR timeouts
@@ -290,9 +290,9 @@ class MonkeyTool(AbstractTool):
         Build the Monkey command with validated parameters.
         
         Constructs ADB shell command for Monkey tool execution with appropriate
-        verbosity level, security exception handling, and event count configuration.
+        device targeting, verbosity level, security exception handling, and event count configuration.
         
-        Command format: adb shell monkey -v -v --ignore-security-exceptions -p <package> <event_count>
+        Command format: adb -s <device_id> shell monkey -v -v --ignore-security-exceptions -p <package> <event_count>
         
         Args:
             app: Application under test containing package name and metadata
@@ -302,6 +302,7 @@ class MonkeyTool(AbstractTool):
             Configured Command object for Monkey execution
         """
         cmd_args = [
+            "-s", self.config["device_id"],  # Target device specification
             "shell", "monkey",
             "-v", "-v",
             # "--ignore-crashes",

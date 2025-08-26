@@ -30,7 +30,7 @@ os.environ[constants.ENV_RVSEC_HOME] = parent_directory
 
 # Import necessary modules after path setup
 from rv_llm.config import LLMConfig, PromptConfig
-from rv_llm.llm.constants import LLMType, PromptStrategyType
+from rv_llm.llm.constants import LLMType, PromptStrategyType, ContextMode
 from rv_screen_parser.constants import ScreenParserType, VisitorType
 from rv_android_core.domain.app import App
 from rvandroid_tool.llm.service.action_service import LLMActionService
@@ -61,19 +61,46 @@ if __name__ == '__main__':
     static_data = static_analysis_parser.read_static_analysis_files(app_folder, apk, package)
 
     # Cria configuração unificada usando RvAndroidToolConfig
-    tool_config = RvAndroidToolConfig.create_from_variant({
-        "llm_type": LLMType.OLLAMA,
-        "llm_model": OllamaLLM.GEMMA,
-        "temperature": 0.2,
-        "top_p": 0.9,
-        "max_tokens": 500,
-        "vision": True,
-        "prompt_strategy": PromptStrategyType.VISION,
-        "parser_type": ScreenParserType.DROIDBOT,
-        "visitor_type": VisitorType.DEFAULT,
-        "server_port": 5000,
-        "debug_mode": True
-    })
+    # tool_config = RvAndroidToolConfig.create_from_variant({
+    #     "llm_type": LLMType.OLLAMA,
+    #     "llm_model": OllamaLLM.GEMMA,
+    #     "temperature": 0.2,
+    #     "top_p": 0.9,
+    #     "top_k": 40,
+    #     "max_tokens": 500,
+    #     "vision": True,
+    #     "think": False,
+    #     "prompt_strategy": PromptStrategyType.VISION,
+    #     "parser_type": ScreenParserType.DROIDBOT,
+    #     "visitor_type": VisitorType.BASIC,
+    #     "context_mode": ContextMode.STATELESS,
+    #     "server_port": 5000,
+    #     "debug_mode": True
+    # })
+    llm_config = LLMConfig(
+        llm_type=LLMType.OLLAMA,
+        model=OllamaLLM.GEMMA,
+        vision=True,
+        temperature=0.3,
+        max_tokens=800
+    )
+
+    # Create prompt config with context mode settings
+    prompt_config = PromptConfig(
+        strategy_type=PromptStrategyType.VISION,
+        parser_type=ScreenParserType.DROIDBOT,
+        visitor_type=VisitorType.BASIC,
+        max_context_length=500,
+        context_mode=ContextMode.STATELESS,
+        context_window_size=5,
+        context_compression=True,
+        include_coverage_timeline=True
+    )
+
+    tool_config = RvAndroidToolConfig(
+        llm_config=llm_config,
+        prompt_config=prompt_config
+    )
 
     print("\n=== Configuração do RV-Android ===")
     print(f"LLM: {tool_config.llm_config.llm_type}")

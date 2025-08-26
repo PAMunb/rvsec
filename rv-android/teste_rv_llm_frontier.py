@@ -87,6 +87,9 @@ def tmp_frontier_001():
 
 
 def tmp_frontier():
+    from dotenv import load_dotenv
+    load_dotenv()
+    api_key = os.getenv('ANTHROPIC_API_KEY')
 
     # messages = [
     #     # LLMMessage(role=LLMRole.SYSTEM, content=[LLMTextContent(text="Hello, Ollama!")]),
@@ -100,7 +103,7 @@ def tmp_frontier():
         model="claude-3-5-sonnet-20240620", # "claude-sonnet-4-20250514"
         temperature=0.2,
         max_tokens=800,
-        api_key="",
+        api_key=api_key
     )
     
     # Create LLM using the factory
@@ -114,8 +117,8 @@ def tmp_frontier():
 def create_messages():
     base_dir = "/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec/rv-android/modules/rv-evaluator/src/rv_evaluator/prompts"
 
-    system_prompt = read_file(os.path.join(base_dir, "001_system.txt"))
-    user_prompt = read_file(os.path.join(base_dir, "001_user.txt"))
+    system_prompt = read_file(os.path.join(base_dir, "002_system.txt"))
+    user_prompt = read_file(os.path.join(base_dir, "002_user.txt"))
 
     messages = [
         LLMMessage(role=LLMRole.USER, content=[LLMTextContent(text=system_prompt)]),

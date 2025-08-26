@@ -181,7 +181,7 @@ def tmp_001():
 
 
 def tmp_002(screenshot_file):
-    model_name = "llava-phi3:3.8b" #"llama3.2-vision:11b" #"granite3.2-vision:2b" #"qwen2.5vl:3b" #"gemma3:4b"
+    model_name = "gemma3:4b" #"llama3.2-vision:11b" #"granite3.2-vision:2b" #"qwen2.5vl:3b" #"gemma3:4b"
 
     try:
         image_base64 = get_image_base64_local(screenshot_file)
@@ -236,7 +236,7 @@ def tmp_003(droidbot_state_file, screenshot_path, package, static_data):
         max_tokens=1000
     )
     prompt_config = PromptConfig(
-        strategy_type=PromptStrategyType.BATCH_ACTION,
+        strategy_type=PromptStrategyType.BATCH,
         parser_type=ScreenParserType.DROIDBOT,
         visitor_type=VisitorType.DEFAULT,
         max_context_length=8192
@@ -303,5 +303,5 @@ if __name__ == '__main__':
     static_data = static_analysis_parser.parse(reach_file, gator_file, gesda_file, package)
 
     # tmp_001()
-    # tmp_002(screenshot_path)
-    tmp_003(droidbot_state_file, screenshot_path, apk, static_data)
+    tmp_002(screenshot_path)
+    # tmp_003(droidbot_state_file, screenshot_path, apk, static_data)

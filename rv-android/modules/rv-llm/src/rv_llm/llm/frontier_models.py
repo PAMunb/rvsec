@@ -29,8 +29,8 @@ class FrontierModel(LanguageModel):
     NAME = "frontier"
 
     # Available frontier models with consistent versioning
-    CLAUDE_SONNET = "claude-3-5-sonnet-20241022"
-    CLAUDE_OPUS = "claude-3-opus-20240229"
+    CLAUDE_SONNET = "claude-4-sonnet-20250514" #"claude-3-5-sonnet-20241022"
+    CLAUDE_OPUS = "claude-4-opus-20250514" # "claude-3-opus-20240229"
     CLAUDE_HAIKU = "claude-3-haiku-20240307"
 
     GPT_4 = "gpt-4-turbo-2024-04-09"

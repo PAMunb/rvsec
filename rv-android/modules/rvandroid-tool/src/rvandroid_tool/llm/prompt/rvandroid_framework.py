@@ -35,11 +35,14 @@ from rv_llm.llm.prompt.information.fragment_manager import InformationManager
 from rv_llm.llm.prompt.template.jinja_repository import Jinja2TemplateRepository
 
 # Import RVAndroid-specific components
+from rvandroid_tool.llm.prompt.fragments.coverage_guidance_fragment import CoverageGuidanceFragment
 from rvandroid_tool.llm.prompt.fragments.history_fragment import HistoryFragment
 from rvandroid_tool.llm.prompt.fragments.monitored_operations_fragment import MonitoredOperationsFragment
+from rvandroid_tool.llm.prompt.fragments.system_coverage_fragment import SystemCoverageFragment
 from rvandroid_tool.llm.prompt.fragments.transition_guidance_fragment import TransitionGuidanceFragment
 from rvandroid_tool.llm.prompt.fragments.ui_elements_fragment import UIElementsFragment
 from rvandroid_tool.llm.prompt.strategies.batch_strategy import BatchStrategy
+from rvandroid_tool.llm.prompt.strategies.mop_vision_strategy import MOPVisionStrategy
 from rvandroid_tool.llm.prompt.strategies.single_strategy import SingleStrategy
 from rvandroid_tool.llm.prompt.strategies.vision_strategy import VisionStrategy
 
@@ -141,6 +144,7 @@ class RVAndroidPromptFramework(PromptFramework):
 
             # Register strategies using constants
             LLMComponentFactory.register_strategy(PromptStrategyType.BATCH, BatchStrategy)
+            LLMComponentFactory.register_strategy(PromptStrategyType.MOP_VISION, MOPVisionStrategy)
             LLMComponentFactory.register_strategy(PromptStrategyType.SINGLE, SingleStrategy)
             LLMComponentFactory.register_strategy(PromptStrategyType.VISION, VisionStrategy)
 
@@ -164,8 +168,10 @@ class RVAndroidPromptFramework(PromptFramework):
         try:
             # Create Android-specific fragments
             fragments = [
+                CoverageGuidanceFragment(),
                 HistoryFragment(),
                 MonitoredOperationsFragment(),
+                SystemCoverageFragment(),
                 TransitionGuidanceFragment(),
                 UIElementsFragment()
             ]

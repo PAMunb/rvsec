@@ -113,7 +113,8 @@ class LLMManager:
             {CONTEXT_COMPONENT: "LLMManager"}
         )
 
-        # Initialize LLM lazily - only when needed
+        # Initialize LLM lazily to reduce startup time and memory usage
+        # LLM instance is created only when first generate() call is made
         self.llm: Optional[LanguageModel] = None
 
         self.logger.info(
@@ -144,7 +145,9 @@ class LLMManager:
         self.logger.info(f"Initializing {self.config.llm_type} LLM: {self.config.model}")
 
         try:
-            # Create LLM instance using factory
+            # Create LLM instance using factory pattern to handle different backends
+            # Factory creates appropriate implementation (OllamaLLM, FrontierLLM, HuggingFaceLLM)
+            # based on config.llm_type and handles backend-specific initialization
             self.llm = LLMComponentFactory.create_llm(self.config)
 
             self.logger.info(f"Successfully initialized {self.config.llm_type} LLM")
@@ -210,6 +213,16 @@ class LLMManager:
             self.logger.debug(f"Message {i + 1} - Role: {message.role}")
             for j, content in enumerate(message.content):
                 self.logger.debug(f"  Content {j + 1}: {str(content)[:100]}...")
+        
+        # DETAILED_LOG: Full prompt logging for analysis
+        self.logger.info("DETAILED_LOG: ================== FULL PROMPT CAPTURE ==================")
+        for i, message in enumerate(messages):
+            self.logger.info(f"DETAILED_LOG: === MESSAGE {i + 1} - ROLE: {message.role} ===")
+            for j, content in enumerate(message.content):
+                self.logger.info(f"DETAILED_LOG: Content {j + 1}:")
+                self.logger.info(f"DETAILED_LOG: {str(content)}")
+                self.logger.info("DETAILED_LOG: " + "="*60)
+        self.logger.info("DETAILED_LOG: ================== END PROMPT CAPTURE ==================")
 
         # Perform generation with timing
         start_time = time.time()
@@ -220,6 +233,12 @@ class LLMManager:
 
             # Log successful generation
             self.logger.info(f"LLM generation completed in {elapsed_time:.2f}s")
+            
+            # DETAILED_LOG: Full response logging for analysis
+            self.logger.info("DETAILED_LOG: ================== FULL RESPONSE CAPTURE ==================")
+            self.logger.info(f"DETAILED_LOG: Response Content:")
+            self.logger.info(f"DETAILED_LOG: {response.content}")
+            self.logger.info("DETAILED_LOG: ================== END RESPONSE CAPTURE ==================")
 
             # Record response metrics
             self._record_response_metrics(response, context, elapsed_time)

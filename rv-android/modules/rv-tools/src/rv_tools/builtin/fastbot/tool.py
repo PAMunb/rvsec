@@ -407,7 +407,7 @@ class FastBotTool(AbstractTool):
             self.logger.info(f"Pushing {jar_key} JAR from {local_path} to {device_path}")
             
             push_cmd = Command('adb', [
-                '-s', 'emulator-5554',
+                '-s', self.config.get("device_serial", "emulator-5554"),
                 'push', '-a', '-p', local_path, device_path
             ], timeout=60)  # 60 seconds timeout for push
             
@@ -471,7 +471,7 @@ class FastBotTool(AbstractTool):
             self.logger.info(f"Pushing FastBot native library for {arch} to {device_lib_path}")
             
             push_cmd = Command('adb', [
-                '-s', 'emulator-5554',
+                '-s', self.config.get("device_serial", "emulator-5554"),
                 'push', '-a', '-p', local_lib_path, device_lib_path
             ], timeout=60)  # 60 seconds timeout for push
             
@@ -508,7 +508,7 @@ class FastBotTool(AbstractTool):
             Configured Command object for FastBot execution
         """
         cmd_args = [
-            "-s", "emulator-5554",
+            "-s", self.config.get("device_serial", "emulator-5554"),
             "shell",
             "CLASSPATH=/sdcard/monkeyq.jar:/sdcard/framework.jar:/sdcard/fastbot-thirdpart.jar",
             "exec", "app_process", "/system/bin",

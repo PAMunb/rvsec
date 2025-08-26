@@ -64,15 +64,16 @@ class Server:
         self.max_retries = max_retries
         self.retry_delay = retry_delay
 
-        # Initialize Flask app
+        # Initialize Flask app for REST API endpoints
         self.app = Flask(__name__)
 
-        # Server state management
+        # Server state management for thread-safe operation
+        # Enables concurrent request handling with proper lifecycle management
         self._server_thread: Optional[Thread] = None
         self._server_instance = None
         self._is_running = False
         self._should_stop = False
-        self._lock = Lock()
+        self._lock = Lock()  # Thread synchronization for server state
 
         # Setup logging
         self.logging_manager = LoggingManager.get_instance()

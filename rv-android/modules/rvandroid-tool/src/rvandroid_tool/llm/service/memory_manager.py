@@ -445,10 +445,10 @@ class MemoryManager:
             if StateEntry.HASH_SCREEN in state:
                 return state[StateEntry.HASH_SCREEN]
 
-            # Use a stable JSON serialization for hashing
+            # Use a stable JSON serialization for hashing with SHA-256
             stable_dict = self._create_stable_dict_for_hashing(state)
             state_json = json.dumps(stable_dict, sort_keys=True)
-            state[StateEntry.HASH_SCREEN] = hashlib.md5(state_json.encode()).hexdigest()
+            state[StateEntry.HASH_SCREEN] = hashlib.sha256(state_json.encode()).hexdigest()
             return state[StateEntry.HASH_SCREEN]
         except Exception as e:
             self.logger.warning(f"Error computing state hash: {e}")

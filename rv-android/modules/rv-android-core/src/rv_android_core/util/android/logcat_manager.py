@@ -69,6 +69,11 @@ class LogcatManager(BaseValidatedModel):
         default="threadtime",
         description="Logcat output format specification"
     )
+    
+    device_serial: str = Field(
+        default="emulator-5554",
+        description="Android device serial for logcat capture"
+    )
 
     @field_validator('default_tags')
     @classmethod
@@ -160,22 +165,25 @@ class LogcatManager(BaseValidatedModel):
 
                 # Clear logcat buffer if requested
                 if clear_buffer:
-                    clear_cmd = Command("adb", ["logcat", "-c"])
+                    clear_cmd = Command("adb", ["-s", self.device_serial, "logcat", "-c"])
                     clear_cmd.invoke()
-                    self.logger.debug("Cleared logcat buffer")
+                    self.logger.debug(f"Cleared logcat buffer for device {self.device_serial}")
 
-                # Build command with tag filters
-                cmd_args = ["logcat", "-v", self.logcat_format]
+                # Build command with device serial and tag filters
+                cmd_args = ["-s", self.device_serial, "logcat", "-v", self.logcat_format]
                 if validated_tags:
-                    cmd_args.extend(["-s"] + validated_tags)
+                    cmd_args.extend(["-s"])  # Tag filter option
+                    cmd_args.extend(validated_tags)
 
                 # Start logcat capture
                 logcat_cmd = Command("adb", cmd_args)
                 log_file = open(validated_output_file, "wb")
 
                 try:
-                    # Use object.__setattr__ to bypass validation
-                    logcat_process = logcat_cmd.invoke_as_deamon(stdout=log_file)
+                    # CHANGED: Using invoke_as_process instead of invoke_as_deamon to prevent process duplication
+                    # The invoke_as_deamon method was causing fork-based process duplication in parallel execution.
+                    # Original line (causes duplication): logcat_process = logcat_cmd.invoke_as_deamon(stdout=log_file)
+                    logcat_process = logcat_cmd.invoke_as_process(stdout=log_file)
                     object.__setattr__(self, 'logcat_process', logcat_process)
                     object.__setattr__(self, 'logcat_file_handle', log_file)
                     

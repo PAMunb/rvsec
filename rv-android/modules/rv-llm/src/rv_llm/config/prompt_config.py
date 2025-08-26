@@ -112,9 +112,9 @@ class PromptConfig(BaseValidatedModel):
     # Context Management
     # TODO deprecate
     max_context_length: int = Field(
-        default=8192,
-        ge=512,
-        le=32768,
+        default=800,
+        ge=200,
+        # le=200000,
         description="Maximum context length for prompt generation"
     )
 

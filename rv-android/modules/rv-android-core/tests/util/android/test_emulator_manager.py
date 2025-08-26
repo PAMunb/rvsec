@@ -74,13 +74,13 @@ class TestEmulatorManager:
 
         # Use context manager
         with emulator_manager.start_emulator("test_avd") as android:
-            # Verify emulator was started
-            mock_android.start_emulator.assert_called_once_with("test_avd", False)
+            # Verify emulator was started with default port
+            mock_android.start_emulator.assert_called_once_with("test_avd", False, 5554)
             assert android == mock_android
             assert "test_avd" in emulator_manager._active_emulators
 
-        # Verify emulator was killed on context exit
-        mock_android.kill_emulator.assert_called_once_with("test_avd")
+        # Verify emulator was killed on context exit with correct device serial
+        mock_android.kill_emulator.assert_called_once_with("test_avd", "emulator-5554")
         assert "test_avd" not in emulator_manager._active_emulators
 
     @patch('rv_android_core.util.android.emulator_manager.Android')
@@ -91,8 +91,8 @@ class TestEmulatorManager:
 
         # Use context manager with no_window=True
         with emulator_manager.start_emulator("test_avd", no_window=True) as android:
-            # Verify emulator was started with no_window=True
-            mock_android.start_emulator.assert_called_once_with("test_avd", True)
+            # Verify emulator was started with no_window=True and default port
+            mock_android.start_emulator.assert_called_once_with("test_avd", True, 5554)
             assert android == mock_android
 
     @patch('rv_android_core.util.android.emulator_manager.Android')
@@ -126,8 +126,8 @@ class TestEmulatorManager:
         except (ValueError, EmulatorError):
             pass
 
-        # Verify cleanup was performed
-        mock_android.kill_emulator.assert_called_once_with("test_avd")
+        # Verify cleanup was performed with correct device serial
+        mock_android.kill_emulator.assert_called_once_with("test_avd", "emulator-5554")
         assert "test_avd" not in emulator_manager._active_emulators
 
     @patch('rv_android_core.util.android.emulator_manager.Android')
@@ -147,7 +147,7 @@ class TestEmulatorManager:
         # EmulatorManager might not be able to remove the AVD from _active_emulators
         # depending on implementation details
         # Instead of asserting the state, we'll verify the attempt to clean up
-        mock_android.kill_emulator.assert_called_once_with("test_avd")
+        mock_android.kill_emulator.assert_called_once_with("test_avd", "emulator-5554")
 
     @patch('rv_android_core.util.android.emulator_manager.Command')
     def test_clear_logcat(self, mock_command_class, emulator_manager, mock_command):
@@ -186,8 +186,8 @@ class TestEmulatorManager:
         # Call the method
         result = emulator_manager.install_app(mock_app, with_permissions=True)
 
-        # Verify installation
-        mock_android.install_with_permissions.assert_called_once_with(mock_app)
+        # Verify installation with default device serial
+        mock_android.install_with_permissions.assert_called_once_with(mock_app, "emulator-5554")
         assert result is True
 
     @patch('rv_android_core.util.android.emulator_manager.Android')
@@ -199,8 +199,8 @@ class TestEmulatorManager:
         # Call the method
         result = emulator_manager.install_app(mock_app, with_permissions=False)
 
-        # Verify installation
-        mock_android.install_apk.assert_called_once_with(mock_app)
+        # Verify installation with default device serial
+        mock_android.install_apk.assert_called_once_with(mock_app, "emulator-5554")
         assert result is True
 
     @patch('rv_android_core.util.android.emulator_manager.Android')

@@ -245,7 +245,7 @@ class DroidBotTool(AbstractTool):
         Constructs DroidBot command for UI exploration with policy-based testing,
         device targeting, and emulator-specific configurations.
         
-        Command format: poetry run droidbot -d emulator-5554 -a <apk> -policy <policy> -count 10000000000 -timeout <timeout> -ignore_ad -is_emulator
+        Command format: poetry run droidbot -d <device_serial> -a <apk> -policy <policy> -count 10000000000 -timeout <timeout> -ignore_ad -is_emulator
         
         Args:
             app: Application under test containing APK path and metadata
@@ -254,9 +254,12 @@ class DroidBotTool(AbstractTool):
         Returns:
             Configured Command object for DroidBot execution
         """
+        # Get device serial from config, fallback to default for backward compatibility
+        device_serial = self.config.get("device_serial", "emulator-5554")
+        
         cmd_args = [
             "run", "droidbot",
-            "-d", "emulator-5554",  # Target device specification
+            "-d", device_serial,  # Target device specification (dynamic)
             "-a", app.path,
             "-policy", self.config["policy"],  # Exploration policy configuration
             "-count", "10000000000",  # High event count for comprehensive exploration

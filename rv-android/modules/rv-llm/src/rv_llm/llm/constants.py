@@ -45,13 +45,15 @@ class PromptStrategyType:
     - **SINGLE**: Single-action generation
     - **BATCH**: Multi-action generation  
     - **VISION**: Multi-modal generation with visual support
+    - **MOP_VISION**: Multi-modal generation with monitored operations focus
     - **DEFAULT**: Default strategy for new configurations
     """
     SINGLE = "single"
     BATCH = "batch" 
     VISION = "vision"
+    MOP_VISION = "mop_vision"
     DEFAULT = BATCH
-    ALL = [SINGLE, BATCH, VISION]
+    ALL = [SINGLE, BATCH, VISION, MOP_VISION]
 
 
 class FragmentType:

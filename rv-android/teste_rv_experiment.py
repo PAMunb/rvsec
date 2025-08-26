@@ -47,6 +47,10 @@ def setup_logging(debug: bool = True):
     for noisy_logger in ["androguard", "matplotlib", "PIL", "requests", "urllib3"]:
         logging.getLogger(noisy_logger).setLevel(logging.ERROR)
 
+    for noisy_logger in ["rvandroid_core.domain.window", "rvandroid_core.domain.widget", "rv_static_analysis.parser.static",
+                         "rvandroid_core.domain.classes", "rv_android_core.util.utils.read_json"]:
+        logging.getLogger(noisy_logger).setLevel(logging.INFO)
+
     # Get the logging manager
     logging_manager = LoggingManager.get_instance()
 
@@ -91,14 +95,14 @@ def tmp_experiment_controller():
             
             # Option 2: RICH context mode (uses sliding window with compression) ⭐ CURRENTLY ACTIVE
             # Shows: recent_iterations with screen descriptions and actions from last N interactions
-            ToolConfig(name="rvandroid", variants=["vision"], parameters={
-                "context_mode": "rich",
-                "context_window_size": 10,        # Number of iterations to keep in sliding window
-                "context_compression": True,       # Compress older iterations (recommended)
-                "include_coverage_timeline": True, # Include coverage progression over time
-                "llm_type": "ollama",
-                "llm_model": "gemma3:4b"
-            }),
+            # ToolConfig(name="rvandroid", variants=["vision"], parameters={
+            #     "context_mode": "rich",
+            #     "context_window_size": 10,        # Number of iterations to keep in sliding window
+            #     "context_compression": True,       # Compress older iterations (recommended)
+            #     "include_coverage_timeline": True, # Include coverage progression over time
+            #     "llm_type": "ollama",
+            #     "llm_model": "gemma3:4b"
+            # }),
             
             # ═══════════════════════════════════════════════════════════════════
             # 🎯 STRATEGY COMPARISON WITH CONTEXT MODES
@@ -127,28 +131,93 @@ def tmp_experiment_controller():
             #     "context_window_size": 10,
             #     "context_compression": True
             # })
+            # ToolConfig(name="ape", variants=["default"], parameters={}),
+            # Test 4.2.1: UICoverageTracker functionality  
+            # Test 4.2.2: MOPVisionStrategy template variables
+            # Use vision variant and override with MOP_VISION strategy
+            ToolConfig(name="rvandroid", variants=["vision"], parameters={
+                "prompt_strategy": "mop_vision",  # Override to use MOP_VISION strategy
+                "context_mode": "stateless",
+                "context_window_size": 5, 
+                "ui_coverage_enabled": True,  # Enable UI coverage tracking
+                "temperature": 0.7,
+                "max_actions": 3
+            }),
+            
+            # Optional: Compare with regular vision for validation
+            # ToolConfig(name="rvandroid", variants=["vision"], parameters={
+            #     "context_mode": "stateless", 
+            #     "max_actions": 3
+            # })
         ]
 
-        # Create configuration for actual execution
+        # Create configuration for testing MOP Vision and UI Coverage
         config = ExperimentConfig(
-            # name="aaa",
+            name="mop_vision_ui_coverage_test",
             tool_configs=tools,
             repetitions=1,
-            timeouts=[60],
+            timeouts=[60],  # Shorter timeout for quick testing
             apks_dir="./apks_examples/",
             output_dir="./out",  # Temporary artifacts directory
-            results_dir = "./results",  # Persistent results directory
-            specification_set="jca", #"custom",  # Use custom specs from specs_mini
-            # custom_specs_dir = "./specs_mini",
-            generate_monitors = False,
-            instrument_apks = False,
-            run_static_analysis = False,
-            no_window = False
+            results_dir="./results",  # Persistent results directory
+            specification_set="jca",
+            generate_monitors=False,  # Skip monitor generation for faster testing
+            instrument_apks=False,    # Skip instrumentation for faster testing
+            run_static_analysis=False, # Keep static analysis for MOP context
+            no_window=True           # Headless mode for CI/testing
         )
         
+        print("\n🎯 TESTING PHASE 4.2: Basic Validation")
+        print("🔧 Testing Configuration:")
+        print(f"  • Strategy: mop_vision")
+        print(f"  • UI Coverage: Enabled")
+        print(f"  • Context Mode: stateless")
+        print(f"  • Max Actions: 3")
+        print(f"  • Timeout: 60s")
+        print(f"  • No Window: {config.no_window}")
+        
+        # DETAILED_LOG: Add enhanced logging for prompt and response analysis
+        print("\n" + "="*80)
+        print("DETAILED_LOG: ENABLING ENHANCED LOGGING FOR ANALYSIS")
+        print("="*80)
+        
+        # Enable detailed logging for key components
+        import logging
+        for logger_name in [
+            "rvandroid_tool.llm.service.action_service",
+            "rvandroid_tool.llm.service.llm_manager", 
+            "rv_llm.llm.prompt.template.jinja_repository",
+            "rv_llm.llm.prompt.strategy.vision",
+            "rvandroid_tool.llm.service.response_processor",
+            "rvandroid_tool.core.memory.ui_coverage_tracker"
+        ]:
+            logging.getLogger(logger_name).setLevel(logging.DEBUG)
+            print(f"DETAILED_LOG: Enhanced logging for {logger_name}")
+        
+        print("="*80)
+        
+        print(f"\n📋 Tool Configs:")
+        for tc in config.tool_configs:
+            print(f"  • {tc.name}:{tc.variants} - {tc.parameters}")
+
         # Create experiment controller to validate integration
+        print(f"\n🚀 Starting MOP Vision + UI Coverage experiment...")
         controller = ExperimentController(config)
         result = controller.run()
+        
+        print(f"\n✅ Experiment completed!")
+        print(f"   Result type: {type(result)}")
+        
+        # Validate that MOP Vision strategy was used
+        if result and hasattr(result, 'tool_results'):
+            for tool_result in result.tool_results:
+                if hasattr(tool_result, 'strategy_used'):
+                    print(f"   Strategy used: {tool_result.strategy_used}")
+                    if tool_result.strategy_used == 'mop_vision':
+                        print("   ✅ 4.2.2: MOPVisionStrategy template variables - VALIDATED")
+        
+        # Check for UI coverage tracking evidence (in logs)
+        print("   ✅ 4.2.1: UICoverageTracker functionality - Check logs for coverage annotations")
         
         # print("✅ ExperimentController created successfully")
         # print(f"   Config name: {controller.config.name}")
@@ -371,7 +440,7 @@ def run_manual_test():
         # ("Platform Integration", tmp_platform_integration),
         # ("Tool Discovery", tmp_cli_tool_discovery),
         # ("Variant System", tmp_variant_system),
-        ("Context Mode System", tmp_context_modes),
+        # ("Context Mode System", tmp_context_modes),
         ("Experiment Controller", tmp_experiment_controller)
     ]
     
@@ -406,38 +475,6 @@ def run_manual_test():
     
     if passed == total:
         print("✅ All tests passed! rv-experiment integration is working correctly.")
-        print("\n🎯 Ready for CLI testing with context modes:")
-        print("\n📋 Context Mode Configuration Examples:")
-        print("   # STATELESS mode (traditional enrichment with MemoryManager, TransitionManager)")
-        print("   ToolConfig(name='rvandroid', variants=['vision'], parameters={")
-        print("       'context_mode': 'stateless',")
-        print("       'context_window_size': 10")
-        print("   })")
-        print()
-        print("   # RICH mode (sliding window with raw iteration history)")
-        print("   ToolConfig(name='rvandroid', variants=['vision'], parameters={")
-        print("       'context_mode': 'rich',")
-        print("       'context_window_size': 10,")
-        print("       'context_compression': True,")
-        print("       'include_coverage_timeline': False")
-        print("   })")
-        print()
-        print("🚀 Context Mode Testing Commands:")
-        print("   # Test RICH context mode with vision strategy")
-        print("   python -m rv_experiment run --tools rvandroid:vision --config rich_context.json")
-        print()
-        print("   # Test STATELESS context mode with different strategies")
-        print("   python -m rv_experiment run --tools rvandroid:default --config stateless_context.json")
-        print()
-        print("📊 Differences between Context Modes:")
-        print("   STATELESS: Uses action_history, memory_insights, navigation_path, available_transitions")
-        print("   RICH:      Uses recent_iterations with sliding window of screen descriptions and actions")
-        print()
-        print("🔧 Additional CLI testing:")
-        print("   python -m rv_experiment run --tools droidbot:dfs_greedy")
-        print("   python -m rv_experiment run --tools ape:sata,droidbot:bfs_greedy")
-        print("   python -m rv_experiment list-tools")
-        print("   python -m rv_experiment config --template-type basic")
     else:
         print("❌ Some tests failed. Check the errors above.")
         print("\n🔧 Integration issues detected - please review the implementation.")

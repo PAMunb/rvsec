@@ -125,7 +125,7 @@ class TestBasicTextVisitor:
         # Should add an item for the actionable node
         assert len(visitor.items) == 1
         assert visitor.items[0].view == node.data
-        assert visitor.items[0].base_description.startswith("Container")
+        assert visitor.items[0].base_description.startswith("Element")
         assert visitor.window_info["interactive_elements"] == 1
         assert node.unique_identifier in visitor.processed_parents
 
@@ -168,7 +168,7 @@ class TestBasicTextVisitor:
         # Should add an item for the button
         assert len(visitor.items) == 1
         assert visitor.items[0].view == node.data
-        assert visitor.items[0].base_description == 'Button "Test Button"'
+        assert visitor.items[0].base_description == 'Button {Test Button}'
         assert visitor.window_info["interactive_elements"] == 1
 
     def test_visit_edit_text(self, visitor, node):
@@ -185,7 +185,7 @@ class TestBasicTextVisitor:
         # Should add an item for the edit text
         assert len(visitor.items) == 1
         assert visitor.items[0].view == node.data
-        assert visitor.items[0].base_description == "Text field (Username field)"
+        assert visitor.items[0].base_description == "Text field {Username field}"
         assert visitor.window_info["interactive_elements"] == 1
 
         # Test password field
@@ -218,7 +218,7 @@ class TestBasicTextVisitor:
         # Should add an item for text view with text
         assert len(visitor.items) == 1
         assert visitor.items[0].view == node.data
-        assert visitor.items[0].base_description == "Some text content"
+        assert visitor.items[0].base_description == "Text {Some text content}"
 
     def test_visit_text_view_actionable(self, visitor, node):
         """Test visit_text_view method with actionable node."""
@@ -296,7 +296,7 @@ class TestBasicTextVisitor:
         # Should add an item for the image button
         assert len(visitor.items) == 1
         assert visitor.items[0].view == node.data
-        assert visitor.items[0].base_description == "Image button"
+        assert visitor.items[0].base_description == "Image button {A test button}"
         assert visitor.window_info["interactive_elements"] == 1
 
     def test_visit_image_not_actionable(self, visitor, node):
@@ -321,7 +321,7 @@ class TestBasicTextVisitor:
         # Should add an item for image with description
         assert len(visitor.items) == 1
         assert visitor.items[0].view == node.data
-        assert visitor.items[0].base_description == "Image: Logo image"
+        assert visitor.items[0].base_description == "Image {Logo image}"
 
     def test_visit_image_actionable(self, visitor, node):
         """Test visit_image method with actionable node."""
@@ -353,7 +353,7 @@ class TestBasicTextVisitor:
         # Should add an item for the toggle button
         assert len(visitor.items) == 1
         assert visitor.items[0].view == node.data
-        assert visitor.items[0].base_description == "Toggle button (ON)"
+        assert visitor.items[0].base_description == "Toggle (ON)"
         assert visitor.window_info["interactive_elements"] == 1
 
         # Test OFF toggle button
@@ -362,7 +362,7 @@ class TestBasicTextVisitor:
         visitor.visit_toggle_button(node)
 
         assert len(visitor.items) == 1
-        assert "Toggle button (OFF)" in visitor.items[0].base_description
+        assert "Toggle (OFF)" in visitor.items[0].base_description
 
     def test_visit_switch(self, visitor, node):
         """Test visit_switch method."""
@@ -401,7 +401,7 @@ class TestBasicTextVisitor:
         # Should add an item for the radio button
         assert len(visitor.items) == 1
         assert visitor.items[0].view == node.data
-        assert visitor.items[0].base_description == "Radio button (selected)"
+        assert visitor.items[0].base_description == "Radio (selected)"
         assert visitor.window_info["interactive_elements"] == 1
 
         # Test not selected radio button
@@ -410,7 +410,7 @@ class TestBasicTextVisitor:
         visitor.visit_radio_button(node)
 
         assert len(visitor.items) == 1
-        assert "Radio button (not selected)" in visitor.items[0].base_description
+        assert "Radio (unselected)" in visitor.items[0].base_description
 
     def test_visit_spinner(self, visitor, node):
         """Test visit_spinner method."""

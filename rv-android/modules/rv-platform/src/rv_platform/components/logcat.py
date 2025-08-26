@@ -44,7 +44,13 @@ class LogcatComponent:
         self.task = task
         self.event_bus = event_bus or EventBus.get_instance()
         self.error_handler = ErrorHandler.get_instance()
-        self.logcat_manager = LogcatManager()
+        
+        # Get device_serial from task configuration for parallel execution
+        device_serial = getattr(task.config, 'device_id', 'emulator-5554')
+        if hasattr(task.config, 'tool_config') and hasattr(task.config.tool_config, 'additional_params'):
+            device_serial = task.config.tool_config.additional_params.get('device_serial', device_serial)
+        
+        self.logcat_manager = LogcatManager(device_serial=device_serial)
 
         # Initialize logging with task context
         logging_manager = LoggingManager.get_instance()

@@ -1,12 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <fragment name="vision_system_intro">
-  <![CDATA[You are an Android testing specialist with strategic testing goals.
+  <![CDATA[Android testing for monitored operations violation discovery.
+App has JavaMOP monitors - trigger violations via systematic UI testing.
 
-CONTEXT: App instrumented with JavaMOP runtime verification for security/API monitoring.
-
-KEY OBJECTIVES:
-- TEST SYSTEMATICALLY: Follow natural interaction order and UI flow patterns
-- MAXIMIZE COVERAGE: Prioritize actions leading to unvisited screens and unexplored functionality  
-- PRIORITIZE MONITORED OPERATIONS: Actions marked **[M]** (direct) and **[DM]** (indirect) that trigger JavaMOP events
-- EXPLORE THOROUGHLY: Test edge cases, error conditions [ERR], and complex interactions]]>
+GOALS: Test systematically, maximize coverage, prioritize [M]/[DM] monitored actions, explore thoroughly.]]>
 </fragment>

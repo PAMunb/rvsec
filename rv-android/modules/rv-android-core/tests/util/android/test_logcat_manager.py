@@ -54,7 +54,7 @@ class TestLogcatManager:
         mock_clear_command.invoke.return_value = MagicMock()
 
         mock_logcat_command = MagicMock()
-        mock_logcat_command.invoke_as_deamon.return_value = mock_process
+        mock_logcat_command.invoke_as_process.return_value = mock_process
 
         # Configure the Command mock to return different instances
         mock_command_class.side_effect = [mock_clear_command, mock_logcat_command]
@@ -65,14 +65,14 @@ class TestLogcatManager:
         # Verify directory creation
         mock_makedirs.assert_called_once_with("/test", exist_ok=True)
 
-        # Verify commands were created correctly
+        # Verify commands were created correctly with device serial
         assert mock_command_class.call_count == 2
-        mock_command_class.assert_any_call("adb", ["logcat", "-c"])
-        mock_command_class.assert_any_call("adb", ["logcat", "-v", "threadtime", "-s", "RVSEC", "RVSEC-COV"])
+        mock_command_class.assert_any_call("adb", ["-s", "emulator-5554", "logcat", "-c"])
+        mock_command_class.assert_any_call("adb", ["-s", "emulator-5554", "logcat", "-v", "threadtime", "-s", "RVSEC", "RVSEC-COV"])
 
         # Verify commands were executed
         mock_clear_command.invoke.assert_called_once()
-        mock_logcat_command.invoke_as_deamon.assert_called_once_with(stdout=mock_file)
+        mock_logcat_command.invoke_as_process.assert_called_once_with(stdout=mock_file)
 
         # Verify state and result
         assert logcat_manager.logcat_process == mock_process
@@ -95,7 +95,7 @@ class TestLogcatManager:
         mock_clear_command.invoke.return_value = MagicMock()
 
         mock_logcat_command = MagicMock()
-        mock_logcat_command.invoke_as_deamon.return_value = mock_process
+        mock_logcat_command.invoke_as_process.return_value = mock_process
 
         # Configure the Command mock to return different instances
         mock_command_class.side_effect = [mock_clear_command, mock_logcat_command]
@@ -103,8 +103,8 @@ class TestLogcatManager:
         # Call the method with custom tags
         result = logcat_manager.start_capture("/test/output.log", tags=["CUSTOM", "DEBUG"])
 
-        # Verify correct command arguments
-        mock_command_class.assert_any_call("adb", ["logcat", "-v", "threadtime", "-s", "CUSTOM", "DEBUG"])
+        # Verify correct command arguments with device serial
+        mock_command_class.assert_any_call("adb", ["-s", "emulator-5554", "logcat", "-v", "threadtime", "-s", "CUSTOM", "DEBUG"])
         assert result is True
 
     @patch('rv_android_core.util.android.logcat_manager.Command')
@@ -118,16 +118,16 @@ class TestLogcatManager:
 
         mock_process = MagicMock()
         mock_logcat_command = MagicMock()
-        mock_logcat_command.invoke_as_deamon.return_value = mock_process
+        mock_logcat_command.invoke_as_process.return_value = mock_process
 
         mock_command_class.return_value = mock_logcat_command
 
         # Call the method without clearing buffer
         result = logcat_manager.start_capture("/test/output.log", clear_buffer=False)
 
-        # Verify command creation and execution
-        mock_command_class.assert_called_once_with("adb", ["logcat", "-v", "threadtime", "-s", "RVSEC", "RVSEC-COV"])
-        mock_logcat_command.invoke_as_deamon.assert_called_once_with(stdout=mock_file)
+        # Verify command creation and execution with device serial
+        mock_command_class.assert_called_once_with("adb", ["-s", "emulator-5554", "logcat", "-v", "threadtime", "-s", "RVSEC", "RVSEC-COV"])
+        mock_logcat_command.invoke_as_process.assert_called_once_with(stdout=mock_file)
 
         assert result is True
 
@@ -158,7 +158,7 @@ class TestLogcatManager:
 
         # Second command fails (logcat)
         mock_logcat_command = MagicMock()
-        mock_logcat_command.invoke_as_deamon.side_effect = Exception("Command failed")
+        mock_logcat_command.invoke_as_process.side_effect = Exception("Command failed")
 
         mock_command_class.side_effect = [mock_clear_command, mock_logcat_command]
 

@@ -48,6 +48,7 @@ from rvandroid_tool.llm.service.llm_manager import LLMManager
 from rvandroid_tool.llm.service.memory_manager import MemoryManager
 from rvandroid_tool.llm.service.response_processor import ResponseProcessor
 from rvandroid_tool.llm.service.state_enricher import StateEnricher
+from rvandroid_tool.llm.service.ui_coverage_integration import UICoverageIntegration
 from rvandroid_tool.llm.service.transition_manager import TransitionManager
 
 
@@ -92,6 +93,7 @@ class LLMActionService:
             self,
             static_data: StaticAnalysisData,
             tool_config: RvAndroidToolConfig,
+            ui_coverage_tracker=None,
             **model_kwargs
     ):
         """
@@ -140,9 +142,13 @@ class LLMActionService:
         # Subscribe to coverage events from CoverageTracker for real-time testing guidance
         self.subscribe_to_event_bus()
 
-        # Initialize coverage tracking state
+        # Initialize system coverage tracking state (from rv-coverage events)
         self.current_coverage_metrics = {}
         self.recent_mop_errors = []  # Recent MOP errors for testing context
+        
+        # Initialize UI coverage tracker integration (distinct from system coverage)
+        self.ui_coverage_tracker = ui_coverage_tracker
+        self.ui_coverage_integration = UICoverageIntegration(ui_coverage_tracker)
 
         # Initialize performance monitoring
         self.performance_monitor = PerformanceMonitor.get_instance()
@@ -232,31 +238,28 @@ class LLMActionService:
         """
         with self.performance_monitor.measure_time("process_state"):
             try:
-                # Pre-process state with complete enrichment pipeline
+                # DETAILED_LOG: Interaction context analysis
+                self._log_interaction_context(state)
+                
+                # Pre-process state with context mode routing (STATELESS vs RICH)
+                # STATELESS: Uses MemoryManager + TransitionManager for enrichment
+                # RICH: Uses sliding window context with raw iteration history 
                 self._pre_process_state(state)
 
-                # Create prompt context
+                # Create prompt context dictionary for RVAndroidPromptFramework
                 prompt_context = self._create_prompt_context(state)
 
-                # Generate prompt messages using unified framework
+                # Generate prompt messages using strategy-specific framework (BATCH_ACTION, STANDARD, MOP_VISION)
+                # The framework selects fragments based on strategy configuration and builds complete prompt
                 messages = self.prompt_framework.generate_prompt(state, prompt_context)
 
 
-                print(f"****************** Messages: {len(messages)}")
-                for msg in messages:
-                    print(f"\n *** Message: {msg.role}")
-                    for content in msg.content:
-                        from rv_llm.llm.data_structures import LLMImageContent, LLMTextContent
-                        if isinstance(content, LLMTextContent):
-                            print(f"   - Text Content:\n{content.text}")
-                        elif isinstance(content, LLMImageContent):
-                            print(f"   - Image Content: {content.url}")
-                        else:
-                            print(f"   - Content: {content}")
-
-
-                # Process LLM interaction
-                llm_response = self.llm_manager.generate(messages)
+                # Process LLM interaction with performance tracking
+                with self.performance_monitor.measure_time(
+                    "llm_generation", 
+                    {"strategy": self.prompt_config.strategy_type}
+                ):
+                    llm_response = self.llm_manager.generate(messages)
 
                 # Check if response is valid
                 if not llm_response:
@@ -266,24 +269,26 @@ class LLMActionService:
                 # Extract response content
                 response_text = llm_response.content if hasattr(llm_response, 'content') else str(llm_response)
 
-                # Process response into action descriptions
+                # Parse LLM response into structured action descriptions using strategy-specific parser
+                # Different strategies produce different response formats (JSON, XML, structured text)
                 actions, errors = self.response_processor.process_response(response_text, state)
 
-                # Report any errors
+                # Report parsing errors for prompt optimization analysis
                 for error in errors:
                     self.logger.warning(f"Response parsing issue: {error}")
 
-                # Generate executable actions
+                # Convert action descriptions to executable DroidBot actions with UI element mapping
+                # Maps action_id from parsed actions to actual UI elements from visitor patterns
                 generated_actions = self.action_generator.create_actions(actions, state)
 
                 # Update memory with interaction history
                 self.memory_manager.record_actions(state, generated_actions)
 
-                # Log processing results
-                self.logger.info(
-                    f"Processed state - Generated {len(generated_actions)} actions "
-                    f"using strategy: {self.prompt_config.strategy_type}"
-                )
+                # Record UI interactions in UICoverageTracker
+                self._record_ui_interactions(generated_actions, state)
+                
+                # Log structured metrics for strategy comparison with optimization tracking and error analysis
+                self._log_action_generation_metrics(generated_actions, state, llm_response, actions, errors)
 
                 # Record iteration for RICH context mode
                 if self.context_mode == ContextMode.RICH:
@@ -423,6 +428,9 @@ class LLMActionService:
         # Add recent MOP errors for testing context
         if self.recent_mop_errors:
             state[StateEntry.MOP_RECENT_ERRORS] = self.recent_mop_errors[-3:]  # Last 3 errors for context
+
+        # Apply UI coverage annotations to screen elements if UI tracker available
+        self.ui_coverage_integration.apply_ui_coverage_annotations(state)
 
         # Prepare sliding window context
         sliding_window_context = self._prepare_sliding_window(state)
@@ -687,3 +695,392 @@ class LLMActionService:
         """Get current timestamp in ISO format."""
         import datetime
         return datetime.datetime.now().isoformat()
+
+    @ErrorHandler.handle_errors(component="LLMActionService", phase="ui_interaction_recording")
+    def _record_ui_interactions(self, generated_actions: List, state: Dict[str, Any]) -> None:
+        """
+        Record UI interactions in UICoverageTracker for systematic testing.
+        
+        This method processes generated actions to record UI element interactions
+        for coverage analysis and systematic testing guidance.
+        
+        Args:
+            generated_actions: List of generated actions from LLM
+            state: Current application state for context
+        """
+        if not self.ui_coverage_tracker:
+            return
+            
+        try:
+            for action in generated_actions:
+                # Create action data for UI coverage integration
+                action_data = {
+                    'action_type': getattr(action, 'action_type', 'unknown'),
+                    'item': action  # Full action object
+                }
+                
+                # Record interaction using UI coverage integration
+                self.ui_coverage_integration.record_action_interaction(action_data, state)
+                
+        except Exception as e:
+            self.logger.error(f"Error recording UI interactions: {e}")
+
+    @ErrorHandler.handle_errors(component="LLMActionService", phase="metrics_logging")
+    def _log_action_generation_metrics(self, generated_actions: List, state: Dict[str, Any], llm_response=None, 
+                                     parsed_actions: List = None, parsing_errors: List = None) -> None:
+        """
+        Log structured metrics for strategy performance comparison and prompt optimization tracking.
+        
+        This method provides comprehensive metrics logging to support strategy comparison
+        and performance analysis across different configurations. It integrates with the
+        TaskExecutor's PerformanceMonitor system to provide unified metrics collection
+        for prompt optimization analysis.
+        
+        ### Architectural Integration:
+        The method leverages the existing TaskExecutor context hierarchy to automatically
+        inherit base context (task_id, apk_name, tool_name, repetition, timeout) while
+        adding prompt optimization specific metrics for before/after comparison analysis.
+        
+        ### Error Analysis Integration:
+        Captures critical error metrics for prompt tuning analysis:
+        - Parsing errors: JSON malformed, structure invalid
+        - Action generation errors: Invalid action_id, unmappable actions  
+        - Success rates: Parsed vs generated action ratios
+        - Error patterns: Common failure modes for prompt improvement
+        
+        Args:
+            generated_actions: List of generated actions from LLM
+            state: Current application state for context
+            llm_response: LLM response object containing token metrics (optional)
+            parsed_actions: List of parsed action descriptions from response processor (optional)
+            parsing_errors: List of parsing errors encountered (optional)
+        """
+        try:
+            # Count monitored operations related actions for quality validation
+            direct_mop_actions = sum(1 for action in generated_actions 
+                                   if getattr(action, 'directly_reaches_mop', False))
+            indirect_mop_actions = sum(1 for action in generated_actions 
+                                     if getattr(action, 'reaches_mop', False) and 
+                                        not getattr(action, 'directly_reaches_mop', False))
+            
+            # Calculate action type distribution for prompt tuning analysis
+            action_types = {}
+            for action in generated_actions:
+                action_type = getattr(action, 'action_type', 'unknown')
+                action_types[action_type] = action_types.get(action_type, 0) + 1
+            
+            # Extract UI elements metrics for optimization validation
+            screen_description = state.get(StateEntry.STRUCTURED_SCREEN)
+            ui_elements_total = len(screen_description.items) if screen_description and hasattr(screen_description, 'items') else 0
+            ui_elements_actionable = len([item for item in screen_description.items 
+                                        if item.actions]) if screen_description and hasattr(screen_description, 'items') else 0
+            
+            # Calculate error metrics for prompt tuning analysis
+            parsing_error_count = len(parsing_errors) if parsing_errors else 0
+            parsed_action_count = len(parsed_actions) if parsed_actions else 0
+            generated_action_count = len(generated_actions)
+            
+            # Action generation success rate (parsed actions that became executable actions)
+            action_generation_success_rate = (generated_action_count / max(parsed_action_count, 1)) if parsed_action_count > 0 else 1.0
+            
+            # Overall success rate (successful actions from LLM response)
+            total_success_rate = action_generation_success_rate if parsing_error_count == 0 else (generated_action_count / max(parsed_action_count + parsing_error_count, 1))
+            
+            # Create prompt optimization context for metrics
+            optimization_context = {
+                "strategy": self.prompt_config.strategy_type,
+                "visitor": self.prompt_config.visitor_type,
+                "parser": self.prompt_config.parser_type,
+                "activity": state.get(StateEntry.ACTIVITY, 'unknown'),
+                "context_mode": self.context_mode,
+                "optimization_phase": "after"  # Default to after optimization
+            }
+            
+            # Record prompt optimization specific metrics in PerformanceMonitor
+            # These metrics integrate with TaskExecutor context automatically
+            if llm_response:
+                # Input tokens - critical for optimization tracking
+                input_tokens = getattr(llm_response, 'input_tokens', 0)
+                if input_tokens > 0:
+                    self.performance_monitor.record_metric(
+                        name="prompt_optimization_input_tokens",
+                        value=input_tokens,
+                        unit="tokens",
+                        context=optimization_context
+                    )
+                
+                # Output tokens - for response size tracking
+                output_tokens = getattr(llm_response, 'output_tokens', 0)
+                if output_tokens > 0:
+                    self.performance_monitor.record_metric(
+                        name="prompt_optimization_output_tokens",
+                        value=output_tokens,
+                        unit="tokens",
+                        context=optimization_context
+                    )
+                
+                # Generation time efficiency - from LLM response timing
+                generation_time = getattr(llm_response, 'generation_time', 0.0)
+                if generation_time > 0:
+                    self.performance_monitor.record_metric(
+                        name="prompt_optimization_generation_time",
+                        value=generation_time,
+                        unit="seconds",
+                        context=optimization_context
+                    )
+                    
+                    # Tokens per second efficiency metric
+                    if input_tokens > 0:
+                        tokens_per_second = input_tokens / max(generation_time, 0.001)
+                        self.performance_monitor.record_metric(
+                            name="prompt_optimization_tokens_per_second",
+                            value=tokens_per_second,
+                            unit="tokens_per_second",
+                            context=optimization_context
+                        )
+            
+            # UI Coverage metrics for optimization validation
+            self.performance_monitor.record_metric(
+                name="ui_coverage_elements_total",
+                value=ui_elements_total,
+                unit="elements",
+                context=optimization_context
+            )
+            
+            self.performance_monitor.record_metric(
+                name="ui_coverage_actionable_elements",
+                value=ui_elements_actionable,
+                unit="elements",
+                context=optimization_context
+            )
+            
+            # Monitored operations detection metrics for quality validation
+            self.performance_monitor.record_metric(
+                name="mop_detection_direct_actions",
+                value=direct_mop_actions,
+                unit="actions",
+                context=optimization_context
+            )
+            
+            self.performance_monitor.record_metric(
+                name="mop_detection_indirect_actions",
+                value=indirect_mop_actions,
+                unit="actions",
+                context=optimization_context
+            )
+            
+            # Action distribution metrics for prompt tuning
+            for action_type, count in action_types.items():
+                self.performance_monitor.record_metric(
+                    name=f"action_distribution_{action_type.lower()}",
+                    value=count,
+                    unit="actions",
+                    context=optimization_context
+                )
+            
+            # Critical error metrics for prompt tuning analysis
+            self.performance_monitor.record_metric(
+                name="prompt_parsing_errors",
+                value=parsing_error_count,
+                unit="errors",
+                context=optimization_context
+            )
+            
+            self.performance_monitor.record_metric(
+                name="prompt_parsed_actions",
+                value=parsed_action_count,
+                unit="actions",
+                context=optimization_context
+            )
+            
+            self.performance_monitor.record_metric(
+                name="prompt_action_generation_success_rate",
+                value=action_generation_success_rate,
+                unit="percentage",
+                context=optimization_context
+            )
+            
+            self.performance_monitor.record_metric(
+                name="prompt_total_success_rate",
+                value=total_success_rate,
+                unit="percentage",
+                context=optimization_context
+            )
+            
+            # Action loss metric (parsed actions that failed to become executable)
+            action_loss_count = parsed_action_count - generated_action_count
+            if action_loss_count > 0:
+                self.performance_monitor.record_metric(
+                    name="prompt_action_generation_failures",
+                    value=action_loss_count,
+                    unit="actions",
+                    context=optimization_context
+                )
+            
+            # Get current coverage context for traditional logging
+            coverage_metrics = self.current_coverage_metrics
+            mop_violations_count = len(self.recent_mop_errors)
+            
+            # Log structured performance metrics (traditional format with error analysis)
+            self.logger.info(
+                "Action generation metrics",
+                extra={
+                    'metrics_type': 'action_generation',
+                    'strategy_name': self.prompt_config.strategy_type,
+                    'llm_backend': f"{self.llm_config.llm_type}:{self.llm_config.model}",
+                    'total_actions': len(generated_actions),
+                    'direct_mop_actions': direct_mop_actions,
+                    'indirect_mop_actions': indirect_mop_actions,
+                    'mop_action_ratio': (direct_mop_actions + indirect_mop_actions) / max(1, len(generated_actions)),
+                    'action_types': action_types,
+                    'activity': state.get(StateEntry.ACTIVITY, 'unknown'),
+                    'current_method_coverage': coverage_metrics.get('method_coverage', 0.0) if coverage_metrics else 0.0,
+                    'current_activity_coverage': coverage_metrics.get('activity_coverage', 0.0) if coverage_metrics else 0.0,
+                    'mop_violations_found': mop_violations_count,
+                    'context_mode': self.context_mode,
+                    'parser_type': self.prompt_config.parser_type,
+                    'visitor_type': self.prompt_config.visitor_type,
+                    'ui_elements_total': ui_elements_total,
+                    'ui_elements_actionable': ui_elements_actionable,
+                    # Error analysis metrics for prompt tuning
+                    'parsing_errors': parsing_error_count,
+                    'parsed_actions': parsed_action_count,
+                    'action_generation_success_rate': action_generation_success_rate,
+                    'total_success_rate': total_success_rate,
+                    'action_generation_failures': action_loss_count
+                }
+            )
+            
+            # Traditional format for backwards compatibility with error metrics
+            error_summary = f" | Errors: {parsing_error_count} parsing" if parsing_error_count > 0 else ""
+            if action_loss_count > 0:
+                error_summary += f", {action_loss_count} generation failures"
+                
+            self.logger.info(
+                f"Processed state - Generated {len(generated_actions)}/{parsed_action_count} actions "
+                f"(MOP: {direct_mop_actions}+{indirect_mop_actions}) "
+                f"| Success rate: {total_success_rate:.1%}"
+                f"{error_summary} "
+                f"| Strategy: {self.prompt_config.strategy_type}"
+            )
+            
+        except Exception as e:
+            self.logger.error(f"Error logging action generation metrics: {e}")
+
+    @ErrorHandler.handle_errors(component="LLMActionService", phase="strategy_performance_logging")
+    def log_strategy_performance(self, strategy_name: str, session_metrics: Dict[str, Any]) -> None:
+        """
+        Log strategy performance metrics for comparative analysis.
+        
+        This method provides comprehensive performance logging for strategy comparison,
+        including efficiency metrics and violation discovery rates.
+        
+        Args:
+            strategy_name: Name of the strategy being evaluated
+            session_metrics: Dictionary containing session performance data
+        """
+        try:
+            # Calculate derived metrics
+            duration_hours = session_metrics.get('session_duration', 0) / 3600
+            violations_per_hour = (
+                session_metrics.get('mop_violations', 0) / duration_hours 
+                if duration_hours > 0 else 0.0
+            )
+            
+            coverage_improvement = (
+                session_metrics.get('final_coverage', 0.0) - 
+                session_metrics.get('initial_coverage', 0.0)
+            )
+            
+            # Log comprehensive strategy performance
+            self.logger.info(
+                "Strategy performance summary",
+                extra={
+                    'metrics_type': 'strategy_performance',
+                    'strategy_name': strategy_name,
+                    'llm_backend': f"{self.llm_config.llm_type}:{self.llm_config.model}",
+                    'session_duration_minutes': session_metrics.get('session_duration', 0) / 60,
+                    'total_actions': session_metrics.get('total_actions', 0),
+                    'mop_violations_found': session_metrics.get('mop_violations', 0),
+                    'violations_per_hour': violations_per_hour,
+                    'coverage_elements_tested': session_metrics.get('coverage_elements', 0),
+                    'coverage_improvement': coverage_improvement,
+                    'final_method_coverage': session_metrics.get('final_method_coverage', 0.0),
+                    'final_activity_coverage': session_metrics.get('final_activity_coverage', 0.0),
+                    'success_rate': session_metrics.get('success_rate', 0.0),
+                    'parser_type': self.prompt_config.parser_type,
+                    'visitor_type': self.prompt_config.visitor_type,
+                    'context_mode': self.context_mode
+                }
+            )
+            
+        except Exception as e:
+            self.logger.error(f"Error logging strategy performance: {e}")
+
+    def _log_interaction_context(self, state: Dict[str, Any]) -> None:
+        """
+        Log detailed interaction context for analysis and debugging.
+        
+        This method provides comprehensive logging of interaction context including
+        iteration number, UI coverage tracking, memory state, and historical progression.
+        """
+        try:
+            # Get current interaction number
+            current_activity = state.get(StateEntry.ACTIVITY, "unknown")
+            
+            # Get iteration number from memory manager
+            iteration_number = getattr(self.memory_manager, 'get_current_iteration', lambda: len(self.iteration_history) + 1)()
+            if hasattr(self.memory_manager, 'memory_instances') and current_activity in self.memory_manager.memory_instances:
+                memory_state = self.memory_manager.memory_instances[current_activity]
+                visit_count = memory_state.visit_count
+            else:
+                visit_count = 1
+                
+            # Get UI coverage stats if available
+            ui_coverage_stats = {}
+            if self.ui_coverage_tracker:
+                ui_coverage_stats = {
+                    "total_interactions": len(self.ui_coverage_tracker.interaction_history),
+                    "unique_elements": len(set(self.ui_coverage_tracker.interaction_history.keys())),
+                    "screen_states": len(set(
+                        interaction[0].get('screen_hash', 'unknown') 
+                        for interactions in self.ui_coverage_tracker.interaction_history.values() 
+                        for interaction in interactions if interaction
+                    ))
+                }
+            
+            # Get current coverage metrics
+            current_coverage = {
+                "method_coverage": state.get(StateEntry.METHOD_COVERAGE, 0.0),
+                "activity_coverage": state.get(StateEntry.ACTIVITY_COVERAGE, 0.0), 
+                "mop_coverage": state.get(StateEntry.MOP_COVERAGE_TOTAL, 0.0)
+            }
+            
+            # Get memory insights
+            memory_insights = state.get(StateEntry.MEMORY_INSIGHTS, "No insights available")
+            action_history = state.get(StateEntry.ACTION_HISTORY, "No history available")
+            
+            # Log comprehensive interaction context
+            self.logger.info("DETAILED_LOG: ================== INTERACTION CONTEXT ==================")
+            self.logger.info(f"DETAILED_LOG: Interaction #{iteration_number}")
+            self.logger.info(f"DETAILED_LOG: Activity: {current_activity} (Visit #{visit_count})")
+            self.logger.info(f"DETAILED_LOG: Strategy: {self.prompt_config.strategy_type}")
+            self.logger.info(f"DETAILED_LOG: Context Mode: {self.context_mode}")
+            self.logger.info(f"DETAILED_LOG: --- COVERAGE METRICS ---")
+            self.logger.info(f"DETAILED_LOG: Method Coverage: {current_coverage['method_coverage']:.2f}%")
+            self.logger.info(f"DETAILED_LOG: Activity Coverage: {current_coverage['activity_coverage']:.2f}%")
+            self.logger.info(f"DETAILED_LOG: MOP Coverage: {current_coverage['mop_coverage']:.2f}%")
+            self.logger.info(f"DETAILED_LOG: --- UI COVERAGE TRACKER ---")
+            if ui_coverage_stats:
+                self.logger.info(f"DETAILED_LOG: Total UI Interactions: {ui_coverage_stats['total_interactions']}")
+                self.logger.info(f"DETAILED_LOG: Unique Elements: {ui_coverage_stats['unique_elements']}")
+                self.logger.info(f"DETAILED_LOG: Screen States: {ui_coverage_stats['screen_states']}")
+            else:
+                self.logger.info("DETAILED_LOG: UI Coverage Tracker: Not available")
+            self.logger.info(f"DETAILED_LOG: --- MEMORY STATE ---")
+            self.logger.info(f"DETAILED_LOG: Memory Insights: {memory_insights[:200]}...")
+            self.logger.info(f"DETAILED_LOG: Action History: {action_history[:200]}...")
+            self.logger.info("DETAILED_LOG: ================== END INTERACTION CONTEXT ==================")
+            
+        except Exception as e:
+            self.logger.error(f"Error logging interaction context: {e}")

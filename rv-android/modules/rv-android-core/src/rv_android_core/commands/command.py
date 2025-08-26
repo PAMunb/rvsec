@@ -287,3 +287,49 @@ class Command(BaseValidatedModel):
                     error=str(e)
                 ))
                 raise CommandNotFoundError(f"The command {self.command} was not found")
+
+    def invoke_as_process(self, stdout=PIPE, stderr=PIPE):
+        """
+        Execute the command as a single process without daemon fork.
+
+        Alternative to invoke_as_deamon that uses subprocess.Popen directly
+        without creating daemon/fork processes that can cause duplication.
+        
+        This method prevents process duplication issues seen with invoke_as_deamon
+        in parallel execution environments by using subprocess with process groups
+        for proper cleanup.
+
+        Args:
+            stdout: Where to redirect standard output (default: PIPE)
+            stderr: Where to redirect standard error (default: PIPE)
+
+        Returns:
+            Process: The created process object
+
+        Raises:
+            CommandNotFoundError: If the command is not found
+        """
+        import os
+        
+        cmd_args = [self.command, *self.args]
+        cmd_str = ' '.join(cmd_args)
+
+        with self.logger.with_context(command=cmd_str):
+            self.logger.debug(LOG_START.format(phase=f"process command: {cmd_str}"))
+
+            try:
+                # Use subprocess.Popen with process group to avoid fork duplication
+                process = Popen(
+                    cmd_args, 
+                    stderr=stderr, 
+                    stdout=stdout,
+                    preexec_fn=os.setsid  # Create new process group for proper cleanup
+                )
+                self.logger.debug(f"Started single process with PID: {process.pid}")
+                return process
+            except OSError as e:
+                self.logger.error(LOG_ERROR.format(
+                    phase=f"starting single process for command {cmd_str}",
+                    error=str(e)
+                ))
+                raise CommandNotFoundError(f"The command {self.command} was not found")
