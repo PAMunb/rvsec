@@ -66,7 +66,7 @@ class StateEnricher:
         self.error_handler = ErrorHandler.get_instance()
 
         # Initialize screen parser with configurable visitor pattern for UI element analysis
-        # Parser converts raw DroidBot state into structured ScreenDescription with actionable elements
+        # Parser converts raw UIAutomator state into structured ScreenDescription with actionable elements
         # Visitor pattern allows different UI element analysis approaches (Basic, Enhanced, etc.)
         try:
             from rv_screen_parser.parser.screen.parser_factory import ParserFactory
@@ -84,8 +84,8 @@ class StateEnricher:
                 from rv_screen_parser.parser.screen.visitor.visitor_factory import VisitorFactory
                 # Create visitor instance based on configuration (basic_text, enhanced, etc.)
                 visitor_class = VisitorFactory.get_visitor_class(visitor_type)
-            # Create DroidBot parser with selected visitor for UI state analysis
-            self.parser = ParserFactory.create(ScreenParserType.DROIDBOT, visitor_class)
+            # Create UIAutomator parser with selected visitor for UI state analysis
+            self.parser = ParserFactory.create(ScreenParserType.UIAUTOMATOR, visitor_class)
             self.logger.info(
                 f"Initialized screen parser: {self.parser.__class__.__name__} with visitor: {visitor_class.__name__}")
         except ImportError:
@@ -319,7 +319,7 @@ class StateEnricher:
                 try:
                     from rv_screen_parser.parser.screen.parser_factory import ParserFactory
                     from rv_screen_parser.constants import ScreenParserType
-                    self.parser = ParserFactory.create(ScreenParserType.DROIDBOT, DefaultTextVisitor)
+                    self.parser = ParserFactory.create(ScreenParserType.UIAUTOMATOR, DefaultTextVisitor)
                     self.logger.debug(f"Created parser on demand: {self.parser.__class__.__name__}")
                 except ImportError:
                     self.logger.warning("Could not create parser, using simple text description")

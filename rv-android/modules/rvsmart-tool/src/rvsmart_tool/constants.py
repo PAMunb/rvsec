@@ -54,3 +54,22 @@ VARIANT_BATCH_CONTEXT = "batch_context"
 RICH_CONTEXT_WINDOW_DEFAULT = 10
 RICH_CONTEXT_COMPRESSION_DEFAULT = True
 RICH_CONTEXT_COVERAGE_TIMELINE_DEFAULT = False
+
+# Screenshot management
+SCREENSHOT_ROTATION_LIMIT = 10
+SCREENSHOT_TEMP_DIR = "screenshots"
+SCREENSHOT_CLEANUP_ENABLED = True
+
+# Error recovery configuration
+APP_RESTART_MAX_ATTEMPTS = 1
+DEVICE_RECONNECT_TIMEOUT = 5
+ERROR_RECOVERY_ENABLED = True
+
+# Metrics collection constants
+PARSING_ERROR_COUNTER = "parsing_errors"
+ACTION_GENERATION_COUNTER = "action_generation_failures"
+METRICS_COLLECTION_ENABLED = True
+
+# Execution flow constants
+NO_ACTIONS_RETURN_VALUE = False  # Return False when no actions generated (clearer than True)
+EXTERNAL_NAVIGATION_BREAK_ENABLED = False  # Use recovery instead of immediate break

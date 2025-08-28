@@ -60,23 +60,35 @@ from rv_uiautomator.state.converter import StateConverter
 
 def setup_logging(debug: bool = True):
     """Set up logging configuration."""
+    from rv_android_core.util.logging.manager import LoggingManager
+
+    # Setup basic logging first
+    logging.basicConfig(
+        level=logging.DEBUG if debug else logging.INFO,
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+        stream=sys.stdout
+    )
+
+    # Silence noisy third-party loggers
+    for noisy_logger in ["androguard", "matplotlib", "PIL", "requests", "urllib3"]:
+        logging.getLogger(noisy_logger).setLevel(logging.ERROR)
+
+    for noisy_logger in ["rvandroid_core.domain.window", "rvandroid_core.domain.widget",
+                         "rv_static_analysis.parser.static", "rvandroid_core.domain.classes"
+                                                             "rv_android_core.util.utils.read_json"]:
+        logging.getLogger(noisy_logger).setLevel(logging.INFO)
+
+    # Get the logging manager
     logging_manager = LoggingManager.get_instance()
-    
-    # Configure output for seeing all diagnostic messages
     logging_manager.configure_output(
         console=True,
         file=False,
-        console_level=10,  # DEBUG to see all messages
+        console_level=10 if debug else 20,
         file_level=10,
         json_format=False
     )
-    
-    # Silence noisy loggers
-    for noisy_logger in ["androguard", "matplotlib", "PIL", "requests", "urllib3"]:
-        logging.getLogger(noisy_logger).setLevel(logging.ERROR)
-    
-    logger = logging_manager.get_logger('teste_rvsmart_optimized')
-    return logger
+
+    return logging_manager.get_logger('teste_rv_llm_prompt')
 
 
 def tmp_mop_optimized_rvsmart(app: App, static_data: StaticAnalysisData, logger):

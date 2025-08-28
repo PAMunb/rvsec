@@ -41,6 +41,12 @@ from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
 from rv_android_core.util.logging.manager import LoggingManager
 from rv_android_core.util.performance.performance_monitor import PerformanceMonitor
 from rv_llm.llm.constants import ContextEntry, StateEntry, ContextMode
+from rv_android_core.constants import UI_COVERAGE_CONSTANTS
+from rvsmart_tool.constants import (
+    PARSING_ERROR_COUNTER,
+    ACTION_GENERATION_COUNTER,
+    METRICS_COLLECTION_ENABLED
+)
 from rvsmart_tool.llm.prompt.rvsmart_framework import RVAndroidPromptFramework
 from rvsmart_tool.config.tool_config import RvSmartToolConfig
 from rvsmart_tool.llm.service.action_generator import ActionGenerator
@@ -92,9 +98,7 @@ class LLMActionService:
     def __init__(
             self,
             static_data: StaticAnalysisData,
-            tool_config: RvSmartToolConfig,
-            ui_coverage_tracker=None, # TODO nao acho que deva receber como parametro ... o service que gerencia isso da forma que gerencia os outros componentes
-            **model_kwargs # TODO remover, nao esta sendo usado ... no llm manager tambem
+            tool_config: RvSmartToolConfig
     ):
         """
         Initialize LLM action service with unified configuration.
@@ -147,8 +151,9 @@ class LLMActionService:
         self.recent_mop_errors = []  # Recent MOP errors for testing context
         
         # Initialize UI coverage tracker integration (distinct from system coverage)
-        self.ui_coverage_tracker = ui_coverage_tracker
-        self.ui_coverage_integration = UICoverageIntegration(ui_coverage_tracker)
+        from rvsmart_tool.core.memory.ui_coverage_tracker import UICoverageTracker
+        self.ui_coverage_tracker = UICoverageTracker()
+        self.ui_coverage_integration = UICoverageIntegration(self.ui_coverage_tracker)
 
         # Initialize performance monitoring
         self.performance_monitor = PerformanceMonitor.get_instance()
@@ -171,7 +176,7 @@ class LLMActionService:
         self.iteration_history = []  # List to store recent iterations for sliding window
 
         # Initialize LLM manager with backend configuration
-        self.llm_manager = LLMManager(self.llm_config, **model_kwargs)
+        self.llm_manager = LLMManager(self.llm_config)
 
         # Initialize RVAndroid prompt framework with complete registration
         self.prompt_framework = RVAndroidPromptFramework.create(self.prompt_config)
@@ -331,6 +336,11 @@ class LLMActionService:
                 
                 self.logger.info(f"✅ Generated {len(messages) if messages else 0} prompt messages")
                 self.logger.warning("DEBUG_COORD_ENH: Prompt generation completed - messages contain coordinate enhancement context")
+                for message in messages:
+                    print(f"\n=========== MESSAGE: {message.role}")
+                    for content in message.content:
+                        print(f"\n  - {content}")
+                print("============================")
 
 
                 # Process LLM interaction with performance tracking
@@ -359,6 +369,14 @@ class LLMActionService:
                 actions, errors = self.response_processor.process_response(response_text, state)
 
                 # Report parsing errors for prompt optimization analysis
+                if METRICS_COLLECTION_ENABLED and errors:
+                    self.performance_monitor.record_metric(
+                        name=PARSING_ERROR_COUNTER,
+                        value=len(errors),
+                        unit="errors",
+                        context={"strategy": self.prompt_config.strategy_type}
+                    )
+                
                 for error in errors:
                     self.logger.warning(f"Response parsing issue: {error}")
 
@@ -378,7 +396,8 @@ class LLMActionService:
                 self.memory_manager.record_actions(state, generated_actions)
 
                 # Record UI interactions in UICoverageTracker
-                self._record_ui_interactions(generated_actions, state)
+                # Record UI interactions using standardized parameter order
+                self._record_ui_interactions(state, generated_actions)
                 
                 # Log structured metrics for strategy comparison with optimization tracking and error analysis
                 self._log_action_generation_metrics(generated_actions, state, llm_response, actions, errors)
@@ -386,9 +405,6 @@ class LLMActionService:
                 # Record iteration for RICH context mode
                 if self.context_mode == ContextMode.RICH:
                     self._record_iteration(state, generated_actions, response_text)
-
-                # Record LLM event
-                # self.event_bus.publish_llm_event(llm_response, generated_actions)
 
                 # RVSmart adaptation: Return GeneratedAction objects directly for UIAutomator execution
                 self.logger.info(f"🎯 ACTIONSERVICE: Processing pipeline completed successfully")
@@ -417,7 +433,7 @@ class LLMActionService:
             "prompt_strategy": self.prompt_config.strategy_type,
             "parser_type": self.prompt_config.parser_type,
             "visitor_type": self.prompt_config.visitor_type,
-            "server_port": self.tool_config.server_port,
+            # "server_port": getattr(self.tool_config, 'server_port', 8080),  # Optional attribute
             "debug_mode": self.tool_config.debug_mode
         }
 
@@ -472,34 +488,17 @@ class LLMActionService:
         self.state_enricher.enrich_state(state)
         self.logger.warning("✅ State enrichment completed")
 
-        # Update transitions with current state information
+        # Update transitions and memory (STATELESS mode specific)
         transition_detected = self.transition_manager.update(state)
-
-        # Update memory with current state information
         self.memory_manager.update(state)
-
-        # Enrich state with historical information
         self.memory_manager.enrich_state_with_history(state)
 
         # Add transition guidance to state
         transition_guidance = self.transition_manager.get_transition_guidance(state)
         state[StateEntry.TRANSITION_GUIDANCE] = transition_guidance
         
-        # Add real-time coverage metrics to state for AI decision-making
-        if self.current_coverage_metrics:
-            state[StateEntry.COVERAGE_METRICS] = self.current_coverage_metrics
-            
-            # Add individual metrics for template convenience
-            metrics = self.current_coverage_metrics
-            state[StateEntry.METHOD_COVERAGE] = metrics.get("method_coverage", 0.0)
-            state[StateEntry.ACTIVITY_COVERAGE] = metrics.get("activity_coverage", 0.0)
-            state[StateEntry.MOP_COVERAGE_CURRENT] = metrics.get("called_methods", 0)
-            state[StateEntry.MOP_COVERAGE_TOTAL] = metrics.get("mop_method_coverage", 0.0)
-            state[StateEntry.MOP_ERRORS_COUNT] = metrics.get("unique_errors", 0)
-        
-        # Add recent MOP errors for testing context
-        if self.recent_mop_errors:
-            state[StateEntry.MOP_RECENT_ERRORS] = self.recent_mop_errors[-3:]  # Last 3 errors for context
+        # Add coverage metrics using shared method
+        self._add_coverage_metrics_to_state(state)
 
         return transition_detected
 
@@ -520,22 +519,8 @@ class LLMActionService:
         # Only basic state enrichment (screen parsing, action decoding)
         self.state_enricher.enrich_state(state)
         
-        # Add real-time coverage metrics to state for AI decision-making
-        if self.current_coverage_metrics:
-            state[StateEntry.COVERAGE_METRICS] = self.current_coverage_metrics
-            
-            # Add individual metrics for template convenience
-            metrics = self.current_coverage_metrics
-            state[StateEntry.METHOD_COVERAGE] = metrics.get("method_coverage", 0.0)
-            state[StateEntry.ACTIVITY_COVERAGE] = metrics.get("activity_coverage", 0.0)
-            state[StateEntry.CLASS_COVERAGE] = metrics.get("class_coverage", 0.0)
-            state[StateEntry.MOP_COVERAGE_CURRENT] = metrics.get("called_methods", 0)
-            state[StateEntry.MOP_COVERAGE_TOTAL] = metrics.get("mop_method_coverage", 0.0)
-            state[StateEntry.MOP_ERRORS_COUNT] = metrics.get("unique_errors", 0)
-        
-        # Add recent MOP errors for testing context
-        if self.recent_mop_errors:
-            state[StateEntry.MOP_RECENT_ERRORS] = self.recent_mop_errors[-3:]  # Last 3 errors for context
+        # Add coverage metrics using shared method
+        self._add_coverage_metrics_to_state(state)
 
         # Apply UI coverage annotations to screen elements if UI tracker available
         self.ui_coverage_integration.apply_ui_coverage_annotations(state)
@@ -709,13 +694,15 @@ class LLMActionService:
             "actions_executed": [
                 {
                     "action_type": action.get("action_type", "unknown"),
-                    "target": action.get("target", "unknown")
+                    "target": action.get("target", action.get("text", "unknown"))  # Fallback to text if target not available
                 }
                 for action in iteration.get("actions_executed", [])[:2]  # Only first 2 actions
             ],
             "coverage_progress": {
                 "method_coverage": iteration.get("coverage_before", {}).get("method_coverage", 0.0),
-                "activity_coverage": iteration.get("coverage_before", {}).get("activity_coverage", 0.0)
+                "activity_coverage": iteration.get("coverage_before", {}).get("activity_coverage", 0.0),
+                "mop_method_coverage": iteration.get("coverage_before", {}).get("mop_method_coverage", 0.0),
+                "mop_errors_unique": iteration.get("coverage_before", {}).get("unique_errors", 0)
             }
         }
         
@@ -805,7 +792,7 @@ class LLMActionService:
         return datetime.datetime.now().isoformat()
 
     @ErrorHandler.handle_errors(component="LLMActionService", phase="ui_interaction_recording")
-    def _record_ui_interactions(self, generated_actions: List, state: Dict[str, Any]) -> None:
+    def _record_ui_interactions(self, state: Dict[str, Any], generated_actions: List) -> None:
         """
         Record UI interactions in UICoverageTracker for systematic testing.
         
@@ -1148,13 +1135,9 @@ class LLMActionService:
             ui_coverage_stats = {}
             if self.ui_coverage_tracker:
                 ui_coverage_stats = {
-                    "total_interactions": len(self.ui_coverage_tracker.interaction_history),
-                    "unique_elements": len(set(self.ui_coverage_tracker.interaction_history.keys())),
-                    "screen_states": len(set(
-                        interaction[0].get('screen_hash', 'unknown') 
-                        for interactions in self.ui_coverage_tracker.interaction_history.values() 
-                        for interaction in interactions if interaction
-                    ))
+                    "total_interactions": sum(self.ui_coverage_tracker.tested_elements.values()),
+                    "unique_elements": len(self.ui_coverage_tracker.tested_elements),
+                    "screen_states": len(self.ui_coverage_tracker.screen_elements)
                 }
             
             # Get current coverage metrics
@@ -1192,3 +1175,30 @@ class LLMActionService:
             
         except Exception as e:
             self.logger.error(f"Error logging interaction context: {e}")
+
+    def _add_coverage_metrics_to_state(self, state: Dict[str, Any]) -> None:
+        """
+        Add coverage metrics to state using shared logic.
+        
+        This method consolidates the coverage metrics addition logic that was
+        duplicated between STATELESS and RICH context modes.
+        
+        Args:
+            state: Current application state to enrich with coverage metrics
+        """
+        # Add real-time coverage metrics to state for AI decision-making
+        if self.current_coverage_metrics:
+            state[StateEntry.COVERAGE_METRICS] = self.current_coverage_metrics
+            
+            # Add individual metrics for template convenience
+            metrics = self.current_coverage_metrics
+            state[StateEntry.METHOD_COVERAGE] = metrics.get("method_coverage", 0.0)
+            state[StateEntry.ACTIVITY_COVERAGE] = metrics.get("activity_coverage", 0.0)
+            state[StateEntry.CLASS_COVERAGE] = metrics.get("class_coverage", 0.0)
+            state[StateEntry.MOP_COVERAGE_CURRENT] = metrics.get("called_methods", 0)
+            state[StateEntry.MOP_COVERAGE_TOTAL] = metrics.get("mop_method_coverage", 0.0)
+            state[StateEntry.MOP_ERRORS_COUNT] = metrics.get("unique_errors", 0)
+        
+        # Add recent MOP errors for testing context
+        if self.recent_mop_errors:
+            state[StateEntry.MOP_RECENT_ERRORS] = self.recent_mop_errors[-3:]  # Last 3 errors for context

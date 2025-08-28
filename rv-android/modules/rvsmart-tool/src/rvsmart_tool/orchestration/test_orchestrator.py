@@ -28,7 +28,13 @@ from rvsmart_tool.constants import (
     DEFAULT_ACTION_DELAY,
     STATE_STABILIZATION_DELAY,
     MAX_CONSECUTIVE_ERRORS,
-    MAX_EXTERNAL_ATTEMPTS
+    MAX_EXTERNAL_ATTEMPTS,
+    SCREENSHOT_ROTATION_LIMIT,
+    SCREENSHOT_TEMP_DIR,
+    APP_RESTART_MAX_ATTEMPTS,
+    ERROR_RECOVERY_ENABLED,
+    NO_ACTIONS_RETURN_VALUE,
+    EXTERNAL_NAVIGATION_BREAK_ENABLED
 )
 from rvsmart_tool.llm.service.action_service import LLMActionService
 
@@ -175,7 +181,11 @@ class TestOrchestrator:
                     current_package = self._get_current_package()
                     if current_package != self.target_package:
                         if not self._handle_external_navigation():
-                            break # TODO sera que usa break aqui mesmo? ai vai parar a execucao, nao?
+                            if not EXTERNAL_NAVIGATION_BREAK_ENABLED and ERROR_RECOVERY_ENABLED:
+                                # Try app restart before giving up
+                                if self._restart_application():
+                                    continue
+                            break
                         continue
                     
                     # Execute single test cycle
@@ -184,8 +194,14 @@ class TestOrchestrator:
                     if not success:
                         self.metrics.error_count += 1
                         if self.metrics.error_count >= MAX_CONSECUTIVE_ERRORS:
-                            self.logger.error("Too many consecutive errors, stopping")
-                            break # TODO sera que usa break aqui mesmo? nao seria bom tentar algo, tipo reiniciar o app (ou ate reconectar com o device antes), e se ainda assim continuar com erro termina a execucao ... devemos pensar em algo
+                            self.logger.error("Too many consecutive errors")
+                            if ERROR_RECOVERY_ENABLED and self.metrics.app_restarts < APP_RESTART_MAX_ATTEMPTS:
+                                self.logger.warning("Attempting app restart before stopping")
+                                if self._restart_application():
+                                    self.metrics.error_count = 0  # Reset error count after restart
+                                    continue
+                            self.logger.error("Error recovery failed, stopping execution")
+                            break
                     else:
                         self.metrics.error_count = 0
                     
@@ -325,7 +341,7 @@ class TestOrchestrator:
                 
                 # Phase 2: Take screenshot for vision strategies
                 self.logger.info("📸 PHASE 2: TAKING SCREENSHOT")
-                screenshot_path = self.ui_adapter.take_screenshot() # TODO devemos rever a questao do diretorio onde salva o screenshot: acho que deve ser um diretorio temporario e com no maximo 10-20 ultimas imagens
+                screenshot_path = self._take_managed_screenshot()
                 if screenshot_path:
                     ui_state["screenshot_path"] = screenshot_path
                     self.logger.info(f"✅ Screenshot saved: {screenshot_path}")
@@ -344,7 +360,7 @@ class TestOrchestrator:
                 
                 if not actions:
                     self.logger.info("ℹ️ PHASE 4 RESULT: No actions generated for current state")
-                    return True # TODO retorna true? por que?
+                    return NO_ACTIONS_RETURN_VALUE
                     
                 self.logger.info(f"✅ PHASE 4 COMPLETED: {len(actions)} actions generated")
                 for i, action in enumerate(actions):
@@ -408,3 +424,57 @@ class TestOrchestrator:
             self.logger.error(f"Full traceback: {traceback.format_exc()}")
         
         self.logger.warning("✅ TestOrchestrator cleanup completed")
+    
+    def _take_managed_screenshot(self) -> str:
+        """
+        Take screenshot with managed cleanup and rotation.
+        
+        Returns:
+            Screenshot path or None if failed
+        """
+        try:
+            # Take screenshot using UI adapter
+            screenshot_path = self.ui_adapter.take_screenshot()
+            
+            if screenshot_path and SCREENSHOT_ROTATION_LIMIT > 0:
+                # Implement simple rotation cleanup
+                self._cleanup_old_screenshots()
+                
+            return screenshot_path
+            
+        except Exception as e:
+            self.logger.error(f"Screenshot capture failed: {e}")
+            return None
+    
+    def _cleanup_old_screenshots(self) -> None:
+        """
+        Clean up old screenshots to maintain rotation limit.
+        
+        Keeps only the most recent SCREENSHOT_ROTATION_LIMIT screenshots.
+        """
+        try:
+            import glob
+            import os
+            from pathlib import Path
+            
+            # Get screenshot directory from UI adapter or default
+            screenshot_dir = getattr(self.ui_adapter, 'screenshot_dir', SCREENSHOT_TEMP_DIR)
+            screenshot_pattern = os.path.join(screenshot_dir, "*.png")
+            
+            # Get all screenshot files sorted by modification time
+            screenshot_files = glob.glob(screenshot_pattern)
+            if len(screenshot_files) > SCREENSHOT_ROTATION_LIMIT:
+                # Sort by modification time (oldest first)
+                screenshot_files.sort(key=os.path.getmtime)
+                
+                # Remove oldest files to maintain limit
+                files_to_remove = screenshot_files[:-SCREENSHOT_ROTATION_LIMIT]
+                for file_path in files_to_remove:
+                    try:
+                        os.remove(file_path)
+                        self.logger.debug(f"Removed old screenshot: {file_path}")
+                    except OSError as e:
+                        self.logger.warning(f"Failed to remove screenshot {file_path}: {e}")
+                        
+        except Exception as e:
+            self.logger.warning(f"Screenshot cleanup failed: {e}")
