@@ -1,0 +1,147 @@
+{
+  "gemma3:4b": {
+    "model_name": "gemma3:4b",
+    "total_tests": 6,
+    "successful_tests": 6,
+    "parsing_success_rate": 1.0,
+    "coordinate_success_rate": 1.0,
+    "overall_success_rate": 1.0,
+    "avg_distance": 0.0,
+    "avg_response_time": 2.884015520413717,
+    "hit_rate": 1.0,
+    "scenario_performance": {
+      "coordinate_validation": {
+        "success_rate": 1.0,
+        "avg_distance": 0.0,
+        "hit_rate": 1.0
+      },
+      "visual_generation": {
+        "success_rate": 1.0,
+        "avg_distance": 0,
+        "hit_rate": 0
+      }
+    },
+    "app_type_performance": {
+      "com.sam.hex_16.apk": {
+        "success_rate": 1.0,
+        "avg_distance": 0.0
+      }
+    }
+  },
+  "gemma3:12b": {
+    "model_name": "gemma3:12b",
+    "total_tests": 6,
+    "successful_tests": 6,
+    "parsing_success_rate": 1.0,
+    "coordinate_success_rate": 1.0,
+    "overall_success_rate": 1.0,
+    "avg_distance": 0.0,
+    "avg_response_time": 4.202528119087219,
+    "hit_rate": 1.0,
+    "scenario_performance": {
+      "coordinate_validation": {
+        "success_rate": 1.0,
+        "avg_distance": 0.0,
+        "hit_rate": 1.0
+      },
+      "visual_generation": {
+        "success_rate": 1.0,
+        "avg_distance": 0,
+        "hit_rate": 0
+      }
+    },
+    "app_type_performance": {
+      "com.sam.hex_16.apk": {
+        "success_rate": 1.0,
+        "avg_distance": 0.0
+      }
+    }
+  },
+  "llama3.2-vision:11b": {
+    "model_name": "llama3.2-vision:11b",
+    "total_tests": 6,
+    "successful_tests": 5,
+    "parsing_success_rate": 1.0,
+    "coordinate_success_rate": 0.8333333333333334,
+    "overall_success_rate": 0.8333333333333334,
+    "avg_distance": 0.0,
+    "avg_response_time": 6.033723632494609,
+    "hit_rate": 1.0,
+    "scenario_performance": {
+      "coordinate_validation": {
+        "success_rate": 1.0,
+        "avg_distance": 0.0,
+        "hit_rate": 1.0
+      },
+      "visual_generation": {
+        "success_rate": 0.6666666666666666,
+        "avg_distance": 0,
+        "hit_rate": 0
+      }
+    },
+    "app_type_performance": {
+      "com.sam.hex_16.apk": {
+        "success_rate": 0.8333333333333334,
+        "avg_distance": 0.0
+      }
+    }
+  },
+  "qwen2.5vl:7b": {
+    "model_name": "qwen2.5vl:7b",
+    "total_tests": 6,
+    "successful_tests": 6,
+    "parsing_success_rate": 1.0,
+    "coordinate_success_rate": 1.0,
+    "overall_success_rate": 1.0,
+    "avg_distance": 0.0,
+    "avg_response_time": 2.3368462721506753,
+    "hit_rate": 1.0,
+    "scenario_performance": {
+      "coordinate_validation": {
+        "success_rate": 1.0,
+        "avg_distance": 0.0,
+        "hit_rate": 1.0
+      },
+      "visual_generation": {
+        "success_rate": 1.0,
+        "avg_distance": 0,
+        "hit_rate": 0
+      }
+    },
+    "app_type_performance": {
+      "com.sam.hex_16.apk": {
+        "success_rate": 1.0,
+        "avg_distance": 0.0
+      }
+    }
+  },
+  "granite3.2-vision:2b": {
+    "model_name": "granite3.2-vision:2b",
+    "total_tests": 6,
+    "successful_tests": 3,
+    "parsing_success_rate": 1.0,
+    "coordinate_success_rate": 0.5,
+    "overall_success_rate": 0.5,
+    "avg_distance": 0.0,
+    "avg_response_time": 3.1957771380742392,
+    "hit_rate": 1.0,
+    "scenario_performance": {
+      "coordinate_validation": {
+        "success_rate": 1.0,
+        "avg_distance": 0.0,
+        "hit_rate": 1.0
+      },
+      "visual_generation": {
+        "success_rate": 0.0,
+        "avg_distance": 0,
+        "hit_rate": 0
+      }
+    },
+    "app_type_performance": {
+      "com.sam.hex_16.apk": {
+        "success_rate": 0.5,
+        "avg_distance": 0.0
+      }
+    }
+  }
+}

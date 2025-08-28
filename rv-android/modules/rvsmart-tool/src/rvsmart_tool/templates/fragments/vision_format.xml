@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<fragment name="vision_format">
+  <![CDATA[
+RESPONSE FORMAT: JSON with actions array.
+
+action_id must match number in parentheses: SET_TEXT (3) = "action_id": "3"
+
+GENERATE 1-5 ACTIONS:
+1. UI Actions: {"action_id": "7", "params": {}, "explanation": "Click login button"}
+2. Text Input: {"action_id": "3", "params": {"text": "user@test.com"}, "explanation": "Fill email field"}
+3. Coordinates: {"action_id": "coord", "params": {"coordinates": [450, 600]}, "explanation": "Click visual element at x=450, y=600"}
+
+EXAMPLES:
+Single: {"actions": [{"action_id": "12", "params": {}, "explanation": "Access settings"}]}
+Sequence: {"actions": [
+  {"action_id": "3", "params": {"text": "user@test.com"}, "explanation": "Fill email [M]"},
+  {"action_id": "8", "params": {}, "explanation": "Submit form [M]"}
+]}
+
+KEY POINTS:
+- Use ItemAction number OR "coord" for visual elements
+- coordinates: [x, y] for screenshot elements not in UI list
+- Return valid JSON only
+
+DO NOT include text outside JSON.
+  ]]>
+</fragment>

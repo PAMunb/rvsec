@@ -55,13 +55,15 @@ class OllamaLLM(LanguageModel):
     DEEPSEEK: ClassVar[str] = "deepseek-r1:1.5B"
     GEMMA: ClassVar[str] = "gemma3:4b"
     QWEN: ClassVar[str] = "qwen3:0.6b"
+    QWEN_2_5VL_3B: ClassVar[str] = "qwen2.5vl:3b"
+    QWEN_2_5VL_7B: ClassVar[str] = "qwen2.5vl:7b"
     PHI: ClassVar[str] = "phi4-mini-reasoning:3.8b"
     GRANITE: ClassVar[str] = "granite3.3:2b"
     # MISTRAL: ClassVar[str] = "mistral:7b"
     FALCON: ClassVar[str] = "falcon3:3b"
 
     # Define available models
-    MODELS: ClassVar[List[str]] = [LLAMA, DEEPSEEK, GEMMA, QWEN, PHI, GRANITE, FALCON]
+    MODELS: ClassVar[List[str]] = [LLAMA, DEEPSEEK, GEMMA, QWEN, QWEN_2_5VL_3B, QWEN_2_5VL_7B, PHI, GRANITE, FALCON]
 
     def __init__(self, config: LLMConfig):
         """

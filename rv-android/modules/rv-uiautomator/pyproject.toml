@@ -1,0 +1,34 @@
+[tool.poetry]
+name = "rv-uiautomator"
+version = "0.1.0"
+description = "Shared UIAutomator components for RV-Android tools"
+authors = ["RV-Android Team"]
+readme = "README.md"
+packages = [{include = "rv_uiautomator", from = "src"}]
+
+[tool.poetry.dependencies]
+python = ">=3.12,<4.0"
+rv-android-core = {path = "../rv-android-core", develop = true}
+rv-screen-parser = {path = "../rv-screen-parser", develop = true}
+uiautomator2 = "^3.3.1"
+pillow = "^10.0.0"
+pydantic = "^2.9.0"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.0.0"
+pytest-cov = "^6.0.0"
+hypothesis = "^6.135.26"
+
+[tool.pytest.ini_options]
+addopts = "--cov=src"
+
+[tool.coverage.run]
+source = ["src"]
+omit = [
+    "*/tests/*",
+    "*/test_*.py",
+]
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

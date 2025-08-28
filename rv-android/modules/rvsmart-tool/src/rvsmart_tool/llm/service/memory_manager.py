@@ -21,9 +21,9 @@ from rv_android_core.util.error.error_handler import ErrorHandler
 from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
 from rv_android_core.util.logging.manager import LoggingManager
 from rv_llm.llm.constants import StateEntry
-from rvandroid_tool.core.memory.long_term_memory import LongTermMemory, MemoryAction, MemoryState
-from rvandroid_tool.core.memory.short_term_memory import ShortTermMemory
-from rvandroid_tool.llm.service.action_generator import GeneratedAction
+from rvsmart_tool.core.memory.long_term_memory import LongTermMemory, MemoryAction, MemoryState
+from rvsmart_tool.core.memory.short_term_memory import ShortTermMemory
+from rvsmart_tool.llm.service.action_generator import GeneratedAction
 
 
 class MemoryManager:
@@ -71,7 +71,7 @@ class MemoryManager:
         self.error_handler = ErrorHandler.get_instance()
         logging_manager = LoggingManager.get_instance()
         self.logger = logging_manager.get_logger(
-            "rvandroid_tool.llm.service.memory_manager",
+            "rvsmart_tool.llm.service.memory_manager",
             {CONTEXT_COMPONENT: "MemoryManager"}
         )
 

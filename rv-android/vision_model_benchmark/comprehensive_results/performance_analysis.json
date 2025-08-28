@@ -1,0 +1,275 @@
+{
+  "gemma3:4b": {
+    "model_name": "gemma3:4b",
+    "total_tests": 60,
+    "successful_tests": 44,
+    "parsing_success_rate": 0.75,
+    "coordinate_success_rate": 0.75,
+    "overall_success_rate": 0.7333333333333333,
+    "avg_distance": 4.836550653329522,
+    "avg_response_time": 1.7424355546633403,
+    "hit_rate": 0.9666666666666667,
+    "scenario_performance": {
+      "visual_generation": {
+        "success_rate": 1.0,
+        "avg_distance": 0,
+        "hit_rate": 0
+      },
+      "coordinate_validation": {
+        "success_rate": 0.9333333333333333,
+        "avg_distance": 9.673101306659044,
+        "hit_rate": 0.9333333333333333
+      },
+      "mixed_scenario": {
+        "success_rate": 1.0,
+        "avg_distance": 0.0,
+        "hit_rate": 1.0
+      },
+      "game_elements": {
+        "success_rate": 0.0,
+        "avg_distance": 0,
+        "hit_rate": 0
+      }
+    },
+    "app_type_performance": {
+      "com.sam.hex_16.apk": {
+        "success_rate": 0.7333333333333333,
+        "avg_distance": 4.836550653329522
+      }
+    }
+  },
+  "gemma3:12b": {
+    "model_name": "gemma3:12b",
+    "total_tests": 60,
+    "successful_tests": 49,
+    "parsing_success_rate": 1.0,
+    "coordinate_success_rate": 0.85,
+    "overall_success_rate": 0.8166666666666667,
+    "avg_distance": 33.51763194510827,
+    "avg_response_time": 2.622897207736969,
+    "hit_rate": 0.9166666666666666,
+    "scenario_performance": {
+      "visual_generation": {
+        "success_rate": 1.0,
+        "avg_distance": 0,
+        "hit_rate": 0
+      },
+      "coordinate_validation": {
+        "success_rate": 0.9333333333333333,
+        "avg_distance": 31.613569519713806,
+        "hit_rate": 0.9333333333333333
+      },
+      "mixed_scenario": {
+        "success_rate": 0.5333333333333333,
+        "avg_distance": 36.691069320765706,
+        "hit_rate": 0.8888888888888888
+      },
+      "game_elements": {
+        "success_rate": 0.8,
+        "avg_distance": 0,
+        "hit_rate": 0
+      }
+    },
+    "app_type_performance": {
+      "com.sam.hex_16.apk": {
+        "success_rate": 0.8166666666666667,
+        "avg_distance": 33.51763194510827
+      }
+    }
+  },
+  "llama3.2-vision:11b": {
+    "model_name": "llama3.2-vision:11b",
+    "total_tests": 60,
+    "successful_tests": 27,
+    "parsing_success_rate": 1.0,
+    "coordinate_success_rate": 0.4666666666666667,
+    "overall_success_rate": 0.45,
+    "avg_distance": 25.766575770453837,
+    "avg_response_time": 4.398026522000631,
+    "hit_rate": 0.9411764705882353,
+    "scenario_performance": {
+      "visual_generation": {
+        "success_rate": 0.2,
+        "avg_distance": 0,
+        "hit_rate": 0
+      },
+      "coordinate_validation": {
+        "success_rate": 0.9333333333333333,
+        "avg_distance": 27.233476131816563,
+        "hit_rate": 0.9333333333333333
+      },
+      "mixed_scenario": {
+        "success_rate": 0.13333333333333333,
+        "avg_distance": 14.7648230602334,
+        "hit_rate": 1.0
+      },
+      "game_elements": {
+        "success_rate": 0.5333333333333333,
+        "avg_distance": 0,
+        "hit_rate": 0
+      }
+    },
+    "app_type_performance": {
+      "com.sam.hex_16.apk": {
+        "success_rate": 0.45,
+        "avg_distance": 25.766575770453837
+      }
+    }
+  },
+  "llava-llama3:8b": {
+    "model_name": "llava-llama3:8b",
+    "total_tests": 60,
+    "successful_tests": 24,
+    "parsing_success_rate": 1.0,
+    "coordinate_success_rate": 0.7666666666666667,
+    "overall_success_rate": 0.4,
+    "avg_distance": 303.64838110083736,
+    "avg_response_time": 2.0771713614463807,
+    "hit_rate": 0.26666666666666666,
+    "scenario_performance": {
+      "visual_generation": {
+        "success_rate": 1.0,
+        "avg_distance": 0,
+        "hit_rate": 0
+      },
+      "coordinate_validation": {
+        "success_rate": 0.26666666666666666,
+        "avg_distance": 281.2934810058262,
+        "hit_rate": 0.26666666666666666
+      },
+      "mixed_scenario": {
+        "success_rate": 0.26666666666666666,
+        "avg_distance": 326.0032811958483,
+        "hit_rate": 0.26666666666666666
+      },
+      "game_elements": {
+        "success_rate": 0.06666666666666667,
+        "avg_distance": 0,
+        "hit_rate": 0
+      }
+    },
+    "app_type_performance": {
+      "com.sam.hex_16.apk": {
+        "success_rate": 0.4,
+        "avg_distance": 303.64838110083736
+      }
+    }
+  },
+  "qwen2.5vl:3b": {
+    "model_name": "qwen2.5vl:3b",
+    "total_tests": 60,
+    "successful_tests": 58,
+    "parsing_success_rate": 1.0,
+    "coordinate_success_rate": 1.0,
+    "overall_success_rate": 0.9666666666666667,
+    "avg_distance": 36.131067125084805,
+    "avg_response_time": 2.013488550980886,
+    "hit_rate": 0.9333333333333333,
+    "scenario_performance": {
+      "visual_generation": {
+        "success_rate": 1.0,
+        "avg_distance": 0,
+        "hit_rate": 0
+      },
+      "coordinate_validation": {
+        "success_rate": 0.8666666666666667,
+        "avg_distance": 72.26213425016961,
+        "hit_rate": 0.8666666666666667
+      },
+      "mixed_scenario": {
+        "success_rate": 1.0,
+        "avg_distance": 0.0,
+        "hit_rate": 1.0
+      },
+      "game_elements": {
+        "success_rate": 1.0,
+        "avg_distance": 0,
+        "hit_rate": 0
+      }
+    },
+    "app_type_performance": {
+      "com.sam.hex_16.apk": {
+        "success_rate": 0.9666666666666667,
+        "avg_distance": 36.131067125084805
+      }
+    }
+  },
+  "qwen2.5vl:7b": {
+    "model_name": "qwen2.5vl:7b",
+    "total_tests": 60,
+    "successful_tests": 59,
+    "parsing_success_rate": 1.0,
+    "coordinate_success_rate": 1.0,
+    "overall_success_rate": 0.9833333333333333,
+    "avg_distance": 3.7666666666666666,
+    "avg_response_time": 2.4525703032811483,
+    "hit_rate": 0.9666666666666667,
+    "scenario_performance": {
+      "visual_generation": {
+        "success_rate": 1.0,
+        "avg_distance": 0,
+        "hit_rate": 0
+      },
+      "coordinate_validation": {
+        "success_rate": 1.0,
+        "avg_distance": 0.0,
+        "hit_rate": 1.0
+      },
+      "mixed_scenario": {
+        "success_rate": 0.9333333333333333,
+        "avg_distance": 7.533333333333333,
+        "hit_rate": 0.9333333333333333
+      },
+      "game_elements": {
+        "success_rate": 1.0,
+        "avg_distance": 0,
+        "hit_rate": 0
+      }
+    },
+    "app_type_performance": {
+      "com.sam.hex_16.apk": {
+        "success_rate": 0.9833333333333333,
+        "avg_distance": 3.7666666666666666
+      }
+    }
+  },
+  "granite3.2-vision:2b": {
+    "model_name": "granite3.2-vision:2b",
+    "total_tests": 60,
+    "successful_tests": 31,
+    "parsing_success_rate": 1.0,
+    "coordinate_success_rate": 0.5166666666666667,
+    "overall_success_rate": 0.5166666666666667,
+    "avg_distance": 2.1379310344827585,
+    "avg_response_time": 3.2841841101646425,
+    "hit_rate": 1.0,
+    "scenario_performance": {
+      "visual_generation": {
+        "success_rate": 0.13333333333333333,
+        "avg_distance": 0,
+        "hit_rate": 0
+      },
+      "coordinate_validation": {
+        "success_rate": 1.0,
+        "avg_distance": 2.066666666666667,
+        "hit_rate": 1.0
+      },
+      "mixed_scenario": {
+        "success_rate": 0.9333333333333333,
+        "avg_distance": 2.2142857142857144,
+        "hit_rate": 1.0
+      },
+      "game_elements": {
+        "success_rate": 0.0,
+        "avg_distance": 0,
+        "hit_rate": 0
+      }
+    },
+    "app_type_performance": {
+      "com.sam.hex_16.apk": {
+        "success_rate": 0.5166666666666667,
+        "avg_distance": 2.1379310344827585
+      }
+    }
+  }
+}

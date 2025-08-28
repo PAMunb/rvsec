@@ -1,10 +1,10 @@
 [tool.poetry]
-name = "rvdroid-tool"
+name = "rvsmart-tool"
 version = "0.1.0"
-description = "RVdroid testing tool with uiautomator and LLM guidance"
+description = "RVSmart testing tool with UIAutomator and LLM integration"
 authors = ["RV-Android Team"]
 readme = "README.md"
-packages = [{include = "rvdroid_tool", from = "src"}]
+packages = [{include = "rvsmart_tool", from = "src"}]
 
 [tool.poetry.dependencies]
 python = ">=3.12,<4.0"
@@ -23,7 +23,7 @@ hypothesis = "^6.135.26"
 
 # Plugin registration for rv-tools
 [tool.poetry.plugins."rv_tools.plugins"]
-rvdroid = "rvdroid_tool.tools.tool:RVDroidTool"
+rvsmart = "rvsmart_tool.tools.rvsmart.tool:RVSmartTool"
 
 # Sem CLI próprio inicialmente - apenas uso programático via plugin
 

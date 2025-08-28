@@ -1,0 +1,1100 @@
+[
+  {
+    "model_name": "gemma3:4b",
+    "scenario": "coordinate_validation",
+    "apk_name": "com.sam.hex_16.apk",
+    "sample_id": "011",
+    "elements_count": 4,
+    "ui_elements_available": true,
+    "response_text": "```json\n{\n  \"coordinates\": [\n    775,\n    1100\n  ],\n  \"element\": \"button \\\"OK\\\"\",\n  \"action\": \"click\"\n}\n```\n",
+    "response_time": 1.5232131481170654,
+    "generated_coords": [
+      775,
+      1100
+    ],
+    "expected_coords": [
+      775,
+      1100
+    ],
+    "distance": 0.0,
+    "hit": "True",
+    "chosen_element": {
+      "text": "OK",
+      "content_desc": "",
+      "class": "Button",
+      "resource_id": "android:id/button1",
+      "clickable": true,
+      "scrollable": false,
+      "checkable": false,
+      "bounds": [
+        [
+          541,
+          1037
+        ],
+        [
+          1010,
+          1163
+        ]
+      ],
+      "enabled": true,
+      "focusable": true,
+      "editable": false,
+      "center": [
+        775,
+        1100
+      ],
+      "width": 469,
+      "height": 126
+    },
+    "parsing_success": true,
+    "coordinate_success": true,
+    "overall_success": "True",
+    "error": null
+  },
+  {
+    "model_name": "gemma3:4b",
+    "scenario": "coordinate_validation",
+    "apk_name": "com.sam.hex_16.apk",
+    "sample_id": "012",
+    "elements_count": 4,
+    "ui_elements_available": true,
+    "response_text": "```json\n{\n  \"coordinates\": [\n    775,\n    1100\n  ],\n  \"element\": \"button OK\",\n  \"action\": \"click\"\n}\n```\n",
+    "response_time": 4.405042409896851,
+    "generated_coords": [
+      775,
+      1100
+    ],
+    "expected_coords": [
+      775,
+      1100
+    ],
+    "distance": 0.0,
+    "hit": "True",
+    "chosen_element": {
+      "text": "OK",
+      "content_desc": "",
+      "class": "Button",
+      "resource_id": "android:id/button1",
+      "clickable": true,
+      "scrollable": false,
+      "checkable": false,
+      "bounds": [
+        [
+          541,
+          1037
+        ],
+        [
+          1010,
+          1163
+        ]
+      ],
+      "enabled": true,
+      "focusable": true,
+      "editable": false,
+      "center": [
+        775,
+        1100
+      ],
+      "width": 469,
+      "height": 126
+    },
+    "parsing_success": true,
+    "coordinate_success": true,
+    "overall_success": "True",
+    "error": null
+  },
+  {
+    "model_name": "gemma3:4b",
+    "scenario": "coordinate_validation",
+    "apk_name": "com.sam.hex_16.apk",
+    "sample_id": "021",
+    "elements_count": 6,
+    "ui_elements_available": true,
+    "response_text": "```json\n{\n  \"coordinates\": [\n    327,\n    685\n  ],\n  \"element\": \"button \\\"Start Game\\\"\",\n  \"action\": \"click\"\n}\n```\n",
+    "response_time": 1.3051788806915283,
+    "generated_coords": [
+      327,
+      685
+    ],
+    "expected_coords": [
+      327,
+      685
+    ],
+    "distance": 0.0,
+    "hit": "True",
+    "chosen_element": {
+      "text": "Start Game",
+      "content_desc": "",
+      "class": "Button",
+      "resource_id": "com.sam.hex:id/startButton",
+      "clickable": true,
+      "scrollable": false,
+      "checkable": false,
+      "bounds": [
+        [
+          228,
+          570
+        ],
+        [
+          426,
+          801
+        ]
+      ],
+      "enabled": true,
+      "focusable": true,
+      "editable": false,
+      "center": [
+        327,
+        685
+      ],
+      "width": 198,
+      "height": 231
+    },
+    "parsing_success": true,
+    "coordinate_success": true,
+    "overall_success": "True",
+    "error": null
+  },
+  {
+    "model_name": "gemma3:4b",
+    "scenario": "visual_generation",
+    "apk_name": "com.sam.hex_16.apk",
+    "sample_id": "011",
+    "elements_count": 0,
+    "ui_elements_available": false,
+    "response_text": "Okay, let's analyze this screenshot and generate the coordinates for a click.\n\n**Analysis:**\n\nThe screenshot shows a dialog box prompting the user to enter a number to determine the size of the game board.  The dialog is centered on the screen.  The text field is likely the primary interactive element we need to target.\n\n**JSON Output:**\n\n```json\n{\n  \"coordinates\": [\n    560,\n    800\n  ],\n  \"element\": \"Number Input Field\",\n  \"reasoning\": \"The number input field is located approximately in the center of the dialog box.  I've estimated the coordinates based on the dialog's position on the screen.  A value of 7 was entered in the dialog, so I'm targeting the input field itself.  Precise coordinates will vary slightly based on screen density and device dimensions, but this provides a good starting point for automated testing.\"\n}\n```\n\n**Explanation of Coordinates:**\n\n*   **x = 560:** This is the horizontal coordinate. I've placed it roughly in the center of the dialog box.\n*   **y = 800:** This is the vertical coordinate.  I've placed it at the bottom of the dialog box.\n\n**Important Considerations for Testing:**\n\n*   **Screen Density:**  Android devices have different screen densities (dpi).  These coordinates are a good starting point,",
+    "response_time": 3.3459560871124268,
+    "generated_coords": [
+      560,
+      800
+    ],
+    "expected_coords": null,
+    "distance": null,
+    "hit": null,
+    "chosen_element": null,
+    "parsing_success": true,
+    "coordinate_success": true,
+    "overall_success": true,
+    "error": null
+  },
+  {
+    "model_name": "gemma3:4b",
+    "scenario": "visual_generation",
+    "apk_name": "com.sam.hex_16.apk",
+    "sample_id": "012",
+    "elements_count": 0,
+    "ui_elements_available": false,
+    "response_text": "Okay, let's analyze this screenshot and generate the coordinates for a click.\n\n**Analysis:**\n\nThe screenshot shows a dialog box prompting the user to enter the size of the grid.  The dialog box itself is a rectangular element.  I'll target the area where the user would type the size.\n\n**JSON Output:**\n\n```json\n{\n  \"coordinates\": [\n    512,\n    368\n  ],\n  \"element\": \"EditText (Size Input Field)\",\n  \"reasoning\": \"The EditText field is located approximately at x=512 and y=368. This is the primary interactive element within the dialog box that the user needs to interact with to enter the grid size.  I've visually centered the coordinates on the dialog box.\"\n}\n```\n\n**Explanation of Coordinates:**\n\n*   **x = 512:** This is the horizontal coordinate.  I've estimated this based on the center of the input field within the dialog.\n*   **y = 368:** This is the vertical coordinate.  Again, this is an estimate based on the dialog's height and the position of the input field.\n\n**Important Considerations for Testing:**\n\n*   **Screen Resolution:** These coordinates are specific to the screen resolution shown in the screenshot.  Testing on different screen sizes is crucial.\n*   **UI Scaling:** Android's UI scaling can",
+    "response_time": 3.3868305683135986,
+    "generated_coords": [
+      512,
+      368
+    ],
+    "expected_coords": null,
+    "distance": null,
+    "hit": null,
+    "chosen_element": null,
+    "parsing_success": true,
+    "coordinate_success": true,
+    "overall_success": true,
+    "error": null
+  },
+  {
+    "model_name": "gemma3:4b",
+    "scenario": "visual_generation",
+    "apk_name": "com.sam.hex_16.apk",
+    "sample_id": "021",
+    "elements_count": 0,
+    "ui_elements_available": false,
+    "response_text": "Okay, here's my analysis and coordinate suggestion based on the screenshot, focusing on UI coordinate generation expertise:\n\n```json\n{\n  \"coordinates\": [450, 750],\n  \"element\": \"Settings Gear Icon\",\n  \"reasoning\": \"I've identified the Settings icon as a gear.  It's located in the top right corner of the screen.  I've estimated the coordinates based on a standard Android screen resolution (likely 360x640, but this is an assumption).  The x-coordinate (450) is centered horizontally within the icon, and the y-coordinate (750) places it at the top of the icon.  Precise coordinates would require knowing the exact screen resolution and the icon's dimensions, but this provides a reasonable starting point for interaction.\"\n}\n```\n\n**Important Considerations & Caveats:**\n\n*   **Screen Resolution Assumption:** I'm assuming a common Android screen resolution.  This is the biggest source of potential error.\n*   **Icon Size:** The size of the gear icon is unknown.  If it's significantly larger or smaller, the coordinates will need adjustment.\n*   **UI Scaling:** Android UI scaling can be complex.  This coordinate is based on a standard scale.\n*   **Testing is Crucial:**  These coordinates are an *estimate*.  They *must* be validated through",
+    "response_time": 3.33787202835083,
+    "generated_coords": [
+      450,
+      750
+    ],
+    "expected_coords": null,
+    "distance": null,
+    "hit": null,
+    "chosen_element": null,
+    "parsing_success": true,
+    "coordinate_success": true,
+    "overall_success": true,
+    "error": null
+  },
+  {
+    "model_name": "gemma3:12b",
+    "scenario": "coordinate_validation",
+    "apk_name": "com.sam.hex_16.apk",
+    "sample_id": "011",
+    "elements_count": 4,
+    "ui_elements_available": true,
+    "response_text": "```json\n{\"coordinates\": [775, 1100], \"element\": \"OK\", \"action\": \"click\"}\n```",
+    "response_time": 6.60981011390686,
+    "generated_coords": [
+      775,
+      1100
+    ],
+    "expected_coords": [
+      775,
+      1100
+    ],
+    "distance": 0.0,
+    "hit": "True",
+    "chosen_element": {
+      "text": "OK",
+      "content_desc": "",
+      "class": "Button",
+      "resource_id": "android:id/button1",
+      "clickable": true,
+      "scrollable": false,
+      "checkable": false,
+      "bounds": [
+        [
+          541,
+          1037
+        ],
+        [
+          1010,
+          1163
+        ]
+      ],
+      "enabled": true,
+      "focusable": true,
+      "editable": false,
+      "center": [
+        775,
+        1100
+      ],
+      "width": 469,
+      "height": 126
+    },
+    "parsing_success": true,
+    "coordinate_success": true,
+    "overall_success": "True",
+    "error": null
+  },
+  {
+    "model_name": "gemma3:12b",
+    "scenario": "coordinate_validation",
+    "apk_name": "com.sam.hex_16.apk",
+    "sample_id": "012",
+    "elements_count": 4,
+    "ui_elements_available": true,
+    "response_text": "```json\n{\"coordinates\": [775, 1100], \"element\": \"button \\\"OK\\\"\", \"action\": \"click\"}\n```",
+    "response_time": 1.5602760314941406,
+    "generated_coords": [
+      775,
+      1100
+    ],
+    "expected_coords": [
+      775,
+      1100
+    ],
+    "distance": 0.0,
+    "hit": "True",
+    "chosen_element": {
+      "text": "OK",
+      "content_desc": "",
+      "class": "Button",
+      "resource_id": "android:id/button1",
+      "clickable": true,
+      "scrollable": false,
+      "checkable": false,
+      "bounds": [
+        [
+          541,
+          1037
+        ],
+        [
+          1010,
+          1163
+        ]
+      ],
+      "enabled": true,
+      "focusable": true,
+      "editable": false,
+      "center": [
+        775,
+        1100
+      ],
+      "width": 469,
+      "height": 126
+    },
+    "parsing_success": true,
+    "coordinate_success": true,
+    "overall_success": "True",
+    "error": null
+  },
+  {
+    "model_name": "gemma3:12b",
+    "scenario": "coordinate_validation",
+    "apk_name": "com.sam.hex_16.apk",
+    "sample_id": "021",
+    "elements_count": 6,
+    "ui_elements_available": true,
+    "response_text": "```json\n{\"coordinates\": [327, 685], \"element\": \"Start Game\", \"action\": \"click\"}\n```",
+    "response_time": 1.5194885730743408,
+    "generated_coords": [
+      327,
+      685
+    ],
+    "expected_coords": [
+      327,
+      685
+    ],
+    "distance": 0.0,
+    "hit": "True",
+    "chosen_element": {
+      "text": "Start Game",
+      "content_desc": "",
+      "class": "Button",
+      "resource_id": "com.sam.hex:id/startButton",
+      "clickable": true,
+      "scrollable": false,
+      "checkable": false,
+      "bounds": [
+        [
+          228,
+          570
+        ],
+        [
+          426,
+          801
+        ]
+      ],
+      "enabled": true,
+      "focusable": true,
+      "editable": false,
+      "center": [
+        327,
+        685
+      ],
+      "width": 198,
+      "height": 231
+    },
+    "parsing_success": true,
+    "coordinate_success": true,
+    "overall_success": "True",
+    "error": null
+  },
+  {
+    "model_name": "gemma3:12b",
+    "scenario": "visual_generation",
+    "apk_name": "com.sam.hex_16.apk",
+    "sample_id": "011",
+    "elements_count": 0,
+    "ui_elements_available": false,
+    "response_text": "```json\n{\n  \"coordinates\": [ 174, 1724 ],\n  \"element\": \"OK button\",\n  \"reasoning\": \"The OK button is located in the bottom right corner of the screen.  The x-coordinate is determined by measuring the distance from the left edge of the screen to the left edge of the button. The y-coordinate is determined by measuring the distance from the top edge of the screen to the top edge of the button.\"\n}\n```",
+    "response_time": 2.590853452682495,
+    "generated_coords": [
+      174,
+      1724
+    ],
+    "expected_coords": null,
+    "distance": null,
+    "hit": null,
+    "chosen_element": null,
+    "parsing_success": true,
+    "coordinate_success": true,
+    "overall_success": true,
+    "error": null
+  },
+  {
+    "model_name": "gemma3:12b",
+    "scenario": "visual_generation",
+    "apk_name": "com.sam.hex_16.apk",
+    "sample_id": "012",
+    "elements_count": 0,
+    "ui_elements_available": false,
+    "response_text": "```json\n{\n  \"coordinates\": [ 157, 1717 ],\n  \"element\": \"OK button\",\n  \"reasoning\": \"The OK button is located in the bottom right corner of the screen. The x-coordinate is determined by measuring the distance from the left edge of the screen to the left edge of the button. The y-coordinate is determined by measuring the distance from the top edge of the screen to the top edge of the button.\"\n}\n```",
+    "response_time": 2.5629396438598633,
+    "generated_coords": [
+      157,
+      1717
+    ],
+    "expected_coords": null,
+    "distance": null,
+    "hit": null,
+    "chosen_element": null,
+    "parsing_success": true,
+    "coordinate_success": true,
+    "overall_success": true,
+    "error": null
+  },
+  {
+    "model_name": "gemma3:12b",
+    "scenario": "visual_generation",
+    "apk_name": "com.sam.hex_16.apk",
+    "sample_id": "021",
+    "elements_count": 0,
+    "ui_elements_available": false,
+    "response_text": "```json\n{\n  \"coordinates\": [ 870, 1500 ],\n  \"element\": \"Settings\",\n  \"reasoning\": \"Spatial analysis indicates the Settings icon is located at approximately x=870, y=1500 on a 1080x1920 screen. This is based on the icon's position relative to the screen edges and other UI elements.\"\n}\n```",
+    "response_time": 10.371800899505615,
+    "generated_coords": [
+      870,
+      1500
+    ],
+    "expected_coords": null,
+    "distance": null,
+    "hit": null,
+    "chosen_element": null,
+    "parsing_success": true,
+    "coordinate_success": true,
+    "overall_success": true,
+    "error": null
+  },
+  {
+    "model_name": "llama3.2-vision:11b",
+    "scenario": "coordinate_validation",
+    "apk_name": "com.sam.hex_16.apk",
+    "sample_id": "011",
+    "elements_count": 4,
+    "ui_elements_available": true,
+    "response_text": "The final answer is: {\"coordinates\": [540, 778], \"element\": \"alertTitle\"}",
+    "response_time": 14.135099172592163,
+    "generated_coords": [
+      540,
+      778
+    ],
+    "expected_coords": [
+      540,
+      778
+    ],
+    "distance": 0.0,
+    "hit": "True",
+    "chosen_element": {
+      "text": "Enter a grid size (Ex. 9)",
+      "content_desc": "",
+      "class": "TextView",
+      "resource_id": "android:id/alertTitle",
+      "clickable": false,
+      "scrollable": false,
+      "checkable": false,
+      "bounds": [
+        [
+          112,
+          739
+        ],
+        [
+          968,
+          817
+        ]
+      ],
+      "enabled": true,
+      "focusable": false,
+      "editable": false,
+      "center": [
+        540,
+        778
+      ],
+      "width": 856,
+      "height": 78
+    },
+    "parsing_success": true,
+    "coordinate_success": true,
+    "overall_success": "True",
+    "error": null
+  },
+  {
+    "model_name": "llama3.2-vision:11b",
+    "scenario": "coordinate_validation",
+    "apk_name": "com.sam.hex_16.apk",
+    "sample_id": "012",
+    "elements_count": 4,
+    "ui_elements_available": true,
+    "response_text": "The final answer is: {\"coordinates\": [540, 918], \"element\": \"edittext\"}",
+    "response_time": 2.2373456954956055,
+    "generated_coords": [
+      540,
+      918
+    ],
+    "expected_coords": [
+      540,
+      918
+    ],
+    "distance": 0.0,
+    "hit": "True",
+    "chosen_element": {
+      "text": "11",
+      "content_desc": "",
+      "class": "EditText",
+      "resource_id": "",
+      "clickable": true,
+      "scrollable": false,
+      "checkable": false,
+      "bounds": [
+        [
+          70,
+          867
+        ],
+        [
+          1010,
+          969
+        ]
+      ],
+      "enabled": true,
+      "focusable": true,
+      "editable": true,
+      "center": [
+        540,
+        918
+      ],
+      "width": 940,
+      "height": 102
+    },
+    "parsing_success": true,
+    "coordinate_success": true,
+    "overall_success": "True",
+    "error": null
+  },
+  {
+    "model_name": "llama3.2-vision:11b",
+    "scenario": "coordinate_validation",
+    "apk_name": "com.sam.hex_16.apk",
+    "sample_id": "021",
+    "elements_count": 6,
+    "ui_elements_available": true,
+    "response_text": "The answer is: {\"coordinates\": [167, 125], \"element\": \"action_bar_title\"}",
+    "response_time": 2.1598265171051025,
+    "generated_coords": [
+      167,
+      125
+    ],
+    "expected_coords": [
+      167,
+      125
+    ],
+    "distance": 0.0,
+    "hit": "True",
+    "chosen_element": {
+      "text": "Hex",
+      "content_desc": "",
+      "class": "TextView",
+      "resource_id": "android:id/action_bar_title",
+      "clickable": false,
+      "scrollable": false,
+      "checkable": false,
+      "bounds": [
+        [
+          126,
+          94
+        ],
+        [
+          208,
+          157
+        ]
+      ],
+      "enabled": true,
+      "focusable": false,
+      "editable": false,
+      "center": [
+        167,
+        125
+      ],
+      "width": 82,
+      "height": 63
+    },
+    "parsing_success": true,
+    "coordinate_success": true,
+    "overall_success": "True",
+    "error": null
+  },
+  {
+    "model_name": "llama3.2-vision:11b",
+    "scenario": "visual_generation",
+    "apk_name": "com.sam.hex_16.apk",
+    "sample_id": "011",
+    "elements_count": 0,
+    "ui_elements_available": false,
+    "response_text": "To identify the clickable elements and provide precise pixel coordinates, we need to analyze the Android app screenshot. \n\nThe screenshot shows a settings menu with various options, including \"Board Size\", \"Swap\", and \"Options\". The \"Swap\" option is currently selected, and there is a checkbox next to it. \n\nTo identify the clickable elements, we can look for visual cues such as buttons, links, or other interactive elements. In this case, the \"Swap\" option is a checkbox, which is a common interactive element in Android apps. \n\nTo provide precise pixel coordinates, we can use a tool like Android Studio's Layout Inspector or a third-party app like Android Screen Capture. \n\nUsing these tools, we can identify the exact location of the \"Swap\" option on the screen and provide its pixel coordinates. \n\nBased on the analysis, the identified element is the \"Swap\" option, and its pixel coordinates are [100, 200]. \n\nHere is the response in the required format:\n\n{\"coordinates\": [100, 200], \"element\": \"Swap\", \"confidence_score\": 0.9}\n\nNote: The confidence score is a subjective measure of the accuracy of the response. In this case, it is set to 0.9, indicating that the response is highly accurate.",
+    "response_time": 5.589437007904053,
+    "generated_coords": [
+      100,
+      200
+    ],
+    "expected_coords": null,
+    "distance": null,
+    "hit": null,
+    "chosen_element": null,
+    "parsing_success": true,
+    "coordinate_success": true,
+    "overall_success": true,
+    "error": null
+  },
+  {
+    "model_name": "llama3.2-vision:11b",
+    "scenario": "visual_generation",
+    "apk_name": "com.sam.hex_16.apk",
+    "sample_id": "012",
+    "elements_count": 0,
+    "ui_elements_available": false,
+    "response_text": "To identify the clickable elements and provide precise pixel coordinates, we need to analyze the Android app screenshot. \n\n1. **Identify the elements**: The elements that can be clicked are the \"Board Size\" and \"Swap\" buttons. The \"Board Size\" button is located at the top of the screen, while the \"Swap\" button is located at the bottom.\n\n2. **Determine the coordinates**: To determine the coordinates of each element, we need to measure the distance from the top-left corner of the screen to the top-left corner of each element. \n\n   - For the \"Board Size\" button, the top-left corner is at (0, 0), so its coordinates are (0, 0).\n   - For the \"Swap\" button, the top-left corner is at (0, 0), so its coordinates are (0, 0).\n\n3. **Calculate the confidence score**: The confidence score is based on the number of elements that were correctly identified. In this case, we have identified 2 elements, so the confidence score is 2/2 = 1.\n\n4. **Create the response**: Based on the above steps, we can create the response as follows:\n\n   - For the \"Board Size\" button: \n     - \"coordinates\": [0, 0]\n     - \"element\": \"Board Size\"\n     - \"confidence_score\": 1\n\n   - For the \"Swap\" button: \n     - \"coordinates\":",
+    "response_time": 6.004999399185181,
+    "generated_coords": [
+      0,
+      0
+    ],
+    "expected_coords": null,
+    "distance": null,
+    "hit": null,
+    "chosen_element": null,
+    "parsing_success": true,
+    "coordinate_success": true,
+    "overall_success": true,
+    "error": null
+  },
+  {
+    "model_name": "llama3.2-vision:11b",
+    "scenario": "visual_generation",
+    "apk_name": "com.sam.hex_16.apk",
+    "sample_id": "021",
+    "elements_count": 0,
+    "ui_elements_available": false,
+    "response_text": "To identify the clickable elements and provide precise pixel coordinates, we will follow these steps:\n\n1.  **Identify the Start Game Button**: The Start Game button is located at the top left corner of the screen. It is a red button with white text that says \"Start Game\". The button is 50 pixels wide and 50 pixels tall.\n\n    *   **X-Coordinate**: 50\n    *   **Y-Coordinate**: 50\n    *   **Element**: Start Game Button\n    *   **Confidence Score**: 0.9\n2.  **Identify the Play Online Button**: The Play Online button is located at the top right corner of the screen. It is a blue button with white text that says \"Play Online\". The button is 50 pixels wide and 50 pixels tall.\n\n    *   **X-Coordinate**: 100\n    *   **Y-Coordinate**: 50\n    *   **Element**: Play Online Button\n    *   **Confidence Score**: 0.9\n3.  **Identify the How to Play Button**: The How to Play button is located at the bottom left corner of the screen. It is a red button with white text that says \"How to Play\". The button is 50 pixels wide and 50 pixels tall.\n\n    *   **X-Coordinate**: 50\n    *   **Y-Coordinate**: 150\n    *   **Element**: How to Play",
+    "response_time": 6.075634002685547,
+    "generated_coords": null,
+    "expected_coords": null,
+    "distance": null,
+    "hit": null,
+    "chosen_element": null,
+    "parsing_success": true,
+    "coordinate_success": false,
+    "overall_success": false,
+    "error": null
+  },
+  {
+    "model_name": "qwen2.5vl:7b",
+    "scenario": "coordinate_validation",
+    "apk_name": "com.sam.hex_16.apk",
+    "sample_id": "011",
+    "elements_count": 4,
+    "ui_elements_available": true,
+    "response_text": "{\"coordinates\": [540, 918], \"element\": \"edittext\"}",
+    "response_time": 2.051243543624878,
+    "generated_coords": [
+      540,
+      918
+    ],
+    "expected_coords": [
+      540,
+      918
+    ],
+    "distance": 0.0,
+    "hit": "True",
+    "chosen_element": {
+      "text": "",
+      "content_desc": "",
+      "class": "EditText",
+      "resource_id": "",
+      "clickable": true,
+      "scrollable": false,
+      "checkable": false,
+      "bounds": [
+        [
+          70,
+          867
+        ],
+        [
+          1010,
+          969
+        ]
+      ],
+      "enabled": true,
+      "focusable": true,
+      "editable": true,
+      "center": [
+        540,
+        918
+      ],
+      "width": 940,
+      "height": 102
+    },
+    "parsing_success": true,
+    "coordinate_success": true,
+    "overall_success": "True",
+    "error": null
+  },
+  {
+    "model_name": "qwen2.5vl:7b",
+    "scenario": "coordinate_validation",
+    "apk_name": "com.sam.hex_16.apk",
+    "sample_id": "012",
+    "elements_count": 4,
+    "ui_elements_available": true,
+    "response_text": "```json\n{\"coordinates\": [540, 918], \"element\": \"edittext \\\"11\\\"\"}\n```",
+    "response_time": 1.9915359020233154,
+    "generated_coords": [
+      540,
+      918
+    ],
+    "expected_coords": [
+      540,
+      918
+    ],
+    "distance": 0.0,
+    "hit": "True",
+    "chosen_element": {
+      "text": "11",
+      "content_desc": "",
+      "class": "EditText",
+      "resource_id": "",
+      "clickable": true,
+      "scrollable": false,
+      "checkable": false,
+      "bounds": [
+        [
+          70,
+          867
+        ],
+        [
+          1010,
+          969
+        ]
+      ],
+      "enabled": true,
+      "focusable": true,
+      "editable": true,
+      "center": [
+        540,
+        918
+      ],
+      "width": 940,
+      "height": 102
+    },
+    "parsing_success": true,
+    "coordinate_success": true,
+    "overall_success": "True",
+    "error": null
+  },
+  {
+    "model_name": "qwen2.5vl:7b",
+    "scenario": "coordinate_validation",
+    "apk_name": "com.sam.hex_16.apk",
+    "sample_id": "021",
+    "elements_count": 6,
+    "ui_elements_available": true,
+    "response_text": "{\"coordinates\": [327, 685], \"element\": \"button \\\"Start Game\\\" (id:startButton)\"}",
+    "response_time": 1.9914357662200928,
+    "generated_coords": [
+      327,
+      685
+    ],
+    "expected_coords": [
+      327,
+      685
+    ],
+    "distance": 0.0,
+    "hit": "True",
+    "chosen_element": {
+      "text": "Start Game",
+      "content_desc": "",
+      "class": "Button",
+      "resource_id": "com.sam.hex:id/startButton",
+      "clickable": true,
+      "scrollable": false,
+      "checkable": false,
+      "bounds": [
+        [
+          228,
+          570
+        ],
+        [
+          426,
+          801
+        ]
+      ],
+      "enabled": true,
+      "focusable": true,
+      "editable": false,
+      "center": [
+        327,
+        685
+      ],
+      "width": 198,
+      "height": 231
+    },
+    "parsing_success": true,
+    "coordinate_success": true,
+    "overall_success": "True",
+    "error": null
+  },
+  {
+    "model_name": "qwen2.5vl:7b",
+    "scenario": "visual_generation",
+    "apk_name": "com.sam.hex_16.apk",
+    "sample_id": "011",
+    "elements_count": 0,
+    "ui_elements_available": false,
+    "response_text": "```json\n[\n\t{\"coordinates\": [195, 1500], \"element\": \"Cancel button\", \"analysis\": \"The Cancel button is located at the bottom left of the dialog box.\"},\n\t{\"coordinates\": [535, 1500], \"element\": \"OK button\", \"analysis\": \"The OK button is located at the bottom right of the dialog box.\"}\n]\n```",
+    "response_time": 2.5461251735687256,
+    "generated_coords": [
+      195,
+      1500
+    ],
+    "expected_coords": null,
+    "distance": null,
+    "hit": null,
+    "chosen_element": null,
+    "parsing_success": true,
+    "coordinate_success": true,
+    "overall_success": true,
+    "error": null
+  },
+  {
+    "model_name": "qwen2.5vl:7b",
+    "scenario": "visual_generation",
+    "apk_name": "com.sam.hex_16.apk",
+    "sample_id": "012",
+    "elements_count": 0,
+    "ui_elements_available": false,
+    "response_text": "```json\n[\n\t{\"coordinates\": [198, 1500], \"element\": \"Cancel button\", \"analysis\": \"The Cancel button is located at the bottom left of the dialog box.\"},\n\t{\"coordinates\": [535, 1500], \"element\": \"OK button\", \"analysis\": \"The OK button is located at the bottom right of the dialog box.\"}\n]\n```",
+    "response_time": 2.43127703666687,
+    "generated_coords": [
+      198,
+      1500
+    ],
+    "expected_coords": null,
+    "distance": null,
+    "hit": null,
+    "chosen_element": null,
+    "parsing_success": true,
+    "coordinate_success": true,
+    "overall_success": true,
+    "error": null
+  },
+  {
+    "model_name": "qwen2.5vl:7b",
+    "scenario": "visual_generation",
+    "apk_name": "com.sam.hex_16.apk",
+    "sample_id": "021",
+    "elements_count": 0,
+    "ui_elements_available": false,
+    "response_text": "```json\n[\n\t{\"coordinates\": [218, 1005], \"element\": \"Start Game\", \"analysis\": \"The element is located at the bottom left of the screen.\"},\n\t{\"coordinates\": [520, 1005], \"element\": \"Play Online\", \"analysis\": \"The element is located at the bottom right of the screen.\"},\n\t{\"coordinates\": [218, 605], \"element\": \"How to Play\", \"analysis\": \"The element is located at the bottom left of the screen.\"},\n\t{\"coordinates\": [520, 605], \"element\": \"Settings\", \"analysis\": \"The element is located at the bottom right of the screen.\"}\n]\n```",
+    "response_time": 3.009460210800171,
+    "generated_coords": [
+      218,
+      1005
+    ],
+    "expected_coords": null,
+    "distance": null,
+    "hit": null,
+    "chosen_element": null,
+    "parsing_success": true,
+    "coordinate_success": true,
+    "overall_success": true,
+    "error": null
+  },
+  {
+    "model_name": "granite3.2-vision:2b",
+    "scenario": "coordinate_validation",
+    "apk_name": "com.sam.hex_16.apk",
+    "sample_id": "011",
+    "elements_count": 4,
+    "ui_elements_available": true,
+    "response_text": "\n{\"coordinates\": [540, 778], \"element\": \"textview 'Enter a grid size (Ex. 9)'}",
+    "response_time": 2.8885128498077393,
+    "generated_coords": [
+      540,
+      778
+    ],
+    "expected_coords": [
+      540,
+      778
+    ],
+    "distance": 0.0,
+    "hit": "True",
+    "chosen_element": {
+      "text": "Enter a grid size (Ex. 9)",
+      "content_desc": "",
+      "class": "TextView",
+      "resource_id": "android:id/alertTitle",
+      "clickable": false,
+      "scrollable": false,
+      "checkable": false,
+      "bounds": [
+        [
+          112,
+          739
+        ],
+        [
+          968,
+          817
+        ]
+      ],
+      "enabled": true,
+      "focusable": false,
+      "editable": false,
+      "center": [
+        540,
+        778
+      ],
+      "width": 856,
+      "height": 78
+    },
+    "parsing_success": true,
+    "coordinate_success": true,
+    "overall_success": "True",
+    "error": null
+  },
+  {
+    "model_name": "granite3.2-vision:2b",
+    "scenario": "coordinate_validation",
+    "apk_name": "com.sam.hex_16.apk",
+    "sample_id": "012",
+    "elements_count": 4,
+    "ui_elements_available": true,
+    "response_text": "\n{\"coordinates\": [540, 778], \"element\": \"textview 'Enter a grid size (Ex. 9)'}",
+    "response_time": 2.7183382511138916,
+    "generated_coords": [
+      540,
+      778
+    ],
+    "expected_coords": [
+      540,
+      778
+    ],
+    "distance": 0.0,
+    "hit": "True",
+    "chosen_element": {
+      "text": "Enter a grid size (Ex. 9)",
+      "content_desc": "",
+      "class": "TextView",
+      "resource_id": "android:id/alertTitle",
+      "clickable": false,
+      "scrollable": false,
+      "checkable": false,
+      "bounds": [
+        [
+          112,
+          739
+        ],
+        [
+          968,
+          817
+        ]
+      ],
+      "enabled": true,
+      "focusable": false,
+      "editable": false,
+      "center": [
+        540,
+        778
+      ],
+      "width": 856,
+      "height": 78
+    },
+    "parsing_success": true,
+    "coordinate_success": true,
+    "overall_success": "True",
+    "error": null
+  },
+  {
+    "model_name": "granite3.2-vision:2b",
+    "scenario": "coordinate_validation",
+    "apk_name": "com.sam.hex_16.apk",
+    "sample_id": "021",
+    "elements_count": 6,
+    "ui_elements_available": true,
+    "response_text": "\n{\"coordinates\": [125, 126], \"element\": \"linearlayout\"}, {\"coordinates\": [167, 125], \"element\": \"textview 'Hex'\"}, {\"coordinates\": [327, 685], \"element\": \"button 'Start Game'\"}, {\"coordinates\": [753, 685], \"element\": \"button 'Play Online'\"}, {\"coordinates\": [327, 1297], \"element\": \"button 'How to Play'\"}, {\"coordinates\": [753, 1297], \"element\": \"button 'Settings'}",
+    "response_time": 3.7665021419525146,
+    "generated_coords": [
+      125,
+      126
+    ],
+    "expected_coords": [
+      125,
+      126
+    ],
+    "distance": 0.0,
+    "hit": "True",
+    "chosen_element": {
+      "text": "",
+      "content_desc": "",
+      "class": "LinearLayout",
+      "resource_id": "",
+      "clickable": true,
+      "scrollable": false,
+      "checkable": false,
+      "bounds": [
+        [
+          21,
+          63
+        ],
+        [
+          229,
+          189
+        ]
+      ],
+      "enabled": false,
+      "focusable": false,
+      "editable": false,
+      "center": [
+        125,
+        126
+      ],
+      "width": 208,
+      "height": 126
+    },
+    "parsing_success": true,
+    "coordinate_success": true,
+    "overall_success": "True",
+    "error": null
+  },
+  {
+    "model_name": "granite3.2-vision:2b",
+    "scenario": "visual_generation",
+    "apk_name": "com.sam.hex_16.apk",
+    "sample_id": "011",
+    "elements_count": 0,
+    "ui_elements_available": false,
+    "response_text": "\n{\"x\": 364.5, \"y\": 820}, {\"x\": 179.5, \"y\": 820}, {\"x\": 179.5, \"y\": 820}, {\"x\": 179.5, \"y\": 820}, {\"x\": 179.5, \"y\": 820}, {\"x\": 179.5, \"y\": 820}, {\"x\": 179.5, \"y\": 820}, {\"x\": 179.5, \"y\": 820}, {\"x\": 179.5, \"y\": 820}, {\"x\": 179.5, \"y\": 820}, {\"x\": 179.5, \"y\": 820}, {\"x\": 179.5, \"y\": 820}, {\"x\": 179.5, \"y\": 820}, {\"x\": 179.5, \"y\": 820}, {\"x\": 179.5, \"y\": 820}, {\"x\": 179.5",
+    "response_time": 4.232395172119141,
+    "generated_coords": null,
+    "expected_coords": null,
+    "distance": null,
+    "hit": null,
+    "chosen_element": null,
+    "parsing_success": true,
+    "coordinate_success": false,
+    "overall_success": false,
+    "error": null
+  },
+  {
+    "model_name": "granite3.2-vision:2b",
+    "scenario": "visual_generation",
+    "apk_name": "com.sam.hex_16.apk",
+    "sample_id": "012",
+    "elements_count": 0,
+    "ui_elements_available": false,
+    "response_text": "\n{\"x\": 367, \"y\": 518}",
+    "response_time": 1.7480430603027344,
+    "generated_coords": null,
+    "expected_coords": null,
+    "distance": null,
+    "hit": null,
+    "chosen_element": null,
+    "parsing_success": true,
+    "coordinate_success": false,
+    "overall_success": false,
+    "error": null
+  },
+  {
+    "model_name": "granite3.2-vision:2b",
+    "scenario": "visual_generation",
+    "apk_name": "com.sam.hex_16.apk",
+    "sample_id": "021",
+    "elements_count": 0,
+    "ui_elements_available": false,
+    "response_text": "\nThe task is to locate an interactive element on the Android app screen and provide its click coordinates. The image shows a screenshot of the app interface with various icons and text labels. To find the interactive element, we need to identify which icon or label represents an action that can be performed by clicking it.\n\nUpon examining the image, there are four distinct icons: \"Start Game,\" \"Play Online,\" \"How to Play,\" and \"Settings.\" Each of these icons is likely a clickable button for different functions within the app. However, without additional context or interaction with the app, it's not possible to determine which icon corresponds to an interactive element that can be clicked.\n\nSince the image does not provide any visual cues such as arrows or dots indicating where to click, and there is no indication of a highlighted or selected element, I cannot accurately provide the click coordinates for an interactive element in this screenshot. To proceed with locating the interactive element, one would typically need to interact with the app by clicking on each icon to see which one triggers the desired action.",
+    "response_time": 3.820871353149414,
+    "generated_coords": null,
+    "expected_coords": null,
+    "distance": null,
+    "hit": null,
+    "chosen_element": null,
+    "parsing_success": true,
+    "coordinate_success": false,
+    "overall_success": false,
+    "error": null
+  }
+]

@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<template name="system_base" version="1.0">
+  <metadata>
+    <description>Base system template for Android testing</description>
+    <created>2023-05-04</created>
+    <author>RV-Android Team</author>
+    <updated>2023-05-06</updated>
+  </metadata>
+  <variables>
+    <required>strategy_specific_instructions</required>
+    <required>response_format_instructions</required>
+    <optional>additional_guidelines</optional>
+    <optional>action_history</optional>
+    <optional>memory_insights</optional>
+    <optional>transition_guidance</optional>
+  </variables>
+  <roles>
+    <system><![CDATA[
+{% block system_intro %}
+{% include "system_intro" %}
+{% endblock %}
+
+{% block strategy_specific_instructions %}
+{{ strategy_specific_instructions }}
+{% endblock %}
+
+{% block response_format_instructions %}
+{{ response_format_instructions }}
+{% endblock %}
+
+{% block system_guidelines %}
+{% include "system_guidelines" %}
+{% endblock %}
+
+{% if additional_guidelines %}
+{% block additional_guidelines %}
+GUIDELINES:
+{{ additional_guidelines }}
+{% endblock %}
+{% endif %}]]>
+    </system>
+  </roles>
+</template>
