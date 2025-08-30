@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """
-Manual test for prompt generation with template architecture.
+Simple test for prompt generation with RVSmart framework.
 
-This test validates that the prompt generation system works correctly with:
-- Templates in rvandroid-tool
-- RvAndroidToolConfig for parser/visitor configuration
+Tests the prompt generation system with:
+- Templates in rvsmart-tool
+- RvSmartToolConfig for configuration
 - Template registration with PromptFramework
 - Clean LLMConfig integration
 """
@@ -16,38 +16,35 @@ import sys
 from pathlib import Path
 from typing import Dict, Any, Type
 
-from rv_llm import LLMMessage, LLMRole, LLMTextContent, LLMImageContent
-from rv_llm.config import PromptConfig
-from rv_screen_parser.parser.screen.visitor.abstract_visitor import AbstractScreenVisitor
-from rv_screen_parser.parser.screen.visitor.default_visitor import DefaultTextVisitor
-from rvandroid_tool.config.tool_config import RvAndroidToolConfig
-from rvandroid_tool.llm.prompt import RVAndroidPromptFramework
-
 # Add the modules to Python path
 project_root = Path(__file__).parent
 sys.path.insert(0, str(project_root / "modules" / "rv-android-core" / "src"))
 sys.path.insert(0, str(project_root / "modules" / "rv-llm" / "src"))
-sys.path.insert(0, str(project_root / "modules" / "rvandroid-tool" / "src"))
+sys.path.insert(0, str(project_root / "modules" / "rvsmart-tool" / "src"))
 sys.path.insert(0, str(project_root / "modules" / "rv-screen-parser" / "src"))
+sys.path.insert(0, str(project_root / "modules" / "rv-static-analysis" / "src"))
 
-# Import constants after path setup
+# Import after path setup
+from rv_llm import LLMMessage, LLMRole, LLMTextContent, LLMImageContent
+from rv_llm.config import PromptConfig
+from rv_llm.config.llm_config import LLMConfig
+from rv_llm.llm.constants import LLMType, PromptStrategyType, ContextMode, StateEntry
+from rv_llm.llm.ollama_llm import OllamaLLM
+from rv_screen_parser.parser.screen.visitor.abstract_visitor import AbstractScreenVisitor
+from rv_screen_parser.parser.screen.visitor.default_visitor import DefaultTextVisitor
 from rv_screen_parser.parser.screen.visitor.basic_visitor import BasicTextVisitor
 from rv_screen_parser.parser.screen.parser_factory import ParserFactory
 from rv_screen_parser.parser.screen.visitor.model import ScreenDescription
-from rv_llm.llm.constants import StateEntry
+from rv_screen_parser.constants import ScreenParserType, VisitorType
 from rv_android_core import constants
 from rv_android_core.domain.app import App
-from rv_static_analysis.parser.static.static_analysis_parser import StaticAnalysisParser
-from rv_llm.llm.prompt.framework import PromptFramework
-from rv_screen_parser.constants import ScreenParserType, VisitorType
-from rv_llm.config.llm_config import LLMConfig
-from rv_llm.llm.constants import LLMType, PromptStrategyType, ContextMode
-from rv_screen_parser.constants import VisitorType
-from rv_llm.llm.ollama_llm import OllamaLLM
 from rv_android_core.domain.static import StaticAnalysisData
-from rvandroid_tool.llm.service.memory_manager import MemoryManager
-from rvandroid_tool.llm.service.transition_manager import TransitionManager
-from rvandroid_tool.llm.service.action_service import LLMActionService
+from rv_static_analysis.parser.static.static_analysis_parser import StaticAnalysisParser
+from rvsmart_tool.config.tool_config import RvSmartToolConfig
+from rvsmart_tool.llm.prompt.rvsmart_framework import RVAndroidPromptFramework
+from rvsmart_tool.llm.service.memory_manager import MemoryManager
+from rvsmart_tool.llm.service.transition_manager import TransitionManager
+from rvsmart_tool.llm.service.action_service import LLMActionService
 
 # Setup RVSEC_HOME before importing modules
 current_directory = os.getcwd()
@@ -93,7 +90,7 @@ def read_droidbot_state(filename: str) -> Dict[str, Any]:
         return json.load(file)
 
 
-def enrich_state(state, static_data: StaticAnalysisData, config: RvAndroidToolConfig):
+def enrich_state(state, static_data: StaticAnalysisData, config: RvSmartToolConfig):
     memory_manager = MemoryManager(static_data=static_data)
     transition_manager = TransitionManager(static_data=static_data)
     llm_service = LLMActionService(
@@ -117,7 +114,7 @@ def create_state_from_droidbot_state(droidbot_state_file: str, screenshot_path: 
     state = {
         StateEntry.PACKAGE_NAME: package,
         StateEntry.ACTIVITY: screen_description.activity,
-        StateEntry.VIEW_TREE: screen_info[StateEntry.VIEW_TREE],
+        StateEntry.VIEW_TREE: screen_info.get(StateEntry.VIEW_TREE, screen_info.get("view_tree", {})),
         StateEntry.SCREENSHOT_PATH: screenshot_path,
         StateEntry.STRUCTURED_SCREEN: screen_description
     }
@@ -192,11 +189,12 @@ def tmp_mop_vision_strategy(droidbot_state_file: str, screenshot_path: str, pack
     print("🧪 TESTING MOP VISION STRATEGY")
     print("============================================================")
     
-    # Create MOP Vision prompt config
+    # Create Vision prompt config with MOP focus via context
     prompt_config = PromptConfig(
-        strategy_type=PromptStrategyType.MOP_VISION,  # Use MOP_VISION strategy
+        strategy_type=PromptStrategyType.VISION,  # Use VISION strategy (MOP_VISION was consolidated)
         parser_type=ScreenParserType.DROIDBOT,
         visitor_type=VisitorType.DEFAULT,
+        template_name="vision_premium",  # NEW: Use progressive template
         max_context_length=8192,
         context_mode=ContextMode.STATELESS,
         context_window_size=10,
@@ -212,7 +210,7 @@ def tmp_mop_vision_strategy(droidbot_state_file: str, screenshot_path: str, pack
     )
     
     # Create tool config
-    tool_config = RvAndroidToolConfig(
+    tool_config = RvSmartToolConfig(
         llm_config=llm_config,
         prompt_config=prompt_config,
         debug_mode=True
@@ -237,7 +235,7 @@ def tmp_mop_vision_strategy(droidbot_state_file: str, screenshot_path: str, pack
     print(f"\n🚀 Generating prompt with MOP Vision strategy...")
     messages = framework.generate_prompt(state, {})
     
-    print(f"✅ SUCCESS: Generated {len(messages)} messages using MOP_VISION strategy")
+    print(f"✅ SUCCESS: Generated {len(messages)} messages using VISION strategy with premium template")
     print(f"📋 Strategy: {prompt_config.strategy_type}")
     print(f"📊 State keys: {list(state.keys())}")
     
@@ -289,6 +287,7 @@ def tmp_context_mode(droidbot_state_file, screenshot_path, package, static_data,
         strategy_type=PromptStrategyType.VISION,
         parser_type=ScreenParserType.DROIDBOT,
         visitor_type=VisitorType.BASIC,
+        template_name="vision_standard",  # NEW: Use progressive template
         max_context_length=500,
         # Context mode configuration
         context_mode=context_mode,
@@ -297,7 +296,7 @@ def tmp_context_mode(droidbot_state_file, screenshot_path, package, static_data,
         include_coverage_timeline=True
     )
     
-    tool_config = RvAndroidToolConfig(
+    tool_config = RvSmartToolConfig(
         llm_config=llm_config,
         prompt_config=prompt_config
     )
@@ -432,12 +431,11 @@ def tmp_all_optimization_scenarios(droidbot_state_file, screenshot_path, package
     print("Validating: BasicTextVisitor optimization, Memory format, Templates XML")
     print("=" * 80)
     
-    # All available strategies
+    # All available strategies (MOP_VISION was consolidated into VISION)
     strategies = [
         PromptStrategyType.SINGLE,
         PromptStrategyType.BATCH, 
-        PromptStrategyType.VISION,
-        PromptStrategyType.MOP_VISION
+        PromptStrategyType.VISION
     ]
     
     # All available visitors 
@@ -475,10 +473,18 @@ def tmp_all_optimization_scenarios(droidbot_state_file, screenshot_path, package
                         max_tokens=800
                     )
                     
+                    # Map strategies to progressive templates
+                    template_mapping = {
+                        PromptStrategyType.SINGLE: "single_compact",
+                        PromptStrategyType.BATCH: "batch_standard", 
+                        PromptStrategyType.VISION: "vision_premium"
+                    }
+                    
                     prompt_config = PromptConfig(
                         strategy_type=strategy,
                         parser_type=ScreenParserType.DROIDBOT,
                         visitor_type=visitor_type,
+                        template_name=template_mapping[strategy],  # NEW: Use progressive templates
                         max_context_length=8192,
                         context_mode=context_mode,
                         context_window_size=5,
@@ -486,7 +492,7 @@ def tmp_all_optimization_scenarios(droidbot_state_file, screenshot_path, package
                         include_coverage_timeline=True
                     )
                     
-                    tool_config = RvAndroidToolConfig(
+                    tool_config = RvSmartToolConfig(
                         llm_config=llm_config,
                         prompt_config=prompt_config,
                         debug_mode=True
@@ -630,13 +636,13 @@ def tmp_all_optimization_scenarios(droidbot_state_file, screenshot_path, package
             print(f"      MOP content: {mop_coverage}/{len(strategy_results)} tests")
     
     # Template optimization validation
-    mop_vision_results = [r for r in results if r['strategy'] == PromptStrategyType.MOP_VISION and r['success']]
-    if mop_vision_results:
-        print(f"\n🎯 TEMPLATE OPTIMIZATION (MOP_VISION):")
-        avg_chars = sum(r['total_chars'] for r in mop_vision_results) / len(mop_vision_results)
-        print(f"   Tests passed: {len(mop_vision_results)}")
+    vision_premium_results = [r for r in results if r['strategy'] == PromptStrategyType.VISION and r['success']]
+    if vision_premium_results:
+        print(f"\n🎯 TEMPLATE OPTIMIZATION (VISION_PREMIUM):")
+        avg_chars = sum(r['total_chars'] for r in vision_premium_results) / len(vision_premium_results)
+        print(f"   Tests passed: {len(vision_premium_results)}")
         print(f"   Average chars: {avg_chars:,.0f}")
-        print(f"   All had MOP content: {all(r['has_mop_content'] for r in mop_vision_results)}")
+        print(f"   All had MOP content: {all(r['has_mop_content'] for r in vision_premium_results)}")
     
     # Failed tests analysis
     failed_results = [r for r in results if not r['success']]
@@ -673,76 +679,120 @@ def save_prompt(prompt: list[LLMMessage], out_dir, prefix):
                 file.write(image)
 
 
-if __name__ == '__main__':
-    # setup_logging(True)
-
-    # Hardcoded test configuration - easy to modify for different tests
+def simple_test():
+    """Simple test with hardcoded configuration for quick testing."""
+    print("=" * 60)
+    print("🚀 SIMPLE PROMPT GENERATION TEST")
+    print("=" * 60)
+    
+    # Hardcoded test configuration - modify as needed
     screenshots_folder = "/home/pedro/desenvolvimento/RV_ANDROID/teste_llm/screenshots"
     apk = "cryptoapp.apk"
-    prefix = "004"  # Options: 001, 009, 015 - change this to test different states
+    prefix = "004"  # Use an existing state file
     
-    # Test mode selection - comprehensive optimization validation
-    TEST_MODE = "STATELESS"  # Options: "STATELESS", "RICH", "BOTH", "MOP_VISION", "ALL_STRATEGIES"
-    
-    # File paths (hardcoded for easy testing)
+    # File paths
     app_folder = os.path.join(screenshots_folder, apk)
     reach_file = os.path.join(app_folder, apk + ".reach")
     gator_file = os.path.join(app_folder, apk + ".wtg")
     gesda_file = os.path.join(app_folder, apk + ".gesda")
     screenshot_path = os.path.join(app_folder, prefix + ".png")
     droidbot_state_file = os.path.join(app_folder, prefix + ".state")
-    app = App(app_path=os.path.join(app_folder, apk))
-    package = app.package_name
-
-    # Parse static analysis data
-    static_analysis_parser = StaticAnalysisParser()
-    static_data = static_analysis_parser.parse(reach_file, gator_file, gesda_file, package)
-
-    print(f"🎯 CONTEXT MODE TEST CONFIGURATION:")
+    
+    print(f"📂 Test files:")
     print(f"  • APK: {apk}")
     print(f"  • State: {prefix}")
-    print(f"  • Package: {package}")
-    print(f"  • Test Mode: {TEST_MODE}")
     print(f"  • Screenshot: {screenshot_path}")
-    print(f"  • State file: {droidbot_state_file}")
+    
+    # Create App and get package name
+    app = App(app_path=os.path.join(app_folder, apk))
+    package = app.package_name
+    print(f"  • Package: {package}")
+    
+    # Parse static analysis data
+    print("\n📊 Parsing static analysis data...")
+    static_analysis_parser = StaticAnalysisParser()
+    static_data = static_analysis_parser.parse(reach_file, gator_file, gesda_file, package)
+    print(f"  ✅ Static data parsed")
+    
+    # Create configurations - SIMPLE HARDCODED CONFIG
+    print("\n⚙️ Creating configuration...")
+    llm_config = LLMConfig(
+        llm_type=LLMType.OLLAMA,
+        model=OllamaLLM.GEMMA,  # Using GEMMA model
+        temperature=0.7
+    )
+    
+    prompt_config = PromptConfig(
+        strategy_type=PromptStrategyType.SINGLE,  # Simple single strategy
+        parser_type=ScreenParserType.DROIDBOT,
+        visitor_type=VisitorType.DEFAULT,
+        template_name="single_compact",  # Using compact template
+        context_mode=ContextMode.STATELESS
+    )
+    
+    tool_config = RvSmartToolConfig(
+        llm_config=llm_config,
+        prompt_config=prompt_config,
+        debug_mode=True
+    )
+    
+    print(f"  • Strategy: {prompt_config.strategy_type}")
+    print(f"  • Template: {prompt_config.template_name}")
+    print(f"  • Visitor: {prompt_config.visitor_type}")
+    print(f"  • Model: {llm_config.model}")
+    
+    # Create state from DroidBot file
+    print("\n🔄 Processing state...")
+    state = create_state_from_droidbot_state(
+        droidbot_state_file, screenshot_path, package, static_data, DefaultTextVisitor
+    )
+    
+    # Enrich state
+    state = enrich_state(state, static_data, tool_config)
+    print(f"  ✅ State enriched with {len(state)} keys")
+    
+    # Initialize framework
+    print("\n🏗️ Initializing framework...")
+    framework = RVAndroidPromptFramework.create(prompt_config)
+    print(f"  ✅ Framework created")
+    
+    # Generate prompt
+    print("\n📝 Generating prompt...")
+    messages = framework.generate_prompt(state, {})
+    
+    print(f"\n✅ SUCCESS! Generated {len(messages)} messages")
+    print("\n📄 Message details:")
+    for i, message in enumerate(messages, 1):
+        print(f"  Message {i}: Role={message.role}, Content items={len(message.content)}")
+        for j, content in enumerate(message.content, 1):
+            if hasattr(content, 'text'):
+                print(f"    - Text content: {len(content.text)} chars")
+            elif hasattr(content, 'url'):
+                print(f"    - Image content: {content.url}")
+    
+    # Calculate total size
+    total_chars = sum(
+        len(content.text) for message in messages 
+        for content in message.content 
+        if hasattr(content, 'text')
+    )
+    print(f"\n📊 Total prompt size: {total_chars:,} characters")
+    
+    return messages
 
-    # Run tests based on mode
-    if TEST_MODE == "ALL_STRATEGIES":
-        # Comprehensive optimization validation
-        results = tmp_all_optimization_scenarios(
-            droidbot_state_file, screenshot_path, package, static_data
-        )
+
+if __name__ == '__main__':
+    setup_logging(True)
+    
+    try:
+        # Run simple test
+        messages = simple_test()
         
-    elif TEST_MODE == "BOTH":
-        stateless_prompt, rich_prompt = tmp_both_context_modes(
-            droidbot_state_file, screenshot_path, package, static_data
-        )
+        print("\n" + "=" * 60)
+        print("✅ Test completed successfully!")
+        print("=" * 60)
         
-        # Save prompts for comparison (uncomment to enable)
-        # outdir = "/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec/rv-android/modules/rv-evaluator/src/rv_evaluator/prompts"
-        # save_prompt(stateless_prompt, outdir, f"{prefix}_stateless")
-        # save_prompt(rich_prompt, outdir, f"{prefix}_rich")
-        
-    elif TEST_MODE == "STATELESS":
-        prompt = tmp_context_mode(
-            droidbot_state_file, screenshot_path, package, static_data,
-            ContextMode.STATELESS
-        )
-        
-    elif TEST_MODE == "RICH":
-        prompt = tmp_context_mode(
-            droidbot_state_file, screenshot_path, package, static_data,
-            ContextMode.RICH
-        )
-        
-    elif TEST_MODE == "MOP_VISION":
-        prompt = tmp_mop_vision_strategy(
-            droidbot_state_file, screenshot_path, package, static_data
-        )
-        
-    else:
-        print(f"❌ Invalid TEST_MODE: {TEST_MODE}")
-        print("Valid options: STATELESS, RICH, BOTH, MOP_VISION, ALL_STRATEGIES")
-        
-    print("\n🎉 Context mode testing completed!")
-    print("💡 TIP: Modify TEST_MODE, apk, or prefix variables to test different scenarios")
+    except Exception as e:
+        print(f"\n❌ Test failed: {e}")
+        import traceback
+        traceback.print_exc()

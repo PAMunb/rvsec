@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<template name="vision_standard" version="1.0" extends="system_base">
+  <metadata>
+    <description>Standard vision strategy template - Pillars 1+2+3 (~1800 tokens)</description>
+    <created>2025-08-28</created>
+    <author>RV-Android Team</author>
+  </metadata>
+  <variables>
+    <required>ui_elements</required>
+    <conditional>ui_coverage_data</conditional>
+    <optional>transition_data</optional>
+    <optional>activity</optional>
+    <optional>activity_visits</optional>
+    <optional>available_transitions</optional>
+  </variables>
+  <roles>
+    <system><![CDATA[
+{% block strategy_specific_instructions %}
+{% include "vision_system_consolidated" %}
+
+{% include "strategic_guidance" %}
+{% endblock %}
+
+{% block response_format_instructions %}
+{% include "coordinate_precision" %}
+{% endblock %}]]>
+    </system>
+    <user><![CDATA[
+{% include "context_status" %}
+
+UI Elements:
+{{ ui_elements }}
+
+{% if available_transitions %}
+Transitions: {{ available_transitions }}
+{% endif %}
+
+Screenshot shows current state. Generate 1-5 strategic actions:]]>
+    </user>
+  </roles>
+</template>

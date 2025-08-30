@@ -21,8 +21,7 @@ class SingleStrategy(PromptStrategy):
     relevant information. It always generates exactly one action per response.
     """
 
-    # Default template to use if none specified
-    DEFAULT_TEMPLATE = PromptStrategyType.SINGLE
+    # Template name now comes from PromptConfig.template_name instead of hardcoded defaults
 
     def __init__(
             self,

@@ -77,7 +77,7 @@ class PromptConfig(BaseValidatedModel):
         strategy_type=PromptStrategyType.BATCH_ACTION,
         parser_type=ScreenParserType.UIAUTOMATOR,
         visitor_type=VisitorType.BASIC,
-        template_paths={"system": "custom_system.xml"}
+        template_name="custom_template"
     )
     
     # Validation
@@ -104,9 +104,9 @@ class PromptConfig(BaseValidatedModel):
     )
 
     # Template Configuration
-    template_paths: Dict[str, str] = Field(
-        default_factory=dict,
-        description="Custom template paths for prompt generation"
+    template_name: str = Field(
+        default="",
+        description="Progressive template name to use (compact/standard/premium)"
     )
 
     # Context Management
@@ -201,14 +201,10 @@ class PromptConfig(BaseValidatedModel):
         return v
 
     @model_validator(mode='after')
-    def validate_template_paths(self) -> 'PromptConfig':
-        """Validate template paths are properly structured."""
-        if self.template_paths:
-            for name, path in self.template_paths.items():
-                if not isinstance(name, str) or not isinstance(path, str):
-                    raise ValueError("template_paths must contain string keys and values")
-                if not name.strip() or not path.strip():
-                    raise ValueError("template_paths cannot contain empty keys or values")
+    def validate_template_name(self) -> 'PromptConfig':
+        """Validate template name format."""
+        if self.template_name and not isinstance(self.template_name, str):
+            raise ValueError("template_name must be a string")
         return self
 
     @model_validator(mode='after')
@@ -252,8 +248,8 @@ class PromptConfig(BaseValidatedModel):
         if "visitor_type" in tool_config:
             config_dict["visitor_type"] = tool_config["visitor_type"]
 
-        if "template_paths" in tool_config:
-            config_dict["template_paths"] = tool_config["template_paths"]
+        if "template_name" in tool_config:
+            config_dict["template_name"] = tool_config["template_name"]
 
         if "max_context_length" in tool_config:
             config_dict["max_context_length"] = tool_config["max_context_length"]
@@ -364,7 +360,7 @@ class PromptConfig(BaseValidatedModel):
         return {
             "strategy_type": self.strategy_type,
             "max_context_length": self.max_context_length,
-            "template_paths": self.template_paths,
+            "template_name": self.template_name,
             **self.additional_params
         }
 
@@ -436,4 +432,4 @@ class PromptConfig(BaseValidatedModel):
                 f"parser_type={repr(self.parser_type)}, "
                 f"visitor_type={repr(self.visitor_type)}, "
                 f"max_context_length={repr(self.max_context_length)}, "
-                f"template_paths_count={len(self.template_paths)})")
+                f"template_name={repr(self.template_name)})")

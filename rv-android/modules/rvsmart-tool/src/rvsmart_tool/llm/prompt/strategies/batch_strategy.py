@@ -21,8 +21,7 @@ class BatchStrategy(PromptStrategy):
     It can generate 1-10 actions to be executed in batch.
     """
 
-    # Default template to use if none specified
-    DEFAULT_TEMPLATE = PromptStrategyType.BATCH
+    # Template name now comes from PromptConfig.template_name instead of hardcoded defaults
 
     def __init__(
             self,

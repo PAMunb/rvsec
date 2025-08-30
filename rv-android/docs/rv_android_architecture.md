@@ -30,6 +30,9 @@ The RV-Android platform is composed of a set of interconnected modules, each res
 │  │  ┌──────────────────┐    ┌──────────────────┐    ┌──────────────────┐  │
 │  │  │ rv-android-core  │    │   rv-platform    │    │     rv-tools     │  │
 │  │  └──────────────────┘    └──────────────────┘    └──────────────────┘  │
+│  │  ┌──────────────────┐                                                 │  │
+│  │  │ rv-uiautomator   │                                                 │  │
+│  │  └──────────────────┘                                                 │  │
 │  └─────────────────────────────────────────────────────────────────────┘  │
 │                                                                             │
 │  ┌─────────────────────────────────────────────────────────────────────┐  │
@@ -44,11 +47,14 @@ The RV-Android platform is composed of a set of interconnected modules, each res
 │  └─────────────────────────────────────────────────────────────────────┘  │
 │                                                                             │
 │  ┌─────────────────────────────────────────────────────────────────────┐  │
-│  │                       LLM and UI Modules                            │  │
+│  │                    LLM and UI Testing Tools                         │  │
 │  │                                                                     │  │
 │  │  ┌──────────────────┐    ┌──────────────────┐    ┌──────────────────┐  │
 │  │  │      rv-llm      │    │ rv-screen-parser │    │  rvandroid-tool  │  │
 │  │  └──────────────────┘    └──────────────────┘    └──────────────────┘  │
+│  │  ┌──────────────────┐                                                 │  │
+│  │  │  rvsmart-tool    │                                                 │  │
+│  │  └──────────────────┘                                                 │  │
 │  └─────────────────────────────────────────────────────────────────────┘  │
 │                                                                             │
 └─────────────────────────────────────────────────────────────────────────────┘
@@ -62,6 +68,7 @@ The RV-Android platform is organized into the following modules:
 *   **rv-android-core**: Foundation module providing domain models, utilities, and interfaces for all other modules
 *   **rv-platform**: Task execution orchestration, device management, and result collection
 *   **rv-tools**: Testing tool registry and plugin system with factory patterns
+*   **rv-uiautomator**: Shared UIAutomator components providing direct device interaction capabilities
 
 ### Analysis and Processing:
 *   **rv-instrumentation**: APK instrumentation with monitor weaving capabilities  
@@ -72,8 +79,10 @@ The RV-Android platform is organized into the following modules:
 
 ### AI and LLM Integration:
 *   **rv-llm**: Language model integration framework with multiple backend support
-*   **rvandroid-tool**: AI-driven testing tool with LLM integration and server interface
+*   **rvandroid-tool**: AI-driven testing tool with LLM integration and DroidBot server interface
+*   **rvsmart-tool**: AI-driven testing tool with direct UIAutomator integration (replaces client-server architecture)
 *   **rvdroid-tool**: Alternative testing tool implementation
+*   **rv-uiautomator**: Shared UIAutomator components for direct device interaction
 
 ### Experiment Orchestration:  
 *   **rv-experiment**: Experiment orchestration and coordination system

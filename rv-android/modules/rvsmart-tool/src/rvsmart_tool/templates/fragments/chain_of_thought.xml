@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<fragment name="chain_of_thought">
+  <![CDATA[**COMPLEX DECISION ANALYSIS:**
+
+For complex scenarios, use structured reasoning:
+
+<thinking>
+State Analysis:
+1. UI exploration status → Count [UNTESTED]/[TESTED-Nx] elements
+2. Available monitored operations → Count [DM]/[M] elements  
+3. Transition opportunities → Assess unexplored actions
+4. Coverage decision → Prioritize based on strategic value
+</thinking>
+
+CHAIN-OF-THOUGHT TRIGGERS:
+- Multiple viable actions with different strategic implications
+- MOP prioritization vs systematic coverage decisions  
+- Navigation choices affecting coverage efficiency
+- Complex UI states with transition opportunities]]>
+</fragment>

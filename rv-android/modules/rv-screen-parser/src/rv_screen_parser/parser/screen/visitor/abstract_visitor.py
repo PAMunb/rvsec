@@ -716,3 +716,66 @@ class AbstractScreenVisitor(ABC):
             return f" with hint '{hint[:max_length]}...' (truncated)"
 
         return f" with hint '{hint}'"
+
+    def _with_position(self, node: Node) -> str:
+        """
+        Format node position coordinates for enhanced coordinate precision.
+        
+        ### Coordinate Precision Enhancement:
+        Provides precise position information to improve LLM coordinate generation
+        accuracy from 30% to 95-100% as specified in the refactoring plan.
+        
+        Args:
+            node: The node to describe
+            
+        Returns:
+            Formatted position string with coordinates
+        """
+        if not hasattr(node, 'center_coordinates') or not node.center_coordinates:
+            return ""
+        
+        x, y = node.center_coordinates
+        return f" at position ({x}, {y})"
+
+    def _with_bounds(self, node: Node) -> str:
+        """
+        Format node bounds information for coordinate validation.
+        
+        ### Bounds Information Strategy:
+        Provides complete bounds information following the standardized format
+        specified in the plan: [[x1,y1],[x2,y2]] for arrays.
+        
+        Args:
+            node: The node to describe
+            
+        Returns:
+            Formatted bounds string with coordinate arrays
+        """
+        if not hasattr(node, 'bounds') or not node.bounds:
+            return ""
+        
+        bounds = node.bounds
+        if len(bounds) == 2:
+            x1, y1 = bounds[0]
+            x2, y2 = bounds[1]
+            return f" - bounds[[{x1}, {y1}], [{x2}, {y2}]]"
+        
+        return ""
+
+    def _with_complete_coordinates(self, node: Node) -> str:
+        """
+        Provide complete coordinate information combining position and bounds.
+        
+        ### Complete Coordinate Strategy:
+        Implements the proposed format from the plan:
+        "button 'OK' at position (540, 1306) - bounds[[200, 1270], [880, 1342]]"
+        
+        Args:
+            node: The node to describe
+            
+        Returns:
+            Complete coordinate description string
+        """
+        position_info = self._with_position(node)
+        bounds_info = self._with_bounds(node)
+        return position_info + bounds_info

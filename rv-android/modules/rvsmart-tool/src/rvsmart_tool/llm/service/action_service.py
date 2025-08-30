@@ -325,7 +325,7 @@ class LLMActionService:
                 else:
                     self.logger.warning("⚠️ DEBUG_COORD_ENH: No processing context to merge - coordinate enhancement may not work")
 
-                # Generate prompt messages using strategy-specific framework (BATCH_ACTION, STANDARD, MOP_VISION)
+                # Generate prompt messages using strategy-specific framework (BATCH, SINGLE, VISION)
                 # The framework selects fragments based on strategy configuration and builds complete prompt
                 self.logger.info("🎨 PHASE 5: Generating prompt messages")
                 self.logger.info(f"   Framework type: {type(self.prompt_framework).__name__}")

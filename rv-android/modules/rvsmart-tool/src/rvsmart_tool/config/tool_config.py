@@ -137,10 +137,12 @@ class RvSmartToolConfig(BaseValidatedModel):
         # Create prompt configuration  
         strategy_value = final_config.get("prompt_strategy", PromptStrategyType.BATCH)
         visitor_value = final_config.get("visitor_type", VisitorType.DEFAULT)
+        template_name = final_config.get("template_name", "")
         prompt_config = PromptConfig(
             strategy_type=strategy_value,
             parser_type=final_config.get("parser_type", ScreenParserType.DROIDBOT),
-            visitor_type=visitor_value
+            visitor_type=visitor_value,
+            template_name=template_name
         )
 
         # Create tool configuration

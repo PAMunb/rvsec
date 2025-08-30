@@ -4,10 +4,15 @@ Vision prompt strategy implementation for Android testing with coordinate suppor
 This module implements the VisionStrategy class, providing compact prompt generation
 for multimodal LLMs with support for three action types: standard UI actions, text input,
 and custom coordinate-based actions for advanced interaction scenarios.
+
+### Enhanced MOP Integration:
+Includes merged functionality from MOPVisionStrategy for monitored operations discovery,
+providing conditional MOP focus when enabled through template configuration.
 """
 
 from typing import Any, Dict, List, Optional
 
+from rv_android_core.util.error.error_handler import ErrorHandler
 from rv_llm.llm.constants import (ContextEntry, FragmentType, PromptStrategyType,
                                   StateEntry, ContextMode)
 from rv_llm.llm.prompt.information.fragment_manager import InformationManager
@@ -45,10 +50,15 @@ class VisionStrategy(PromptStrategy):
     ### Template Integration:
     Uses specialized vision templates with context_status fragment for intelligent
     state management and strategic action prioritization based on coverage metrics.
+    
+    ### MOP Integration (Merged from MOPVisionStrategy):
+    - **Conditional MOP Focus**: Activated through mop_focus template variable
+    - **Simple MOP Analysis**: Basic M/DM element counting and priority guidance
+    - **Action Sequencing**: MOP-aware action ordering when focus is enabled
+    - **Template Compatibility**: Works with existing vision.xml with conditional logic
     """
 
-    # Template configuration for vision strategy
-    DEFAULT_TEMPLATE = PromptStrategyType.VISION
+    # Template name now comes from PromptConfig.template_name instead of hardcoded defaults
 
     def __init__(
             self,
@@ -144,7 +154,7 @@ class VisionStrategy(PromptStrategy):
         """
         try:
             # Use vision template with compact format
-            template_name = self.get_template_name(context) or self.DEFAULT_TEMPLATE
+            template_name = self.get_template_name(context)
             self.logger.info(f"Using vision template: {template_name}")
             print(f">>>>>>>>>>>>>>>>> Using vision template: {template_name}")
 
@@ -278,6 +288,9 @@ class VisionStrategy(PromptStrategy):
                 "operations, form completions, and coverage expansion opportunities. "
                 "Consider custom coordinate actions for visual elements not in the UI list."
             )
+
+        # Add MOP-specific variables for enhanced template integration (merged from MOPVisionStrategy)
+        variables.update(self._build_mop_template_variables(state, context))
 
         return variables
 
@@ -522,3 +535,136 @@ class VisionStrategy(PromptStrategy):
                 insights.append(f"Recent MOP violations: {recent_violations}")
         
         return "; ".join(insights) if insights else "Standard interaction pattern"
+
+    # ========================================
+    # MOP Integration Methods (Merged from MOPVisionStrategy)
+    # ========================================
+
+    @ErrorHandler.handle_errors(
+        component="VisionStrategy",
+        phase="mop_template_variables_building",
+        default_return={}
+    )
+    def _build_mop_template_variables(self, state: Dict[str, Any], context: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Build MOP-specific template variables for enhanced monitored operations support.
+        
+        ### MOP Variable Building Strategy:
+        Provides simple monitored operations intelligence including screen context analysis
+        and action sequence suggestions when MOP focus is enabled through configuration.
+        
+        Args:
+            state: Current application state with UI and coverage information
+            context: Testing context and configuration parameters
+            
+        Returns:
+            Dictionary with MOP-specific template variables
+        """
+        mop_variables = {}
+        
+        # Check if MOP focus is enabled through context
+        mop_focus = context.get('mop_focus', False)
+        if mop_focus:
+            mop_variables['mop_focus'] = True
+            mop_variables['mop_screen_context'] = self._analyze_screen_context_mop(state)
+            mop_variables['mop_action_sequence'] = self._suggest_action_sequence_mop(state)
+            
+            self.logger.debug("Added MOP-specific template variables for focused testing")
+        
+        return mop_variables
+
+    @ErrorHandler.handle_errors(
+        component="VisionStrategy", 
+        phase="mop_screen_context_analysis",
+        default_return=""
+    )
+    def _analyze_screen_context_mop(self, state: Dict[str, Any]) -> str:
+        """
+        Simple screen context analysis for MOP prioritization - count M/DM actions.
+        
+        ### MOP Analysis Strategy:
+        Provides basic guidance based on monitored operation element counts
+        without complex pattern analysis. Merged from MOPVisionStrategy.
+        
+        Args:
+            state: Current application state containing screen information
+            
+        Returns:
+            Basic context guidance for monitored operations discovery
+        """
+        screen_description = state.get(StateEntry.STRUCTURED_SCREEN)
+        if not screen_description:
+            return ""
+        
+        # Simple M/DM counting without complex analysis
+        dm_count = 0
+        m_count = 0
+        
+        if hasattr(screen_description, 'items'):
+            for item in screen_description.items:
+                if hasattr(item, 'actions'):
+                    for action in item.actions:
+                        if getattr(action, 'directly_reaches_mop', False):
+                            dm_count += 1
+                        elif getattr(action, 'reaches_mop', False):
+                            m_count += 1
+        
+        # Simple priority guidance based on counts
+        if dm_count >= 2:
+            return "Focus on [DM] - multiple direct MOP actions available"
+        elif dm_count >= 1:
+            return "Focus on [DM] - direct MOP action available" 
+        elif m_count > 0:
+            return "Explore [M] actions for indirect MOP access"
+        else:
+            return "Explore systematically for MOP actions"
+
+    @ErrorHandler.handle_errors(
+        component="VisionStrategy",
+        phase="mop_action_sequence_suggestion", 
+        default_return=""
+    )
+    def _suggest_action_sequence_mop(self, state: Dict[str, Any]) -> str:
+        """
+        Simple action sequence suggestions based on MOP priorities.
+        
+        ### MOP Sequence Strategy:
+        Provides basic action ordering recommendations based on monitored
+        operation element availability. Merged from MOPVisionStrategy.
+        
+        Args:
+            state: Current application state with screen information
+            
+        Returns:
+            Basic sequence guidance for monitored operations testing
+        """
+        screen_description = state.get(StateEntry.STRUCTURED_SCREEN)
+        if not screen_description:
+            return ""
+        
+        # Count [DM] and [M] actions for simple guidance
+        dm_count = 0
+        m_count = 0
+        
+        if hasattr(screen_description, 'items'):
+            for item in screen_description.items:
+                if hasattr(item, 'actions'):
+                    for action in item.actions:
+                        if getattr(action, 'directly_reaches_mop', False):
+                            dm_count += 1
+                        elif getattr(action, 'reaches_mop', False):
+                            m_count += 1
+        
+        # Simple priority-based suggestions
+        suggestions = []
+        
+        if dm_count > 0:
+            suggestions.append(f"1. Test [DM] actions first ({dm_count} available)")
+        
+        if m_count > 0:
+            suggestions.append(f"2. Explore [M] actions ({m_count} available)")
+            
+        if not suggestions:
+            suggestions.append("Explore screen systematically to discover MOP actions")
+        
+        return " | ".join(suggestions)

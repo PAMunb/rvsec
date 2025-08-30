@@ -17,8 +17,8 @@ class TestPromptConfigInitialization:
         assert config.strategy_type == PromptStrategyType.SINGLE
         assert config.parser_type == ScreenParserType.DROIDBOT
         assert config.visitor_type == VisitorType.DETAILED
-        assert config.template_paths == {}
-        assert config.max_context_length == 8192
+        assert config.template_name == ""
+        assert config.max_context_length == 800
         assert config.additional_params == {}
 
     @given(
@@ -59,11 +59,11 @@ class TestPromptConfigValidation:
         with pytest.raises(ValidationError):
             PromptConfig(strategy_type=invalid_type)
 
-    @pytest.mark.parametrize("invalid_path", [{"key": 123}, {123: "value"}, {"": "value"}, {"key": ""}])
-    def test_invalid_template_paths(self, invalid_path):
-        """Test that invalid template_paths raise a ValidationError."""
+    @pytest.mark.parametrize("invalid_name", [123, [], {}, None])
+    def test_invalid_template_name(self, invalid_name):
+        """Test that invalid template_name raises a ValidationError."""
         with pytest.raises(ValidationError):
-            PromptConfig(template_paths=invalid_path)
+            PromptConfig(template_name=invalid_name)
 
 
 class TestFromToolConfig:
@@ -75,7 +75,7 @@ class TestFromToolConfig:
             "strategy_type": PromptStrategyType.BATCH,
             "parser_type": ScreenParserType.UIAUTOMATOR,
             "visitor_type": VisitorType.BASIC,
-            "template_paths": {"system": "path/to/system.xml"},
+            "template_name": "custom_template",
             "max_context_length": 4096,
             "prompt_custom_param": "custom_value",
             "other_param": "should_be_ignored"
@@ -85,7 +85,7 @@ class TestFromToolConfig:
         assert config.strategy_type == PromptStrategyType.BATCH
         assert config.parser_type == ScreenParserType.UIAUTOMATOR
         assert config.visitor_type == VisitorType.BASIC
-        assert config.template_paths == {"system": "path/to/system.xml"}
+        assert config.template_name == "custom_template"
         assert config.max_context_length == 4096
         assert config.additional_params == {"prompt_custom_param": "custom_value"}
 

@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<template name="batch_compact" version="1.0" extends="system_base">
+  <metadata>
+    <description>Compact batch strategy template - Pillar 1 only (~1000 tokens)</description>
+    <created>2025-08-28</created>
+    <author>RV-Android Team</author>
+  </metadata>
+  <variables>
+    <required>ui_elements</required>
+    <optional>activity</optional>
+  </variables>
+  <roles>
+    <system><![CDATA[
+{% block strategy_specific_instructions %}
+Android testing AI. Generate 1-5 strategic actions as logical sequence.
+
+PRIORITY: [DM] → [M] → Coverage → Systematic exploration
+SEQUENCING: Complete forms before submit, natural UI flow
+{% endblock %}
+
+{% block response_format_instructions %}
+OUTPUT: {"actions": [{"action_id": "N", "params": {}, "explanation": "reason"}]}
+{% endblock %}]]>
+    </system>
+    <user><![CDATA[
+Activity: {{ activity }}
+
+UI Elements:
+{{ ui_elements }}
+
+Generate 1-5 strategic actions:]]>
+    </user>
+  </roles>
+</template>

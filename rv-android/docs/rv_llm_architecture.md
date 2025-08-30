@@ -214,9 +214,9 @@ The configuration can be provided as a dictionary or a Pydantic model. The `LLMC
 
 The `rv-llm` module integrates with the RV-Android variant system to provide predefined LLM and prompt configurations. The variant system allows tools to define multiple named configurations that users can select from, eliminating the need to manually specify all LLM parameters.
 
-#### Integration with RVAndroid Tool Variants
+#### Integration with RVAndroid and RVSmart Tool Variants
 
-The `rvandroid-tool` module uses the variant system to provide predefined LLM configurations:
+Both `rvandroid-tool` and `rvsmart-tool` modules use the variant system to provide predefined LLM configurations:
 
 ```python
 # Example variant configurations in rvandroid-tool
@@ -237,13 +237,40 @@ variants = {
         "prompt_strategy": "vision"
     }
 }
+
+# Example variant configurations in rvsmart-tool (with vision capabilities)
+rvsmart_variants = {
+    "default": {
+        "llm_type": "ollama",
+        "llm_model": "gemma",
+        "vision": True,
+        "prompt_strategy": "single"
+    },
+    "qwen_7b_vision": {
+        "llm_type": "ollama",
+        "llm_model": "qwen2.5vl:7b",
+        "vision": True,
+        "prompt_strategy": "vision",
+        "debug_mode": True
+    },
+    "phi4_reasoning": {
+        "llm_type": "ollama",
+        "llm_model": "phi",
+        "think": True,
+        "prompt_strategy": "single"
+    }
+}
 ```
 
 Users can then specify variants in experiment configurations:
 ```bash
-# CLI usage with variants
+# CLI usage with variants for rvandroid-tool
 poetry run python -m rv_experiment run --tools "rvandroid:openai_gpt4"
 poetry run python -m rv_experiment run --tools "rvandroid:vision"
+
+# CLI usage with variants for rvsmart-tool
+poetry run python -m rv_experiment run --tools "rvsmart:qwen_7b_vision"
+poetry run python -m rv_experiment run --tools "rvsmart:phi4_reasoning"
 ```
 
 #### Configuration Creation Flow

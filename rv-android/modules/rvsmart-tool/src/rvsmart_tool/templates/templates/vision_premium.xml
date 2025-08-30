@@ -1,28 +1,32 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<template name="vision" version="3.0" extends="system_base">
+<template name="vision_premium" version="1.0" extends="system_base">
   <metadata>
-    <description>Optimized vision template with consolidated instructions, MOP integration, and inheritance from system_base</description>
-    <created>2025-08-15</created>
+    <description>Premium vision strategy template - All 4 pillars + Chain-of-Thought (~2200 tokens)</description>
+    <created>2025-08-28</created>
     <author>RV-Android Team</author>
-    <updated>2025-08-28</updated>
   </metadata>
   <variables>
     <required>ui_elements</required>
+    <conditional>ui_coverage_data</conditional>
+    <optional>transition_data</optional>
+    <optional>system_coverage</optional>
     <optional>activity</optional>
     <optional>activity_visits</optional>
-    <optional>mop_current</optional>
-    <optional>mop_total</optional>
-    <optional>mop_errors</optional>
-    <optional>recent_history</optional>
+    <optional>coverage_metrics</optional>
+    <optional>mop_recent_errors</optional>
     <optional>available_transitions</optional>
-    <optional>additional_guidelines</optional>
     <optional>mop_focus</optional>
     <optional>mop_screen_context</optional>
     <optional>mop_action_sequence</optional>
   </variables>
   <roles>
     <system><![CDATA[
+{% block strategy_specific_instructions %}
 {% include "vision_system_consolidated" %}
+
+{% include "strategic_guidance" %}
+
+{% include "chain_of_thought" %}
 
 {% if mop_focus %}
 MONITORED OPERATIONS PRIORITY:
@@ -38,18 +42,29 @@ MOP SCREEN ANALYSIS: {{ mop_screen_context }}
 MOP ACTION SEQUENCE: {{ mop_action_sequence }}
 {% endif %}
 {% endif %}
+{% endblock %}
 
-{% if additional_guidelines %}
-ADDITIONAL GUIDANCE: {{ additional_guidelines }}
-{% endif %}]]>
+{% block response_format_instructions %}
+{% include "coordinate_precision" %}
+
+{% include "optimized_examples" %}
+{% endblock %}]]>
     </system>
     <user><![CDATA[
 {% include "context_status" %}
 
-UI Actions:
+UI Elements:
 {{ ui_elements }}
 
-Screenshot shows current app state. Generate 1-5 strategic actions:
-    ]]></user>
+{% if available_transitions %}
+Transitions: {{ available_transitions }}
+{% endif %}
+
+{% if system_coverage %}
+System Coverage: {{ system_coverage }}
+{% endif %}
+
+Screenshot shows current state. Generate 1-5 strategic actions:]]>
+    </user>
   </roles>
 </template>

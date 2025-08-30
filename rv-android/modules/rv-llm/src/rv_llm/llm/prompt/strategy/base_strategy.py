@@ -24,8 +24,7 @@ class PromptStrategy(abc.ABC):
     based on the current state and context.
     """
 
-    # Default template to use if none specified - should be overridden by subclasses
-    DEFAULT_TEMPLATE = None
+    # Template name now comes from PromptConfig.template_name instead of hardcoded defaults
 
     def __init__(
             self,
@@ -160,19 +159,26 @@ class PromptStrategy(abc.ABC):
             # First priority: context-specified template
             return context[ContextEntry.TEMPLATE]
 
+        # Second priority: PromptConfig template_name
+        if (self.config is not None and 
+            hasattr(self.config, 'template_name') and 
+            self.config.template_name):
+            return self.config.template_name
+            
+        # Third priority: dict config (backward compatibility)
         if (self.config is not None and
                 isinstance(self.config, dict) and
-                self.config.get("template_name") is not None):
-            # Second priority: configuration-specified template
+                self.config.get("template_name")):
             return self.config["template_name"]
 
-        # Third priority: strategy default template
-        if self.DEFAULT_TEMPLATE is not None:
+        # Fourth priority: strategy default template (deprecated)
+        if hasattr(self, 'DEFAULT_TEMPLATE') and self.DEFAULT_TEMPLATE is not None:
+            self.logger.warning(f"Using deprecated DEFAULT_TEMPLATE for strategy {self.name}")
             return self.DEFAULT_TEMPLATE
 
-        # Fallback
-        self.logger.warning(f"No template specified for strategy {self.name}, using 'single'")
-        return PromptStrategyType.SINGLE
+        # Fallback: use strategy type as template name 
+        self.logger.warning(f"No template specified for strategy {self.name}, using strategy name as template")
+        return self.name
 
     @abc.abstractmethod
     def _generate_prompt(

@@ -127,10 +127,9 @@ class ToolRegistry:
         - Automatic variant registration for the tool
         - Validation of variant configuration
         
-        ### Architectural Changes:
-        The updated registration process now includes automatic variant registration
-        through the AbstractTool.register_variants() method, enabling the complete
-        variant system functionality without manual variant registration calls.
+        ### Registration Process:
+        Registers tool class and automatically registers its variants by calling
+        get_variants() and registering each variant with the registry.
 
         Args:
             tool_class: Tool class to register
@@ -147,10 +146,12 @@ class ToolRegistry:
             # Register tool class (existing logic)
             self.register_tool(tool_name, tool_class, tool_spec)
             
-            # NEW: Automatic variant registration
+            # Automatic variant registration (Registry responsibility)
             try:
-                tool_class.register_variants(self)
-                self.logger.info(f"Registered variants for tool: {tool_name}")
+                variants = tool_class.get_variants()
+                for variant_name, config in variants.items():
+                    self.register_variant(tool_name, variant_name, config)
+                self.logger.info(f"Registered {len(variants)} variants for tool: {tool_name}")
             except Exception as e:
                 raise ToolRegistrationError(f"Failed to register variants for {tool_name}: {e}")
             

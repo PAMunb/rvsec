@@ -42,7 +42,6 @@ from rvsmart_tool.llm.prompt.fragments.system_coverage_fragment import SystemCov
 from rvsmart_tool.llm.prompt.fragments.transition_guidance_fragment import TransitionGuidanceFragment
 from rvsmart_tool.llm.prompt.fragments.ui_elements_fragment import UIElementsFragment
 from rvsmart_tool.llm.prompt.strategies.batch_strategy import BatchStrategy
-from rvsmart_tool.llm.prompt.strategies.mop_vision_strategy import MOPVisionStrategy
 from rvsmart_tool.llm.prompt.strategies.single_strategy import SingleStrategy
 from rvsmart_tool.llm.prompt.strategies.vision_strategy import VisionStrategy
 
@@ -143,8 +142,8 @@ class RVAndroidPromptFramework(PromptFramework):
             from rv_llm.factories.component_factory import LLMComponentFactory
 
             # Register strategies using constants
+            # Note: MOPVisionStrategy functionality has been merged into VisionStrategy
             LLMComponentFactory.register_strategy(PromptStrategyType.BATCH, BatchStrategy)
-            LLMComponentFactory.register_strategy(PromptStrategyType.MOP_VISION, MOPVisionStrategy)
             LLMComponentFactory.register_strategy(PromptStrategyType.SINGLE, SingleStrategy)
             LLMComponentFactory.register_strategy(PromptStrategyType.VISION, VisionStrategy)
 

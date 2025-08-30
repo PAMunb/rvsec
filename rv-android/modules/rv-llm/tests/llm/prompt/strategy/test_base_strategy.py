@@ -75,13 +75,13 @@ class TestBasicFunctionality:
                 assert result == "config_template"
 
     def test_get_template_name_standard_fallback(self):
-        """Test get_template_name falls back to STANDARD."""
+        """Test get_template_name falls back to strategy name."""
         with patch('rv_llm.llm.prompt.strategy.base_strategy.LoggingManager'):
             with patch('rv_llm.llm.prompt.strategy.base_strategy.ErrorHandler'):
                 strategy = SimpleTestStrategy("test")
 
                 result = strategy.get_template_name()
-                assert result == PromptStrategyType.SINGLE
+                assert result == "test"
 
     def test_generate_prompt_basic(self):
         """Test generate_prompt basic functionality."""
@@ -151,7 +151,7 @@ class TestErrorPaths:
                 # Set config to non-dict object
                 strategy.config = "not_a_dict"
                 result = strategy.get_template_name()
-                assert result == PromptStrategyType.SINGLE
+                assert result == "test"
 
     def test_template_name_config_none_template_name(self):
         """Test get_template_name when config has None template_name."""
@@ -161,7 +161,7 @@ class TestErrorPaths:
 
                 strategy.config = {"template_name": None, "strategy_name": "test"}
                 result = strategy.get_template_name()
-                assert result == PromptStrategyType.SINGLE
+                assert result == "test"
 
     def test_generate_prompt_invalid_role(self):
         """Test generate_prompt with invalid role."""
@@ -272,7 +272,7 @@ class TestTemplateNameResolution:
 
                 result = strategy.get_template_name()
 
-                assert result == PromptStrategyType.SINGLE
+                assert result == "test"
 
     def test_template_name_warning_logged_for_fallback(self):
         """Test that warning is logged when falling back to STANDARD."""
@@ -287,7 +287,7 @@ class TestTemplateNameResolution:
 
                 result = strategy.get_template_name()
 
-                assert result == PromptStrategyType.SINGLE
+                assert result == "test"
                 strategy.logger.warning.assert_called()
 
 

@@ -102,11 +102,16 @@ class RVSmartTool(AbstractTool):
         ### RVSmart Variants Overview:
         Based on vision research showing Qwen 2.5VL 7B achieves 98.3% success rate
         vs Gemma 3 4B at 73.3%. All variants use UIAutomator for direct execution
-        and support coordinate enhancement for vision strategies.
+        and support coordinate enhancement.
+        
+        ### Model Capabilities:
+        - **Gemma 3 4B**: Multimodal with vision support - good baseline performance
+        - **Qwen 2.5VL 3B/7B**: Specialized vision models - optimized for visual understanding
+        - **Llama 3.2 1B**: Text-only - lightweight for resource-constrained environments
         
         ### Scientific Validation:
         - Vision research demonstrates 100% success with explicit coordinates vs 30% without
-        - Qwen 2.5VL models optimized for visual understanding and spatial reasoning
+        - All multimodal models support screenshot analysis and coordinate enhancement
         - UIAutomator provides precise coordinate extraction for enhancement
         
         Returns:
@@ -120,11 +125,12 @@ class RVSmartTool(AbstractTool):
                 "temperature": 0.2,
                 "top_p": 0.9,
                 "max_tokens": 300,
-                "vision": False,
+                "vision": True,  # Gemma 3 4B supports vision
                 "prompt_strategy": PromptStrategyType.SINGLE,
                 "parser_type": ScreenParserType.UIAUTOMATOR,
                 "visitor_type": VisitorType.DEFAULT,
                 "context_mode": ContextMode.STATELESS,
+                "template_name": "single_compact",
                 "debug_mode": False
             },
             
@@ -140,6 +146,7 @@ class RVSmartTool(AbstractTool):
                 "parser_type": ScreenParserType.UIAUTOMATOR,
                 "visitor_type": VisitorType.DEFAULT,
                 "context_mode": ContextMode.STATELESS,
+                "template_name": "vision_standard",
                 "debug_mode": True
             },
             
@@ -154,6 +161,7 @@ class RVSmartTool(AbstractTool):
                 "parser_type": ScreenParserType.UIAUTOMATOR,
                 "visitor_type": VisitorType.DEFAULT,
                 "context_mode": ContextMode.STATELESS,
+                "template_name": "vision_premium",
                 "debug_mode": True
             },
             
@@ -164,11 +172,12 @@ class RVSmartTool(AbstractTool):
                 "temperature": 0.2,
                 "top_p": 0.9,
                 "max_tokens": 300,
-                "vision": False,
+                "vision": True,  # Gemma 3 4B supports vision
                 "prompt_strategy": PromptStrategyType.SINGLE,
                 "parser_type": ScreenParserType.UIAUTOMATOR,
                 "visitor_type": VisitorType.DEFAULT,
                 "context_mode": ContextMode.STATELESS,
+                "template_name": "single_compact",
                 "debug_mode": False
             },
             
@@ -186,6 +195,89 @@ class RVSmartTool(AbstractTool):
                 "context_mode": ContextMode.RICH,
                 "context_window_size": 5,
                 "context_compression": True,
+                "template_name": "vision_premium",
+                "debug_mode": True
+            },
+            
+            # Batch strategy variants for comparison
+            "qwen_7b_batch_compact": {
+                "llm_type": LLMType.OLLAMA,
+                "llm_model": OllamaLLM.QWEN_2_5VL_7B,
+                "temperature": 0.2,
+                "top_p": 0.9,
+                "max_tokens": 400,
+                "vision": True,
+                "prompt_strategy": PromptStrategyType.BATCH,
+                "parser_type": ScreenParserType.UIAUTOMATOR,
+                "visitor_type": VisitorType.DEFAULT,
+                "context_mode": ContextMode.STATELESS,
+                "template_name": "batch_compact",
+                "debug_mode": True
+            },
+            
+            "gemma_batch_standard": {
+                "llm_type": LLMType.OLLAMA,
+                "llm_model": OllamaLLM.GEMMA,
+                "temperature": 0.2,
+                "top_p": 0.9,
+                "max_tokens": 350,
+                "vision": True,  # Gemma 3 4B supports vision
+                "prompt_strategy": PromptStrategyType.BATCH,
+                "parser_type": ScreenParserType.UIAUTOMATOR,
+                "visitor_type": VisitorType.DEFAULT,
+                "context_mode": ContextMode.STATELESS,
+                "template_name": "batch_standard",
+                "debug_mode": False
+            },
+            
+            # Reasoning-enabled variants with think capability
+            "deepseek_r1_single": {
+                "llm_type": LLMType.OLLAMA,
+                "llm_model": OllamaLLM.DEEPSEEK,
+                "temperature": 0.3,
+                "top_p": 0.9,
+                "max_tokens": 400,
+                "vision": False,
+                "think": True,  # DeepSeek R1 supports reasoning
+                "prompt_strategy": PromptStrategyType.SINGLE,
+                "parser_type": ScreenParserType.UIAUTOMATOR,
+                "visitor_type": VisitorType.DEFAULT,
+                "context_mode": ContextMode.STATELESS,
+                "template_name": "single_standard",
+                "debug_mode": True
+            },
+            
+            "qwen3_think_batch": {
+                "llm_type": LLMType.OLLAMA,
+                "llm_model": OllamaLLM.QWEN,
+                "temperature": 0.2,
+                "top_p": 0.9,
+                "max_tokens": 450,
+                "vision": False,
+                "think": True,  # Qwen 3 0.6B supports reasoning
+                "prompt_strategy": PromptStrategyType.BATCH,
+                "parser_type": ScreenParserType.UIAUTOMATOR,
+                "visitor_type": VisitorType.DEFAULT,
+                "context_mode": ContextMode.STATELESS,
+                "template_name": "batch_compact",
+                "debug_mode": True
+            },
+            
+            "phi4_reasoning": {
+                "llm_type": LLMType.OLLAMA,
+                "llm_model": OllamaLLM.PHI,
+                "temperature": 0.2,
+                "top_p": 0.8,
+                "max_tokens": 500,
+                "vision": False,
+                "think": True,  # Phi4 Mini supports reasoning
+                "prompt_strategy": PromptStrategyType.SINGLE,
+                "parser_type": ScreenParserType.UIAUTOMATOR,
+                "visitor_type": VisitorType.DEFAULT,
+                "context_mode": ContextMode.RICH,
+                "context_window_size": 3,
+                "context_compression": True,
+                "template_name": "single_premium",
                 "debug_mode": True
             }
         }

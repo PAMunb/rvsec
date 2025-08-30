@@ -26,11 +26,15 @@ RVAndroid fits into the broader RV-Android ecosystem:
 
 2.  **DroidBot**: Underlying testing framework that RVAndroid enhances. DroidBot handles device interaction, state exploration, and action execution, while RVAndroid provides intelligence for action selection
 
-3.  **RVDroid Tool**: Alternative testing tool with different architecture approach
+3.  **RVSmart Tool**: Next-generation testing tool using direct UIAutomator integration instead of DroidBot client-server architecture
 
-4.  **rv-llm Module**: Provides LLM integration framework used by RVAndroid for prompt generation and language model interaction
+4.  **RVDroid Tool**: Alternative testing tool with different architecture approach
 
-RVAndroid leverages DroidBot's capabilities while adding an LLM-driven decision layer for testing effectiveness.
+5.  **rv-llm Module**: Provides LLM integration framework used by RVAndroid for prompt generation and language model interaction
+
+6.  **rv-uiautomator Module**: Shared UIAutomator components used by other tools for direct device interaction
+
+RVAndroid leverages DroidBot's capabilities while adding an LLM-driven decision layer for testing effectiveness. It serves as the foundation for LLM-based testing approaches that have been further evolved in RVSmart.
 
 For detailed information about the LLM integration architecture, please refer to [docs/rv_llm_architecture.md](rv_llm_architecture.md).
 
@@ -1209,7 +1213,18 @@ RVAndroid combines DroidBot's exploratory capabilities with language model decis
 
 The system's modular architecture allows for extension and improvement, while its integration with DroidBot ensures compatibility with existing testing workflows. The tool is positioned to leverage improvements in language model capabilities for application testing.
 
-For more detailed information about the LLM integration architecture, please refer to [docs/rv_llm_architecture.md](rv_llm_architecture.md).
+### 9.1 Evolution to RVSmart
+
+RVAndroid serves as the foundation for the next generation of testing tools. The **RVSmart** tool builds upon RVAndroid's LLM integration but eliminates the client-server architecture by using direct UIAutomator integration through the **TestOrchestrator** pattern. This evolution provides:
+
+- **Reduced Complexity**: Direct device interaction without server overhead
+- **Better Performance**: Elimination of HTTP communication latency
+- **Enhanced Vision Capabilities**: Support for advanced multimodal models like Qwen 2.5VL
+- **Coordinate Enhancement**: Precise action execution with visual understanding
+
+RVAndroid remains important for scenarios requiring DroidBot's comprehensive state exploration capabilities, while RVSmart provides a more streamlined approach for direct LLM-guided testing.
+
+For more detailed information about the LLM integration architecture, please refer to [docs/rv_llm_architecture.md](rv_llm_architecture.md). For information about the next-generation approach, see [docs/rvsmart_architecture.md](rvsmart_architecture.md).
 
 ## Appendix: DroidBot Integration
 

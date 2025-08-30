@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<template name="batch_standard" version="1.0" extends="system_base">
+  <metadata>
+    <description>Standard batch strategy template - Pillars 1+2 (~1500 tokens)</description>
+    <created>2025-08-28</created>
+    <author>RV-Android Team</author>
+  </metadata>
+  <variables>
+    <required>ui_elements</required>
+    <conditional>ui_coverage_data</conditional>
+    <optional>activity</optional>
+    <optional>activity_visits</optional>
+    <optional>action_history</optional>
+    <optional>memory_insights</optional>
+    <optional>recent_iterations</optional>
+    <optional>screenshot_available</optional>
+  </variables>
+  <roles>
+    <system><![CDATA[
+{% block strategy_specific_instructions %}
+{% include "batch_instructions" %}
+
+{% include "strategic_guidance" %}
+
+{% if screenshot_available %}
+Note: Screenshot is available for visual analysis. You can generate coordinate actions for elements not in UI list.
+{% endif %}
+{% endblock %}
+
+{% block response_format_instructions %}
+{% include "batch_format" %}
+
+{% if screenshot_available %}
+{% include "coordinate_precision" %}
+{% endif %}
+{% endblock %}]]>
+    </system>
+    <user><![CDATA[
+{% include "context_status" %}
+
+UI Elements:
+{{ ui_elements }}
+
+{% if screenshot_available %}
+Screenshot shows current app state for visual analysis.
+{% endif %}
+
+Generate 1-5 strategic actions:]]>
+    </user>
+  </roles>
+</template>

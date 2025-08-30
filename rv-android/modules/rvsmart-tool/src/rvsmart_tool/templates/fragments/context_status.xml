@@ -1,32 +1,22 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <fragment name="context_status">
   <![CDATA[
+**CURRENT STATUS:**
 Activity: {{ activity }}{% if activity_visits is defined %} (visits: {{ activity_visits }}){% endif %}
 {% if coverage_metrics is defined and coverage_metrics -%}
 Coverage: Methods {{ coverage_metrics.method_coverage|round(1) }}% | Activities {{ coverage_metrics.activity_coverage|round(1) }}% | MOP {{ coverage_metrics.mop_method_coverage|round(1) }}%{% if coverage_metrics.unique_errors > 0 %} | **MOP Violations: {{ coverage_metrics.unique_errors }}**{% endif %}
 {% endif -%}
 {% if mop_recent_errors is defined and mop_recent_errors -%}
-**RECENT MOP VIOLATIONS:**
+**MOP VIOLATIONS:**
 {%- for error in mop_recent_errors %}
-- {{ error.spec }}: {{ error.class_full_name }}.{{ error.method }} - {{ error.message }}
+- {{ error.spec }}: {{ error.method }} - {{ error.message }}
 {%- endfor %}
 {% endif -%}
 {% if recent_iterations is defined and recent_iterations -%}
-{# RICH context mode - show sliding window of recent iterations #}
-**RECENT INTERACTIONS:**
+{# RICH context mode - condensed sliding window #}
+**RECENT ACTIONS:**
 {%- for iteration in recent_iterations %}
---- Iteration {{ iteration['iteration_number'] }} ---
-{%- if iteration.get('screen_description_summary') %}
-Screen: {{ iteration['screen_description_summary'] }}
-{%- elif iteration.get('screen_description') %}
-Screen: {{ iteration['screen_description'][:200] }}{% if iteration['screen_description']|length > 200 %}...{% endif %}
-{%- endif %}
-Actions: {% for action in iteration.get('actions_executed', []) -%}
-  {{ action.get('action_type', 'unknown') }}({{ action.get('target', 'unknown') }}){% if not loop.last %}, {% endif %}
-{%- endfor %}
-{%- if iteration.get('coverage_progress') %}
-Coverage: M={{ iteration['coverage_progress'].get('method_coverage', 0)|round(1) }}% A={{ iteration['coverage_progress'].get('activity_coverage', 0)|round(1) }}%
-{%- endif %}
+Iter {{ iteration['iteration_number'] }}: {% for action in iteration.get('actions_executed', [])[:2] -%}{{ action.get('action_type', 'action') }}{% if not loop.last %}, {% endif %}{%- endfor %}{% if iteration.get('coverage_progress') %} | M={{ iteration['coverage_progress'].get('method_coverage', 0)|round(1) }}%{% endif %}
 {% endfor -%}
 {% else -%}
 {# STATELESS context mode - show traditional history sections #}

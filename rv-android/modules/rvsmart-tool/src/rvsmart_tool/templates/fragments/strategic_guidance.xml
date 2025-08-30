@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<fragment name="strategic_guidance">
+  <![CDATA[**TESTING STRATEGY:**
+
+1. **SYSTEMATIC EXPLORATION**: Cover [UNTESTED] elements systematically
+2. **MONITORED OPERATIONS**: Prioritize [DM] → [M] → Others when available  
+3. **NATURAL FLOW**: Complete forms before submission, logical sequences
+4. **ACTION VARIETY**: Balance clicks, text input, coordinate actions
+
+{% if coverage_guidance is defined and coverage_guidance -%}
+Current Focus: {{ coverage_guidance }}
+{% endif -%}
+
+PRIORITY ORDER: MOP discovery → Coverage expansion → Systematic exploration]]>
+</fragment>

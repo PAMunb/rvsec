@@ -1,11 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <fragment name="system_guidelines">
   <![CDATA[
-TESTING GUIDELINES:
-FOLLOW LOGICAL ORDER - Complete form fields before submitting, open dropdowns before selecting
-PRIORITIZE NEW AREAS - Explore untested functionality before revisiting familiar screens
-USE APPROPRIATE VALUES - Match input values to field types (email, password, etc.)
-TARGET MARKED OPERATIONS - When appropriate, select actions marked with [M] or [DM]
-CONSIDER SEQUENCES - For multi-step interactions (forms, dialogs, menus), follow a complete sequence
+GUIDELINES:
+- Logical order: complete forms before submit, open dropdowns before select
+- Prioritize: [DM] → [M] → untested → systematic exploration
+- Natural flow: appropriate values, complete sequences
+- Strategic focus: coverage expansion and MOP discovery
   ]]>
 </fragment>

@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<fragment name="optimized_examples">
+  <![CDATA[**EXAMPLES:**
+
+Multi-action sequence:
+<state>Login screen with email, password fields, submit button [M]</state>
+<action>{"actions": [{"action_id": "3", "params": {"text": "test@example.com"}, "explanation": "Fill email field"}, {"action_id": "5", "params": {"text": "password123"}, "explanation": "Fill password field"}, {"action_id": "7", "params": {}, "explanation": "Submit form [M] for MOP coverage"}]}</action>
+<rationale>Complete form sequence for monitored operation coverage</rationale>
+
+Coordinate precision:
+<state>Game screen with visual buttons not in UI dump</state>
+<action>{"actions": [{"action_id": "coord", "params": {"coordinates": [450, 320]}, "explanation": "Click game element from visual analysis"}]}</action>
+<rationale>Target dynamically rendered elements using coordinate actions</rationale>
+
+Mixed action types:
+<state>Settings screen with toggles [UNTESTED] and navigation options</state>  
+<action>{"actions": [{"action_id": "12", "params": {}, "explanation": "Toggle [UNTESTED] setting"}, {"action_id": "8", "params": {}, "explanation": "Navigate to advanced settings"}]}</action>
+<rationale>Systematic exploration with balanced action variety</rationale>]]>
+</fragment>

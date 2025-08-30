@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<fragment name="coordinate_precision">
+  <![CDATA[**COORDINATE GUIDANCE:**
+
+FOR VISUAL ELEMENTS OUTSIDE UI LIST:
+- Use coordinate analysis from screenshot
+- Target element centers, not edges
+- Format: {"action_id": "coord", "params": {"coordinates": [x,y]}}
+
+PRECISION STRATEGY:
+- ScreenDescription elements: Use provided action_id
+- Visual elements (games, canvas, dynamic): Use coordinate analysis
+- Exact coordinates when provided vs visual estimation preferred
+
+COORDINATE FORMAT:
+- Position tuples: (x, y)
+- Bounds arrays: [[x1,y1],[x2,y2]]
+- Example: "button 'OK' at position (540, 1306) - bounds[[200, 1270], [880, 1342]]"]]>
+</fragment>
