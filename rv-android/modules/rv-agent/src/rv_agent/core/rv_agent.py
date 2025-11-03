@@ -1,588 +1,1290 @@
 """
-RVAgent Core - Autonomous Android testing agent.
+Autonomous Android testing agent with stateless context architecture.
 
-EXACT implementation of MVP plan with process isolation.
-Client-side autonomous agent using DeviceInterface + ReactEngine + Memory.
+Implements an LLM-based agent that explores Android applications using
+multimodal understanding with CONSTANT token usage per iteration (no history accumulation).
+
+### Stateless Architecture:
+- NO MESSAGE HISTORY: Each LLM call receives fresh message built from summaries
+- AgentMemoryManager: Generates pre-formatted summary strings
+- Constant ~2500 tokens/iteration vs exponential growth
+- Prevents context window overflow (32K limit)
 """
+
+import os
 import time
-from typing import Dict, Any, List, Optional, Tuple
-from dataclasses import dataclass
+import base64
+import logging
+from typing import Optional, Dict, Any, Set
+from pathlib import Path
 
-from rv_android_core.util.logging.manager import LoggingManager
-from rv_android_core.util.error.error_handler import ErrorHandler
+from langgraph.graph import StateGraph, END
+from langgraph.prebuilt import tools_condition
+from langchain_ollama import ChatOllama
+from langchain_core.messages import HumanMessage, AIMessage
 
-from ..constants import RVAgentConstants
-from .device_adapter import DeviceInterface
-from .react_engine import ReactEngine, ReactAction
-from ..memory.short_term import ShortTermMemory
-from ..memory.long_term import LongTermMemory
-from ..memory.ui_coverage import UICoverageTracker
-from ..llm.langchain_service import LangChainService
+from rv_agent.config.agent_config import RVAgentConfig
+from rv_agent.llm.graph.state import AgentState
+from rv_agent.core.device_interface import DeviceInterface
+from rv_agent.core.screenshot_optimizer import ScreenshotOptimizer
+from rv_agent.core.dynamic_state_graph import DynamicStateGraph, compute_screen_hash
+from rv_agent.core.coordinate_converter import CoordinateConverter
+from rv_agent.strategies import DFSStrategy, BFSStrategy
+from rv_agent.memory import AgentMemoryManager
+from rv_agent.memory.long_term import LongTermMemory
+from rv_agent.memory.short_term import ShortTermMemory
+from rv_agent.memory.ui_coverage import UICoverageTracker
+from rv_screen_parser.parser.screen.uiautomator.uiautomator_parser import UIAutomator2Parser
+from rv_screen_parser.parser.screen.visitor.default_visitor import DefaultTextVisitor
+from rv_android_core.domain.static import StaticAnalysisData
+from rv_agent.llm.tools import json_parser  # JSON parser for vision+tools responses
 
+# Import versioned prompts - CHANGE HERE TO SWITCH VERSIONS
+from rv_agent.prompts import v10 as current_prompt  # v10 = simplified for smaller vision models (qwen3-vl:4b)
 
-@dataclass
-class AgentSession:
-    """
-    Represents an RVAgent testing session.
-
-    Tracks session state, objectives, and execution results.
-    """
-    package_name: str
-    objective: str = "explore_application"
-    start_time: float = 0.0
-    end_time: float = 0.0
-    iteration_count: int = 0
-    success_count: int = 0
-    error_count: int = 0
-
-    def __post_init__(self):
-        if self.start_time == 0.0:
-            self.start_time = time.time()
-
-    @property
-    def duration(self) -> float:
-        """Get session duration in seconds."""
-        end = self.end_time if self.end_time > 0 else time.time()
-        return end - self.start_time
-
-    @property
-    def success_rate(self) -> float:
-        """Calculate session success rate."""
-        if self.iteration_count == 0:
-            return 0.0
-        return self.success_count / self.iteration_count
+logger = logging.getLogger(__name__)
 
 
 class RVAgent:
     """
-    RVAgent Core - Autonomous Android testing agent client.
+    Autonomous Android exploration agent with stateless LLM context.
 
-    SUBPROCESS ISOLATED PROCESS:
-    - LoggingManager.get_instance() with own subprocess instance
-    - ErrorHandler.get_instance() with own subprocess instance
-    - DeviceInterface + ReactEngine + Memory complete integration
-    - MVP standalone client (no server dependencies)
+    ### Key Architectural Changes:
+    - **Stateless Messaging**: No message history accumulation
+    - **AgentMemoryManager**: Generates pre-formatted summary strings
+    - **Constant Token Usage**: ~2500 tokens per iteration (vs exponential)
+    - **Fresh Messages**: Each LLM call constructs new message from summaries
 
-    Architecture:
-    - DeviceInterface: Android device communication
-    - ReactEngine: ReAct decision making with memory integration
-    - Memory components: Learning and state tracking
-    - Session management: Testing session lifecycle
+    ### Integration Pattern (from rvsmart-tool):
+    - Memory provides PRE-FORMATTED STRINGS (not objects)
+    - Summaries limited to last N actions (default 5)
+    - Exploration state tracked separately from LLM context
+    - Each iteration builds fresh HumanMessage with all context embedded
 
-    Target: br.unb.cic.cryptoapp - Autonomous exploration and testing
+    ### Benefits:
+    - No context window overflow (stays under 32K)
+    - Predictable token usage for cost/performance planning
+    - Can run unlimited iterations without memory growth
+    - GPU RAM stays constant (no 14GB spikes)
     """
 
-    def __init__(self, timeout: int = RVAgentConstants.DEFAULT_TIMEOUT):
-        """Initialize RVAgent with process isolation support."""
-
-        # Process isolation - LoggingManager with own instance
-        logging_manager = LoggingManager.get_instance()
-        self.logger = logging_manager.get_logger(
-            "rv_agent.core.rv_agent",
-            {"component": "RVAgent"}
-        )
-
-        # ErrorHandler decorators available in subprocess
-        self.error_handler = ErrorHandler.get_instance()
-
-        # Core components
-        self.device_interface = DeviceInterface()
-
-        # Memory components
-        self.short_term_memory = ShortTermMemory()
-        self.long_term_memory = LongTermMemory()
-        self.ui_coverage_tracker = UICoverageTracker()
-
-        # LLM Service (MANDATORY) - Now requires device_adapter for tool-calling
-        self.llm_service = LangChainService(
-            device_adapter=self.device_interface,
-            model_name=RVAgentConstants.DEFAULT_MODEL
-        )
-
-        # ReactEngine with memory integration and LLM
-        self.react_engine = ReactEngine(
-            short_term_memory=self.short_term_memory,
-            long_term_memory=self.long_term_memory,
-            ui_coverage_tracker=self.ui_coverage_tracker,
-            llm_service=self.llm_service
-        )
-
-        # Session management
-        self.current_session: Optional[AgentSession] = None
-        self.timeout = timeout
-
-        self.logger.info(f"[RVAGENT_DEBUG] RVAgent initialized (timeout: {timeout}s)")
-
-    def connect_to_device(self) -> bool:
+    def __init__(
+        self,
+        config: RVAgentConfig,
+        static_data: Optional[StaticAnalysisData] = None,
+        device: Optional[Any] = None
+    ):
         """
-        Connect to Android device.
-
-        Returns:
-            True if connection successful, False otherwise
-        """
-        try:
-            self.logger.info("[RVAGENT_DEBUG] Connecting to Android device...")
-            connected = self.device_interface.connect_to_device()
-
-            if connected:
-                self.logger.info("[RVAGENT_DEBUG] ✅ Device connection successful")
-            else:
-                self.logger.error("[RVAGENT_DEBUG] ❌ Device connection failed")
-
-            return connected
-
-        except Exception as e:
-            self.logger.error(f"[RVAGENT_DEBUG] Device connection error: {e}")
-            return False
-
-    def start_testing_session(self, package_name: str, objective: str = "explore_application") -> bool:
-        """
-        Start autonomous testing session for specified app.
+        Initialize RVAgent with stateless context architecture.
 
         Args:
-            package_name: Android package name to test
-            objective: Testing objective
+            config: Agent configuration
+            static_data: Optional static analysis data for MOP guidance
+            device: Optional device interface (for testing/validation)
+        """
+        self.config = config
+        self.static_data = static_data
+
+        logger.info("Initializing RVAgent (STATELESS architecture)")
+        logger.info(f"Strategy: {config.strategy}")
+        logger.info(f"Device: {config.device_id}")
+        logger.info(f"Package: {config.package_name}")
+        logger.info(f"Static analysis: {'enabled' if static_data else 'disabled'}")
+
+        # Device interaction (use injected device or create new one)
+        if device is not None:
+            self.device = device
+            logger.info("Using injected device interface (validation mode)")
+        else:
+            self.device = DeviceInterface(device_id=config.device_id)
+        self.screenshot_optimizer = ScreenshotOptimizer()
+
+        # UI parsing
+        self.parser = UIAutomator2Parser(DefaultTextVisitor)
+
+        # STATELESS Memory Manager (generates summaries)
+        self.memory_manager = AgentMemoryManager(
+            max_action_history=5,  # Limit to last 5 actions
+            max_navigation_path=5   # Last 5 activities
+        )
+        logger.info("AgentMemoryManager initialized for stateless context")
+
+        # Legacy memory systems (still used for exploration tracking)
+        self.long_term = LongTermMemory(static_data)
+        self.short_term = ShortTermMemory()
+        self.ui_coverage = UICoverageTracker()
+
+        # Dynamic exploration graph (structural hash)
+        self.dynamic_graph = DynamicStateGraph()
+
+        # Pluggable strategy (DFS or BFS)
+        if config.strategy == "dfs":
+            self.strategy = DFSStrategy(self.dynamic_graph, static_data)
+            logger.info("Using DFS strategy")
+        elif config.strategy == "bfs":
+            self.strategy = BFSStrategy(self.dynamic_graph, static_data)
+            logger.info("Using BFS strategy")
+        else:
+            raise ValueError(f"Unknown strategy: {config.strategy}")
+
+        # Coordinate converter
+        self.converter = CoordinateConverter(
+            device_dimensions=config.device_dimensions,
+            optimized_dimensions=config.optimized_dimensions
+        )
+
+        logger.info(
+            f"Coordinate converter: {config.device_dimensions} → {config.optimized_dimensions}"
+        )
+
+        # Import and create Android tools
+        from rv_agent.llm.tools.android_tools import (
+            create_android_tools,
+            set_device_interface,
+            set_coordinate_converter
+        )
+
+        self.tools = create_android_tools()
+        logger.info(f"Android tools created: {len(self.tools)} tools")
+
+        # Initialize tools with device and converter
+        set_device_interface(self.device)
+        set_coordinate_converter(self.converter)
+        logger.info("Tools initialized with device interface and coordinate converter")
+
+        # Create LLM instance with tool calling
+        llm_config = config.get_langchain_config()
+        llm_base = ChatOllama(
+            model=llm_config['model'],  # Use model from config
+            temperature=llm_config['temperature'],
+            top_p=llm_config.get('top_p', 0.8),
+            top_k=llm_config.get('top_k', 50),
+            base_url=llm_config.get('base_url', 'http://localhost:11434'),
+            timeout=60.0,
+            request_timeout=60.0
+        )
+
+        # Bind tools to LLM
+        self.llm = llm_base.bind_tools(self.tools)
+
+        logger.info("LLM configured with tool calling support")
+
+        # LangGraph workflow (simplified for stateless)
+        self.graph = self._build_agent_graph()
+
+        # External loop state (persisted between graph invocations)
+        self.external_navigation_count = 0
+
+        logger.info("RVAgent initialized successfully (STATELESS)")
+
+    def _build_agent_graph(self):
+        """
+        Build LangGraph workflow with V7 retry logic.
+
+        Flow:
+        observe → assistant → [tools_condition]
+                            ↓                ↓
+                         tools              learn (no tools)
+                            ↓
+                      validate_action
+                            ↓
+                     [retry_decision]
+                ↓           ↓            ↓
+          update_params  update_mem  max_retries
+               ↓             ↓            ↓
+           assistant       learn        learn
+
+        V7 Changes:
+        - Uses builtin tools_condition from langgraph.prebuilt
+        - Adds retry loop with progressive sampling (temperature, top_p, top_k)
+        - validate_action node checks if tools were executed
+        - retry_decision routes based on success/failure
+        - update_sampling_params increases creativity on retry
 
         Returns:
-            True if session started successfully
+            Compiled LangGraph workflow
         """
-        try:
-            self.logger.info(f"[RVAGENT_DEBUG] Starting testing session: {package_name}")
+        logger.info("Building LangGraph workflow with V7 retry logic")
 
-            # Create new session
-            self.current_session = AgentSession(
-                package_name=package_name,
-                objective=objective
+        workflow = StateGraph(AgentState)
+
+        # Add nodes
+        workflow.add_node("observe", self._observe_node)
+        workflow.add_node("assistant", self._assistant_node)
+        workflow.add_node("tools", self._execute_tools_node)  # Custom tool executor
+        workflow.add_node("validate_action", self._validate_action_node)  # V7
+        workflow.add_node("update_sampling", self._update_sampling_params_node)  # V7
+        workflow.add_node("update_memories", self._update_memories_node)
+        workflow.add_node("learn", self._learn_node)
+        workflow.add_node("handle_max_retries", self._handle_max_retries_node)  # V7
+
+        # Flow
+        workflow.set_entry_point("observe")
+        workflow.add_edge("observe", "assistant")
+
+        # Use builtin tools_condition (V7)
+        workflow.add_conditional_edges(
+            "assistant",
+            tools_condition,  # Builtin from langgraph.prebuilt
+        )
+
+        # Validate action after tool execution (V7)
+        workflow.add_edge("tools", "validate_action")
+
+        # Retry decision based on validation (V7)
+        workflow.add_conditional_edges(
+            "validate_action",
+            self._retry_decision,
+            {
+                "success": "update_memories",      # Success → continue
+                "retry": "update_sampling",         # Retry with higher creativity
+                "max_retries": "handle_max_retries"  # Give up → fallback
+            }
+        )
+
+        # Retry loop: update_sampling → assistant (try again)
+        workflow.add_edge("update_sampling", "assistant")
+
+        # Normal continuation
+        workflow.add_edge("update_memories", "learn")
+        workflow.add_edge("handle_max_retries", "learn")
+        workflow.add_edge("learn", END)
+
+        logger.info("LangGraph workflow compiled with V7 retry logic")
+        return workflow.compile()
+
+    def _observe_node(self, state: AgentState) -> AgentState:
+        """
+        Observe current screen state - NO message construction.
+
+        ### Stateless Pattern:
+        - Captures current UI state and screenshot
+        - NO message creation (done in assistant node)
+        - Returns raw observation data
+
+        Returns:
+            Updated state with current observations
+        """
+        logger.info("🔍 OBSERVE: Capturing current screen state")
+
+        try:
+            # Get current UI state
+            ui_state = self.device.get_current_ui_state()
+
+            # Take and optimize screenshot
+            screenshot_path = self.device.take_screenshot()
+            screenshot_b64 = self._load_and_optimize_screenshot(screenshot_path)
+
+            # Parse screen
+            screen_description = self.parser.parse(
+                ui_state['xml'],
+                static_data=self.static_data
             )
 
-            # Launch application
-            launched = self.device_interface.launch_app(package_name)
-            if not launched:
-                self.logger.error(f"[RVAGENT_DEBUG] Failed to launch {package_name}")
-                return False
+            # Compute screen hash
+            screen_hash = compute_screen_hash(ui_state['xml'])
 
-            # Set ReactEngine objective
-            self.react_engine.set_objective(objective)
+            logger.info(f"   Activity: {ui_state['current_activity']}")
+            logger.info(f"   Screen hash: {screen_hash[:12]}...")
+            logger.info(f"   UI elements: {len(screen_description.items)}")
 
-            # Clear memories for fresh session
-            self.short_term_memory.clear()
-            self.long_term_memory.clear_memory()
-            self.ui_coverage_tracker.reset_coverage()
-
-            self.logger.info(f"[RVAGENT_DEBUG] ✅ Testing session started: {package_name}")
-            self.logger.info(f"[RVAGENT_DEBUG] Objective: {objective}")
-
-            return True
-
-        except Exception as e:
-            self.logger.error(f"[RVAGENT_DEBUG] Session start failed: {e}")
-            return False
-
-    def run_autonomous_exploration(self, timeout: Optional[int] = None) -> Dict[str, Any]:
-        """
-        Run autonomous exploration of the current application.
-
-        Main execution loop: UI state capture → ReAct decision → Action execution.
-        Executes until timeout is reached.
-
-        Args:
-            timeout: Override default timeout in seconds
-
-        Returns:
-            Session results summary
-        """
-        try:
-            if not self.current_session:
-                raise ValueError("No active testing session")
-
-            execution_timeout = timeout or self.timeout
-            start_time = time.time()
-            self.logger.info(f"[RVAGENT_DEBUG] Starting autonomous exploration (timeout: {execution_timeout}s)")
-
-            iteration = 0
-            while True:
-                iteration += 1
-                current_time = time.time()
-                elapsed_time = current_time - start_time
-
-                # Check timeout
-                if elapsed_time >= execution_timeout:
-                    self.logger.info(f"[RVAGENT_DEBUG] Execution timeout reached ({execution_timeout}s)")
-                    break
-                remaining_time = execution_timeout - elapsed_time
-                self.logger.info(f"[RVAGENT_DEBUG] === ITERATION {iteration} === (time remaining: {remaining_time:.1f}s)")
-
-                # Step 0: App state monitoring with tolerance
-                app_state_ok = self._ensure_target_app_active()
-                if not app_state_ok:
-                    self.logger.error(f"[RVAGENT_DEBUG] Target app not active after restart attempts (iteration {iteration})")
-                    self.current_session.error_count += 1
-                    break  # Exit if we can't maintain app state
-
-                # Step 1: Automatic screenshot for LLM vision
-                print(f"[RVAGENT_DEBUG] 📸 Taking screenshot for iteration {iteration}...")
-                screenshot_path = self._take_controlled_screenshot(iteration)
-                if screenshot_path:
-                    self.logger.info(f"[RVAGENT_DEBUG] 📸 Screenshot captured: {screenshot_path}")
-                    print(f"[RVAGENT_DEBUG] ✅ Screenshot ready: {screenshot_path}")
-
-                # Step 2: Capture current UI state
-                print(f"[RVAGENT_DEBUG] 📱 Capturing UI state after screenshot...")
-                ui_state = self._capture_ui_state()
-                if not ui_state:
-                    self.logger.error(f"[RVAGENT_DEBUG] Failed to capture UI state (iteration {iteration})")
-                    self.current_session.error_count += 1
-                    continue
-
-                print(f"[RVAGENT_DEBUG] ✅ UI state captured: Activity={ui_state.get('activity', 'unknown')}, Elements={ui_state.get('element_count', 0)}")
-
-                # Step 3: ReactEngine decision (multiple actions) with screenshot
-                actions = self.react_engine.decide_next_action(ui_state, screenshot_path)
-                if not actions:
-                    self.logger.error(f"[RVAGENT_DEBUG] ReactEngine failed to generate actions (iteration {iteration})")
-                    self.current_session.error_count += 1
-                    continue
-
-                # Step 3: Execute actions sequentially
-                successful_actions = 0
-                total_actions = len(actions)
-
-                for i, action in enumerate(actions):
-                    if action.already_executed:
-                        # LangChain tool already executed this action
-                        self.logger.info(f"[RVAGENT_DEBUG] Action {i+1}/{total_actions} already executed: {action.action_type}")
-                        success = action.already_executed  # Use the success status from tool execution
-                        successful_actions += 1 if success else 0
-                    else:
-                        # Traditional execution (fallback for actions that couldn't be tool-called)
-                        self.logger.info(f"[RVAGENT_DEBUG] Executing action {i+1}/{total_actions}: {action.action_type}")
-                        success = self._execute_react_action(action)
-                        if success:
-                            successful_actions += 1
-
-                    # Step 4: Record results for each action
-                    self.react_engine.record_action_result(action, success)
-
-                    # Log individual action result
-                    status = "SUCCESS" if success else "FAILED"
-                    executed_by = "LangChain-Tool" if action.already_executed else "DeviceInterface"
-                    self.logger.info(f"[RVAGENT_DEBUG]   Action {i+1} result: "
-                                   f"{status} via {executed_by} - {action.reasoning[:50]}...")
-
-                # Update session stats (iteration = one LLM call with multiple actions)
-                self.current_session.iteration_count += 1
-                if successful_actions > 0:
-                    self.current_session.success_count += successful_actions
-
-                # Log iteration summary
-                self.logger.info(f"[RVAGENT_DEBUG] Iteration {iteration} complete: "
-                               f"{successful_actions}/{total_actions} actions successful")
-
-                # Brief pause between iterations
-                time.sleep(RVAgentConstants.ITERATION_DELAY)
-
-            # Finalize session
-            self.current_session.end_time = time.time()
-
-            self.logger.info(f"[RVAGENT_DEBUG] ✅ Autonomous exploration complete")
-            return self._generate_session_summary()
-
-        except Exception as e:
-            self.logger.error(f"[RVAGENT_DEBUG] Autonomous exploration failed: {e}")
-            if self.current_session:
-                self.current_session.end_time = time.time()
-            return {"error": str(e)}
-
-    def _capture_ui_state(self) -> Optional[Dict[str, Any]]:
-        """Capture current UI state with error handling."""
-        try:
-            ui_state = self.device_interface.get_current_ui_state()
-
-            if ui_state:
-                self.logger.debug(f"[RVAGENT_DEBUG] UI state captured: "
-                                f"Activity: {ui_state.get('activity', 'unknown')} "
-                                f"Elements: {ui_state.get('element_count', 0)}")
-            else:
-                self.logger.warning("[RVAGENT_DEBUG] UI state capture returned empty")
-
-            return ui_state
-
-        except Exception as e:
-            self.logger.error(f"[RVAGENT_DEBUG] UI state capture failed: {e}")
-            return None
-
-    def _execute_react_action(self, action) -> bool:
-        """
-        Execute ReactAction on device.
-
-        MVP implementation: Basic click actions only.
-        Future: Full action type support via DeviceInterface.
-
-        Args:
-            action: ReactAction to execute
-
-        Returns:
-            True if action was successful
-        """
-        try:
-            self.logger.debug(f"[RVAGENT_DEBUG] Executing action: {action.action_type} "
-                            f"Element: {action.element_id[:50]}... "
-                            f"Coordinates: {action.coordinates}")
-
-            if action.action_type == "click" and action.coordinates:
-                # MVP: Simple coordinate click using rv-uiautomator
-                x, y = action.coordinates
-                # Note: This is a placeholder - actual implementation would use
-                # the device interface methods when they're available
-
-                # For now, simulate action execution
-                self.logger.debug(f"[RVAGENT_DEBUG] Simulating click at ({x}, {y})")
-
-                # Take screenshot for verification
-                screenshot_path = self.device_interface.take_screenshot()
-                if screenshot_path:
-                    self.logger.debug(f"[RVAGENT_DEBUG] Screenshot taken: {screenshot_path}")
-
-                # Simulate success (in real implementation, this would be actual execution result)
-                import random
-                success = random.random() > 0.3  # 70% success rate for simulation
-
-                return success
-
-            elif action.action_type == "wait":
-                self.logger.debug("[RVAGENT_DEBUG] Executing wait action")
-                time.sleep(2)
-                return True
-
-            else:
-                self.logger.warning(f"[RVAGENT_DEBUG] Unsupported action type: {action.action_type}")
-                return False
-
-        except Exception as e:
-            self.logger.error(f"[RVAGENT_DEBUG] Action execution failed: {e}")
-            return False
-
-    def _generate_session_summary(self) -> Dict[str, Any]:
-        """Generate comprehensive session summary."""
-        try:
-            if not self.current_session:
-                return {"error": "No active session"}
-
-            # Get statistics from all components
-            react_stats = self.react_engine.get_decision_statistics()
-            stm_stats = self.short_term_memory.get_statistics()
-            ltm_stats = self.long_term_memory.get_statistics()
-            coverage_stats = self.ui_coverage_tracker.get_overall_statistics()
-
-            summary = {
-                # Session info
-                "session": {
-                    "package_name": self.current_session.package_name,
-                    "objective": self.current_session.objective,
-                    "duration": self.current_session.duration,
-                    "iterations": self.current_session.iteration_count,
-                    "success_count": self.current_session.success_count,
-                    "error_count": self.current_session.error_count,
-                    "success_rate": self.current_session.success_rate
-                },
-
-                # Component statistics
-                "react_engine": react_stats,
-                "short_term_memory": stm_stats,
-                "long_term_memory": ltm_stats,
-                "ui_coverage": coverage_stats,
-
-                # Summary metrics
-                "total_unique_elements_tested": coverage_stats.get("total_unique_elements", 0),
-                "total_interactions": coverage_stats.get("total_interactions", 0),
-                "coverage_efficiency": (
-                    coverage_stats.get("total_unique_elements", 0) /
-                    max(self.current_session.iteration_count, 1)
-                )
+            # Don't clear messages - let them flow naturally for tool calling
+            # Messages accumulate within a single graph invocation
+            # External loop creates fresh state for each iteration
+            return {
+                "screenshot_b64": screenshot_b64,
+                "current_screen_hash": screen_hash,
+                "current_activity": ui_state['current_activity'],
+                "screen_description": screen_description
             }
 
-            self.logger.info(f"[RVAGENT_DEBUG] Session summary generated: "
-                           f"{summary['session']['iterations']} iterations, "
-                           f"{summary['session']['success_rate']:.1%} success rate")
-
-            return summary
-
         except Exception as e:
-            self.logger.error(f"[RVAGENT_DEBUG] Session summary generation failed: {e}")
-            return {"error": str(e)}
+            logger.error(f"❌ Observation failed: {e}", exc_info=True)
+            raise
 
-    def _ensure_target_app_active(self) -> bool:
+    def _assistant_node(self, state: AgentState) -> AgentState:
         """
-        Ensure target app is active with tolerance for 3 out-of-app screens.
+        Generate action using LLM with tool calling (V7: progressive sampling).
+
+        LLM analyzes current screen and decides which tool to call.
+        Uses sampling parameters from state for progressive creativity across retries.
 
         Returns:
-            True if target app is active or successfully restarted, False if failed
+            Updated state with messages and token metrics
         """
-        if not self.current_session:
-            return False
+        # Get sampling parameters from state (V7 retry logic)
+        temperature = state.get("sampling_temperature", 0.1)
+        top_p = state.get("sampling_top_p", 0.9)
+        top_k = state.get("sampling_top_k", 40)
+        retry_count = state.get("retry_count", 0)
 
-        target_package = self.current_session.package_name
+        logger.info(f"🤖 ASSISTANT: Generating action (retry={retry_count}, temp={temperature}, top_p={top_p}, top_k={top_k})")
 
-        # Initialize out-of-app counter if not exists
-        if not hasattr(self.current_session, 'out_of_app_count'):
-            self.current_session.out_of_app_count = 0
+        start_time = time.time()
 
-        # Check if we're in the target app
-        is_active = self.device_interface.is_target_app_active(target_package)
-        current_package = self.device_interface.get_current_package()
+        try:
+            # Build fresh message from summaries
+            message = self._build_stateless_message(state)
 
-        # DEBUG: Force active when package matches (temporary fix)
-        if current_package == target_package:
-            is_active = True
-            self.logger.info(f"[RVAGENT_DEBUG] 🔧 FORCE ACTIVE: Package matches {target_package}")
+            logger.info("   Message constructed with screenshot + UI coordinates")
 
-        if is_active:
-            # Reset counter when back in app
-            self.current_session.out_of_app_count = 0
-            self.logger.debug(f"[RVAGENT_DEBUG] ✅ Target app active: {target_package}")
-            return True
+            # Get existing messages from state (for ToolNode compatibility)
+            existing_messages = state.get("messages", [])
 
-        # We're outside the target app
-        self.current_session.out_of_app_count += 1
-        self.logger.warning(f"[RVAGENT_DEBUG] ⚠️ Outside target app: {current_package} (count: {self.current_session.out_of_app_count}/3)")
+            # LLM invocation with dynamic sampling parameters (V7)
+            # Pass parameters directly to invoke() (Ollama-specific approach)
+            response = self.llm.invoke(
+                [message],
+                config={
+                    "configurable": {
+                        "temperature": temperature,
+                        "top_p": top_p,
+                        "top_k": top_k
+                    }
+                }
+            )
 
-        if self.current_session.out_of_app_count <= 3:
-            # Within tolerance - allow exploration of login screens, etc.
-            self.logger.info(f"[RVAGENT_DEBUG] 🔄 Tolerating out-of-app navigation (within limit)")
-            return True
+            llm_time_ms = (time.time() - start_time) * 1000
 
-        # Exceeded tolerance - restart app
-        self.logger.warning(f"[RVAGENT_DEBUG] 🔄 Tolerance exceeded, restarting app: {target_package}")
-        restart_success = self.device_interface.restart_target_app(target_package)
+            # Extract tokens
+            llm_tokens_input = 0
+            llm_tokens_output = 0
 
-        if restart_success:
-            self.current_session.out_of_app_count = 0  # Reset counter
-            self.current_session.restart_count = getattr(self.current_session, 'restart_count', 0) + 1
-            self.logger.info(f"[RVAGENT_DEBUG] ✅ App restarted successfully (restart #{self.current_session.restart_count})")
-            return True
+            if hasattr(response, 'usage_metadata') and response.usage_metadata:
+                llm_tokens_input = response.usage_metadata.get('input_tokens', 0)
+                llm_tokens_output = response.usage_metadata.get('output_tokens', 0)
+            elif hasattr(response, 'response_metadata') and response.response_metadata:
+                metadata = response.response_metadata
+                llm_tokens_input = metadata.get('prompt_eval_count', 0)
+                llm_tokens_output = metadata.get('eval_count', 0)
+
+            # Log tool calls (native or parsed from JSON/XML)
+            if hasattr(response, 'tool_calls') and response.tool_calls:
+                logger.info(f"   ✅ Native tool calls: {len(response.tool_calls)}")
+                for tc in response.tool_calls:
+                    logger.info(f"     - {tc['name']} with args: {tc['args']}")
+            else:
+                logger.warning("   ⚠️  No native tool calls - attempting JSON/XML parsing...")
+                # Parse tool calls from text response (qwen-vision-tools-v2 returns XML)
+                parsed_calls = json_parser.parse_tool_calls_from_text(response.content)
+                if parsed_calls:
+                    logger.info(f"   ✅ Parsed {len(parsed_calls)} tool calls from text")
+                    # Convert parsed calls to LangChain format and inject into response
+                    response.tool_calls = [
+                        {
+                            'name': tc['name'],
+                            'args': tc['args'],
+                            'id': f"call_{i}",
+                            'type': 'tool_call'
+                        }
+                        for i, tc in enumerate(parsed_calls)
+                    ]
+                    for tc in response.tool_calls:
+                        logger.info(f"     - {tc['name']} with args: {tc['args']}")
+                else:
+                    logger.warning("   ❌ No tool calls found in text either")
+
+            logger.info(f"   LLM Response: {llm_time_ms:.1f}ms, "
+                       f"tokens: {llm_tokens_input} in / {llm_tokens_output} out")
+
+            # Log complete response content for debugging (first 500 chars)
+            response_preview = response.content[:500] if response.content else "<empty>"
+            logger.debug(f"📤 LLM Response Content (first 500 chars):\n{response_preview}")
+            if len(response.content) > 500:
+                logger.debug(f"   ... (total {len(response.content)} chars)")
+
+            # Accumulate messages (user message + AI response) for ToolNode compatibility
+            # Messages will be cleared on next observe_node iteration
+            updated_messages = existing_messages + [message, response]
+
+            logger.info(f"🔧 ASSISTANT RETURN: Returning {len(updated_messages)} messages to state")
+            logger.info(f"   - existing: {len(existing_messages)}, adding: 2 (user + AI)")
+
+            return {
+                "messages": updated_messages,
+                "llm_tokens_input": llm_tokens_input,
+                "llm_tokens_output": llm_tokens_output,
+                "llm_time_ms": llm_time_ms
+            }
+
+        except Exception as e:
+            logger.error(f"❌ Assistant failed: {e}", exc_info=True)
+            # Return empty response (will trigger fallback in update_memories)
+            return {
+                "messages": [],
+                "llm_tokens_input": 0,
+                "llm_tokens_output": 0,
+                "llm_time_ms": (time.time() - start_time) * 1000
+            }
+
+    def _build_stateless_message(self, state: AgentState) -> HumanMessage:
+        """
+        Build fresh HumanMessage with SIMPLIFIED V10 prompt.
+
+        V10 minimal context approach:
+        - Simple system prompt (no complex instructions)
+        - Only essential UI elements (top 15)
+        - Minimal action history (last action only)
+        - NO exploration metrics, memory insights, or navigation paths
+
+        This reduces prompt complexity to prevent overloading smaller vision models.
+
+        Returns:
+            Fresh HumanMessage with simplified context
+        """
+        # Get simple system prompt from V10
+        system_text = current_prompt.SYSTEM_PROMPT
+
+        # Format UI elements (simplified - max 15 elements)
+        ui_elements = self._extract_ui_elements(state['screen_description'])[:15]
+        ui_text_list = [f"- {elem['type']} '{elem['text']}' at ({elem['x']}, {elem['y']})"
+                        for elem in ui_elements]
+
+        # Build minimal user message from V10
+        state_info = {
+            'ui_elements': ui_text_list,
+            'last_action': state.get('last_action_summary', None),
+            'iteration': state.get('iteration', 0)
+        }
+        user_text = current_prompt.build_user_message(state_info)
+
+        # DEBUG: Log full prompt on iteration 2
+        iteration = state.get("iteration", 0)
+        if iteration == 1:  # iteration 2 (0-indexed)
+            full_prompt = f"{system_text}\n\n{user_text}"
+            logger.info(f"\n{'='*80}\nFULL PROMPT (Iteration 2):\n{'='*80}\n{full_prompt}\n{'='*80}")
+
+        # Build multimodal message
+        return HumanMessage(content=[
+            {"type": "text", "text": f"{system_text}\n\n{user_text}"},
+            {"type": "image_url", "image_url": {
+                "url": f"data:image/png;base64,{state['screenshot_b64']}"
+            }}
+        ])
+
+    def _format_ui_elements(self, screen_description) -> str:
+        """
+        Format UI elements with explicit coordinates for vision model.
+
+        V8.1: Separates elements into three categories to guide tool selection:
+        1. Text Input Fields (EditText) - MUST use android_type_text
+        2. Dropdown Selectors (Spinner) - use android_click to open, then select
+        3. Clickable Elements (Buttons, Images, etc) - use android_click
+
+        CRITICAL: All coordinates are transformed to optimized space before
+        being shown to the LLM, so LLM generates coordinates that android_tools can validate.
+        """
+        if not screen_description or not screen_description.items:
+            return "No interactive elements found."
+
+        # V8.1: Separate elements by category
+        text_inputs = []  # EditText - MUST type
+        spinners = []  # Spinner - click to open dropdown
+        clickable_items = []  # Everything else - click normally
+
+        for item in screen_description.items:
+            if not item.view.get('clickable', False):
+                continue  # Skip non-clickable
+
+            elem_class = item.view.get('class', '')
+            if 'EditText' in elem_class or 'AutoCompleteTextView' in elem_class:
+                text_inputs.append(item)
+            elif 'Spinner' in elem_class:
+                spinners.append(item)
+            else:
+                clickable_items.append(item)
+
+        # Check if we have any elements
+        if not text_inputs and not spinners and not clickable_items:
+            return "No interactive elements found."
+
+        lines = []
+
+        # SECTION 1: Text Input Fields (highest priority for forms)
+        if text_inputs:
+            lines.extend([
+                "=== TEXT INPUT FIELDS ===",
+                "⚠️ IMPORTANT: Use android_type_text() tool for these elements, NOT android_click()!",
+                ""
+            ])
+            for i, item in enumerate(text_inputs[:5], 1):  # Limit to 5
+                desc = self._format_element_desc(i, item, "TEXT INPUT")
+                if desc:
+                    lines.append(desc)
+            lines.append("")
+
+        # SECTION 2: Dropdown Selectors
+        if spinners:
+            lines.extend([
+                "=== DROPDOWN SELECTORS ===",
+                "ℹ️ Use android_click() to open dropdown, then select option in next iteration",
+                ""
+            ])
+            for i, item in enumerate(spinners[:5], 1):  # Limit to 5
+                desc = self._format_element_desc(i, item, "DROPDOWN")
+                if desc:
+                    lines.append(desc)
+            lines.append("")
+
+        # SECTION 3: Clickable Elements
+        if clickable_items:
+            lines.extend([
+                "=== CLICKABLE ELEMENTS ===",
+                "Use android_click() for buttons, images, checkboxes, switches, icons",
+                ""
+            ])
+            for i, item in enumerate(clickable_items[:10], 1):  # Limit to 10
+                desc = self._format_element_desc(i, item, None)
+                if desc:
+                    lines.append(desc)
+            lines.append("")
+
+        # Show optimized dimensions
+        opt_width = self.converter.optimized_width
+        opt_height = self.converter.optimized_height
+        lines.extend([
+            f"Screen resolution: {opt_width}x{opt_height} pixels",
+            "Use EXACT coordinates from 'at position (x, y)' for tool calls"
+        ])
+
+        ui_text = "\n".join(lines)
+
+        # V8.1: Enhanced logging
+        total_count = len(screen_description.items)
+        logger.debug(
+            f"UI description: {total_count} total, "
+            f"{len(text_inputs)} text inputs, "
+            f"{len(spinners)} spinners, "
+            f"{len(clickable_items)} clickable"
+        )
+
+        if text_inputs:
+            logger.info(f"✏️ {len(text_inputs)} text input field(s) detected - must use android_type_text")
+        if spinners:
+            logger.info(f"🔽 {len(spinners)} spinner(s) detected - click to open dropdown")
+
+        return ui_text
+
+    def _format_element_desc(self, index: int, item, category_label: str = None) -> str:
+        """
+        Format single element description with optimized coordinates.
+
+        Args:
+            index: Element index in list
+            item: ScreenItem to format
+            category_label: Optional label to prepend (e.g., "TEXT INPUT", "DROPDOWN")
+
+        Returns:
+            Formatted element description or empty string if invalid bounds
+        """
+        elem_type = item.view.get('class', 'View').split('.')[-1]
+        text = item.view.get('text', '')
+        resource_id = item.view.get('resource_id', '').split('/')[-1]
+        bounds = item.view.get('bounds')
+
+        # Calculate center coordinates IN DEVICE SPACE
+        if not (bounds and len(bounds) == 2 and len(bounds[0]) == 2 and len(bounds[1]) == 2):
+            logger.debug(f"Element {index} has invalid bounds: {bounds}")
+            return ""
+
+        device_center_x = (bounds[0][0] + bounds[1][0]) // 2
+        device_center_y = (bounds[0][1] + bounds[1][1]) // 2
+
+        # CRITICAL: Transform to optimized space for LLM
+        optimized_center_x, optimized_center_y = self.converter.device_to_optimized(
+            device_center_x, device_center_y
+        )
+
+        # Transform bounds to optimized space
+        opt_x1, opt_y1 = self.converter.device_to_optimized(bounds[0][0], bounds[0][1])
+        opt_x2, opt_y2 = self.converter.device_to_optimized(bounds[1][0], bounds[1][1])
+        optimized_bounds = [[opt_x1, opt_y1], [opt_x2, opt_y2]]
+
+        # Build description
+        desc_parts = [f"{index}."]
+        if category_label:
+            desc_parts.append(f"[{category_label}]")
+        desc_parts.append(elem_type)
+
+        if text:
+            desc_parts.append(f"'{text}'")
+        if resource_id:
+            desc_parts.append(f"({resource_id})")
+
+        desc = " ".join(desc_parts)
+        desc += f" at position ({optimized_center_x}, {optimized_center_y}) - bounds{optimized_bounds}"
+
+        # Add available actions and MOP markers
+        if hasattr(item, 'actions') and item.actions:
+            actions_text = ", ".join(action.text for action in item.actions if hasattr(action, 'text'))
+            if actions_text:
+                desc += f". Actions: {actions_text}"
+
+            action = item.actions[0]
+            if action.directly_reaches_mop:
+                desc += " [DM]"
+            elif action.reaches_mop:
+                desc += " [M]"
+
+        return desc
+
+    def _find_item_by_coords(self, coords: tuple, screen_desc, tolerance: int = 20):
+        """
+        Map coordinates to ScreenItem with fuzzy bounds matching.
+
+        Supports hybrid validation:
+        - DOM elements: Match via bounds intersection
+        - Non-DOM elements (canvas, games): Return None but coords still valid
+
+        Args:
+            coords: (x, y) tuple in device space
+            screen_desc: ScreenDescription object
+            tolerance: Pixel tolerance for bounds matching
+
+        Returns:
+            ScreenItem if DOM element found, None otherwise
+
+        Note: None result does NOT mean invalid action. Vision model can
+        identify interactive elements not present in DOM (games, canvas, etc).
+        """
+        x, y = coords
+
+        for item in screen_desc.items:
+            bounds = item.view.get('bounds')
+            if not bounds or len(bounds) != 2:
+                continue
+
+            [[x1, y1], [x2, y2]] = bounds
+
+            # Check if coords within bounds (with tolerance)
+            if (x1 - tolerance <= x <= x2 + tolerance) and \
+               (y1 - tolerance <= y <= y2 + tolerance):
+                return item
+
+        return None  # Not DOM element (possibly canvas/game element)
+
+    # =============================================================================
+    # V7 RETRY LOGIC NODES - Progressive Creativity
+    # =============================================================================
+
+    def _validate_action_node(self, state: AgentState) -> AgentState:
+        """
+        Validate if tools were executed (V7 retry mechanism).
+
+        Decision node that checks if tool execution occurred.
+        This allows retry logic to detect when NO tools were called.
+
+        Returns:
+            Updated state with validation status
+        """
+        from langchain_core.messages import ToolMessage
+
+        logger.info("🔍 VALIDATE_ACTION: Checking tool execution")
+
+        messages = state.get("messages", [])
+        tool_messages = [m for m in messages if isinstance(m, ToolMessage)]
+
+        if not tool_messages:
+            logger.warning("   ❌ No tool messages found - NO ACTION EXECUTED")
+            return {
+                "last_action_success": False,
+                "retry_reason": "no_tool_executed"
+            }
+
+        # Tool was executed - check if successful
+        last_tool = tool_messages[-1]
+        success = "success" in str(last_tool.content).lower()
+
+        if success:
+            logger.info("   ✅ Tool executed successfully")
+            return {
+                "last_action_success": True,
+                "retry_reason": "",
+                "retry_count": 0  # Reset retry count on success
+            }
         else:
-            self.logger.error(f"[RVAGENT_DEBUG] ❌ App restart failed: {target_package}")
-            return False
-
-    def _take_controlled_screenshot(self, iteration: int) -> Optional[str]:
-        """
-        Take screenshot controlled by the system with temporary storage and limit.
-
-        Args:
-            iteration: Current iteration number for filename
-
-        Returns:
-            Screenshot path if successful, None otherwise
-        """
-        try:
-            import tempfile
-            import os
-            from pathlib import Path
-
-            # Use temporary directory with maximum 10 screenshots
-            temp_dir = Path(tempfile.gettempdir()) / "rvagent_screenshots"
-            temp_dir.mkdir(exist_ok=True)
-
-            # Clean old screenshots (keep only last 10)
-            existing_screenshots = sorted(temp_dir.glob("*.png"))
-            if len(existing_screenshots) >= 10:
-                # Remove oldest screenshots
-                for old_screenshot in existing_screenshots[:-9]:  # Keep 9, add 1 new = 10 total
-                    try:
-                        old_screenshot.unlink()
-                        self.logger.debug(f"[RVAGENT_DEBUG] Removed old screenshot: {old_screenshot}")
-                    except Exception:
-                        pass
-
-            timestamp = int(time.time())
-            screenshot_path = temp_dir / f"iter_{iteration:03d}_{timestamp}.png"
-
-            # Use DeviceInterface screenshot method directly
-            actual_path = self.device_interface.take_screenshot(str(temp_dir))
-
-            if actual_path:
-                # Rename to our controlled naming scheme
-                import shutil
-                shutil.move(actual_path, screenshot_path)
-                self.logger.debug(f"[RVAGENT_DEBUG] Screenshot saved: {screenshot_path}")
-                return str(screenshot_path)
-            else:
-                self.logger.warning(f"[RVAGENT_DEBUG] Screenshot capture failed")
-                return None
-
-        except Exception as e:
-            self.logger.error(f"[RVAGENT_DEBUG] Controlled screenshot error: {e}")
-            return None
-
-    def stop_session(self) -> bool:
-        """Stop current testing session."""
-        try:
-            if not self.current_session:
-                self.logger.warning("[RVAGENT_DEBUG] No active session to stop")
-                return False
-
-            self.current_session.end_time = time.time()
-            session_duration = self.current_session.duration
-
-            self.logger.info(f"[RVAGENT_DEBUG] Session stopped: {self.current_session.package_name}")
-            self.logger.info(f"[RVAGENT_DEBUG] Duration: {session_duration:.1f}s, "
-                           f"Iterations: {self.current_session.iteration_count}, "
-                           f"Success rate: {self.current_session.success_rate:.1%}")
-
-            self.current_session = None
-            return True
-
-        except Exception as e:
-            self.logger.error(f"[RVAGENT_DEBUG] Session stop failed: {e}")
-            return False
-
-    def get_agent_status(self) -> Dict[str, Any]:
-        """Get current agent status and statistics."""
-        try:
-            status = {
-                "connected": hasattr(self.device_interface, '_device') and self.device_interface._device is not None,
-                "session_active": self.current_session is not None,
-                "current_session": None,
-                "components_status": {
-                    "device_interface": "ready",
-                    "react_engine": "ready",
-                    "memory_components": "ready"
-                }
+            logger.warning("   ⚠️  Tool executed but failed")
+            return {
+                "last_action_success": False,
+                "retry_reason": "tool_execution_failed"
             }
 
-            if self.current_session:
-                status["current_session"] = {
-                    "package_name": self.current_session.package_name,
-                    "objective": self.current_session.objective,
-                    "duration": self.current_session.duration,
-                    "iterations": self.current_session.iteration_count,
-                    "success_rate": self.current_session.success_rate
-                }
+    def _retry_decision(self, state: AgentState) -> str:
+        """
+        Routing function for retry logic (V7).
 
-            return status
+        Decides whether to retry with higher creativity or proceed.
 
-        except Exception as e:
-            self.logger.error(f"[RVAGENT_DEBUG] Status check failed: {e}")
-            return {"error": str(e)}
+        Returns:
+            "success" - Continue to update_memories
+            "retry" - Retry with increased sampling params
+            "max_retries" - Give up, use fallback
+        """
+        logger.info("🔀 RETRY_DECISION: Evaluating retry strategy")
 
-    def reset_agent(self) -> bool:
-        """Reset agent state (for testing or new session)."""
+        success = state.get("last_action_success", False)
+        retry_count = state.get("retry_count", 0)
+        max_retries = state.get("max_retries", 2)
+
+        if success:
+            logger.info("   ✅ Action successful → continue")
+            return "success"
+
+        if retry_count >= max_retries:
+            logger.warning(f"   🛑 Max retries ({max_retries}) reached → fallback")
+            return "max_retries"
+
+        logger.info(f"   🔄 Retry {retry_count + 1}/{max_retries} with higher creativity")
+        return "retry"
+
+    def _update_sampling_params_node(self, state: AgentState) -> AgentState:
+        """
+        Update sampling parameters for progressive creativity (V7).
+
+        Increases temperature, top_p, top_k progressively across retries.
+
+        Returns:
+            Updated state with increased sampling parameters
+        """
+        retry_count = state.get("retry_count", 0) + 1
+
+        # Progressive temperature: 0.1 → 0.5 → 0.9
+        temperature_levels = [0.1, 0.5, 0.9]
+        # Progressive top_p: 0.9 → 0.95 → 0.99
+        top_p_levels = [0.9, 0.95, 0.99]
+        # Progressive top_k: 40 → 50 → 60
+        top_k_levels = [40, 50, 60]
+
+        idx = min(retry_count, len(temperature_levels) - 1)
+
+        new_temperature = temperature_levels[idx]
+        new_top_p = top_p_levels[idx]
+        new_top_k = top_k_levels[idx]
+
+        logger.info(f"📈 UPDATE_SAMPLING: Retry {retry_count}")
+        logger.info(f"   Temperature: {new_temperature}")
+        logger.info(f"   Top-p: {new_top_p}")
+        logger.info(f"   Top-k: {new_top_k}")
+
+        return {
+            "retry_count": retry_count,
+            "sampling_temperature": new_temperature,
+            "sampling_top_p": new_top_p,
+            "sampling_top_k": new_top_k,
+            "messages": []  # Clear messages for clean retry
+        }
+
+    def _handle_max_retries_node(self, state: AgentState) -> AgentState:
+        """
+        Handle max retries reached - fallback behavior (V7).
+
+        Creates fallback BACK action when all retries exhausted.
+
+        Returns:
+            Updated state with fallback action
+        """
+        logger.warning("⚠️  HANDLE_MAX_RETRIES: Fallback behavior triggered")
+
+        retry_reason = state.get("retry_reason", "unknown")
+        retry_count = state.get("retry_count", 0)
+
+        logger.warning(f"   Reason: {retry_reason}")
+        logger.warning(f"   Retries attempted: {retry_count}")
+
+        # Fallback: create BACK action
+        fallback_action = {
+            "action_type": "BACK",
+            "explanation": f"Max retries ({retry_count}) reached: {retry_reason}"
+        }
+
+        # Record in memory (will be processed in update_memories)
+        # This ensures fallback action is tracked like any other action
+
+        return {
+            "current_action": fallback_action,
+            "retry_count": 0,  # Reset for next iteration
+            "last_action_success": True  # Prevent further retries
+        }
+
+    # =============================================================================
+    # END V7 RETRY LOGIC NODES
+    # =============================================================================
+
+    def _execute_tools_node(self, state: AgentState) -> AgentState:
+        """
+        Custom tool executor for stateless architecture.
+
+        Extracts tool calls from last message and executes them directly,
+        without relying on LangGraph's ToolNode which expects message accumulation.
+
+        Args:
+            state: Current agent state with messages
+
+        Returns:
+            Updated state with tool execution results and action coordinates
+        """
+        from langchain_core.messages import ToolMessage
+
+        logger.info("🔧 TOOLS: Executing tool calls")
+
+        messages = state.get("messages", [])
+        if not messages:
+            logger.warning("   No messages in state for tool execution")
+            return state
+
+        last_message = messages[-1]
+
+        # Extract tool calls from AI message
+        if not hasattr(last_message, 'tool_calls') or not last_message.tool_calls:
+            logger.warning("   No tool calls found in last message")
+            return state
+
+        tool_calls = last_message.tool_calls
+        logger.info(f"   Executing {len(tool_calls)} tool call(s)")
+
+        # Execute each tool call
+        tool_results = []
+        executed_action = None  # Track action for state update
+
+        for tool_call in tool_calls:
+            tool_name = tool_call['name']
+            tool_args = tool_call['args']
+            tool_id = tool_call['id']
+
+            logger.info(f"   - Tool: {tool_name}")
+            logger.info(f"     Args: {tool_args}")
+
+            # Find tool by name
+            tool = next((t for t in self.tools if t.name == tool_name), None)
+
+            if not tool:
+                error_msg = f"Tool '{tool_name}' not found"
+                logger.error(f"     ERROR: {error_msg}")
+                tool_results.append(ToolMessage(
+                    content=error_msg,
+                    tool_call_id=tool_id
+                ))
+                continue
+
+            # Execute tool
+            try:
+                result = tool.invoke(tool_args)
+                logger.info(f"     Result: {result}")
+
+                # Create ToolMessage with result
+                tool_results.append(ToolMessage(
+                    content=str(result),
+                    tool_call_id=tool_id
+                ))
+
+                # Extract action coordinates for state
+                # Action tools (android_click, android_type_text, etc.) return success/error strings
+                # We need to extract x, y from tool_args for memory updates
+                if tool_name.startswith('android_') and 'x' in tool_args and 'y' in tool_args:
+                    executed_action = {
+                        'tool_name': tool_name,
+                        'x': tool_args['x'],
+                        'y': tool_args['y'],
+                        'element_description': tool_args.get('element_description', ''),
+                        'text': tool_args.get('text', None)  # For android_type_text
+                    }
+
+            except Exception as e:
+                error_msg = f"Tool execution failed: {str(e)}"
+                logger.error(f"     ERROR: {error_msg}", exc_info=True)
+                tool_results.append(ToolMessage(
+                    content=error_msg,
+                    tool_call_id=tool_id
+                ))
+
+        # Update state with tool results
+        updated_messages = messages + tool_results
+
+        # Update current_action for memory systems
+        result = {
+            "messages": updated_messages
+        }
+
+        if executed_action:
+            result["current_action"] = executed_action
+            logger.info(f"   Action executed: {executed_action['tool_name']} at ({executed_action['x']}, {executed_action['y']})")
+
+        return result
+
+    def _update_memories_node(self, state: AgentState) -> AgentState:
+        """
+        Process tool execution results and update memory systems.
+
+        Extracts tool results from ToolMessages created by ToolNode,
+        maps coordinates to screen items when possible, and updates
+        all memory systems with the executed action.
+
+        Supports hybrid action validation:
+        - DOM elements: Validate via screen_desc matching
+        - Non-DOM elements: Accept coordinates as-is (vision model decision)
+
+        Returns:
+            Updated state with memory summaries
+        """
+        logger.info("🔄 UPDATE_MEMORIES: Processing tool results")
+
+        messages = state.get("messages", [])
+        from langchain_core.messages import ToolMessage
+
+        # Extract tool messages (results from ToolNode execution)
+        tool_messages = [m for m in messages if isinstance(m, ToolMessage)]
+
+        if not tool_messages:
+            logger.warning("   No tool messages found, using fallback BACK action")
+            # Fallback: create BACK action
+            action = {"action_type": "BACK", "explanation": "No tool calls"}
+            self.memory_manager.record_action(action, state["current_activity"], False)
+        else:
+            for tool_msg in tool_messages:
+                logger.info(f"   Processing tool result: {tool_msg.name}")
+
+                # Extract tool call info from state messages
+                # ToolNode creates ToolMessage with tool_call_id linking back to original call
+                ai_messages = [m for m in messages if hasattr(m, 'tool_calls')]
+
+                if ai_messages and ai_messages[-1].tool_calls:
+                    for tool_call in ai_messages[-1].tool_calls:
+                        tool_name = tool_call['name']
+                        tool_args = tool_call['args']
+
+                        logger.info(f"   Tool: {tool_name}, Args: {tool_args}")
+
+                        # Map coordinates to ScreenItem (optional, for logging)
+                        coords = (tool_args.get('x', 0), tool_args.get('y', 0))
+                        screen_item = self._find_item_by_coords(
+                            coords,
+                            state['screen_description']
+                        )
+
+                        if screen_item:
+                            logger.info(f"   DOM element matched: {screen_item.view.get('resource_id', 'unknown')}")
+                        else:
+                            logger.info(f"   Non-DOM element (visual): coords {coords}")
+
+                        # Create action record for memory
+                        action = {
+                            "action_type": tool_name.replace('android_', '').upper(),
+                            "coords": coords,
+                            "element_description": tool_args.get('element_description', ''),
+                            "text": tool_args.get('text', ''),
+                            "explanation": f"Tool call: {tool_name}"
+                        }
+
+                        # Record in memory manager
+                        success = "success" in str(tool_msg.content).lower() and "true" in str(tool_msg.content).lower()
+                        self.memory_manager.record_action(
+                            action,
+                            state["current_activity"],
+                            success
+                        )
+
+                        logger.info(f"   Action recorded: {action['action_type']}, success={success}")
+
+        # Generate NEW summaries
+        action_history_summary = self.memory_manager.get_action_history_summary()
+        exploration_summary = self.memory_manager.get_exploration_summary(
+            state["visited_states"],
+            state["state_transitions"]
+        )
+        memory_insights = self.memory_manager.get_memory_insights(state["current_activity"])
+        navigation_path = self.memory_manager.get_navigation_path()
+
+        return {
+            "action_history_summary": action_history_summary,
+            "exploration_summary": exploration_summary,
+            "memory_insights": memory_insights,
+            "navigation_path": navigation_path
+        }
+
+    def _learn_node(self, state: AgentState) -> AgentState:
+        """
+        Update memory systems after action execution.
+
+        Updates:
+        - DynamicStateGraph: Records state transition
+        - ShortTermMemory: Adds iteration record
+        - UICoverageTracker: Updates element coverage
+        - LongTermMemory: Updates activity visits (if applicable)
+
+        Returns:
+            Updated state with should_continue flag
+        """
+        logger.info("📚 LEARN: Updating memory systems")
+
+        # Extract state variables
+        current_screen = state.get("current_screen_hash", "unknown")
+        current_activity = state.get("current_activity", "unknown")
+        action = state.get("current_action", {})
+        screen_desc = state.get("screen_description")
+
+        # Get injected memory systems
+        dynamic_graph = state.get("_graph")
+        short_term = state.get("_short_term")
+        ui_coverage = state.get("_ui_coverage")
+        long_term = state.get("_long_term")
+
         try:
-            self.logger.info("[RVAGENT_DEBUG] Resetting RVAgent state...")
+            # Update DynamicStateGraph - CORRECTED API
+            if dynamic_graph and screen_desc:
+                # Create or update state node (CORRECT: use get_or_create_state)
+                node = dynamic_graph.get_or_create_state(
+                    screen_hash=current_screen,
+                    activity=current_activity,
+                    screen_desc=screen_desc
+                )
+                logger.debug(f"   Updated DynamicGraph state: {current_screen[:8]} (visits: {node.visit_count})")
 
-            # Stop current session if active
-            if self.current_session:
-                self.stop_session()
+                # Record action execution (CORRECT: use record_action)
+                # Extract action_id from action (use element index or hash)
+                action_id = hash(str(action))  # Simple hash for now
+                dynamic_graph.record_action(
+                    screen_hash=current_screen,
+                    action_id=action_id,
+                    next_hash=None,  # Will be known on next iteration
+                    timestamp=time.time()
+                )
+                logger.debug(f"   Recorded action in DynamicGraph")
 
-            # Reset all components
-            self.short_term_memory.clear()
-            self.long_term_memory.clear_memory()
-            self.ui_coverage_tracker.reset_coverage()
-            self.react_engine.reset_engine()
+            # Update ShortTermMemory - CORRECTED API
+            if short_term:
+                # CORRECT: use record_iteration with proper parameters
+                state_dict = {
+                    "screen_hash": current_screen,
+                    "activity": current_activity
+                }
+                actions_list = [action] if action else []
+                llm_reasoning = state.get("llm_reasoning", "")
 
-            self.logger.info("[RVAGENT_DEBUG] ✅ RVAgent reset complete")
-            return True
+                short_term.record_iteration(
+                    state=state_dict,
+                    actions=actions_list,
+                    llm_reasoning=llm_reasoning
+                )
+                logger.debug(f"   Updated ShortTermMemory: iteration {state.get('iteration', 0)}")
+
+            # Update UICoverageTracker - CORRECTED API
+            if ui_coverage and screen_desc:
+                for item in screen_desc.items:
+                    # Create element_id from resource_id or class
+                    resource_id = item.view.get("resource_id", "")
+                    element_class = item.view.get("class", "unknown")
+                    element_id = resource_id if resource_id else f"class:{element_class}"
+
+                    # CORRECT: use record_interaction (not record_element_seen)
+                    ui_coverage.record_interaction(
+                        element_id=element_id,
+                        action_type="view",  # Just viewing the element
+                        screen_hash=current_screen,
+                        success=True
+                    )
+                logger.debug(f"   Updated UI coverage: {len(screen_desc.items)} elements")
+
+            # Update LongTermMemory - CORRECTED API
+            if long_term and screen_desc:
+                # CORRECT: use record_state to track state visits
+                long_term.record_state(
+                    state_hash=current_screen,
+                    activity=current_activity,
+                    interactive_elements_count=len(screen_desc.items)
+                )
+                logger.debug(f"   Updated LongTermMemory: state {current_screen[:8]}")
 
         except Exception as e:
-            self.logger.error(f"[RVAGENT_DEBUG] Agent reset failed: {e}")
-            return False
+            logger.error(f"Memory update failed: {e}", exc_info=True)
+
+        # Generate memory summaries for next iteration (stateless context)
+        try:
+            # Record action in memory_manager
+            if action:
+                self.memory_manager.record_action(
+                    action=action,
+                    activity=current_activity,
+                    success=True  # TODO: Track action success from validation
+                )
+                logger.debug(f"   Recorded action in AgentMemoryManager")
+
+            # Generate all summaries
+            action_history_summary = self.memory_manager.get_action_history_summary()
+            exploration_summary = self.memory_manager.get_exploration_summary(
+                visited_states=state.get("visited_states", set()),
+                state_transitions=state.get("state_transitions", {})
+            )
+            memory_insights = self.memory_manager.get_memory_insights(current_activity)
+            navigation_path = self.memory_manager.get_navigation_path()
+
+            logger.info(f"   Memory summaries generated for next iteration")
+
+        except Exception as e:
+            logger.error(f"Summary generation failed: {e}", exc_info=True)
+            # Fallback to default summaries
+            action_history_summary = "No previous actions."
+            exploration_summary = "Starting exploration."
+            memory_insights = "No insights yet."
+            navigation_path = "Starting navigation."
+
+        # Check if should continue (timeout checked in external loop)
+        elapsed = time.time() - state["start_time"]
+        should_continue = elapsed < state["timeout"]
+
+        logger.info(f"   Memory systems updated, should_continue={should_continue}")
+
+        # Return summaries for next iteration (stateless context)
+        return {
+            "should_continue": should_continue,
+            "action_history_summary": action_history_summary,
+            "exploration_summary": exploration_summary,
+            "memory_insights": memory_insights,
+            "navigation_path": navigation_path
+        }
+
+    def _load_and_optimize_screenshot(self, screenshot_path: str) -> str:
+        """Load and optimize screenshot to base64."""
+        # Check if screenshot_path is already a base64 string (mock mode)
+        # MockDeviceInterface returns base64 directly, not a file path
+        if not os.path.exists(screenshot_path):
+            # Already base64, return as-is
+            logger.debug(f"Screenshot path is base64 string (mock mode), returning as-is")
+            return screenshot_path
+
+        try:
+            # FIX: screenshot_optimizer.optimize() returns base64 string directly, not a file path
+            # Previously this was incorrectly treated as a file path and tried to open() it
+            # causing "[Errno 36] File name too long" error
+            optimized_b64 = self.screenshot_optimizer.optimize(
+                image_path=screenshot_path,
+                target_size=self.config.optimized_dimensions,
+                quality=90
+            )
+
+            # optimize() can return None if it fails
+            if optimized_b64:
+                logger.debug(f"Screenshot optimized successfully (base64 length: {len(optimized_b64)})")
+                return optimized_b64
+
+            # If optimize returned None, fall through to exception handler
+            raise Exception("Optimization returned None")
+
+        except Exception as e:
+            # Fallback: read original file and encode to base64
+            logger.warning(f"Optimization failed: {e}, using original screenshot")
+            with open(screenshot_path, 'rb') as f:
+                img_data = f.read()
+
+            return base64.b64encode(img_data).decode('utf-8')
+
+    def run(self) -> Dict[str, Any]:
+        """
+        Execute agent with external timeout loop.
+
+        Returns:
+            Metrics dictionary with exploration results
+        """
+        logger.info("Starting RVAgent execution (STATELESS)")
+
+        start_time = time.time()
+        iteration = 0
+
+        # Launch app
+        try:
+            logger.info(f"Launching application: {self.config.package_name}")
+            self.device.launch_app(self.config.package_name)
+            time.sleep(2)
+        except Exception as e:
+            logger.error(f"Failed to launch app: {e}", exc_info=True)
+            return {"status": "error", "error": str(e)}
+
+        # Initialize state with EMPTY summaries
+        state = {
+            "action_history_summary": "No previous actions.",
+            "exploration_summary": "Starting exploration.",
+            "memory_insights": "No insights yet.",
+            "navigation_path": "Starting navigation.",
+            "iteration": 0,
+            "should_continue": True,
+            "start_time": start_time,
+            "timeout": self.config.timeout,
+            "strategy_name": self.config.strategy,
+            "visited_states": set(),
+            "state_transitions": {},
+            "device_dimensions": self.config.device_dimensions,
+            "optimized_dimensions": self.config.optimized_dimensions,
+            "external_navigation_count": 0,
+            "is_external": False,
+            "llm_tokens_input": 0,
+            "llm_tokens_output": 0,
+            "llm_time_ms": 0.0,
+            # Injected dependencies
+            "_device": self.device,
+            "_parser": self.parser,
+            "_static_data": self.static_data,
+            "_strategy": self.strategy,
+            "_long_term": self.long_term,
+            "_short_term": self.short_term,
+            "_ui_coverage": self.ui_coverage,
+            "_graph": self.dynamic_graph,
+            "_converter": self.converter,
+            "_package_name": self.config.package_name,
+            # Retry mechanism (V7)
+            "retry_count": 0,
+            "max_retries": 2,
+            "last_action_success": True,
+            "retry_reason": "",
+            # Sampling parameters (V7)
+            "sampling_temperature": 0.1,
+            "sampling_top_p": 0.9,
+            "sampling_top_k": 40,
+            # Messages for tool calling
+            "messages": []
+        }
+
+        # External loop
+        try:
+            while True:
+                elapsed = time.time() - start_time
+
+                if elapsed >= self.config.timeout:
+                    logger.info(f"🏁 Timeout reached ({elapsed:.1f}s)")
+                    break
+
+                logger.info(f"⏱️  Iteration {iteration} (elapsed: {elapsed:.1f}s)")
+
+                state["iteration"] = iteration
+
+                # Reset retry mechanism for new iteration (V7)
+                state["retry_count"] = 0
+                state["last_action_success"] = True
+                state["retry_reason"] = ""
+                state["sampling_temperature"] = 0.1
+                state["sampling_top_p"] = 0.9
+                state["sampling_top_k"] = 40
+                state["messages"] = []  # Clear messages for stateless context
+
+                # Invoke graph for ONE iteration
+                result = self.graph.invoke(state)
+
+                # Update state with results
+                state.update(result)
+
+                iteration += 1
+                time.sleep(0.5)  # Brief pause between iterations
+
+        except KeyboardInterrupt:
+            logger.info("⚠️  Interrupted by user")
+        except Exception as e:
+            logger.error(f"❌ Execution error: {e}", exc_info=True)
+
+        # Return metrics
+        execution_time = time.time() - start_time
+
+        return {
+            "status": "completed",
+            "iterations": iteration,
+            "execution_time_s": execution_time,
+            "unique_states": len(state["visited_states"]),
+            "total_transitions": len(state["state_transitions"])
+        }

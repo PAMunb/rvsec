@@ -52,6 +52,7 @@ class BatchStrategy(PromptStrategy):
         #     return True
 
         # Check for detected pattern
+        # TODO remover ... nao temos mais ui pattern detector
         if StateEntry.DETECTED_PATTERN in state:
             pattern = state[StateEntry.DETECTED_PATTERN]
             confidence = pattern.get("confidence", 0)

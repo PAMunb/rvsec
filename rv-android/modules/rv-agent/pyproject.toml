@@ -7,23 +7,18 @@ readme = "README.md"
 packages = [{include = "rv_agent", from = "src"}]
 
 [tool.poetry.dependencies]
-python = ">=3.12,<3.14"
+python = ">=3.12,<4.0"
 
 # Core dependencies - process isolation funciona
 rv-android-core = {path = "../rv-android-core", develop = true}
+rv-screen-parser = {path = "../rv-screen-parser", develop = true}
 rv-uiautomator = {path = "../rv-uiautomator", develop = true}
 
-# LangChain ecosystem (LATEST 2025 versions)
-langchain = "^0.3.27"     # Latest stable
-langchain-core = "^0.3.26" # Latest core
-langchain-ollama = "^0.3.7"  # Required for tool-calling
-langchain-anthropic = {version = "^0.2.0", optional = true}
-
-# HuggingFace ecosystem (LATEST 2025 versions for AI/LLM)
-huggingface-hub = "^0.30.0"   # Compatible hub version
-transformers = "^4.40.0"      # Compatible transformers with vision support
-torch = "^2.1.0"              # Compatible stable PyTorch
-accelerate = "^1.0.0"         # Compatible acceleration
+# LangChain ecosystem (VERSÕES MAIS RECENTES - Outubro 2025)
+langchain = "^1.0.2"           # Stable 1.0
+langchain-core = "^1.0.1"      # Stable 1.0
+langchain-ollama = "^1.0.0"    # Stable 1.0 - tool-calling support
+langchain-anthropic = {version = "^1.0.0", optional = true}
 
 # Utils
 requests = "^2.32.0"  # Para PlatformClient opcional
@@ -33,17 +28,24 @@ python-dotenv = "^1.0.0"
 
 # CLI
 click = "^8.1.0"
-peft = "^0.17.1"
-torchvision = "^0.23.0"
 backoff = "^2.2.1"
-bitsandbytes = ">=0.44.0"
+langgraph = "^1.0.1"
+scipy = "^1.16.2"
+langgraph-checkpoint = "^3.0.0"
+langgraph-checkpoint-sqlite = "^3.0.0"
+langchain-community = "^0.4.1"
+langsmith = "^0.4.38"
+gradio = "^5.49.1"
+ollama = "^0.6.0"
 
 [tool.poetry.extras]
-ollama = ["langchain-ollama"]
 anthropic = ["langchain-anthropic"]
 
 [tool.poetry.scripts]
 rv-agent = "rv_agent.cli.main:cli"
+
+[tool.poetry.group.dev.dependencies]
+langgraph-cli = {extras = ["inmem"], version = "^0.4.4"}
 
 [build-system]
 requires = ["poetry-core"]

@@ -146,7 +146,7 @@ class UIAutomator2Parser(BaseScreenParser[ScreenDescription]):
             state_data: Dictionary containing UI state information
 
         Returns:
-            Name of the current activity
+            Name of the current activity (normalized to match static analysis format)
 
         Raises:
             ValueError: If activity name cannot be determined
@@ -154,14 +154,20 @@ class UIAutomator2Parser(BaseScreenParser[ScreenDescription]):
         try:
             # First check if activity is explicitly provided
             if "activity" in state_data and state_data["activity"]:
-                return state_data["activity"]
-
+                activity = state_data["activity"]
             # If state_data has hierarchy, extract from XML
-            if "hierarchy" in state_data and isinstance(state_data["hierarchy"], str):
-                return self._extract_activity_from_xml(state_data["hierarchy"])
+            elif "hierarchy" in state_data and isinstance(state_data["hierarchy"], str):
+                activity = self._extract_activity_from_xml(state_data["hierarchy"])
+            else:
+                # If all else fails
+                raise ValueError("Could not determine activity from state data")
 
-            # If all else fails
-            raise ValueError("Could not determine activity from state data")
+            # Normalize activity name to match static analysis format
+            # Convert "package/.Activity" to "package.Activity"
+            # Remove all "/" characters from activity name
+            activity = activity.replace("/", "")
+
+            return activity
         except Exception as e:
             self.logger.error(f"Error determining activity name: {e}")
             raise

@@ -20,9 +20,16 @@ class RVAgentConstants:
     DEFAULT_TOP_K = 50         # Controlled diversity (tested 10-60 range)
     DEFAULT_MAX_TOKENS = 800   # Sufficient for JSON response
 
-    # Model selection (Tool-calling validation results)
-    DEFAULT_MODEL = "PetrosStav/gemma3-tools:4b"  # 66.7% success rate with vision+tools
-    CLAUDE_MODEL = "claude-3-5-haiku-20241022"  # Future anthropic tool-calling (ready for tests)
+    # Model selection (Tool-calling support + JSON parser)
+    DEFAULT_MODEL = "qwen-vision-tools-v2"  # Custom Ollama model with vision+tools template + JSON parser
+
+    # === SCREENSHOT OPTIMIZATION (Qwen2.5-VL specific) ===
+    # Dimensions MUST be multiples of 28 for Qwen2.5-VL
+    SCREENSHOT_TARGET_WIDTH = 728   # 26 × 28 (multiple of 28)
+    SCREENSHOT_TARGET_HEIGHT = 1288  # 46 × 28 (multiple of 28)
+    SCREENSHOT_JPEG_QUALITY = 85    # Balance between size and UI clarity
+    SCREENSHOT_FORMAT = "JPEG"      # More efficient than PNG for screenshots
+    # Expected tokens: ~937,664 pixels / 784 = ~1,196 tokens (optimal range 256-1280)
 
     # === COORDINATE ENHANCEMENT (CRITICAL) ===
     # Difference between 30% and 100% success rate

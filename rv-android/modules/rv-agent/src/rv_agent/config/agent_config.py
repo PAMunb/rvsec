@@ -37,15 +37,14 @@ class RVAgentConfig(BaseValidatedModel):
     )
     timeout: int = Field(
         default=RVAgentConstants.DEFAULT_TIMEOUT,
-        ge=30,
-        le=3600,
+        ge=60,
         description="Test execution timeout in seconds"
     )
     results_dir: str = Field(
         default="./results",
         description="Directory for test results and artifacts"
     )
-    package_name: Optional[str] = Field(
+    package_name: Optional[str] = Field( # TODO nao pode ser opcional
         default=None,
         description="Target application package name"
     )
@@ -80,7 +79,7 @@ class RVAgentConfig(BaseValidatedModel):
     llm_max_tokens: int = Field(
         default=RVAgentConstants.DEFAULT_MAX_TOKENS,
         ge=100,
-        le=4000,
+        le=40000,
         description="Maximum tokens per LLM response"
     )
 
@@ -130,6 +129,24 @@ class RVAgentConfig(BaseValidatedModel):
         ge=100,
         le=5000,
         description="Maximum states in long-term memory"
+    )
+
+    # === RVAGENT EXPLORATION CONFIGURATION ===
+    strategy: str = Field(
+        default="dfs",
+        description="Exploration strategy: 'dfs' or 'bfs'"
+    )
+    device_dimensions: tuple[int, int] = Field(
+        default=(1080, 1920),
+        description="Device screen dimensions (width, height)"
+    )
+    optimized_dimensions: tuple[int, int] = Field(
+        default=(728, 1288),
+        description="Optimized screenshot dimensions for LLM (multiple of 28)"
+    )
+    static_analysis_path: Optional[str] = Field(
+        default=None,
+        description="Path to static analysis data (GATOR output) for MOP guidance"
     )
 
     def get_langchain_config(self) -> Dict[str, Any]:

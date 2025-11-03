@@ -1,11 +1,10 @@
-"""Memory components for RV-Agent."""
+"""
+Memory management for RVAgent stateless context.
 
-from .long_term import LongTermMemory
-from .short_term import ShortTermMemory
-from .ui_coverage import UICoverageTracker
+Provides AgentMemoryManager for generating pre-formatted summary strings
+that replace message history accumulation in the agent workflow.
+"""
 
-__all__ = [
-    "LongTermMemory",
-    "ShortTermMemory",
-    "UICoverageTracker",
-]
+from rv_agent.memory.agent_memory import AgentMemoryManager
+
+__all__ = ["AgentMemoryManager"]
