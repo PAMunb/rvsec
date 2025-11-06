@@ -21,15 +21,15 @@ class RVAgentConstants:
     DEFAULT_MAX_TOKENS = 800   # Sufficient for JSON response
 
     # Model selection (Tool-calling support + JSON parser)
-    DEFAULT_MODEL = "qwen-vision-tools-v2"  # Custom Ollama model with vision+tools template + JSON parser
+    DEFAULT_MODEL = "qwen3-vl:4b"  # Qwen3-VL 4B with vision+tools support
 
-    # === SCREENSHOT OPTIMIZATION (Qwen2.5-VL specific) ===
-    # Dimensions MUST be multiples of 28 for Qwen2.5-VL
-    SCREENSHOT_TARGET_WIDTH = 728   # 26 × 28 (multiple of 28)
-    SCREENSHOT_TARGET_HEIGHT = 1288  # 46 × 28 (multiple of 28)
+    # === SCREENSHOT OPTIMIZATION (Qwen3-VL specific) ===
+    # Dimensions MUST be multiples of 32 for Qwen3-VL
+    SCREENSHOT_TARGET_WIDTH = 704   # 22 × 32 (multiple of 32)
+    SCREENSHOT_TARGET_HEIGHT = 1248  # 39 × 32 (multiple of 32)
     SCREENSHOT_JPEG_QUALITY = 85    # Balance between size and UI clarity
     SCREENSHOT_FORMAT = "JPEG"      # More efficient than PNG for screenshots
-    # Expected tokens: ~937,664 pixels / 784 = ~1,196 tokens (optimal range 256-1280)
+    # Expected tokens: ~878,592 pixels / 1024 = ~858 tokens (optimal for Qwen3-VL)
 
     # === COORDINATE ENHANCEMENT (CRITICAL) ===
     # Difference between 30% and 100% success rate

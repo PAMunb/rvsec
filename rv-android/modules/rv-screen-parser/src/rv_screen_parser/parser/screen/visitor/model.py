@@ -171,10 +171,10 @@ class ItemAction(BaseValidatedModel):
     def get_execution_coordinates(self) -> Optional[Tuple[int, int]]:
         """
         Resolve execution coordinates for action targeting.
-        
+
         Implements comprehensive coordinate resolution strategy supporting
         both explicit coordinate specification and bounds-based calculation.
-        
+
         Returns:
             Tuple of (x, y) coordinates or None if resolution fails
         """
@@ -196,6 +196,31 @@ class ItemAction(BaseValidatedModel):
                     pass
 
         return None
+
+    @computed_field
+    @property
+    def coords_for_matching(self) -> Tuple[Tuple[int, int], str]:
+        """
+        Get action signature (coordinates + type) for action matching and tracking purposes.
+
+        Combines coordinates with action type to create a unique signature for each action.
+        This solves two problems:
+        1. Non-deterministic action IDs across UIAutomator parsing sessions
+        2. Multiple actions on same element (e.g., CLICK vs SET_TEXT on EditText)
+
+        The signature uses:
+        - Coordinates: from get_execution_coordinates() in DEVICE space
+        - Action type: extracted from text (click, set_text, scroll, etc.)
+
+        NOTE: Returns coordinates in DEVICE space. Consumers (like rv-agent) must convert
+        to their target coordinate system if needed.
+
+        Returns:
+            Tuple of ((x, y), action_type), or ((0, 0), action_type) if coords unavailable
+        """
+        coords = self.get_execution_coordinates()
+        coords_tuple = coords if coords is not None else (0, 0)
+        return (coords_tuple, self.action_type)
 
 
 @validated_model(['view', 'base_description', 'actions', 'complement'])
@@ -730,12 +755,17 @@ class Node(BaseValidatedModel):
 
     def _calculate_derived_properties(self) -> None:
         """Calculate derived properties for efficient capability assessment."""
+        # Infer editable=True for EditText widgets if not explicitly set
+        # UIAutomator doesn't always report the 'editable' attribute
+        if not self.editable and self.view_class == "android.widget.EditText":
+            self.editable = True
+
         # Element is actionable if it supports any interaction
         self.actionable = (
             self.clickable or self.scrollable or self.checkable or
             self.long_clickable or self.editable
         )
-        
+
         # Determine element type for specialized handling
         self.element_type = UiElementType.from_class_name(self.view_class)
 

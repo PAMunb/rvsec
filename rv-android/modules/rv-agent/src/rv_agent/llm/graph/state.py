@@ -67,7 +67,7 @@ class AgentState(TypedDict):
     navigation_path: str                 # Activity navigation path history
 
     # Screen observation state
-    screenshot_b64: str                     # Optimized screenshot (e.g., 728x1288)
+    screenshot_b64: str                     # Optimized screenshot (e.g., 704x1248)
     current_screen_hash: str                # XML hierarchy hash (not activity!)
     current_activity: str                   # Activity name for context
     screen_description: ScreenDescription   # Parsed UI with [M]/[DM] markers
@@ -76,8 +76,9 @@ class AgentState(TypedDict):
     strategy_name: str                      # "dfs" or "bfs"
     iteration: int                          # Current iteration number
     should_continue: bool                   # Workflow continuation flag
-    visited_states: Set[str]                # Set of visited state hashes
-    state_transitions: Dict[str, Set[str]]  # Transitions: state_hash -> set of next states
+    visited_states: List[str]               # List of visited state hashes
+    state_transitions: List[tuple[str, str]]  # List of transitions: (prev_hash, current_hash)
+    previous_screen_hash: Optional[str]     # Previous screen hash for transition tracking
 
     # Timing and termination
     start_time: float                       # Timestamp of exploration start
@@ -85,7 +86,7 @@ class AgentState(TypedDict):
 
     # Coordinate conversion
     device_dimensions: tuple[int, int]      # Device screen (e.g., 1080x1920)
-    optimized_dimensions: tuple[int, int]   # Optimized for LLM (e.g., 728x1288)
+    optimized_dimensions: tuple[int, int]   # Optimized for LLM (e.g., 704x1248)
 
     # App retention tracking
     external_navigation_count: int          # Number of times navigated outside app
@@ -109,6 +110,16 @@ class AgentState(TypedDict):
     sampling_temperature: float                # Temperature: 0.1 → 0.5 → 0.9
     sampling_top_p: float                      # Top-p: 0.9 → 0.95 → 0.99
     sampling_top_k: int                        # Top-k: 40 → 50 → 60
+
+    # Multi-mode execution control
+    decision_path: str                         # Current decision path: "llm", "dfs", or "end"
+    decision_maker: str                        # Who decided action: "llm", "dfs", "strategy_fallback"
+    recent_action_window: List[Dict[str, Any]] # Last N actions for loop detection
+    loop_detected: bool                        # Loop detected in current iteration
+    used_fallback: bool                        # DFS fallback was used
+    consecutive_llm_failures: int              # Consecutive LLM failures for fallback trigger
+    llm_timeout_occurred: bool                 # LLM timeout occurred in last call
+    last_screen_hash: Optional[str]            # Previous screen hash for transition detection
 
     # Injected dependencies (not serialized, prefixed with _)
     _device: Optional[Any]                  # DeviceInterface instance

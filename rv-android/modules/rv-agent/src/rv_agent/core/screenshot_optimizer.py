@@ -34,15 +34,22 @@ class ScreenshotOptimizer:
     - Enables efficient multimodal context in agent state
 
     ### Optimization Strategy:
-    - Target resolution: 728x1288 (26×28 by 46×28 - Qwen2.5-VL requirement)
+    - Target resolution: 704x1248 (22×32 by 39×32 - Qwen3-VL requirement)
     - JPEG quality: 85% (imperceptible quality loss for UI elements)
     - Format: JPEG for compressed size vs PNG lossless
     - Resampling: LANCZOS for high-quality downscaling
-    - Token cost: ~1,196 tokens per image (within optimal 256-1280 range)
+    - Token cost: ~1,084 tokens per image (within optimal 256-1280 range)
+
+    ### Resolution Update (Qwen3-VL):
+    - Changed from 728×1288 (Qwen2.5-VL: multiples of 28)
+    - To 704×1248 (Qwen3-VL: multiples of 32)
+    - Device 1080×1920 → Optimized 704×1248
+    - Scale factors: X=1.5341, Y=1.5385
+    - Aspect ratio: 1.7727 (very close to device 1.7778)
     """
 
-    # Dimensions MUST be multiples of 28 for Qwen2.5-VL
-    DEFAULT_TARGET_SIZE = (728, 1288)  # 26×28 by 46×28, 9:16 aspect ratio
+    # Dimensions MUST be multiples of 32 for Qwen3-VL
+    DEFAULT_TARGET_SIZE = (704, 1248)  # 22×32 by 39×32, ~9:16 aspect ratio
     DEFAULT_QUALITY = 85
     DEFAULT_FORMAT = "JPEG"
 

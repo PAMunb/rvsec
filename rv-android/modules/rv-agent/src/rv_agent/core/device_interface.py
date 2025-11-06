@@ -302,7 +302,7 @@ class DeviceInterface:
         """
         try:
             self.logger.debug("Pressing HOME button")
-            success = self.ui_adapter.press_key("home")
+            success = self.ui_adapter.press_home()
             if success:
                 time.sleep(1.0)  # Allow transition
             return success

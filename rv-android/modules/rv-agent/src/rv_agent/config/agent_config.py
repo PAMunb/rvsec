@@ -1,9 +1,7 @@
 """
-RVAgent Configuration - Phase 0 Validated Parameters
+RVAgent Configuration.
 
-This configuration contains EXACT parameters validated in Phase 0 testing
-with 12,193+ tests. These values should NOT be modified without extensive
-scientific validation.
+Configuration for RVAgent with multi-mode support (pure_dfs, llm_only, hybrid).
 """
 from typing import Optional, Dict, Any
 from pydantic import Field
@@ -13,17 +11,18 @@ from ..constants import RVAgentConstants
 
 class RVAgentConfig(BaseValidatedModel):
     """
-    Standalone configuration for RVAgent without rv-llm dependencies.
+    Configuration for RVAgent exploration with multi-mode support.
 
-    This configuration uses LangChain directly instead of rv-llm.LLMConfig
-    composition, providing a simpler and more direct integration approach.
+    Supports three exploration modes:
+    - pure_dfs: Depth-first search without LLM
+    - llm_only: LLM-driven exploration without algorithmic constraints
+    - hybrid: LLM with algorithmic validation and fallback
 
     Design Principles:
-    - Direct LangChain integration without rv-llm wrapper
-    - Standalone configuration with only necessary fields
-    - Process isolation compatible (no server dependencies)
+    - Direct LangChain integration
     - Pydantic validation with clear field definitions
-    - Phase 0 validated parameters as defaults
+    - Support for both local and cloud LLMs
+    - Configurable fallback strategies
     """
 
     # === EXECUTION CONFIGURATION ===
@@ -31,9 +30,19 @@ class RVAgentConfig(BaseValidatedModel):
         default=RVAgentConstants.DEFAULT_DEVICE_ID,
         description="Android device or emulator ID for testing"
     )
-    execution_mode: str = Field(
+    agent_mode: str = Field(
+        default="hybrid",
+        description="Agent exploration mode: 'pure_dfs', 'llm_only', 'hybrid', 'multimode'"
+    )
+    llm_probability: float = Field(
+        default=0.7,
+        ge=0.0,
+        le=1.0,
+        description="LLM probability for multimode (0.7 = 70% LLM, 30% DFS)"
+    )
+    platform_integration: str = Field(
         default="standalone",
-        description="Execution mode: 'standalone' or 'platform'"
+        description="Platform integration: 'standalone' or 'platform'"
     )
     timeout: int = Field(
         default=RVAgentConstants.DEFAULT_TIMEOUT,
@@ -56,7 +65,7 @@ class RVAgentConfig(BaseValidatedModel):
     )
     llm_model: str = Field(
         default=RVAgentConstants.DEFAULT_MODEL,
-        description="LLM model identifier (Phase 0 validated: qwen2.5vl:7b)"
+        description="LLM model identifier (Current: qwen3-vl:4b with 704x1248 resolution)"
     )
     llm_temperature: float = Field(
         default=RVAgentConstants.DEFAULT_TEMPERATURE,
@@ -77,7 +86,7 @@ class RVAgentConfig(BaseValidatedModel):
         description="LLM top-k parameter (VALIDATED: 50 optimal)"
     )
     llm_max_tokens: int = Field(
-        default=RVAgentConstants.DEFAULT_MAX_TOKENS,
+        default=512,  # Reduced from DEFAULT (likely 2048+) for focused responses
         ge=100,
         le=40000,
         description="Maximum tokens per LLM response"
@@ -103,6 +112,12 @@ class RVAgentConfig(BaseValidatedModel):
         ge=5,
         le=200,
         description="Maximum test iterations before stopping"
+    )
+    max_external_attempts: int = Field(
+        default=3,
+        ge=1,
+        le=10,
+        description="Maximum actions outside target app before restart"
     )
 
     # === COORDINATE ENHANCEMENT SETTINGS ===
@@ -136,13 +151,56 @@ class RVAgentConfig(BaseValidatedModel):
         default="dfs",
         description="Exploration strategy: 'dfs' or 'bfs'"
     )
+
+    # === MULTI-MODE CONFIGURATION ===
+    llm_timeout: float = Field(
+        default=10.0,  # Reduced from 30s to trigger fallback faster
+        ge=5.0,
+        le=120.0,
+        description="Timeout for single LLM call in seconds"
+    )
+    llm_max_retries: int = Field(
+        default=2,
+        ge=0,
+        le=5,
+        description="Max consecutive LLM failures before DFS fallback"
+    )
+    auto_fallback_on_timeout: bool = Field(
+        default=True,
+        description="Automatically fallback to DFS on LLM timeout"
+    )
+    auto_fallback_on_error: bool = Field(
+        default=True,
+        description="Automatically fallback to DFS on LLM error"
+    )
+
+    # === LOOP DETECTION CONFIGURATION ===
+    max_consecutive_type_text: int = Field(
+        default=2,
+        ge=1,
+        le=5,
+        description="Max consecutive TYPE_TEXT actions before loop detection"
+    )
+    max_consecutive_click: int = Field(
+        default=3,
+        ge=1,
+        le=10,
+        description="Max consecutive CLICK actions before loop detection"
+    )
+    max_consecutive_scroll: int = Field(
+        default=5,
+        ge=2,
+        le=20,
+        description="Max consecutive SCROLL actions before loop detection"
+    )
+
     device_dimensions: tuple[int, int] = Field(
         default=(1080, 1920),
         description="Device screen dimensions (width, height)"
     )
     optimized_dimensions: tuple[int, int] = Field(
-        default=(728, 1288),
-        description="Optimized screenshot dimensions for LLM (multiple of 28)"
+        default=(704, 1248),
+        description="Optimized screenshot dimensions for LLM (multiple of 32 for Qwen3-VL)"
     )
     static_analysis_path: Optional[str] = Field(
         default=None,
@@ -186,7 +244,7 @@ class RVAgentConfig(BaseValidatedModel):
             "success_rate": "81.6% (validated)",
             "coordinate_enhancement": "100% vs 30% success rate",
             "model_performance": {
-                "qwen2.5vl:7b": "98.3% success rate (cost-optimal)",
+                "qwen3-vl:4b": "Current model (704x1248 resolution, multiples of 32)",
                 "claude-3-5-haiku": "100% success rate (premium)"
             },
             "breakthrough_testing": {
@@ -195,13 +253,47 @@ class RVAgentConfig(BaseValidatedModel):
             }
         }
 
+    def get_agent_mode(self) -> str:
+        """
+        Get agent exploration mode.
+
+        Environment variable RVAGENT_MODE overrides config setting.
+
+        Returns:
+            Agent mode: 'pure_dfs', 'llm_only', or 'hybrid'
+        """
+        import os
+        env_mode = os.getenv("RVAGENT_MODE")
+        if env_mode and env_mode in ["pure_dfs", "llm_only", "hybrid"]:
+            return env_mode
+        return self.agent_mode
+
+    def get_loop_threshold(self, action_type: str) -> int:
+        """
+        Get loop detection threshold for action type.
+
+        Args:
+            action_type: Action type (TYPE_TEXT, CLICK, SCROLL, etc.)
+
+        Returns:
+            Maximum consecutive repetitions before loop detection
+        """
+        thresholds = {
+            "TYPE_TEXT": self.max_consecutive_type_text,
+            "CLICK": self.max_consecutive_click,
+            "SCROLL": self.max_consecutive_scroll,
+            "SWIPE": self.max_consecutive_scroll,
+            "BACK": 2,
+        }
+        return thresholds.get(action_type, 3)
+
     def is_platform_mode(self) -> bool:
         """Check if running in platform integration mode."""
-        return self.execution_mode == "platform" and self.server_url is not None
+        return self.platform_integration == "platform" and self.server_url is not None
 
     def is_standalone_mode(self) -> bool:
         """Check if running in standalone mode."""
-        return self.execution_mode == "standalone"
+        return self.platform_integration == "standalone"
 
     def validate(self) -> tuple[bool, Optional[str]]:
         """
@@ -210,7 +302,7 @@ class RVAgentConfig(BaseValidatedModel):
         Returns:
             Tuple of (is_valid, error_message)
         """
-        if self.execution_mode == "platform" and not self.server_url:
+        if self.platform_integration == "platform" and not self.server_url:
             return False, "server_url is required for platform mode"
 
         if self.llm_provider in ["anthropic", "openai"] and not self.api_key:
@@ -218,6 +310,14 @@ class RVAgentConfig(BaseValidatedModel):
 
         if not self.enable_coordinate_enhancement:
             return False, "Coordinate enhancement is mandatory for RVAgent success"
+
+        valid_modes = ["pure_dfs", "llm_only", "hybrid"]
+        if self.agent_mode not in valid_modes:
+            return False, f"agent_mode must be one of {valid_modes}"
+
+        mode = self.get_agent_mode()
+        if mode in ["llm_only", "hybrid"] and not self.llm_model:
+            return False, f"{mode} mode requires llm_model configuration"
 
         return True, None
 

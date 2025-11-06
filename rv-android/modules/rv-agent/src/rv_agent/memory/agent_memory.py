@@ -18,7 +18,7 @@ for inclusion in fresh LLM messages.
 """
 
 import logging
-from typing import Dict, List, Optional, Set
+from typing import Dict, List, Optional, Set, Tuple
 from collections import deque
 
 
@@ -127,8 +127,8 @@ class AgentMemoryManager:
 
         return "\n".join(lines)
 
-    def get_exploration_summary(self, visited_states: Set[str],
-                                state_transitions: Dict[str, Set[str]]) -> str:
+    def get_exploration_summary(self, visited_states: List[str],
+                                state_transitions: List[Tuple[str, str]]) -> str:
         """
         Generate exploration progress summary string.
 
@@ -141,14 +141,14 @@ class AgentMemoryManager:
         ```
 
         Args:
-            visited_states: Set of visited state hashes
-            state_transitions: Dict mapping state -> set of next states
+            visited_states: List of visited state hashes
+            state_transitions: List of tuples (prev_state, curr_state)
 
         Returns:
             Formatted exploration summary string
         """
         num_states = len(visited_states)
-        num_transitions = sum(len(targets) for targets in state_transitions.values())
+        num_transitions = len(state_transitions)
         num_activities = len(self.activity_visits)
 
         lines = [

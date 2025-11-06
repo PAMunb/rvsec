@@ -1,77 +1,129 @@
 """
-Graph-based state tracking using structural hashes.
+Graph-based state tracking using structural hashes and coordinate-based action identification.
 
-Implements a dynamic graph that tracks UI states and transitions during
-autonomous exploration, using structural hashing for precise state identification.
+Implements a dynamic graph that tracks UI states and transitions during autonomous exploration,
+using structural hashing for state identification and coordinate-based action tracking to handle
+non-deterministic action IDs across parsing sessions.
 """
 
 import xml.etree.ElementTree as ET
 import hashlib
+import json
 from dataclasses import dataclass, field
-from typing import Dict, Set, List, Optional, Any
+from typing import Dict, Set, List, Optional, Any, Tuple
 from rv_screen_parser.parser.screen.visitor.model import ScreenDescription
 
 
-def compute_screen_hash(xml_hierarchy: str) -> str:
+def compute_screen_hash_from_description(screen_desc: ScreenDescription) -> str:
     """
-    Compute structural hash from XML hierarchy for state identification.
+    Compute structural hash from ScreenDescription for state identification.
 
     ### Architectural Decisions:
-    - Uses structural content, not volatile attributes
-    - Removes bounds, timestamps, and instance-specific data
-    - Enables distinction of UI variants within same activity
-    - Compatible with DroidBot-style state identification
+    - Uses ONLY structural attributes, ignoring volatile data
+    - Sorts elements by resource-id for deterministic ordering
+    - Focuses on UI capabilities (clickable, scrollable) not content
+    - Ignores text, content-desc, checked, selected (dynamic data)
 
     ### Canonicalization Rules:
     KEEP attributes:
     - class: UI element type (essential for structure)
     - resource-id: stable identifier
     - package: application context
-    - enabled, clickable, checkable, scrollable: UI capabilities
-    - selected, checked: semantic state
+    - clickable, scrollable, checkable: UI capabilities
+    - enabled: availability state
+    - long-clickable, editable: interaction capabilities
 
-    REMOVE attributes:
-    - bounds: positional (volatile across devices/orientations)
-    - index: order-dependent (volatile)
-    - text, content-desc: content (can be dynamic)
-    - NAF, instance: metadata (not structural)
+    IGNORE attributes:
+    - text: content (dynamic)
+    - content-desc: description (can be dynamic)
+    - checked, selected: state (volatile)
+    - bounds: position (device-specific)
+    - focused, focusable: transient states
 
     Args:
-        xml_hierarchy: Raw UIAutomator XML dump
+        screen_desc: Parsed screen description from UIAutomator
 
     Returns:
-        12-character hex hash of canonical structure
+        12-character hex hash of structural representation
     """
-    try:
-        root = ET.fromstring(xml_hierarchy)
+    import logging
+    logger = logging.getLogger(__name__)
 
-        # Remove volatile attributes
-        for elem in root.iter():
-            for attr in ['bounds', 'index', 'text', 'content-desc',
-                         'NAF', 'instance', 'focusable', 'focused',
-                         'long-clickable', 'password']:
-                elem.attrib.pop(attr, None)
+    # Build structural representation
+    structural_items = []
 
-        # Serialize to canonical string
-        canonical = ET.tostring(root, encoding='unicode')
+    for item in screen_desc.items:
+        view = item.view
 
-        # Compute hash
-        return hashlib.sha256(canonical.encode()).hexdigest()[:12]
-    except ET.ParseError:
-        # Fallback for invalid XML
-        return hashlib.sha256(xml_hierarchy.encode()).hexdigest()[:12]
+        # Extract ONLY structural attributes
+        structural_view = {
+            'class': view.get('class', ''),
+            'resource-id': view.get('resource-id', ''),
+            'package': view.get('package', ''),
+            'clickable': view.get('clickable', False),
+            'scrollable': view.get('scrollable', False),
+            'checkable': view.get('checkable', False),
+            'enabled': view.get('enabled', True),
+            'long-clickable': view.get('long-clickable', False),
+            'editable': view.get('editable', False)
+        }
+
+        structural_items.append(structural_view)
+
+    # Sort by resource-id for deterministic ordering
+    # Elements without resource-id go to end (secondary sort by class)
+    structural_items.sort(key=lambda x: (x['resource-id'] or 'zzz', x['class']))
+
+    # Create canonical JSON representation
+    canonical = json.dumps(
+        {
+            'activity': screen_desc.activity,
+            'items': structural_items
+        },
+        sort_keys=True,
+        separators=(',', ':')  # Compact format
+    )
+
+    # Compute hash
+    screen_hash = hashlib.sha256(canonical.encode()).hexdigest()[:12]
+
+    logger.debug(f"Computed structural hash: {screen_hash} for {len(structural_items)} items")
+
+    # DEBUG: Log canonical representation for ALL screens (debugging enabled)
+    if True:  # Always log for debugging
+        import os
+        debug_dir = '/tmp/screendesc_debug'
+        os.makedirs(debug_dir, exist_ok=True)
+
+        canonical_file = f'{debug_dir}/{screen_hash}_canonical.json'
+        with open(canonical_file, 'w') as f:
+            f.write(canonical)
+
+        logger.info(f"🔍 SCREENDESC DEBUG: Saved CryptoApp canonical JSON")
+        logger.info(f"   Hash: {screen_hash}")
+        logger.info(f"   Activity: {screen_desc.activity}")
+        logger.info(f"   Items: {len(structural_items)}")
+        logger.info(f"   File: {canonical_file}")
+
+    return screen_hash
 
 
 @dataclass
 class ScreenNode:
     """
-    Node representing a unique UI structure state.
+    Node representing a unique UI structure state with coordinate-based action tracking.
 
     ### Architectural Decisions:
     - Identified by structural hash, not activity name
     - Captures total actions count on first visit
-    - Maintains set of executed action IDs
-    - Computes coverage as ratio of executed/total
+    - Tracks executed actions by coordinates (not IDs) for stability across parsing sessions
+    - Computes coverage as ratio of executed/total actions
+
+    ### Key Design: Coordinate-Based Tracking
+    - Action IDs are non-deterministic across UIAutomator dumps
+    - Same UI element can receive different IDs on different parses
+    - Coordinates are stable identifiers for the same screen element
+    - Solves the "repeated crash action" problem caused by ID instability
 
     ### Role in the System:
     - Represents unique UI state in exploration graph
@@ -84,7 +136,7 @@ class ScreenNode:
     activity: str
     visit_count: int = 0
     total_actions: int = 0
-    executed_actions: Set[int] = field(default_factory=set)
+    executed_actions: Set[Tuple[Tuple[int, int], str]] = field(default_factory=set)
 
     def get_coverage(self) -> float:
         """
@@ -97,23 +149,36 @@ class ScreenNode:
             return 0.0
         return len(self.executed_actions) / self.total_actions
 
-    def record_action(self, action_id: int):
+    def record_action(self, action_signature: Tuple[Tuple[int, int], str]):
         """
-        Record action execution.
+        Record action execution by signature (coordinates + action type).
 
         Args:
-            action_id: ID of executed action
+            action_signature: ((x, y), action_type) tuple identifying the action
         """
-        self.executed_actions.add(action_id)
+        self.executed_actions.add(action_signature)
+
+    def is_action_executed(self, action_signature: Tuple[Tuple[int, int], str]) -> bool:
+        """
+        Check if action with given signature was already executed.
+
+        Args:
+            action_signature: ((x, y), action_type) tuple to check
+
+        Returns:
+            True if action was executed, False otherwise
+        """
+        return action_signature in self.executed_actions
 
 
 @dataclass
 class Transition:
     """
-    Represents a state transition.
+    Represents a state transition with complete action sequence.
 
     ### Architectural Decisions:
-    - Records action that triggered transition
+    - Records all actions executed between states
+    - Captures multi-step workflows (e.g., form filling)
     - Includes timestamp for temporal analysis
     - Stores both source and destination hashes
 
@@ -121,24 +186,33 @@ class Transition:
     - Enables transition graph reconstruction
     - Supports temporal analysis of exploration
     - Provides audit trail for debugging
+    - Preserves complete workflow sequences
     """
 
     from_hash: str
     to_hash: str
-    action_id: int
+    action_sequence: List[Dict[str, Any]]
     timestamp: float
 
 
 class DynamicStateGraph:
     """
-    Graph-based state tracking using structural hashes.
+    Graph-based state tracking using structural hashes and coordinate-based action identification.
 
     ### Architectural Decisions:
     - Nodes represent unique UI structures (screen_hash)
+    - Actions tracked by coordinates, not volatile sequential IDs
     - Maintains activity reference for context
-    - Tracks action execution per screen
     - Records total actions on first visit
     - Stores transition history for analysis
+
+    ### Key Innovation: Coordinate-Based Action Tracking
+    Problem: UIAutomator dumps can return elements in different orders, causing
+    sequential action IDs (1, 2, 3...) to change between visits to the same screen.
+    This led to repeated execution of crash-causing actions.
+
+    Solution: Track executed actions by their (x, y) coordinates instead of IDs.
+    Coordinates remain stable for the same UI element regardless of parsing order.
 
     ### Role in the System:
     - Provides state-based exploration tracking
@@ -157,6 +231,7 @@ class DynamicStateGraph:
     def __init__(self):
         self.states: Dict[str, ScreenNode] = {}
         self.transitions: List[Transition] = []
+        self.current_trace: List[Dict[str, Any]] = []
 
     def get_or_create_state(
         self,
@@ -202,33 +277,70 @@ class DynamicStateGraph:
     def record_action(
         self,
         screen_hash: str,
-        action_id: int,
-        next_hash: Optional[str] = None,
-        timestamp: Optional[float] = None
+        action_signature: Tuple[Tuple[int, int], str]
     ):
         """
-        Record action execution and optional transition.
+        Record action execution on a screen by signature (coordinates + type).
 
         Args:
             screen_hash: Hash of current screen
-            action_id: ID of executed action
-            next_hash: Hash of resulting screen (if known)
+            action_signature: ((x, y), action_type) tuple identifying the action
+        """
+        import logging
+        logger = logging.getLogger(__name__)
+
+        if screen_hash in self.states:
+            node = self.states[screen_hash]
+            logger.info(f"🔒 GRAPH: Recording action signature={action_signature} on state {screen_hash[:8]}")
+            logger.info(f"   BEFORE: executed_actions = {sorted(node.executed_actions)}")
+            self.states[screen_hash].record_action(action_signature)
+            logger.info(f"   AFTER:  executed_actions = {sorted(node.executed_actions)}")
+        else:
+            logger.warning(f"⚠️  GRAPH: Cannot record action signature={action_signature} - state {screen_hash[:8]} not found!")
+            logger.warning(f"   Available states: {[h[:8] for h in self.states.keys()]}")
+
+    def record_action_to_trace(self, action: Dict[str, Any]):
+        """
+        Add action to current trace between states.
+
+        Actions accumulate in trace until state transition occurs,
+        then complete sequence is recorded in transition.
+
+        Args:
+            action: Action dictionary with type, coordinates, description, etc.
+        """
+        self.current_trace.append(action)
+
+    def record_transition(
+        self,
+        from_hash: str,
+        to_hash: str,
+        timestamp: Optional[float] = None
+    ):
+        """
+        Record state transition with complete action sequence.
+
+        Saves accumulated trace as transition record, then resets
+        trace for next transition.
+
+        Args:
+            from_hash: Hash of source screen
+            to_hash: Hash of destination screen
             timestamp: Transition timestamp (defaults to current time)
         """
         import time
 
-        if screen_hash in self.states:
-            self.states[screen_hash].record_action(action_id)
-
-        if next_hash is not None:
-            self.transitions.append(
-                Transition(
-                    from_hash=screen_hash,
-                    to_hash=next_hash,
-                    action_id=action_id,
-                    timestamp=timestamp or time.time()
-                )
+        self.transitions.append(
+            Transition(
+                from_hash=from_hash,
+                to_hash=to_hash,
+                action_sequence=self.current_trace.copy(),
+                timestamp=timestamp or time.time()
             )
+        )
+
+        # Reset trace for next transition
+        self.current_trace = []
 
     def get_untested_actions(
         self,
@@ -236,7 +348,7 @@ class DynamicStateGraph:
         all_actions: List[Any]
     ) -> List[Any]:
         """
-        Get actions not yet executed on this screen.
+        Get actions not yet executed on this screen, identified by action signatures.
 
         Args:
             screen_hash: Hash of screen
@@ -249,10 +361,35 @@ class DynamicStateGraph:
             return all_actions
 
         node = self.states[screen_hash]
-        return [
-            action for action in all_actions
-            if action.id not in node.executed_actions
-        ]
+        untested = []
+
+        for action in all_actions:
+            # Get action signature (coords + type) for matching
+            action_signature = action.coords_for_matching
+            if action_signature not in node.executed_actions:
+                untested.append(action)
+
+        return untested
+
+    def is_action_executed(
+        self,
+        screen_hash: str,
+        action_signature: Tuple[Tuple[int, int], str]
+    ) -> bool:
+        """
+        Check if action with given signature was executed on this screen.
+
+        Args:
+            screen_hash: Hash of screen
+            action_signature: ((x, y), action_type) tuple to check
+
+        Returns:
+            True if action was executed, False otherwise
+        """
+        if screen_hash not in self.states:
+            return False
+
+        return self.states[screen_hash].is_action_executed(action_signature)
 
     def get_coverage_summary(self) -> Dict[str, float]:
         """
@@ -278,3 +415,40 @@ class DynamicStateGraph:
 
         total_coverage = sum(node.get_coverage() for node in self.states.values())
         return (total_coverage / len(self.states)) * 100
+
+    def get_transition_graph_report(self) -> Dict[str, Any]:
+        """
+        Generate comprehensive transition graph report.
+
+        Includes complete action sequences for each transition,
+        enabling workflow analysis and debugging.
+
+        Returns:
+            Dictionary with states and transitions with full sequences
+        """
+        return {
+            "total_states": len(self.states),
+            "total_transitions": len(self.transitions),
+            "avg_coverage": self.get_avg_coverage(),
+            "states": [
+                {
+                    "screen_hash": node.screen_hash,
+                    "activity": node.activity,
+                    "visit_count": node.visit_count,
+                    "total_actions": node.total_actions,
+                    "executed_count": len(node.executed_actions),
+                    "coverage": node.get_coverage() * 100
+                }
+                for node in self.states.values()
+            ],
+            "transitions": [
+                {
+                    "from": t.from_hash,
+                    "to": t.to_hash,
+                    "action_count": len(t.action_sequence),
+                    "actions": t.action_sequence,
+                    "timestamp": t.timestamp
+                }
+                for t in self.transitions
+            ]
+        }

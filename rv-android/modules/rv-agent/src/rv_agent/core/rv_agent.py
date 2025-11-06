@@ -15,19 +15,19 @@ import os
 import time
 import base64
 import logging
-from typing import Optional, Dict, Any, Set
+from typing import Optional, Dict, Any, Set, List
 from pathlib import Path
 
 from langgraph.graph import StateGraph, END
 from langgraph.prebuilt import tools_condition
 from langchain_ollama import ChatOllama
-from langchain_core.messages import HumanMessage, AIMessage
+from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
 
 from rv_agent.config.agent_config import RVAgentConfig
 from rv_agent.llm.graph.state import AgentState
 from rv_agent.core.device_interface import DeviceInterface
 from rv_agent.core.screenshot_optimizer import ScreenshotOptimizer
-from rv_agent.core.dynamic_state_graph import DynamicStateGraph, compute_screen_hash
+from rv_agent.core.dynamic_state_graph import DynamicStateGraph, compute_screen_hash_from_description
 from rv_agent.core.coordinate_converter import CoordinateConverter
 from rv_agent.strategies import DFSStrategy, BFSStrategy
 from rv_agent.memory import AgentMemoryManager
@@ -117,21 +117,21 @@ class RVAgent:
         # Dynamic exploration graph (structural hash)
         self.dynamic_graph = DynamicStateGraph()
 
+        # Coordinate converter (must be created BEFORE strategy)
+        self.converter = CoordinateConverter(
+            device_dimensions=config.device_dimensions,
+            optimized_dimensions=config.optimized_dimensions
+        )
+
         # Pluggable strategy (DFS or BFS)
         if config.strategy == "dfs":
-            self.strategy = DFSStrategy(self.dynamic_graph, static_data)
+            self.strategy = DFSStrategy(self.dynamic_graph, static_data, self.converter)
             logger.info("Using DFS strategy")
         elif config.strategy == "bfs":
             self.strategy = BFSStrategy(self.dynamic_graph, static_data)
             logger.info("Using BFS strategy")
         else:
             raise ValueError(f"Unknown strategy: {config.strategy}")
-
-        # Coordinate converter
-        self.converter = CoordinateConverter(
-            device_dimensions=config.device_dimensions,
-            optimized_dimensions=config.optimized_dimensions
-        )
 
         logger.info(
             f"Coordinate converter: {config.device_dimensions} → {config.optimized_dimensions}"
@@ -179,132 +179,405 @@ class RVAgent:
 
     def _build_agent_graph(self):
         """
-        Build LangGraph workflow with V7 retry logic.
+        Build unified LangGraph workflow (optimized architecture).
 
-        Flow:
-        observe → assistant → [tools_condition]
-                            ↓                ↓
-                         tools              learn (no tools)
-                            ↓
-                      validate_action
-                            ↓
-                     [retry_decision]
-                ↓           ↓            ↓
-          update_params  update_mem  max_retries
-               ↓             ↓            ↓
-           assistant       learn        learn
+        Optimized flow:
+                   start
+                     ↓
+                 parse_ui (UI dump + parsing - always)
+                     ↓
+              decision_router
+                ↙      ↓      ↘
+               dfs     llm    end
+                ↓       ↓      ↓
+           dfs_decide  capture_screenshot  END
+                ↓       ↓
+                │    assistant
+                │       ↓
+                │   validation_router
+                │    ↙         ↘
+                │  tools     dfs_decide
+                │   ↓           ↓
+                └→ tools ←──────┘
+                     ↓
+                   learn → END
 
-        V7 Changes:
-        - Uses builtin tools_condition from langgraph.prebuilt
-        - Adds retry loop with progressive sampling (temperature, top_p, top_k)
-        - validate_action node checks if tools were executed
-        - retry_decision routes based on success/failure
-        - update_sampling_params increases creativity on retry
+        Modes:
+        - pure_dfs: parse_ui → decision_router → dfs_decide → tools → learn
+        - llm_only: parse_ui → decision_router → capture_screenshot → assistant → validation_router → tools → learn
+        - hybrid: parse_ui → decision_router → [llm path with DFS fallback | pure dfs path] → tools → learn
+
+        Key improvements:
+        - parse_ui always runs (needed for ScreenDescription)
+        - screenshot only captured in LLM path (~0.5s saved in DFS)
+        - validation_router uses conditional edge (no logic duplication)
+        - Single unified workflow for all modes
 
         Returns:
             Compiled LangGraph workflow
         """
-        logger.info("Building LangGraph workflow with V7 retry logic")
+        mode = self.config.get_agent_mode()
+        logger.info(f"Building unified LangGraph workflow (mode: {mode})")
 
         workflow = StateGraph(AgentState)
 
-        # Add nodes
-        workflow.add_node("observe", self._observe_node)
+        # Add nodes (new architecture)
+        workflow.add_node("parse_ui", self._parse_ui_node)
+        workflow.add_node("decision_router", self._decision_router_node)
+        workflow.add_node("capture_screenshot", self._capture_screenshot_node)
         workflow.add_node("assistant", self._assistant_node)
-        workflow.add_node("tools", self._execute_tools_node)  # Custom tool executor
-        workflow.add_node("validate_action", self._validate_action_node)  # V7
-        workflow.add_node("update_sampling", self._update_sampling_params_node)  # V7
-        workflow.add_node("update_memories", self._update_memories_node)
+        workflow.add_node("validation_router", self._validation_router_node)
+        workflow.add_node("dfs_decide", self._dfs_decide_node)
+        workflow.add_node("tools", self._execute_tools_node)
         workflow.add_node("learn", self._learn_node)
-        workflow.add_node("handle_max_retries", self._handle_max_retries_node)  # V7
 
-        # Flow
-        workflow.set_entry_point("observe")
-        workflow.add_edge("observe", "assistant")
+        # Entry: parse UI first (always needed)
+        workflow.set_entry_point("parse_ui")
+        workflow.add_edge("parse_ui", "decision_router")
 
-        # Use builtin tools_condition (V7)
+        # Decision router: mode-based routing
         workflow.add_conditional_edges(
-            "assistant",
-            tools_condition,  # Builtin from langgraph.prebuilt
-        )
-
-        # Validate action after tool execution (V7)
-        workflow.add_edge("tools", "validate_action")
-
-        # Retry decision based on validation (V7)
-        workflow.add_conditional_edges(
-            "validate_action",
-            self._retry_decision,
+            "decision_router",
+            lambda s: s.get("decision_path", "end"),
             {
-                "success": "update_memories",      # Success → continue
-                "retry": "update_sampling",         # Retry with higher creativity
-                "max_retries": "handle_max_retries"  # Give up → fallback
+                "llm": "capture_screenshot",
+                "dfs": "dfs_decide",
+                "end": END
             }
         )
 
-        # Retry loop: update_sampling → assistant (try again)
-        workflow.add_edge("update_sampling", "assistant")
+        # LLM path: screenshot → assistant → validation
+        workflow.add_edge("capture_screenshot", "assistant")
+        workflow.add_edge("assistant", "validation_router")
 
-        # Normal continuation
-        workflow.add_edge("update_memories", "learn")
-        workflow.add_edge("handle_max_retries", "learn")
+        # Validation router: conditional edge to tools or dfs_decide
+        workflow.add_conditional_edges(
+            "validation_router",
+            lambda s: s.get("validation_path", "tools"),
+            {
+                "tools": "tools",
+                "dfs_decide": "dfs_decide"
+            }
+        )
+
+        # DFS path: dfs_decide → tools
+        workflow.add_edge("dfs_decide", "tools")
+
+        # Common path: tools → learn → END
+        workflow.add_edge("tools", "learn")
         workflow.add_edge("learn", END)
 
-        logger.info("LangGraph workflow compiled with V7 retry logic")
+        logger.info(f"✅ Unified workflow compiled (mode: {mode})")
         return workflow.compile()
 
-    def _observe_node(self, state: AgentState) -> AgentState:
+    def _decision_router_node(self, state: AgentState) -> AgentState:
         """
-        Observe current screen state - NO message construction.
+        Route decision to LLM or DFS based on mode and conditions.
 
-        ### Stateless Pattern:
-        - Captures current UI state and screenshot
-        - NO message creation (done in assistant node)
-        - Returns raw observation data
+        Routing logic:
+        - pure_dfs mode: always DFS
+        - llm_only mode: always LLM
+        - multimode: probabilistic (llm_probability controls LLM %)
+        - hybrid mode: conditional
+          - LLM failures >= threshold → DFS
+          - Loop detected last iteration → DFS
+          - LLM timeout → DFS (if auto_fallback enabled)
+          - Otherwise → LLM
 
         Returns:
-            Updated state with current observations
+            State with decision_path set to "llm", "dfs", or "end"
         """
-        logger.info("🔍 OBSERVE: Capturing current screen state")
+        mode = self.config.get_agent_mode()
+
+        # Track decision counts
+        llm_decisions = state.get("llm_decisions", 0)
+        dfs_decisions = state.get("dfs_decisions", 0)
+
+        # Mode-based routing
+        if mode == "pure_dfs":
+            logger.info(f"🔀 ROUTER: pure_dfs mode → DFS path (total DFS: {dfs_decisions + 1})")
+            return {"decision_path": "dfs", "dfs_decisions": dfs_decisions + 1}
+
+        if mode == "llm_only":
+            logger.info(f"🔀 ROUTER: llm_only mode → LLM path (total LLM: {llm_decisions + 1})")
+            return {"decision_path": "llm", "llm_decisions": llm_decisions + 1}
+
+        # Multimode - probabilistic routing
+        if mode == "multimode":
+            import random
+            use_llm = random.random() < self.config.llm_probability
+            llm_pct = int(self.config.llm_probability * 100)
+            dfs_pct = 100 - llm_pct
+
+            if use_llm:
+                logger.info(f"🔀 ROUTER: multimode ({llm_pct}/{dfs_pct}) → LLM (LLM:{llm_decisions + 1}, DFS:{dfs_decisions})")
+                return {
+                    "decision_path": "llm",
+                    "llm_decisions": llm_decisions + 1,
+                    "used_fallback": False
+                }
+            else:
+                logger.info(f"🔀 ROUTER: multimode ({llm_pct}/{dfs_pct}) → DFS (LLM:{llm_decisions}, DFS:{dfs_decisions + 1})")
+                return {
+                    "decision_path": "dfs",
+                    "dfs_decisions": dfs_decisions + 1,
+                    "used_fallback": False
+                }
+
+        # Hybrid mode - conditional routing
+        llm_failures = state.get("consecutive_llm_failures", 0)
+        loop_detected = state.get("loop_detected", False)
+        llm_timeout = state.get("llm_timeout_occurred", False)
+
+        # Fallback conditions
+        if llm_failures >= self.config.llm_max_retries:
+            logger.warning(f"🔀 ROUTER: LLM failures ({llm_failures}) → DFS fallback (LLM:{llm_decisions}, DFS:{dfs_decisions + 1})")
+            return {
+                "decision_path": "dfs",
+                "used_fallback": True,
+                "fallback_reason": "llm_failures",
+                "dfs_decisions": dfs_decisions + 1
+            }
+
+        if loop_detected:
+            logger.warning(f"🔀 ROUTER: Loop detected → DFS preventive (LLM:{llm_decisions}, DFS:{dfs_decisions + 1})")
+            return {
+                "decision_path": "dfs",
+                "used_fallback": True,
+                "fallback_reason": "loop_detected",
+                "dfs_decisions": dfs_decisions + 1
+            }
+
+        if llm_timeout and self.config.auto_fallback_on_timeout:
+            logger.warning(f"🔀 ROUTER: LLM timeout → DFS fallback (LLM:{llm_decisions}, DFS:{dfs_decisions + 1})")
+            return {
+                "decision_path": "dfs",
+                "used_fallback": True,
+                "fallback_reason": "llm_timeout",
+                "dfs_decisions": dfs_decisions + 1
+            }
+
+        # Normal path: LLM
+        logger.info(f"🔀 ROUTER: Hybrid mode → LLM path (LLM:{llm_decisions + 1}, DFS:{dfs_decisions})")
+        return {
+            "decision_path": "llm",
+            "used_fallback": False,
+            "llm_decisions": llm_decisions + 1
+        }
+
+    def _dfs_decide_node(self, state: AgentState) -> AgentState:
+        """
+        DFS decision node - pure algorithmic action selection.
+
+        Calls strategy.select_next_action() without LLM involvement.
+        Creates tool call for execution by tools node.
+
+        Returns:
+            State with current_action and executable tool call message
+        """
+        strategy = state["_strategy"]
+        screen_hash = state["current_screen_hash"]
+        screen_desc = state["screen_description"]
+
+        logger.info("DFS: Selecting action algorithmically")
+
+        action = strategy.select_next_action(screen_hash, screen_desc)
+
+        if action is None:
+            logger.info("DFS: Exploration complete")
+            return {"decision_path": "end", "should_continue": False}
+
+        logger.info(f"DFS: Selected {action.get('action_type', 'UNKNOWN')}")
+        logger.info(f"   🔍 Action dict: ID={action.get('id')}, type={action.get('action_type')}")
+
+        # Create tool call for DFS action execution
+        tool_call = self._action_to_tool_call(action)
+        dfs_message = self._create_tool_call_message([tool_call])
+
+        return {
+            "current_action": action,
+            "decision_maker": "dfs",
+            "messages": [dfs_message]  # Provide executable tool call
+        }
+
+
+    def _parse_ui_node(self, state: AgentState) -> AgentState:
+        """
+        Parse current UI state (always executed - no screenshot).
+
+        Captures UIAutomator dump, parses to ScreenDescription, calculates screen hash.
+        Detects external navigation and manages app restart.
+        Screenshot is captured separately in _capture_screenshot_node (LLM only).
+
+        Returns:
+            Updated state with parsed UI state (no screenshot)
+        """
+        logger.info("🔍 PARSE_UI: Capturing and parsing UI state")
 
         try:
             # Get current UI state
             ui_state = self.device.get_current_ui_state()
 
-            # Take and optimize screenshot
-            screenshot_path = self.device.take_screenshot()
-            screenshot_b64 = self._load_and_optimize_screenshot(screenshot_path)
+            # Check external navigation using current_package field
+            current_package = ui_state.get('current_package', '')
+            is_external = current_package and current_package != self.config.package_name
+            external_count = state.get("external_navigation_count", 0)
 
-            # Parse screen
-            screen_description = self.parser.parse(
-                ui_state['xml'],
+            if is_external:
+                external_count += 1
+                logger.warning(f"🚨 External navigation: {current_package} (attempt {external_count}/{self.config.max_external_attempts})")
+
+                # Restart app after max attempts
+                if external_count >= self.config.max_external_attempts:
+                    logger.info("⚠️  Max external attempts reached, restarting app")
+                    self._restart_app()
+                    external_count = 0
+                    # Re-capture state after restart
+                    time.sleep(2)
+                    ui_state = self.device.get_current_ui_state()
+            else:
+                # Reset counter when back in target app
+                if external_count > 0:
+                    logger.info("✅ Returned to target app")
+                    external_count = 0
+
+            # Parse screen with activity context
+            screen_description = self.parser.parse_screen(
+                {"hierarchy": ui_state['xml'], "activity": ui_state['current_activity']},
                 static_data=self.static_data
             )
 
-            # Compute screen hash
-            screen_hash = compute_screen_hash(ui_state['xml'])
+            # Compute screen hash from ScreenDescription (structural hash)
+            screen_hash = compute_screen_hash_from_description(screen_description)
 
             logger.info(f"   Activity: {ui_state['current_activity']}")
             logger.info(f"   Screen hash: {screen_hash[:12]}...")
             logger.info(f"   UI elements: {len(screen_description.items)}")
 
-            # Don't clear messages - let them flow naturally for tool calling
-            # Messages accumulate within a single graph invocation
-            # External loop creates fresh state for each iteration
+            # Detect state transition
+            last_hash = state.get("last_screen_hash")
+            if last_hash and last_hash != screen_hash:
+                logger.info(f"📊 Transition: {last_hash[:8]} → {screen_hash[:8]}")
+                logger.info(f"   Actions in sequence: {len(self.dynamic_graph.current_trace)}")
+
+                self.dynamic_graph.record_transition(
+                    from_hash=last_hash,
+                    to_hash=screen_hash,
+                    timestamp=time.time()
+                )
+
             return {
-                "screenshot_b64": screenshot_b64,
                 "current_screen_hash": screen_hash,
                 "current_activity": ui_state['current_activity'],
-                "screen_description": screen_description
+                "screen_description": screen_description,
+                "last_screen_hash": screen_hash,
+                "external_navigation_count": external_count,
+                "is_external": is_external
             }
 
         except Exception as e:
-            logger.error(f"❌ Observation failed: {e}", exc_info=True)
+            logger.error(f"❌ UI parsing failed: {e}", exc_info=True)
             raise
+
+    def _capture_screenshot_node(self, state: AgentState) -> AgentState:
+        """
+        Capture and optimize screenshot for LLM (LLM path only).
+
+        Takes screenshot, optimizes to configured dimensions (default: 704x1248),
+        and converts to base64 for LLM processing.
+
+        Returns:
+            Updated state with screenshot_b64
+        """
+        logger.info("📸 SCREENSHOT: Capturing for LLM processing")
+
+        try:
+            screenshot_path = self.device.take_screenshot()
+            screenshot_b64 = self._load_and_optimize_screenshot(screenshot_path)
+
+            logger.info(f"   Screenshot optimized to {self.config.optimized_dimensions}")
+
+            return {
+                "screenshot_b64": screenshot_b64
+            }
+
+        except Exception as e:
+            logger.error(f"❌ Screenshot capture failed: {e}", exc_info=True)
+            # Continue without screenshot (LLM can still work with UI elements)
+            return {
+                "screenshot_b64": ""
+            }
+
+    def _validation_router_node(self, state: AgentState) -> AgentState:
+        """
+        Validate LLM action and route to tools or DFS fallback.
+
+        Checks:
+        1. LLM generated valid tool calls
+        2. Loop detection (consecutive repetitions)
+
+        Returns:
+            State with validation_path: "tools" or "dfs_decide"
+        """
+        messages = state.get("messages", [])
+        last_message = messages[-1] if messages else None
+
+        # Check if LLM generated tool calls
+        has_tool_calls = (
+            last_message and
+            hasattr(last_message, 'tool_calls') and
+            last_message.tool_calls
+        )
+
+        if not has_tool_calls:
+            logger.warning("⚠️  VALIDATION: No tool calls from LLM → DFS fallback")
+            return {
+                "validation_path": "dfs_decide",
+                "loop_detected": True,
+                "used_fallback": True,
+                "fallback_reason": "no_tool_calls"
+            }
+
+        # Extract action from tool calls for loop detection
+        llm_action = self._extract_action_from_tool_calls(last_message.tool_calls)
+
+        if not llm_action:
+            logger.warning("⚠️  VALIDATION: Could not extract action → DFS fallback")
+            return {
+                "validation_path": "dfs_decide",
+                "loop_detected": True,
+                "used_fallback": True,
+                "fallback_reason": "invalid_action"
+            }
+
+        # Check for loops
+        recent_window = state.get("recent_action_window", [])
+        consecutive_count = self._count_consecutive_actions(recent_window, llm_action)
+        action_type = llm_action.get("action_type", "UNKNOWN")
+        threshold = self.config.get_loop_threshold(action_type)
+
+        if consecutive_count >= threshold:
+            logger.warning(f"⚠️  LOOP: {action_type} repeated {consecutive_count}x (threshold={threshold}) → DFS fallback")
+            return {
+                "validation_path": "dfs_decide",
+                "loop_detected": True,
+                "used_fallback": True,
+                "fallback_reason": "loop_detected",
+                "current_action": llm_action  # Preserve for memory
+            }
+
+        # Valid - proceed to tools
+        logger.debug(f"✅ VALIDATION: {action_type} valid (count={consecutive_count})")
+        return {
+            "validation_path": "tools",
+            "loop_detected": False,
+            "used_fallback": False,
+            "current_action": llm_action
+        }
 
     def _assistant_node(self, state: AgentState) -> AgentState:
         """
-        Generate action using LLM with tool calling (V7: progressive sampling).
+        Generate action using LLM with tool calling (Current: progressive sampling).
 
         LLM analyzes current screen and decides which tool to call.
         Uses sampling parameters from state for progressive creativity across retries.
@@ -312,7 +585,7 @@ class RVAgent:
         Returns:
             Updated state with messages and token metrics
         """
-        # Get sampling parameters from state (V7 retry logic)
+        # Get sampling parameters from state (retry logic)
         temperature = state.get("sampling_temperature", 0.1)
         top_p = state.get("sampling_top_p", 0.9)
         top_k = state.get("sampling_top_k", 40)
@@ -323,18 +596,19 @@ class RVAgent:
         start_time = time.time()
 
         try:
-            # Build fresh message from summaries
-            message = self._build_stateless_message(state)
+            # Build fresh messages from summaries ( separate roles)
+            messages = self._build_stateless_message(state)
 
-            logger.info("   Message constructed with screenshot + UI coordinates")
+            logger.info("   Messages constructed with screenshot + UI coordinates")
+            logger.info(f"   Using {len(messages)} messages (SystemMessage + HumanMessage)")
 
             # Get existing messages from state (for ToolNode compatibility)
             existing_messages = state.get("messages", [])
 
-            # LLM invocation with dynamic sampling parameters (V7)
+            # LLM invocation with dynamic sampling parameters 
             # Pass parameters directly to invoke() (Ollama-specific approach)
             response = self.llm.invoke(
-                [message],
+                messages,  #  Use list of messages directly
                 config={
                     "configurable": {
                         "temperature": temperature,
@@ -393,12 +667,13 @@ class RVAgent:
             if len(response.content) > 500:
                 logger.debug(f"   ... (total {len(response.content)} chars)")
 
-            # Accumulate messages (user message + AI response) for ToolNode compatibility
+            # Accumulate messages (system + user + AI response) for ToolNode compatibility
             # Messages will be cleared on next observe_node iteration
-            updated_messages = existing_messages + [message, response]
+            #  messages is already a list [SystemMessage, HumanMessage]
+            updated_messages = existing_messages + messages + [response]
 
             logger.info(f"🔧 ASSISTANT RETURN: Returning {len(updated_messages)} messages to state")
-            logger.info(f"   - existing: {len(existing_messages)}, adding: 2 (user + AI)")
+            logger.info(f"   - existing: {len(existing_messages)}, adding: {len(messages) + 1} (system + user + AI)")
 
             return {
                 "messages": updated_messages,
@@ -417,32 +692,31 @@ class RVAgent:
                 "llm_time_ms": (time.time() - start_time) * 1000
             }
 
-    def _build_stateless_message(self, state: AgentState) -> HumanMessage:
+    def _build_stateless_message(self, state: AgentState) -> list:
         """
-        Build fresh HumanMessage with SIMPLIFIED V10 prompt.
+        Build fresh messages with SIMPLIFIED V10 prompt and SEPARATE ROLES.
 
         V10 minimal context approach:
         - Simple system prompt (no complex instructions)
-        - Only essential UI elements (top 15)
+        - Only UI elements formatted by _format_ui_elements
         - Minimal action history (last action only)
         - NO exploration metrics, memory insights, or navigation paths
+        - SEPARATED ROLES: SystemMessage + HumanMessage (like working test)
 
         This reduces prompt complexity to prevent overloading smaller vision models.
 
         Returns:
-            Fresh HumanMessage with simplified context
+            List of [SystemMessage, HumanMessage] with simplified context
         """
         # Get simple system prompt from V10
         system_text = current_prompt.SYSTEM_PROMPT
 
-        # Format UI elements (simplified - max 15 elements)
-        ui_elements = self._extract_ui_elements(state['screen_description'])[:15]
-        ui_text_list = [f"- {elem['type']} '{elem['text']}' at ({elem['x']}, {elem['y']})"
-                        for elem in ui_elements]
+        # Format UI elements using existing method
+        ui_elements_text = self._format_ui_elements(state['screen_description'])
 
-        # Build minimal user message from V10
+        # Build minimal user message from V10 - only iteration, last action, and UI elements
         state_info = {
-            'ui_elements': ui_text_list,
+            'ui_elements': [ui_elements_text],  # Wrap in list as expected by v10.build_user_message
             'last_action': state.get('last_action_summary', None),
             'iteration': state.get('iteration', 0)
         }
@@ -454,13 +728,18 @@ class RVAgent:
             full_prompt = f"{system_text}\n\n{user_text}"
             logger.info(f"\n{'='*80}\nFULL PROMPT (Iteration 2):\n{'='*80}\n{full_prompt}\n{'='*80}")
 
-        # Build multimodal message
-        return HumanMessage(content=[
-            {"type": "text", "text": f"{system_text}\n\n{user_text}"},
+        #  Separate roles like successful test
+        system_message = SystemMessage(content=system_text)
+
+        # Build multimodal human message
+        human_message = HumanMessage(content=[
+            {"type": "text", "text": user_text},
             {"type": "image_url", "image_url": {
                 "url": f"data:image/png;base64,{state['screenshot_b64']}"
             }}
         ])
+
+        return [system_message, human_message]
 
     def _format_ui_elements(self, screen_description) -> str:
         """
@@ -711,7 +990,7 @@ class RVAgent:
 
     def _retry_decision(self, state: AgentState) -> str:
         """
-        Routing function for retry logic (V7).
+        Routing function for retry logic .
 
         Decides whether to retry with higher creativity or proceed.
 
@@ -739,7 +1018,7 @@ class RVAgent:
 
     def _update_sampling_params_node(self, state: AgentState) -> AgentState:
         """
-        Update sampling parameters for progressive creativity (V7).
+        Update sampling parameters for progressive creativity .
 
         Increases temperature, top_p, top_k progressively across retries.
 
@@ -776,7 +1055,7 @@ class RVAgent:
 
     def _handle_max_retries_node(self, state: AgentState) -> AgentState:
         """
-        Handle max retries reached - fallback behavior (V7).
+        Handle max retries reached - fallback behavior .
 
         Creates fallback BACK action when all retries exhausted.
 
@@ -881,12 +1160,23 @@ class RVAgent:
                 # Action tools (android_click, android_type_text, etc.) return success/error strings
                 # We need to extract x, y from tool_args for memory updates
                 if tool_name.startswith('android_') and 'x' in tool_args and 'y' in tool_args:
+                    # Get original action to preserve ID and action_type
+                    original_action = state.get('current_action', {})
+
+                    # Derive action_type from tool_name or use original
+                    action_type = original_action.get('action_type')
+                    if not action_type:
+                        # Fallback: derive from tool_name
+                        action_type = tool_name.replace('android_', '').upper()
+
                     executed_action = {
                         'tool_name': tool_name,
+                        'action_type': action_type,  # Preserve action_type for signature matching
                         'x': tool_args['x'],
                         'y': tool_args['y'],
                         'element_description': tool_args.get('element_description', ''),
-                        'text': tool_args.get('text', None)  # For android_type_text
+                        'text': tool_args.get('text', None),  # For android_type_text
+                        'id': original_action.get('id')  # Preserve ID from DFS/LLM selection
                     }
 
             except Exception as e:
@@ -1028,10 +1318,20 @@ class RVAgent:
         ui_coverage = state.get("_ui_coverage")
         long_term = state.get("_long_term")
 
+        # Update recent action window for loop detection
+        recent = state.get("recent_action_window", [])
+        if action:
+            recent.append(action)
+            if len(recent) > 10:  # Keep last 10
+                recent = recent[-10:]
+
+        decision_maker = state.get("decision_maker", "unknown")
+        logger.debug(f"   Decision maker: {decision_maker}")
+
         try:
-            # Update DynamicStateGraph - CORRECTED API
+            # Update DynamicStateGraph
             if dynamic_graph and screen_desc:
-                # Create or update state node (CORRECT: use get_or_create_state)
+                # Create or update state node
                 node = dynamic_graph.get_or_create_state(
                     screen_hash=current_screen,
                     activity=current_activity,
@@ -1039,14 +1339,40 @@ class RVAgent:
                 )
                 logger.debug(f"   Updated DynamicGraph state: {current_screen[:8]} (visits: {node.visit_count})")
 
-                # Record action execution (CORRECT: use record_action)
-                # Extract action_id from action (use element index or hash)
-                action_id = hash(str(action))  # Simple hash for now
+                # Add action to trace (for complete transition sequence)
+                if action:
+                    dynamic_graph.record_action_to_trace(action)
+                    logger.debug(f"   Added to trace (total: {len(dynamic_graph.current_trace)})")
+
+                # Record action execution using signature (coordinates + type) for stable tracking
+                # Normalize action_type to lowercase to match ItemAction.action_type format
+                action_coords = (action.get("x", 0), action.get("y", 0))
+                action_type_raw = action.get("action_type", "UNKNOWN")
+
+                logger.info(f"   🔍 DEBUG: action_type_raw={action_type_raw}, action keys={list(action.keys())}")
+
+                # Map execution types to internal types (same format as ItemAction.action_type)
+                action_type_normalize = {
+                    'CLICK': 'click',
+                    'LONG_CLICK': 'long_click',
+                    'TYPE_TEXT': 'set_text',
+                    'SCROLL': 'scroll',
+                    'SCROLL_UP': 'scroll_up',
+                    'SCROLL_DOWN': 'scroll_down',
+                    'SCROLL_LEFT': 'scroll_left',
+                    'SCROLL_RIGHT': 'scroll_right',
+                    'BACK': 'key_event',
+                    'UNKNOWN': 'unknown'
+                }
+                action_type = action_type_normalize.get(action_type_raw, 'unknown')
+                logger.info(f"   🔍 DEBUG: action_type after normalize={action_type}")
+
+                action_signature = (action_coords, action_type)
+                action_id = action.get("id", "unknown")  # Keep for logging
+                logger.info(f"   📝 Marking action as executed: ID={action_id} signature={action_signature} on state {current_screen[:8]}")
                 dynamic_graph.record_action(
                     screen_hash=current_screen,
-                    action_id=action_id,
-                    next_hash=None,  # Will be known on next iteration
-                    timestamp=time.time()
+                    action_signature=action_signature
                 )
                 logger.debug(f"   Recorded action in DynamicGraph")
 
@@ -1111,8 +1437,8 @@ class RVAgent:
             # Generate all summaries
             action_history_summary = self.memory_manager.get_action_history_summary()
             exploration_summary = self.memory_manager.get_exploration_summary(
-                visited_states=state.get("visited_states", set()),
-                state_transitions=state.get("state_transitions", {})
+                visited_states=state.get("visited_states", []),
+                state_transitions=state.get("state_transitions", [])
             )
             memory_insights = self.memory_manager.get_memory_insights(current_activity)
             navigation_path = self.memory_manager.get_navigation_path()
@@ -1127,19 +1453,45 @@ class RVAgent:
             memory_insights = "No insights yet."
             navigation_path = "Starting navigation."
 
+        # Track state discovery and transitions
+        current_hash = state.get("current_screen_hash")
+        prev_hash = state.get("previous_screen_hash")
+        visited = state.get("visited_states", [])
+        transitions = state.get("state_transitions", [])
+
+        # Add current state to visited if not already present
+        if current_hash and current_hash not in visited:
+            visited.append(current_hash)
+            logger.debug(f"   New state discovered: {current_hash[:12]}...")
+
+        # Record transition if state changed
+        logger.debug(f"   TRANSITION CHECK: prev={prev_hash[:12] if prev_hash else None}, current={current_hash[:12] if current_hash else None}, different={prev_hash != current_hash if (prev_hash and current_hash) else 'N/A'}")
+        if prev_hash and current_hash and prev_hash != current_hash:
+            transition = (prev_hash, current_hash)
+            if transition not in transitions:
+                transitions.append(transition)
+                logger.debug(f"   New transition: {prev_hash[:8]}... → {current_hash[:8]}...")
+
         # Check if should continue (timeout checked in external loop)
         elapsed = time.time() - state["start_time"]
         should_continue = elapsed < state["timeout"]
 
         logger.info(f"   Memory systems updated, should_continue={should_continue}")
+        logger.info(f"   States discovered: {len(visited)}, Transitions: {len(transitions)}")
 
-        # Return summaries for next iteration (stateless context)
+        # Return summaries and tracking data for next iteration
         return {
             "should_continue": should_continue,
             "action_history_summary": action_history_summary,
             "exploration_summary": exploration_summary,
             "memory_insights": memory_insights,
-            "navigation_path": navigation_path
+            "navigation_path": navigation_path,
+            "visited_states": visited,
+            "state_transitions": transitions,
+            "previous_screen_hash": current_hash,
+            "recent_action_window": recent,  # For loop detection
+            "loop_detected": False,  # Reset for next iteration
+            "decision_maker": decision_maker
         }
 
     def _load_and_optimize_screenshot(self, screenshot_path: str) -> str:
@@ -1177,6 +1529,182 @@ class RVAgent:
 
             return base64.b64encode(img_data).decode('utf-8')
 
+    def _restart_app(self):
+        """Restart target application after external navigation."""
+        try:
+            # DEBUG: Show graph state before restart
+            logger.info(f"📊 BEFORE RESTART - Graph state:")
+            logger.info(f"   Total states: {len(self.dynamic_graph.states)}")
+            logger.info(f"   State hashes: {[h[:8] for h in self.dynamic_graph.states.keys()]}")
+            for hash_key, node in self.dynamic_graph.states.items():
+                logger.info(f"   State {hash_key[:8]}: executed_actions={sorted(node.executed_actions)}")
+
+            logger.info(f"🔄 Restarting app: {self.config.package_name}")
+
+            # Go home and relaunch app
+            self.device.home()
+            time.sleep(1)
+
+            # Launch app
+            self.device.launch_app(self.config.package_name)
+
+            logger.info("✅ App restarted successfully")
+
+            # DEBUG: Verify graph state after restart
+            logger.info(f"📊 AFTER RESTART - Graph state:")
+            logger.info(f"   Total states: {len(self.dynamic_graph.states)}")
+            logger.info(f"   State hashes: {[h[:8] for h in self.dynamic_graph.states.keys()]}")
+            for hash_key, node in self.dynamic_graph.states.items():
+                logger.info(f"   State {hash_key[:8]}: executed_actions={sorted(node.executed_actions)}")
+
+        except Exception as e:
+            logger.error(f"❌ App restart failed: {e}")
+
+    def _action_to_tool_call(self, action: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Convert action dictionary to LangChain tool call.
+
+        Args:
+            action: Action dictionary with type, coordinates, etc.
+
+        Returns:
+            Tool call dictionary compatible with LangChain
+        """
+        action_type = action.get("action_type", "CLICK")
+        x = action.get("x", 0)
+        y = action.get("y", 0)
+        desc = action.get("description", "element")
+        text = action.get("text")
+
+        if action_type == "TYPE_TEXT" and text:
+            return {
+                "name": "android_type_text",
+                "args": {
+                    "x": x,
+                    "y": y,
+                    "element_description": desc,
+                    "text": text
+                },
+                "id": f"fallback_{hash(str(action))}"
+            }
+        elif action_type == "BACK":
+            return {
+                "name": "android_back",
+                "args": {},
+                "id": f"fallback_{hash(str(action))}"
+            }
+        else:  # CLICK, SCROLL, etc
+            return {
+                "name": "android_click",
+                "args": {
+                    "x": x,
+                    "y": y,
+                    "element_description": desc
+                },
+                "id": f"fallback_{hash(str(action))}"
+            }
+
+    def _create_tool_call_message(self, tool_calls: List):
+        """
+        Create AIMessage with tool calls for fallback execution.
+
+        Args:
+            tool_calls: List of ToolCall objects
+
+        Returns:
+            AIMessage with tool_calls attached
+        """
+        return AIMessage(
+            content="",
+            tool_calls=tool_calls
+        )
+
+    def _extract_action_from_tool_calls(self, tool_calls: List) -> Optional[Dict[str, Any]]:
+        """
+        Extract action dictionary from LangChain tool calls.
+
+        Args:
+            tool_calls: List of tool call objects
+
+        Returns:
+            Action dictionary or None
+        """
+        if not tool_calls:
+            return None
+
+        tool_call = tool_calls[0]  # Take first
+        args = tool_call.get("args", {})
+
+        return {
+            "action_type": tool_call.get("name", "UNKNOWN").replace("android_", "").upper(),
+            "x": args.get("x", 0),
+            "y": args.get("y", 0),
+            "description": args.get("element_description", ""),
+            "text": args.get("text")
+        }
+
+    def _count_consecutive_actions(
+        self,
+        recent: List[Dict[str, Any]],
+        current: Dict[str, Any]
+    ) -> int:
+        """
+        Count consecutive occurrences of action in recent history.
+
+        Iterates backwards through recent actions, counting matches
+        until a different action is found.
+
+        Args:
+            recent: List of recent actions
+            current: Current action to check
+
+        Returns:
+            Number of consecutive repetitions
+        """
+        count = 0
+        for action in reversed(recent):
+            if self._actions_are_similar(action, current):
+                count += 1
+            else:
+                break
+        return count
+
+    def _actions_are_similar(self, a1: Dict[str, Any], a2: Dict[str, Any]) -> bool:
+        """
+        Check if two actions are similar for loop detection.
+
+        Comparison rules:
+        - Different types → not similar
+        - TYPE_TEXT: compare text content
+        - CLICK: compare coordinates (20px tolerance)
+        - Others: type match is sufficient
+
+        Args:
+            a1: First action
+            a2: Second action
+
+        Returns:
+            True if actions are similar
+        """
+        type1 = a1.get("action_type")
+        type2 = a2.get("action_type")
+
+        if type1 != type2:
+            return False
+
+        # TYPE_TEXT: compare text
+        if type1 == "TYPE_TEXT":
+            return a1.get("text") == a2.get("text")
+
+        # CLICK: compare coordinates with tolerance
+        if type1 == "CLICK":
+            x1, y1 = a1.get("x", 0), a1.get("y", 0)
+            x2, y2 = a2.get("x", 0), a2.get("y", 0)
+            return abs(x1 - x2) < 20 and abs(y1 - y2) < 20
+
+        # Others: type match sufficient
+        return True
+
     def run(self) -> Dict[str, Any]:
         """
         Execute agent with external timeout loop.
@@ -1198,7 +1726,7 @@ class RVAgent:
             logger.error(f"Failed to launch app: {e}", exc_info=True)
             return {"status": "error", "error": str(e)}
 
-        # Initialize state with EMPTY summaries
+        # Initialize state with empty summaries and tracking structures
         state = {
             "action_history_summary": "No previous actions.",
             "exploration_summary": "Starting exploration.",
@@ -1209,8 +1737,9 @@ class RVAgent:
             "start_time": start_time,
             "timeout": self.config.timeout,
             "strategy_name": self.config.strategy,
-            "visited_states": set(),
-            "state_transitions": {},
+            "visited_states": [],
+            "state_transitions": [],
+            "previous_screen_hash": None,
             "device_dimensions": self.config.device_dimensions,
             "optimized_dimensions": self.config.optimized_dimensions,
             "external_navigation_count": 0,
@@ -1229,17 +1758,26 @@ class RVAgent:
             "_graph": self.dynamic_graph,
             "_converter": self.converter,
             "_package_name": self.config.package_name,
-            # Retry mechanism (V7)
+            # Retry mechanism
             "retry_count": 0,
             "max_retries": 2,
             "last_action_success": True,
             "retry_reason": "",
-            # Sampling parameters (V7)
+            # Sampling parameters
             "sampling_temperature": 0.1,
             "sampling_top_p": 0.9,
             "sampling_top_k": 40,
             # Messages for tool calling
-            "messages": []
+            "messages": [],
+            # Multi-mode execution control
+            "decision_path": "llm",
+            "decision_maker": "unknown",
+            "recent_action_window": [],
+            "loop_detected": False,
+            "used_fallback": False,
+            "consecutive_llm_failures": 0,
+            "llm_timeout_occurred": False,
+            "last_screen_hash": None
         }
 
         # External loop
@@ -1255,7 +1793,7 @@ class RVAgent:
 
                 state["iteration"] = iteration
 
-                # Reset retry mechanism for new iteration (V7)
+                # Reset retry mechanism for new iteration 
                 state["retry_count"] = 0
                 state["last_action_success"] = True
                 state["retry_reason"] = ""
@@ -1286,5 +1824,7 @@ class RVAgent:
             "iterations": iteration,
             "execution_time_s": execution_time,
             "unique_states": len(state["visited_states"]),
-            "total_transitions": len(state["state_transitions"])
+            "total_transitions": len(state["state_transitions"]),
+            "llm_decisions": state.get("llm_decisions", 0),
+            "dfs_decisions": state.get("dfs_decisions", 0)
         }

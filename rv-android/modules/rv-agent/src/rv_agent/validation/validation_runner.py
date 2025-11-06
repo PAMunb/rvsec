@@ -41,7 +41,7 @@ class ValidationRunner:
         dataset_dir: Path,
         max_iterations: int = 25,
         device_dimensions: tuple[int, int] = (1080, 1920),
-        optimized_dimensions: tuple[int, int] = (728, 1288)
+        optimized_dimensions: tuple[int, int] = (704, 1248)
     ):
         """
         Initialize validation runner.

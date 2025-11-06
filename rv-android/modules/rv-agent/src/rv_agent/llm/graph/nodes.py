@@ -153,16 +153,17 @@ def observe(state: AgentState) -> Dict[str, Any]:
             target_size=optimized_dims
         )
 
-        # Compute structural hash
-        screen_hash = compute_screen_hash(xml_hierarchy)
-
-        logger.info(f"Screen hash: {screen_hash}, Activity: {activity}")
-
-        # Parse UI with static analysis integration
+        # Parse UI with static analysis integration FIRST
         screen_desc = parser.parse_screen(
             {"hierarchy": xml_hierarchy, "activity": activity},
             static_data=static_data
         )
+
+        # Compute structural hash from parsed ScreenDescription
+        from rv_agent.core.dynamic_state_graph import compute_screen_hash_from_description
+        screen_hash = compute_screen_hash_from_description(screen_desc)
+
+        logger.info(f"Screen hash: {screen_hash}, Activity: {activity}")
 
         # Register state in graph
         node = graph.get_or_create_state(screen_hash, activity, screen_desc)
