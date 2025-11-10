@@ -67,6 +67,10 @@ class RVAgentConfig(BaseValidatedModel):
         default=RVAgentConstants.DEFAULT_MODEL,
         description="LLM model identifier (Current: qwen3-vl:4b with 704x1248 resolution)"
     )
+    prompt_version: str = Field(
+        default="v10",
+        description="Prompt version to use (e.g., 'v10')"
+    )
     llm_temperature: float = Field(
         default=RVAgentConstants.DEFAULT_TEMPERATURE,
         ge=0.0,
@@ -201,6 +205,16 @@ class RVAgentConfig(BaseValidatedModel):
     optimized_dimensions: tuple[int, int] = Field(
         default=(704, 1248),
         description="Optimized screenshot dimensions for LLM (multiple of 32 for Qwen3-VL)"
+    )
+    screenshot_dir: str = Field(
+        default="/tmp/rvagent_screenshots",
+        description="Directory for storing captured screenshots"
+    )
+    screenshot_rotation_limit: int = Field(
+        default=50,
+        ge=10,
+        le=200,
+        description="Maximum number of screenshots to keep (rotation limit)"
     )
     static_analysis_path: Optional[str] = Field(
         default=None,

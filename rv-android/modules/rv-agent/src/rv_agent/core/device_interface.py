@@ -189,6 +189,14 @@ class DeviceInterface:
             # self.logger.error(f"App launch failed: {e}")
             # return False
 
+    def stop_app(self, package_name: str) -> bool:
+        """Stop application."""
+        return self.ui_adapter.stop_app(package_name)
+
+    def start_app(self, package_name: str) -> bool:
+        """Start application (alias for launch_app)."""
+        return self.launch_app(package_name)
+
     def click(self, x: int, y: int) -> bool:
         """
         Click at screen coordinates.
@@ -356,4 +364,24 @@ class DeviceInterface:
             return success
         except Exception as e:
             self.logger.error(f"Back button failed: {e}")
+            return False
+
+    def press_keycode(self, keycode: int) -> bool:
+        """
+        Press Android keycode.
+
+        Args:
+            keycode: Android keycode (e.g., 66 for ENTER, 4 for BACK, 3 for HOME)
+
+        Returns:
+            True if successful
+        """
+        try:
+            self.logger.debug(f"Pressing keycode {keycode}")
+            success = self.ui_adapter.press_keycode(keycode) # TODO: implementar
+            if success:
+                time.sleep(0.3)  # Allow key press to register
+            return success
+        except Exception as e:
+            self.logger.error(f"Keycode press failed: {e}")
             return False

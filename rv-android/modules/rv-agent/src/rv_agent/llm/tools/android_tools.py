@@ -56,6 +56,12 @@ def android_click(element_description: str, x: int, y: int) -> Dict[str, Any]:
     Returns:
         Structured result with execution status
     """
+    # Fix for LLM sometimes returning coordinates as list [x, y] instead of separate values
+    if isinstance(x, (list, tuple)) and len(x) >= 2:
+        logger.warning(f"Coordinates received as list/tuple {x}, extracting x={x[0]}, y={x[1]}")
+        y = int(x[1])
+        x = int(x[0])
+
     if _device is None:
         logger.error("Device interface not initialized")
         return {
@@ -457,6 +463,45 @@ def android_home() -> Dict[str, Any]:
         }
 
 
+@tool
+def android_press_enter() -> Dict[str, Any]:
+    """
+    Press ENTER key to submit forms, trigger searches, or confirm text input.
+
+    USE FOR: Submitting search queries, confirming text input, triggering keyboard actions
+    WHEN TO USE: After typing text with android_type_text to submit the form/search
+
+    Returns:
+        Structured result
+    """
+    if _device is None:
+        logger.error("Device interface not initialized")
+        return {
+            "success": False,
+            "action_type": "press_enter",
+            "error": "Device not initialized"
+        }
+
+    try:
+        # Press ENTER key (keycode 66 in Android)
+        success = _device.press_keycode(66)
+
+        logger.info(f"⏎ ENTER key - {'success' if success else 'failed'}")
+
+        return {
+            "success": success,
+            "action_type": "press_enter"
+        }
+
+    except Exception as e:
+        logger.error(f"ENTER key press failed: {e}", exc_info=True)
+        return {
+            "success": False,
+            "action_type": "press_enter",
+            "error": str(e)
+        }
+
+
 def create_android_tools():
     """
     Create Android interaction tools with coordinate validation.
@@ -476,5 +521,6 @@ def create_android_tools():
         android_long_click,
         android_swipe,
         android_back,
-        android_home
+        android_home,
+        android_press_enter
     ]

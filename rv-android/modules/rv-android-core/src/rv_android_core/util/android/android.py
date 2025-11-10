@@ -216,6 +216,7 @@ class Android:
             device_name,
             'install',
             '-r',
+            '-g',
             readlink_result.stdout.strip().decode('ascii')
         ])
         install_cmd.invoke()

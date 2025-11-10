@@ -1,96 +1,163 @@
 """
-Base strategy interface for autonomous exploration.
+Base interface for graph exploration strategies.
 
-Defines the contract for exploration strategies that guide the RVAgent's
-decision-making process during Android application testing.
+Defines the contract for algorithm-based exploration strategies (DFS, BFS, etc.)
+that operate independently of LLM guidance. These strategies implement graph
+traversal algorithms for systematic state space exploration.
 """
 
 from abc import ABC, abstractmethod
-from typing import Dict, List, Any
-from rv_screen_parser.parser.screen.visitor.model import ScreenDescription
+from typing import Dict, List, Any, Optional, Tuple
+from rv_screen_parser.parser.screen.visitor.model import ScreenDescription, ItemAction
 
 
-class BaseStrategy(ABC):
+class ExplorationStrategy(ABC):
     """
-    Abstract base class for exploration strategies.
+    Abstract base class for graph exploration strategies.
 
     ### Architectural Decisions:
-    - Provides soft guidance, does not enforce actions
-    - Operates on structural hashes for state identification
-    - Integrates with dynamic state graph for history awareness
-    - Supports optional static analysis data for MOP prioritization
+    - Implements pure algorithmic exploration (no LLM integration)
+    - Operates on state graph with coordinate-based action tracking
+    - Provides action selection based on traversal algorithm
+    - Supports static analysis guidance for MOP prioritization
+    - Maintains algorithm-specific state (e.g., stack for DFS, queue for BFS)
 
     ### Role in the System:
-    - Defines strategy interface for DFS, BFS, and future variants
-    - Computes action priorities based on exploration history
-    - Generates natural language guidance for LLM consumption
-    - Maintains strategy-specific state (e.g., BFS queue, DFS stack)
+    - Defines interface for DFS, BFS, and future traversal algorithms
+    - Selects next action based on algorithm logic and state history
+    - Tracks visited states and unexplored transitions
+    - Integrates static analysis data for prioritization
 
     ### Integration Points:
-    - Called by observe node to generate guidance
+    - Used by RoutingManager in pure_algorithm mode
     - Queries DynamicStateGraph for state history
-    - Accesses ScreenDescription for action enumeration
-    - Uses StaticAnalysisData for MOP marker prioritization
+    - Accesses ScreenDescription for available actions
+    - Tracks actions by coordinates for non-deterministic UI parsing
     """
 
     @abstractmethod
-    def get_guidance(
+    def select_next_action(
         self,
         current_hash: str,
         screen_desc: ScreenDescription
-    ) -> Dict[str, Any]:
+    ) -> Optional[ItemAction]:
         """
-        Compute exploration guidance for current state.
-
-        ### Architectural Decisions:
-        - Returns structured guidance for system prompt integration
-        - Prioritizes actions without forcing selection
-        - Provides exploration focus directive for strategy awareness
-        - Includes coverage context for informed decision-making
+        Select next action to execute based on traversal algorithm.
 
         Args:
             current_hash: Structural hash of current UI state
             screen_desc: Parsed screen with UI elements and actions
 
         Returns:
-            Guidance dictionary containing:
-            - priority_actions: Ranked list of suggested actions (top 5)
-            - exploration_focus: Strategy directive (e.g., "deepen", "backtrack")
-            - coverage_current: Current screen coverage percentage
-            - Additional strategy-specific fields (e.g., queue_size for BFS)
+            Selected ItemAction to execute, or None if exploration complete
+
+        ### Implementation Requirements:
+        - Must prioritize untested actions (track by coordinates)
+        - Should incorporate MOP markers for prioritization if available
+        - Must handle backtracking when current state is exhausted
+        - Should track visited states to avoid infinite loops
         """
         pass
 
     @abstractmethod
-    def record_transition(self, from_hash: str, to_hash: str):
+    def record_transition(
+        self,
+        from_hash: str,
+        to_hash: str,
+        action: ItemAction
+    ):
         """
         Record state transition for strategy bookkeeping.
-
-        ### Architectural Decisions:
-        - Enables strategy-specific state tracking
-        - Called by update_memories node after action execution
-        - Allows strategies to maintain exploration queues/stacks
 
         Args:
             from_hash: Structural hash of source state
             to_hash: Structural hash of destination state
+            action: Action that triggered the transition
+
+        ### Implementation Requirements:
+        - Must update algorithm-specific state (stack/queue)
+        - Should track action by coordinates for repeatability
+        - Must handle new state discovery and backtracking logic
         """
         pass
 
-    def _format_action(self, action: Any) -> str:
+    @abstractmethod
+    def should_backtrack(self, current_hash: str) -> bool:
         """
-        Format action for LLM consumption.
+        Determine if backtracking is needed from current state.
 
         Args:
-            action: ItemAction from ScreenDescription
+            current_hash: Structural hash of current state
 
         Returns:
-            Human-readable action description with MOP markers
-        """
-        marker = ""
-        if getattr(action, 'directly_reaches_mop', False):
-            marker = "[DM] "
-        elif getattr(action, 'reaches_mop', False):
-            marker = "[M] "
+            True if should backtrack, False if should continue exploring
 
-        return f"{marker}{action.text or action.action_type}"
+        ### Implementation Requirements:
+        - Must check if current state has unexplored actions
+        - Should consider algorithm-specific backtracking conditions
+        - Must handle dead-end states appropriately
+        """
+        pass
+
+    @abstractmethod
+    def reset(self):
+        """
+        Reset strategy state for new exploration session.
+
+        ### Implementation Requirements:
+        - Must clear all algorithm-specific state
+        - Should reset visited states tracking
+        - Must clear transition history
+        """
+        pass
+
+    def _get_action_signature(self, action: ItemAction) -> Tuple[Tuple[int, int], str]:
+        """
+        Generate unique signature for action based on coordinates and type.
+
+        Uses coordinates instead of IDs to handle non-deterministic UIAutomator
+        parsing where element IDs may change between visits to the same screen.
+
+        Args:
+            action: ItemAction to generate signature for
+
+        Returns:
+            Tuple of ((x, y), action_type) as unique identifier
+        """
+        # Use center of bounds as stable coordinate reference
+        if action.bounds and len(action.bounds) == 2:
+            x1, y1 = action.bounds[0]
+            x2, y2 = action.bounds[1]
+            center_x = (x1 + x2) // 2
+            center_y = (y1 + y2) // 2
+        else:
+            center_x, center_y = (0, 0)
+
+        return ((center_x, center_y), action.action_type)
+
+    def _has_mop_marker(self, action: ItemAction) -> bool:
+        """
+        Check if action has MOP marker for prioritization.
+
+        Args:
+            action: ItemAction to check
+
+        Returns:
+            True if action has MOP marker
+        """
+        return (
+            getattr(action, 'directly_reaches_mop', False) or
+            getattr(action, 'reaches_mop', False)
+        )
+
+    def _is_direct_mop(self, action: ItemAction) -> bool:
+        """
+        Check if action directly reaches MOP.
+
+        Args:
+            action: ItemAction to check
+
+        Returns:
+            True if action directly reaches MOP
+        """
+        return getattr(action, 'directly_reaches_mop', False)
